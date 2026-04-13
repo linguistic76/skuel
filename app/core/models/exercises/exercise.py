@@ -65,7 +65,8 @@ class Exercise(Curriculum):
     - User controls the model
     - ExerciseReport = instructions + entry content -> LLM -> response
 
-    Exercise-specific fields (12):
+    Exercise-specific fields (13):
+    - path_step_uid: PathStep this exercise belongs to (required for PERSONAL scope)
     - instructions: LLM prompt for processing
     - model: Which LLM to use
     - scope: ExerciseScope.PERSONAL (user's own template), ASSIGNED (teacher → group), or ASSESSMENT (formal test)
@@ -115,8 +116,9 @@ class Exercise(Curriculum):
             object.__setattr__(self, "expected_modality", derived)
 
     # =========================================================================
-    # EXERCISE-SPECIFIC FIELDS (11)
+    # EXERCISE-SPECIFIC FIELDS (13)
     # =========================================================================
+    path_step_uid: str | None = None  # PathStep anchor — required for PERSONAL scope (mirrors RELATED_TO edge)
     exercise_number: int | None = (
         None  # Human-readable exercise number (set in YAML, embedded in downloaded .md)
     )
@@ -173,8 +175,16 @@ class Exercise(Curriculum):
         return self.expected_modality == SubmissionModality.STRUCTURED_FORM
 
     def is_valid(self) -> bool:
-        """Check if exercise has minimum required fields."""
+        """Check if exercise has minimum required fields.
+
+        Scope-specific constraints:
+        - PERSONAL: requires path_step_uid (exercise belongs to a PathStep)
+        - ASSIGNED: requires group_uid (teacher assigns to a class)
+        - ASSESSMENT: requires scoring_rubric (formal test with grading criteria)
+        """
         base_valid = bool(self.title and self.instructions and self.model)
+        if self.scope == ExerciseScope.PERSONAL:
+            return base_valid and bool(self.path_step_uid)
         if self.scope == ExerciseScope.ASSIGNED:
             return base_valid and bool(self.group_uid)
         if self.scope == ExerciseScope.ASSESSMENT:

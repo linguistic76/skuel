@@ -34,7 +34,8 @@ class ExerciseDTO(CurriculumDTO):
     """
     Mutable DTO for exercises (EntityType.EXERCISE).
 
-    Extends CurriculumDTO with 8 exercise-specific fields:
+    Extends CurriculumDTO with 9 exercise-specific fields:
+    - path_step_uid: PathStep anchor (required for PERSONAL scope)
     - instructions: LLM prompt for processing
     - model: Which LLM to use
     - scope: PERSONAL or ASSIGNED
@@ -49,6 +50,7 @@ class ExerciseDTO(CurriculumDTO):
     # =========================================================================
     # EXERCISE-SPECIFIC FIELDS
     # =========================================================================
+    path_step_uid: str | None = None  # PathStep anchor — required for PERSONAL scope
     exercise_number: int | None = None
     instructions: str | None = None
     model: str = "claude-sonnet-4-6"
@@ -75,6 +77,7 @@ class ExerciseDTO(CurriculumDTO):
 
         data.update(
             {
+                "path_step_uid": self.path_step_uid,
                 "exercise_number": self.exercise_number,
                 "instructions": self.instructions,
                 "model": self.model,
@@ -186,6 +189,7 @@ class ExerciseDTO(CurriculumDTO):
                 "target_age_range",
                 "learning_objectives",
                 # Exercise-specific fields
+                "path_step_uid",
                 "exercise_number",
                 "instructions",
                 "model",

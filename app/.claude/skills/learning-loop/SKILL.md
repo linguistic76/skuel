@@ -1,7 +1,7 @@
 ---
 name: learning-loop
 description: >
-  Expert guide for SKUEL's Five-Phased Learning Loop — the core purpose of the app.
+  Expert guide for SKUEL's Learning Loop — the core purpose of the app.
   Use when building or reviewing any feature involving PathStep, Exercise, Submission, Report,
   RevisedExercise, or Interaction. TRIGGER when: working on submissions, exercises, report generation,
   activity reports, revised exercises, teacher review, AI assessment, Interaction records, or when designing a new
@@ -12,13 +12,23 @@ description: >
 allowed-tools: Read, Grep, Glob
 ---
 
-# The Five-Phased Learning Loop
+# The Learning Loop
 
 > "Knowledge is learned by doing, evaluated by responding, and refined by reflecting."
 
-The Five-Phased Learning Loop is the **core purpose of SKUEL**. Every feature in the
-codebase either feeds this loop, supports its infrastructure, or should be questioned.
-Understanding the loop is the prerequisite for all architectural decisions.
+The Learning Loop is the **gravitational center of SKUEL**. Every feature either feeds
+this loop, supports its infrastructure, or should be questioned. Understanding the loop
+is the prerequisite for all architectural decisions.
+
+**The loop, in its narrowest form:**
+
+```
+Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → repeat
+```
+
+These four entity types ARE the learning loop. Everything else is substrate (Ku, PathStep),
+infrastructure (Interaction, sharing, groups), or parallel reporting (ActivityReport).
+The cycle repeats until the teacher approves or the student reaches mastery.
 
 ---
 
@@ -26,41 +36,46 @@ Understanding the loop is the prerequisite for all architectural decisions.
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════╗
-║                    FIVE-PHASED LEARNING LOOP                            ║
+║                         THE LEARNING LOOP                               ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║                                                                          ║
-║  CURRICULUM TRACK (artifact-based)                                       ║
+║  SUBSTRATE                                                               ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [PathStep] → [Exercise] → [Submission] → [Report]                     ║
-║   ↑             ↓              ↑↓                     ↓                  ║
-║  admin       teacher        student               teacher/AI             ║
-║  creates     assigns     uploads/revises          assesses               ║
-║                                                      ↓                   ║
-║                                              [RevisedExercise]           ║
-║                                               teacher creates            ║
-║                                              targeted revision           ║
-║                                                      ↓                   ║
-║                                              [Submission v2] → ...       ║
+║  [Ku] — the knowledge to be transmitted                                  ║
+║  [PathStep] — the loop anchor (PERSONAL exercises live here)             ║
 ║                                                                          ║
-║  ACTIVITY TRACK (aggregate-based)                                        ║
+║  THE LOOP (iterates until mastered)                                      ║
+║  ────────────────────────────────────────────────────────────────────    ║
+║  [Exercise] → [ExerciseSubmission] → [ExerciseReport]                   ║
+║   Phase 1      Phase 2                Phase 3                            ║
+║   directive    student's work         teacher/AI response                ║
+║                                           ↓                              ║
+║                                   [RevisedExercise]  (optional)          ║
+║                                    Phase 4                               ║
+║                                    targeted revision                     ║
+║                                           ↓                              ║
+║                                   [ExerciseSubmission v2] → ...          ║
+║                  ↑_____________________________________↓                 ║
+║                                                                          ║
+║  PARALLEL REPORTING (sibling system — same feedback philosophy,          ║
+║  structurally separate)                                                  ║
 ║  ────────────────────────────────────────────────────────────────────    ║
 ║  [Tasks + Goals + Habits + Events + Choices + Principles]                ║
 ║                    ↓ (over time window)                                   ║
-║             [Activity Report] ←── AI or Admin                            ║
+║             [ActivityReport] ←── AI or Admin                            ║
 ║                                                                          ║
 ║  JOURNAL TRACK (self-directed, standalone domain)                        ║
 ║  ────────────────────────────────────────────────────────────────────    ║
 ║  [JeInput] → Deepgram/text → LLM → [JeOutput] → user downloads         ║
-║   user                                             user curates          ║
-║   uploads                                          & decomposes          ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 ```
 
-**Two tracks, one loop.** Activity Domains are equal entry points — a user's lived
-practice (Tasks, Goals, Habits) receives the same feedback infrastructure as curriculum
-work. The mechanism differs (`ACTIVITY_REPORT` vs `EXERCISE_REPORT`), but both
-close the loop: student does work, system or teacher responds.
+**The loop and its parallel.** ActivityReport closes a feedback loop over *lived activity*
+(Tasks, Goals, Habits across a time window). It shares the same pedagogical purpose —
+student does work, system responds — but it is **structurally separate**: different
+services (`ProgressReportGenerator`, `ActivityReportService`), different routes, and
+explicitly excluded from `LearningLoopEventHandlerService` and `LearningLoopQueryService`.
 
 **Mastery impact scoring:** Each Exercise declares a `mastery_impact: MasteryImpact`
 field (MINOR, MODERATE, MAJOR, CERTIFICATION) that controls how aggressively
@@ -109,10 +124,12 @@ MATCH (n:Entity {entity_type: 'ku'})
 
 ---
 
-## Phase 1: Ku — The Knowledge Unit
+## Loop Substrate: Ku — The Knowledge Transmitted
 
 **What it is:** Atomic curriculum content. A single "brick" of knowledge, admin-created
-and shared across all users. The curriculum track begins here.
+and shared across all users. Ku is the *why* — the knowledge the loop exists to
+transmit. It is not a phase of the iterative cycle; it is the substance the cycle
+is built around.
 
 **EntityType:** `EntityType.KU`
 **Model:** `core/models/ku/ku.py` — `Ku(Curriculum)` frozen dataclass
@@ -148,13 +165,13 @@ services.ku.intelligence          # get_ku_with_context(), readiness scoring
 (exercise)-[:REQUIRES_KNOWLEDGE]->(ku)               // Exercise links to required Ku
 ```
 
-**Loop role:** Ku is the *why* — the knowledge the loop exists to transmit. Every
+**Substrate role:** Ku is the *why* — the knowledge the loop exists to transmit. Every
 Exercise is grounded in one or more Ku nodes. When a student completes an Exercise,
 they are demonstrating engagement with specific Ku content.
 
 ---
 
-## Phase 2: Exercise — The Directive
+## Phase 1: Exercise — The Directive
 
 **What it is:** The teacher's directive. Instructions for what students should produce,
 with an LLM prompt embedded for AI-assisted feedback.
@@ -166,6 +183,7 @@ with an LLM prompt embedded for AI-assisted feedback.
 
 **Key fields:**
 ```python
+path_step_uid: str | None         # PathStep anchor — REQUIRED for PERSONAL scope (mirrors RELATED_TO edge)
 exercise_number: int | None       # Human-readable number (set in YAML, e.g. exercise_number: 7).
                                   # Embedded in the downloaded .md worksheet's frontmatter so
                                   # the submission handler can read it back without a DB query.
@@ -192,12 +210,13 @@ else → `FILE_UPLOAD`. The corresponding `Submission.modality` field records wh
 Both modes create `ExerciseSubmission` and trigger the same event pipeline (`FULFILLS_EXERCISE` /
 `FULFILLS_REVISED_EXERCISE`, auto-share with teacher).
 
-**Two scopes:**
+**Three scopes and their constraints (`is_valid()` enforces these):**
 
-| Scope | Created by | Targets | Due date | Purpose |
-|-------|-----------|---------|----------|---------|
-| `PERSONAL` | User/Admin | Self / PathStep enrollment | Optional | Self-directed AI feedback |
-| `ASSIGNED` | Teacher | Group | Required | Teacher assigns to class |
+| Scope | Created by | Requires | Purpose |
+|-------|-----------|---------|---------|
+| `PERSONAL` | User/Admin | `path_step_uid` | Self-directed AI feedback, anchored to a PathStep |
+| `ASSIGNED` | Teacher | `group_uid` | Teacher assigns to a class — no PathStep required |
+| `ASSESSMENT` | Teacher | `scoring_rubric` | Formal graded test — no PathStep required |
 
 **Services:**
 ```python
@@ -298,7 +317,7 @@ the AI when generating feedback. This is the bridge between knowledge and evalua
 
 ---
 
-## Phase 3: Submission — The Student's Work
+## Phase 2: ExerciseSubmission — The Student's Work
 
 **What it is:** The student's artifact. An uploaded file (audio, text, image) that is
 processed and then evaluated. Two leaf types share the same base model.
@@ -498,12 +517,11 @@ logs a warning rather than failing the request.
 
 ---
 
-## Phase 4: Report — The Response
+## Phase 3: ExerciseReport — The Response
 
-**What it is:** The evaluation. Two structurally distinct entities cover two distinct
-entry points. Both close the loop — both say "here is what your work means."
+**What it is:** The evaluation of a submitted artifact. The loop's reply to the student's work.
 
-### 4a. EXERCISE_REPORT — Response to an Artifact
+### EXERCISE_REPORT — Response to an Artifact
 
 **EntityType:** `EntityType.EXERCISE_REPORT`
 **Model:** `core/models/report/exercise_report.py` — `ExerciseReport(UserOwnedEntity)` frozen dataclass
@@ -557,7 +575,7 @@ Reads go through `ExerciseReportBackend` (typed fetches — `get_by_uid`, `list_
 writes (teacher + AI) go through `SubmissionsBackend.create_report_node`. Both are reached via
 `ExerciseReportService`, the single service entry point.
 
-**The Revision Cycle (Phase 4 → 3 → 4):**
+**The Revision Cycle (Phase 3 → 4 → 2 → 3):**
 
 After reviewing a submission, the teacher has three outcomes via `TeacherReviewService`
 (`core/services/report/teacher_review_service.py`, protocol: `TeacherReviewOperations`
@@ -586,7 +604,16 @@ activity feed to discover new reports.
 
 ---
 
-### 4b. ACTIVITY_REPORT — Response to Activity Patterns
+---
+
+## Parallel Reporting: ActivityReport — Response to Activity Patterns
+
+> **Not a loop phase.** ActivityReport closes a feedback loop over *lived activity* across
+> a time window. It shares the same pedagogical purpose as ExerciseReport (work → response),
+> but is **structurally separate**: different services, different routes, and explicitly
+> excluded from `LearningLoopEventHandlerService` and `LearningLoopQueryService`.
+
+### ACTIVITY_REPORT — Response to Activity Patterns
 
 **EntityType:** `EntityType.ACTIVITY_REPORT`
 **Model:** `core/models/report/activity_report.py` — `ActivityReport(UserOwnedEntity)` frozen dataclass
@@ -645,7 +672,7 @@ the same method.
 
 ---
 
-## Phase 5: RevisedExercise — The Targeted Revision
+## Phase 4: RevisedExercise — The Targeted Revision
 
 **What it is:** A teacher-created revision of an Exercise that addresses specific gaps
 identified in `ExerciseReport`. Forces a reflection step between feedback and
@@ -781,8 +808,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 
 | Phase | Service | Protocol | Backend | Key Methods |
 |-------|---------|----------|---------|-------------|
-| **PathStep** | `PsService` | `PsOperations` | `PsBackend` | CRUD, KU composition (`USES_KU`), learning state (VIEWED/IN_PROGRESS/MASTERED), organize/get_children |
-| **Exercise** | `ExerciseService` | `ExerciseOperations` | `ExerciseBackend` | `link_to_curriculum`, `get_exercise_for_submission`, `get_student_exercises`, `get_student_exercises_with_status`, CRUD |
+| **Substrate: PathStep** | `PsService` | `PsOperations` | `PsBackend` | CRUD, KU composition (`USES_KU`), learning state (VIEWED/IN_PROGRESS/MASTERED), organize/get_children |
+| **Phase 1: Exercise** | `ExerciseService` | `ExerciseOperations` | `ExerciseBackend` | `link_to_curriculum`, `get_exercise_for_submission`, `get_student_exercises`, `get_student_exercises_with_status`, CRUD |
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD (CRUDRouteFactory), `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
@@ -859,11 +886,12 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 ### Questions to ask before building or extending
 
 1. **Which phase does this touch?**
-   - PathStep/Ku (knowledge content) → Phase 1
-   - Exercise (directive/template) → Phase 2
-   - Submission processing → Phase 3
-   - Feedback generation or display → Phase 4
-   - RevisedExercise (targeted revision) → Phase 5
+   - Ku/PathStep (knowledge substrate / loop anchor) → pre-loop substrate
+   - Exercise (directive/template) → Phase 1
+   - Submission processing → Phase 2
+   - Feedback generation or display → Phase 3
+   - RevisedExercise (targeted revision) → Phase 4
+   - ActivityReport (aggregate feedback) → parallel reporting infrastructure
    - Supporting infrastructure (sharing, groups, scheduling) → loop support
 
 2. **Does it strengthen a phase or improve a transition?**
@@ -877,10 +905,10 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 
 ### Green flags — features that feed the loop
 
-- Adds a new pathway for feedback to reach the student (Phase 4)
-- Improves the quality or speed of submission processing (Phase 3)
-- Enriches Ku content with semantic relationships (Phase 1)
-- Makes Exercise creation easier for teachers (Phase 2)
+- Adds a new pathway for feedback to reach the student (Phase 3)
+- Improves the quality or speed of submission processing (Phase 2)
+- Enriches Ku content with semantic relationships (substrate)
+- Makes Exercise creation easier for teachers (Phase 1)
 - Strengthens the Activity Track (better `ActivityReport` insights)
 
 ### Red flags — features to question
@@ -1136,8 +1164,8 @@ iteration makes the next one smarter.
 ## Related Skills
 
 - **[zpd](../zpd/SKILL.md)** — Intelligence layer that makes the loop adaptive (Layer 2)
-- **[curriculum-domains](../curriculum-domains/SKILL.md)** — Ku, PS, LP architecture (Phase 1)
-- **[activity-domains](../activity-domains/SKILL.md)** — Activity Track entry points (Phase 4 via ActivityReport)
+- **[curriculum-domains](../curriculum-domains/SKILL.md)** — Ku, PS, LP architecture (loop substrate)
+- **[activity-domains](../activity-domains/SKILL.md)** — Activity Track entry points (parallel reporting via ActivityReport)
 - **[user-context-intelligence](../user-context-intelligence/SKILL.md)** — Cross-domain synthesis that feeds ActivityReport
 - **[result-pattern](../result-pattern/SKILL.md)** — All services return `Result[T]`
 - **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** — Graph query patterns

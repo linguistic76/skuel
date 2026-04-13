@@ -47,6 +47,11 @@ class ExerciseCreateRequest(BaseModel):
 
     domain: str | None = Field(default=None, description="Optional domain categorization")
 
+    path_step_uid: str | None = Field(
+        default=None,
+        description="PathStep this exercise belongs to (required for scope=personal)",
+    )
+
     # Exercise fields (ADR-040)
     scope: ExerciseScope = Field(
         default=ExerciseScope.PERSONAL,
@@ -145,6 +150,9 @@ class ExerciseCreateRequest(BaseModel):
     @model_validator(mode="after")
     def validate_exercise_fields(self) -> "ExerciseCreateRequest":
         """Validate scope-specific requirements."""
+        if self.scope == ExerciseScope.PERSONAL and not self.path_step_uid:
+            msg = "path_step_uid is required when scope is 'personal'"
+            raise ValueError(msg)
         if self.scope == ExerciseScope.ASSIGNED and not self.group_uid:
             msg = "group_uid is required when scope is 'assigned'"
             raise ValueError(msg)
