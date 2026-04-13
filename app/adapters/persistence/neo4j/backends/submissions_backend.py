@@ -1,4 +1,23 @@
-"""SubmissionsBackend shell — all behavior lives in _submission_*_mixin.py files."""
+"""
+SubmissionsBackend — Persistence layer for the learning loop.
+
+Owns the Cypher for all three active loop phases:
+    Phase 2 (ExerciseSubmission) — CRUD, sharing, status transitions
+    Phase 3 (ExerciseReport)     — create_report_node (REPORT_FOR), teacher review ops
+    Phase 4 (atomic transition)  — create_report_and_revised_exercise in one Cypher tx
+
+All behavior lives in five mixin files aligned to loop phases:
+    _submission_crud_mixin.py          — Phase 2: submission CRUD + teacher feedback state
+    _submission_lifecycle_mixin.py     — Phase 2→3: FULFILLS_EXERCISE, status updates
+    _submission_assessment_mixin.py    — Phase 3: teacher review operations
+    _submission_report_query_mixin.py  — Phase 3: REPORT_FOR traversals (reads)
+    _submission_content_mixin.py       — all phases: enrichment context
+
+Services that reach this backend:
+    SubmissionsService       — Phase 2 (submit_file, submit_form, sharing)
+    ExerciseReportService    — Phase 3 (AI report generation)
+    TeacherReviewService     — Phase 3/4 (review queue, revision, approval)
+"""
 
 from __future__ import annotations
 

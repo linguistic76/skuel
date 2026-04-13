@@ -1,7 +1,21 @@
-"""Feedback section for the PathStep detail page.
+"""Phase 3: ExerciseReport — PathStep feedback UI.
 
-Renders report/feedback summaries for a user's submissions during a PathStep.
-Filters to submissions that have reports and shows outcome badges with action links.
+Renders ExerciseReport summaries for a user's submissions during a PathStep.
+Filters to submissions that have a linked report (REPORT_FOR edge present).
+
+Outcome badges map to assessment_outcome values:
+    approved         → green "Approved" badge
+    needs_revision   → amber "Revision Requested" badge + "Revise →" link (→ Phase 4)
+    ai_evaluated / other → blue "Reviewed" badge
+
+The "Revise →" action links to /exercise-reports/detail?uid= which shows the full
+ExerciseReport. When a RevisedExercise exists for that report, the detail page
+surfaces the Phase 4 entry point.
+
+Data is shared with submissions_section.py (Phase 2) — both render from the same
+PathStepSubmissionRow list returned by LearningLoopQueryService.
+
+Data shape: PathStepSubmissionRow TypedDict (core/ports/query_types.py).
 """
 
 from typing import Any

@@ -1,14 +1,28 @@
 """
-Exercise Reports UI Routes — ExerciseReport Pages
-===================================================
+Phase 3: ExerciseReport — Student-Facing Feedback Pages
+=========================================================
 
-Routes for viewing teacher/AI feedback on exercise submissions.
+Student view of exercise feedback. An ExerciseReport is created when a teacher
+or AI evaluates a submission (Phase 2: ExerciseSubmission):
+
+    ExerciseSubmission → ExerciseReport  (teacher: ProcessorType.HUMAN)
+                      → ExerciseReport  (AI: ProcessorType.LLM)
+
+assessment_outcome drives what the student sees:
+    APPROVED        — work accepted; loop closes for this exercise
+    NEEDS_REVISION  — detail page surfaces link to Phase 4 (RevisedExercise)
+    AI_EVALUATED    — AI feedback; teacher review may follow
+
+These pages live in the GradeBook sidebar (ui/gradebook/nav.py).
 
 Routes:
-- GET /exercise-reports — Exercise reports list page
-- GET /exercise-reports/detail — Exercise report detail view
-- GET /reports/list — HTMX fragment: teacher assessments received
+- GET /exercise-reports              — Exercise reports list page
+- GET /exercise-reports/detail?uid=  — Report detail with outcome badge + revision link
+- GET /reports/list                  — HTMX fragment: teacher assessments received
 
+Renderers: ui/submissions/report.py
+Services: ExerciseReportService (AI), TeacherReviewService (teacher)
+See: /docs/architecture/REPORT_ARCHITECTURE.md
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 

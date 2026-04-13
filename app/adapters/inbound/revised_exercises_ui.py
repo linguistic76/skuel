@@ -1,15 +1,25 @@
 """
-Revised Exercises UI Routes — Student-Facing Revision Pages
-=============================================================
+Phase 4: RevisedExercise — Student-Facing Revision Pages
+=========================================================
 
-Routes for viewing teacher-created revision instructions in the GradeBook sidebar.
+Student view of teacher-created revision instructions. Phase 4 closes the feedback
+loop: after a teacher returns NEEDS_REVISION (Phase 3: ExerciseReport), they create
+a RevisedExercise targeting the student's gaps. The student then submits against it,
+re-entering Phase 2 (new ExerciseSubmission) for another round:
+
+    ExerciseReport (NEEDS_REVISION) → RevisedExercise → ExerciseSubmission v2 → ...
+
+These pages live in the GradeBook sidebar (ui/gradebook/nav.py).
 
 Routes:
-- GET /revised-exercises — Revisions list page
-- GET /revised-exercises/detail — Revision detail view
-- GET /revised-exercises/list — HTMX fragment: revisions list
-- GET /api/gradebook/revised-exercises/preview — HTMX hub preview
+- GET /revised-exercises                        — Revisions list page
+- GET /revised-exercises/detail?uid=            — Revision detail with feedback points + submit link
+- GET /revised-exercises/list                   — HTMX fragment: filtered revisions list
+- GET /api/gradebook/revised-exercises/preview  — HTMX hub preview block
 
+Renderers: ui/submissions/revised_exercise.py
+Teacher creation: TeacherReviewService.request_revision_with_exercise()
+See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 

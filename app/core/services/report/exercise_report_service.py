@@ -288,7 +288,11 @@ class ExerciseReportService:
 
             self.logger.info(f"EXERCISE_REPORT entity created: {report_entity_uid}")
 
-            student_uid = (query_result.value[0].get("student_uid") or user_uid) if query_result.value else user_uid
+            student_uid = (
+                (query_result.value[0].get("student_uid") or user_uid)
+                if query_result.value
+                else user_uid
+            )
             feedback_entity = ExerciseReport(
                 uid=report_entity_uid,
                 entity_type=EntityType.EXERCISE_REPORT,

@@ -1,14 +1,37 @@
 """
-ExerciseReport - Report on an exercise submission
-====================================================
+Phase 3: ExerciseReport — The Loop's Response
+==============================================
 
-Frozen dataclass for exercise reports (EntityType.EXERCISE_REPORT).
+The evaluation entity. When a student submits work (Phase 2: ExerciseSubmission),
+a teacher or AI responds with an ExerciseReport:
 
-Teacher or AI report on a student's exercise submission.
-Part of the learning loop:
     Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → ...
 
-See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
+Two sources, same EntityType, different ProcessorType:
+
+    ProcessorType.HUMAN  → teacher uploads a .md file via TeacherReviewService
+    ProcessorType.LLM    → AI generates feedback via ExerciseReportService
+
+assessment_outcome records the decision made:
+    APPROVED        — teacher accepted the work; loop closes for this exercise
+    NEEDS_REVISION  — teacher requests another attempt → RevisedExercise created
+    AI_EVALUATED    — AI evaluated the submission (no teacher decision yet)
+
+Graph pattern:
+    (teacher:User)-[:OWNS]->(report:Entity:ExerciseReport)
+    (report)-[:REPORT_FOR]->(submission:Entity:ExerciseSubmission)
+    (report)-[:SHARES_WITH]->(student:User)  ← grants student read access
+
+Note: subject_uid is GRAPH-NATIVE — projected from REPORT_FOR on read, not stored
+as a Neo4j node property. Contrast with ActivityReport, which has no REPORT_FOR
+edge and no subject_uid (it responds to patterns, not a single artifact).
+
+Services:
+    ExerciseReportService  — AI report generation (core/services/report/)
+    TeacherReviewService   — teacher review workflow (core/services/report/)
+
+See: /docs/architecture/REPORT_ARCHITECTURE.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from dataclasses import dataclass
@@ -29,7 +52,20 @@ class ExerciseReport(UserOwnedEntity):
     """
     Immutable domain model for exercise reports (EntityType.EXERCISE_REPORT).
 
-    Extends UserOwnedEntity with 6 report-specific fields.
+    Extends UserOwnedEntity with 7 report-specific fields:
+        processed_content   — the feedback body (LLM output or teacher prose)
+        report_generated_at — timestamp of generation
+        subject_uid         — GRAPH-NATIVE: UID of the submission being evaluated,
+                              projected from the REPORT_FOR edge on read
+        processor_type      — HUMAN (teacher) | LLM (AI)
+        assessment_outcome  — APPROVED | NEEDS_REVISION | AI_EVALUATED
+        report_file_path    — path to the uploaded .md file (HUMAN reports)
+        assessment_score    — 0.0-1.0 for ASSESSMENT-scope exercises
+        author_uid          — teacher UID for HUMAN reports; None for LLM
+
+    Ownership vs authorship:
+        user_uid (inherited)  — the student who OWNS the report (access control)
+        author_uid            — the teacher who AUTHORED it (None for AI reports)
     """
 
     def __post_init__(self) -> None:

@@ -90,7 +90,7 @@ class TestCreateAssessment:
         created_ku = mock_backend.create.call_args[0][0]
         assert isinstance(created_ku, ExerciseReport)
         assert created_ku.entity_type == EntityType.EXERCISE_REPORT
-        assert created_ku.user_uid == "user_student"   # student always owns
+        assert created_ku.user_uid == "user_student"  # student always owns
         assert created_ku.author_uid == "user_teacher"  # teacher is the author
         assert created_ku.subject_uid == "user_student"
         assert created_ku.title == "Midterm Assessment"

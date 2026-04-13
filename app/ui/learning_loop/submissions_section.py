@@ -1,7 +1,19 @@
-"""Submissions section for the PathStep detail page.
+"""Phase 2: ExerciseSubmission — PathStep submissions UI.
 
-Renders a user's submissions that occurred during a specific PathStep,
-with status badges, exercise names, and links to view submission/feedback.
+Renders a user's ExerciseSubmissions for a specific PathStep. Submissions are
+discovered via the Interaction graph — not by querying submissions directly:
+
+    (user)-[:OWNS]->(sub)-[:RECORDS]<-(interaction)-[:INTERACTION_DURING]->(ps)
+
+This means only submissions made *while the user was in this PathStep* appear here,
+preserving the curriculum context in which the work was done.
+
+Data is fetched by LearningLoopQueryService.get_submissions_for_path_step() and
+shared with feedback_section.py (Phase 3) in a single query result. Both sections
+are rendered together by render_ps_submissions_and_feedback() and served by the
+/learning-loop/ps/{ps_uid}/submissions-and-feedback HTMX endpoint.
+
+Data shape: PathStepSubmissionRow TypedDict (core/ports/query_types.py).
 """
 
 from typing import Any

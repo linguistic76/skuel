@@ -1,7 +1,17 @@
-"""Shared exercise status helpers — status pills, action links, exercise list rendering.
+"""Phase 2→3 bridge: exercise status — status pills, action links, exercise list rendering.
 
-Extracted from library_ui.py so both the Library exercises tab and
-the PathStep detail page can render exercise rows with submission/feedback status.
+Status reflects both Phase 2 (ExerciseSubmission state) and Phase 3 (ExerciseReport
+outcome) collapsed into a single display key:
+
+    not_submitted     — no ExerciseSubmission exists yet → "Submit →" link
+    submitted         — submission exists, no report yet → "View Submission →" link
+    feedback_available — ExerciseReport exists (APPROVED or AI_EVALUATED) → "View Report →"
+    revision_requested — ExerciseReport with NEEDS_REVISION → "View Report →"
+
+Used by both the PathStep detail page (/explore/ps/{uid}) and the Library exercises
+tab (/library/exercises) — extracted from library_ui.py for this shared purpose.
+
+Data shape: ExerciseStatusRow TypedDict (core/ports/query_types.py).
 """
 
 from typing import Any

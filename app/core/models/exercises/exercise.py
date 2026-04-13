@@ -118,7 +118,9 @@ class Exercise(Curriculum):
     # =========================================================================
     # EXERCISE-SPECIFIC FIELDS (13)
     # =========================================================================
-    path_step_uid: str | None = None  # PathStep anchor — required for PERSONAL scope (mirrors RELATED_TO edge)
+    path_step_uid: str | None = (
+        None  # PathStep anchor — required for PERSONAL scope (mirrors RELATED_TO edge)
+    )
     exercise_number: int | None = (
         None  # Human-readable exercise number (set in YAML, embedded in downloaded .md)
     )
