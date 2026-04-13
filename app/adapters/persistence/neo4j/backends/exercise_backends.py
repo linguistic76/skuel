@@ -816,16 +816,15 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     ) -> Result[list[ExerciseReport]]:
         """All ExerciseReports authored by a teacher, newest first.
 
-        Implicitly HUMAN-only: matches on ``user_uid`` (the report's author of
-        record). AI reports store the *student* as ``user_uid`` — see
-        ``create_report_node`` — so passing a teacher UID here can only return
-        reports the teacher actually wrote (processor_type=HUMAN). No explicit
-        processor_type filter is needed.
+        Filters on ``author_uid`` — the dedicated authorship field set at
+        report creation time. ``user_uid`` on ExerciseReport always stores the
+        student (access ownership); ``author_uid`` stores the teacher for
+        HUMAN reports and is None for LLM/AI reports.
 
         Returns typed ExerciseReport instances.
         """
         cypher = f"""
-            MATCH (n:ExerciseReport {{user_uid: $teacher_uid}})
+            MATCH (n:ExerciseReport {{author_uid: $teacher_uid}})
             OPTIONAL MATCH (n)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
             RETURN n{{.*, subject_uid: sub.uid}} AS n
             ORDER BY n.created_at DESC

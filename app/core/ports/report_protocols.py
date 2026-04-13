@@ -207,8 +207,9 @@ class ExerciseReportBackendOperations(Protocol):
     ) -> "Result[list[ExerciseReport]]":
         """All reports authored by a teacher, newest first.
 
-        Implicitly HUMAN-only: AI reports store the student as user_uid, so
-        passing a teacher UID can only return reports the teacher wrote.
+        Filters on ``author_uid`` (explicit authorship field). ``user_uid``
+        always stores the student (access ownership); ``author_uid`` stores
+        the teacher for HUMAN reports and is None for LLM/AI reports.
         """
         ...
 

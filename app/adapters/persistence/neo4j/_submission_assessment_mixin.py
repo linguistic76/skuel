@@ -205,7 +205,8 @@ class _SubmissionAssessmentMixin:
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
-            user_uid: $author_uid,
+            user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
+            author_uid: $author_uid,
             status: $completed_status,
             visibility: 'shared',
             processor_type: $processor_type,
@@ -219,7 +220,9 @@ class _SubmissionAssessmentMixin:
 
         WITH submission, student, fb
         MATCH (author:User {{uid: $author_uid}})
-        CREATE (author)-[:{RelationshipName.OWNS.value}]->(fb)
+        WITH submission, student, fb, author,
+             CASE WHEN student IS NOT NULL THEN student ELSE author END AS owner
+        CREATE (owner)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         WITH submission, student, fb
@@ -263,7 +266,8 @@ class _SubmissionAssessmentMixin:
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
-            user_uid: $author_uid,
+            user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
+            author_uid: $author_uid,
             status: $completed_status,
             visibility: 'shared',
             processor_type: $processor_type,
@@ -277,7 +281,9 @@ class _SubmissionAssessmentMixin:
 
         WITH submission, student, fb
         MATCH (author:User {{uid: $author_uid}})
-        CREATE (author)-[:{RelationshipName.OWNS.value}]->(fb)
+        WITH submission, student, fb, author,
+             CASE WHEN student IS NOT NULL THEN student ELSE author END AS owner
+        CREATE (owner)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         // Share report with student

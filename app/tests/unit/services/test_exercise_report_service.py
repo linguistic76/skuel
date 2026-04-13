@@ -112,7 +112,8 @@ class TestGenerateReportHappyPath:
         assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
         assert report.status == EntityStatus.COMPLETED
         assert report.subject_uid == SUBMISSION_UID
-        assert report.user_uid == TEACHER_UID
+        assert report.user_uid == STUDENT_UID   # student always owns the report
+        assert report.author_uid == TEACHER_UID  # caller is the author (LLM trigger)
         assert report.processed_content == "Great work — here is your feedback."
         assert report.uid.startswith("sr_")
 

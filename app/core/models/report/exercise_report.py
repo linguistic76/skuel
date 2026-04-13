@@ -55,6 +55,10 @@ class ExerciseReport(UserOwnedEntity):
     assessment_outcome: AssessmentOutcome | None = None  # APPROVED/NEEDS_REVISION/AI_EVALUATED
     report_file_path: str | None = None  # Generated output file path
     assessment_score: float | None = None  # 0.0-1.0 score for ASSESSMENT-scope exercises
+    # Authorship (decoupled from ownership):
+    # user_uid (inherited) = student who OWNS the report (access ownership).
+    # author_uid = teacher UID for HUMAN reports; None for LLM/AI reports.
+    author_uid: str | None = None
 
     # =========================================================================
     # CONVERSION
@@ -92,5 +96,6 @@ class ExerciseReport(UserOwnedEntity):
         return (
             f"ExerciseReport(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, subject_uid={self.subject_uid}, "
-            f"processor_type={self.processor_type}, user_uid={self.user_uid})"
+            f"processor_type={self.processor_type}, user_uid={self.user_uid}, "
+            f"author_uid={self.author_uid})"
         )

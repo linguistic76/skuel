@@ -108,7 +108,8 @@ class AssessmentService:
             uid=uid,
             title=title,
             entity_type=EntityType.EXERCISE_REPORT,
-            user_uid=teacher_uid,
+            user_uid=subject_uid,
+            author_uid=teacher_uid,
             status=EntityStatus.COMPLETED,
             processor_type=ProcessorType.HUMAN,
             content=content,
@@ -202,7 +203,7 @@ class AssessmentService:
             Result containing list of EXERCISE_REPORT entities
         """
         result = await self.backend.find_by(
-            user_uid=teacher_uid,
+            author_uid=teacher_uid,
             entity_type=EntityType.EXERCISE_REPORT.value,
         )
         if result.is_error:

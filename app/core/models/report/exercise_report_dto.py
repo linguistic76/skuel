@@ -54,6 +54,7 @@ class ExerciseReportDTO(UserOwnedDTO):
     assessment_outcome: AssessmentOutcome | None = None
     report_file_path: str | None = None
     assessment_score: float | None = None  # 0.0-1.0 score for assessments
+    author_uid: str | None = None  # Teacher UID for HUMAN reports; None for LLM reports
 
     # =========================================================================
     # SERIALIZATION
@@ -73,6 +74,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "assessment_outcome": get_enum_value(self.assessment_outcome),
                 "report_file_path": self.report_file_path,
                 "assessment_score": self.assessment_score,
+                "author_uid": self.author_uid,
             }
         )
 
