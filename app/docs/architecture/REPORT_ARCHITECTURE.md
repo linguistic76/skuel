@@ -480,7 +480,8 @@ When `openai_service` is available, the generator:
     processor_type,       // 'human' or 'llm'
     assessment_outcome,   // 'approved', 'needs_revision', or 'ai_evaluated'
     assessment_score,     // 0.0-1.0 for ASSESSMENT-scope exercises
-    title, content,       // content is the report body (written as create_report_node $feedback)
+    title,
+    processed_content,    // LLM/teacher-generated feedback body (written by create_report_node as processed_content: $feedback)
     created_at, updated_at
 })
 // subject_uid is NOT stored as a node property — it is projected from the
