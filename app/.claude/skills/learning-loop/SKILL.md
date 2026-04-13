@@ -2,7 +2,7 @@
 name: learning-loop
 description: >
   Expert guide for SKUEL's Five-Phased Learning Loop — the core purpose of the app.
-  Use when building or reviewing any feature involving Lesson, Exercise, Submission, Report,
+  Use when building or reviewing any feature involving PathStep, Exercise, Submission, Report,
   RevisedExercise, or Interaction. TRIGGER when: working on submissions, exercises, report generation,
   activity reports, revised exercises, teacher review, AI assessment, Interaction records, or when designing a new
   feature and asking "where does this fit?". This skill provides the development lens: every
@@ -31,7 +31,7 @@ Understanding the loop is the prerequisite for all architectural decisions.
 ║                                                                          ║
 ║  CURRICULUM TRACK (artifact-based)                                       ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Lesson] → [Exercise] → [Submission] → [Report]                       ║
+║  [PathStep] → [Exercise] → [Submission] → [Report]                     ║
 ║   ↑             ↓              ↑↓                     ↓                  ║
 ║  admin       teacher        student               teacher/AI             ║
 ║  creates     assigns     uploads/revises          assesses               ║
@@ -70,8 +70,8 @@ completing it advances the student's mastery. Two score methods:
 Teacher=0.8). See: `core/models/enums/learning_enums.py`.
 
 **Learning progress event chain:** When `mark_mastered()` is called on a KU, the
-system automatically propagates progress upward: KU mastery → Lesson completion →
-PS progress → LP progress. See
+system automatically propagates progress upward: KU mastery → PathStep progress →
+LearningPath progress. See
 [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
 
 **Learning loop intelligence:** The learning loop has two sibling services in
@@ -185,7 +185,7 @@ expected_modality: SubmissionModality  # FILE_UPLOAD or STRUCTURED_FORM (auto-de
 | Mode | `expected_modality` | `form_schema` | Student action | Submission content |
 |------|---------------------|--------------|----------------|-------------------|
 | **File upload** | `FILE_UPLOAD` | `None` | Uploads file (audio, text, image) | `file_path`, `processed_content` |
-| **Inline form** | `STRUCTURED_FORM` | Present | Fills embedded form in lesson | `metadata["form_data"]`, `processed_content` (JSON) |
+| **Inline form** | `STRUCTURED_FORM` | Present | Fills embedded form in PathStep | `metadata["form_data"]`, `processed_content` (JSON) |
 
 `expected_modality` is auto-derived in `__post_init__`: if `form_schema` is set → `STRUCTURED_FORM`,
 else → `FILE_UPLOAD`. The corresponding `Submission.modality` field records which path was actually used.
@@ -358,7 +358,7 @@ created (file upload vs structured form). `ProcessorType` records *who/what* pro
 **Processing pipeline (two entry points, typed by `SubmissionModality`):**
 ```
 FILE UPLOAD PATH (modality=FILE_UPLOAD)   INLINE FORM PATH (modality=STRUCTURED_FORM)
-Student uploads file                      Student fills form in lesson page
+Student uploads file                      Student fills form in PathStep page
         ↓                                         ↓
 SubmissionsService.submit_file()          SubmissionsService.submit_form()
  → file stored to disk                    → form_data in metadata + processed_content
@@ -652,7 +652,7 @@ identified in `ExerciseReport`. Forces a reflection step between feedback and
 resubmission.
 
 ```
-Lesson → Exercise v1 → Submission v1 → ExerciseReport v1
+PathStep → Exercise v1 → Submission v1 → ExerciseReport v1
                                               ↓
                                         RevisedExercise v2 → Submission v2 → ...
 ```
@@ -781,7 +781,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 
 | Phase | Service | Protocol | Backend | Key Methods |
 |-------|---------|----------|---------|-------------|
-| **Lesson** | `LessonService` | `LessonOperations` | `LessonBackend` | `organize`, `get_children`, CRUD |
+| **PathStep** | `PsService` | `PsOperations` | `PsBackend` | CRUD, KU composition (`USES_KU`), learning state (VIEWED/IN_PROGRESS/MASTERED), organize/get_children |
 | **Exercise** | `ExerciseService` | `ExerciseOperations` | `ExerciseBackend` | `link_to_curriculum`, `get_exercise_for_submission`, `get_student_exercises`, `get_student_exercises_with_status`, CRUD |
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD (CRUDRouteFactory), `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
@@ -859,7 +859,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 ### Questions to ask before building or extending
 
 1. **Which phase does this touch?**
-   - Lesson/Ku (knowledge content) → Phase 1
+   - PathStep/Ku (knowledge content) → Phase 1
    - Exercise (directive/template) → Phase 2
    - Submission processing → Phase 3
    - Feedback generation or display → Phase 4
@@ -985,9 +985,10 @@ that never closes the loop.
 1. KuService.create_ku()                           → core/services/ku/ku_core_service.py
    Admin creates a Knowledge Unit
        ↓
-1b. Student browses /lessons, clicks "Start Lesson" → adapters/inbound/curriculum_hub_ui.py
-    POST /api/lesson/{uid}/start marks IN_PROGRESS  → adapters/inbound/lesson_ui.py
-    GET /lesson/{uid}/details renders full content   → adapters/inbound/lesson_ui.py
+1b. Student browses /explore, clicks a PathStep card        → ui/explore/cards.py
+    GET /explore/ps/{uid} renders the learning-loop anchor  → adapters/inbound/explore_ui.py
+    HTMX fragments load exercises/submissions/feedback via
+      /learning-loop/ps/{ps_uid}/{exercises,submissions,feedback} → ui/learning_loop/
     (Learning state: NONE → VIEWED → IN_PROGRESS → MASTERED)
        ↓
 2. ExerciseBackend.link_to_curriculum()             → adapters/persistence/neo4j/backends/exercise_backends.py
