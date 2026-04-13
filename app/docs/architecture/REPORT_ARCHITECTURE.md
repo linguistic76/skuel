@@ -130,8 +130,8 @@ Exercise (scope=ASSIGNED)
 // Teacher discovers submissions via OWNS-based review queue (ADR-040)
 // No SHARES_WITH relationship between teacher and submission
 
-// Teacher report
-(teacher)-[:OWNS]->(report:Entity {entity_type: "exercise_report"})
+// Teacher report — student owns the report (access ownership); teacher is recorded via author_uid
+(student)-[:OWNS]->(report:Entity {entity_type: "exercise_report", author_uid: "teacher_uid"})
 (report)-[:REPORT_FOR]->(submission)
 ```
 
@@ -182,8 +182,10 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(report:Entity:ExerciseReport {entity_type: 'exercise_report'})
+// student always owns the report (access ownership)
+(student:User)-[:OWNS]->(report:Entity:ExerciseReport {entity_type: 'exercise_report'})
 (report)-[:REPORT_FOR]->(submission:Entity {entity_type: 'exercise_submission'})
+// for HUMAN reports, teacher identity is in report.author_uid (null for LLM reports)
 ```
 
 ---
@@ -475,7 +477,8 @@ When `openai_service` is available, the generator:
 // EXERCISE_REPORT — tied to a specific submission
 (:Entity:ExerciseReport {
     uid, entity_type: 'exercise_report',
-    user_uid,             // owner (teacher or AI agent)
+    user_uid,             // always the student (access ownership — who the report belongs to)
+    author_uid,           // teacher UID for HUMAN reports; null for LLM/AI reports
     visibility: 'shared', // set at create so SHARES_WITH grants access via UnifiedSharingService
     processor_type,       // 'human' or 'llm'
     assessment_outcome,   // 'approved', 'needs_revision', or 'ai_evaluated'
