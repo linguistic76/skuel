@@ -41,9 +41,10 @@ class ExerciseReport(UserOwnedEntity):
     # =========================================================================
     # REPORT-SPECIFIC FIELDS
     # =========================================================================
-    # Report body lives on the inherited ``Entity.content`` field — written by
-    # the canonical ``SubmissionsBackend.create_report_node`` Cypher as
-    # ``content: $feedback`` and read back via ``from_neo4j_node``.
+    # LLM/teacher-generated analysis lives on ``processed_content`` (not the
+    # inherited ``Entity.content`` field, which is reserved for user-drafted
+    # text). Written by ``create_report_node`` as ``processed_content: $feedback``.
+    processed_content: str | None = None
     report_generated_at: datetime | None = None
     # GRAPH-NATIVE: projected from the REPORT_FOR edge on read by
     # ExerciseReportBackend.get_by_uid / list_for_submission, not stored as a

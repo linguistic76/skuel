@@ -158,7 +158,7 @@ async def test_ai_report_creates_shares_with_edge_to_student(
                    r.entity_type       AS entity_type,
                    r.processor_type    AS processor_type,
                    r.assessment_outcome AS assessment_outcome,
-                   r.content           AS content,
+                   r.processed_content AS content,
                    student.uid         AS student_uid,
                    share.role          AS share_role,
                    author.uid          AS author_uid
@@ -223,7 +223,7 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert not listed.is_error, listed.error if listed.is_error else None
     reports = listed.value
     assert len(reports) == 1
-    assert reports[0].content == "Typed read check."
+    assert reports[0].processed_content == "Typed read check."
     # subject_uid is projected from the REPORT_FOR edge on read (not stored as
     # a node property). Without projection this silently hydrates to None and
     # breaks the student-subject branch of the ownership check in
@@ -249,7 +249,7 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert report.uid == report_uid
     assert report.subject_uid == SUBMISSION_UID
     assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
-    assert report.content == "Typed read check."
+    assert report.processed_content == "Typed read check."
 
     # Reports created via create_report_node must land with visibility='shared'
     # so UnifiedSharingService.check_access grants access to students who

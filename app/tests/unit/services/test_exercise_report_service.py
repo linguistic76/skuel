@@ -113,7 +113,7 @@ class TestGenerateReportHappyPath:
         assert report.status == EntityStatus.COMPLETED
         assert report.subject_uid == SUBMISSION_UID
         assert report.user_uid == TEACHER_UID
-        assert report.content == "Great work — here is your feedback."
+        assert report.processed_content == "Great work — here is your feedback."
         assert report.uid.startswith("sr_")
 
     @pytest.mark.asyncio
@@ -501,4 +501,4 @@ class TestGenerateReportWithoutBackend:
 
         assert not result.is_error
         assert result.value.uid.startswith("transient_")
-        assert result.value.content == "Transient feedback."
+        assert result.value.processed_content == "Transient feedback."

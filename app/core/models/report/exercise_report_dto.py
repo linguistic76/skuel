@@ -33,9 +33,9 @@ class ExerciseReportDTO(UserOwnedDTO):
     """
     Mutable DTO for exercise reports (EntityType.EXERCISE_REPORT).
 
-    Extends UserOwnedDTO with report-specific fields. Report body lives on
-    the inherited ``content`` field (written by the canonical
-    ``create_report_node`` Cypher as ``content: $feedback``).
+    Extends UserOwnedDTO with report-specific fields. LLM/teacher-generated
+    analysis lives on ``processed_content`` (written by the canonical
+    ``create_report_node`` Cypher as ``processed_content: $feedback``).
 
     - report_generated_at: datetime | None — when report was generated
     - subject_uid: str | None — who/what this report is about
@@ -47,6 +47,7 @@ class ExerciseReportDTO(UserOwnedDTO):
     # =========================================================================
     # REPORT-SPECIFIC FIELDS
     # =========================================================================
+    processed_content: str | None = None
     report_generated_at: datetime | None = None
     subject_uid: str | None = None
     processor_type: ProcessorType | None = None
@@ -123,6 +124,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 # EntityDTO fields
                 "title",
                 "content",
+                "processed_content",
                 "summary",
                 "description",
                 "word_count",

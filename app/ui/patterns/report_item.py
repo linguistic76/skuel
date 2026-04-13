@@ -17,7 +17,7 @@ from core.models.report.exercise_report import ExerciseReport
 def render_report_item(report: ExerciseReport) -> Div:
     """Render a single typed ExerciseReport as a history card."""
     author = report.user_uid or "Author"
-    content = report.content or ""
+    content = report.processed_content or ""
     title = report.title or ""
 
     time_display = ""
