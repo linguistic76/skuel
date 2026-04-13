@@ -45,13 +45,22 @@ Application orchestrator for the {Name} Hub.
 All service dependencies are required — bootstrap raises if any are missing
 (Fail-Fast Dependency Philosophy).
 """
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, TypedDict
+
+from core.models.foo import Foo
+from core.models.bar import Bar
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.foo_service import FooService
     from core.services.bar_service import BarService
     from core.services.optional_intelligence import OptionalIntelligence
+
+
+class FooBarView(TypedDict):
+    """Bundled view returned by get_foo_bar_view."""
+    foo: Foo
+    bar: Bar | None
 
 
 class {Name}Orchestrator:
@@ -74,14 +83,33 @@ class {Name}Orchestrator:
         self._bar = bar_service
         self._intelligence = optional_intelligence
 
-    # Proxy methods — thin delegations to underlying services
-    async def get_items(self, user_uid: str) -> Result[list[Any]]:
+    # Proxy methods — thin delegations that preserve the service's typed return
+    async def get_items(self, user_uid: str) -> Result[list[Foo]]:
         return await self._foo.list_items(user_uid)
 
-    # Aggregation methods — absorb multi-step inline logic
-    async def get_hub_summary(self, user_uid: str) -> Result[dict[str, Any]]:
-        """Aggregate data from multiple services for the hub page."""
-        ...
+    # Compositions — absorb multi-step logic that used to live inline in routes
+    async def get_foo_bar_view(self, foo_uid: str, user_uid: str) -> Result[FooBarView]:
+        """Fetch foo + its optional bar in one call.
+
+        Collapses the route's fetch → access-check → enrichment dance so the
+        route handler becomes a single orchestrator call + one error branch.
+        """
+        foo_result = await self._foo.get(foo_uid)
+        if foo_result.is_error:
+            return Result.fail(foo_result)
+        foo = foo_result.value
+
+        access = await self._foo.check_access(foo.uid, user_uid)
+        if access.is_error or not access.value:
+            return Result.fail(Errors.not_found("Foo", foo_uid))
+
+        bar: Bar | None = None
+        bar_result = await self._bar.get_by_foo(foo.uid)
+        if bar_result.is_ok:
+            bar = bar_result.value
+
+        view: FooBarView = {"foo": foo, "bar": bar}
+        return Result.ok(view)
 ```
 
 **Design Rules:**
@@ -89,9 +117,10 @@ class {Name}Orchestrator:
 - All required services are positional parameters with **no default** — fail at bootstrap if missing
 - Only `INTELLIGENCE_TIER`-gated services are legitimately `| None`
 - Never guard required services with `if not self._service` — they are always present
-- Return `Result` from all public methods
-- Proxy methods are thin delegations; aggregation methods absorb real multi-step logic
-- Only add composite methods (e.g. `get_hub_dashboard()`) when a hub page actually calls them — don't build aggregation methods speculatively for pages that don't exist yet
+- **Typed returns, not `Result[Any]`.** Every method surfaces the typed model its delegated service already returns (`Result[Task]`, `Result[list[ExerciseReport]]`, `Result[MyView]`). `Result[Any]` and `**kwargs: Any` are forbidden at this boundary — they throw away type information the service layer spent effort producing. Declare a local `TypedDict` for composite views rather than falling back to `dict[str, Any]`.
+- **Proxy methods are thin delegations; compositions absorb real multi-step logic.** If you find a route handler running two or more orchestrator calls in sequence to act on related data (fetch → guard → enrich), that composition belongs on the orchestrator, not in the route. A pass-through-only orchestrator is a dependency bag, not an orchestrator.
+- **No scope leak.** A method belongs on an orchestrator only if the hub actually calls it. Single-caller pass-throughs for logic that lives in a different domain should either be inlined at the call site or folded into a composition that owns the orchestration purpose.
+- Only add composite methods when a hub page actually calls them — don't build aggregation methods speculatively for pages that don't exist yet
 
 ### 2. Register in Container
 
@@ -177,7 +206,7 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_orchestrator.py` | 3 | Admin Dashboard |
 | `ProfileOrchestrator` | `profile_orchestrator.py` | 9 | User Profile |
-| `SubmissionsOrchestrator` | `submissions_orchestrator.py` | 9 | Submissions |
+| `SubmissionsOrchestrator` | `submissions_orchestrator.py` | 10 | Submissions (owns `get_exercise_report_view` + `submit_file_with_learning_context` compositions) |
 | `ExploreOrchestrator` | `explore_orchestrator.py` | 5 | Explore & Knowledge |
 | `LibraryOrchestrator` | `library_orchestrator.py` | 6 | Library / Assets |
 | `TeacherOrchestrator` | `teacher_orchestrator.py` | 4 | Teaching & Review |

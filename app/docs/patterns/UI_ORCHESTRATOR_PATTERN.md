@@ -1,6 +1,6 @@
 ---
 title: UI Orchestrator Pattern
-updated: '2026-04-07'
+updated: '2026-04-13'
 category: patterns
 related_skills:
 - fasthtml
@@ -11,7 +11,7 @@ related_docs:
 ---
 # UI Orchestrator Pattern
 
-**Status:** Active | **Last Updated:** 2026-04-07
+**Status:** Active | **Last Updated:** 2026-04-13
 
 ## Related Skills
 
@@ -33,7 +33,7 @@ For implementation guidance, see:
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_dashboard_ui.py` | 3 → 1 | Eliminated repeated `_get_system_status(services)` helper across 4 routes; `get_analytics_data()` collapses two service calls into one |
 | `ProfileOrchestrator` | `user_profile_ui.py` | 9 → 1 | Terminal-state filtering, priority sorting |
-| `SubmissionsOrchestrator` | `submissions_routes.py` + 4 sub-factories | 9 → 1 | Eliminated multi-factory injection pattern |
+| `SubmissionsOrchestrator` | `submissions_routes.py` + 4 sub-factories | 10 → 1 | Eliminated multi-factory injection pattern; `get_exercise_report_view()` collapses fetch → access check → revision lookup; `submit_file_with_learning_context()` enriches submissions with PS/LP audit context so routes stay thin |
 | `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder + sidebar data aggregation (`get_sidebar_data`) |
 | `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
 | `TeacherOrchestrator` | `teaching_ui.py` | 4 → 1 | Review queue, student list, groups, KU detail under one facade |
@@ -249,9 +249,11 @@ def create_example_ui_routes(_app, rt, orchestrator):
 ## Design Constraints
 
 - **Fail-Fast Dependencies.** All service dependencies are required — no `| None` defaults except for `INTELLIGENCE_TIER`-gated services. Bootstrap raises immediately if any required service is `None`. Never guard required services with `if not self._service`. At the bootstrap call site, narrow the container's `| None` type with `assert services.{name}_orchestrator is not None` before passing to the route factory.
-- **Typed `TYPE_CHECKING` Imports.** Use concrete typed imports (not `Any`) for all `__init__` parameters. `Any` appears only in return type annotations where the underlying domain model varies.
+- **Typed `TYPE_CHECKING` Imports.** Use concrete typed imports for all `__init__` parameters.
+- **Typed Returns, Not `Result[Any]`.** Orchestrator methods must surface the typed models their delegated services already return — `Result[ExerciseReport]`, `Result[list[Task]]`, `Result[ViewTypedDict]`, etc. Drop `Result[Any]` and `**kwargs: Any` at this boundary. An orchestrator that returns `Any` throws away the type information the service layer spent effort producing. New compositions (e.g. `get_exercise_report_view()` → `Result[ExerciseReportView]`) should declare a local `TypedDict` view rather than falling back to `dict[str, Any]`.
 - **UI-Scoped Only.** Orchestrators are strictly for the UI rendering layer. They must NOT be reused by API routes or backend business logic.
 - **No God Objects.** Each orchestrator serves one hub/page. Do not create a single orchestrator that serves multiple unrelated pages.
-- **Read-Model Focus.** Orchestrators primarily aggregate and transform data for display. Write operations should be thin delegations (e.g., `orchestrator.process_submission(...)` just calls the underlying service).
+- **No Scope Leak.** A method belongs on an orchestrator only if the hub actually calls it. If it's used once and the logic lives in a different domain (e.g. a standalone `build_user_context` call), inline it or move it into a composition that owns the orchestration purpose — don't leave a single-caller pass-through hanging off the facade.
+- **Read-Model Focus, But Earn Compositions.** Thin write delegations are fine (e.g. `delete_submission_with_file(uid)`). But when a route runs a multi-service dance by hand — fetch → guard → enrich, or build-context → submit — that composition belongs on the orchestrator, not in the route. A pass-through-only orchestrator is a dependency bag, not an orchestrator.
 - **UI factory return type is `None`.** Orchestrator-driven UI factory functions (`create_{name}_ui_routes`) return `-> None` — not `list[Any]`. The `list[Any]` return belongs to sub-factories consumed by `DomainRouteConfig`. Returning `[]` from an orchestrator-driven factory is wrong.
 - **Service Properties for Sidebar Compatibility.** When sidebar renderers or other UI components still need raw services, expose them via `@property` accessors (e.g., `orchestrator.ku_service`) rather than breaking the component layer.
