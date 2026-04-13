@@ -36,7 +36,10 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
-    from core.ports.service_protocols import LateralRelationshipBackendOperations
+    from core.ports.service_protocols import (
+        LateralRelationshipBackendOperations,
+        OwnershipVerifier,
+    )
 from core.models.relationship_registry import get_lateral_spec
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -72,7 +75,7 @@ class LateralRelationshipService:
         validate: bool = True,
         auto_inverse: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: Any | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> Result[bool]:
         """
         Create explicit lateral relationship between two entities.
@@ -158,7 +161,7 @@ class LateralRelationshipService:
         relationship_type: RelationshipName,
         delete_inverse: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: Any | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> Result[bool]:
         """
         Delete explicit lateral relationship.
@@ -224,7 +227,7 @@ class LateralRelationshipService:
         direction: str = "outgoing",  # "outgoing", "incoming", "both"
         include_metadata: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: Any | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Get all lateral relationships for an entity.
@@ -281,7 +284,7 @@ class LateralRelationshipService:
         entity_uid: EntityUID,
         include_explicit_only: bool = False,
         user_uid: UserUID | None = None,
-        domain_service: Any | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Get sibling entities (same parent).

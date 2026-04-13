@@ -15,7 +15,10 @@ from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports.service_protocols import LateralRelationshipOperations
+    from core.ports.service_protocols import (
+        LateralRelationshipOperations,
+        OwnershipVerifier,
+    )
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
@@ -45,7 +48,7 @@ class LateralRelationshipsOrchestrator:
         principles_service: "PrinciplesService",
     ) -> None:
         self._lateral = lateral_service
-        self._domain_services: dict[str, Any] = {
+        self._domain_services: dict[str, OwnershipVerifier] = {
             "tasks": tasks_service,
             "goals": goals_service,
             "habits": habits_service,
@@ -66,7 +69,7 @@ class LateralRelationshipsOrchestrator:
         """
         return self._lateral
 
-    def get_domain_service(self, domain: str) -> Any | None:
+    def get_domain_service(self, domain: str) -> "OwnershipVerifier | None":
         """Return the Activity Domain service for a given domain slug.
 
         Returns None for curriculum domains (ku, ps, lp), which have no ownership
@@ -86,7 +89,7 @@ class LateralRelationshipsOrchestrator:
         metadata: dict[str, Any],
         message: str,
         response_extra: dict[str, Any],
-        domain_service: Any | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> "Result[dict[str, Any]]":
         """Create a domain-specific lateral relationship with optional ownership check.
 
@@ -126,7 +129,7 @@ class LateralRelationshipsOrchestrator:
         relationship_type: RelationshipName,
         direction: str,
         response_key: str,
-        domain_service: Any | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> "Result[dict[str, Any]]":
         """Get lateral relationships for an entity with optional ownership check.
 

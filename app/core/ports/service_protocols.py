@@ -17,6 +17,7 @@ Protocols:
 - HabitEventSchedulerOperations — Habit→Event scheduling
 - LateralRelationshipOperations — Lateral relationship CRUD + graph queries
 - LateralRelationshipBackendOperations — Backend-level Cypher for lateral relationships
+- OwnershipVerifier — narrow protocol for ownership verification callbacks
 """
 
 from collections.abc import Callable
@@ -497,6 +498,24 @@ class HabitEventSchedulerOperations(Protocol):
 
 
 @runtime_checkable
+class OwnershipVerifier(Protocol):
+    """Narrow protocol for ownership verification.
+
+    The only contract lateral-relationship code needs from a domain service.
+    All six Activity Domain facades satisfy this structurally via
+    BaseServiceInterface[T].verify_ownership. The return type is
+    Result[Any] because Result[T] is invariant — each facade returns a
+    different concrete T (Task, Goal, Habit, …) and callers here only
+    branch on `.is_error`. This is the single acceptable Result[Any] in a
+    protocol: internal orchestrator contract, never a route return type.
+    """
+
+    async def verify_ownership(
+        self, uid: str, user_uid: UserUID
+    ) -> "Result[Any]": ...  # boundary: internal ownership callback — see class docstring
+
+
+@runtime_checkable
 class LateralRelationshipOperations(Protocol):
     """Protocol for lateral relationship service operations."""
 
@@ -509,7 +528,7 @@ class LateralRelationshipOperations(Protocol):
         validate: bool = True,
         auto_inverse: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: Any | None = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[bool]: ...
 
     async def delete_lateral_relationship(
@@ -519,7 +538,7 @@ class LateralRelationshipOperations(Protocol):
         relationship_type: RelationshipName,
         delete_inverse: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: Any | None = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[bool]: ...
 
     async def get_lateral_relationships(
@@ -529,7 +548,7 @@ class LateralRelationshipOperations(Protocol):
         direction: str = "outgoing",
         include_metadata: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: Any | None = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> "Result[list[LateralRelationshipItem]]": ...
 
     async def get_blocking_chain(
@@ -546,6 +565,14 @@ class LateralRelationshipOperations(Protocol):
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
     ) -> "Result[RelationshipGraphData]": ...
+
+    async def get_siblings(
+        self,
+        entity_uid: EntityUID,
+        include_explicit_only: bool = False,
+        user_uid: UserUID | None = None,
+        domain_service: OwnershipVerifier | None = None,
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: sibling rows come from multiple backend queries
 
 
 @runtime_checkable

@@ -34,15 +34,22 @@ Usage:
 See: /docs/patterns/DOMAIN_LATERAL_SERVICES.md
 """
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import Neo4jProperties
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.ports.service_protocols import (
+        LateralRelationshipOperations,
+        OwnershipVerifier,
+    )
 
 logger = get_logger(__name__)
 
@@ -53,9 +60,9 @@ class LateralRouteFactory:
     def __init__(
         self,
         domain: str,  # "goals", "tasks", "habits", etc.
-        lateral_service: Any,  # LateralRelationshipService (core, not wrapper)
+        lateral_service: "LateralRelationshipOperations",
         entity_name: str,  # "Goal", "Task", "Habit", etc.
-        domain_service: Any | None = None,  # For ownership (None = shared/curriculum)
+        domain_service: "OwnershipVerifier | None" = None,  # None = shared/curriculum
     ) -> None:
         self.domain = domain
         self.lateral_service = lateral_service
@@ -310,18 +317,20 @@ class LateralRouteFactory:
             """
             user_uid = require_authenticated_user(request)
 
+            tradeoffs_widened: list[str | int | float] = list(tradeoffs) if tradeoffs else []
+            metadata: Neo4jProperties = {
+                "comparison_criteria": comparison_criteria,
+                "tradeoffs": tradeoffs_widened,
+                "confidence": confidence,
+                "priority": priority,
+                "domain": self.domain,
+                "created_by": user_uid,
+            }
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
                 target_uid=target_uid,
                 relationship_type=RelationshipName.ALTERNATIVE_TO,
-                metadata={
-                    "comparison_criteria": comparison_criteria,
-                    "tradeoffs": tradeoffs or [],
-                    "confidence": confidence,
-                    "priority": priority,
-                    "domain": self.domain,
-                    "created_by": user_uid,
-                },
+                metadata=metadata,
                 user_uid=user_uid,
                 domain_service=self.domain_service,
             )
