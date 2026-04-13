@@ -123,36 +123,19 @@ def create_exercise_reports_ui_routes(
                 request=request,
             )
 
-        result = await orchestrator.get_exercise_report(uid)
-        if result.is_error:
-            logger.warning(f"Exercise report not found: {uid}")
+        view_result = await orchestrator.get_exercise_report_view(uid, user_uid)
+        if view_result.is_error:
+            logger.warning(f"Exercise report not found or inaccessible: {uid}")
             return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report not found")),
                 active="exercise-reports",
                 request=request,
             )
 
-        report = result.value
-        # Canonical access check via UnifiedSharingService: owner, PUBLIC,
-        # or SHARES_WITH (the edge created in create_report_node).
-        access_result = await orchestrator.check_report_access(report.uid, user_uid)
-        if access_result.is_error or not access_result.value:
-            return await render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Report not found")),
-                active="exercise-reports",
-                request=request,
-            )
-
-        # Look up associated RevisedExercise (if teacher requested revision)
-        revised_exercise = None
-        if orchestrator:
-            report_uid = getattr(report, "uid", None)
-            if report_uid:
-                re_result = await orchestrator.get_revision_by_report(report_uid)
-                if not re_result.is_error and re_result.value:
-                    revised_exercise = re_result.value
-
-        content = Div(render_exercise_report_detail(report, revised_exercise=revised_exercise))
+        view = view_result.value
+        content = Div(
+            render_exercise_report_detail(view["report"], revised_exercise=view["revised_exercise"])
+        )
         return await render_gradebook_sidebar_page(
             content=content,
             active="exercise-reports",

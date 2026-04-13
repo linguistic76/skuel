@@ -29,7 +29,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.utils.frontmatter import parse_frontmatter_bytes
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
@@ -217,30 +217,20 @@ def create_submissions_ui_routes(
                 f"exercise={fulfills_exercise_uid}, revision={revision_number})"
             )
 
-            # Capture learning context for Interaction audit record (best-effort).
             # Prefer from_ps (explicit navigation context) over the nondeterministic
             # next(iter(current_ps_uids)) that breaks when multiple PathSteps are IN_PROGRESS.
-            context_path_step_uid: str | None = (
-                str(form.get("from_ps")).strip() or None if form.get("from_ps") else None
-            )
-            context_learning_path_uid: str | None = None
-            ctx_result = await orchestrator.build_user_context(user_uid)
-            if ctx_result.is_ok:
-                ctx = ctx_result.value
-                if not context_path_step_uid:
-                    context_path_step_uid = next(iter(ctx.current_ps_uids), None)
-                context_learning_path_uid = ctx.current_learning_path_uid
+            from_ps_raw = form.get("from_ps")
+            from_ps = str(from_ps_raw).strip() if from_ps_raw else None
 
-            result = await orchestrator.process_submission(
+            result = await orchestrator.submit_file_with_learning_context(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
+                fulfills_exercise_uid=fulfills_exercise_uid,
+                metadata=submission_metadata,
+                from_ps=from_ps or None,
                 entity_type=EntityType.EXERCISE_SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
-                metadata=submission_metadata,
-                fulfills_exercise_uid=fulfills_exercise_uid,
-                context_path_step_uid=context_path_step_uid,
-                context_learning_path_uid=context_learning_path_uid,
             )
 
             if result.is_error:
@@ -265,13 +255,18 @@ def create_submissions_ui_routes(
 
             filters = parse_submission_filters(request)
 
-            kwargs = {"user_uid": user_uid, "limit": 50}
-            if filters.report_type:
-                kwargs["report_type"] = filters.report_type
+            status_filter: EntityStatus | None = None
             if filters.status:
-                kwargs["status"] = filters.status
+                try:
+                    status_filter = EntityStatus(filters.status)
+                except ValueError:
+                    status_filter = None
 
-            result = await orchestrator.list_submissions(**kwargs)
+            result = await orchestrator.list_submissions(
+                user_uid=user_uid,
+                status=status_filter,
+                limit=50,
+            )
 
             if result.is_error:
                 return Div(
