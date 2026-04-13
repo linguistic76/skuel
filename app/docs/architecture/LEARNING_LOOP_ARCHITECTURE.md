@@ -379,8 +379,12 @@ via the Exercise's `instructions` field (`LLM`).
 `APPROVED` (teacher approved, mastery 0.8), `NEEDS_REVISION` (teacher requests resubmission),
 or `AI_EVALUATED` (LLM feedback, mastery 0.6, awaiting teacher review).
 
-**Structural position:** Leaf domain — fits the standard 4-layer architecture cleanly
-(`ExerciseReportOperations` protocol → `SubmissionsBackend` → `ExerciseReportService` / `SubmissionsCoreService`).
+**Structural position:** Leaf domain. Reads flow through `ExerciseReportBackend`
+(typed `get_by_uid` + `list_for_submission` — `subject_uid` is projected from the
+`REPORT_FOR` edge, not stored as a node property). Writes flow through
+`SubmissionsBackend.create_report_node`. Both are reached via `ExerciseReportService`,
+the single service entry point (`ExerciseReportOperations` / `ExerciseReportBackendOperations`
+protocols in `core/ports/report_protocols.py`).
 
 ### 4b. ACTIVITY_REPORT — Response to Activity Patterns
 

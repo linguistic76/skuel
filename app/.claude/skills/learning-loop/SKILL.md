@@ -331,9 +331,6 @@ instructions: str | None         # Processing directives (from Exercise)
 # Modality — HOW the submission was created
 modality: SubmissionModality | None  # FILE_UPLOAD | STRUCTURED_FORM (None for legacy)
 
-# Subject (for feedback entities only)
-subject_uid: str | None          # UID of the submission being evaluated
-
 # Derivation chain — set at creation, no graph query needed
 parent_entity_uid: str | None    # UID of the Exercise or RevisedExercise this fulfills.
                                   # Mirror of the FULFILLS_EXERCISE graph edge. Both
@@ -517,6 +514,9 @@ entry points. Both close the loop — both say "here is what your work means."
 ```python
 # Body: inherited Entity.content (written by create_report_node as content: $feedback)
 report_generated_at: datetime | None
+# GRAPH-NATIVE: projected from the REPORT_FOR edge on read (not a stored node property).
+# ExerciseReportBackend.get_by_uid / list_for_submission hydrate it via
+# `OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}`.
 subject_uid: str | None                           # UID of the submission being evaluated
 processor_type: ProcessorType | None              # HUMAN (teacher) | LLM (AI)
 assessment_outcome: AssessmentOutcome | None       # APPROVED | NEEDS_REVISION | AI_EVALUATED
@@ -543,17 +543,19 @@ self-describing — the report records what decision was made, not just feedback
 **Graph pattern:**
 ```cypher
 (teacher:User)-[:OWNS]->(report:Entity:ExerciseReport {
-    subject_uid: 'submission_uid_being_evaluated',
     processor_type: 'human',            // or 'llm'
     assessment_outcome: 'approved',     // or 'needs_revision' or 'ai_evaluated'
+    visibility: 'shared',               // set at create so SHARES_WITH is honored by UnifiedSharingService
     content: 'Your analysis shows...'   // report body (inherited from Entity)
 })
-(report)-[:REPORT_FOR]->(submission:Entity:ExerciseSubmission)
+(report)-[:REPORT_FOR]->(submission:Entity:ExerciseSubmission)  // subject_uid is projected from this edge on read
+(report)-[:SHARES_WITH]->(submitter:User)                       // grants read access via UnifiedSharingService
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.
-Fits the standard 4-layer pattern: `ExerciseReportOperations` protocol → `SubmissionsBackend`
-→ `ExerciseReportService` / `SubmissionsCoreService` → sub-services.
+Reads go through `ExerciseReportBackend` (typed fetches — `get_by_uid`, `list_for_submission`);
+writes (teacher + AI) go through `SubmissionsBackend.create_report_node`. Both are reached via
+`ExerciseReportService`, the single service entry point.
 
 **The Revision Cycle (Phase 4 → 3 → 4):**
 

@@ -45,7 +45,11 @@ class ExerciseReport(UserOwnedEntity):
     # the canonical ``SubmissionsBackend.create_report_node`` Cypher as
     # ``content: $feedback`` and read back via ``from_neo4j_node``.
     report_generated_at: datetime | None = None
-    subject_uid: str | None = None  # Who/what this report is about
+    # GRAPH-NATIVE: projected from the REPORT_FOR edge on read by
+    # ExerciseReportBackend.get_by_uid / list_for_submission, not stored as a
+    # Neo4j node property. create_report_node writes the REPORT_FOR relationship;
+    # reads hydrate this field via `RETURN n{.*, subject_uid: sub.uid}`.
+    subject_uid: str | None = None  # UID of the submission this report is about
     processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC
     assessment_outcome: AssessmentOutcome | None = None  # APPROVED/NEEDS_REVISION/AI_EVALUATED
     report_file_path: str | None = None  # Generated output file path

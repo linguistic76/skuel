@@ -167,7 +167,7 @@ Curriculum Work                 Activity Domains
 |-------|-------|
 | `entity_type` | `"exercise_report"` |
 | Inherits | `UserOwnedEntity` — NOT Submission |
-| `subject_uid` | UID of the submission being evaluated |
+| `subject_uid` | UID of the submission being evaluated — **graph-native**, projected from the `REPORT_FOR` edge on read (not stored as a node property) |
 | `processor_type` | `HUMAN` or `LLM` |
 | `assessment_outcome` | `APPROVED`, `NEEDS_REVISION`, or `AI_EVALUATED` (`AssessmentOutcome` enum) |
 
@@ -476,12 +476,18 @@ When `openai_service` is available, the generator:
 (:Entity:ExerciseReport {
     uid, entity_type: 'exercise_report',
     user_uid,             // owner (teacher or AI agent)
-    subject_uid,          // submission being evaluated
+    visibility: 'shared', // set at create so SHARES_WITH grants access via UnifiedSharingService
     processor_type,       // 'human' or 'llm'
     assessment_outcome,   // 'approved', 'needs_revision', or 'ai_evaluated'
-    title, processed_content,
+    assessment_score,     // 0.0-1.0 for ASSESSMENT-scope exercises
+    title, content,       // content is the report body (written as create_report_node $feedback)
     created_at, updated_at
 })
+// subject_uid is NOT stored as a node property — it is projected from the
+// REPORT_FOR edge on read by ExerciseReportBackend.get_by_uid / list_for_submission:
+//   OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}
+(:Entity:ExerciseReport)-[:REPORT_FOR]->(:Entity {entity_type: 'exercise_submission'})
+(:Entity:ExerciseReport)-[:SHARES_WITH]->(:User)  // submission owner — makes content visible to the student
 
 // ACTIVITY_REPORT — tied to a user's activity patterns
 (:Entity:ActivityReport {
