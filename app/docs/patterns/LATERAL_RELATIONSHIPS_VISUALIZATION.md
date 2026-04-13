@@ -371,57 +371,58 @@ RETURN DISTINCT related, r
 
 **File:** `adapters/inbound/route_factories/lateral_route_factory.py`
 
-**Pattern:** Factory creates 3 routes per domain
+**Pattern:** Factory registers a full set of lateral routes per domain, sharing the universal `LateralRelationshipService` across all 9 domains. Ownership verification for Activity Domains is delegated via a narrow `OwnershipVerifier` protocol.
 
 ```python
 class LateralRouteFactory:
     def __init__(
         self,
-        app: Any,
-        rt: Any,
-        domain: str,  # "tasks", "goals", etc.
-        lateral_service: Any,  # Domain lateral service
-        entity_name: str,  # "Task", "Goal", etc.
-    ):
+        domain: str,  # "tasks", "goals", "habits", "events", "choices", "principles", "ku", "ps", "lp"
+        lateral_service: "LateralRelationshipOperations",
+        entity_name: str,  # "Task", "Goal", …
+        domain_service: "OwnershipVerifier | None" = None,  # None for shared/curriculum
+    ) -> None:
         self.domain = domain
         self.lateral_service = lateral_service
+        self.entity_name = entity_name
+        self.domain_service = domain_service
 
-    def create_routes(self) -> list[Any]:
-        """Creates 3 standard routes for the domain."""
+    def register_routes(self, _app, rt) -> list[Any]:
         return [
-            self._create_chain_route(),
-            self._create_comparison_route(),
-            self._create_graph_route(),
+            self._create_blocking_routes(rt),
+            self._create_prerequisite_routes(rt),
+            self._create_alternative_routes(rt),
+            self._create_complementary_routes(rt),
+            self._create_sibling_route(rt),
+            self._create_delete_route(rt),
+            self._create_chain_route(rt),
+            self._create_comparison_route(rt),
+            self._create_graph_route(rt),
         ]
 ```
 
-**Route Registration:** `adapters/inbound/lateral_routes.py`
+**OwnershipVerifier protocol** (`core/ports/service_protocols.py`): single-method structural protocol (`verify_ownership(uid, user_uid) -> Result[Any]`) satisfied by every Activity Domain facade via `BaseServiceInterface[T]`. Replaces the old `domain_service: Any | None` threading.
+
+**Route Registration:** `adapters/inbound/lateral_routes.py` — goes through `LateralRelationshipsOrchestrator`, which owns the 6 Activity Domain services and exposes `get_domain_service(slug) -> OwnershipVerifier | None` (returns `None` for curriculum domains).
+
 ```python
-def create_lateral_routes(app, rt, services):
-    """Register lateral routes for all 9 domains."""
-
-    # Activity (6)
-    tasks_factory = LateralRouteFactory(
-        app=app, rt=rt, domain="tasks",
-        lateral_service=services.tasks_lateral,
-        entity_name="Task"
-    )
-    all_routes.extend(tasks_factory.create_routes())
-
-    # ... repeat for goals, habits, events, choices, principles
-
-    # Curriculum (3)
-    ku_factory = LateralRouteFactory(
-        app=app, rt=rt, domain="ku",
-        lateral_service=services.ku_lateral,
-        entity_name="KnowledgeUnit"
-    )
-    all_routes.extend(ku_factory.create_routes())
-
-    # ... repeat for ls, lp
-
-    return all_routes  # 92 total (27 base + 65 specialized)
+def create_lateral_api_routes(
+    app: FastHTMLApp, rt: RouteDecorator, orchestrator: "LateralRelationshipsOrchestrator"
+) -> list[Any]:
+    all_routes: list[Any] = []
+    for domain, entity_name, service_attr in _LATERAL_DOMAINS:
+        domain_service = orchestrator.get_domain_service(service_attr) if service_attr else None
+        factory = LateralRouteFactory(
+            domain=domain,
+            lateral_service=orchestrator.lateral_service,
+            entity_name=entity_name,
+            domain_service=domain_service,  # None for ku/ps/lp
+        )
+        all_routes.extend(factory.register_routes(app, rt))
+    return all_routes
 ```
+
+The `orchestrator.lateral_service` property is the single documented layering exception: `LateralRouteFactory` lives in the inbound adapter layer and cannot import a core orchestrator, so routes hand it the raw service instead.
 
 ---
 

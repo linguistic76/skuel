@@ -318,6 +318,24 @@ async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Transcri
 
 See: `/docs/patterns/STANDALONE_SERVICE_PATTERN.md`
 
+### OwnershipVerifier Protocol (Cross-Service Callbacks)
+
+Some cross-domain services need to call `verify_ownership` on *another* domain's service without importing it. The `OwnershipVerifier` protocol (in `core/ports/service_protocols.py`) captures that single method as a narrow structural contract:
+
+```python
+@runtime_checkable
+class OwnershipVerifier(Protocol):
+    async def verify_ownership(
+        self, uid: str, user_uid: UserUID
+    ) -> "Result[Any]": ...  # boundary: internal callback
+```
+
+Every Activity Domain facade satisfies this automatically via `BaseServiceInterface[T]`. Use it when a service or orchestrator needs a typed handle to "something that can verify ownership" without coupling to a specific facade.
+
+**Canonical consumer:** `LateralRelationshipService.create_lateral_relationship/delete_lateral_relationship/get_lateral_relationships/get_siblings` accept `domain_service: OwnershipVerifier | None = None`. `LateralRelationshipsOrchestrator` stores the 6 Activity Domain services as `dict[str, OwnershipVerifier]` and returns `None` for curriculum domains (ku/ps/lp) which are shared content.
+
+This is the *only* acceptable `Result[Any]` in a protocol: `Result[T]` is invariant, each facade returns a different concrete `T`, and callers only branch on `.is_error`. See `docs/patterns/ANY_USAGE_POLICY.md` Phase 4.
+
 ### Cross-Domain Services (UnifiedSharingService)
 
 `UnifiedSharingService` is entity-agnostic, backed by `SharingBackend(UniversalNeo4jBackend[Entity])`.
