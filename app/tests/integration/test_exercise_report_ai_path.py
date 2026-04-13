@@ -224,6 +224,11 @@ async def test_ai_report_is_discoverable_via_typed_read(
     reports = listed.value
     assert len(reports) == 1
     assert reports[0].content == "Typed read check."
+    # subject_uid is projected from the REPORT_FOR edge on read (not stored as
+    # a node property). Without projection this silently hydrates to None and
+    # breaks the student-subject branch of the ownership check in
+    # exercise_reports_ui.exercise_report_detail.
+    assert reports[0].subject_uid == SUBMISSION_UID
 
     # AI path passes submission_status=None → status must be unchanged.
     async with neo4j_driver.session() as session:

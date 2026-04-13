@@ -737,7 +737,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
         """
         cypher = f"""
             MATCH (n:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(:Entity {{uid: $submission_uid}})
-            RETURN n
+            RETURN n{{.*, subject_uid: $submission_uid}} AS n
             ORDER BY n.created_at ASC
         """
         try:
@@ -766,7 +766,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity)
             MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
             MATCH (n:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-            RETURN n
+            RETURN n{{.*, subject_uid: sub.uid}} AS n
             ORDER BY n.created_at DESC
         """
         try:
@@ -798,9 +798,10 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
 
         Returns typed ExerciseReport instances.
         """
-        cypher = """
-            MATCH (n:ExerciseReport {user_uid: $teacher_uid})
-            RETURN n
+        cypher = f"""
+            MATCH (n:ExerciseReport {{user_uid: $teacher_uid}})
+            OPTIONAL MATCH (n)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
+            RETURN n{{.*, subject_uid: sub.uid}} AS n
             ORDER BY n.created_at DESC
             LIMIT $limit
         """
