@@ -699,16 +699,17 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
 
-        # ExerciseReportService: None in CORE tier — report generation requires AI
-        exercise_report_service = None
-        if llm_caller:
-            exercise_report_service = ExerciseReportService(
-                llm_caller=llm_caller,
-                backend=exercise_report_backend,  # mastery-loop reads (get_linked_ku_and_student)
-                submissions_backend=submissions_backend,  # canonical report-node creation
-                ku_interaction_service=learning_services["ps"].mastery,  # closes mastery loop
-                report_mastery_service=report_mastery_service,
-            )
+        # ExerciseReportService: always created so typed reads (get_by_uid,
+        # list_for_submission) work in both CORE and FULL tiers. AI report
+        # *generation* still requires llm_caller — the service degrades to
+        # read-only when llm_caller is None (CORE tier).
+        exercise_report_service = ExerciseReportService(
+            llm_caller=llm_caller,
+            backend=exercise_report_backend,  # mastery-loop reads (get_linked_ku_and_student)
+            submissions_backend=submissions_backend,  # canonical report-node creation
+            ku_interaction_service=learning_services["ps"].mastery,  # closes mastery loop
+            report_mastery_service=report_mastery_service,
+        )
 
         exercise_backend = ExerciseBackend(
             driver=driver,
@@ -1145,6 +1146,8 @@ async def compose_services(
             user_service=user_service,
             activity_report_service=activity_report_service,
             revised_exercise_service=revised_exercise_service,
+            exercise_report_service=exercise_report_service,
+            sharing_service=unified_sharing_service,
         )
         logger.info("✅ Submissions Orchestrator created")
 

@@ -109,7 +109,7 @@ def create_exercise_reports_ui_routes(
                 request=request,
             )
 
-        result = await orchestrator.get_assessment(uid)
+        result = await orchestrator.get_exercise_report(uid)
         if result.is_error:
             logger.warning(f"Exercise report not found: {uid}")
             return await render_gradebook_sidebar_page(
@@ -119,10 +119,10 @@ def create_exercise_reports_ui_routes(
             )
 
         report = result.value
-        # Ownership check: student must own the report or be the subject
-        report_user = getattr(report, "user_uid", None) or ""
-        report_subject = getattr(report, "subject_uid", None) or ""
-        if user_uid not in (report_user, report_subject):
+        # Canonical access check via UnifiedSharingService: owner, PUBLIC,
+        # or SHARES_WITH (the edge created in create_report_node).
+        access_result = await orchestrator.check_report_access(report.uid, user_uid)
+        if access_result.is_error or not access_result.value:
             return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report not found")),
                 active="exercise-reports",

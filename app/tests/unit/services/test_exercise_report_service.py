@@ -351,7 +351,62 @@ class TestGenerateReportErrorPropagation:
 def _make_exercise_report_backend() -> MagicMock:
     backend = MagicMock()
     backend.list_for_submission = AsyncMock(return_value=Result.ok([]))
+    backend.get_by_uid = AsyncMock(return_value=Result.ok(None))
     return backend
+
+
+class TestGetByUid:
+    """`get_by_uid` narrows a typed single-fetch through the backend."""
+
+    @pytest.mark.asyncio
+    async def test_delegates_to_backend_and_returns_report(self):
+        report = ExerciseReport(
+            uid="sr_teacher_042",
+            entity_type=EntityType.EXERCISE_REPORT,
+            title="Teacher Feedback",
+            user_uid=TEACHER_UID,
+            status=EntityStatus.COMPLETED,
+            processor_type=ProcessorType.HUMAN,
+            content="Solid work.",
+            subject_uid=SUBMISSION_UID,
+        )
+        backend = _make_exercise_report_backend()
+        backend.get_by_uid.return_value = Result.ok(report)
+        service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
+
+        result = await service.get_by_uid("sr_teacher_042")
+
+        assert not result.is_error
+        assert result.value is report
+        backend.get_by_uid.assert_awaited_once_with("sr_teacher_042")
+
+    @pytest.mark.asyncio
+    async def test_missing_report_narrows_to_not_found(self):
+        backend = _make_exercise_report_backend()
+        backend.get_by_uid.return_value = Result.ok(None)
+        service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
+
+        result = await service.get_by_uid("sr_missing")
+
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_no_backend_fails_fast(self):
+        service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=None)
+
+        result = await service.get_by_uid("sr_any")
+
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_backend_error_propagates(self):
+        backend = _make_exercise_report_backend()
+        backend.get_by_uid.return_value = Result.fail(Errors.database("get_by_uid", "query failed"))
+        service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
+
+        result = await service.get_by_uid("sr_any")
+
+        assert result.is_error
 
 
 class TestListForSubmission:

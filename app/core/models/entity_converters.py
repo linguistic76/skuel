@@ -49,7 +49,6 @@ def entity_to_response(entity: Entity) -> dict[str, Any]:
     if isinstance(entity, Submission):
         response.update(
             {
-                "subject_uid": entity.subject_uid,
                 "original_filename": entity.original_filename,
                 "file_size": entity.file_size,
                 "file_type": entity.file_type,
@@ -71,6 +70,7 @@ def entity_to_response(entity: Entity) -> dict[str, Any]:
     if isinstance(entity, ExerciseReport):
         response.update(
             {
+                "subject_uid": entity.subject_uid,
                 "report_generated_at": entity.report_generated_at.isoformat()
                 if entity.report_generated_at
                 else None,

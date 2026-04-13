@@ -727,6 +727,32 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     — the canonical cross-domain path shared by teacher and AI reports.
     """
 
+    async def get_by_uid(self, uid: str) -> Result[ExerciseReport | None]:
+        """Typed single-fetch for ExerciseReport by UID.
+
+        Projects ``subject_uid`` from the REPORT_FOR edge so the hydrated
+        ExerciseReport carries the submission UID it reports on. Returns
+        ``Result.ok(None)`` when no node matches (matches the generic
+        ``UniversalNeo4jBackend.get`` convention).
+        """
+        cypher = f"""
+            MATCH (n:ExerciseReport {{uid: $uid}})
+            OPTIONAL MATCH (n)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
+            RETURN n{{.*, subject_uid: sub.uid}} AS n
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(cypher, {"uid": uid})
+                records = await result.data()
+            if not records:
+                return Result.ok(None)
+            entity = from_neo4j_node(records[0]["n"], self.entity_class)
+            return Result.ok(entity)
+        except Exception as e:  # safety-net: neo4j + mapping errors
+            return Result.fail(
+                Errors.database("get_by_uid", f"Failed to fetch ExerciseReport: {e!s}")
+            )
+
     async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:
         """Return all reports attached to a submission, as typed ExerciseReport
         instances, ordered by created_at ASC (oldest → newest review round).

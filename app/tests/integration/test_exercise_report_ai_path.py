@@ -239,3 +239,30 @@ async def test_ai_report_is_discoverable_via_typed_read(
         record = await cursor.single()
     assert record is not None
     assert record["status"] == "active"
+
+    # Typed single-fetch: get_by_uid hydrates subject_uid + all report fields.
+    report_uid = reports[0].uid
+    fetched = await service.get_by_uid(report_uid)
+    assert not fetched.is_error, fetched.error if fetched.is_error else None
+    report = fetched.value
+    assert isinstance(report, ExerciseReport)
+    assert report.uid == report_uid
+    assert report.subject_uid == SUBMISSION_UID
+    assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
+    assert report.content == "Typed read check."
+
+    # Reports created via create_report_node must land with visibility='shared'
+    # so UnifiedSharingService.check_access grants access to students who
+    # follow the SHARES_WITH edge.
+    async with neo4j_driver.session() as session:
+        cursor = await session.run(
+            "MATCH (r:ExerciseReport {uid: $uid}) RETURN r.visibility AS visibility",
+            uid=report_uid,
+        )
+        record = await cursor.single()
+    assert record is not None
+    assert record["visibility"] == "shared"
+
+    # get_by_uid on a missing UID narrows to a not-found error.
+    missing = await service.get_by_uid("sr_does_not_exist")
+    assert missing.is_error

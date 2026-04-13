@@ -33,7 +33,6 @@ Fields
 - Processing (8): processor_type, timestamps, error, processed_content,
                   instructions, max_retention
 - Modality (1): modality — how the submission was created (FILE_UPLOAD or STRUCTURED_FORM)
-- Subject (1): subject_uid — who this report is about (student, for feedback)
 
 Leaf subclass ExerciseSubmission inherits from Submission and forces its entity_type.
 
@@ -72,8 +71,8 @@ class Submission(UserOwnedEntity):
     Inherits common fields from UserOwnedEntity (identity, content, status,
     sharing, meta, embedding, user_uid, priority).
 
-    Adds 14 submission-specific fields for file storage, content processing,
-    and subject tracking.
+    Adds submission-specific fields for file storage, content processing,
+    modality, and revision tracking.
     """
 
     def __post_init__(self) -> None:
@@ -106,11 +105,6 @@ class Submission(UserOwnedEntity):
     # MODALITY
     # =========================================================================
     modality: SubmissionModality | None = None  # How the submission was created (None for legacy)
-
-    # =========================================================================
-    # SUBJECT
-    # =========================================================================
-    subject_uid: str | None = None  # Who this report is about
 
     # =========================================================================
     # REVISION

@@ -14,10 +14,13 @@ from typing import TYPE_CHECKING, Any
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.report.exercise_report import ExerciseReport
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.report.activity_report_service import ActivityReportService
+    from core.services.report.exercise_report_service import ExerciseReportService
     from core.services.report.teacher_review_service import TeacherReviewService
     from core.services.revised_exercises import RevisedExerciseService
+    from core.services.sharing import UnifiedSharingService
     from core.services.submissions import (
         SubmissionsCoreService,
         SubmissionsSearchService,
@@ -48,6 +51,8 @@ class SubmissionsOrchestrator:
         user_service: "UserService",
         activity_report_service: "ActivityReportService",
         revised_exercise_service: "RevisedExerciseService",
+        exercise_report_service: "ExerciseReportService",
+        sharing_service: "UnifiedSharingService",
     ):
         self._submissions_service = submissions_service
         self._exercises_service = exercises_service
@@ -57,6 +62,8 @@ class SubmissionsOrchestrator:
         self._user_service = user_service
         self._activity_report_service = activity_report_service
         self._revised_exercise_service = revised_exercise_service
+        self._exercise_report_service = exercise_report_service
+        self._sharing_service = sharing_service
 
     # --- Submissions & Processing ---
 
@@ -92,9 +99,22 @@ class SubmissionsOrchestrator:
 
     # --- Reviews and Assessments ---
 
-    async def get_assessment(self, uid: str) -> Result[Any]:
-        """Fetch a teacher assessment (exercise report) by ID."""
-        return await self._submissions_core_service.get_submission(uid)
+    async def get_exercise_report(self, uid: str) -> "Result[ExerciseReport]":
+        """Fetch an ExerciseReport by UID via the typed ExerciseReport read path.
+
+        Replaces the old ``get_assessment`` routing through
+        ``SubmissionsCoreService.get_submission``, which hydrated the node as
+        ``Submission`` and silently dropped ExerciseReport-only fields.
+        """
+        return await self._exercise_report_service.get_by_uid(uid)
+
+    async def check_report_access(self, report_uid: str, user_uid: str) -> Result[bool]:
+        """Canonical access check for an ExerciseReport.
+
+        Delegates to ``UnifiedSharingService.check_access`` — grants access to
+        owners, PUBLIC reports, and users with SHARES_WITH (or group share).
+        """
+        return await self._sharing_service.check_access(report_uid, user_uid)
 
     async def get_assessments_for_student(self, user_uid: str, **kwargs: Any) -> Result[list[Any]]:
         """Get all received assessments for a student."""

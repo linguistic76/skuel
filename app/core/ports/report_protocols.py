@@ -185,6 +185,13 @@ class ExerciseReportBackendOperations(Protocol):
     ``ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport])``.
     """
 
+    async def get_by_uid(self, uid: str) -> "Result[ExerciseReport | None]":
+        """Typed single-fetch for ExerciseReport by UID.
+
+        Returns ``Result.ok(None)`` when no matching node exists.
+        """
+        ...
+
     async def list_for_submission(self, submission_uid: str) -> "Result[list[ExerciseReport]]":
         """All reports attached to a submission, ASC by created_at."""
         ...

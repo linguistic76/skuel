@@ -54,7 +54,7 @@ class ExerciseReportService:
 
     def __init__(
         self,
-        llm_caller: LLMCallerProtocol,
+        llm_caller: LLMCallerProtocol | None,
         backend: "ExerciseReportBackendOperations | None" = None,
         submissions_backend: "SubmissionsBackend | None" = None,
         ku_interaction_service: "PsMasteryService | None" = None,
@@ -85,13 +85,36 @@ class ExerciseReportService:
         self.report_mastery_service = report_mastery_service
         self.logger = logger
 
-        available = ["LLMCaller"]
+        available = []
+        if self.llm_caller:
+            available.append("LLMCaller")
         if self.submissions_backend:
             available.append("Neo4j")
         if self.ku_interaction_service:
             available.append("MasteryLoop")
 
         logger.info(f"ExerciseReportService initialized with: {', '.join(available)}")
+
+    async def get_by_uid(self, uid: str) -> Result[ExerciseReport]:
+        """Typed single-fetch for ExerciseReport by UID.
+
+        Delegates to ExerciseReportBackend.get_by_uid and narrows a missing
+        row to a not-found error so routes can use the standard
+        ``require_found`` pattern.
+        """
+        if not self.backend:
+            return Result.fail(
+                Errors.system(
+                    "ExerciseReportBackend not configured",
+                    operation="get_by_uid",
+                )
+            )
+        result = await self.backend.get_by_uid(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            return Result.fail(Errors.not_found(resource="ExerciseReport", identifier=uid))
+        return Result.ok(result.value)
 
     async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:
         """List all reports attached to a submission (ASC by created_at).
@@ -136,6 +159,13 @@ class ExerciseReportService:
             Result[ExerciseReport] containing the created EXERCISE_REPORT entity
         """
         try:
+            if not self.llm_caller:
+                return Result.fail(
+                    Errors.system(
+                        "LLM caller not configured (CORE intelligence tier)",
+                        operation="generate_report",
+                    )
+                )
             if not exercise.is_valid():
                 return Result.fail(
                     Errors.validation("Invalid exercise: missing required fields", field="exercise")
@@ -401,8 +431,12 @@ class ExerciseReportService:
 
     def get_supported_models(self) -> dict[str, list[str]]:
         """Get list of supported models by provider."""
+        if not self.llm_caller:
+            return {}
         return self.llm_caller.get_supported_models()
 
     def is_model_supported(self, model: str) -> bool:
         """Check if a model is supported by available services."""
+        if not self.llm_caller:
+            return False
         return self.llm_caller.is_model_supported(model)

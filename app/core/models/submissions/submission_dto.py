@@ -40,11 +40,11 @@ class SubmissionDTO(UserOwnedDTO):
     """
     Mutable DTO for content-processing entities.
 
-    Extends UserOwnedDTO with 14 submission-specific fields:
+    Extends UserOwnedDTO with submission-specific fields:
     - File (4): original_filename, file_path, file_size, file_type
     - Processing (8): processor_type, timestamps, error, content, instructions, max_retention
     - Modality (1): modality (FILE_UPLOAD or STRUCTURED_FORM)
-    - Subject (1): subject_uid
+    - Revision (1): revision_number
     """
 
     # =========================================================================
@@ -71,11 +71,6 @@ class SubmissionDTO(UserOwnedDTO):
     # MODALITY
     # =========================================================================
     modality: SubmissionModality | None = None
-
-    # =========================================================================
-    # SUBJECT
-    # =========================================================================
-    subject_uid: str | None = None
 
     # =========================================================================
     # REVISION
@@ -110,8 +105,6 @@ class SubmissionDTO(UserOwnedDTO):
                 "max_retention": self.max_retention,
                 # Modality
                 "modality": get_enum_value(self.modality),
-                # Subject
-                "subject_uid": self.subject_uid,
                 # Revision
                 "revision_number": self.revision_number,
             }
@@ -190,7 +183,6 @@ class SubmissionDTO(UserOwnedDTO):
                 "instructions",
                 "max_retention",
                 "modality",
-                "subject_uid",
                 "revision_number",
             },
             enum_mappings={

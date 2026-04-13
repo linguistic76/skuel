@@ -2,8 +2,8 @@
 Unit Tests for Submission/Report Types Extension
 ===================================================
 
-Tests EntityType enum values, display names,
-is_processable, subject_uid on submission subclasses, and converter logic.
+Tests EntityType enum values, display names, is_processable,
+subject_uid on ExerciseReport, and converter logic.
 """
 
 from core.models.curriculum import Curriculum
@@ -12,7 +12,6 @@ from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
 from core.models.report.exercise_report_dto import ExerciseReportDTO
 from core.models.submissions.exercise_submission import ExerciseSubmission
-from core.models.submissions.submission import Submission
 
 # ============================================================================
 # ENUM TESTS
@@ -88,16 +87,7 @@ class TestKuTypeEnum:
 
 
 class TestKuSubjectUid:
-    """Test subject_uid field on submission subclasses."""
-
-    def test_subject_uid_defaults_none(self):
-        ku = ExerciseSubmission(
-            uid="es_test_123",
-            title="Test Submission",
-            user_uid="user_alice",
-            status=EntityStatus.COMPLETED,
-        )
-        assert ku.subject_uid is None
+    """Test subject_uid field on ExerciseReport (the only type that carries it)."""
 
     def test_subject_uid_set_explicitly(self):
         ku = ExerciseReport(
@@ -178,14 +168,14 @@ class TestKuConversions:
         ku = ExerciseReport.from_dto(dto)
         assert ku.subject_uid == "user_student"
 
-    def test_roundtrip_none_subject_uid(self):
-        ku = Submission(
-            uid="es_test_123",
-            title="My Submission",
-            entity_type=EntityType.EXERCISE_SUBMISSION,
-            user_uid="user_alice",
+    def test_roundtrip_report_preserves_subject_uid(self):
+        ku = ExerciseReport(
+            uid="er_test_456",
+            title="Teacher Feedback",
+            user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
+            subject_uid="es_submission_uid",
         )
         dto = ku.to_dto()
-        restored = Submission.from_dto(dto)
-        assert restored.subject_uid is None
+        restored = ExerciseReport.from_dto(dto)
+        assert restored.subject_uid == "es_submission_uid"
