@@ -121,6 +121,9 @@ from .metadata_enums import (
 # Neo4j labels - single source of truth for node labels
 from .neo_labels import NeoLabel
 
+# Pipeline + ReportSource (ADR-054) — replaces ProcessorType
+from .pipeline import Pipeline, ReportSource
+
 # Principle enums
 from .principle_enums import (
     AlignmentLevel,
@@ -217,6 +220,8 @@ __all__ = [
     "NonKuDomain",
     "PaymentMethod",
     "Personality",
+    "Pipeline",
+    "ReportSource",
     "PracticeLevel",
     "PrincipleCategory",
     "PrincipleSource",

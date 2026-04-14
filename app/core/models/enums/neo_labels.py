@@ -90,6 +90,11 @@ class NeoLabel(StrEnum):
     JE_INPUT = "JeInput"  # Raw journal entry (audio or text)
     JE_OUTPUT = "JeOutput"  # LLM-processed transformation
 
+    # Unified user-authored content (ADR-054) — collapses ExerciseSubmission,
+    # JeInput, JeOutput into one label. Added additively; legacy labels
+    # removed in final cleanup after migration.
+    USER_ENTRY = "UserEntry"
+
     # Instruction Templates (2)
     EXERCISE = "Exercise"  # Domain label for :Entity nodes with entity_type="exercise"
     REVISED_EXERCISE = "RevisedExercise"  # Targeted revision instructions after feedback
@@ -270,6 +275,7 @@ def _init_entity_type_mapping() -> None:
             EntityType.EXERCISE_REPORT: NeoLabel.EXERCISE_REPORT,
             EntityType.INTERACTION: NeoLabel.INTERACTION,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
+            EntityType.USER_ENTRY: NeoLabel.USER_ENTRY,  # ADR-054
         }
     )
 

@@ -95,6 +95,11 @@ class EntityType(StrEnum):
     JE_INPUT = "je_input"  # Raw journal entry: audio or text
     JE_OUTPUT = "je_output"  # LLM-processed transformation of a je_input
 
+    # Unified user-authored content (ADR-054) — collapses EXERCISE_SUBMISSION,
+    # JE_INPUT, JE_OUTPUT into one type. Dispatch driven by `Pipeline` field,
+    # not entity_type. Added additively; legacy values removed in final cleanup.
+    USER_ENTRY = "user_entry"
+
     # Activity (user-owned)
     TASK = "task"
     GOAL = "goal"
@@ -174,6 +179,7 @@ class EntityType(StrEnum):
         return self in {
             EntityType.EXERCISE_SUBMISSION,
             EntityType.JE_OUTPUT,
+            EntityType.USER_ENTRY,  # ADR-054: TRANSFORMS outputs + exercise submissions
             EntityType.FORM_SUBMISSION,
             EntityType.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT,
@@ -189,6 +195,7 @@ class EntityType(StrEnum):
         return self in {
             EntityType.EXERCISE_SUBMISSION,
             EntityType.JE_INPUT,
+            EntityType.USER_ENTRY,  # ADR-054: unified processable type
             EntityType.ACTIVITY_REPORT,
         }
 
@@ -245,6 +252,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.FORM_SUBMISSION: "Form Submission",
     EntityType.INTERACTION: "Interaction",
     EntityType.LIFE_PATH: "Life Path",
+    EntityType.USER_ENTRY: "User Entry",
 }
 
 _KNOWLEDGE_TYPES = frozenset({EntityType.PATH_STEP, EntityType.KU})
@@ -325,6 +333,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.FORM_SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.INTERACTION: ContentOrigin.USER_CREATED,
     EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
+    EntityType.USER_ENTRY: ContentOrigin.USER_CREATED,  # ADR-054
     # D — Reports that act on user content
     EntityType.ACTIVITY_REPORT: ContentOrigin.REPORT,
     EntityType.EXERCISE_REPORT: ContentOrigin.REPORT,
@@ -364,6 +373,9 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "interaction": EntityType.INTERACTION,
     "ia": EntityType.INTERACTION,  # UID prefix alias
     "lifepath": EntityType.LIFE_PATH,
+    # ADR-054 unified user-authored content
+    "user_entry": EntityType.USER_ENTRY,
+    "ue": EntityType.USER_ENTRY,
 }
 
 
@@ -882,6 +894,21 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
+    # ADR-054: UserEntry covers the full content-processing lifecycle —
+    # draft submission, queued/processing for pipeline work, teacher-review
+    # revision loop, terminal completed/failed/archived.
+    EntityType.USER_ENTRY: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.SUBMITTED,
+            EntityStatus.QUEUED,
+            EntityStatus.PROCESSING,
+            EntityStatus.COMPLETED,
+            EntityStatus.FAILED,
+            EntityStatus.REVISION_REQUESTED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
 }
 
 _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
@@ -905,6 +932,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.FORM_TEMPLATE: EntityStatus.DRAFT,
     EntityType.FORM_SUBMISSION: EntityStatus.COMPLETED,
     EntityType.LIFE_PATH: EntityStatus.ACTIVE,
+    EntityType.USER_ENTRY: EntityStatus.DRAFT,  # ADR-054
 }
 
 
