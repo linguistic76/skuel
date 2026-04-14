@@ -1,6 +1,6 @@
 ---
 name: base-analytics-service
-description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations/DomainIntelligenceOperations/IntelligenceOperations protocols, using GraphContextOrchestrator, or working with the 9 domain intelligence services.
+description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations/DomainIntelligenceOperations/IntelligenceOperations protocols, using GraphContextLoader, or working with the 9 domain intelligence services.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -148,7 +148,7 @@ After `super().__init__()`, these attributes are available:
 | `self.event_bus` | `EventBus \| None` | Event publishing |
 | `self.insight_store` | `InsightStore \| None` | Event-driven insight persistence |
 | `self.logger` | `Logger` | Hierarchical logger |
-| `self.orchestrator` | `GraphContextOrchestrator \| None` | Context retrieval |
+| `self.context_loader` | `GraphContextLoader \| None` | Context retrieval (set via `self._init_context_loader(...)`) |
 
 ---
 
@@ -409,7 +409,7 @@ async def get_with_context(
     self, uid: str, depth: int = 2
 ) -> Result[tuple[T, GraphContext]]:
     """Get entity with full graph neighborhood."""
-    return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+    return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
 async def get_performance_analytics(
     self, user_uid: UserUID, period_days: int = 30
@@ -426,31 +426,34 @@ async def get_domain_insights(
 
 ---
 
-## GraphContextOrchestrator
+## GraphContextLoader
 
-Each analytics service uses `GraphContextOrchestrator` for unified context retrieval:
+Each analytics service uses `GraphContextLoader` (in `core/services/intelligence/graph_context_loader.py`) for unified context retrieval. Services never import it directly — they call the `self._init_context_loader(...)` helper on `BaseAnalyticsService`, which no-ops when `graph_intel` is `None` and constructs the loader otherwise, storing it on `self.context_loader`.
 
 ```python
-from core.services.intelligence.orchestrator import GraphContextOrchestrator
-
 class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     def __init__(self, backend, graph_intelligence_service=None, ...):
         super().__init__(backend, graph_intelligence_service, ...)
 
-        # Initialize orchestrator if graph intelligence available
-        if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Task, TaskDTO](
-                service=self,
-                backend_get_method="get_task",
-                dto_class=TaskDTO,
-                model_class=Task,
-                domain=Domain.TASKS,
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get_task,
+            dto_class=TaskDTO,
+            model_class=Task,
+            domain=Domain.TASKS,
+            model_name="Task",
+        )
 
     async def get_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Task, GraphContext]]:
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
+```
+
+LP is the only special case — its backend is optional, so it guards the call:
+
+```python
+if self.backend:
+    self._init_context_loader(...)
 ```
 
 ---
@@ -547,15 +550,13 @@ class NewDomainIntelligenceService(
             insight_store=insight_store,
         )
 
-        # Initialize orchestrator
-        if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[NewDomainModel, NewDomainDTO](
-                service=self,
-                backend_get_method="get",
-                dto_class=NewDomainDTO,
-                model_class=NewDomainModel,
-                domain=Domain.NEW_DOMAIN,
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get,
+            dto_class=NewDomainDTO,
+            model_class=NewDomainModel,
+            domain=Domain.NEW_DOMAIN,
+            model_name="NewDomainModel",
+        )
 ```
 
 ### Step 2: Implement Protocol Methods
@@ -564,7 +565,7 @@ class NewDomainIntelligenceService(
     async def get_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[NewDomainModel, GraphContext]]:
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
@@ -617,7 +618,7 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 | `/core/services/base_analytics_service.py` | Base class definition |
 | `/core/services/base_ai_service.py` | AI features (separate - see base-ai-service skill) |
 | `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations + DomainIntelligenceOperations + composed IntelligenceOperations |
-| `/core/services/intelligence/orchestrator.py` | GraphContextOrchestrator |
+| `/core/services/intelligence/graph_context_loader.py` | GraphContextLoader |
 | `/core/services/{domain}/{domain}_intelligence_service.py` | Domain implementations |
 | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | Master documentation |
 
@@ -649,4 +650,4 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - File locations, imports, signatures
 - [PATTERNS.md](PATTERNS.md) - Implementation patterns with code examples
-- [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md) - IntelligenceOperations + GraphContextOrchestrator
+- [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md) - IntelligenceOperations + GraphContextLoader

@@ -179,7 +179,7 @@ class Ku:
 
 ### What It Is
 
-Complex graph queries using **GraphIntelligenceService** and **GraphContextOrchestrator**, where domain models express *intent* and infrastructure builds Cypher:
+Complex graph queries using **GraphIntelligenceService** and **GraphContextLoader**, where domain models express *intent* and infrastructure builds Cypher:
 
 ```python
 # Model expresses intent (domain logic)
@@ -225,7 +225,7 @@ Domain models **express intent**, infrastructure **builds queries**:
 | Suggest query intent | `Ku.get_suggested_query_intent()` | Returns `QueryIntent.PREREQUISITE` |
 | Build Cypher query | `graph_traversal.build_graph_context_query()` | Generates Cypher string |
 | Execute query | `GraphIntelligenceService.query_with_intent()` | Runs against Neo4j |
-| Orchestrate flow | `GraphContextOrchestrator.get_with_context()` | Combines all steps |
+| Orchestrate flow | `GraphContextLoader.get_with_context()` | Combines all steps |
 
 This separation means domain models have zero Cypher dependencies — if the persistence layer changed from Neo4j to PostgreSQL, the domain models wouldn't need to change.
 
@@ -914,7 +914,7 @@ async def test_analyze_impact(mock_graph_intelligence):
 ## Related Documentation
 
 - **Query Infrastructure**: `/adapters/persistence/neo4j/query/graph_traversal.py` (Pure Cypher query builder)
-- **Graph Intelligence**: `/core/services/intelligence/graph_context_orchestrator.py`
+- **Graph Intelligence**: `/core/services/intelligence/graph_context_loader.py`
 - **Domain Models**: `/core/models/ku/ku.py` (Unified Ku model)
 - **CLAUDE.md**: Section on "Search & Query Architecture"
 

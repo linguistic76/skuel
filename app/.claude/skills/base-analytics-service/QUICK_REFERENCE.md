@@ -9,7 +9,7 @@
 | `/core/services/base_analytics_service.py` | Base class (~608 lines) |
 | `/core/services/base_ai_service.py` | AI base class (separate skill) |
 | `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations + DomainIntelligenceOperations + composed IntelligenceOperations |
-| `/core/services/intelligence/orchestrator.py` | GraphContextOrchestrator |
+| `/core/services/intelligence/graph_context_loader.py` | GraphContextLoader |
 | `/core/services/intelligence/recommendation_engine.py` | RecommendationEngine utility |
 | `/core/services/intelligence/metrics_calculator.py` | MetricsCalculator utility |
 | `/core/services/intelligence/pattern_analyzer.py` | PatternAnalyzer utility |
@@ -56,9 +56,11 @@ from core.ports.intelligence_protocols import (
 )
 ```
 
-### Orchestrator
+### Context Loader
 ```python
-from core.services.intelligence.orchestrator import GraphContextOrchestrator
+# Wired automatically by self._init_context_loader(...) in __init__.
+# Direct import only needed for type annotations:
+from core.services.intelligence.graph_context_loader import GraphContextLoader
 ```
 
 ### Shared Utilities
@@ -212,9 +214,9 @@ async def get_domain_insights(
 | `relationships` | `UnifiedRelationshipService` | Yes | Relationships |
 | `event_bus` | `EventBus` | Yes | Event publishing |
 | `logger` | `Logger` | No | Hierarchical logger |
-| `orchestrator` | `GraphContextOrchestrator` | Yes* | Context retrieval |
+| `context_loader` | `GraphContextLoader \| None` | Yes* | Context retrieval (set via `self._init_context_loader(...)`) |
 
-*Orchestrator is created only if `graph_intelligence_service` is provided.
+*`context_loader` is created only if `graph_intelligence_service` is provided. Call `self._init_context_loader(...)` from `__init__` — it no-ops when `graph_intel` is None.
 
 ---
 

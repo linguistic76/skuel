@@ -69,7 +69,7 @@ if result.is_ok:
 
 **Dependencies:**
 - GraphIntelligenceService (REQUIRED - uses `@requires_graph_intelligence` decorator)
-- Uses GraphContextOrchestrator pattern (Phase 2 consolidation)
+- Uses GraphContextLoader (wired via `BaseAnalyticsService._init_context_loader`)
 
 ---
 
@@ -679,7 +679,7 @@ POST /api/principles/assess-alignment
 
 **Domain-Specific Attributes:**
 - `self.context_service` - CrossDomainContextService for typed context retrieval (Phase 3)
-- `self.orchestrator` - GraphContextOrchestrator for get_with_context pattern (Phase 2)
+- `self.context_loader` - GraphContextLoader for get_with_context pattern (set via `self._init_context_loader(...)`)
 
 **Logging:**
 ```python

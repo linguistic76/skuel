@@ -4,7 +4,9 @@
 
 A full analytics service with all common patterns. For large services (1000+ LOC), use mixin decomposition — see `ChoicesIntelligenceService`, `HabitsIntelligenceService`, and `PrinciplesIntelligenceService` for the established local pattern (`_core_intelligence_mixin.py`, `_alignment_intelligence_mixin.py`, `_influence_mixin.py` in the same package directory).
 
-**Shared `get_with_context()` base (April 2026):** All Activity Domain `_core_intelligence_mixin.py` files inherit from `core/services/intelligence/_CoreIntelligenceMixin`, which owns the `get_with_context()` → `self.orchestrator` delegation. Domain files only add domain-named aliases (`get_goal_with_context`, etc.). `EventsIntelligenceService` inherits directly (no domain mixin file).
+**Shared `get_with_context()` base (April 2026):** All Activity Domain `_core_intelligence_mixin.py` files inherit from `core/services/intelligence/_CoreIntelligenceMixin`, which owns the `get_with_context()` → `self.context_loader` delegation. Domain files only add domain-named aliases (`get_goal_with_context`, etc.). `EventsIntelligenceService` inherits directly (no domain mixin file).
+
+**Wiring the loader:** Services never import `GraphContextLoader` or `functools.partial` directly. They call `self._init_context_loader(...)` — a helper on `BaseAnalyticsService` that no-ops when `graph_intel` is `None`, constructs the loader otherwise, and stores it on `self.context_loader`. See `core/services/base_analytics_service.py::_init_context_loader`.
 
 ```python
 """
@@ -21,7 +23,6 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.enums import Domain
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence.orchestrator import GraphContextOrchestrator
 from core.ports import HabitsOperations
 from core.utils.result_simplified import Result
 from core.utils.errors_simplified import Errors
@@ -55,15 +56,14 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             insight_store=insight_store,
         )
 
-        # Initialize orchestrator if graph intelligence available
-        if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Habit, HabitDTO](
-                service=self,
-                backend_get_method="get",
-                dto_class=HabitDTO,
-                model_class=Habit,
-                domain=Domain.HABITS,
-            )
+        # Wire the context loader — helper no-ops when graph_intel is None
+        self._init_context_loader(
+            get_entity=self.backend.get_habit,
+            dto_class=HabitDTO,
+            model_class=Habit,
+            domain=Domain.HABITS,
+            model_name="Habit",
+        )
 
         # Domain-specific initialization
         self._streak_thresholds = {
@@ -80,11 +80,11 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Habit, Any]]:
         """Get habit with full graph neighborhood."""
-        if not self.orchestrator:
+        if not self.context_loader:
             return Result.fail(Errors.system(
-                "Orchestrator unavailable - graph intelligence not provided"
+                "Context loader unavailable - graph intelligence not provided"
             ))
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

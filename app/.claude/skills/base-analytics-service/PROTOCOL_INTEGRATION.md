@@ -1,8 +1,8 @@
-# Intelligence Protocols & GraphContextOrchestrator
+# Intelligence Protocols & GraphContextLoader
 
 ## Overview
 
-All 10 domain intelligence services use `GraphContextOrchestrator` for unified context retrieval and implement protocols enabling automatic route generation via `IntelligenceRouteFactory`.
+All 9 domain intelligence services use `GraphContextLoader` for unified context retrieval and implement protocols enabling automatic route generation via `IntelligenceRouteFactory`. The loader is wired by calling `self._init_context_loader(...)` from `BaseAnalyticsService.__init__` overrides.
 
 ---
 
@@ -101,7 +101,7 @@ async def get_with_context(
     self, uid: str, depth: int = 2
 ) -> Result[tuple[T, GraphContext]]:
     """Get entity with graph neighborhood."""
-    return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+    return await self.context_loader.get_with_context(uid=uid, depth=depth)
 ```
 
 **Returns:**
@@ -162,50 +162,52 @@ async def get_domain_insights(
 
 ---
 
-## GraphContextOrchestrator
+## GraphContextLoader
 
 ### Purpose
 
-`GraphContextOrchestrator[T, DTO]` provides unified context retrieval for all intelligence services. It handles:
+`GraphContextLoader[T]` provides unified context retrieval for all intelligence services. It handles:
 
-1. Entity fetching from backend
-2. DTO ↔ Model conversion
-3. Graph context retrieval
+1. Entity fetching via injected `get_entity` callable
+2. DTO ↔ Model conversion via injected `to_domain` callable
+3. Graph context retrieval through `graph_intel`
 4. Relationship summarization
 
 ### Location
 
 ```python
-from core.services.intelligence.orchestrator import GraphContextOrchestrator
+from core.services.intelligence.graph_context_loader import GraphContextLoader
 ```
 
 ### Initialization Pattern
 
+`BaseAnalyticsService` exposes a `_init_context_loader[M]` helper that wires the loader for you. Per-domain services call it from `__init__` — it no-ops when `graph_intel` is `None`, so no `if` guard is needed (LP additionally guards on `self.backend`).
+
 ```python
-class TasksIntelligenceService(BaseIntelligenceService[TasksOperations, Task]):
+class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
     def __init__(self, backend, graph_intelligence_service=None, ...):
         super().__init__(backend, graph_intelligence_service, ...)
 
-        # Initialize orchestrator only if graph intelligence available
-        if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Task, TaskDTO](
-                service=self,                    # The intelligence service
-                backend_get_method="get",        # Method name on backend
-                dto_class=TaskDTO,               # DTO class for conversion
-                model_class=Task,                # Domain model class
-                domain=Domain.TASKS,             # Domain enum value
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get_task,   # bound async fetch method
+            dto_class=TaskDTO,
+            model_class=Task,
+            domain=Domain.TASKS,
+            model_name="Task",
+        )
 ```
 
-### Constructor Parameters
+### Helper Parameters
 
 | Parameter | Type | Purpose |
 |-----------|------|---------|
-| `service` | `BaseIntelligenceService` | The intelligence service instance |
-| `backend_get_method` | `str` | Name of method to fetch entity |
-| `dto_class` | `type[DTO]` | DTO class for serialization |
-| `model_class` | `type[T]` | Domain model class |
+| `get_entity` | `Callable[[str], Awaitable[Result[Any]]]` | Bound backend method that fetches an entity by uid |
+| `dto_class` | `type` | DTO class used for conversion |
+| `model_class` | `type[M]` | Domain model class (PEP 695 method-generic) |
 | `domain` | `Domain` | Domain enum for relationship config |
+| `model_name` | `str` | Friendly name used in error messages |
+
+Internally the helper wraps `self._to_domain_model` with `functools.partial`, so subclasses don't need to import `partial` themselves.
 
 ### Usage
 
@@ -214,12 +216,7 @@ class TasksIntelligenceService(BaseIntelligenceService[TasksOperations, Task]):
 async def get_with_context(
     self, uid: str, depth: int = 2
 ) -> Result[tuple[Task, GraphContext]]:
-    # Orchestrator handles:
-    # 1. Fetch entity via backend.get(uid)
-    # 2. Convert DTO to model if needed
-    # 3. Get graph context with relationships
-    # 4. Return (model, context) tuple
-    return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+    return await self.context_loader.get_with_context(uid=uid, depth=depth)
 ```
 
 ### GraphContext Structure
@@ -317,7 +314,6 @@ Full example showing protocol, orchestrator, and routes:
 ```python
 # core/services/tasks/tasks_intelligence_service.py
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence.orchestrator import GraphContextOrchestrator
 from core.ports import TasksOperations, IntelligenceOperations
 from core.models.task import Task, TaskDTO
 from core.models.enums import Domain
@@ -345,15 +341,13 @@ class TasksIntelligenceService(
             insight_store=insight_store,
         )
 
-        # Initialize orchestrator
-        if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Task, TaskDTO](
-                service=self,
-                backend_get_method="get",
-                dto_class=TaskDTO,
-                model_class=Task,
-                domain=Domain.TASKS,
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get_task,
+            dto_class=TaskDTO,
+            model_class=Task,
+            domain=Domain.TASKS,
+            model_name="Task",
+        )
 
     # =========================================================================
     # THREE STANDARDIZED METHODS
@@ -363,9 +357,9 @@ class TasksIntelligenceService(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Task, GraphContext]]:
         """Get task with graph neighborhood."""
-        if not self.orchestrator:
-            return Result.fail(Errors.system("Orchestrator unavailable"))
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        if not self.context_loader:
+            return Result.fail(Errors.system("context_loader unavailable"))
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
@@ -432,12 +426,12 @@ class TasksIntelligenceService(
 
 ---
 
-## Rollout Status (January 2026)
+## Rollout Status
 
-All 10 domain intelligence services implement the protocol:
+All 9 domain intelligence services implement the protocol and use `_init_context_loader`:
 
-| Service | Protocol | Orchestrator | Routes |
-|---------|----------|--------------|--------|
+| Service | Protocol | Context Loader | Routes |
+|---------|----------|----------------|--------|
 | TasksIntelligenceService | ✅ | ✅ | ✅ |
 | GoalsIntelligenceService | ✅ | ✅ | ✅ |
 | HabitsIntelligenceService | ✅ | ✅ | ✅ |
@@ -446,8 +440,7 @@ All 10 domain intelligence services implement the protocol:
 | PrinciplesIntelligenceService | ✅ | ✅ | ✅ |
 | KuIntelligenceService | ✅ | ✅ | ✅ |
 | PsIntelligenceService | ✅ | ✅ | ✅ |
-| LpIntelligenceService | ✅ | ✅ | ✅ |
-| MocIntelligenceService | ✅ | ✅ | ✅ |
+| LpIntelligenceService | ✅ | ✅ (gated on `self.backend`) | ✅ |
 
 ---
 

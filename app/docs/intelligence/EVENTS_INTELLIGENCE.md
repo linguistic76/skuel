@@ -39,7 +39,7 @@ EventsIntelligenceService analyzes events through cross-domain impact tracking, 
 
 ## Core Methods
 
-**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via `self.orchestrator`. The Events `_CoreIntelligenceMixin` (in `core/services/events/`) extends this shared base and adds `get_event_with_context` and `analyze_event_performance`.
+**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via `self.context_loader` (set by `BaseAnalyticsService._init_context_loader`). The Events `_CoreIntelligenceMixin` (in `core/services/events/`) extends this shared base and adds `get_event_with_context` and `analyze_event_performance`.
 
 ### Method 1: get_event_with_context()
 
