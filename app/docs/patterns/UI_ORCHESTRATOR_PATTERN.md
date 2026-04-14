@@ -16,8 +16,8 @@ related_docs:
 ## Related Skills
 
 For implementation guidance, see:
-- [@ui-orchestrator](../../.claude/skills/ui-orchestrator/SKILL.md)
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+- [@ui-orchestrator](../../.claude/skills/ui-orchestrator/SKILL.md)
 
 ## Overview
 
@@ -255,5 +255,6 @@ def create_example_ui_routes(_app, rt, orchestrator):
 - **No God Objects.** Each orchestrator serves one hub/page. Do not create a single orchestrator that serves multiple unrelated pages.
 - **No Scope Leak.** A method belongs on an orchestrator only if the hub actually calls it. If it's used once and the logic lives in a different domain (e.g. a standalone `build_user_context` call), inline it or move it into a composition that owns the orchestration purpose — don't leave a single-caller pass-through hanging off the facade.
 - **Read-Model Focus, But Earn Compositions.** Thin write delegations are fine (e.g. `delete_submission_with_file(uid)`). But when a route runs a multi-service dance by hand — fetch → guard → enrich, or build-context → submit — that composition belongs on the orchestrator, not in the route. A pass-through-only orchestrator is a dependency bag, not an orchestrator.
+- **Cross-Domain Authority Checks.** Orchestrators must enforce UI-level constraints and cross-user context permissions (e.g., verifying a teacher has authority over a given student's timeline) before routing fetching requests to downstream domain services. See `docs/patterns/OWNERSHIP_VERIFICATION.md`.
 - **UI factory return type is `None`.** Orchestrator-driven UI factory functions (`create_{name}_ui_routes`) return `-> None` — not `list[Any]`. The `list[Any]` return belongs to sub-factories consumed by `DomainRouteConfig`. Returning `[]` from an orchestrator-driven factory is wrong.
 - **Service Properties for Sidebar Compatibility.** When sidebar renderers or other UI components still need raw services, expose them via `@property` accessors (e.g., `orchestrator.ku_service`) rather than breaking the component layer.

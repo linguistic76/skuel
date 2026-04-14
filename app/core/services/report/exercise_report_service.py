@@ -33,7 +33,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
     from core.ports.report_protocols import ExerciseReportBackendOperations
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
@@ -56,7 +55,6 @@ class ExerciseReportService:
         self,
         llm_caller: LLMCallerProtocol | None,
         backend: "ExerciseReportBackendOperations | None" = None,
-        submissions_backend: "SubmissionsBackend | None" = None,
         ku_interaction_service: "PsMasteryService | None" = None,
         report_mastery_service: "ReportMasteryService | None" = None,
     ) -> None:
@@ -70,7 +68,7 @@ class ExerciseReportService:
                 projection (``get_linked_ku_and_student``). Report *creation*
                 is delegated to ``submissions_backend.create_report_node`` —
                 the canonical path shared with teacher reports.
-            submissions_backend: SubmissionsBackend — required. Canonical
+             Canonical
                 report-node creator shared with TeacherReviewService so AI
                 and teacher reports go through the same Cypher.
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
@@ -80,7 +78,6 @@ class ExerciseReportService:
         """
         self.llm_caller = llm_caller
         self.backend = backend
-        self.submissions_backend = submissions_backend
         self.ku_interaction_service = ku_interaction_service
         self.report_mastery_service = report_mastery_service
         self.logger = logger
@@ -88,7 +85,7 @@ class ExerciseReportService:
         available = []
         if self.llm_caller:
             available.append("LLMCaller")
-        if self.submissions_backend:
+        if self.backend:
             available.append("Neo4j")
         if self.ku_interaction_service:
             available.append("MasteryLoop")
@@ -242,11 +239,11 @@ class ExerciseReportService:
         transitioned and no status guard runs (AI reports are not a state
         machine event the way teacher reviews are).
         """
-        if not self.submissions_backend:
+        if not self.backend:
             return Result.fail(
                 Errors.system(
-                    "submissions_backend not configured — ExerciseReportService requires "
-                    "submissions_backend at startup (fail-fast dependency)",
+                    "backend not configured — ExerciseReportService requires "
+                    "backend at startup (fail-fast dependency)",
                     operation="_persist_report_entity",
                 )
             )
@@ -260,7 +257,7 @@ class ExerciseReportService:
         )
 
         try:
-            query_result = await self.submissions_backend.create_report_node(
+            query_result = await self.backend.create_report_node(
                 {
                     "report_uid": submission.uid,
                     "report_entity_uid": report_entity_uid,

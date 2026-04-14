@@ -7,7 +7,6 @@ related_skills:
 - fasthtml
 related_docs: []
 ---
-
 # FastHTML Type Hints Pattern Guide
 **Date:** 2025-11-18
 **Status:** Active Reference
@@ -17,7 +16,6 @@ related_docs: []
 For implementation guidance, see:
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 - [@html-htmx](../../.claude/skills/html-htmx/SKILL.md)
-
 
 ## Core Principle
 

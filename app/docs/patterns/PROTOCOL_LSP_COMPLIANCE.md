@@ -6,7 +6,6 @@ related_skills:
 - python
 related_docs: []
 ---
-
 # Protocol LSP Compliance Pattern
 **Date**: 2025-11-07
 **Status**: ✅ Implemented
@@ -18,7 +17,6 @@ protocol has been removed. See `/docs/domains/moc.md` for current MOC architectu
 
 For implementation guidance, see:
 - [@python](../../.claude/skills/python/SKILL.md)
-
 
 ## Core Principle
 

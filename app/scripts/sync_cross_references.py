@@ -203,17 +203,43 @@ def sync_doc_cross_references(file_path: Path, dry_run: bool = True) -> DocUpdat
             message="Has Quick Start section (manual)",
         )
 
+    skills_section = generate_related_skills_section(related_skills)
+
     # Check if Related Skills section already exists
     if has_related_skills_section(body):
-        # TODO(deferred): Could update existing section in future
-        return DocUpdate(
-            file_path=file_path,
-            original_content=original_content,
-            new_content=original_content,
-            has_changes=False,
-            status="skipped",
-            message="Already has Related Skills section",
-        )
+        # Update existing section
+        lines = body.split("\n")
+        start_idx = -1
+        end_idx = -1
+
+        for i, line in enumerate(lines):
+            if line.startswith("## Related Skills"):
+                start_idx = i
+            elif start_idx != -1 and line.startswith("## "):
+                end_idx = i
+                break
+
+        if start_idx != -1:
+            if end_idx == -1:
+                end_idx = len(lines)
+
+            # Rebuild body by replacing the section
+            prefix = "\n".join(lines[:start_idx])
+            suffix = "\n".join(lines[end_idx:])
+            new_body = f"{prefix}\n{skills_section}\n{suffix}".strip() + "\n"
+            new_content = f"---\n{frontmatter_text}\n---\n{new_body}"
+
+            if not dry_run:
+                file_path.write_text(new_content)
+
+            return DocUpdate(
+                file_path=file_path,
+                original_content=original_content,
+                new_content=new_content,
+                has_changes=True,
+                status="updated",
+                message=f"Updated Related Skills section ({len(related_skills)} skills)",
+            )
 
     # Generate Related Skills section
     skills_section = generate_related_skills_section(related_skills)

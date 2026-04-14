@@ -9,7 +9,6 @@ related_docs:
 - /docs/decisions/ADR-025-service-consolidation-patterns.md
 - /docs/patterns/DOMAINCONFIG_MIGRATION_COMPLETE.md
 ---
-
 # Configuration-Driven Service Architecture
 
 How SKUEL services use DomainConfig for unified, type-safe configuration.
@@ -23,7 +22,6 @@ How SKUEL services use DomainConfig for unified, type-safe configuration.
 
 For implementation guidance, see:
 - [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
-
 
 ## Core Principle
 

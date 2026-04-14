@@ -18,7 +18,6 @@ related_docs: []
 For implementation guidance, see:
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 
-
 ## Overview
 
 SKUEL uses **route factories** to eliminate boilerplate in API route definitions. Instead of writing 10+ nearly-identical routes per domain, factories generate routes from configuration.

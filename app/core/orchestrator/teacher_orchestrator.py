@@ -80,6 +80,10 @@ class TeacherOrchestrator:
         self, teacher_uid: str, student_uid: str
     ) -> Result[list[Any]]:
         """Get all submissions from student shared with teacher."""
+        auth_check = await self._review.verify_teacher_authority(teacher_uid, student_uid)
+        if auth_check.is_error:
+            return Result.fail(auth_check)
+
         return await self._review.get_student_submissions(
             teacher_uid=teacher_uid, student_uid=student_uid
         )
@@ -138,12 +142,22 @@ class TeacherOrchestrator:
     # KU Detail (optional — degrades when admin_stats is None)
     # ------------------------------------------------------------------
 
-    async def get_student_ku_detail(self, student_uid: str) -> dict[str, Any] | None:
+    async def get_student_ku_detail(
+        self, teacher_uid: str, student_uid: str
+    ) -> dict[str, Any] | None:
         """Fetch KU detail for a student, returning None if unavailable.
 
         Absorbs the ``_fetch_ku_detail`` helper that was previously in
-        ``teaching_ui.py``.
+        ``teaching_ui.py``. Enforces explicit ownership verification.
         """
+        auth_check = await self._review.verify_teacher_authority(teacher_uid, student_uid)
+        if auth_check.is_error:
+            logger.warning(
+                f"Unauthorized access attempt to KU detail "
+                f"for student {student_uid} by teacher {teacher_uid}"
+            )
+            return None
+
         if not self._admin_stats:
             return None
         result = await self._admin_stats.get_user_ku_detail(student_uid)

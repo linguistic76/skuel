@@ -8,7 +8,6 @@ related_skills:
 related_docs:
 - /docs/decisions/ADR-025-service-consolidation-patterns.md
 ---
-
 # SearchService Pattern for Activity Domains
 
 *Last updated: 2026-01-06*
@@ -17,7 +16,6 @@ related_docs:
 For implementation guidance, see:
 - [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
 - [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
-
 
 ## Overview
 

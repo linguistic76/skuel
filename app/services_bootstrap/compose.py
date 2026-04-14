@@ -705,8 +705,7 @@ async def compose_services(
         # when llm_caller is None (CORE tier).
         exercise_report_service = ExerciseReportService(
             llm_caller=llm_caller,
-            backend=exercise_report_backend,  # mastery-loop reads (get_linked_ku_and_student)
-            submissions_backend=submissions_backend,  # canonical report-node creation
+            backend=exercise_report_backend,  # mastery-loop reads + canonical report-node creation
             ku_interaction_service=learning_services["ps"].mastery,  # closes mastery loop
             report_mastery_service=report_mastery_service,
         )
@@ -826,6 +825,7 @@ async def compose_services(
 
         teacher_review_service = TeacherReviewService(
             submissions_backend=submissions_backend,
+            report_backend=exercise_report_backend,
             exercise_backend=exercise_backend,
             group_backend=group_backend,
             ku_interaction_service=learning_services["ps"].mastery,

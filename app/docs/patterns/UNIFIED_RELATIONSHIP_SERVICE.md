@@ -11,7 +11,6 @@ related_docs:
 - /docs/decisions/ADR-026-unified-relationship-registry.md
 - /docs/decisions/ADR-029-graphnative-service-removal.md
 ---
-
 # UnifiedRelationshipService Pattern
 **Date:** December 3, 2025 (Updated February 2026)
 **Type:** Architectural Pattern
@@ -22,7 +21,6 @@ related_docs:
 For implementation guidance, see:
 - [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
-
 
 ## Executive Summary
 

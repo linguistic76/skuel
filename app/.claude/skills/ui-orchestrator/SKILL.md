@@ -119,6 +119,7 @@ class {Name}Orchestrator:
 - Never guard required services with `if not self._service` — they are always present
 - **Typed returns, not `Result[Any]`.** Every method surfaces the typed model its delegated service already returns (`Result[Task]`, `Result[list[ExerciseReport]]`, `Result[MyView]`). `Result[Any]` and `**kwargs: Any` are forbidden at this boundary — they throw away type information the service layer spent effort producing. Declare a local `TypedDict` for composite views rather than falling back to `dict[str, Any]`.
 - **Proxy methods are thin delegations; compositions absorb real multi-step logic.** If you find a route handler running two or more orchestrator calls in sequence to act on related data (fetch → guard → enrich), that composition belongs on the orchestrator, not in the route. A pass-through-only orchestrator is a dependency bag, not an orchestrator.
+- **Cross-Domain Authority Checks.** Orchestrators must enforce UI-level constraints and cross-user context permissions (e.g., verifying a teacher has authority over a given student's timeline) before routing fetching requests to downstream domain services.
 - **No scope leak.** A method belongs on an orchestrator only if the hub actually calls it. Single-caller pass-throughs for logic that lives in a different domain should either be inlined at the call site or folded into a composition that owns the orchestration purpose.
 - Only add composite methods when a hub page actually calls them — don't build aggregation methods speculatively for pages that don't exist yet
 

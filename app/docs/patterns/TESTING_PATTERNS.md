@@ -10,7 +10,6 @@ related_docs:
 - /docs/patterns/UNIFIED_INGESTION_GUIDE.md
 - /docs/patterns/linter_rules.md
 ---
-
 # Testing Patterns
 
 *Last updated: 2026-03-19*
@@ -24,7 +23,6 @@ This document captures critical patterns for writing integration tests in SKUEL.
 
 For implementation guidance, see:
 - [@pytest](../../.claude/skills/pytest/SKILL.md)
-
 
 ## Pattern 1: Cascade Deletion for Entity Cleanup
 

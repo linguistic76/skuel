@@ -119,9 +119,7 @@ async def test_get_journal_for_download_not_found_input_error(
     orchestrator_full: JournalOrchestrator,
     mock_journal_input: MagicMock,
 ) -> None:
-    mock_journal_input.get_je_input.return_value = Result.fail(
-        Errors.database("read", "boom")
-    )
+    mock_journal_input.get_je_input.return_value = Result.fail(Errors.database("read", "boom"))
 
     result = await orchestrator_full.get_journal_for_download("ji_1", "user-1")
 

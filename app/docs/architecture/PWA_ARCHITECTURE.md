@@ -7,10 +7,14 @@ tags: [pwa, service-worker, offline, mobile]
 related_skills: [fasthtml]
 related_adrs: [ADR-050]
 ---
-
 # PWA Architecture
 
 **ADR:** [ADR-050: PWA Mobile Strategy](/docs/decisions/ADR-050-pwa-mobile-strategy.md)
+## Related Skills
+
+For implementation guidance, see:
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+
 
 ## Overview
 

@@ -40,6 +40,7 @@ from core.ports.query_types import (
     SubmissionForExercise,
     TeacherGroupStats,
 )
+from core.ports.report_protocols import ExerciseReportBackendOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -61,6 +62,7 @@ class TeacherReviewService:
     def __init__(
         self,
         submissions_backend: "SubmissionsBackend",
+        report_backend: "ExerciseReportBackendOperations",
         exercise_backend: "ExerciseBackend",
         group_backend: "GroupBackend",
         ku_interaction_service: "PsMasteryService",
@@ -79,6 +81,7 @@ class TeacherReviewService:
             event_bus: Event bus for publishing review events
         """
         self.submissions_backend = submissions_backend
+        self.report_backend = report_backend
         self.exercise_backend = exercise_backend
         self.group_backend = group_backend
         self.ku_interaction_service = ku_interaction_service
@@ -162,7 +165,7 @@ class TeacherReviewService:
         now = datetime.now().isoformat()
 
         allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
-        result = await self.submissions_backend.create_report_node(
+        result = await self.report_backend.create_report_node(
             {
                 "report_uid": report_uid,
                 "report_entity_uid": report_entity_uid,
@@ -247,7 +250,7 @@ class TeacherReviewService:
         now = datetime.now().isoformat()
 
         allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
-        result = await self.submissions_backend.create_report_node(
+        result = await self.report_backend.create_report_node(
             {
                 "report_uid": report_uid,
                 "report_entity_uid": report_entity_uid,
@@ -367,7 +370,7 @@ class TeacherReviewService:
         re_props = to_neo4j_node(re_entity)
 
         allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
-        result = await self.submissions_backend.create_report_and_revised_exercise(
+        result = await self.report_backend.create_report_and_revised_exercise(
             {
                 # Phase 1 params (ExerciseReport)
                 "report_uid": submission_uid,
@@ -878,6 +881,26 @@ class TeacherReviewService:
             return Result.fail(
                 Errors.not_found(
                     f"Teacher {teacher_uid} does not have review access to submission {report_uid}"
+                )
+            )
+
+        return Result.ok(True)
+
+    async def verify_teacher_authority(
+        self,
+        teacher_uid: str,
+        student_uid: str,
+    ) -> Result[bool]:
+        """Verify the teacher shares an active group with the student."""
+        result = await self.submissions_backend.verify_teacher_authority(teacher_uid, student_uid)
+        if result.is_error:
+            return Result.fail(result)
+
+        if not result.value:
+            return Result.fail(
+                Errors.forbidden(
+                    action="verify_teacher_authority",
+                    reason=f"Teacher {teacher_uid} does not have authority over student {student_uid}"
                 )
             )
 

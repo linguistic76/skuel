@@ -16,7 +16,6 @@ related_docs: []
 For implementation guidance, see:
 - [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
 
-
 ## Step 1: Copy the Goals Example
 
 ```bash

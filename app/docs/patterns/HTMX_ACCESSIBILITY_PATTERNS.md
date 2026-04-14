@@ -12,6 +12,12 @@ related_docs: []
 **WCAG Level:** AA
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@accessibility-guide](../../.claude/skills/accessibility-guide/SKILL.md)
+- [@html-htmx](../../.claude/skills/html-htmx/SKILL.md)
+
 
 ## Overview
 

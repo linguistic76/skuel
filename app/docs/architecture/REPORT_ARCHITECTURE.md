@@ -18,7 +18,6 @@ related:
 related_skills:
 - learning-loop
 ---
-
 # Report Architecture
 
 > "The student submits, the system responds, the teacher refines."
@@ -31,6 +30,11 @@ SKUEL's report system is a unified response infrastructure covering two distinct
 Both paths produce report entities. The `EntityType` and `ProcessorType` fields discriminate them.
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
+
 
 ## The EntityTypes
 

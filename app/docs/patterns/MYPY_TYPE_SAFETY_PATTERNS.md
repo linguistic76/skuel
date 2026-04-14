@@ -10,7 +10,6 @@ related_docs:
 - /docs/patterns/protocol_architecture.md
 - /docs/patterns/ROUTE_FACTORIES.md
 ---
-
 # MyPy Type Safety Patterns - Systematic Error Reduction
 
 **Last Updated:** March 26, 2026
@@ -22,9 +21,8 @@ This guide documents proven patterns for systematically reducing mypy errors by 
 
 ## Related Skills
 
-For implementation guidance:
-- [@python](../../.claude/skills/python/SKILL.md) - Protocol patterns and type hints
-- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md) - Route patterns
+For implementation guidance, see:
+- [@python](../../.claude/skills/python/SKILL.md)
 
 ## The Five Root Causes
 

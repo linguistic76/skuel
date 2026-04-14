@@ -20,10 +20,16 @@ EXERCISE_UID = "ex_exercise_001"
 GROUP_UID = "group_class_001"
 
 
+def _make_report_backend():
+    backend = MagicMock()
+    backend.create_report_node = AsyncMock(return_value=Result.ok([]))
+    backend.create_report_and_revised_exercise = AsyncMock(return_value=Result.ok([]))
+    return backend
+
+
 def _make_submissions_backend():
     backend = MagicMock()
     backend.get_review_queue = AsyncMock(return_value=Result.ok([]))
-    backend.create_report_node = AsyncMock(return_value=Result.ok([]))
     backend.approve_and_get_linked_kus = AsyncMock(return_value=Result.ok([]))
     backend.get_submissions_for_exercise_review = AsyncMock(return_value=Result.ok([]))
     backend.get_students_summary = AsyncMock(return_value=Result.ok([]))
@@ -61,6 +67,7 @@ def _make_report_mastery_service():
 
 def _make_service(
     submissions_backend=None,
+    report_backend=None,
     exercise_backend=None,
     group_backend=None,
     ku_interaction_service=None,
@@ -69,6 +76,7 @@ def _make_service(
 ):
     return TeacherReviewService(
         submissions_backend=submissions_backend or _make_submissions_backend(),
+        report_backend=report_backend or _make_report_backend(),
         exercise_backend=exercise_backend or _make_exercise_backend(),
         group_backend=group_backend or _make_group_backend(),
         ku_interaction_service=ku_interaction_service or MagicMock(),
@@ -137,8 +145,9 @@ class TestSubmitReport:
     @pytest.mark.asyncio
     async def test_success(self):
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.ok(
+        report_backend.create_report_node.return_value = Result.ok(
             [
                 {
                     "uid": SUBMISSION_UID,
@@ -148,7 +157,7 @@ class TestSubmitReport:
                 }
             ]
         )
-        service = _make_service(submissions_backend=backend)
+        service = _make_service(submissions_backend=backend, report_backend=report_backend)
 
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "Great work!")
 
@@ -173,9 +182,10 @@ class TestSubmitReport:
     async def test_main_query_db_error(self):
         db_error = Errors.database("execute_query", "write failure")
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.fail(db_error)
-        service = _make_service(submissions_backend=backend)
+        report_backend.create_report_node.return_value = Result.fail(db_error)
+        service = _make_service(submissions_backend=backend, report_backend=report_backend)
 
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
 
@@ -186,9 +196,10 @@ class TestSubmitReport:
     async def test_empty_records_returns_invalid_transition(self):
         """Empty results after access check = status guard rejected the transition."""
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.ok([])
-        service = _make_service(submissions_backend=backend)
+        report_backend.create_report_node.return_value = Result.ok([])
+        service = _make_service(submissions_backend=backend, report_backend=report_backend)
 
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
 
@@ -198,8 +209,9 @@ class TestSubmitReport:
     @pytest.mark.asyncio
     async def test_publishes_report_submitted_event(self):
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.ok(
+        report_backend.create_report_node.return_value = Result.ok(
             [
                 {
                     "uid": SUBMISSION_UID,
@@ -210,7 +222,9 @@ class TestSubmitReport:
             ]
         )
         event_bus = _make_event_bus()
-        service = _make_service(submissions_backend=backend, event_bus=event_bus)
+        service = _make_service(
+            submissions_backend=backend, report_backend=report_backend, event_bus=event_bus
+        )
 
         await service.submit_report(SUBMISSION_UID, TEACHER_UID, "Good job")
 
@@ -224,8 +238,9 @@ class TestSubmitReport:
     @pytest.mark.asyncio
     async def test_null_student_uid_defaults_to_empty(self):
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.ok(
+        report_backend.create_report_node.return_value = Result.ok(
             [
                 {
                     "uid": SUBMISSION_UID,
@@ -236,7 +251,9 @@ class TestSubmitReport:
             ]
         )
         event_bus = _make_event_bus()
-        service = _make_service(submissions_backend=backend, event_bus=event_bus)
+        service = _make_service(
+            submissions_backend=backend, report_backend=report_backend, event_bus=event_bus
+        )
 
         await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
 
@@ -253,8 +270,9 @@ class TestRequestRevision:
     @pytest.mark.asyncio
     async def test_success(self):
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.ok(
+        report_backend.create_report_node.return_value = Result.ok(
             [
                 {
                     "uid": SUBMISSION_UID,
@@ -264,7 +282,7 @@ class TestRequestRevision:
                 }
             ]
         )
-        service = _make_service(submissions_backend=backend)
+        service = _make_service(submissions_backend=backend, report_backend=report_backend)
 
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "Fix section 2")
 
@@ -288,9 +306,10 @@ class TestRequestRevision:
     async def test_main_query_db_error(self):
         db_error = Errors.database("execute_query", "timeout")
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.fail(db_error)
-        service = _make_service(submissions_backend=backend)
+        report_backend.create_report_node.return_value = Result.fail(db_error)
+        service = _make_service(submissions_backend=backend, report_backend=report_backend)
 
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
 
@@ -301,9 +320,10 @@ class TestRequestRevision:
     async def test_empty_records_returns_invalid_transition(self):
         """Empty results after access check = status guard rejected the transition."""
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.ok([])
-        service = _make_service(submissions_backend=backend)
+        report_backend.create_report_node.return_value = Result.ok([])
+        service = _make_service(submissions_backend=backend, report_backend=report_backend)
 
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
 
@@ -313,8 +333,9 @@ class TestRequestRevision:
     @pytest.mark.asyncio
     async def test_publishes_revision_requested_event(self):
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.ok(
+        report_backend.create_report_node.return_value = Result.ok(
             [
                 {
                     "uid": SUBMISSION_UID,
@@ -325,7 +346,9 @@ class TestRequestRevision:
             ]
         )
         event_bus = _make_event_bus()
-        service = _make_service(submissions_backend=backend, event_bus=event_bus)
+        service = _make_service(
+            submissions_backend=backend, report_backend=report_backend, event_bus=event_bus
+        )
 
         await service.request_revision(SUBMISSION_UID, TEACHER_UID, "Fix section 2")
 
@@ -338,8 +361,9 @@ class TestRequestRevision:
     @pytest.mark.asyncio
     async def test_null_student_uid_defaults_to_empty(self):
         backend = _make_submissions_backend()
+        report_backend = _make_report_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
-        backend.create_report_node.return_value = Result.ok(
+        report_backend.create_report_node.return_value = Result.ok(
             [
                 {
                     "uid": SUBMISSION_UID,
@@ -350,7 +374,9 @@ class TestRequestRevision:
             ]
         )
         event_bus = _make_event_bus()
-        service = _make_service(submissions_backend=backend, event_bus=event_bus)
+        service = _make_service(
+            submissions_backend=backend, report_backend=report_backend, event_bus=event_bus
+        )
 
         await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
 

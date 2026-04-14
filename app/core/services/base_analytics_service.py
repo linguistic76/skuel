@@ -215,9 +215,7 @@ class BaseAnalyticsService(Generic[B, T]):
             ValueError: If graph_intel is not available
         """
         if not self.graph_intel:
-            raise ValueError(
-                f"{self.__class__.__name__}.{operation}() requires graph_intel"
-            )
+            raise ValueError(f"{self.__class__.__name__}.{operation}() requires graph_intel")
 
     def _require_relationship_service(self, operation: str) -> None:
         """

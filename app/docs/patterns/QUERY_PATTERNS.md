@@ -18,7 +18,6 @@ This document describes SKUEL's query architecture patterns and best practices.
 For implementation guidance, see:
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
-
 ## Three-Tier Query Architecture
 
 SKUEL uses a layered query architecture with clear separation of concerns:

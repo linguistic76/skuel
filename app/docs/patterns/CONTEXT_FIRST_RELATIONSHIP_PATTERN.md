@@ -9,7 +9,6 @@ related_docs:
 - /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
 ---
-
 # Context-First Relationship Pattern
 
 **Version:** 2.0.0
@@ -22,7 +21,6 @@ related_docs:
 For implementation guidance, see:
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 - [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
-
 
 ## Executive Summary
 

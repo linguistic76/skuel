@@ -7,7 +7,6 @@ related_skills:
 - ui-error-handling
 related_docs: []
 ---
-
 # Return Type Error Propagation Pattern
 **Date**: 2025-12-05 (Updated)
 **Status**: ✅ Implemented
@@ -16,7 +15,6 @@ related_docs: []
 For implementation guidance, see:
 - [@result-pattern](../../.claude/skills/result-pattern/SKILL.md)
 - [@ui-error-handling](../../.claude/skills/ui-error-handling/SKILL.md)
-
 
 ## Core Principle
 

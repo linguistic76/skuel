@@ -336,6 +336,23 @@ Every Activity Domain facade satisfies this automatically via `BaseServiceInterf
 
 This is the *only* acceptable `Result[Any]` in a protocol: `Result[T]` is invariant, each facade returns a different concrete `T`, and callers only branch on `.is_error`. See `docs/patterns/ANY_USAGE_POLICY.md` Phase 4.
 
+### Orchestrator Explicit Ownership Verification
+
+UI Orchestrators that fetch restricted data on behalf of a privileged user (e.g., a teacher fetching a student's submission history) MUST actively verify that the privileged user has the authority to view that specific entity.
+Orchestrators enforce this explicitly before delegating to backend or service queries.
+
+**Example: Teacher Orchestrator Security Gate**
+```python
+async def get_student_ku_detail(self, teacher_uid: str, student_uid: str):
+    # 1. Active Security Check (throws 403 on failure)
+    auth_check = await self._review.verify_teacher_authority(teacher_uid, student_uid)
+    if auth_check.is_error:
+         return None # Or gracefully degrade depending on the specific UI intent
+
+    # 2. Safely proceed with querying protected context
+    ...
+```
+
 ### Cross-Domain Services (UnifiedSharingService)
 
 `UnifiedSharingService` is entity-agnostic, backed by `SharingBackend(UniversalNeo4jBackend[Entity])`.

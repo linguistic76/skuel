@@ -6,13 +6,11 @@ related_skills:
 - python
 related_docs: []
 ---
-
 # Code Quality Enforcement - Linter Rules
 ## Related Skills
 
 For implementation guidance, see:
 - [@python](../../.claude/skills/python/SKILL.md)
-
 
 ## Core Principle: "Automated enforcement prevents pattern violations"
 

@@ -559,5 +559,76 @@ class TestPrincipleEmbeddingEvents:
         assert "expand knowledge and skills" in event.embedding_text
 
 
-# TODO(blocked:test-infra): Add end-to-end test with real Neo4j
-# TODO(blocked:test-infra): Add performance benchmarking test
+class TestEndToEndEmbeddingIntegration:
+    """End-to-end tests verifying the full flow from creation to Neo4j storage."""
+
+    @pytest.mark.asyncio
+    async def test_end_to_end_neo4j_embedding_storage(
+        self, tasks_service, event_bus, embeddings_service, neo4j_driver, user_uid
+    ):
+        """
+        GIVEN: Real Neo4j database and mocked HuggingFace service
+        WHEN: Creating an entity and running background worker
+        THEN: Embedding vector is physically stored against the node in Neo4j
+        """
+        from core.models.task.task_request import TaskCreateRequest
+        from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+
+        # 1. Mock external embedding API (we want to test DB storage, not external HTTP calls)
+        mock_embedding = [0.123] * 1024
+        embeddings_service.create_batch_embeddings = AsyncMock(
+            return_value=Mock(is_ok=True, is_error=False, value=[mock_embedding])
+        )
+        mock_config = Mock()
+        mock_config.genai.embedding_version = "v1"
+
+        # 2. Give the embeddings_service a real backend if it doesn't have one
+        from adapters.persistence.neo4j.backends.embeddings_backend import Neo4jEmbeddingsBackend
+        from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+        executor = Neo4jQueryExecutor(neo4j_driver)
+        embeddings_service.backend = Neo4jEmbeddingsBackend(executor)
+
+        # 3. Create background worker
+        worker = EmbeddingBackgroundWorker(
+            event_bus=event_bus,
+            embeddings_service=embeddings_service,
+            config=mock_config,
+            batch_size=5,
+            batch_interval_seconds=1,
+        )
+
+        worker_task = asyncio.create_task(worker.start())
+        await asyncio.sleep(0.2)  # Let worker register
+
+        # 4. Create an entity (triggers event internally)
+        request = TaskCreateRequest(
+            title="End to End Test Task", description="Verify Neo4j embedding storage"
+        )
+        result = await tasks_service.create_task(request, user_uid)
+        assert result.is_ok
+        task_uid = result.value.uid
+
+        # Wait for worker to process batch and store in Neo4j
+        await asyncio.sleep(2.0)
+
+        # 5. Verify Neo4j Graph directly
+        query_result = await executor.execute(
+            query="MATCH (n:Task {uid: $uid}) RETURN n.embedding_version AS version, n.embedding AS embedding",
+            params={"uid": task_uid},
+            processor=lambda records: records[0] if records else None,
+            operation="verify_embedding",
+        )
+        assert query_result.is_ok
+        record = query_result.value
+
+        assert record is not None, "Task node NOT FOUND in Neo4j"
+        assert record["version"] == "v1", "Embedding version not set correctly"
+        assert record["embedding"] is not None, "Embedding vector missing in Neo4j"
+        assert len(record["embedding"]) == 1024, "Embedding vector length mismatch"
+        assert record["embedding"][0] == 0.123, "Embedding vector value mismatch"
+
+        # Cleanup
+        worker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await worker_task

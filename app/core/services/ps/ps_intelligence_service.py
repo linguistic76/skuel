@@ -40,6 +40,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.ports import BackendOperations
+    from core.services.user.unified_user_context import UserContext
 
 logger = get_logger(__name__)
 
@@ -551,4 +552,121 @@ class PsIntelligenceService(
             """,
             params={"ps_uid": ps_uid},
             operation="has_practice_opportunities",
+        )
+
+    # ========================================================================
+    # USER SUBSTANCE & CONTEXTUAL EVALUATION (Migrated Jan 2026)
+    # ========================================================================
+
+    async def calculate_user_substance(
+        self, ps_uid: str, user_context: UserContext
+    ) -> Result[dict[str, Any]]:
+        """
+        Calculate how much a user has applied the knowledge taught by this PathStep.
+
+        PathSteps are curriculum entities; their "substance" is derived by analyzing
+        the user's application of the underlying atomic Knowledge Units (via USES_KU).
+        """
+        executor_result = self._require_executor()
+        if executor_result.is_error:
+            return Result.fail(executor_result.error)
+
+        def _extract_ku_uids(records: list[dict]) -> list[str]:
+            return [r["ku_uid"] for r in records if r.get("ku_uid")]
+
+        # 1. Find all KUs taught by this PathStep
+        ku_uids_result = await executor_result.value.execute(
+            query="""
+                MATCH (:Entity {uid: $ps_uid})-[:USES_KU]->(ku:Entity {entity_type: 'ku'})
+                RETURN ku.uid AS ku_uid
+            """,
+            params={"ps_uid": ps_uid},
+            processor=_extract_ku_uids,
+            operation="calculate_user_substance",
+        )
+
+        if ku_uids_result.is_error:
+            return Result.fail(ku_uids_result.error)
+
+        ku_uids = ku_uids_result.value
+
+        # 2. Evaluate UserContext across all found KUs
+        total_substance = 0.0
+        total_mastery = 0.0
+        ku_details = []
+
+        for ku_uid in ku_uids:
+            # Replicate Knowledge Substance Philosophy weighting for each underlying KU
+            task_uid_count = sum(
+                1 for kus in user_context.task_knowledge_applied.values() if ku_uid in kus
+            )
+            habit_uid_count = sum(
+                1 for kus in user_context.habit_knowledge_applied.values() if ku_uid in kus
+            )
+            event_uid_count = sum(
+                1 for kus in user_context.event_knowledge_applied.values() if ku_uid in kus
+            )
+            choice_uid_count = sum(
+                1 for kus in user_context.choice_knowledge_informed.values() if ku_uid in kus
+            )
+            principle_uid_count = sum(
+                1 for kus in user_context.principle_knowledge_grounded.values() if ku_uid in kus
+            )
+            journal_count = 0  # not yet built in UserContext MEGA_QUERY
+
+            task_score = min(0.25, task_uid_count * 0.05)
+            habit_score = min(0.30, habit_uid_count * 0.10)
+            event_score = min(0.25, event_uid_count * 0.05)
+            choice_score = min(0.15, choice_uid_count * 0.07)
+            principle_score = min(0.15, principle_uid_count * 0.07)
+            journal_score = min(0.20, journal_count * 0.07)
+
+            substance_score = min(
+                1.0,
+                task_score
+                + habit_score
+                + event_score
+                + choice_score
+                + principle_score
+                + journal_score,
+            )
+            mastery_score = user_context.knowledge_mastery.get(ku_uid, 0.0)
+
+            total_substance += substance_score
+            total_mastery += mastery_score
+            ku_details.append(
+                {
+                    "ku_uid": ku_uid,
+                    "substance_score": round(substance_score, 3),
+                    "mastery_score": round(mastery_score, 3),
+                    "is_ready_to_learn": ku_uid
+                    in getattr(user_context, "ready_to_learn_uids", set()),
+                }
+            )
+
+        avg_substance = total_substance / len(ku_uids) if ku_uids else 0.0
+        avg_mastery = total_mastery / len(ku_uids) if ku_uids else 0.0
+
+        is_ready = bool(ku_uids and all(ku["is_ready_to_learn"] for ku in ku_details))
+
+        if avg_substance >= 0.7:
+            status = "Deeply integrated in your lifestyle."
+        elif avg_substance >= 0.4:
+            status = "Actively applying these concepts."
+        elif avg_substance > 0:
+            status = "Starting to practice this material."
+        else:
+            status = "Theoretical only — apply this in practice."
+
+        return Result.ok(
+            {
+                "ps_uid": ps_uid,
+                "user_uid": user_context.user_uid,
+                "overall_substance_score": round(avg_substance, 3),
+                "overall_mastery_score": round(avg_mastery, 3),
+                "is_ready_to_learn": is_ready,
+                "taught_kus_count": len(ku_uids),
+                "underlying_kus": ku_details,
+                "status_message": status,
+            }
         )

@@ -17,7 +17,6 @@ related_docs: []
 For implementation guidance, see:
 - [@pytest](../../.claude/skills/pytest/SKILL.md)
 
-
 ## Overview
 
 SKUEL's content sharing system enables users to share entities with specific users (teachers, peers, mentors) or with entire groups. Built on a three-level visibility model with Neo4j relationship-based access control.

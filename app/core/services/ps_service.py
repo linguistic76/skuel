@@ -1037,18 +1037,20 @@ class PsService:
     # ============================================================================
 
     async def get_user_step_context(
-        self, ku_uid: str, _user_context: UserContext
+        self, ps_uid: str, user_context: UserContext
     ) -> Result[dict[str, Any]]:
         """Get personalized path step context for a user.
 
-        TODO (deferred): Migrate calculate_user_substance to PsIntelligenceService.
+        Migrated to PsIntelligenceService for integrated substance and mastery calculation.
         """
-        return Result.fail(
-            Errors.system(
-                message="User substance calculation not yet migrated to PsIntelligenceService",
-                operation="get_user_step_context",
+        if getattr(self, "intelligence", None) is None:
+            return Result.fail(
+                Errors.system(
+                    message="PsIntelligenceService not available to calculate step context",
+                    operation="get_user_step_context",
+                )
             )
-        )
+        return await self.intelligence.calculate_user_substance(ps_uid, user_context)
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)

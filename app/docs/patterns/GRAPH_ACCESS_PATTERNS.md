@@ -7,7 +7,6 @@ related_skills:
 - neo4j-cypher-patterns
 related_docs: []
 ---
-
 # Graph Access Patterns Guide
 
 **Version**: 2.0
@@ -20,7 +19,6 @@ related_docs: []
 For implementation guidance, see:
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 - [@pytest](../../.claude/skills/pytest/SKILL.md)
-
 
 ## Overview
 

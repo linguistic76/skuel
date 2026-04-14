@@ -9,7 +9,6 @@ related_docs:
 - /docs/patterns/three_tier_type_system.md
 - /docs/decisions/ADR-035-tier-selection-guidelines.md
 ---
-
 # Domain Patterns Catalog
 
 *Last updated: 2026-01-29*
@@ -18,7 +17,6 @@ related_docs:
 For implementation guidance, see:
 - [@pydantic](../../.claude/skills/pydantic/SKILL.md)
 - [@python](../../.claude/skills/python/SKILL.md)
-
 
 ## Overview
 

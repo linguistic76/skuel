@@ -340,7 +340,7 @@ def create_teaching_ui_routes(
             user_uid, uid
         )
 
-        ku_detail = await orchestrator.get_student_ku_detail(uid)
+        ku_detail = await orchestrator.get_student_ku_detail(teacher_uid=user_uid, student_uid=uid)
         section_content: Any = render_student_detail_sections(
             pending=pending,
             revision_requested=revision_requested,
@@ -552,8 +552,8 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def student_ku_preview(request: Request, uid: str, current_user: Any = None) -> Any:
         """HTMX fragment: top 3 KU progress items for student hub preview."""
-        require_authenticated_user(request)
-        ku_detail = await orchestrator.get_student_ku_detail(uid)
+        user_uid = require_authenticated_user(request)
+        ku_detail = await orchestrator.get_student_ku_detail(teacher_uid=user_uid, student_uid=uid)
         if not ku_detail:
             return HubPreviewEmpty("KU progress")
 

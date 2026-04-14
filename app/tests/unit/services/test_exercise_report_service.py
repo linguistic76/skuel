@@ -1,6 +1,6 @@
 """Tests for ExerciseReportService (AI report generation path).
 
-Mirrors test_teacher_review_service.py: mocks SubmissionsBackend.create_report_node
+Mirrors test_teacher_review_service.py: mocks ExerciseReportBackendOperations.create_report_node
 and asserts the parameters passed. The SHARES_WITH + OWNS + REPORT_FOR edges are
 created inside the Cypher of create_report_node itself (covered by the teacher-path
 tests and by integration checks against Neo4j); this suite verifies that the AI
@@ -50,6 +50,7 @@ def _make_exercise(
         instructions=instructions,
         model=model,
         mastery_impact=mastery_impact,
+        path_step_uid="ps_001",
     )
 
 
@@ -61,7 +62,7 @@ def _make_llm_caller(*, text: str = "Great work — here is your feedback.") -> 
     return caller
 
 
-def _make_submissions_backend() -> MagicMock:
+def _make_ext_backend() -> MagicMock:
     backend = MagicMock()
     backend.create_report_node = AsyncMock(
         return_value=Result.ok(
@@ -81,11 +82,11 @@ def _make_submissions_backend() -> MagicMock:
 def _make_service(
     *,
     llm_caller: MagicMock | None = None,
-    submissions_backend: MagicMock | None = None,
+    backend: MagicMock | None = None,
 ) -> ExerciseReportService:
     return ExerciseReportService(
         llm_caller=llm_caller or _make_llm_caller(),
-        submissions_backend=submissions_backend or _make_submissions_backend(),
+        backend=backend or _make_ext_backend(),
     )
 
 
@@ -143,14 +144,14 @@ class TestGenerateReportHappyPath:
 
 
 class TestGenerateReportBackendDelegation:
-    """The AI path must route through SubmissionsBackend.create_report_node with
+    """The AI path must route through ExerciseReportBackendOperations.create_report_node with
     the right params — this is what wires AI reports into the student-visible
     read path (SHARES_WITH) and keeps them symmetric with teacher reports."""
 
     @pytest.mark.asyncio
     async def test_delegates_to_canonical_create_report_node(self):
-        backend = _make_submissions_backend()
-        service = _make_service(submissions_backend=backend)
+        backend = _make_ext_backend()
+        service = _make_service(backend=backend)
 
         await service.generate_report(
             entry=_make_submission(),
@@ -162,8 +163,8 @@ class TestGenerateReportBackendDelegation:
 
     @pytest.mark.asyncio
     async def test_params_mark_report_as_llm_processor(self):
-        backend = _make_submissions_backend()
-        service = _make_service(submissions_backend=backend)
+        backend = _make_ext_backend()
+        service = _make_service(backend=backend)
 
         await service.generate_report(
             entry=_make_submission(),
@@ -181,8 +182,8 @@ class TestGenerateReportBackendDelegation:
         """AI reports must pass None for both status fields so the backend
         skips the state-machine transition and the from-status guard — AI
         reports are not state-machine events the way teacher reviews are."""
-        backend = _make_submissions_backend()
-        service = _make_service(submissions_backend=backend)
+        backend = _make_ext_backend()
+        service = _make_service(backend=backend)
 
         await service.generate_report(
             entry=_make_submission(),
@@ -197,8 +198,8 @@ class TestGenerateReportBackendDelegation:
     @pytest.mark.asyncio
     async def test_params_use_author_uid_for_caller(self):
         """Canonical method takes author_uid (renamed from teacher_uid)."""
-        backend = _make_submissions_backend()
-        service = _make_service(submissions_backend=backend)
+        backend = _make_ext_backend()
+        service = _make_service(backend=backend)
 
         await service.generate_report(
             entry=_make_submission(),
@@ -212,9 +213,9 @@ class TestGenerateReportBackendDelegation:
 
     @pytest.mark.asyncio
     async def test_params_include_submission_uid_and_feedback_text(self):
-        backend = _make_submissions_backend()
+        backend = _make_ext_backend()
         llm = _make_llm_caller(text="Detailed feedback body.")
-        service = _make_service(llm_caller=llm, submissions_backend=backend)
+        service = _make_service(llm_caller=llm, backend=backend)
 
         await service.generate_report(
             entry=_make_submission(),
@@ -240,8 +241,8 @@ class TestGenerateReportValidation:
     @pytest.mark.asyncio
     async def test_invalid_exercise_fails_fast_without_llm_call(self):
         llm = _make_llm_caller()
-        backend = _make_submissions_backend()
-        service = _make_service(llm_caller=llm, submissions_backend=backend)
+        backend = _make_ext_backend()
+        service = _make_service(llm_caller=llm, backend=backend)
         invalid_exercise = Exercise(
             uid=EXERCISE_UID,
             title="",  # missing title → invalid
@@ -263,8 +264,8 @@ class TestGenerateReportValidation:
     @pytest.mark.asyncio
     async def test_empty_submission_content_fails_fast(self):
         llm = _make_llm_caller()
-        backend = _make_submissions_backend()
-        service = _make_service(llm_caller=llm, submissions_backend=backend)
+        backend = _make_ext_backend()
+        service = _make_service(llm_caller=llm, backend=backend)
         empty_submission = ExerciseSubmission(
             uid=SUBMISSION_UID,
             title="Empty",
@@ -296,8 +297,8 @@ class TestGenerateReportErrorPropagation:
         llm.generate.return_value = Result.fail(
             Errors.integration(service="LLM", operation="generate", message="rate limited")
         )
-        backend = _make_submissions_backend()
-        service = _make_service(llm_caller=llm, submissions_backend=backend)
+        backend = _make_ext_backend()
+        service = _make_service(llm_caller=llm, backend=backend)
 
         result = await service.generate_report(
             entry=_make_submission(),
@@ -310,11 +311,11 @@ class TestGenerateReportErrorPropagation:
 
     @pytest.mark.asyncio
     async def test_backend_error_propagates_as_database_failure(self):
-        backend = _make_submissions_backend()
+        backend = _make_ext_backend()
         backend.create_report_node.return_value = Result.fail(
             Errors.database("create_report_node", "connection lost")
         )
-        service = _make_service(submissions_backend=backend)
+        service = _make_service(backend=backend)
 
         result = await service.generate_report(
             entry=_make_submission(),
@@ -326,9 +327,9 @@ class TestGenerateReportErrorPropagation:
 
     @pytest.mark.asyncio
     async def test_backend_empty_result_fails(self):
-        backend = _make_submissions_backend()
+        backend = _make_ext_backend()
         backend.create_report_node.return_value = Result.ok([])
-        service = _make_service(submissions_backend=backend)
+        service = _make_service(backend=backend)
 
         result = await service.generate_report(
             entry=_make_submission(),
@@ -486,11 +487,11 @@ class TestListForSubmission:
 class TestGenerateReportWithoutBackend:
     @pytest.mark.asyncio
     async def test_no_backend_returns_system_error(self):
-        """Fail-fast: missing submissions_backend returns a system error
+        """Fail-fast: missing backend returns a system error
         rather than a transient non-persisted report (SKUEL fail-fast rule)."""
         service = ExerciseReportService(
             llm_caller=_make_llm_caller(text="Feedback text."),
-            submissions_backend=None,
+            backend=None,
         )
 
         result = await service.generate_report(
@@ -500,4 +501,4 @@ class TestGenerateReportWithoutBackend:
         )
 
         assert result.is_error
-        assert "submissions_backend" in str(result.error).lower()
+        assert "backend" in str(result.error).lower()

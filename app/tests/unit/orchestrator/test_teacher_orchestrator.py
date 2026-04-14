@@ -19,6 +19,7 @@ def mock_teacher_review_service() -> MagicMock:
     mock.get_student_submissions = AsyncMock()
     mock.get_teacher_groups_with_stats = AsyncMock()
     mock.get_group_detail = AsyncMock()
+    mock.verify_teacher_authority = AsyncMock(return_value=Result.ok(True))
     return mock
 
 
@@ -105,7 +106,7 @@ async def test_get_student_ku_detail_with_admin_stats(
     mock_detail = {"viewed_count": 5}
     mock_admin_stats_service.get_user_ku_detail.return_value = Result.ok(mock_detail)
 
-    result = await orchestrator.get_student_ku_detail("student-123")
+    result = await orchestrator.get_student_ku_detail("teacher-123", "student-123")
     assert result == mock_detail
     mock_admin_stats_service.get_user_ku_detail.assert_called_once_with("student-123")
 
@@ -114,7 +115,8 @@ async def test_get_student_ku_detail_with_admin_stats(
 async def test_get_student_ku_detail_without_admin_stats() -> None:
     """Test getting student KU detail degrades gracefully if admin stats is omitted."""
     mock_teacher_service = MagicMock()
+    mock_teacher_service.verify_teacher_authority = AsyncMock(return_value=Result.ok(True))
     orch = TeacherOrchestrator(teacher_review_service=mock_teacher_service, admin_stats=None)
 
-    result = await orch.get_student_ku_detail("student-123")
+    result = await orch.get_student_ku_detail("teacher-123", "student-123")
     assert result is None

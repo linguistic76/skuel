@@ -9,13 +9,11 @@ related_docs:
 - /docs/patterns/ERROR_HANDLING.md
 - /docs/patterns/event_driven_architecture.md
 ---
-
 # Async/Sync Design Pattern
 ## Related Skills
 
 For implementation guidance, see:
 - [@python](../../.claude/skills/python/SKILL.md)
-
 
 ## Core Principle: "Async for I/O, Sync for Computation"
 

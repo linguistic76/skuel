@@ -53,8 +53,7 @@ When a student submits against an ASSIGNED Exercise:
 3. Teacher's review queue = `get_review_queue()` — discovers all student exercise_submissions via `OWNS`
 
 No `SHARES_WITH` relationship is created between teacher and submission.
-`verify_teacher_access()` checks that the submission is owned by a student (not the teacher),
-not a `SHARES_WITH` relationship. Access is role-gated (`TEACHER` role required at route level).
+`verify_teacher_authority(teacher_uid, student_uid)` checks that the teacher has an explicit group oversight relationship over the student (i.e. `(teacher)-[:OWNS]->(:Group)<-[:MEMBER_OF]-(student)`). Access is role-gated (`TEACHER` role required at route level).
 
 ### 4. Submission Ownership Stays with Student
 
@@ -150,8 +149,7 @@ WHERE student.uid <> $teacher_uid
 
 Default status filter: `submitted` + `active` (pending work only). `revision_requested`
 is a distinct state visible in the student detail Revision Requested sidebar section — not counted
-as pending. `verify_teacher_access()` checks that the submission is owned by a student
-(not the teacher) — no `SHARES_WITH` relationship involved.
+as pending. `verify_teacher_authority()` evaluates the teacher's active group governance over the student via Neo4j.
 
 ### Teacher Review Status Guards (2026-04-02)
 

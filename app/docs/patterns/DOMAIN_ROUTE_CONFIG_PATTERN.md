@@ -14,7 +14,6 @@ related_docs: []
 For implementation guidance, see:
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 
-
 ## Overview
 
 **What:** Configuration-driven route registration pattern that eliminates boilerplate in domain route files.

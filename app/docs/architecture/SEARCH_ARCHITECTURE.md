@@ -18,15 +18,12 @@ related:
 related_skills:
 - skuel-search-architecture
 ---
-
 # Search Architecture - Unified Search System
 
 ## Related Skills
 
 For implementation guidance, see:
 - [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
-
----
 
 ## Overview
 

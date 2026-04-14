@@ -12,10 +12,16 @@ related_docs:
 - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
 - /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 ---
-
 # Route Decorator Architecture
 
 *For MCF and anyone building routes in SKUEL*
+## Related Skills
+
+For implementation guidance, see:
+- [@domain-route-config](../../.claude/skills/domain-route-config/SKILL.md)
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+- [@result-pattern](../../.claude/skills/result-pattern/SKILL.md)
+
 
 ## The Core Idea
 

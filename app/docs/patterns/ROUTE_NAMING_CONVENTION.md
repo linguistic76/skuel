@@ -14,7 +14,6 @@ related_docs: []
 For implementation guidance, see:
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 
-
 ## Overview
 
 SKUEL uses a consistent three-tier pattern for route file organization in `/adapters/inbound/`.

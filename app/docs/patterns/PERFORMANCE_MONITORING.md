@@ -10,7 +10,6 @@ related_docs:
 - /docs/patterns/PROMETHEUS_METRICS.md
 - /docs/decisions/ADR-036
 ---
-
 # Performance Monitoring System
 
 **Status:** ⚠️ DEPRECATED (Removed January 31, 2026)
@@ -19,9 +18,9 @@ related_docs:
 ## Related Skills
 
 For implementation guidance, see:
+- [@prometheus-grafana](../../.claude/skills/prometheus-grafana/SKILL.md)
 - [@pydantic](../../.claude/skills/pydantic/SKILL.md)
 - [@skuel-form-patterns](../../.claude/skills/skuel-form-patterns/SKILL.md)
-
 
 ## Migration Notice
 

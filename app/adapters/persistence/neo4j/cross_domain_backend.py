@@ -366,9 +366,7 @@ class CrossDomainBackend:
             {"knowledge_uid": knowledge_uid, "user_uid": user_uid, "limit": limit},
         )
 
-    async def get_goals_for_tasks_batch(
-        self, task_uids: list[str]
-    ) -> Result[list[dict[str, Any]]]:
+    async def get_goals_for_tasks_batch(self, task_uids: list[str]) -> Result[list[dict[str, Any]]]:
         """Find goals each task contributes to or fulfills — one round-trip for N tasks."""
         return await self.executor.execute_query(
             _GOALS_FOR_TASKS_BATCH_QUERY,

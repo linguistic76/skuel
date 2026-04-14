@@ -362,6 +362,37 @@ if result.is_ok:
 
 ---
 
+### Method 8: calculate_user_substance()
+
+**Purpose:** Calculate how much a user has applied the knowledge taught by this PathStep. PathSteps are curriculum entities; their "substance" is derived by analyzing the user's application of the underlying atomic Knowledge Units (via USES_KU).
+
+**Signature:**
+```python
+async def calculate_user_substance(
+    self,
+    ps_uid: str,
+    user_context: UserContext
+) -> Result[dict[str, Any]]:
+```
+
+**Parameters:**
+- `ps_uid` (str) - UID of the path step
+- `user_context` (UserContext) - Context of the user
+
+**Returns:**
+```python
+Result[dict[str, Any]]  # Aggregated substance metrics
+```
+
+**Dependencies:**
+- Grabs underlying KU references.
+- Uses `_substance_calculator.calculate_aggregate_substance(...)`.
+
+**Implementation Notes:**
+- Calculates aggregate substance from related KUs, not from the Step itself.
+
+---
+
 ## BaseAnalyticsService Features
 
 ### Inherited Infrastructure

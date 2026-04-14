@@ -9,7 +9,6 @@ related_skills:
 For implementation guidance, see:
 - [@js-alpine](../../.claude/skills/js-alpine/SKILL.md)
 
-
 ## Overview
 
 SKUEL uses **Alpine.js** as the single JavaScript framework for all client-side UI state management. This document describes the architecture, patterns, and implementation details.

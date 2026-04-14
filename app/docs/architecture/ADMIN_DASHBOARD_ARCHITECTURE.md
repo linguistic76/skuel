@@ -16,7 +16,6 @@ related_skills:
 - chartjs
 - ui-orchestrator
 ---
-
 # Admin Dashboard Architecture
 
 **Last Updated**: April 7, 2026 (AdminOrchestrator — resolved dependency gravity)

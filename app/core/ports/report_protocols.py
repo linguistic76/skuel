@@ -219,6 +219,16 @@ class ExerciseReportBackendOperations(Protocol):
         """Ku UIDs + student UID linked to a submission via APPLIES_KNOWLEDGE."""
         ...
 
+    async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
+        """Create ExerciseReport node, link via REPORT_FOR, share with student, update submission."""
+        ...
+
+    async def create_report_and_revised_exercise(
+        self, params: dict[str, Any]
+    ) -> Result[list[Neo4jProperties]]:
+        """Atomically create ExerciseReport + RevisedExercise in one transaction."""
+        ...
+
 
 @runtime_checkable
 class ProgressReportOperations(Protocol):
@@ -467,6 +477,14 @@ class TeacherReviewOperations(Protocol):
         teacher_uid: str,
     ) -> Result[ReportApprovalResult]:
         """Approve a student report."""
+        ...
+
+    async def verify_teacher_authority(
+        self,
+        teacher_uid: str,
+        student_uid: str,
+    ) -> Result[bool]:
+        """Verify that a teacher has authority over a student's records."""
         ...
 
     async def get_exercises_with_submission_counts(

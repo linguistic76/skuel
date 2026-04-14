@@ -239,13 +239,9 @@ async def test_get_intelligence_data_partial_failure_still_returns_ok(
 ) -> None:
     orch, _, _, intel = full_built
     intel.get_ready_to_work_on_today.return_value = Result.ok({"plan": "x"})
-    intel.calculate_life_path_alignment.return_value = Result.fail(
-        Errors.database("read", "boom")
-    )
+    intel.calculate_life_path_alignment.return_value = Result.fail(Errors.database("read", "boom"))
     intel.get_cross_domain_synergies.return_value = Result.ok({"syn": "z"})
-    intel.get_optimal_next_path_steps.return_value = Result.fail(
-        Errors.database("read", "boom")
-    )
+    intel.get_optimal_next_path_steps.return_value = Result.fail(Errors.database("read", "boom"))
 
     result = await orch.get_intelligence_data(MagicMock())
 
@@ -343,9 +339,7 @@ async def test_get_shared_with_me_items_delegates() -> None:
     orch, mocks = _build()
     mocks["sharing_service"].get_shared_with_me.return_value = Result.ok([])
     await orch.get_shared_with_me_items("user-1", limit=25)
-    mocks["sharing_service"].get_shared_with_me.assert_called_once_with(
-        user_uid="user-1", limit=25
-    )
+    mocks["sharing_service"].get_shared_with_me.assert_called_once_with(user_uid="user-1", limit=25)
 
 
 @pytest.mark.asyncio

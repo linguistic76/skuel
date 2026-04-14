@@ -8,7 +8,6 @@ related_skills:
 For implementation guidance, see:
 - [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
 
-
 ## Overview
 
 **Architecture:** Modular package with mixin composition (NOT BaseAnalyticsService)

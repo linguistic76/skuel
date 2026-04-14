@@ -18,7 +18,6 @@ related:
 related_skills:
 - user-context-intelligence
 ---
-
 # User Architecture
 
 SKUEL's user system has two distinct objects that serve different purposes:
@@ -31,6 +30,11 @@ SKUEL's user system has two distinct objects that serve different purposes:
 `User` is what a user *is*. `UserContext` is what they *have* — all their entities, relationships, and graph neighbourhoods in one object, built by a single MEGA-QUERY. `UserContext` carries core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) from the `User` model — only fetch `User` directly when you need `user.preferences` (the full `UserPreferences` object).
 
 ---
+## Related Skills
+
+For implementation guidance, see:
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
+
 
 ## The `User` Domain Model
 

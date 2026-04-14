@@ -10,7 +10,9 @@ from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
-def _make_orchestrator(**overrides: MagicMock) -> tuple[SubmissionsOrchestrator, dict[str, MagicMock]]:
+def _make_orchestrator(
+    **overrides: MagicMock,
+) -> tuple[SubmissionsOrchestrator, dict[str, MagicMock]]:
     mocks: dict[str, MagicMock] = {
         "submissions_service": MagicMock(),
         "exercises_service": MagicMock(),
@@ -275,7 +277,11 @@ async def test_list_submissions_delegates(
     orch, mocks = built
     mocks["submissions_service"].list_submissions.return_value = Result.ok([])
     await orch.list_submissions(
-        "user-1", entity_type=EntityType.EXERCISE_SUBMISSION, status=EntityStatus.ACTIVE, limit=10, offset=5
+        "user-1",
+        entity_type=EntityType.EXERCISE_SUBMISSION,
+        status=EntityStatus.ACTIVE,
+        limit=10,
+        offset=5,
     )
     mocks["submissions_service"].list_submissions.assert_called_once_with(
         "user-1",
@@ -317,9 +323,13 @@ async def test_get_submissions_with_feedback_status_delegates(
     built: tuple[SubmissionsOrchestrator, dict[str, MagicMock]],
 ) -> None:
     orch, mocks = built
-    mocks["submissions_search_service"].get_submissions_with_feedback_status.return_value = Result.ok([])
+    mocks[
+        "submissions_search_service"
+    ].get_submissions_with_feedback_status.return_value = Result.ok([])
     await orch.get_submissions_with_feedback_status("user-1")
-    mocks["submissions_search_service"].get_submissions_with_feedback_status.assert_called_once_with("user-1")
+    mocks[
+        "submissions_search_service"
+    ].get_submissions_with_feedback_status.assert_called_once_with("user-1")
 
 
 @pytest.mark.asyncio

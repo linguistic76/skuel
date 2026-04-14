@@ -15,7 +15,6 @@ For implementation guidance, see:
 - [@result-pattern](../../.claude/skills/result-pattern/SKILL.md)
 - [@ui-error-handling](../../.claude/skills/ui-error-handling/SKILL.md)
 
-
 ## Overview
 
 SKUEL provides decorators to eliminate repetitive try-except patterns. These decorators address a DRY violation that appeared 500+ times in the codebase.

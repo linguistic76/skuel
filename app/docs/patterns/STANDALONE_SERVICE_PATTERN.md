@@ -7,7 +7,6 @@ related_skills:
 related_docs:
 - /docs/decisions/ADR-019-transcription-service-standalone.md
 ---
-
 # Standalone Service Pattern
 
 When to use a standalone service instead of extending `BaseService`.
@@ -19,7 +18,6 @@ When to use a standalone service instead of extending `BaseService`.
 
 For implementation guidance, see:
 - [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
-
 
 ## When to Use Standalone Services
 
