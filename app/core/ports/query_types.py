@@ -1929,6 +1929,20 @@ class RichMOCItem(TypedDict, total=False):
     graph_context: dict[str, Any]
 
 
+class GroupSummary(TypedDict, total=False):
+    """Shape for UserContext.user_groups and teacher_groups items.
+
+    Populated from (user)-[:MEMBER_OF]->(g:Group) and
+    (user)-[:OWNS]->(g:Group) Cypher patterns.
+    """
+
+    uid: str
+    name: str
+    role: str  # "owner" | "student" | "teacher" | other edge role
+    member_count: int
+    is_active: bool
+
+
 class CrossDomainInsightItem(TypedDict):
     """Single insight in UserContext.cross_domain_insights."""
 
@@ -2924,6 +2938,7 @@ __all__ = [
     "RichLearningPathItem",
     "RichPathStepItem",
     "RichMOCItem",
+    "GroupSummary",
     "CrossDomainInsightItem",
     "CrossDomainInsightsData",
     # Intelligence Protocol Result Types

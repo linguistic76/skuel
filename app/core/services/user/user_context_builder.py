@@ -283,6 +283,11 @@ class UserContextBuilder:
             context.current_path_steps = ps_result.value
             context.current_ps_uids = {item["uid"] for item in ps_result.value}
 
+        # Fetch group memberships, ownerships, and assigned curriculum
+        groups_result = await self._query_executor.fetch_user_groups(user_uid)
+        if groups_result.is_ok:
+            self._populator.populate_group_awareness(context, groups_result.value)
+
         # Calculate derived fields
         self._finalize_context(context)
 
@@ -395,6 +400,11 @@ class UserContextBuilder:
         if ps_result.is_ok:
             context.current_path_steps = ps_result.value
             context.current_ps_uids = {item["uid"] for item in ps_result.value}
+
+        # Fetch group memberships, ownerships, and assigned curriculum
+        groups_result = await self._query_executor.fetch_user_groups(user_uid)
+        if groups_result.is_ok:
+            self._populator.populate_group_awareness(context, groups_result.value)
 
         # Populate activity domain entities (all 6 domains, unified shape)
         self._populator.populate_entities_rich(context, entities_data)

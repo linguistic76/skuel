@@ -26,7 +26,9 @@ from fasthtml.common import (
 from starlette.datastructures import UploadFile
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.fasthtml_types import Request
+from core.models.enums.user_enums import UserRole
 from core.services.ingestion.user_upload_service import MAX_FILES_PER_REQUEST
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
@@ -42,45 +44,34 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.upload")
 
 
-def _supported_types_section() -> Div:
+def _supported_types_section(is_teacher: bool = False) -> Div:
     """Inline documentation about supported YAML types."""
+    items = [
+        Li(Span("Task", cls="font-bold"), " — required field: ", Code("title")),
+        Li(Span("Goal", cls="font-bold"), " — required field: ", Code("title")),
+        Li(Span("Habit", cls="font-bold"), " — required field: ", Code("title")),
+        Li(Span("Event", cls="font-bold"), " — required field: ", Code("title")),
+        Li(Span("Choice", cls="font-bold"), " — required field: ", Code("title")),
+        Li(
+            Span("Principle", cls="font-bold"),
+            " — required fields: ",
+            Code("name"),
+            ", ",
+            Code("statement"),
+        ),
+    ]
+    if is_teacher:
+        items.append(
+            Li(
+                Span("Group", cls="font-bold"),
+                " — required field: ",
+                Code("name"),
+                " (teachers only; uploader becomes owner)",
+            )
+        )
     return Div(
         H3("Supported Types", cls="text-lg font-semibold mb-2"),
-        Ul(
-            Li(
-                Span("Task", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Goal", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Habit", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Event", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Choice", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Principle", cls="font-bold"),
-                " — required fields: ",
-                Code("name"),
-                ", ",
-                Code("statement"),
-            ),
-            cls="list-disc pl-6 mt-2",
-        ),
+        Ul(*items, cls="list-disc pl-6 mt-2"),
         P(
             "Each YAML file must include a ",
             Code("type"),
@@ -166,12 +157,18 @@ def create_upload_ui_routes(
         """Render the upload page."""
         require_authenticated_user(request)
 
+        is_teacher = False
+        if user_service is not None:
+            resolved_role = await get_user_role(request, user_service)
+            if resolved_role is not None:
+                is_teacher = resolved_role.has_permission(UserRole.TEACHER)
+
         content = Div(
             PageHeader(
                 "Upload Activity Data",
                 subtitle="Bulk upload YAML files for Tasks, Goals, Habits, Events, Choices, and Principles.",
             ),
-            _supported_types_section(),
+            _supported_types_section(is_teacher=is_teacher),
             _upload_form(),
             _results_area(),
             cls="max-w-3xl mx-auto px-4",
@@ -215,7 +212,15 @@ def create_upload_ui_routes(
             if not file_pairs:
                 return UploadError("No valid files found in upload")
 
-            result = await upload_service.upload_and_ingest(user_uid, file_pairs)
+            user_role = UserRole.REGISTERED
+            if user_service is not None:
+                resolved_role = await get_user_role(request, user_service)
+                if resolved_role is not None:
+                    user_role = resolved_role
+
+            result = await upload_service.upload_and_ingest(
+                user_uid, file_pairs, user_role=user_role
+            )
 
             if result.is_error:
                 return UploadError(str(result.expect_error()))

@@ -180,13 +180,18 @@ def _prepare_core(
             if field in entity_data and isinstance(entity_data[field], list):
                 entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
 
-    # Normalize name → title: YAML files may use `name:` but the domain model uses `title`
-    if "name" in entity_data and "title" not in entity_data:
-        entity_data["title"] = entity_data.pop("name")
+    # Normalize name → title: most domain models use `title`, but a few
+    # (Group) keep `name` as their primary field. Skip rename for those.
+    _keeps_name_field = entity_type == NonKuDomain.GROUP
+    if not _keeps_name_field:
+        if "name" in entity_data and "title" not in entity_data:
+            entity_data["title"] = entity_data.pop("name")
 
-    # Handle title fallback from filename
-    if "title" not in entity_data:
-        entity_data["title"] = file_path.stem.replace("-", " ").title()
+        # Handle title fallback from filename
+        if "title" not in entity_data:
+            entity_data["title"] = file_path.stem.replace("-", " ").title()
+    elif "name" not in entity_data:
+        entity_data["name"] = file_path.stem.replace("-", " ").title()
 
     # Apply default values
     if config.default_values:
@@ -198,6 +203,15 @@ def _prepare_core(
     # Uses explicit user_uid from data if present, otherwise falls back to default
     if config.requires_user_uid and "user_uid" not in entity_data:
         entity_data["user_uid"] = default_user_uid
+
+    # Group uses `owner_uid` (teacher), not `user_uid`. The upload flow injects
+    # the uploader's UID as user_uid above; translate that to owner_uid here so
+    # the teacher who uploads a group YAML becomes its owner.
+    if entity_type == NonKuDomain.GROUP:
+        owner_uid = entity_data.pop("owner_uid", None) or entity_data.pop("user_uid", None)
+        if owner_uid:
+            entity_data["owner_uid"] = owner_uid
+        entity_data.setdefault("is_active", True)
 
     # Flatten relationship data for BulkIngestionEngine
     # Format: "connections.requires" -> flat key in metadata

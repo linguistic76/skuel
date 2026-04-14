@@ -34,9 +34,8 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
     Methods:
     - create_owns_relationship      — MERGE OWNS (user -> exercise)
-    - create_for_group_relationship — MERGE FOR_GROUP (exercise -> group)
     - get_user_exercises             — OWNS query for user's exercises
-    - get_student_exercises          — MEMBER_OF + FOR_GROUP traversal
+    - get_student_exercises          — MEMBER_OF + SHARED_WITH_GROUP traversal
     - get_student_exercises_with_status — Above + FULFILLS_EXERCISE submission check
     - get_exercises_for_curriculum   — Reverse REQUIRES_KNOWLEDGE lookup
     - link_to_curriculum             — MERGE REQUIRES_KNOWLEDGE relationship
@@ -165,28 +164,6 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"user_uid": user_uid, "exercise_uid": exercise_uid},
         )
 
-    async def create_for_group_relationship(
-        self, exercise_uid: str, group_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create FOR_GROUP relationship from exercise to group.
-
-        Args:
-            exercise_uid: Exercise UID
-            group_uid: Target group UID
-
-        Returns:
-            Result containing query records
-        """
-        return await self.execute_query(
-            f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-            MATCH (group:Group {{uid: $group_uid}})
-            MERGE (exercise)-[:{RelationshipName.FOR_GROUP}]->(group)
-            RETURN true as success
-            """,
-            {"exercise_uid": exercise_uid, "group_uid": group_uid},
-        )
-
     async def get_user_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all exercises owned by a user via OWNS relationship.
 
@@ -206,7 +183,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
 
     async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Get assigned exercises for a student via MEMBER_OF -> Group <- FOR_GROUP.
+        """Get assigned exercises for a student via MEMBER_OF -> Group <- SHARED_WITH_GROUP.
 
         Args:
             user_uid: Student UID
@@ -217,7 +194,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
+            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.SHARED_WITH_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
             RETURN exercise
             ORDER BY exercise.due_date ASC, exercise.created_at DESC
@@ -248,7 +225,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
+            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.SHARED_WITH_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)

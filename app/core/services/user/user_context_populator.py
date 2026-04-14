@@ -452,6 +452,24 @@ class UserContextPopulator:
         if alignment_score := life_path_data.get("alignment_score"):
             context.life_path_alignment_score = float(alignment_score)
 
+    def populate_group_awareness(self, context: UserContext, data: dict[str, Any]) -> None:
+        """Populate group membership, ownership, and group-assigned curriculum fields.
+
+        data: dict from UserContextQueryExecutor.fetch_user_groups() with keys
+        user_groups, teacher_groups, group_assigned_{exercise,path_step,learning_path}_uids.
+        """
+        context.user_groups = list(data.get("user_groups") or [])
+        context.teacher_groups = list(data.get("teacher_groups") or [])
+        context.group_assigned_exercise_uids = list(
+            data.get("group_assigned_exercise_uids") or []
+        )
+        context.group_assigned_path_step_uids = list(
+            data.get("group_assigned_path_step_uids") or []
+        )
+        context.group_assigned_learning_path_uids = list(
+            data.get("group_assigned_learning_path_uids") or []
+        )
+
     def populate_activity_report(self, context: UserContext, record: dict[str, Any] | None) -> None:
         """Populate latest activity report reference fields.
 

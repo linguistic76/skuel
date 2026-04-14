@@ -3,10 +3,11 @@ PathStep Enrollment Handler
 ============================
 
 Listens for PathStepEnrolled events and auto-enrols the student in the admin's
-default group. This ensures ASSIGNED exercises with a FOR_GROUP constraint are
-accessible to all enrolled students, even before a teacher explicitly adds them.
+default group. This ensures ASSIGNED exercises shared to that group via
+SHARED_WITH_GROUP are accessible to all enrolled students, even before a
+teacher explicitly adds them.
 
-See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
+See: /docs/decisions/ADR-053-groups-first-class-and-unified-sharing.md
 """
 
 from datetime import UTC, datetime

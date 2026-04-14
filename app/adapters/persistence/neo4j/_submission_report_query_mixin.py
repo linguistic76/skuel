@@ -66,7 +66,7 @@ class _SubmissionReportQueryMixin:
         """Get exercises assigned via group with no submission yet."""
         query = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(group:Group)
-        MATCH (exercise:Entity {{entity_type: 'exercise', scope: 'assigned'}})-[:{RelationshipName.FOR_GROUP.value}]->(group)
+        MATCH (exercise:Entity {{entity_type: 'exercise', scope: 'assigned'}})-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(group)
         WHERE NOT (:Entity {{user_uid: $user_uid}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
         RETURN exercise.uid AS uid,
                exercise.title AS title,

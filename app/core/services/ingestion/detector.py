@@ -42,6 +42,8 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     # Finance
     "expense": NonKuDomain.FINANCE,
     "finance": NonKuDomain.FINANCE,
+    # Groups (teacher-student class management)
+    "group": NonKuDomain.GROUP,
     # Content/Processing
     "je_input": EntityType.JE_INPUT,
     "exercise_submission": EntityType.EXERCISE_SUBMISSION,

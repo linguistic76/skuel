@@ -1964,15 +1964,14 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
             "required_knowledge",
             fields=("uid", "title", "complexity", "learning_level"),
         ),
-        # Outgoing: Exercise → Group (teacher assigns to group)
+        # Outgoing: Exercise → Group (teacher assigns to group via unified sharing, ADR-053)
         UnifiedRelationshipDefinition(
-            RelationshipName.FOR_GROUP,
+            RelationshipName.SHARED_WITH_GROUP,
             "Group",
             "outgoing",
-            "target_group",
-            "target_group",
-            fields=("uid", "title"),
-            single=True,
+            "shared_groups",
+            "shared_groups",
+            fields=("uid", "name"),
         ),
         # Incoming: Submission → Exercise (student submissions fulfilling this exercise)
         UnifiedRelationshipDefinition(

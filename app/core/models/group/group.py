@@ -69,7 +69,8 @@ class Group:
     A Group is a container for teacher-student relationships:
     - One teacher (owner) creates and manages the group
     - Students are added via MEMBER_OF relationship
-    - Assignments (ReportProjects with scope=ASSIGNED) target groups via FOR_GROUP
+    - Curriculum (Exercises, PathSteps, LearningPaths) is shared to groups
+      via SHARED_WITH_GROUP (ADR-053, supersedes the retired FOR_GROUP edge)
     """
 
     uid: str

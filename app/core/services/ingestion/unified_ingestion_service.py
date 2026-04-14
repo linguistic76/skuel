@@ -446,6 +446,26 @@ class UnifiedIngestionService:
         stats = result.value
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
 
+        # Groups need an OWNS edge from the teacher to the group (ADR-053).
+        # The engine created only the :Group node; wire ownership here.
+        if entity_type == NonKuDomain.GROUP:
+            owner_uid = entity_data.get("owner_uid")
+            if owner_uid:
+                try:
+                    await self.driver.execute_query(
+                        """
+                        MATCH (u:User {uid: $owner_uid})
+                        MATCH (g:Group {uid: $group_uid})
+                        MERGE (u)-[:OWNS]->(g)
+                        """,
+                        owner_uid=owner_uid,
+                        group_uid=entity_data["uid"],
+                    )
+                except NEO4J_EXCEPTIONS as e:
+                    self.logger.warning(
+                        f"Failed to create OWNS edge for group {entity_data['uid']}: {e}"
+                    )
+
         # Automatic chunking for PathStep entities
         # Generate chunks immediately after successful PathStep ingestion for RAG-readiness
         chunks_generated = False

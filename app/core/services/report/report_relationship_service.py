@@ -85,7 +85,7 @@ class ReportRelationshipService:
         Exercises assigned to this user (via group) with no submission yet.
 
         Graph traversal:
-        (User)-[:MEMBER_OF]->(Group)<-[:FOR_GROUP]-(Exercise)
+        (User)-[:MEMBER_OF]->(Group)<-[:SHARED_WITH_GROUP]-(Exercise)
         WHERE NOT (User)-[:OWNS]->(:Submission)-[:FULFILLS_EXERCISE]->(Exercise)
 
         Args:

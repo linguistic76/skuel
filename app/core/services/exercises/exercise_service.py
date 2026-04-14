@@ -9,7 +9,8 @@ An Exercise is the shared, transparent instruction template:
 - Instructions are editable and always shown to the user (no black box)
 - User controls which LLM model to use
 - scope=PERSONAL: user's own feedback template
-- scope=ASSIGNED: teacher assigns to a group via FOR_GROUP relationship
+- scope=ASSIGNED: teacher assigns to a group via SHARED_WITH_GROUP relationship
+  (unified sharing, ADR-053; supersedes the retired FOR_GROUP edge)
 
 When a student submits work against an ASSIGNED exercise, the submission handler
 creates the FULFILLS_EXERCISE relationship and auto-shares with the teacher.
@@ -108,7 +109,7 @@ class ExerciseService(BaseService):
         tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
     ] = (
         (RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.ENTITY.value, "required_knowledge"),
-        (RelationshipName.FOR_GROUP.value, NeoLabel.GROUP.value, "for_groups"),
+        (RelationshipName.SHARED_WITH_GROUP.value, NeoLabel.GROUP.value, "shared_groups"),
         (
             RelationshipName.FULFILLS_EXERCISE.value,
             NeoLabel.ENTITY.value,
@@ -117,15 +118,20 @@ class ExerciseService(BaseService):
         ),
     )
 
-    def __init__(self, backend: Any) -> None:
+    def __init__(self, backend: Any, sharing_service: Any = None) -> None:
         """
         Initialize with backend.
 
         Args:
             backend: UniversalNeo4jBackend[Exercise] instance - REQUIRED
+            sharing_service: UnifiedSharingService — wired after bootstrap
+                to avoid a circular construction order between Exercise and
+                sharing services. Required before any ASSIGNED exercise is
+                created.
         """
         super().__init__(backend, "exercises")
         self.backend = backend
+        self.sharing_service = sharing_service
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("ExerciseService initialized")
 
@@ -160,7 +166,7 @@ class ExerciseService(BaseService):
 
         For ASSIGNED scope (teacher exercises):
         - group_uid is required
-        - Creates a FOR_GROUP relationship to the target group
+        - Creates a SHARED_WITH_GROUP relationship to the target group
 
         For ASSESSMENT scope (formal tests):
         - scoring_rubric is required
@@ -230,13 +236,30 @@ class ExerciseService(BaseService):
         if owns_result.is_error:
             self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
-        # Create FOR_GROUP relationship for ASSIGNED scope
+        # Share assigned exercises with the target group via the unified
+        # SHARED_WITH_GROUP mechanism (ADR-053). FOR_GROUP has been retired.
         if scope == ExerciseScope.ASSIGNED and group_uid:
-            rel_result = await self.backend.create_for_group_relationship(uid, group_uid)
-            if rel_result.is_error:
-                self.logger.warning(f"Failed to create FOR_GROUP relationship: {rel_result.error}")
+            if self.sharing_service is None:
+                self.logger.error(
+                    "ExerciseService.sharing_service not wired; ASSIGNED exercise "
+                    f"{uid} was not shared with group {group_uid}"
+                )
             else:
-                self.logger.info(f"FOR_GROUP relationship created: {uid} -> {group_uid}")
+                share_result = await self.sharing_service.share_with_group(
+                    entity_uid=uid,
+                    owner_uid=user_uid,
+                    group_uid=group_uid,
+                    share_version="original",
+                )
+                if share_result.is_error:
+                    self.logger.warning(
+                        f"Failed to share exercise {uid} with group {group_uid}: "
+                        f"{share_result.expect_error()}"
+                    )
+                else:
+                    self.logger.info(
+                        f"SHARED_WITH_GROUP created: {uid} -> {group_uid}"
+                    )
 
         self.logger.info(f"Exercise created: {uid} - {name} (scope={scope.value})")
         return Result.ok(exercise)
@@ -362,7 +385,7 @@ class ExerciseService(BaseService):
     @with_error_handling("get_student_exercises", error_type="database")
     async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """
-        Get all exercises for a student (via MEMBER_OF -> Group <- FOR_GROUP -> Exercise).
+        Get all exercises for a student (via MEMBER_OF -> Group <- SHARED_WITH_GROUP -> Exercise).
 
         Args:
             user_uid: Student UID
@@ -394,7 +417,7 @@ class ExerciseService(BaseService):
         """Get exercises with submission + report status for the library exercises tab.
 
         Combines two sources:
-        - Assigned exercises (scope=assigned, via FOR_GROUP → group membership)
+        - Assigned exercises (scope=assigned, via SHARED_WITH_GROUP → group membership)
         - PathStep-linked exercises (scope=personal, via RELATED_TO from enrolled PathSteps)
 
         Returns exercise properties enriched with has_submission, submission_uid,

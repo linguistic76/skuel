@@ -634,7 +634,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 14 of 22 entity types are file-ingestible. **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
+One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 15 of 22 entity types are file-ingestible (Group added 2026-04-14). **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
 
 **Default Vault:** `/home/mike/0bsidian/0vault/` — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
 

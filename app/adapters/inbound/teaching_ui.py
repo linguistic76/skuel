@@ -421,9 +421,9 @@ def create_teaching_ui_routes(
         elif not result.value:
             groups_content = EmptyState(
                 "No groups yet",
-                description="Create your first group from the Groups section to get started.",
-                action_text="Go to Groups →",
-                action_href="/groups",
+                description="Upload a group YAML at /upload to get started.",
+                action_text="Upload Group YAML →",
+                action_href="/upload",
             )
         else:
             groups_content = Div(

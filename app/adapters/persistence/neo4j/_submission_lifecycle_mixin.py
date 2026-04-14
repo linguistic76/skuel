@@ -60,7 +60,7 @@ class _SubmissionLifecycleMixin:
         MATCH (exercise:Entity {uid: $exercise_uid})
         WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
         OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
-        OPTIONAL MATCH (exercise)-[:FOR_GROUP]->(g:Group)
+        OPTIONAL MATCH (exercise)-[:SHARED_WITH_GROUP]->(g:Group)
         OPTIONAL MATCH (exercise)-[:REVISES_EXERCISE]->(original:Entity {entity_type: 'exercise'})
         RETURN exercise.entity_type as exercise_entity_type,
                exercise.scope as scope,

@@ -86,3 +86,7 @@ temp/
 .sesskey
 server.pid
 server.log
+
+# Local scratch / ad-hoc
+scratch*.py
+firefly startup command

@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
-from core.ports.query_types import CurrentPathStepItem
+from core.ports.query_types import CurrentPathStepItem, GroupSummary
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -918,7 +918,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      size([uid IN all_submission_uids WHERE NOT uid IN submissions_with_feedback]) AS pending_feedback_count
 
 // Assigned exercises and unsubmitted exercises
-OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:FOR_GROUP]-(ex:Entity {entity_type: 'exercise', scope: 'assigned'})
+OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise', scope: 'assigned'})
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -1372,6 +1372,103 @@ class UserContextQueryExecutor:
                 CurrentPathStepItem(uid=str(r["uid"]), title=str(r.get("title", "Untitled")))
                 for r in records
             ]
+        )
+
+    @with_error_handling("fetch_user_groups", error_type="database", uid_param="user_uid")
+    async def fetch_user_groups(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+        """
+        Fetch group memberships, ownerships, and curriculum shared with the user's groups.
+
+        Returns a dict with:
+        - user_groups: groups the user is a MEMBER_OF (student role)
+        - teacher_groups: groups the user OWNS (teacher role) with member counts
+        - group_assigned_exercise_uids / group_assigned_path_step_uids /
+          group_assigned_learning_path_uids: curriculum shared to any of the
+          user's groups via SHARED_WITH_GROUP (ADR-053).
+        """
+        query = """
+        MATCH (user:User {uid: $user_uid})
+        OPTIONAL MATCH (user)-[:MEMBER_OF]->(mg:Group)
+        WITH user, collect(DISTINCT {
+            uid: mg.uid,
+            name: coalesce(mg.name, 'Untitled Group'),
+            role: 'student',
+            member_count: 0,
+            is_active: coalesce(mg.is_active, true)
+        }) AS member_groups_raw
+        OPTIONAL MATCH (user)-[:OWNS]->(og:Group)
+        OPTIONAL MATCH (og)<-[:MEMBER_OF]-(member:User)
+        WITH user, member_groups_raw, og,
+             count(DISTINCT member) AS member_count
+        WITH user, member_groups_raw,
+             collect(DISTINCT CASE WHEN og IS NOT NULL THEN {
+                 uid: og.uid,
+                 name: coalesce(og.name, 'Untitled Group'),
+                 role: 'owner',
+                 member_count: member_count,
+                 is_active: coalesce(og.is_active, true)
+             } END) AS teacher_groups_raw
+        OPTIONAL MATCH (user)-[:MEMBER_OF]->(g:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise'})
+        WITH user, member_groups_raw, teacher_groups_raw,
+             collect(DISTINCT ex.uid) AS exercise_uids
+        OPTIONAL MATCH (user)-[:MEMBER_OF]->(g2:Group)<-[:SHARED_WITH_GROUP]-(ps:Entity {entity_type: 'path_step'})
+        WITH user, member_groups_raw, teacher_groups_raw, exercise_uids,
+             collect(DISTINCT ps.uid) AS path_step_uids
+        OPTIONAL MATCH (user)-[:MEMBER_OF]->(g3:Group)<-[:SHARED_WITH_GROUP]-(lp:Entity {entity_type: 'learning_path'})
+        RETURN
+            [x IN member_groups_raw WHERE x.uid IS NOT NULL] AS user_groups,
+            [x IN teacher_groups_raw WHERE x IS NOT NULL AND x.uid IS NOT NULL] AS teacher_groups,
+            exercise_uids AS group_assigned_exercise_uids,
+            path_step_uids AS group_assigned_path_step_uids,
+            collect(DISTINCT lp.uid) AS group_assigned_learning_path_uids
+        """
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(
+                {
+                    "user_groups": [],
+                    "teacher_groups": [],
+                    "group_assigned_exercise_uids": [],
+                    "group_assigned_path_step_uids": [],
+                    "group_assigned_learning_path_uids": [],
+                }
+            )
+        record = records[0]
+        return Result.ok(
+            {
+                "user_groups": [
+                    GroupSummary(
+                        uid=str(g["uid"]),
+                        name=str(g.get("name", "Untitled Group")),
+                        role=str(g.get("role", "student")),
+                        member_count=int(g.get("member_count") or 0),
+                        is_active=bool(g.get("is_active", True)),
+                    )
+                    for g in (record.get("user_groups") or [])
+                ],
+                "teacher_groups": [
+                    GroupSummary(
+                        uid=str(g["uid"]),
+                        name=str(g.get("name", "Untitled Group")),
+                        role=str(g.get("role", "owner")),
+                        member_count=int(g.get("member_count") or 0),
+                        is_active=bool(g.get("is_active", True)),
+                    )
+                    for g in (record.get("teacher_groups") or [])
+                ],
+                "group_assigned_exercise_uids": [
+                    str(u) for u in (record.get("group_assigned_exercise_uids") or []) if u
+                ],
+                "group_assigned_path_step_uids": [
+                    str(u) for u in (record.get("group_assigned_path_step_uids") or []) if u
+                ],
+                "group_assigned_learning_path_uids": [
+                    str(u) for u in (record.get("group_assigned_learning_path_uids") or []) if u
+                ],
+            }
         )
 
     @with_error_handling("execute_consolidated_query", error_type="database", uid_param="user_uid")

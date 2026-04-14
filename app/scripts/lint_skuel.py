@@ -1054,7 +1054,6 @@ class SkuelLinter:
             "SHARES_WITH",
             "SHARED_WITH_GROUP",
             "MEMBER_OF",
-            "FOR_GROUP",
             # Ownership
             "OWNS",
         ]

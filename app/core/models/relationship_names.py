@@ -295,10 +295,10 @@ class RelationshipName(StrEnum):
     )
 
     # =========================================================================
-    # EXERCISE/GROUP RELATIONSHIPS (ADR-040)
-    # Teacher exercise workflow and group management
+    # EXERCISE/GROUP RELATIONSHIPS (ADR-053, supersedes ADR-040)
+    # Teacher exercise workflow and group management. FOR_GROUP retired;
+    # all curriculum->group sharing now uses SHARED_WITH_GROUP.
     # =========================================================================
-    FOR_GROUP = "FOR_GROUP"  # (Exercise)-[:FOR_GROUP]->(Group)
     # (ExerciseSubmission)-[:FULFILLS_EXERCISE]->(Exercise) - Always the ROOT Exercise
     FULFILLS_EXERCISE = "FULFILLS_EXERCISE"
     # (ExerciseSubmission)-[:FULFILLS_REVISED_EXERCISE]->(RevisedExercise) - Revision cycle only

@@ -49,6 +49,16 @@ _ACTIVITY_ENTITY_TYPES = frozenset(
     }
 )
 
+# Curriculum entity types — teachers share these with groups at assignment time,
+# well before they reach a "completed" state. Allow any non-archived status.
+_CURRICULUM_ENTITY_TYPES = frozenset(
+    {
+        "exercise",
+        "path_step",
+        "learning_path",
+    }
+)
+
 
 class UnifiedSharingService:
     """Entity-agnostic sharing and access control service.
@@ -403,6 +413,14 @@ class UnifiedSharingService:
             return Result.fail(
                 Errors.validation(
                     f"Activity Ku can be shared when active or completed. Current status: {status}"
+                )
+            )
+        if entity_type in _CURRICULUM_ENTITY_TYPES:
+            if status != "archived":
+                return Result.ok(True)
+            return Result.fail(
+                Errors.validation(
+                    f"Archived curriculum cannot be shared. Current status: {status}"
                 )
             )
         if status != "completed":

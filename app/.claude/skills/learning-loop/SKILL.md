@@ -261,7 +261,7 @@ Unauthenticated visitors see simple exercise links (no status, no submissions/fe
 
 | Path | Relationship | Scope | Trigger |
 |------|-------------|-------|---------|
-| Group exercise | `(exercise)-[:FOR_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher assigns to group |
+| Group exercise | `(exercise)-[:SHARED_WITH_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher shares to group (ADR-053) |
 | PathStep enrollment | `(ps)-[:RELATED_TO]->(exercise)` + `(user)-[:IN_PROGRESS]->(ps)` | `PERSONAL` | User enrolls in PathStep |
 
 `ExerciseService.get_student_exercises_with_status()` merges both paths and deduplicates by UID. The Library Exercises page calls this method via `GET /library/exercises` (the Library hub at `/library` links to this child page).
@@ -270,7 +270,7 @@ Unauthenticated visitors see simple exercise links (no status, no submissions/fe
 ```cypher
 // Assigned exercise (classroom)
 (teacher:User)-[:OWNS]->(exercise:Entity:Exercise {scope: 'assigned'})
-(exercise)-[:FOR_GROUP]->(group:Group)
+(exercise)-[:SHARED_WITH_GROUP]->(group:Group)
 (exercise)-[:REQUIRES_KNOWLEDGE]->(ku:Entity:Ku)
 
 // Personal exercise linked to PathStep (self-directed)
@@ -778,7 +778,7 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 | Relationship | Connects | Purpose |
 |---|---|---|
 | `REQUIRES_KNOWLEDGE` | `Exercise` → `Ku` | Exercise is grounded in this knowledge |
-| `FOR_GROUP` | `Exercise` → `Group` | ASSIGNED exercise targets this classroom |
+| `SHARED_WITH_GROUP` | `Exercise` → `Group` | ASSIGNED exercise shared to this classroom (ADR-053) |
 | `MEMBER_OF` | `User` → `Group` | Student enrolled in a group (auto-created on PathStep IN_PROGRESS via `PathStepEnrolled` event → admin default group) |
 | `FULFILLS_EXERCISE` | `Submission` → `Exercise` (root) | Always anchors to the original Exercise, across all revision iterations |
 | `FULFILLS_REVISED_EXERCISE` | `Submission` → `RevisedExercise` | Created alongside FULFILLS_EXERCISE for revision-cycle submissions only |
@@ -792,7 +792,7 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 from core.models.relationship_names import RelationshipName
 
 RelationshipName.REQUIRES_KNOWLEDGE      # Exercise → Ku
-RelationshipName.FOR_GROUP               # Exercise → Group
+RelationshipName.SHARED_WITH_GROUP       # Exercise/PathStep/LearningPath → Group (ADR-053)
 RelationshipName.FULFILLS_EXERCISE          # Submission → root Exercise (always)
 RelationshipName.FULFILLS_REVISED_EXERCISE  # Submission → RevisedExercise (revision-cycle only)
 RelationshipName.REPORT_FOR              # ExerciseReport → Submission

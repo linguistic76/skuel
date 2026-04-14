@@ -223,6 +223,13 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         requires_user_uid=True,
         base_label=None,  # Expense is not an Entity type
     ),
+    NonKuDomain.GROUP: EntityIngestionConfig(
+        entity_label="Group",
+        uid_prefix="group",
+        required_fields=("name",),
+        requires_user_uid=True,  # Upload user becomes owner_uid (see preparer)
+        base_label=None,  # Group is not an Entity type
+    ),
     EntityType.EXERCISE_SUBMISSION: EntityIngestionConfig(
         entity_label="ExerciseSubmission",
         uid_prefix="es",

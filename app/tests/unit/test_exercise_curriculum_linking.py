@@ -55,11 +55,11 @@ class TestExerciseRegistryConfig:
         rel_names = [r.relationship for r in outgoing]
         assert RelationshipName.REQUIRES_KNOWLEDGE in rel_names
 
-    def test_exercise_config_has_for_group(self):
-        """EXERCISE_CONFIG should have FOR_GROUP outgoing relationship."""
+    def test_exercise_config_has_shared_with_group(self):
+        """EXERCISE_CONFIG should have SHARED_WITH_GROUP outgoing (ADR-053)."""
         outgoing = EXERCISE_CONFIG.get_outgoing_relationships()
         rel_names = [r.relationship for r in outgoing]
-        assert RelationshipName.FOR_GROUP in rel_names
+        assert RelationshipName.SHARED_WITH_GROUP in rel_names
 
     def test_exercise_config_has_fulfills_exercise_incoming(self):
         """EXERCISE_CONFIG should have FULFILLS_EXERCISE incoming (submissions)."""
@@ -81,7 +81,7 @@ class TestExerciseRegistryConfig:
         """EXERCISE_CONFIG should expose expected method keys."""
         keys = EXERCISE_CONFIG.get_all_relationship_methods()
         assert "required_knowledge" in keys
-        assert "target_group" in keys
+        assert "shared_groups" in keys
         assert "submissions" in keys
 
 

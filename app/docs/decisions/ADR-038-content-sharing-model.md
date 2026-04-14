@@ -1,5 +1,7 @@
 # ADR-038: Content Sharing Model
 
+> **2026-04-14 — Extended by [ADR-053](ADR-053-groups-first-class-and-unified-sharing.md).** `SHARED_WITH_GROUP` is now the single teacher→group curriculum mechanism for Exercise, PathStep, and LearningPath; the retired `FOR_GROUP` edge has been folded into this ADR's group sharing path.
+
 **Status:** Accepted
 **Date:** 2026-02-02
 **Author:** Claude Code (Phase 1 Implementation)

@@ -151,7 +151,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
-        OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.FOR_GROUP.value}]->(g)
+        OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
         OPTIONAL MATCH (sub:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
           WHERE sub.status NOT IN ['completed', 'archived']
         RETURN g.uid AS uid,

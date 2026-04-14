@@ -104,6 +104,7 @@ if TYPE_CHECKING:
         CrossDomainInsightsData,
         CurrentPathStepItem,
         FacetInteractionItem,
+        GroupSummary,
         PendingRevisedExerciseItem,
         RichEntityItem,
         RichKnowledgeUnitItem,
@@ -469,6 +470,25 @@ class UserContext:
     recommended_daily_tasks: int = 3
     recommended_daily_events: int = 2
     capacity_by_domain: dict[Domain, float] = field(default_factory=dict)
+
+    # =========================================================================
+    # GROUP AWARENESS — Teacher-student group membership
+    # =========================================================================
+    # Groups the user belongs to as a member (student role).
+    # Populated from (user)-[:MEMBER_OF]->(g:Group).
+    user_groups: list[GroupSummary] = field(default_factory=list)
+
+    # Groups the user owns as a teacher. Populated from (user)-[:OWNS]->(g:Group).
+    # Empty for non-teachers.
+    teacher_groups: list[GroupSummary] = field(default_factory=list)
+
+    # Curriculum shared with this user's groups via SHARED_WITH_GROUP.
+    # Populated by the MEGA-QUERY from
+    # (user)-[:MEMBER_OF]->(g)<-[:SHARED_WITH_GROUP]-(entity:Entity)
+    # filtered by entity_type.
+    group_assigned_exercise_uids: list[str] = field(default_factory=list)
+    group_assigned_path_step_uids: list[str] = field(default_factory=list)
+    group_assigned_learning_path_uids: list[str] = field(default_factory=list)
 
     # =========================================================================
     # RICH GRAPH CONTEXT (Optional - November 22, 2025)

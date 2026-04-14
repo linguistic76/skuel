@@ -878,8 +878,11 @@ async def compose_services(
         )
         unified_sharing_service = UnifiedSharingService(backend=sharing_backend)
 
-        # Wire sharing into form submission service (created earlier without sharing)
+        # Wire sharing into services that were created earlier without sharing.
+        # Both ExerciseService (ASSIGNED scope -> SHARED_WITH_GROUP, ADR-053)
+        # and FormSubmissionService need the sharing service post-hoc.
         form_submission_service.sharing_service = unified_sharing_service
+        exercise_service.sharing_service = unified_sharing_service
 
         # Create Submissions core service (content management: categories, tags, bulk operations)
         submissions_core_service = SubmissionsCoreService(
