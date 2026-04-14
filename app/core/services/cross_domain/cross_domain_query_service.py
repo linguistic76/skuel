@@ -157,25 +157,38 @@ class CrossDomainQueryService:
             )
         )
 
-    async def get_goals_for_task(self, task_uid: EntityUID) -> Result[tuple[AlignedEntity, ...]]:
+    async def get_goals_for_tasks_batch(
+        self, task_uids: list[str]
+    ) -> Result[dict[str, tuple[AlignedEntity, ...]]]:
         """
-        Find goals this task contributes to or fulfills via
+        Batch-fetch goals each task contributes to or fulfills via
         ``CONTRIBUTES_TO_GOAL`` or ``FULFILLS_GOAL`` edges.
 
-        One Cypher query. Used by task dependency enrichment to populate
-        goal alignment scoring on ``ContextualTask`` — previously stubbed as
-        an empty list, which silently zeroed goal-alignment scores.
+        One Cypher round-trip for N tasks — replaces the per-task N+1 pattern
+        in ``TasksPlanningService.get_task_dependencies_for_user``. Returns a
+        ``{task_uid: (AlignedEntity, ...)}`` map; tasks with no goal edges map
+        to an empty tuple, and task UIDs missing from the graph are absent
+        from the result. Empty input returns an empty map without hitting
+        Neo4j.
         """
-        result = await self.backend.get_goals_for_task(task_uid=task_uid)
+        if not task_uids:
+            return Result.ok({})
+
+        result = await self.backend.get_goals_for_tasks_batch(task_uids=list(task_uids))
         if result.is_error:
             return Result.fail(result)
 
-        goals = tuple(
-            AlignedEntity(uid=row["uid"], title=row.get("title") or "")
-            for row in (result.value or [])
-            if row and row.get("uid")
-        )
-        return Result.ok(goals)
+        goals_by_task: dict[str, tuple[AlignedEntity, ...]] = {}
+        for row in result.value or []:
+            task_uid = row.get("task_uid")
+            if not task_uid:
+                continue
+            goals_by_task[task_uid] = tuple(
+                AlignedEntity(uid=g["uid"], title=g.get("title") or "")
+                for g in (row.get("goals") or [])
+                if g and g.get("uid")
+            )
+        return Result.ok(goals_by_task)
 
     async def count_active_tasks_for_goal(self, goal_uid: EntityUID) -> Result[ActiveTaskCount]:
         """

@@ -181,19 +181,18 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
             dep_uids = await self._get_related_uids("prerequisite_tasks", task_uid)
         deps = await self._get_tasks_by_uids(dep_uids)
 
+        # Batch-fetch goals for all deps in one Cypher round-trip.
+        goals_batch = await self.cross_domain_query.get_goals_for_tasks_batch(
+            [dep.uid for dep in deps]
+        )
+        goals_by_task = goals_batch.value if not goals_batch.is_error else {}
+
         # Enrich each dependency with context
         enriched = []
         for dep in deps:
             dep_knowledge = await self._get_related_uids("prerequisite_knowledge", dep.uid)
             dep_prereq_tasks = await self._get_related_uids("prerequisite_tasks", dep.uid)
-            # TODO(cross-domain-batch): batch these per-dep goal queries into a
-            # single Cypher walk over all deps at once. For now this fixes the
-            # latent bug where dep_goals was hardcoded empty, silently zeroing
-            # goal-alignment scoring on every dependency.
-            goals_result = await self.cross_domain_query.get_goals_for_task(dep.uid)
-            dep_goals: list[str] = (
-                [g.uid for g in goals_result.value] if not goals_result.is_error else []
-            )
+            dep_goals: list[str] = [g.uid for g in goals_by_task.get(dep.uid, ())]
 
             contextual = ContextualTask.from_entity_and_context(
                 uid=dep.uid,

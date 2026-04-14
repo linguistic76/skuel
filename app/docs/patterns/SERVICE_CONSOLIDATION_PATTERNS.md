@@ -719,7 +719,7 @@ class LpSubServices:
 |--------|----------------|
 | `get_principle_alignment_evidence` | Principle + Goal + Habit |
 | `get_tasks_applying_knowledge` | Task + Ku |
-| `get_goals_for_task` | Task + Goal |
+| `get_goals_for_tasks_batch` | Task + Goal |
 | `count_active_tasks_for_goal` | Goal + Task |
 | `get_habit_knowledge_reinforcement` | Habit + Ku |
 | `get_choice_principle_adherence` | Choice + Principle |

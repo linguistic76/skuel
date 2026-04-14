@@ -123,52 +123,61 @@ class TestGetTasksApplyingKnowledge:
 
 
 # ---------------------------------------------------------------------------
-# get_goals_for_task
+# get_goals_for_tasks_batch
 # ---------------------------------------------------------------------------
 
 
-class TestGetGoalsForTask:
+class TestGetGoalsForTasksBatch:
     @pytest.mark.asyncio
-    async def test_returns_aligned_entities(
+    async def test_returns_map_of_aligned_entities(
         self, service: CrossDomainQueryService, mock_backend: AsyncMock
     ) -> None:
-        mock_backend.get_goals_for_task.return_value = Result.ok(
+        mock_backend.get_goals_for_tasks_batch.return_value = Result.ok(
             [
-                {"uid": "goal_1", "title": "Ship v2"},
-                {"uid": "goal_2", "title": "Learn Cypher"},
+                {
+                    "task_uid": "task_1",
+                    "goals": [
+                        {"uid": "goal_1", "title": "Ship v2"},
+                        {"uid": "goal_2", "title": "Learn Cypher"},
+                    ],
+                },
+                {"task_uid": "task_2", "goals": []},
             ]
         )
 
-        result = await service.get_goals_for_task(task_uid="task_1")
+        result = await service.get_goals_for_tasks_batch(task_uids=["task_1", "task_2"])
 
         assert result.is_ok
-        goals = result.value
-        assert isinstance(goals, tuple)
-        assert len(goals) == 2
-        assert goals[0] == AlignedEntity(uid="goal_1", title="Ship v2")
-        assert goals[1] == AlignedEntity(uid="goal_2", title="Learn Cypher")
-        mock_backend.get_goals_for_task.assert_awaited_once_with(task_uid="task_1")
+        goals_by_task = result.value
+        assert set(goals_by_task.keys()) == {"task_1", "task_2"}
+        assert goals_by_task["task_1"] == (
+            AlignedEntity(uid="goal_1", title="Ship v2"),
+            AlignedEntity(uid="goal_2", title="Learn Cypher"),
+        )
+        assert goals_by_task["task_2"] == ()
+        mock_backend.get_goals_for_tasks_batch.assert_awaited_once_with(
+            task_uids=["task_1", "task_2"]
+        )
 
     @pytest.mark.asyncio
-    async def test_empty_rows_returns_empty_tuple(
+    async def test_empty_input_short_circuits(
         self, service: CrossDomainQueryService, mock_backend: AsyncMock
     ) -> None:
-        mock_backend.get_goals_for_task.return_value = Result.ok([])
-
-        result = await service.get_goals_for_task(task_uid="task_orphan")
+        result = await service.get_goals_for_tasks_batch(task_uids=[])
 
         assert result.is_ok
-        assert result.value == ()
+        assert result.value == {}
+        mock_backend.get_goals_for_tasks_batch.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_propagates_backend_error(
         self, service: CrossDomainQueryService, mock_backend: AsyncMock
     ) -> None:
-        mock_backend.get_goals_for_task.return_value = Result.fail(
-            Errors.database(operation="get_goals_for_task", message="neo4j down")
+        mock_backend.get_goals_for_tasks_batch.return_value = Result.fail(
+            Errors.database(operation="get_goals_for_tasks_batch", message="neo4j down")
         )
 
-        result = await service.get_goals_for_task(task_uid="task_1")
+        result = await service.get_goals_for_tasks_batch(task_uids=["task_1"])
 
         assert result.is_error
 

@@ -62,10 +62,13 @@ RETURN t.uid AS uid, t.title AS title, type(r) AS rel
 LIMIT $limit
 """
 
-_GOALS_FOR_TASK_QUERY = f"""
-MATCH (t:Entity {{uid: $task_uid, entity_type: 'task'}})
-MATCH (t)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}|{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
-RETURN DISTINCT g.uid AS uid, g.title AS title
+_GOALS_FOR_TASKS_BATCH_QUERY = f"""
+UNWIND $task_uids AS task_uid
+MATCH (t:Entity {{uid: task_uid, entity_type: 'task'}})
+OPTIONAL MATCH (t)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}|{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
+WITH task_uid, collect(DISTINCT g) AS goal_nodes
+RETURN task_uid AS task_uid,
+       [x IN goal_nodes WHERE x IS NOT NULL | {{uid: x.uid, title: x.title}}] AS goals
 """
 
 _ACTIVE_TASK_STATUSES: list[str] = [
@@ -363,11 +366,13 @@ class CrossDomainBackend:
             {"knowledge_uid": knowledge_uid, "user_uid": user_uid, "limit": limit},
         )
 
-    async def get_goals_for_task(self, task_uid: str) -> Result[list[dict[str, Any]]]:
-        """Find goals a task contributes to or fulfills."""
+    async def get_goals_for_tasks_batch(
+        self, task_uids: list[str]
+    ) -> Result[list[dict[str, Any]]]:
+        """Find goals each task contributes to or fulfills — one round-trip for N tasks."""
         return await self.executor.execute_query(
-            _GOALS_FOR_TASK_QUERY,
-            {"task_uid": task_uid},
+            _GOALS_FOR_TASKS_BATCH_QUERY,
+            {"task_uids": task_uids},
         )
 
     async def count_active_tasks_for_goal(self, goal_uid: str) -> Result[list[dict[str, Any]]]:

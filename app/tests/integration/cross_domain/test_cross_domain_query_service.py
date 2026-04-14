@@ -386,28 +386,30 @@ class TestTasksApplyingKnowledge:
 
 
 @pytest.mark.asyncio
-class TestGoalsForTask:
-    async def test_finds_goals_via_fulfills_and_contributes(self, service, graph):
+class TestGoalsForTasksBatch:
+    async def test_batch_finds_goals_via_fulfills_and_contributes(self, service, graph):
         # task_tests_xdq FULFILLS_GOAL goal_ship_xdq
-        result = await service.get_goals_for_task(task_uid="task_tests_xdq")
-
-        assert result.is_ok
-        goal_uids = {g.uid for g in result.value}
-        assert "goal_ship_xdq" in goal_uids
-
-    async def test_contributes_to_also_found(self, service, graph):
         # task_review_xdq CONTRIBUTES_TO_GOAL goal_ship_xdq
-        result = await service.get_goals_for_task(task_uid="task_review_xdq")
+        result = await service.get_goals_for_tasks_batch(
+            task_uids=["task_tests_xdq", "task_review_xdq"]
+        )
 
         assert result.is_ok
-        goal_uids = {g.uid for g in result.value}
-        assert "goal_ship_xdq" in goal_uids
+        goals_by_task = result.value
+        assert "goal_ship_xdq" in {g.uid for g in goals_by_task["task_tests_xdq"]}
+        assert "goal_ship_xdq" in {g.uid for g in goals_by_task["task_review_xdq"]}
 
-    async def test_orphan_task_returns_empty(self, service, graph):
-        result = await service.get_goals_for_task(task_uid="task_nonexistent")
+    async def test_missing_task_absent_from_map(self, service, graph):
+        result = await service.get_goals_for_tasks_batch(task_uids=["task_nonexistent"])
 
         assert result.is_ok
-        assert result.value == ()
+        assert result.value == {}
+
+    async def test_empty_input_returns_empty_map(self, service, graph):
+        result = await service.get_goals_for_tasks_batch(task_uids=[])
+
+        assert result.is_ok
+        assert result.value == {}
 
 
 @pytest.mark.asyncio
