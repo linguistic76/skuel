@@ -80,9 +80,7 @@ def create_upload_api_routes(
             if resolved_role is not None:
                 user_role = resolved_role
 
-        result = await upload_service.upload_and_ingest(
-            user_uid, file_pairs, user_role=user_role
-        )
+        result = await upload_service.upload_and_ingest(user_uid, file_pairs, user_role=user_role)
 
         if result.is_error:
             return result

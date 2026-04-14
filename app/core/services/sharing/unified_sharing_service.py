@@ -419,9 +419,7 @@ class UnifiedSharingService:
             if status != "archived":
                 return Result.ok(True)
             return Result.fail(
-                Errors.validation(
-                    f"Archived curriculum cannot be shared. Current status: {status}"
-                )
+                Errors.validation(f"Archived curriculum cannot be shared. Current status: {status}")
             )
         if status != "completed":
             return Result.fail(

@@ -460,9 +460,7 @@ class UserContextPopulator:
         """
         context.user_groups = list(data.get("user_groups") or [])
         context.teacher_groups = list(data.get("teacher_groups") or [])
-        context.group_assigned_exercise_uids = list(
-            data.get("group_assigned_exercise_uids") or []
-        )
+        context.group_assigned_exercise_uids = list(data.get("group_assigned_exercise_uids") or [])
         context.group_assigned_path_step_uids = list(
             data.get("group_assigned_path_step_uids") or []
         )

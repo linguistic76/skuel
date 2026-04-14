@@ -257,9 +257,7 @@ class ExerciseService(BaseService):
                         f"{share_result.expect_error()}"
                     )
                 else:
-                    self.logger.info(
-                        f"SHARED_WITH_GROUP created: {uid} -> {group_uid}"
-                    )
+                    self.logger.info(f"SHARED_WITH_GROUP created: {uid} -> {group_uid}")
 
         self.logger.info(f"Exercise created: {uid} - {name} (scope={scope.value})")
         return Result.ok(exercise)

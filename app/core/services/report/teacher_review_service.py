@@ -900,7 +900,7 @@ class TeacherReviewService:
             return Result.fail(
                 Errors.forbidden(
                     action="verify_teacher_authority",
-                    reason=f"Teacher {teacher_uid} does not have authority over student {student_uid}"
+                    reason=f"Teacher {teacher_uid} does not have authority over student {student_uid}",
                 )
             )
 
