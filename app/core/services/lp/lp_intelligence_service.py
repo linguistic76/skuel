@@ -31,9 +31,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from core.models.entity import Entity
 from core.models.enums import Domain
-from core.models.graph_context import GraphContext
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.type_hints import UserUID
@@ -47,6 +45,7 @@ from core.ports.query_types import (
     LpRecommendedStep,
 )
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.intelligence import _CoreIntelligenceMixin
 from core.services.lp_intelligence.content_analyzer import ContentAnalyzer
 from core.services.lp_intelligence.content_quality_assessor import ContentQualityAssessor
 from core.services.lp_intelligence.learning_recommendation_engine import (
@@ -65,7 +64,10 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 
-class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
+class LpIntelligenceService(
+    _CoreIntelligenceMixin[LearningPath],
+    BaseAnalyticsService[Any, LearningPath],
+):
     """
     Unified Learning Path Intelligence Service.
 
@@ -86,7 +88,8 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     - Context: Path with full graph context
 
     Architecture:
-    - Extends BaseAnalyticsService[Any, Ku] for standardized infrastructure
+    - Extends BaseAnalyticsService[Any, LearningPath] for standardized infrastructure
+    - Inherits `get_with_context()` from `_CoreIntelligenceMixin[LearningPath]`
     - Delegates state/content ops to 4 focused sub-services
     - Implements validation/analysis/adaptive/context directly
     - Single entry point for ALL learning intelligence
@@ -99,7 +102,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     def __init__(
         self,
-        backend: Any | None = None,
+        backend: Any,
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         # LP-specific dependencies
@@ -153,14 +156,13 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             content_analyzer=self.content_analyzer,
         )
 
-        if self.backend:
-            self._init_context_loader(
-                get_entity=self.backend.get,
-                dto_class=LearningPathDTO,
-                model_class=Entity,
-                domain=Domain.LEARNING,
-                model_name="LearningPath",
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get,
+            dto_class=LearningPathDTO,
+            model_class=LearningPath,
+            domain=Domain.LEARNING,
+            model_name="LearningPath",
+        )
 
         self.logger.info(
             "LpIntelligenceService initialized with consolidated validation/analysis/adaptive methods"
@@ -169,33 +171,9 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
-    # with IntelligenceRouteFactory.
+    # with IntelligenceRouteFactory. `get_with_context()` is inherited from
+    # `_CoreIntelligenceMixin[LearningPath]` — typed return, one delegation.
     # ========================================================================
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[LearningPath, GraphContext]]:
-        """
-        Get learning path with full graph context.
-
-        Protocol method: Uses GraphContextLoader for generic pattern.
-        Used by IntelligenceRouteFactory for GET /api/learning-paths/context route.
-
-        Args:
-            uid: Learning Path UID
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (LearningPath, GraphContext) tuple
-        """
-        if self.context_loader is None:
-            return Result.fail(
-                Errors.system(
-                    message="Graph intelligence service required for context queries",
-                    operation="get_with_context",
-                )
-            )
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

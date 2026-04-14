@@ -271,8 +271,7 @@ class BaseAnalyticsService(Generic[B, T]):
     ) -> None:
         """Wire a GraphContextLoader into self.context_loader if graph_intel is available.
 
-        No-ops when graph_intel is None, so services can call this unconditionally
-        (except LP, which also gates on self.backend being present).
+        No-ops when graph_intel is None, so services can call this unconditionally.
         """
         if not self.graph_intel:
             return

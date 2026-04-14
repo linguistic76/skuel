@@ -27,12 +27,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
-from core.models.graph_context import GraphContext
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import UserUID
 from core.ports.query_types import PsDomainInsights, PsPerformanceAnalytics, PsPracticeSummaryResult
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.intelligence import _CoreIntelligenceMixin
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -44,7 +44,10 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", "PathStep"]):
+class PsIntelligenceService(
+    _CoreIntelligenceMixin[PathStep],
+    BaseAnalyticsService["BackendOperations[PathStep]", "PathStep"],
+):
     """
     Intelligence service for PathSteps.
 
@@ -97,33 +100,9 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
-    # with IntelligenceRouteFactory.
+    # with IntelligenceRouteFactory. `get_with_context()` is inherited from
+    # `_CoreIntelligenceMixin[PathStep]` — typed return, one delegation.
     # ========================================================================
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[PathStep, GraphContext]]:
-        """
-        Get path step with full graph context.
-
-        Protocol method: Uses GraphContextLoader for generic pattern.
-        Used by IntelligenceRouteFactory for GET /api/path-steps/context route.
-
-        Args:
-            uid: Learning Step UID
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (Ls, GraphContext) tuple
-        """
-        if self.context_loader is None:
-            return Result.fail(
-                Errors.system(
-                    message="Graph intelligence service required for context queries",
-                    operation="get_with_context",
-                )
-            )
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

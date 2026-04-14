@@ -2,11 +2,14 @@
 Shared Core Intelligence Mixin
 ================================
 
-Provides the `get_with_context()` protocol method for all Activity Domain
-intelligence services. Delegates to GraphContextLoader, which handles
-the generic entity-fetch + Cypher graph context pattern.
+Provides the `get_with_context()` protocol method for intelligence services
+that load `(entity, GraphContext)` via `GraphContextLoader`.
 
-All 6 Activity Domain intelligence services inherit from this mixin.
+Inherited by all 6 Activity Domain intelligence services plus the curriculum
+intelligence services: `PsIntelligenceService`, `LpIntelligenceService`, and
+`KuIntelligenceService`. Parameterize with the domain model to get a typed
+return: `class PsIntelligenceService(_CoreIntelligenceMixin[PathStep], ...)`.
+
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
@@ -15,33 +18,36 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.utils.decorators import requires_graph_intelligence
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
 
 
-class _CoreIntelligenceMixin:
+class _CoreIntelligenceMixin[T]:
     """
-    Shared base for all Activity Domain intelligence services.
+    Shared `get_with_context()` for intelligence services.
 
-    Provides the IntelligenceOperations protocol method `get_with_context()`
-    via GraphContextLoader. Each domain intelligence service also
-    exposes a domain-named alias (e.g. `get_goal_with_context`).
+    Generic in the domain model so subclasses get a typed return:
+    `_CoreIntelligenceMixin[PathStep]` → `Result[tuple[PathStep, GraphContext]]`.
+
+    Activity domain services additionally expose a domain-named alias
+    (e.g. `get_goal_with_context`) from their per-domain wrapper.
     """
 
-    # Populated by each domain intelligence service __init__
+    # Populated by BaseAnalyticsService._init_context_loader
     context_loader: Any
     logger: Any
 
     @requires_graph_intelligence("get_with_context")
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Any, GraphContext]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[T, GraphContext]]:
         """
         Get entity with full graph context. Implements IntelligenceOperations protocol.
 
-        Delegates to GraphContextLoader, which selects the optimal Cypher
-        query type based on the entity's suggested_query_intent and executes it
-        as a single round-trip.
+        The `@requires_graph_intelligence` decorator short-circuits with an error
+        Result when `self.graph_intel` is missing; if graph_intel is present then
+        `BaseAnalyticsService._init_context_loader` has built `self.context_loader`.
+        No runtime path reaches this body with a missing loader.
 
         Args:
             uid: Entity UID
@@ -50,11 +56,4 @@ class _CoreIntelligenceMixin:
         Returns:
             Result containing (entity, GraphContext) tuple
         """
-        if not self.context_loader:
-            return Result.fail(
-                Errors.system(
-                    message="GraphContextLoader not initialized",
-                    operation="get_with_context",
-                )
-            )
         return await self.context_loader.get_with_context(uid=uid, depth=depth)

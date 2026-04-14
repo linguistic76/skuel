@@ -24,19 +24,22 @@ from core.models.ku.ku_dto import KuDTO
 from core.models.type_hints import UserUID
 from core.ports.query_types import KuUserSubstanceResult
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.intelligence import _CoreIntelligenceMixin
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.graph_context import GraphContext
     from core.ports import BackendOperations
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
 
 
-class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"]):
+class KuIntelligenceService(
+    _CoreIntelligenceMixin[Ku],
+    BaseAnalyticsService["BackendOperations[Ku]", "Ku"],
+):
     """
     Intelligence service for atomic Knowledge Units.
 
@@ -75,18 +78,9 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS
+    # `get_with_context()` is inherited from `_CoreIntelligenceMixin[Ku]` —
+    # typed return, one delegation.
     # ========================================================================
-
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
-        """Get Ku with full graph context (path steps, organized children)."""
-        if self.context_loader is None:
-            return Result.fail(
-                Errors.system(
-                    message="Graph intelligence service required for context queries",
-                    operation="get_with_context",
-                )
-            )
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
