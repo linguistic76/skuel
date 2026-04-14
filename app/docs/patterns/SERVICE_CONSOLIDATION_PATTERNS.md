@@ -587,7 +587,7 @@ subs = create_ps_sub_services(
     backend=repo,
     content_repo=content_repo,
     chunking_service=chunking_service,
-    graph_intelligence_service=graph_intelligence_service,
+    graph_intel=graph_intel,
     query_builder=query_builder,
     event_bus=event_bus,
     _driver=driver,
@@ -640,7 +640,7 @@ from core.services.curriculum_domain_config import create_lp_sub_services
 subs = create_lp_sub_services(
     backend=backend,
     ps_service=ps_service,  # Cross-domain dependency
-    graph_intelligence_service=graph_intelligence_service,
+    graph_intel=graph_intel,
     event_bus=event_bus,
     progress_backend=progress_backend,
     user_service=user_service,

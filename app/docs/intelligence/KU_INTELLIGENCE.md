@@ -440,7 +440,7 @@ model = self._to_domain_model(
 # KuService creates intelligence internally
 ku_service = KuService(
     backend=ku_backend,
-    graph_intelligence_service=graph_intelligence,
+    graph_intel=graph_intelligence,
     embeddings_service=embeddings_service,
     llm_service=llm_service,
     query_builder=query_builder,
@@ -563,7 +563,7 @@ graph_intel = Mock()
 # Instantiate service
 service = KuIntelligenceService(
     backend=backend,
-    graph_intelligence_service=graph_intel
+    graph_intel=graph_intel
 )
 
 # Verify initialization

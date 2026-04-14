@@ -117,7 +117,7 @@ Each facade service wires `graph_intel` to the unified relationship service:
 ```python
 # In {Domain}Service.__init__():
 self.relationships = UnifiedRelationshipService(
-    backend=backend, graph_intel=graph_intelligence_service
+    backend=backend, graph_intel=graph_intel
 )
 ```
 

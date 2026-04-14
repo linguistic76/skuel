@@ -104,11 +104,11 @@ Domain intelligence services follow the **unified internal creation pattern**:
 ```python
 # Example: LpService creates intelligence internally
 class LpService(BaseService[LpOperations, LearningPath]):
-    def __init__(self, driver, ps_service, graph_intelligence_service, ...):
+    def __init__(self, driver, ps_service, graph_intel, ...):
         # Step 5: Create intelligence INTERNALLY (January 2026 - Unified Pattern)
         self.intelligence = LpIntelligenceService(
             backend=lp_backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             ...
         )
 ```

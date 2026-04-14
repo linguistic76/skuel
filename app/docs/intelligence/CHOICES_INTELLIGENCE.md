@@ -791,7 +791,7 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.choices.intelligence
 # ChoicesService creates intelligence internally
 choices_service = ChoicesService(
     backend=choices_backend,
-    graph_intelligence_service=graph_intelligence,
+    graph_intel=graph_intelligence,
     embeddings_service=embeddings_service,
     llm_service=llm_service,
     event_bus=event_bus,
@@ -897,7 +897,7 @@ relationships = Mock()
 # Instantiate service
 service = ChoicesIntelligenceService(
     backend=backend,
-    graph_intelligence_service=graph_intel,
+    graph_intel=graph_intel,
     relationship_service=relationships
 )
 

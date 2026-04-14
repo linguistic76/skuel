@@ -113,7 +113,7 @@ When generating recommendations, Askesis follows this priority order:
 | Dependency | Purpose |
 |------------|---------|
 | `intelligence_factory` | **REQUIRED** - 13-domain synthesis |
-| `graph_intelligence_service` | Graph traversal queries |
+| `graph_intel` | Graph traversal queries |
 | `user_service` | UserContext access |
 | `llm_service` | Natural language generation |
 | `embeddings_service` | Semantic search |

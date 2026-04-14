@@ -415,7 +415,7 @@ class TasksService(BaseService[TasksOperations, Task]):
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,
-            graph_intel=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,

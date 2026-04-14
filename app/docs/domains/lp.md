@@ -51,7 +51,7 @@ from core.services.lp_service import LpService
 lp_service = LpService(
     backend=lp_backend,
     ps_service=ps_service,           # REQUIRED - for step operations
-    graph_intelligence_service=graph_intelligence,  # REQUIRED
+    graph_intel=graph_intelligence,  # REQUIRED
     event_bus=event_bus,
     progress_backend=progress_backend,
     user_service=user_service,

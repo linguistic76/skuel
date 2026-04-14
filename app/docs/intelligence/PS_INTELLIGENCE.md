@@ -397,7 +397,7 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.ls.intelligence
 # PsService creates intelligence internally
 ps_service = PsService(
     backend=ps_backend,
-    graph_intelligence_service=graph_intelligence,
+    graph_intel=graph_intelligence,
     relationship_service=relationship_service,
     event_bus=event_bus,
 )

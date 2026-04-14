@@ -42,7 +42,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     def __init__(
         self,
         backend: HabitsOperations,
-        graph_intelligence_service=None,
+        graph_intel=None,
         relationship_service=None,
         event_bus=None,
         insight_store=None,
@@ -50,7 +50,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         # ALWAYS call super first
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             event_bus=event_bus,
             insight_store=insight_store,

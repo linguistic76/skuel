@@ -188,7 +188,7 @@ Services wired in: `services_bootstrap/_learning_services.py`
     lp_service = LpService(
         backend=lp_backend,
         ps_service=ps_service,
-        graph_intelligence_service=graph_intel,
+        graph_intel=graph_intel,
         event_bus=event_bus,
     )
 ```

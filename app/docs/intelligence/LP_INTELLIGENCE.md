@@ -816,7 +816,7 @@ from core.services.lp import LpIntelligenceService
 lp_intelligence = LpIntelligenceService(
     progress_backend=progress_backend,
     backend=lp_backend,
-    graph_intelligence_service=graph_intelligence,
+    graph_intel=graph_intelligence,
 )
 
 # Add to Services dataclass

@@ -422,7 +422,7 @@ self.logger.info("Message")  # Logs to: skuel.analytics.tasks.analytics
 # TasksService creates intelligence internally
 tasks_service = TasksService(
     backend=tasks_backend,
-    graph_intelligence_service=graph_intelligence,
+    graph_intel=graph_intelligence,
     embeddings_service=embeddings_service,
     llm_service=llm_service,
     event_bus=event_bus,
@@ -479,7 +479,7 @@ graph_intel = Mock()
 # Instantiate service
 service = TasksIntelligenceService(
     backend=backend,
-    graph_intelligence_service=graph_intel
+    graph_intel=graph_intel
 )
 
 # Verify initialization

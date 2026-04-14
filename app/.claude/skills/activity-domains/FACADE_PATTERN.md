@@ -94,7 +94,7 @@ def create_tasks_api_routes(
 ```python
 from core.services.activity_domain_config import create_common_sub_services
 
-def __init__(self, backend, graph_intelligence_service, cross_domain_query,
+def __init__(self, backend, graph_intel, cross_domain_query,
              event_bus=None, activity_knowledge_intelligence=None):
     super().__init__(backend, "events")
 
@@ -102,7 +102,7 @@ def __init__(self, backend, graph_intelligence_service, cross_domain_query,
     common = create_common_sub_services(
         domain="events",
         backend=backend,
-        graph_intel=graph_intelligence_service,
+        graph_intel=graph_intel,
         event_bus=event_bus,
         skip={"intelligence"},
     )
@@ -111,7 +111,7 @@ def __init__(self, backend, graph_intelligence_service, cross_domain_query,
     self.relationships = common.relationships
     self.intelligence = EventsIntelligenceService(
         backend=backend,
-        graph_intelligence_service=graph_intelligence_service,
+        graph_intel=graph_intel,
         relationship_service=self.relationships,
         cross_domain_query=cross_domain_query,
     )
@@ -143,7 +143,7 @@ common = create_common_sub_services(
 )
 self.intelligence = EventsIntelligenceService(
     backend=backend,
-    graph_intelligence_service=graph_intel,
+    graph_intel=graph_intel,
     relationship_service=common.relationships,
     cross_domain_query=cross_domain_query,
 )
@@ -185,7 +185,7 @@ Cross-domain *reads* that span 2+ domain labels go through `CrossDomainQueryServ
 
 ```python
 class GoalsService(...):
-    def __init__(self, backend, graph_intelligence_service, cross_domain_query, ...):
+    def __init__(self, backend, graph_intel, cross_domain_query, ...):
         self.cross_domain_query = cross_domain_query
 ```
 

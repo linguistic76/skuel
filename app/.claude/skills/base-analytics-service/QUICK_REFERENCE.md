@@ -103,7 +103,7 @@ class BaseAnalyticsService(Generic[B, T]):
     def __init__(
         self,
         backend: B,
-        graph_intelligence_service: Any | None = None,
+        graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
         insight_store: Any | None = None,
@@ -215,7 +215,7 @@ async def get_domain_insights(
 | `logger` | `Logger` | No | Hierarchical logger |
 | `context_loader` | `GraphContextLoader \| None` | Yes* | Context retrieval (set via `self._init_context_loader(...)`) |
 
-*`context_loader` is created only if `graph_intelligence_service` is provided. Call `self._init_context_loader(...)` from `__init__` — it no-ops when `graph_intel` is None.
+*`context_loader` is created only if `graph_intel` is provided. Call `self._init_context_loader(...)` from `__init__` — it no-ops when `graph_intel` is None.
 
 ---
 
@@ -227,7 +227,7 @@ Access intelligence through domain facades:
 # At bootstrap
 tasks_service = TasksService(
     backend=tasks_backend,
-    graph_intelligence_service=graph_intel,
+    graph_intel=graph_intel,
 )
 
 # Usage

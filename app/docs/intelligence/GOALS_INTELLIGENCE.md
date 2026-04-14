@@ -699,7 +699,7 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.goals.intelligence
 # GoalsService creates intelligence internally
 goals_service = GoalsService(
     backend=goaps_backend,
-    graph_intelligence_service=graph_intelligence,
+    graph_intel=graph_intelligence,
     embeddings_service=embeddings_service,
     llm_service=llm_service,
     progress_service=progress_service,
@@ -791,7 +791,7 @@ relationships = Mock()
 # Instantiate service
 service = GoalsIntelligenceService(
     backend=backend,
-    graph_intelligence_service=graph_intel,
+    graph_intel=graph_intel,
     relationship_service=relationships
 )
 

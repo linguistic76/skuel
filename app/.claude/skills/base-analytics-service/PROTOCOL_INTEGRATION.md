@@ -189,8 +189,8 @@ from core.services.intelligence.graph_context_loader import GraphContextLoader
 
 ```python
 class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
-    def __init__(self, backend, graph_intelligence_service=None, ...):
-        super().__init__(backend, graph_intelligence_service, ...)
+    def __init__(self, backend, graph_intel=None, ...):
+        super().__init__(backend, graph_intel, ...)
 
         self._init_context_loader(
             get_entity=self.backend.get_task,   # bound async fetch method

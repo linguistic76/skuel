@@ -85,7 +85,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
 |-----------|------|----------|---------|
 | `_service_name` | `str` | Yes | Logger name: `skuel.analytics.{_service_name}` |
 | `_require_relationships` | `bool` | No | If True, raise if `relationship_service` is None |
-| `_require_graph_intel` | `bool` | No | If True, raise if `graph_intelligence_service` is None |
+| `_require_graph_intel` | `bool` | No | If True, raise if `graph_intel` is None |
 | `_event_handlers` | `dict[type, str]` | No | Auto-subscribe handlers on init |
 
 ---
@@ -98,7 +98,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
 def __init__(
     self,
     backend: B,                                    # REQUIRED - domain operations
-    graph_intelligence_service: Any | None = None, # GraphIntelligenceService
+    graph_intel: Any | None = None, # GraphIntelligenceService
     relationship_service: Any | None = None,       # UnifiedRelationshipService
     event_bus: Any | None = None,                  # EventBus
     insight_store: Any | None = None,              # InsightStore
@@ -118,7 +118,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     def __init__(
         self,
         backend: HabitsOperations,
-        graph_intelligence_service: GraphIntelligenceService | None = None,
+        graph_intel: GraphIntelligenceService | None = None,
         relationship_service: UnifiedRelationshipService | None = None,
         event_bus: EventBus | None = None,
         insight_store: InsightStore | None = None,
@@ -126,7 +126,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         # ALWAYS call super().__init__() first
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             event_bus=event_bus,
             insight_store=insight_store,
@@ -179,7 +179,7 @@ async def get_related_goals(self, uid: str) -> Result[list[str]]:
 All guards raise `ValueError` if the dependency is unavailable:
 
 ```
-ValueError: TasksIntelligenceService.get_entity_context() requires graph_intelligence_service
+ValueError: TasksIntelligenceService.get_entity_context() requires graph_intel
 ```
 
 ---
@@ -433,8 +433,8 @@ class TasksIntelligenceService(
     _CoreIntelligenceMixin,  # inherits get_with_context() — typed via per-domain wrapper
     BaseAnalyticsService["TasksOperations", Task],
 ):
-    def __init__(self, backend, graph_intelligence_service=None, ...):
-        super().__init__(backend, graph_intelligence_service, ...)
+    def __init__(self, backend, graph_intel=None, ...):
+        super().__init__(backend, graph_intel, ...)
 
         self._init_context_loader(
             get_entity=self.backend.get_task,
@@ -538,14 +538,14 @@ class NewDomainIntelligenceService(
     def __init__(
         self,
         backend: NewDomainOperations,
-        graph_intelligence_service=None,
+        graph_intel=None,
         relationship_service=None,
         event_bus=None,
         insight_store=None,
     ):
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             event_bus=event_bus,
             insight_store=insight_store,
@@ -598,7 +598,7 @@ class NewDomainService:
         self.search = NewDomainSearchService(backend)
         self.intelligence = NewDomainIntelligenceService(
             backend=backend,
-            graph_intelligence_service=graph_intel,
+            graph_intel=graph_intel,
             ...
         )
 ```

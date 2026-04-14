@@ -81,7 +81,7 @@ class BaseAIService(Generic[B, T]):
         backend: B,                                    # REQUIRED
         llm_service: Any | None = None,               # Required by default
         embeddings_service: Any | None = None,        # Required by default
-        graph_intelligence_service: Any | None = None,
+        graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None: ...

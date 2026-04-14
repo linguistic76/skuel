@@ -434,7 +434,7 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.events.intelligence
 # EventsService creates intelligence internally
 events_service = EventsService(
     backend=events_backend,
-    graph_intelligence_service=graph_intelligence,
+    graph_intel=graph_intelligence,
     cross_domain_query=cross_domain_query,
     event_bus=event_bus,
 )
@@ -538,7 +538,7 @@ relationships = Mock()
 # Instantiate service
 service = EventsIntelligenceService(
     backend=backend,
-    graph_intelligence_service=graph_intel,
+    graph_intel=graph_intel,
     relationship_service=relationships
 )
 

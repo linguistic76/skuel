@@ -24,7 +24,7 @@ from core.services.activity_domain_config import create_common_sub_services
 common = create_common_sub_services(
     domain="tasks",
     backend=backend,
-    graph_intel=graph_intelligence_service,
+    graph_intel=graph_intel,
     event_bus=event_bus,
 )
 self.core = common.core
@@ -48,7 +48,7 @@ common = create_curriculum_sub_services(domain="ku", backend=ku_backend, ...)
 
 # PS — specialized factory (handles circular core <-> intelligence dependency)
 from core.services.curriculum_domain_config import create_ps_sub_services
-subs = create_ps_sub_services(backend=ps_backend, graph_intelligence_service=graph_intel, ...)
+subs = create_ps_sub_services(backend=ps_backend, graph_intel=graph_intel, ...)
 
 # LP — specialized factory (requires cross-domain PsService dependency)
 from core.services.curriculum_domain_config import create_lp_sub_services

@@ -50,7 +50,7 @@ Askesis uses a **pure facade pattern** with zero business logic in the main serv
 class AskesisDeps:
     """Typed dependency container — all deps required (March 2026 streamlining)."""
     intelligence_factory: UserContextIntelligenceFactory
-    graph_intelligence_service: Any
+    graph_intel: Any
     user_service: Any
     llm_service: Any
     embeddings_service: Any
@@ -78,7 +78,7 @@ class AskesisService:
 
         # ContextRetriever handles graph retrieval + PS bundle loading
         self.context_retriever = ContextRetriever(
-            graph_intelligence_service=deps.graph_intelligence_service,
+            graph_intel=deps.graph_intel,
             embeddings_service=deps.embeddings_service,
             ps_service=deps.knowledge_service,
             ku_service=deps.ku_service, ...

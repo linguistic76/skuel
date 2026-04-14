@@ -391,7 +391,7 @@ TasksProgressService    ← Depends on: event_bus (optional)
 TasksSchedulingService  ← Self-contained
 TasksPlanningService    ← Depends on: relationship_service (UnifiedRelationshipService)
 TasksSearchService      ← Self-contained (uses DomainConfig)
-TasksIntelligenceService← Depends on: graph_intelligence_service, relationship_service, AnalyticsEngine (owned internally)
+TasksIntelligenceService← Depends on: graph_intel, relationship_service, AnalyticsEngine (owned internally)
 UnifiedRelationshipService ← Depends on: relationship_config (TASKS_CONFIG)
 ```
 
@@ -671,7 +671,7 @@ EventsService.__init__()
 create_common_sub_services(
     domain="events",
     backend=backend,
-    graph_intel=graph_intelligence_service,
+    graph_intel=graph_intel,
     event_bus=event_bus,
     insight_store=insight_store,
     activity_knowledge_intelligence=activity_knowledge_intelligence,

@@ -731,7 +731,7 @@ Each facade service wires `graph_intel` to its RelationshipService:
 ```python
 # In {Domain}Service.__init__():
 self.relationships = {Domain}RelationshipService(
-    backend=backend, graph_intel=graph_intelligence_service
+    backend=backend, graph_intel=graph_intel
 )
 ```
 

@@ -65,8 +65,8 @@ All domain intelligence services (10 of 11) follow the `BaseAnalyticsService` pa
 class HabitsIntelligenceService(BaseAnalyticsService["HabitsOperations", Habit]):
     _service_name = "habits.analytics"
 
-    def __init__(self, backend, graph_intelligence_service, ...):
-        super().__init__(backend, graph_intelligence_service, ...)
+    def __init__(self, backend, graph_intel, ...):
+        super().__init__(backend, graph_intel, ...)
 
 # Decomposed service (>350 lines) — shell + mixin files in same package directory
 class TasksIntelligenceService(
@@ -517,7 +517,7 @@ All Activity and Curriculum domain services create intelligence internally:
 # Tasks example
 tasks_service = TasksService(
     backend=tasks_backend,
-    graph_intelligence_service=graph_intelligence,
+    graph_intel=graph_intelligence,
     embeddings_service=embeddings_service,
     llm_service=llm_service,
 )

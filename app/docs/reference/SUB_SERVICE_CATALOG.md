@@ -624,7 +624,7 @@ from core.services.activity_domain_config import create_common_sub_services
 common = create_common_sub_services(
     domain="tasks",
     backend=backend,
-    graph_intel=graph_intelligence_service,
+    graph_intel=graph_intel,
     event_bus=event_bus,
     insight_store=insight_store,                                      # optional
     activity_knowledge_intelligence=activity_knowledge_intelligence,  # optional
