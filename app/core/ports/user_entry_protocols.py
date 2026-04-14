@@ -148,13 +148,19 @@ class UserEntryLifecycleOperations(Protocol):
         """
         ...
 
-    async def create_temporal_relationship(
+    async def create_entry_temporal_link(
         self, entry_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Create FOLLOWS to the previous user entry by this user."""
+        """Create FOLLOWS to the previous user entry by this user.
+
+        Renamed from the inherited ``create_temporal_relationship`` to avoid
+        an LSP conflict — the legacy ``_SubmissionLifecycleMixin`` version
+        takes ``(ku_uid, user_uid, entity_type)`` and is still used by the
+        legacy backend.
+        """
         ...
 
-    async def create_thematic_relationships(
+    async def create_entry_thematic_links(
         self,
         entry_uid: str,
         user_uid: UserUID,
@@ -320,8 +326,14 @@ class UserEntryReportQueryOperations(Protocol):
         """Group-assigned exercises with no entry yet from this user."""
         ...
 
-    async def get_report_summary_raw(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Aggregate report completion counts across user's entries."""
+    async def get_entry_report_summary_raw(
+        self, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
+        """Aggregate report completion counts across user's entries.
+
+        Named distinctly from the inherited ``get_report_summary_raw``
+        (which takes ``submission_types``) to avoid an LSP conflict.
+        """
         ...
 
     async def get_learning_loop_chain_raw(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
