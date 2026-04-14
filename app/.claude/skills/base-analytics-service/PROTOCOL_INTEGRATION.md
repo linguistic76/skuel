@@ -94,15 +94,19 @@ Separate from the core protocols, all 10 services implement this local protocol 
 
 ### 1. `get_with_context(uid, depth=2)`
 
-Returns entity with full graph neighborhood.
+Returns entity with full graph neighborhood. **Inherited, not implemented per-service.** Services inherit `_CoreIntelligenceMixin[T]` (generic in the domain model) which owns the delegation:
 
 ```python
-async def get_with_context(
-    self, uid: str, depth: int = 2
-) -> Result[tuple[T, GraphContext]]:
-    """Get entity with graph neighborhood."""
-    return await self.context_loader.get_with_context(uid=uid, depth=depth)
+# core/services/intelligence/_core_intelligence_mixin.py
+class _CoreIntelligenceMixin[T]:
+    @requires_graph_intelligence("get_with_context")
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[T, GraphContext]]:
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 ```
+
+Subclasses parameterize with their model (`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[Goal]`, etc.) to get a typed return. Activity domains wrap this in a per-package `_CoreIntelligenceMixin` that also adds domain-named aliases (`get_task_with_context`, etc.). PS/LP/KU/Events inherit directly.
 
 **Returns:**
 ```python
@@ -181,7 +185,7 @@ from core.services.intelligence.graph_context_loader import GraphContextLoader
 
 ### Initialization Pattern
 
-`BaseAnalyticsService` exposes a `_init_context_loader[M]` helper that wires the loader for you. Per-domain services call it from `__init__` — it no-ops when `graph_intel` is `None`, so no `if` guard is needed (LP additionally guards on `self.backend`).
+`BaseAnalyticsService` exposes a `_init_context_loader[M]` helper that wires the loader for you. Per-domain services call it from `__init__` — it no-ops when `graph_intel` is `None`, so no `if` guard is needed. `BaseAnalyticsService.__init__` already fail-fasts on a missing backend, so no `self.backend` guard is needed either.
 
 ```python
 class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
@@ -320,6 +324,7 @@ from core.models.enums import Domain
 
 
 class TasksIntelligenceService(
+    _CoreIntelligenceMixin[Task],  # inherits typed get_with_context()
     BaseAnalyticsService[TasksOperations, Task],
     IntelligenceOperations  # Implements protocol
 ):
@@ -351,15 +356,8 @@ class TasksIntelligenceService(
 
     # =========================================================================
     # THREE STANDARDIZED METHODS
+    # get_with_context() is inherited from _CoreIntelligenceMixin[Task].
     # =========================================================================
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Task, GraphContext]]:
-        """Get task with graph neighborhood."""
-        if not self.context_loader:
-            return Result.fail(Errors.system("context_loader unavailable"))
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

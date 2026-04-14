@@ -49,11 +49,11 @@ Services >~350 lines are decomposed into mixin files in the same package directo
 | Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService["ChoicesOperations", Choice]` | Decision support |
 | Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Principle]` | Alignment analysis |
 | **Curriculum (3)** |
-| KU | `KuIntelligenceService` | `BaseAnalyticsService["BackendOperations[Ku]", Ku]` | Knowledge graph analytics |
-| PS | `PsIntelligenceService` | `BaseAnalyticsService["BackendOperations[PathStep]", PathStep]` | Readiness checks |
-| LP | `LpIntelligenceService` | `BaseAnalyticsService[Any, Entity]` | Learning state analysis |
+| KU | `KuIntelligenceService` | `_CoreIntelligenceMixin[Ku], BaseAnalyticsService["BackendOperations[Ku]", Ku]` | Knowledge graph analytics |
+| PS | `PsIntelligenceService` | `_CoreIntelligenceMixin[PathStep], BaseAnalyticsService["BackendOperations[PathStep]", PathStep]` | Readiness checks |
+| LP | `LpIntelligenceService` | `_CoreIntelligenceMixin[LearningPath], BaseAnalyticsService[Any, LearningPath]` | Learning state analysis |
 
-**Key pattern:** The second type parameter is the domain's own model — `Task` for tasks, `Habit` for habits, `Ku` for knowledge units, `PathStep` for path steps, etc. LP is the exception, using `Entity` due to its decomposed backend.
+**Key pattern:** The second type parameter is the domain's own model — `Task` for tasks, `Habit` for habits, `Ku` for knowledge units, `PathStep` for path steps, `LearningPath` for learning paths. PS, LP, and KU inherit `_CoreIntelligenceMixin[T]` directly (no per-domain mixin wrapper) and get a typed `get_with_context() -> Result[tuple[T, GraphContext]]` for free.
 
 ---
 
@@ -402,14 +402,12 @@ Split into focused ISP protocols (March 2026):
 
 ### Route Factory Protocol (3 methods for auto route generation)
 
-All 10 domain services implement this separate protocol from `intelligence_route_factory.py`:
+All 10 domain services satisfy this separate protocol from `intelligence_route_factory.py`. `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` — never implemented per-service:
 
 ```python
-async def get_with_context(
-    self, uid: str, depth: int = 2
-) -> Result[tuple[T, GraphContext]]:
-    """Get entity with full graph neighborhood."""
-    return await self.context_loader.get_with_context(uid=uid, depth=depth)
+# Inherited — do not reimplement:
+#   _CoreIntelligenceMixin[T].get_with_context(uid, depth=2)
+#     -> Result[tuple[T, GraphContext]]
 
 async def get_performance_analytics(
     self, user_uid: UserUID, period_days: int = 30
@@ -431,7 +429,10 @@ async def get_domain_insights(
 Each analytics service uses `GraphContextLoader` (in `core/services/intelligence/graph_context_loader.py`) for unified context retrieval. Services never import it directly — they call the `self._init_context_loader(...)` helper on `BaseAnalyticsService`, which no-ops when `graph_intel` is `None` and constructs the loader otherwise, storing it on `self.context_loader`.
 
 ```python
-class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
+class TasksIntelligenceService(
+    _CoreIntelligenceMixin,  # inherits get_with_context() — typed via per-domain wrapper
+    BaseAnalyticsService["TasksOperations", Task],
+):
     def __init__(self, backend, graph_intelligence_service=None, ...):
         super().__init__(backend, graph_intelligence_service, ...)
 
@@ -442,19 +443,18 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
             domain=Domain.TASKS,
             model_name="Task",
         )
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Task, GraphContext]]:
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
+    # get_with_context() is inherited — no override needed.
 ```
 
-LP is the only special case — its backend is optional, so it guards the call:
-
-```python
-if self.backend:
-    self._init_context_loader(...)
-```
+`_CoreIntelligenceMixin[T]` is generic: PS, LP, and KU inherit it directly
+(`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[LearningPath]`,
+`_CoreIntelligenceMixin[Ku]`) and get a typed
+`Result[tuple[T, GraphContext]]` return with no per-domain wrapper. Activity
+domains use their package's `_CoreIntelligenceMixin` wrapper (which extends
+the shared base) because they also expose a domain-named alias
+(e.g. `get_goal_with_context`). No service needs to special-case the
+`_init_context_loader` call — `BaseAnalyticsService` fail-fasts on a missing
+backend, so the loader wiring is unconditional.
 
 ---
 
@@ -529,7 +529,8 @@ from core.ports import NewDomainOperations
 from core.models.new_domain import NewDomainModel, NewDomainDTO
 
 class NewDomainIntelligenceService(
-    BaseAnalyticsService[NewDomainOperations, NewDomainModel]
+    _CoreIntelligenceMixin[NewDomainModel],
+    BaseAnalyticsService[NewDomainOperations, NewDomainModel],
 ):
     _service_name = "new_domain.analytics"
     _require_relationships = False  # Set True if needed
@@ -562,10 +563,7 @@ class NewDomainIntelligenceService(
 ### Step 2: Implement Protocol Methods
 
 ```python
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[NewDomainModel, GraphContext]]:
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
+    # get_with_context() inherited from _CoreIntelligenceMixin[NewDomainModel]
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

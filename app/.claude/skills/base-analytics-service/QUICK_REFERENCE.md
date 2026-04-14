@@ -177,10 +177,9 @@ async def _dual_track_assessment(
 ## Three Standardized Methods (All 9 Services)
 
 ```python
-async def get_with_context(
-    self, uid: str, depth: int = 2
-) -> Result[tuple[T, GraphContext]]:
-    """Entity with full graph neighborhood."""
+# get_with_context() is inherited from _CoreIntelligenceMixin[T] — never implemented per-service.
+# Subclass as _CoreIntelligenceMixin[YourModel] to get:
+#   async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[YourModel, GraphContext]]
 
 async def get_performance_analytics(
     self, user_uid: UserUID, period_days: int = 30
