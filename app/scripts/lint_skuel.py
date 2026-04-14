@@ -1138,7 +1138,6 @@ class SkuelLinter:
             "choice",
             "principle",
             # Curriculum
-            "lesson",
             "ku",
             "path_step",
             "learning_path",
@@ -1153,6 +1152,7 @@ class SkuelLinter:
             "exercise_submission",
             "activity_report",
             "exercise_report",
+            "interaction",
             # Journal
             "je_input",
             "je_output",
@@ -1162,6 +1162,7 @@ class SkuelLinter:
             "finance",
             # Old aliases (catch stale magic strings)
             "article",
+            "lesson",
             "submission",
             "journal",
             "submission_report",

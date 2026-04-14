@@ -746,6 +746,18 @@ class TestSKUEL014:
         violations = lint_content(linter, '# entity_type == "task"')
         assert len(violations) == 0
 
+    def test_flags_stale_lesson_alias(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'if entity_type == "lesson":')
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL014"
+
+    def test_flags_interaction_magic_string(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'if entity_type == "interaction":')
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL014"
+
 
 # ============================================================================
 # SKUEL015: print() in production code

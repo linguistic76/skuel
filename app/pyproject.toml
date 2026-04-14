@@ -610,10 +610,10 @@ ignore = [
 # SKUEL ARCHITECTURE ENFORCEMENT (January 2025)
 # ============================================================================
 # Lambda functions: E731 is ENABLED - enforces SKUEL "no lambda" policy
-# Additional SKUEL-specific rules enforced via custom scripts (see scripts/lint_skuel_patterns.py):
-#   - SKU001: Deprecated .is_err usage (use .is_error instead)
-#   - SKU002: hasattr() in production code (use explicit type checks)
-#   - SKU003: String-based Result.fail() (use Errors factory)
+# Additional SKUEL-specific rules enforced via custom scripts (see scripts/lint_skuel.py):
+#   - SKUEL003: Deprecated .is_err usage (use .is_error instead)
+#   - SKUEL011: hasattr() in production code (use explicit type checks)
+#   - SKUEL007: String-based Result.fail() (use Errors factory)
 
 fixable = ["ALL"]
 
