@@ -19,7 +19,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
@@ -31,7 +30,6 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._analytics_mixin import _AnalyticsMixin
 from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.choices._core_intelligence_mixin import _CoreIntelligenceMixin
-from core.services.intelligence import GraphContextLoader
 from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.utils.result_simplified import Result
 
@@ -90,15 +88,13 @@ class ChoicesIntelligenceService(
         )
         self.cross_domain_query = cross_domain_query
 
-        # Initialize GraphContextLoader for get_with_context pattern
-        if graph_intelligence_service:
-            self.context_loader = GraphContextLoader[Choice](
-                get_entity=self.backend.get,
-                to_domain=partial(self._to_domain_model, dto_class=ChoiceDTO, model_class=Choice),
-                graph_intel=graph_intelligence_service,
-                domain=Domain.CHOICES,
-                model_name="Choice",
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get,
+            dto_class=ChoiceDTO,
+            model_class=Choice,
+            domain=Domain.CHOICES,
+            model_name="Choice",
+        )
 
         # Initialize path-aware intelligence helper
         self.path_helper = PathAwareAnalyzer()

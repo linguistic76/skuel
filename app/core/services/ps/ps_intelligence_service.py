@@ -24,7 +24,6 @@ Architecture:
 
 from __future__ import annotations
 
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
@@ -34,7 +33,6 @@ from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import UserUID
 from core.ports.query_types import PsDomainInsights, PsPerformanceAnalytics, PsPracticeSummaryResult
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence import GraphContextLoader
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -88,17 +86,13 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         # Query executor for direct Cypher access
         self.executor = executor
 
-        # Initialize GraphContextLoader for get_with_context pattern
-        if graph_intelligence_service:
-            self.context_loader = GraphContextLoader[PathStep](
-                get_entity=self.backend.get,
-                to_domain=partial(
-                    self._to_domain_model, dto_class=PathStepDTO, model_class=PathStep
-                ),
-                graph_intel=graph_intelligence_service,
-                domain=Domain.LEARNING,
-                model_name="PathStep",
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get,
+            dto_class=PathStepDTO,
+            model_class=PathStep,
+            domain=Domain.LEARNING,
+            model_name="PathStep",
+        )
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

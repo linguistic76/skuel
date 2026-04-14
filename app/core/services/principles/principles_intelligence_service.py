@@ -19,7 +19,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
@@ -27,7 +26,6 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence import GraphContextLoader
 from core.services.principles._alignment_intelligence_mixin import _AlignmentIntelligenceMixin
 from core.services.principles._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.principles._influence_mixin import _InfluenceMixin
@@ -89,17 +87,13 @@ class PrinciplesIntelligenceService(
             insight_store=insight_store,
         )
 
-        # Initialize GraphContextLoader for get_with_context pattern
-        if graph_intelligence_service:
-            self.context_loader = GraphContextLoader[Principle](
-                get_entity=self.backend.get,
-                to_domain=partial(
-                    self._to_domain_model, dto_class=PrincipleDTO, model_class=Principle
-                ),
-                graph_intel=graph_intelligence_service,
-                domain=Domain.PRINCIPLES,
-                model_name="Principle",
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get,
+            dto_class=PrincipleDTO,
+            model_class=Principle,
+            domain=Domain.PRINCIPLES,
+            model_name="Principle",
+        )
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT

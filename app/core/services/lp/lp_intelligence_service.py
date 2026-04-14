@@ -29,7 +29,6 @@ Architecture (January 2026 - Unified Pattern):
 from __future__ import annotations
 
 from datetime import datetime
-from functools import partial
 from typing import Any
 
 from core.models.entity import Entity
@@ -48,7 +47,6 @@ from core.ports.query_types import (
     LpRecommendedStep,
 )
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence import GraphContextLoader
 from core.services.lp_intelligence.content_analyzer import ContentAnalyzer
 from core.services.lp_intelligence.content_quality_assessor import ContentQualityAssessor
 from core.services.lp_intelligence.learning_recommendation_engine import (
@@ -155,14 +153,11 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             content_analyzer=self.content_analyzer,
         )
 
-        # Initialize GraphContextLoader for get_with_context pattern
-        if graph_intelligence_service and self.backend:
-            self.context_loader = GraphContextLoader[Entity](
+        if self.backend:
+            self._init_context_loader(
                 get_entity=self.backend.get,
-                to_domain=partial(
-                    self._to_domain_model, dto_class=LearningPathDTO, model_class=Entity
-                ),
-                graph_intel=graph_intelligence_service,
+                dto_class=LearningPathDTO,
+                model_class=Entity,
                 domain=Domain.LEARNING,
                 model_name="LearningPath",
             )

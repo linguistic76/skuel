@@ -572,7 +572,9 @@ class LateralRelationshipOperations(Protocol):
         include_explicit_only: bool = False,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
-    ) -> Result[list[dict[str, Any]]]: ...  # boundary: sibling rows come from multiple backend queries
+    ) -> Result[
+        list[dict[str, Any]]
+    ]: ...  # boundary: sibling rows come from multiple backend queries
 
 
 @runtime_checkable

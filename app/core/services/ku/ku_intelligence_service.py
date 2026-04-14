@@ -16,7 +16,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
@@ -25,7 +24,6 @@ from core.models.ku.ku_dto import KuDTO
 from core.models.type_hints import UserUID
 from core.ports.query_types import KuUserSubstanceResult
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence import GraphContextLoader
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -67,14 +65,13 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
             event_bus=event_bus,
         )
 
-        if graph_intelligence_service:
-            self.context_loader = GraphContextLoader[Ku](
-                get_entity=self.backend.get,
-                to_domain=partial(self._to_domain_model, dto_class=KuDTO, model_class=Ku),
-                graph_intel=graph_intelligence_service,
-                domain=Domain.KNOWLEDGE,
-                model_name="Ku",
-            )
+        self._init_context_loader(
+            get_entity=self.backend.get,
+            dto_class=KuDTO,
+            model_class=Ku,
+            domain=Domain.KNOWLEDGE,
+            model_name="Ku",
+        )
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS
