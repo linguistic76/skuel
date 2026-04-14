@@ -40,7 +40,7 @@ def mock_graph_intel() -> Mock:
 def events_service(mock_backend: Mock, mock_graph_intel: Mock) -> EventsService:
     service = EventsService(
         backend=mock_backend,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
         cross_domain_query=AsyncMock(),
         event_bus=None,
     )

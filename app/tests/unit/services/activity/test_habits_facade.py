@@ -50,7 +50,7 @@ def habits_service(
 ) -> HabitsService:
     service = HabitsService(
         backend=mock_backend,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
         completions_backend=mock_completions_backend,
         cross_domain_query=AsyncMock(),
         event_bus=None,

@@ -190,7 +190,7 @@ def create_finance_service_for_testing(
     # Note: FinanceService may create sub-components internally
     return FinanceService(
         backend=backend,
-        graph_intelligence_service=graph_intelligence,
+        graph_intel=graph_intelligence,
         event_bus=event_bus,
     )
 
@@ -200,7 +200,7 @@ def create_tasks_service_for_testing(
     cross_domain_query: Any = None,
     ku_inference_service: Mock | None = None,
     ku_generation_service: Mock | None = None,
-    graph_intelligence_service: Mock | None = None,
+    graph_intel: Mock | None = None,
     event_bus: Mock | None = None,
     backend_behavior: dict[str, Any] | None = None,
 ) -> Any:  # Returns TasksService
@@ -211,7 +211,7 @@ def create_tasks_service_for_testing(
         backend: Optional mock backend (created if not provided)
         ku_inference_service: Optional KU inference service
         ku_generation_service: Optional KU generation service
-        graph_intelligence_service: Optional graph intelligence service
+        graph_intel: Optional graph intelligence service
         event_bus: Optional event bus
         backend_behavior: Optional behavior customization for backend
 
@@ -246,7 +246,7 @@ def create_tasks_service_for_testing(
     return TasksService(
         backend=backend,
         cross_domain_query=cross_domain_query,
-        graph_intelligence_service=graph_intelligence_service,
+        graph_intel=graph_intel,
         ku_inference_service=ku_inference_service,
         ku_generation_service=ku_generation_service,
         event_bus=event_bus,

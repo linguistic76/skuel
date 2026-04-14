@@ -38,7 +38,7 @@ from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.services.intelligence.graph_context_loader import (
     GraphContextLoader,
-    _SuggestsQueryIntent,
+    SuggestsQueryIntent,
 )
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -117,7 +117,7 @@ class BaseAnalyticsService(Generic[B, T]):
     def __init__(
         self,
         backend: B,
-        graph_intelligence_service: Any | None = None,
+        graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
         insight_store: Any | None = None,
@@ -127,7 +127,7 @@ class BaseAnalyticsService(Generic[B, T]):
 
         Args:
             backend: Domain operations protocol (REQUIRED)
-            graph_intelligence_service: For graph context retrieval (optional)
+            graph_intel: For graph context retrieval (optional)
             relationship_service: For relationship queries (optional)
             event_bus: For event publishing/subscription (optional)
             insight_store: For persisting event-driven insights (optional)
@@ -151,13 +151,13 @@ class BaseAnalyticsService(Generic[B, T]):
         self.backend = backend
 
         # Optional services (NO embeddings, NO llm)
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.relationships = relationship_service
         self.event_bus = event_bus
         self.insight_store = insight_store
 
         # Context loader - initialized by child classes when graph_intel is available
-        self.context_loader: Any | None = None
+        self.context_loader: GraphContextLoader[Any] | None = None
 
         # Logger initialization
         service_name = self._service_name or self.__class__.__name__
@@ -172,7 +172,7 @@ class BaseAnalyticsService(Generic[B, T]):
 
         if self._require_graph_intel and not self.graph_intel:
             raise ValueError(
-                f"{self.__class__.__name__} requires graph_intelligence_service. "
+                f"{self.__class__.__name__} requires graph_intel. "
                 "Set _require_graph_intel = False to make it optional."
             )
 
@@ -216,7 +216,7 @@ class BaseAnalyticsService(Generic[B, T]):
         """
         if not self.graph_intel:
             raise ValueError(
-                f"{self.__class__.__name__}.{operation}() requires graph_intelligence_service"
+                f"{self.__class__.__name__}.{operation}() requires graph_intel"
             )
 
     def _require_relationship_service(self, operation: str) -> None:
@@ -260,7 +260,7 @@ class BaseAnalyticsService(Generic[B, T]):
             return model_class.from_dto(dto)  # type: ignore[attr-defined]
         return dto_or_dict  # type: ignore[return-value]
 
-    def _init_context_loader[M: _SuggestsQueryIntent](
+    def _init_context_loader[M: SuggestsQueryIntent](
         self,
         *,
         get_entity: Callable[[str], Awaitable[Result[Any]]],

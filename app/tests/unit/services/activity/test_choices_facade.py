@@ -38,7 +38,7 @@ def mock_graph_intel() -> Mock:
 def choices_service(mock_backend: Mock, mock_graph_intel: Mock) -> ChoicesService:
     service = ChoicesService(
         backend=mock_backend,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
         cross_domain_query=MagicMock(),
         event_bus=None,
     )

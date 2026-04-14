@@ -57,13 +57,13 @@ class KuIntelligenceService(
     def __init__(
         self,
         backend: BackendOperations[Ku],
-        graph_intelligence_service: Any | None = None,
+        graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             event_bus=event_bus,
         )

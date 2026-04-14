@@ -54,7 +54,7 @@ class EventsIntelligenceService(
     def __init__(
         self,
         backend: "EventsOperations",
-        graph_intelligence_service=None,
+        graph_intel=None,
         relationship_service: "EventsRelationshipOperations | None" = None,
         cross_domain_query: "CrossDomainQueryService | None" = None,
         insight_store: Any | None = None,
@@ -64,7 +64,7 @@ class EventsIntelligenceService(
 
         Args:
             backend: Protocol-based backend for event operations
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics
+            graph_intel: GraphIntelligenceService for pure Cypher analytics
             relationship_service: EventsRelationshipOperations protocol for fetching graph relationships
             cross_domain_query: CrossDomainQueryService for batch cross-domain reads
                                 (required for analyze_upcoming_events)
@@ -72,7 +72,7 @@ class EventsIntelligenceService(
         """
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             insight_store=insight_store,
         )

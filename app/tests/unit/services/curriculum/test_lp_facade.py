@@ -50,7 +50,7 @@ def lp_service(
     service = LpService(
         backend=mock_backend,
         ps_service=mock_ps_service,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
     )
     # Replace sub-services with AsyncMocks AFTER construction
     service.core = AsyncMock()

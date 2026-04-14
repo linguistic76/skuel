@@ -61,7 +61,7 @@ class AskesisAIService(BaseAIService[Any, Any]):
         backend: Any,  # No AskesisOperations protocol yet
         llm_service: "LLMService",
         embeddings_service: "HuggingFaceEmbeddingsService",
-        graph_intelligence_service: "GraphIntelligenceService | None" = None,
+        graph_intel: "GraphIntelligenceService | None" = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
@@ -72,7 +72,7 @@ class AskesisAIService(BaseAIService[Any, Any]):
             backend: Backend for askesis operations (no protocol yet)
             llm_service: LLM service for AI insights (REQUIRED)
             embeddings_service: Embeddings service for semantic search (REQUIRED)
-            graph_intelligence_service: GraphIntelligenceService for graph analytics
+            graph_intel: GraphIntelligenceService for graph analytics
             relationship_service: Optional relationship service for graph operations
             event_bus: Event bus for publishing events (optional)
 
@@ -83,12 +83,12 @@ class AskesisAIService(BaseAIService[Any, Any]):
             backend=backend,
             llm_service=llm_service,
             embeddings_service=embeddings_service,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             event_bus=event_bus,
         )
         # Store graph for convenience
-        self.graph = graph_intelligence_service
+        self.graph = graph_intel
 
     async def get_behavioral_insights(
         self, user_uid: UserUID, period_days: int = 90

@@ -69,7 +69,7 @@ class PsIntelligenceService(
     def __init__(
         self,
         backend: BackendOperations[PathStep],
-        graph_intelligence_service: Any | None = None,
+        graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
         executor: Any | None = None,
@@ -81,7 +81,7 @@ class PsIntelligenceService(
         """
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             event_bus=event_bus,
         )

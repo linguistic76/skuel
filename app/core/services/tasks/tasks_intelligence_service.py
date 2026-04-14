@@ -83,7 +83,7 @@ class TasksIntelligenceService(
     def __init__(
         self,
         backend: TasksOperations,
-        graph_intelligence_service: GraphIntelligenceService | None = None,
+        graph_intel: GraphIntelligenceService | None = None,
         relationship_service: TasksRelationshipOperations | None = None,
         event_bus: Any | None = None,
         insight_store: Any | None = None,
@@ -93,7 +93,7 @@ class TasksIntelligenceService(
 
         Args:
             backend: Tasks backend operations (protocol)
-            graph_intelligence_service: Graph intelligence service (infrastructure only)
+            graph_intel: Graph intelligence service (infrastructure only)
             relationship_service: TasksRelationshipOperations protocol for specialized relationship queries
             event_bus: Event bus for publishing events (optional)
             insight_store: For persisting event-driven insights (optional)
@@ -103,7 +103,7 @@ class TasksIntelligenceService(
         """
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             event_bus=event_bus,
             insight_store=insight_store,

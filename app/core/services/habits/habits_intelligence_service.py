@@ -72,7 +72,7 @@ class HabitsIntelligenceService(
         backend: HabitsOperations,
         relationship_service: "HabitsRelationshipOperations",
         cross_domain_query: "CrossDomainQueryService",
-        graph_intelligence_service=None,
+        graph_intel=None,
         insight_store: "InsightStore | None" = None,
     ) -> None:
         """
@@ -80,7 +80,7 @@ class HabitsIntelligenceService(
 
         Args:
             backend: Protocol-based backend for habit operations,
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
+            graph_intel: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: HabitsRelationshipOperations protocol for specialized relationship queries (REQUIRED)
             insight_store: InsightStore for persisting event-driven insights (optional)
 
@@ -90,7 +90,7 @@ class HabitsIntelligenceService(
         """
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             insight_store=insight_store,
         )

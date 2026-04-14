@@ -247,7 +247,7 @@ async def lp_service(neo4j_driver):
         ps_service=ps_service,
         ku_service=None,  # Optional
         progress_service=None,  # Optional
-        graph_intelligence_service=mock_graph_intel,  # REQUIRED
+        graph_intel=mock_graph_intel,  # REQUIRED
         event_bus=None,  # Optional
     )
 

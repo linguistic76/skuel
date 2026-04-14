@@ -57,7 +57,7 @@ def _create_activity_services(
         "tasks": TasksService(
             backend=tasks_backend,
             cross_domain_query=cross_domain_query,
-            graph_intelligence_service=graph_intelligence,
+            graph_intel=graph_intelligence,
             ku_inference_service=ku_inference_service,
             ku_generation_service=ku_generation_service,
             event_bus=event_bus,
@@ -66,7 +66,7 @@ def _create_activity_services(
         ),
         "events": EventsService(
             backend=events_backend,
-            graph_intelligence_service=graph_intelligence,
+            graph_intel=graph_intelligence,
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             insight_store=insight_store,
@@ -74,7 +74,7 @@ def _create_activity_services(
         ),
         "habits": HabitsService(
             backend=habits_backend,
-            graph_intelligence_service=graph_intelligence,
+            graph_intel=graph_intelligence,
             completions_backend=habit_completions_backend,  # REQUIRED - fail-fast
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
@@ -83,7 +83,7 @@ def _create_activity_services(
         ),
         "goals": GoalsService(
             backend=goals_backend,
-            graph_intelligence_service=graph_intelligence,
+            graph_intel=graph_intelligence,
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             insight_store=insight_store,
@@ -91,7 +91,7 @@ def _create_activity_services(
         ),
         "choices": ChoicesService(
             backend=choices_backend,
-            graph_intelligence_service=graph_intelligence,
+            graph_intel=graph_intelligence,
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             insight_store=insight_store,
@@ -99,7 +99,7 @@ def _create_activity_services(
         ),
         "principles": PrinciplesService(
             backend=principles_backend,
-            graph_intelligence_service=graph_intelligence,
+            graph_intel=graph_intelligence,
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             insight_store=insight_store,

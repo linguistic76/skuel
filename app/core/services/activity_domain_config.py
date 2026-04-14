@@ -17,7 +17,7 @@ Usage:
     common = create_common_sub_services(
         domain="tasks",
         backend=backend,
-        graph_intel=graph_intelligence_service,
+        graph_intel=graph_intel,
         event_bus=event_bus,
     )
     self.core = common.core
@@ -284,7 +284,7 @@ def create_common_sub_services(
         intel_class = getattr(intel_module, config.intelligence_class)
         intelligence = intel_class(
             backend=backend,
-            graph_intelligence_service=graph_intel,
+            graph_intel=graph_intel,
             relationship_service=relationships,
             insight_store=insight_store,
         )

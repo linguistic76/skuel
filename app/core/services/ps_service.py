@@ -219,7 +219,7 @@ class PsService:
             backend=backend,
             _content_repo=content_repo,
             _chunking_service=chunking_service,
-            graph_intelligence_service=graph_intel,
+            graph_intel=graph_intel,
             _query_builder=query_builder,
             event_bus=event_bus,
             _executor=executor,

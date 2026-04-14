@@ -28,17 +28,17 @@ if TYPE_CHECKING:
     )
 
 
-class _SuggestsQueryIntent(Protocol):
+class SuggestsQueryIntent(Protocol):
     """Structural type for entities that can suggest a graph query intent."""
 
     def get_suggested_query_intent(self) -> QueryIntent: ...
 
 
-GetEntity = Callable[[str], Awaitable[Result[Any]]]
-ToDomain = Callable[[Any], Any]
+type GetEntity[R] = Callable[[str], Awaitable[Result[R]]]
+type ToDomain[R, T] = Callable[[R], T]
 
 
-class GraphContextLoader[T: _SuggestsQueryIntent]:
+class GraphContextLoader[T: SuggestsQueryIntent]:
     """
     Loads `(entity, GraphContext)` for a single domain.
 
@@ -55,8 +55,8 @@ class GraphContextLoader[T: _SuggestsQueryIntent]:
     def __init__(
         self,
         *,
-        get_entity: GetEntity,
-        to_domain: ToDomain,
+        get_entity: GetEntity[Any],
+        to_domain: ToDomain[Any, T],
         graph_intel: GraphIntelligenceService,
         domain: Domain,
         model_name: str,

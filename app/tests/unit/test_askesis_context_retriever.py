@@ -14,7 +14,7 @@ from core.utils.result_simplified import Errors, Result
 
 
 def _make_graph_intel(resource_records: list[dict[str, Any]] | None = None) -> MagicMock:
-    """Build a mock graph_intelligence_service.
+    """Build a mock graph_intel.
 
     By default, execute_query returns empty results (no cited resources).
     """
@@ -95,7 +95,7 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=_make_graph_intel(),
+            graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),  # no KU UIDs to fetch
@@ -125,7 +125,7 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=_make_graph_intel(),
+            graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
             ps_service=_failing_service("ps service down"),
             ku_service=MagicMock(get=AsyncMock()),
@@ -154,7 +154,7 @@ class TestLoadLsBundlePartialFailure:
         task = _make_entity("task_1", "Test Task")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=_make_graph_intel(),
+            graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
@@ -178,7 +178,7 @@ class TestLoadLsBundlePartialFailure:
     async def test_all_fetches_raise_minimal_bundle(self) -> None:
         """Every fetch crashes — bundle contains only the PS entity itself."""
         retriever = ContextRetriever(
-            graph_intelligence_service=_make_graph_intel(),
+            graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
             ps_service=_failing_service("lessons down"),
             ku_service=_failing_service("kus down"),
@@ -205,7 +205,7 @@ class TestLoadLsBundlePartialFailure:
     async def test_no_active_ls_returns_not_found(self) -> None:
         """No active PS in context → Result.fail(not_found)."""
         retriever = ContextRetriever(
-            graph_intelligence_service=_make_graph_intel(),
+            graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
             ps_service=MagicMock(),
             ku_service=MagicMock(),
@@ -230,7 +230,7 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=_make_graph_intel(),
+            graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
@@ -270,7 +270,7 @@ class TestLoadLsBundlePartialFailure:
         lesson_backend.get_cited_resources = AsyncMock(return_value=Result.ok([resource_record]))
 
         retriever = ContextRetriever(
-            graph_intelligence_service=_make_graph_intel(),
+            graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
@@ -298,7 +298,7 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=_make_graph_intel(),
+            graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),

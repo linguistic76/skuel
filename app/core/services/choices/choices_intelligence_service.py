@@ -66,7 +66,7 @@ class ChoicesIntelligenceService(
         self,
         backend: ChoicesOperations,
         cross_domain_query: CrossDomainQueryService,
-        graph_intelligence_service=None,
+        graph_intel=None,
         relationship_service: ChoicesRelationshipOperations | None = None,
         insight_store: InsightStore | None = None,
     ) -> None:
@@ -76,13 +76,13 @@ class ChoicesIntelligenceService(
         Args:
             backend: Protocol-based backend for choice operations (Choice model)
             cross_domain_query: CrossDomainQueryService for cross-domain reads (REQUIRED)
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
+            graph_intel: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: ChoicesRelationshipOperations protocol for specialized relationship queries
             insight_store: InsightStore for persisting event-driven insights (optional)
         """
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             insight_store=insight_store,
         )

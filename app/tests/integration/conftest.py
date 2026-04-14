@@ -533,17 +533,17 @@ async def services(neo4j_driver):
     cross_domain_backend = CrossDomainBackend(query_executor)
     cross_domain_query = CrossDomainQueryService(cross_domain_backend)
 
-    # Create Choices service (requires graph_intelligence_service + cross_domain_query)
+    # Create Choices service (requires graph_intel + cross_domain_query)
     choices_service = ChoicesService(
         backend=choices_backend,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
         cross_domain_query=cross_domain_query,
     )
 
-    # Create Principles service (requires graph_intelligence_service + cross_domain_query)
+    # Create Principles service (requires graph_intel + cross_domain_query)
     principles_service = PrinciplesService(
         backend=principles_backend,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
         cross_domain_query=cross_domain_query,
     )
 
@@ -559,7 +559,7 @@ async def services(neo4j_driver):
     lp_service = LpService(
         backend=lp_backend,
         ps_service=ps_service,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
     )
 
     # Create Tasks service
@@ -568,17 +568,17 @@ async def services(neo4j_driver):
         cross_domain_query=cross_domain_query,
     )
 
-    # Create Goals service (requires graph_intelligence_service + cross_domain_query)
+    # Create Goals service (requires graph_intel + cross_domain_query)
     goals_service = GoalsService(
         backend=goals_backend,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
         cross_domain_query=cross_domain_query,
     )
 
-    # Create Events service (requires graph_intelligence_service + cross_domain_query)
+    # Create Events service (requires graph_intel + cross_domain_query)
     events_service = EventsService(
         backend=events_backend,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
         cross_domain_query=cross_domain_query,
     )
 

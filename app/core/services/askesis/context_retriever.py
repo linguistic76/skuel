@@ -92,7 +92,7 @@ class ContextRetriever:
 
     def __init__(
         self,
-        graph_intelligence_service: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
+        graph_intel: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
         vector_search_service: Any | None = None,  # boundary: Neo4jVectorSearchService
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
@@ -116,7 +116,7 @@ class ContextRetriever:
         debug than a clear construction-time error.
 
         Args:
-            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
+            graph_intel: GraphIntelligenceService for graph intelligence queries
             embeddings_service: EmbeddingsService for semantic search
             vector_search_service: Neo4jVectorSearchService for native vector index search
             ps_service: For fetching full PathStep content (PS bundle)
@@ -129,7 +129,7 @@ class ContextRetriever:
             ku_backend: KuBackend for prerequisite/dependency queries
             ps_backend: PsBackend for learning context and resource queries
         """
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.embeddings_service = embeddings_service
         self.vector_search_service = vector_search_service
 

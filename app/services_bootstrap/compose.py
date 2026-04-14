@@ -384,7 +384,7 @@ async def compose_services(
         )
         activity_knowledge_intelligence = ActivityKnowledgeIntelligenceService(
             backend=activity_entity_backend,
-            graph_intelligence_service=graph_intelligence,
+            graph_intel=graph_intelligence,
         )
         logger.info("✅ ActivityKnowledgeIntelligenceService created")
 

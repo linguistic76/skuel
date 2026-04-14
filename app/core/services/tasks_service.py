@@ -285,7 +285,7 @@ class TasksService(
         self,
         backend: TasksOperations,
         cross_domain_query: CrossDomainQueryService,
-        graph_intelligence_service: GraphIntelligenceService | None = None,
+        graph_intel: GraphIntelligenceService | None = None,
         ku_inference_service: EntityInferenceService | None = None,
         ku_generation_service: InsightGenerationService | None = None,
         event_bus=None,
@@ -299,7 +299,7 @@ class TasksService(
         Args:
             backend: Protocol-based backend for task operations
             cross_domain_query: Cross-domain query service (required)
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (required)
+            graph_intel: GraphIntelligenceService for pure Cypher analytics (required)
             ku_inference_service: Service for automatic knowledge inference (required)
             ku_generation_service: InsightGenerationService for automatic knowledge generation (required)
             event_bus: Event bus for publishing domain events (optional)
@@ -320,7 +320,7 @@ class TasksService(
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,
-            graph_intel=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
             skip={"core", "intelligence"},
@@ -339,7 +339,7 @@ class TasksService(
         # See ADR-030 for the intelligence layer separation
         self.intelligence: TasksIntelligenceService = TasksIntelligenceService(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=self.relationships,
             event_bus=event_bus,
             insight_store=insight_store,

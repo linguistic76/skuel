@@ -492,7 +492,7 @@ class HabitsService(
     def __init__(
         self,
         backend: HabitsOperations,
-        graph_intelligence_service: GraphIntelligenceService,
+        graph_intel: GraphIntelligenceService,
         completions_backend: BackendOperations[HabitCompletion],
         cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
@@ -505,7 +505,7 @@ class HabitsService(
 
         Args:
             backend: Protocol-based backend for habit operations (REQUIRED)
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             completions_backend: Backend for habit completion tracking (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: InsightStore for persisting event-driven insights (optional)
@@ -515,7 +515,7 @@ class HabitsService(
             Habit events trigger user_service.invalidate_context() in bootstrap.
 
         Migration Note (v2.2.0 - December 2025):
-            Made graph_intelligence_service REQUIRED - relationship service needs it.
+            Made graph_intel REQUIRED - relationship service needs it.
             Fail-fast at construction, not at method call.
 
         Migration Note (January 2026 - Fail-Fast):
@@ -526,7 +526,7 @@ class HabitsService(
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: HabitsAIService | None = ai_service
 
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.habits")  # type: ignore[assignment]  # structlog BoundLogger
@@ -538,7 +538,7 @@ class HabitsService(
         common: CommonSubServices[HabitsIntelligenceService] = create_common_sub_services(
             domain="habits",
             backend=backend,
-            graph_intel=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
             skip={"intelligence"},
@@ -556,7 +556,7 @@ class HabitsService(
             backend=backend,
             relationship_service=self.relationships,
             cross_domain_query=cross_domain_query,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             insight_store=insight_store,
         )
 

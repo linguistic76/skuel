@@ -488,7 +488,7 @@ class EventsService(
     def __init__(
         self,
         backend: EventsOperations,
-        graph_intelligence_service: GraphIntelligenceService,
+        graph_intel: GraphIntelligenceService,
         cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
@@ -500,13 +500,13 @@ class EventsService(
 
         Args:
             backend: Protocol-based backend for event operations
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             cross_domain_query: CrossDomainQueryService for batch cross-domain reads (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend, "events")
 
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: EventsAIService | None = ai_service
@@ -518,7 +518,7 @@ class EventsService(
         common: CommonSubServices[EventsIntelligenceService] = create_common_sub_services(
             domain="events",
             backend=backend,
-            graph_intel=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
             skip={"intelligence"},
@@ -529,7 +529,7 @@ class EventsService(
         self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
         self.intelligence: EventsIntelligenceService = EventsIntelligenceService(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=self.relationships,  # type: ignore[arg-type]  # UnifiedRelationshipService satisfies protocol
             cross_domain_query=cross_domain_query,
             insight_store=insight_store,

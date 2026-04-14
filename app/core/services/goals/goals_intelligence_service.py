@@ -116,7 +116,7 @@ class GoalsIntelligenceService(
     def __init__(
         self,
         backend: GoalsOperations,
-        graph_intelligence_service=None,
+        graph_intel=None,
         relationship_service: GoalsRelationshipOperations | None = None,
         progress_service=None,
         insight_store: InsightStore | None = None,
@@ -126,14 +126,14 @@ class GoalsIntelligenceService(
 
         Args:
             backend: Protocol-based backend for goal operations,
-            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries,
+            graph_intel: GraphIntelligenceService for graph intelligence queries,
             relationship_service: GoalsRelationshipOperations protocol for fetching (REQUIRED) goal relationships
             progress_service: GoalsProgressService for velocity calculations
             insight_store: For persisting event-driven insights (optional)
         """
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             insight_store=insight_store,
         )

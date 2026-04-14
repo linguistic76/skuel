@@ -20,7 +20,7 @@ Usage (Ku):
     common = create_curriculum_sub_services(
         domain="ku",
         backend=backend,
-        graph_intel=graph_intelligence_service,
+        graph_intel=graph_intel,
         event_bus=event_bus,
     )
     self.core = common.core
@@ -178,7 +178,7 @@ def create_curriculum_sub_services(
     # Create intelligence service (backend + graph_intel + relationships)
     intelligence = intel_class(
         backend=backend,
-        graph_intelligence_service=graph_intel,
+        graph_intel=graph_intel,
         relationship_service=relationships,
     )
 
@@ -210,7 +210,7 @@ def create_ps_sub_services(
     backend: Any,
     _content_repo: Any | None,
     _chunking_service: Any | None,
-    graph_intelligence_service: Any,
+    graph_intel: Any,
     _query_builder: "QueryBuilderOperations | None",
     event_bus: "EventBusOperations | None",
     _executor: Any | None = None,
@@ -250,13 +250,13 @@ def create_ps_sub_services(
     relationships = UnifiedRelationshipService(
         backend=backend,
         config=PS_CONFIG,
-        graph_intel=graph_intelligence_service,
+        graph_intel=graph_intel,
     )
 
     # Step 2: Create intelligence BEFORE core (circular dependency)
     intelligence = PsIntelligenceService(
         backend=backend,
-        graph_intelligence_service=graph_intelligence_service,
+        graph_intel=graph_intel,
         relationship_service=relationships,
     )
 
@@ -267,7 +267,7 @@ def create_ps_sub_services(
     search = PsSearchService(backend=backend)
 
     # Step 5: Create graph
-    graph = PsGraphService(repo=backend, graph_intel=graph_intelligence_service)
+    graph = PsGraphService(repo=backend, graph_intel=graph_intel)
 
     # Step 6: Create semantic
     semantic = PsSemanticService(repo=backend, intelligence=intelligence)
@@ -338,7 +338,7 @@ class LpSubServices:
 def create_lp_sub_services(
     backend: Any,
     ps_service: "PsService",
-    graph_intelligence_service: Any,
+    graph_intel: Any,
     event_bus: "EventBusOperations | None" = None,
     progress_backend: Any | None = None,
     user_service: Any | None = None,
@@ -358,7 +358,7 @@ def create_lp_sub_services(
     Args:
         backend: BackendOperations for LP entities (REQUIRED — created by composition root)
         ps_service: PsService - REQUIRED for path-step operations
-        graph_intelligence_service: GraphIntelligenceService - REQUIRED
+        graph_intel: GraphIntelligenceService - REQUIRED
         event_bus: Event bus for publishing domain events (optional)
         progress_backend: UserProgress backend for learning state (optional)
         user_service: UserService for UserContext access (optional)
@@ -379,7 +379,7 @@ def create_lp_sub_services(
     relationships = UnifiedRelationshipService(
         backend=backend,
         config=LP_CONFIG,
-        graph_intel=graph_intelligence_service,
+        graph_intel=graph_intel,
     )
 
     # Step 3: Create core (requires ps_service)
@@ -396,7 +396,7 @@ def create_lp_sub_services(
     # ADR-030: Analytics services have zero AI dependencies
     intelligence = LpIntelligenceService(
         backend=backend,
-        graph_intelligence_service=graph_intelligence_service,
+        graph_intel=graph_intel,
         progress_backend=progress_backend,
         event_bus=event_bus,
         user_service=user_service,

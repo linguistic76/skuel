@@ -67,7 +67,7 @@ class PrinciplesIntelligenceService(
     def __init__(
         self,
         backend: PrinciplesOperations,
-        graph_intelligence_service=None,
+        graph_intel=None,
         relationship_service: PrinciplesRelationshipOperations | None = None,
         insight_store: Any | None = None,
     ) -> None:
@@ -76,13 +76,13 @@ class PrinciplesIntelligenceService(
 
         Args:
             backend: Backend for principle operations
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics
+            graph_intel: GraphIntelligenceService for pure Cypher analytics
             relationship_service: PrinciplesRelationshipOperations protocol for specialized relationship queries
             insight_store: For persisting event-driven insights (optional)
         """
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             insight_store=insight_store,
         )

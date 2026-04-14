@@ -46,7 +46,7 @@ def _make_goals_service() -> GoalsService:
     mock_graph_intel = MagicMock()
     return GoalsService(
         backend=mock_backend,
-        graph_intelligence_service=mock_graph_intel,
+        graph_intel=mock_graph_intel,
         cross_domain_query=AsyncMock(),
     )
 

@@ -71,13 +71,13 @@ def _wire_ai_services(
         backend=user_service,  # Uses UserService for user state
         llm_service=llm_service,
         embeddings_service=embeddings_service,
-        graph_intelligence_service=graph_intelligence,
+        graph_intel=graph_intelligence,
     )
     context_aware_ai = ContextAwareAIService(
         backend=user_service,  # Uses UserContextOperations
         llm_service=llm_service,
         embeddings_service=embeddings_service,
-        graph_intelligence_service=graph_intelligence,
+        graph_intel=graph_intelligence,
     )
 
     logger.info(

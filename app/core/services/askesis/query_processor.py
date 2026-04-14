@@ -110,7 +110,7 @@ class QueryProcessor:
         context_retriever: ContextRetriever,
         user_service: UserService,
         llm_service: LLMService,
-        graph_intelligence_service: GraphIntelligenceService,
+        graph_intel: GraphIntelligenceService,
         zpd_service: ZPDOperations,
         citation_service: AskesisCitationService | None = None,
         conversation_context: ConversationContext | None = None,
@@ -125,7 +125,7 @@ class QueryProcessor:
             context_retriever: ContextRetriever for context retrieval and PS bundle loading
             user_service: UserService for accessing UserContext
             llm_service: LLMService for natural language generation
-            graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
+            graph_intel: GraphIntelligenceService for graph intelligence queries
             zpd_service: ZPDService for targeted KU readiness assessment
             citation_service: AskesisCitationService for source and evidence transparency (optional)
         """
@@ -135,7 +135,7 @@ class QueryProcessor:
         self.context_retriever = context_retriever
         self.user_service = user_service
         self.llm_service = llm_service
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.zpd_service = zpd_service
         self.citation_service = citation_service
         self.conversation_context = conversation_context or ConversationContext()

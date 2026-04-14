@@ -46,7 +46,7 @@ def create_askesis_service(
     """
     deps = AskesisDeps(
         intelligence_factory=intelligence_factory,
-        graph_intelligence_service=learning_services["graph_intelligence"],
+        graph_intel=learning_services["graph_intelligence"],
         user_service=user_service,
         askesis_core_service=askesis_core_service,
         llm_service=learning_services["llm_service"],

@@ -483,7 +483,7 @@ class GoalsService(
     def __init__(
         self,
         backend: GoalsOperations,
-        graph_intelligence_service: GraphIntelligenceService,
+        graph_intel: GraphIntelligenceService,
         cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
@@ -495,7 +495,7 @@ class GoalsService(
 
         Args:
             backend: Protocol-based backend for goal operations
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
 
         Note:
@@ -503,7 +503,7 @@ class GoalsService(
             Goal events trigger user_service.invalidate_context() in bootstrap.
 
         Migration Note (v3.2.0 - December 2025):
-            Made graph_intelligence_service REQUIRED - relationship service needs it.
+            Made graph_intel REQUIRED - relationship service needs it.
             Fail-fast at construction, not at method call.
         """
         super().__init__(backend, "goals")
@@ -511,7 +511,7 @@ class GoalsService(
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: GoalsAIService | None = ai_service
 
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
         self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger
 
@@ -523,7 +523,7 @@ class GoalsService(
         common = create_common_sub_services(
             domain="goals",
             backend=backend,
-            graph_intel=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
             skip={"intelligence"},
@@ -546,7 +546,7 @@ class GoalsService(
         # Intelligence requires progress_service — created manually (skipped in factory)
         self.intelligence: GoalsIntelligenceService = GoalsIntelligenceService(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=self.relationships,
             progress_service=self.progress,
             insight_store=insight_store,

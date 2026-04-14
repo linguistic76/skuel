@@ -103,7 +103,7 @@ class LpIntelligenceService(
     def __init__(
         self,
         backend: Any,
-        graph_intelligence_service: Any | None = None,
+        graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         # LP-specific dependencies
         progress_backend: Any | None = None,
@@ -115,7 +115,7 @@ class LpIntelligenceService(
 
         Args:
             backend: Primary backend for BaseAnalyticsService and LP operations
-            graph_intelligence_service: GraphIntelligenceService - for GraphContextLoader
+            graph_intel: GraphIntelligenceService - for GraphContextLoader
             relationship_service: UnifiedRelationshipService (optional)
             progress_backend: Progress backend (LP-specific)
             event_bus: Event bus for publishing events
@@ -126,7 +126,7 @@ class LpIntelligenceService(
         # Initialize BaseAnalyticsService (no AI dependencies)
         super().__init__(
             backend=backend,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             relationship_service=relationship_service,
             event_bus=event_bus,
         )
@@ -906,7 +906,7 @@ class LpIntelligenceService(
 def create_lp_intelligence_service(
     progress_backend: Any | None = None,
     backend: Any | None = None,
-    graph_intelligence_service: Any = None,
+    graph_intel: Any = None,
 ) -> LpIntelligenceService:
     """
     Factory function to create LpIntelligenceService instance.
@@ -916,7 +916,7 @@ def create_lp_intelligence_service(
     Args:
         progress_backend: Progress backend (Universal Backend pattern)
         backend: Learning backend (Universal Backend pattern)
-        graph_intelligence_service: GraphIntelligenceService - for GraphContextLoader
+        graph_intel: GraphIntelligenceService - for GraphContextLoader
 
     Returns:
         LpIntelligenceService: Configured service instance (facade pattern)
@@ -924,5 +924,5 @@ def create_lp_intelligence_service(
     return LpIntelligenceService(
         progress_backend=progress_backend,
         backend=backend,
-        graph_intelligence_service=graph_intelligence_service,
+        graph_intel=graph_intel,
     )

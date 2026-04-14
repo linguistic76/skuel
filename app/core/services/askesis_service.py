@@ -76,7 +76,7 @@ class AskesisDeps:
     """
 
     intelligence_factory: UserContextIntelligenceFactory
-    graph_intelligence_service: Any  # boundary: protocol not yet extracted
+    graph_intel: Any  # boundary: protocol not yet extracted
     user_service: Any
     askesis_core_service: Any  # AskesisCoreOperations — CRUD for Askesis instances
     llm_service: Any
@@ -154,7 +154,7 @@ class AskesisService:
             )
 
         # Store dependencies
-        self.graph_intel = deps.graph_intelligence_service
+        self.graph_intel = deps.graph_intel
         self.user_service = deps.user_service
         self.askesis_core_service = deps.askesis_core_service
         self.llm_service = deps.llm_service
@@ -185,7 +185,7 @@ class AskesisService:
         )
 
         self.context_retriever = ContextRetriever(
-            graph_intelligence_service=deps.graph_intelligence_service,
+            graph_intel=deps.graph_intel,
             embeddings_service=deps.embeddings_service,
             vector_search_service=deps.vector_search_service,
             # PS bundle dependencies
@@ -215,7 +215,7 @@ class AskesisService:
             context_retriever=self.context_retriever,
             user_service=deps.user_service,
             llm_service=deps.llm_service,
-            graph_intelligence_service=deps.graph_intelligence_service,
+            graph_intel=deps.graph_intel,
             zpd_service=deps.zpd_service,
             citation_service=deps.citation_service,
             conversation_context=self.conversation_context,

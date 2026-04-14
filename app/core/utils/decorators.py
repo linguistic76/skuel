@@ -276,7 +276,7 @@ def requires_graph_intelligence(operation: str):
 
     Note:
         Services that use -4 graph intelligence should store graph_intel
-        in their __init__ method (usually named graph_intelligence_service).
+        in their __init__ method (usually named graph_intel).
     """
 
     def decorator(func) -> Any:

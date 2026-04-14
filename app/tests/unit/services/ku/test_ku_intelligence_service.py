@@ -35,7 +35,7 @@ class TestKuIntelligenceGetWithContext:
     @pytest.mark.asyncio
     async def test_returns_error_without_graph_intel(self):
         backend = _make_backend()
-        service = KuIntelligenceService(backend=backend, graph_intelligence_service=None)
+        service = KuIntelligenceService(backend=backend, graph_intel=None)
 
         result = await service.get_with_context("ku_test_abc123")
 
@@ -45,7 +45,7 @@ class TestKuIntelligenceGetWithContext:
     async def test_delegates_to_context_loader(self):
         backend = _make_backend()
         graph_intel = MagicMock()
-        service = KuIntelligenceService(backend=backend, graph_intelligence_service=graph_intel)
+        service = KuIntelligenceService(backend=backend, graph_intel=graph_intel)
 
         mock_context = MagicMock()
         ku = _make_ku()

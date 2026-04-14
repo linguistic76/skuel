@@ -83,7 +83,7 @@ class BaseAIService(Generic[B, T]):
         backend: B,
         llm_service: Any | None = None,
         embeddings_service: Any | None = None,
-        graph_intelligence_service: Any | None = None,
+        graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
@@ -99,7 +99,7 @@ class BaseAIService(Generic[B, T]):
             backend: Domain operations protocol (REQUIRED)
             llm_service: LLMService for AI insights (optional)
             embeddings_service: EmbeddingsService for semantic search (optional)
-            graph_intelligence_service: For graph context retrieval (optional)
+            graph_intel: For graph context retrieval (optional)
             relationship_service: For relationship queries (optional)
             event_bus: For event publishing/subscription (optional)
 
@@ -121,7 +121,7 @@ class BaseAIService(Generic[B, T]):
         self.embeddings = embeddings_service
 
         # Optional services
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.relationships = relationship_service
         self.event_bus = event_bus
 

@@ -385,7 +385,7 @@ class PrinciplesService(
     def __init__(
         self,
         backend: PrinciplesOperations,
-        graph_intelligence_service: Any,
+        graph_intel: Any,
         cross_domain_query: CrossDomainQueryService,
         event_bus: Any = None,
         insight_store: Any = None,
@@ -397,14 +397,14 @@ class PrinciplesService(
 
         Args:
             backend: Protocol-based backend for principle operations
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             cross_domain_query: CrossDomainQueryService for graph-derived alignment (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: InsightStore for persisting event-driven insights (optional)
         """
         super().__init__(backend, "principles")
 
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: PrinciplesAIService | None = ai_service
@@ -416,7 +416,7 @@ class PrinciplesService(
         common: CommonSubServices[PrinciplesIntelligenceService] = create_common_sub_services(
             domain="principles",
             backend=backend,
-            graph_intel=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,

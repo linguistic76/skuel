@@ -351,7 +351,7 @@ class ChoicesService(
     def __init__(
         self,
         backend: ChoicesOperations,
-        graph_intelligence_service: GraphIntelligenceService,
+        graph_intel: GraphIntelligenceService,
         cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
         insight_store: Any = None,
@@ -363,7 +363,7 @@ class ChoicesService(
 
         Args:
             backend: Protocol-based backend for choice operations
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             cross_domain_query: CrossDomainQueryService for cross-domain reads (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: InsightStore for persisting event-driven insights (optional)
@@ -373,12 +373,12 @@ class ChoicesService(
             Choice operations trigger domain events which invalidate context.
 
         Migration Note (v2.1.0 - December 2025):
-            Made graph_intelligence_service REQUIRED - relationship service needs it.
+            Made graph_intel REQUIRED - relationship service needs it.
             Fail-fast at construction, not at method call.
         """
         super().__init__(backend, "choices")
 
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
@@ -392,7 +392,7 @@ class ChoicesService(
         common: CommonSubServices[ChoicesIntelligenceService] = create_common_sub_services(
             domain="choices",
             backend=backend,
-            graph_intel=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
             skip={"intelligence"},
@@ -410,7 +410,7 @@ class ChoicesService(
             backend=backend,
             cross_domain_query=cross_domain_query,
             relationship_service=self.relationships,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             insight_store=insight_store,
         )
 

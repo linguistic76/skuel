@@ -114,7 +114,7 @@ class LpService:
         ps_service: PsService,
         ku_service: PsService | None = None,
         progress_service: Any | None = None,
-        graph_intelligence_service: Any | None = None,
+        graph_intel: Any | None = None,
         event_bus: EventBusOperations | None = None,
         progress_backend: Any | None = None,
         user_service: Any | None = None,
@@ -124,7 +124,7 @@ class LpService:
         Initialize facade with sub-services via factory.
 
         FAIL-FAST ARCHITECTURE (per CLAUDE.md):
-        The backend, ps_service, and graph_intelligence_service are REQUIRED.
+        The backend, ps_service, and graph_intel are REQUIRED.
         Services run at full capacity or fail immediately at startup.
 
         **January 2026 - Factory Pattern (Architecture Consistency Review):**
@@ -136,7 +136,7 @@ class LpService:
             ps_service: PsService for path step operations - REQUIRED
             ku_service: Optional PsService for prerequisite queries
             progress_service: Optional UserProgressService for progress tracking
-            graph_intelligence_service: GraphIntelligenceService - REQUIRED for cross-domain queries
+            graph_intel: GraphIntelligenceService - REQUIRED for cross-domain queries
             event_bus: Event bus for publishing domain events (optional)
             progress_backend: UserProgress backend for learning state analysis (optional)
             user_service: UserService for UserContext access (optional)
@@ -155,9 +155,9 @@ class LpService:
                 "SKUEL follows fail-fast architecture - all required dependencies "
                 "must be provided at initialization."
             )
-        if not graph_intelligence_service:
+        if not graph_intel:
             raise ValueError(
-                "LpService graph_intelligence_service is REQUIRED. "
+                "LpService graph_intel is REQUIRED. "
                 "SKUEL follows fail-fast architecture - graph intelligence enables "
                 "cross-domain queries for curriculum domains."
             )
@@ -168,7 +168,7 @@ class LpService:
         subs = create_lp_sub_services(
             backend=backend,
             ps_service=ps_service,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
             progress_backend=progress_backend,
             user_service=user_service,
@@ -184,7 +184,7 @@ class LpService:
         # Store dependencies
         self.ps_service = ps_service
         self.ku_service = ku_service
-        self.graph_intel = graph_intelligence_service
+        self.graph_intel = graph_intel
         self.event_bus = event_bus
         self.ai: LpAIService | None = ai_service
         self.logger = logger

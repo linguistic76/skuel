@@ -133,7 +133,7 @@ def _create_learning_services(
         ps_service=ps_service,  # Delegate PS operations to PsService
         ku_service=ps_service,  # PsService handles curriculum content
         progress_service=user_progress,
-        graph_intelligence_service=graph_intelligence,  # GraphContextLoader (REQUIRED)
+        graph_intel=graph_intelligence,  # GraphContextLoader (REQUIRED)
         event_bus=event_bus,  # Event-driven architecture
         progress_backend=progress_backend,
         user_service=user_service,

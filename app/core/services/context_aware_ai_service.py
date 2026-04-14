@@ -63,7 +63,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         backend: Any,  # Uses UserContextOperations or similar
         llm_service: LLMService,
         embeddings_service: HuggingFaceEmbeddingsService,
-        graph_intelligence_service: GraphIntelligenceService | None = None,
+        graph_intel: GraphIntelligenceService | None = None,
         event_bus: Any | None = None,
     ) -> None:
         """
@@ -73,7 +73,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
             backend: Backend for context operations
             llm_service: LLM service for AI insights (REQUIRED)
             embeddings_service: Embeddings service for semantic search (REQUIRED)
-            graph_intelligence_service: GraphIntelligenceService for graph analytics
+            graph_intel: GraphIntelligenceService for graph analytics
             event_bus: Event bus for publishing events (optional)
 
         NOTE: Both llm_service and embeddings_service are REQUIRED.
@@ -83,11 +83,11 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
             backend=backend,
             llm_service=llm_service,
             embeddings_service=embeddings_service,
-            graph_intelligence_service=graph_intelligence_service,
+            graph_intel=graph_intel,
             event_bus=event_bus,
         )
         # Store graph for convenience
-        self.graph = graph_intelligence_service
+        self.graph = graph_intel
 
     async def get_behavioral_insights(
         self, user_uid: UserUID, period_days: int = 90
