@@ -407,6 +407,14 @@ class UnifiedSharingService:
     @staticmethod
     def _check_shareable(status: str, entity_type: str) -> Result[bool]:
         """Evaluate whether an entity with given status/entity_type can be shared."""
+        if entity_type == EntityType.USER_ENTRY.value:
+            if status == "archived":
+                return Result.fail(
+                    Errors.validation(
+                        f"Archived user entries cannot be shared. Current status: {status}"
+                    )
+                )
+            return Result.ok(True)
         if entity_type in _ACTIVITY_ENTITY_TYPES:
             if status in ("active", "completed"):
                 return Result.ok(True)
