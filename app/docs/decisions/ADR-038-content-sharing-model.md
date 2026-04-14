@@ -1,6 +1,8 @@
 # ADR-038: Content Sharing Model
 
 > **2026-04-14 — Extended by [ADR-053](ADR-053-groups-first-class-and-unified-sharing.md).** `SHARED_WITH_GROUP` is now the single teacher→group curriculum mechanism for Exercise, PathStep, and LearningPath; the retired `FOR_GROUP` edge has been folded into this ADR's group sharing path.
+>
+> **2026-04-14 — Extended by [ADR-054](ADR-054-user-entry-unified-submissions.md).** The student → teacher direction of sharing is now symmetric: `UserEntry` (replacing `Submission`/`ExerciseSubmission`/`JeInput`/`JeOutput`) is shared via `UnifiedSharingService` at submit time, with audience (teacher, group, peer, public) declared as a first-class choice rather than inferred from type.
 
 **Status:** Accepted
 **Date:** 2026-02-02

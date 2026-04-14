@@ -255,6 +255,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-047: Entity Types Replace Domain Categories](decisions/ADR-047-entity-types-replace-domain-categories.md)** | **2026-03-07** | **—** |
 | **[ADR-048: Adaptive Learning Loop Architecture](decisions/ADR-048-adaptive-learning-loop.md)** | **2026-03-09** | **—** |
 | **[ADR-052: Firefly III Replaces SKUEL Expense/Budget/Reporting](decisions/ADR-052-firefly-iii-finance-integration.md)** | **2026-04-12** | **—** |
+| **[ADR-053: Groups First-Class + Unified Sharing](decisions/ADR-053-groups-first-class-and-unified-sharing.md)** | **2026-04-14** | **—** |
+| **[ADR-054: UserEntry — Unified User-Authored Content](decisions/ADR-054-user-entry-unified-submissions.md)** | **2026-04-14** | **—** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Tools
