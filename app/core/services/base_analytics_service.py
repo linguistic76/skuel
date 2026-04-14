@@ -151,8 +151,8 @@ class BaseAnalyticsService(Generic[B, T]):
         self.event_bus = event_bus
         self.insight_store = insight_store
 
-        # Orchestrator - initialized by child classes when graph_intel is available
-        self.orchestrator: Any | None = None
+        # Context loader - initialized by child classes when graph_intel is available
+        self.context_loader: Any | None = None
 
         # Logger initialization
         service_name = self._service_name or self.__class__.__name__

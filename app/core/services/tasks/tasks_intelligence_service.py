@@ -36,6 +36,7 @@ See TasksAIService for AI-powered features.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, LearningLoop
@@ -46,7 +47,7 @@ from core.models.type_hints import UserUID
 from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
-from core.services.intelligence import GraphContextOrchestrator
+from core.services.intelligence import GraphContextLoader
 from core.services.tasks._analytics_mixin import _AnalyticsMixin
 from core.services.tasks._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.tasks._productivity_mixin import _ProductivityMixin
@@ -114,14 +115,14 @@ class TasksIntelligenceService(
         # (BaseAnalyticsService stores relationship_service as self.relationships)
         self._analytics_engine = AnalyticsEngine(relationship_service=relationship_service)
 
-        # Initialize GraphContextOrchestrator for get_with_context pattern
+        # Initialize GraphContextLoader for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Task, TaskDTO](
-                service=self,
-                backend_get_method="get_task",
-                dto_class=TaskDTO,
-                model_class=Task,
+            self.context_loader = GraphContextLoader[Task](
+                get_entity=self.backend.get_task,
+                to_domain=partial(self._to_domain_model, dto_class=TaskDTO, model_class=Task),
+                graph_intel=graph_intelligence_service,
                 domain=Domain.TASKS,
+                model_name="Task",
             )
 
     # ========================================================================

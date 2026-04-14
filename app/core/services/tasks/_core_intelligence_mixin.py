@@ -34,7 +34,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
 
     # Populated by TasksIntelligenceService.__init__
-    orchestrator: Any
+    context_loader: Any
     logger: Any
 
     @requires_graph_intelligence("get_task_with_context")
@@ -44,17 +44,17 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         """
         Domain-named alias for get_with_context().
 
-        Uses the orchestrator directly to avoid recursive MRO resolution
+        Calls the context loader directly to avoid recursive MRO resolution
         with the protocol-level get_with_context() method.
         """
-        if not self.orchestrator:
+        if not self.context_loader:
             return Result.fail(
                 Errors.system(
-                    message="GraphContextOrchestrator not initialized",
+                    message="GraphContextLoader not initialized",
                     operation="get_task_with_context",
                 )
             )
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)  # type: ignore[return-value]
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)  # type: ignore[return-value]
 
     @with_error_handling(
         "categorize_cross_domain_context", error_type="system", uid_param="task_uid"

@@ -42,21 +42,21 @@ class TestKuIntelligenceGetWithContext:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_delegates_to_orchestrator(self):
+    async def test_delegates_to_context_loader(self):
         backend = _make_backend()
         graph_intel = MagicMock()
         service = KuIntelligenceService(backend=backend, graph_intelligence_service=graph_intel)
 
         mock_context = MagicMock()
         ku = _make_ku()
-        service.orchestrator.get_with_context = AsyncMock(
+        service.context_loader.get_with_context = AsyncMock(
             return_value=Result.ok((ku, mock_context))
         )
 
         result = await service.get_with_context("ku_test_abc123", depth=3)
 
         assert result.is_ok
-        service.orchestrator.get_with_context.assert_awaited_once_with(
+        service.context_loader.get_with_context.assert_awaited_once_with(
             uid="ku_test_abc123", depth=3
         )
 

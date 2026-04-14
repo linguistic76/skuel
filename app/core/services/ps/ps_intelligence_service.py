@@ -24,6 +24,7 @@ Architecture:
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
@@ -33,7 +34,7 @@ from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import UserUID
 from core.ports.query_types import PsDomainInsights, PsPerformanceAnalytics, PsPracticeSummaryResult
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence import GraphContextOrchestrator
+from core.services.intelligence import GraphContextLoader
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -87,14 +88,16 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         # Query executor for direct Cypher access
         self.executor = executor
 
-        # Initialize GraphContextOrchestrator for get_with_context pattern
+        # Initialize GraphContextLoader for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[PathStep, PathStepDTO](
-                service=self,
-                backend_get_method="get",
-                dto_class=PathStepDTO,
-                model_class=PathStep,
+            self.context_loader = GraphContextLoader[PathStep](
+                get_entity=self.backend.get,
+                to_domain=partial(
+                    self._to_domain_model, dto_class=PathStepDTO, model_class=PathStep
+                ),
+                graph_intel=graph_intelligence_service,
                 domain=Domain.LEARNING,
+                model_name="PathStep",
             )
 
     # ========================================================================
@@ -109,7 +112,7 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         """
         Get path step with full graph context.
 
-        Protocol method: Uses GraphContextOrchestrator for generic pattern.
+        Protocol method: Uses GraphContextLoader for generic pattern.
         Used by IntelligenceRouteFactory for GET /api/path-steps/context route.
 
         Args:
@@ -119,14 +122,14 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         Returns:
             Result containing (Ls, GraphContext) tuple
         """
-        if self.orchestrator is None:
+        if self.context_loader is None:
             return Result.fail(
                 Errors.system(
                     message="Graph intelligence service required for context queries",
                     operation="get_with_context",
                 )
             )
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

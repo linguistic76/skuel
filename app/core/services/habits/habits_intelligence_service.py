@@ -17,6 +17,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from datetime import date, timedelta
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
@@ -30,7 +31,7 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.habits._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.habits._dual_track_mixin import _DualTrackMixin
-from core.services.intelligence import GraphContextOrchestrator
+from core.services.intelligence import GraphContextLoader
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Result
 
@@ -97,14 +98,14 @@ class HabitsIntelligenceService(
         )
         self.cross_domain_query = cross_domain_query
 
-        # Initialize GraphContextOrchestrator for generic get_with_context pattern
+        # Initialize GraphContextLoader for generic get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Habit, HabitDTO](
-                service=self,
-                backend_get_method="get_habit",
-                dto_class=HabitDTO,
-                model_class=Habit,
+            self.context_loader = GraphContextLoader[Habit](
+                get_entity=self.backend.get_habit,
+                to_domain=partial(self._to_domain_model, dto_class=HabitDTO, model_class=Habit),
+                graph_intel=graph_intelligence_service,
                 domain=Domain.HABITS,
+                model_name="Habit",
             )
 
     # ========================================================================

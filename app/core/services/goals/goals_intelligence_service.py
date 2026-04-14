@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
@@ -31,7 +32,7 @@ from core.services.goals._analytics_mixin import _AnalyticsMixin
 from core.services.goals._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.goals._dual_track_mixin import _DualTrackMixin
 from core.services.goals._predictive_mixin import _PredictiveMixin
-from core.services.intelligence import GraphContextOrchestrator
+from core.services.intelligence import GraphContextLoader
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -141,14 +142,14 @@ class GoalsIntelligenceService(
         self.progress = progress_service  # Domain-specific: for velocity calculations
         self.habits_service: HabitsOperations | None = None  # Post-wired cross-domain dep
 
-        # Initialize GraphContextOrchestrator for get_with_context pattern
+        # Initialize GraphContextLoader for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Goal, GoalDTO](
-                service=self,
-                backend_get_method="get_goal",
-                dto_class=GoalDTO,
-                model_class=Goal,
+            self.context_loader = GraphContextLoader[Goal](
+                get_entity=self.backend.get_goal,
+                to_domain=partial(self._to_domain_model, dto_class=GoalDTO, model_class=Goal),
+                graph_intel=graph_intelligence_service,
                 domain=Domain.GOALS,
+                model_name="Goal",
             )
 
     # ========================================================================

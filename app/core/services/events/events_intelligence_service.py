@@ -13,6 +13,7 @@ Architecture: Shell delegates to 3 focused mixins in this directory:
 Uses pure Cypher for 8-10x performance improvement over sequential queries.
 """
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
@@ -23,7 +24,7 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events._analytics_mixin import _AnalyticsMixin
 from core.services.events._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.events._core_intelligence_mixin import _CoreIntelligenceMixin
-from core.services.intelligence import GraphContextOrchestrator
+from core.services.intelligence import GraphContextLoader
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -78,14 +79,14 @@ class EventsIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
-        # Initialize GraphContextOrchestrator for get_with_context pattern
+        # Initialize GraphContextLoader for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Event, EventDTO](
-                service=self,
-                backend_get_method="get",  # EventsService uses generic 'get'
-                dto_class=EventDTO,
-                model_class=Event,
+            self.context_loader = GraphContextLoader[Event](
+                get_entity=self.backend.get,
+                to_domain=partial(self._to_domain_model, dto_class=EventDTO, model_class=Event),
+                graph_intel=graph_intelligence_service,
                 domain=Domain.EVENTS,
+                model_name="Event",
             )
 
     # ========================================================================

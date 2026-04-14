@@ -29,6 +29,7 @@ Architecture (January 2026 - Unified Pattern):
 from __future__ import annotations
 
 from datetime import datetime
+from functools import partial
 from typing import Any
 
 from core.models.entity import Entity
@@ -47,7 +48,7 @@ from core.ports.query_types import (
     LpRecommendedStep,
 )
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.intelligence import GraphContextOrchestrator
+from core.services.intelligence import GraphContextLoader
 from core.services.lp_intelligence.content_analyzer import ContentAnalyzer
 from core.services.lp_intelligence.content_quality_assessor import ContentQualityAssessor
 from core.services.lp_intelligence.learning_recommendation_engine import (
@@ -113,7 +114,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
         Args:
             backend: Primary backend for BaseAnalyticsService and LP operations
-            graph_intelligence_service: GraphIntelligenceService - for GraphContextOrchestrator
+            graph_intelligence_service: GraphIntelligenceService - for GraphContextLoader
             relationship_service: UnifiedRelationshipService (optional)
             progress_backend: Progress backend (LP-specific)
             event_bus: Event bus for publishing events
@@ -154,14 +155,16 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             content_analyzer=self.content_analyzer,
         )
 
-        # Initialize GraphContextOrchestrator for get_with_context pattern
+        # Initialize GraphContextLoader for get_with_context pattern
         if graph_intelligence_service and self.backend:
-            self.orchestrator = GraphContextOrchestrator[Entity, LearningPathDTO](
-                service=self,
-                backend_get_method="get",
-                dto_class=LearningPathDTO,
-                model_class=Entity,
+            self.context_loader = GraphContextLoader[Entity](
+                get_entity=self.backend.get,
+                to_domain=partial(
+                    self._to_domain_model, dto_class=LearningPathDTO, model_class=Entity
+                ),
+                graph_intel=graph_intelligence_service,
                 domain=Domain.LEARNING,
+                model_name="LearningPath",
             )
 
         self.logger.info(
@@ -180,7 +183,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         Get learning path with full graph context.
 
-        Protocol method: Uses GraphContextOrchestrator for generic pattern.
+        Protocol method: Uses GraphContextLoader for generic pattern.
         Used by IntelligenceRouteFactory for GET /api/learning-paths/context route.
 
         Args:
@@ -190,14 +193,14 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Result containing (LearningPath, GraphContext) tuple
         """
-        if self.orchestrator is None:
+        if self.context_loader is None:
             return Result.fail(
                 Errors.system(
                     message="Graph intelligence service required for context queries",
                     operation="get_with_context",
                 )
             )
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
@@ -940,7 +943,7 @@ def create_lp_intelligence_service(
     Args:
         progress_backend: Progress backend (Universal Backend pattern)
         backend: Learning backend (Universal Backend pattern)
-        graph_intelligence_service: GraphIntelligenceService - for GraphContextOrchestrator
+        graph_intelligence_service: GraphIntelligenceService - for GraphContextLoader
 
     Returns:
         LpIntelligenceService: Configured service instance (facade pattern)

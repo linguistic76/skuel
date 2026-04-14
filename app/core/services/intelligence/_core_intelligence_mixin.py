@@ -3,7 +3,7 @@ Shared Core Intelligence Mixin
 ================================
 
 Provides the `get_with_context()` protocol method for all Activity Domain
-intelligence services. Delegates to GraphContextOrchestrator, which handles
+intelligence services. Delegates to GraphContextLoader, which handles
 the generic entity-fetch + Cypher graph context pattern.
 
 All 6 Activity Domain intelligence services inherit from this mixin.
@@ -26,12 +26,12 @@ class _CoreIntelligenceMixin:
     Shared base for all Activity Domain intelligence services.
 
     Provides the IntelligenceOperations protocol method `get_with_context()`
-    via GraphContextOrchestrator. Each domain intelligence service also
+    via GraphContextLoader. Each domain intelligence service also
     exposes a domain-named alias (e.g. `get_goal_with_context`).
     """
 
     # Populated by each domain intelligence service __init__
-    orchestrator: Any
+    context_loader: Any
     logger: Any
 
     @requires_graph_intelligence("get_with_context")
@@ -39,7 +39,7 @@ class _CoreIntelligenceMixin:
         """
         Get entity with full graph context. Implements IntelligenceOperations protocol.
 
-        Delegates to GraphContextOrchestrator, which selects the optimal Cypher
+        Delegates to GraphContextLoader, which selects the optimal Cypher
         query type based on the entity's suggested_query_intent and executes it
         as a single round-trip.
 
@@ -50,11 +50,11 @@ class _CoreIntelligenceMixin:
         Returns:
             Result containing (entity, GraphContext) tuple
         """
-        if not self.orchestrator:
+        if not self.context_loader:
             return Result.fail(
                 Errors.system(
-                    message="GraphContextOrchestrator not initialized",
+                    message="GraphContextLoader not initialized",
                     operation="get_with_context",
                 )
             )
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
