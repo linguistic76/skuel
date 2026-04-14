@@ -16,7 +16,6 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, Protocol
 
-from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -66,7 +65,6 @@ class GraphContextLoader[T: SuggestsQueryIntent]:
         self.graph_intel = graph_intel
         self.domain = domain
         self.model_name = model_name
-        self.logger = get_logger(f"skuel.services.intelligence.loader.{domain.value}")
 
     async def get_with_context(
         self,
@@ -86,23 +84,13 @@ class GraphContextLoader[T: SuggestsQueryIntent]:
 
         chosen_intent = intent if intent is not None else entity.get_suggested_query_intent()
 
-        self.logger.debug(
-            f"Loading context for {self.model_name} {uid} "
-            f"with intent {chosen_intent.value} at depth {depth}"
-        )
-
         ctx_result = await self.graph_intel.query_with_intent(
             domain=self.domain, node_uid=uid, intent=chosen_intent, depth=depth
         )
         if ctx_result.is_error:
             return Result.fail(ctx_result)
 
-        ctx = ctx_result.value
-        elapsed = ctx.neo4j_query_time_ms or 0.0
-        self.logger.debug(
-            f"Context loaded for {self.model_name} {uid}: {ctx.total_nodes} nodes, {elapsed:.1f}ms"
-        )
-        return Result.ok((entity, ctx))
+        return Result.ok((entity, ctx_result.value))
 
     async def _load(self, uid: str) -> Result[T]:
         entity_result = await self.get_entity(uid)
