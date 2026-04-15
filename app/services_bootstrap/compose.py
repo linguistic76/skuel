@@ -269,6 +269,7 @@ async def compose_services(
         choices_backend = backends["choices_backend"]
         progress_backend = backends["progress_backend"]
         submissions_backend = backends["submissions_backend"]
+        user_entry_backend = backends["user_entry_backend"]
         activity_report_backend = backends["activity_report_backend"]
         askesis_backend = backends["askesis_backend"]
 
@@ -1032,6 +1033,25 @@ async def compose_services(
             "✅ Learning loop query service created (read-side peer of LearningLoopEventHandlerService)"
         )
 
+        # ADR-054 Step 7 — UserEntry facade + processing dispatcher.
+        # Additive through Step 13; lives alongside the legacy submissions
+        # and journal services while the migration lands incrementally.
+        from core.services.user_entry import (
+            UserEntryProcessingService,
+            UserEntryService,
+        )
+
+        user_entry_service = UserEntryService(
+            backend=user_entry_backend,
+            sharing_service=unified_sharing_service,
+            interaction_service=interaction_service,
+            event_bus=event_bus,
+        )
+        user_entry_processor = UserEntryProcessingService(
+            entry_service=user_entry_service,
+        )
+        logger.info("✅ UserEntry service + processing dispatcher created (ADR-054)")
+
         # Create progress report generator and schedule service
         from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
         from core.models.submissions.report_schedule import ReportSchedule
@@ -1330,6 +1350,9 @@ async def compose_services(
             sharing=unified_sharing_service,  # Cross-domain sharing and visibility control
             submissions_processor=submissions_processor,
             submissions_search=submissions_search_service,  # Unified submission queries
+            # UserEntry (ADR-054) — unified user-authored content
+            user_entry=user_entry_service,
+            user_entry_processor=user_entry_processor,
             # Progress report (February 2026)
             progress_report_generator=progress_generator,
             progress_schedule=progress_schedule_service,

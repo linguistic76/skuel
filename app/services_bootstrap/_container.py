@@ -69,6 +69,10 @@ if TYPE_CHECKING:
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
+    from core.services.user_entry.user_entry_processing_service import (
+        UserEntryProcessingService,
+    )
+    from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
     from core.services.user_service import UserService
@@ -202,6 +206,11 @@ class Services:
     submissions_search: SubmissionSearchOperations | None = (
         None  # SubmissionsSearchService - Query all submission types (journals, essays, projects, etc.)
     )
+
+    # UserEntry (ADR-054) — unified user-authored content facade.
+    # Additive through Step 13; lives alongside legacy submission/journal services.
+    user_entry: "UserEntryService | None" = None
+    user_entry_processor: "UserEntryProcessingService | None" = None
 
     # ========================================================================
     # GROUP & TEACHING (ADR-040) - Teacher exercise workflow

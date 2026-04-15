@@ -32,6 +32,7 @@ def create_all_backends(
         PsBackend,
     )
     from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
+    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.askesis.askesis import Askesis
     from core.models.event.event import Event
@@ -145,6 +146,8 @@ def create_all_backends(
     submissions_backend = SubmissionsBackend(
         driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
     )
+    # ADR-054 Step 7 — additive UserEntryBackend, lives alongside SubmissionsBackend
+    user_entry_backend = UserEntryBackend(driver, prometheus_metrics=prometheus_metrics)
     from adapters.persistence.neo4j.backends.misc_backends import ActivityReportBackend
     from core.models.report.activity_report import ActivityReport
 
@@ -178,6 +181,7 @@ def create_all_backends(
         "choices_backend": choices_backend,
         "progress_backend": progress_backend,
         "submissions_backend": submissions_backend,
+        "user_entry_backend": user_entry_backend,
         "activity_report_backend": activity_report_backend,
         "askesis_backend": askesis_backend,
     }

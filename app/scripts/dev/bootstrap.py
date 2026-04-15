@@ -563,6 +563,11 @@ async def _wire_all_routes(
 
     create_journals_routes(app, rt, services)
 
+    # -- UserEntry (ADR-054) — additive through Step 13 --
+    from adapters.inbound.user_entry_routes import create_user_entry_routes
+
+    create_user_entry_routes(app, rt, services, None)
+
     # -- Forms --
     from adapters.inbound.form_templates_routes import create_form_templates_routes
 
