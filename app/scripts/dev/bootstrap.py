@@ -549,21 +549,7 @@ async def _wire_all_routes(
 
     create_principles_routes(app, rt, services)
 
-    # -- Submissions (API + UI) --
-    from adapters.inbound.submissions_routes import (
-        create_submissions_routes,
-        create_submissions_ui_orchestrator,
-    )
-
-    create_submissions_routes(app, rt, services, None)
-    create_submissions_ui_orchestrator(app, rt, services)
-
-    # -- Journals --
-    from adapters.inbound.journals_routes import create_journals_routes
-
-    create_journals_routes(app, rt, services)
-
-    # -- UserEntry (ADR-054) — additive through Step 13 --
+    # -- UserEntry (ADR-054) — unified submissions + journals surface --
     from adapters.inbound.user_entry_routes import create_user_entry_routes
 
     create_user_entry_routes(app, rt, services, None)
@@ -617,10 +603,6 @@ async def _wire_all_routes(
     from adapters.inbound.home_routes import create_home_routes
 
     create_home_routes(app, rt, services)
-
-    from adapters.inbound.submissions_hub_routes import create_submissions_hub_routes
-
-    create_submissions_hub_routes(app, rt, services)
 
     from adapters.inbound.settings_routes import create_settings_routes
 

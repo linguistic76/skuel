@@ -37,6 +37,7 @@ from adapters.inbound.form_helpers import parse_json_body
 from core.models.entity_converters import entity_to_response
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
+from core.models.forms.form_submission_request import FormSubmitRequest
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
@@ -188,6 +189,61 @@ def create_user_entry_api_routes(
         )
 
     # =========================================================================
+    # CREATE — structured form (inline Ku/PS exercise forms)
+    # =========================================================================
+
+    @rt("/api/user-entries/form", methods=["POST"])
+    @boundary_handler(success_status=201)
+    async def submit_form_route(request: Request) -> Result[dict[str, Any]]:
+        """Submit structured form data against an exercise as a ``UserEntry``.
+
+        JSON body (``FormSubmitRequest``):
+            exercise_uid: str
+            form_data:    dict[str, Any]
+            title:        str | None
+            from_ps:      str | None
+        """
+        import json as _json
+
+        user_uid = require_authenticated_user(request)
+
+        parsed = await parse_json_body(request, FormSubmitRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+
+        if not req.form_data:
+            return Result.fail(
+                Errors.validation("form_data must be a non-empty object", field="form_data")
+            )
+
+        metadata: dict[str, Any] = {
+            "submission_mode": "form",
+            "form_data": req.form_data,
+        }
+        if req.from_ps:
+            metadata["from_ps"] = req.from_ps
+
+        create_req = UserEntryCreateRequest(
+            title=req.title or "Form Submission",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid=req.exercise_uid,
+            content=_json.dumps(req.form_data),
+            metadata=metadata,
+        )
+
+        result = await user_entry_service.create_entry(request=create_req, user_uid=user_uid)
+        if result.is_error:
+            return Result.fail(result)
+
+        return Result.ok(
+            {
+                "user_entry": entity_to_response(result.value),
+                "message": "Form submitted successfully",
+            }
+        )
+
+    # =========================================================================
     # PROCESS
     # =========================================================================
 
@@ -315,6 +371,7 @@ def create_user_entry_api_routes(
     return [
         create_user_entry_route,
         upload_user_entry_route,
+        submit_form_route,
         process_user_entry_route,
         get_user_entry_route,
         list_user_entries_route,

@@ -93,7 +93,7 @@ def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
         f"submitting = true; "
         f"document.getElementById('form-feedback-{exercise_uid}').innerHTML = ''; "
         f"let formData = {{{field_extractions}}}; "
-        f"let res = await fetch('/api/submissions/form', {{"
+        f"let res = await fetch('/api/user-entries/form', {{"
         f"method: 'POST', "
         f"headers: {{'Content-Type': 'application/json'}}, "
         f"body: JSON.stringify({{exercise_uid: '{exercise_uid}', form_data: formData}})"

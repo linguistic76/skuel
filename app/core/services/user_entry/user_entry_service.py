@@ -245,9 +245,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return create_result
         return create_result
 
-    def _store_file(
-        self, file_content: bytes, filename: str, entry_uid: str
-    ) -> Result[Path]:
+    def _store_file(self, file_content: bytes, filename: str, entry_uid: str) -> Result[Path]:
         """Write file bytes to ``storage_path/YYYY-MM/{entry_uid}/filename``."""
         try:
             month_dir = self.storage_path / datetime.now().strftime("%Y-%m")

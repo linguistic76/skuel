@@ -23,7 +23,6 @@ from fasthtml.common import (
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
@@ -225,11 +224,7 @@ def create_activity_reports_ui_routes(
                     render_error_banner("Submissions orchestrator unavailable"),
                     id="progress-list",
                 )
-            result = await orchestrator.list_submissions(
-                user_uid=user_uid,
-                entity_type=EntityType.ACTIVITY_REPORT,
-                limit=10,
-            )
+            result = await orchestrator.get_activity_report_history(user_uid, limit=10)
             if result.is_error:
                 logger.error(f"Error loading progress reports: {result.error}")
                 return Div(
