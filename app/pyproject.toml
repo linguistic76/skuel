@@ -191,6 +191,7 @@ exclude = [
     ".*/archive/.*",
     "z_archives/.*",
     "legacy/.*",
+    "_shelved/.*",  # Shelved code — not actively maintained
     ".*_old\\.py$",  # Archived service files (deprecated code)
 ]
 

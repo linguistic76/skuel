@@ -14,7 +14,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator  # noqa: F401
     from core.ports import (
         ExerciseReportOperations,
         SharingOperations,

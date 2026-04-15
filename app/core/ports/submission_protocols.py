@@ -245,7 +245,7 @@ class SubmissionProcessingOperations(Protocol):
     Processes the submission content — transcribes audio, enriches text with LLM.
     This is enrichment OF the submission itself, not feedback ON the submission.
 
-    Route consumers: submissions_api.py, submissions_ui.py
+    Route consumers: submissions_api.py, user_entry_ui.py
     Implementation: SubmissionsProcessingService
     """
 

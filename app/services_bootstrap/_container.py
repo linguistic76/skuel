@@ -15,14 +15,12 @@ if TYPE_CHECKING:
         CalendarOptimizationOrchestrator,
     )
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
-    from core.orchestrator.journal_orchestrator import JournalOrchestrator
     from core.orchestrator.lateral_relationships_orchestrator import (
         LateralRelationshipsOrchestrator,
     )
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
     from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
-    from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.service_protocols import LateralRelationshipOperations
@@ -313,12 +311,10 @@ class Services:
     # Orchestrators (Application Layer)
     admin_orchestrator: "AdminOrchestrator | None" = None
     profile_orchestrator: "ProfileOrchestrator | None" = None
-    submissions_orchestrator: "SubmissionsOrchestrator | None" = None
     user_entry_orchestrator: "UserEntryOrchestrator | None" = None
     explore_orchestrator: "ExploreOrchestrator | None" = None
     library_orchestrator: "LibraryOrchestrator | None" = None
     teacher_orchestrator: "TeacherOrchestrator | None" = None
-    journal_orchestrator: "JournalOrchestrator | None" = None
     activity_review_orchestrator: "ActivityReviewOrchestrator | None" = None
     pathways_orchestrator: "PathwaysOrchestrator | None" = None
     lateral_orchestrator: "LateralRelationshipsOrchestrator | None" = None

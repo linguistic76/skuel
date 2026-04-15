@@ -1169,25 +1169,8 @@ async def compose_services(
         )
         logger.info("✅ Profile Orchestrator created")
 
-        from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
-
-        submissions_orchestrator = SubmissionsOrchestrator(
-            submissions_service=submissions_service,
-            exercises_service=exercise_service,
-            submissions_search_service=submissions_search_service,
-            submissions_core_service=submissions_core_service,
-            teacher_review_service=teacher_review_service,
-            user_service=user_service,
-            activity_report_service=activity_report_service,
-            revised_exercise_service=revised_exercise_service,
-            exercise_report_service=exercise_report_service,
-            sharing_service=unified_sharing_service,
-        )
-        logger.info("✅ Submissions Orchestrator created (legacy — deleted in commit 5)")
-
-        # ADR-054 Commit 4: UserEntryOrchestrator collapses the submissions +
-        # journal orchestrators onto UserEntryService. Lives alongside the
-        # legacy orchestrator until commit 5 retires the legacy routes.
+        # ADR-054 Commit 5c: SubmissionsOrchestrator + JournalOrchestrator retired.
+        # UserEntryOrchestrator is the sole facade for submissions + journals.
         from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 
         user_entry_orchestrator = UserEntryOrchestrator(
@@ -1244,16 +1227,6 @@ async def compose_services(
             system_service=system_service,
         )
         logger.info("✅ Admin Orchestrator created")
-
-        from core.orchestrator.journal_orchestrator import JournalOrchestrator
-
-        journal_orchestrator = JournalOrchestrator(
-            journal_input_service=journal_input_service,
-            journal_output_service=journal_output_service,
-            exercises_service=exercise_service,
-            user_service=user_service,
-        )
-        logger.info("✅ Journal Orchestrator created")
 
         from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
@@ -1434,12 +1407,10 @@ async def compose_services(
             habit_event_scheduler=orchestration["habit_event_scheduler"],
             admin_orchestrator=admin_orchestrator,
             profile_orchestrator=profile_orchestrator,
-            submissions_orchestrator=submissions_orchestrator,
             user_entry_orchestrator=user_entry_orchestrator,
             explore_orchestrator=explore_orchestrator,
             library_orchestrator=library_orchestrator,
             teacher_orchestrator=teacher_orchestrator,
-            journal_orchestrator=journal_orchestrator,
             activity_review_orchestrator=activity_review_orchestrator,
             pathways_orchestrator=pathways_orchestrator,
             lateral_orchestrator=lateral_orchestrator,

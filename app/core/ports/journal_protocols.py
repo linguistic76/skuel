@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 class JournalInputOperations(Protocol):
     """CRUD, file upload, and lifecycle management for journal entry inputs.
 
-    Route consumers: journal_api.py, journals_ui.py
+    Route consumers: user_entry_api.py, user_entry_ui.py
     Implementation: JournalInputService
     """
 
@@ -124,7 +124,7 @@ class JournalInputOperations(Protocol):
 class JournalOutputOperations(Protocol):
     """LLM processing and je_output generation/retrieval.
 
-    Route consumers: journal_api.py, journals_ui.py
+    Route consumers: user_entry_api.py, user_entry_ui.py
     Implementation: JournalOutputService
     """
 
