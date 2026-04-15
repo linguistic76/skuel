@@ -155,9 +155,7 @@ class TestTranscribe:
 
         adapter = MagicMock()
         adapter.transcribe = AsyncMock(
-            return_value=Result.fail(
-                Errors.integration(service="deepgram", message="API down")
-            )
+            return_value=Result.fail(Errors.integration(service="deepgram", message="API down"))
         )
 
         dispatcher = _make_dispatcher(
@@ -258,9 +256,7 @@ class TestLlmSummary:
 
         llm = MagicMock()
         llm.generate = AsyncMock(
-            return_value=Result.fail(
-                Errors.integration(service="llm", message="rate limited")
-            )
+            return_value=Result.fail(Errors.integration(service="llm", message="rate limited"))
         )
 
         dispatcher = _make_dispatcher(
@@ -340,9 +336,7 @@ class TestTranscribeAndStructure:
 
         adapter = MagicMock()
         adapter.transcribe = AsyncMock(
-            return_value=Result.fail(
-                Errors.integration(service="deepgram", message="boom")
-            )
+            return_value=Result.fail(Errors.integration(service="deepgram", message="boom"))
         )
         resolver = MagicMock()
         llm = MagicMock()

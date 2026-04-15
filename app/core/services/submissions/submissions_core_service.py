@@ -59,7 +59,7 @@ from core.ports.infrastructure_protocols import EventBusOperations
 from core.ports.sharing_protocols import SharingOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.services.submissions.assessment_service import AssessmentService
+from core.services.user_entry.assessment_service import AssessmentService
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_report_date
 

@@ -9,9 +9,10 @@ Facade + processing dispatcher over ``UserEntryBackend``. Replaces
 See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
 """
 
+from core.services.user_entry.assessment_service import AssessmentService
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
 from core.services.user_entry.user_entry_service import UserEntryService
 
-__all__ = ["UserEntryProcessingService", "UserEntryService"]
+__all__ = ["AssessmentService", "UserEntryProcessingService", "UserEntryService"]

@@ -30,8 +30,6 @@ Report services live in core.services.report.
 Journal services live in core.services.journal.
 """
 
-from core.services.submissions.assessment_service import AssessmentService
-
 # Learning loop intelligence (event-driven writes + read-side queries)
 from core.services.submissions.learning_loop_event_handler_service import (
     LearningLoopEventHandlerService,
@@ -48,6 +46,7 @@ from core.services.submissions.submissions_relationship_service import (
 )
 from core.services.submissions.submissions_search_service import SubmissionsSearchService
 from core.services.submissions.submissions_service import SubmissionsService
+from core.services.user_entry.assessment_service import AssessmentService
 
 __all__ = [
     "AssessmentService",

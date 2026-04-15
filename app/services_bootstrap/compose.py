@@ -1037,6 +1037,7 @@ async def compose_services(
         # Additive through Step 13; lives alongside the legacy submissions
         # and journal services while the migration lands incrementally.
         from core.services.user_entry import (
+            AssessmentService,
             UserEntryProcessingService,
             UserEntryService,
         )
@@ -1054,11 +1055,17 @@ async def compose_services(
             instruction_resolver=instruction_resolver,
             event_bus=event_bus,
         )
-        logger.info("✅ UserEntry service + processing dispatcher created (ADR-054)")
+        user_entry_assessment = AssessmentService(
+            backend=user_entry_backend,
+            event_bus=event_bus,
+        )
+        logger.info(
+            "✅ UserEntry service + processing dispatcher + AssessmentService created (ADR-054)"
+        )
 
         # Create progress report generator and schedule service
         from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
-        from core.models.submissions.report_schedule import ReportSchedule
+        from core.models.report_schedule import ReportSchedule
         from core.services.report.progress_report_generator import ProgressReportGenerator
         from core.services.report.progress_schedule_service import ProgressScheduleService
 
@@ -1357,6 +1364,7 @@ async def compose_services(
             # UserEntry (ADR-054) — unified user-authored content
             user_entry=user_entry_service,
             user_entry_processor=user_entry_processor,
+            user_entry_assessment=user_entry_assessment,
             # Progress report (February 2026)
             progress_report_generator=progress_generator,
             progress_schedule=progress_schedule_service,

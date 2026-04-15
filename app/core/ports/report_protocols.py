@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     from core.models.exercises.exercise import Exercise
     from core.models.report.activity_report import ActivityReport
     from core.models.report.exercise_report import ExerciseReport
-    from core.models.submissions.report_schedule import ReportSchedule
+    from core.models.report_schedule import ReportSchedule
     from core.models.submissions.submission import Submission
     from core.ports.query_types import (
         AnnotationResult,

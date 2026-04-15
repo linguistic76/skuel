@@ -381,9 +381,7 @@ class UserEntryProcessingService:
                 },
             )
         except Exception as update_exc:  # safety-net: failure-marking must not mask original error
-            self.logger.warning(
-                f"Failed to mark UserEntry {entry.uid} as FAILED: {update_exc}"
-            )
+            self.logger.warning(f"Failed to mark UserEntry {entry.uid} as FAILED: {update_exc}")
 
         if self.event_bus is not None:
             await publish_event(

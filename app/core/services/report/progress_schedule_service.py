@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ReportTimePeriod
 from core.models.enums.submissions_enums import ScheduleType
-from core.models.submissions.report_schedule import (
+from core.models.report_schedule import (
     ReportSchedule,
     ReportScheduleDTO,
     report_schedule_dto_to_domain,

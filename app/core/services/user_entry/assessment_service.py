@@ -2,7 +2,7 @@
 Assessment Service
 ==================
 
-Teacher assessment workflow operations extracted from SubmissionsCoreService.
+Teacher assessment workflow operations for the UserEntry domain.
 
 Handles:
 - Creating teacher assessments (EXERCISE_REPORT entities) with authority verification
@@ -11,6 +11,8 @@ Handles:
 
 Assessments are ExerciseReport entities with entity_type=EXERCISE_REPORT,
 linked to students via ASSESSMENT_OF relationships and auto-shared via SHARES_WITH.
+
+Moved from core/services/submissions/ per ADR-054.
 """
 
 from datetime import datetime
@@ -30,7 +32,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
-logger = get_logger("skuel.services.submissions.assessments")
+logger = get_logger("skuel.services.user_entry.assessments")
 
 
 def _get_created_at_key(submission: SubmissionEntity) -> datetime:
