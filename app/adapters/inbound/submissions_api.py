@@ -53,7 +53,7 @@ from core.models.entity_requests import (
     RemoveTagsRequest,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.submissions.submission_requests import FormSubmitRequest
+from core.models.forms.form_submission_request import FormSubmitRequest
 from core.ports.query_types import SubmissionStatistics
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

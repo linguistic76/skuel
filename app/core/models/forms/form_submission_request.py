@@ -29,3 +29,12 @@ class FormSubmissionShareRequest(BaseModel):
     group_uid: str | None = Field(None, description="Share with this group")
     recipient_uids: list[str] | None = Field(None, description="Share with these users")
     share_with_admin: bool = Field(False, description="Share with admin")
+
+
+class FormSubmitRequest(BaseModel):
+    """Request to submit structured form data against an exercise."""
+
+    exercise_uid: str = Field(..., description="Exercise UID")
+    form_data: dict[str, Any] = Field(..., description="Form field responses")
+    title: str | None = Field(None, max_length=200, description="Optional submission title")
+    from_ps: str | None = Field(None, description="PathStep UID for deterministic learning context")
