@@ -24,6 +24,7 @@ from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.entity_types import SubmissionEntity
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from core.services.report.teacher_review_service import TeacherReviewService
     from core.services.revised_exercises import RevisedExerciseService
     from core.services.sharing import UnifiedSharingService
+    from core.services.user_entry.assessment_service import AssessmentService
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
@@ -69,6 +71,7 @@ class UserEntryOrchestrator:
         revised_exercise_service: RevisedExerciseService,
         exercise_report_service: ExerciseReportService,
         sharing_service: UnifiedSharingService,
+        assessment_service: AssessmentService,
     ) -> None:
         self._entries = user_entry_service
         self._exercises = exercises_service
@@ -78,6 +81,7 @@ class UserEntryOrchestrator:
         self._revised_exercise = revised_exercise_service
         self._exercise_report = exercise_report_service
         self._sharing = sharing_service
+        self._assessment = assessment_service
 
     @property
     def user_service(self) -> UserService:
@@ -190,6 +194,12 @@ class UserEntryOrchestrator:
             revision = revision_result.value
 
         return Result.ok({"report": report, "revised_exercise": revision})
+
+    async def get_assessments_for_student(
+        self, user_uid: str, limit: int = 50
+    ) -> Result[list[SubmissionEntity]]:
+        """Assessments (EXERCISE_REPORT entities) received by a student."""
+        return await self._assessment.get_assessments_for_student(user_uid, limit)
 
     # ------------------------------------------------------------------
     # Activity Reports

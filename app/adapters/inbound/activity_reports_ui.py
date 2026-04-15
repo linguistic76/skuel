@@ -28,6 +28,12 @@ from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
+from ui.learning_loop.report import (
+    render_activity_report_detail,
+    render_activity_report_list,
+    render_progress_report_list,
+    render_time_period_filter,
+)
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.generate_report import (
     render_activity_report_request_card,
@@ -36,12 +42,6 @@ from ui.patterns.generate_report import (
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
-from ui.submissions.report import (
-    render_activity_report_detail,
-    render_activity_report_list,
-    render_progress_report_list,
-    render_time_period_filter,
-)
 
 logger = get_logger("skuel.routes.activity_reports")
 

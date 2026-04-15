@@ -21,11 +21,11 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
+from ui.learning_loop.report import render_yours_list
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
-from ui.submissions.report import render_yours_list
 from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:

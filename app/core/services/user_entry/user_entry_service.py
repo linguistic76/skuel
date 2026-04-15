@@ -30,7 +30,9 @@ See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
 
 from __future__ import annotations
 
+import mimetypes
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -49,6 +51,7 @@ from core.ports.user_entry_protocols import UserEntryOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -83,12 +86,16 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         sharing_service: UnifiedSharingService | None = None,
         interaction_service: InteractionService | None = None,
         event_bus: EventBusOperations | None = None,
+        storage_path: str = "/tmp/skuel_user_entries",
     ) -> None:
         super().__init__(backend, "UserEntryService")  # type: ignore[arg-type]  # protocol type
         self.sharing_service = sharing_service
         self.interaction_service = interaction_service
         self.event_bus = event_bus
+        self.storage_path = Path(storage_path)
+        self.storage_path.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger("skuel.services.user_entry")  # type: ignore[assignment]
+        self.logger.info(f"UserEntry storage path: {self.storage_path}")
 
     # =========================================================================
     # CREATE
@@ -182,6 +189,82 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             f"fulfills_exercise={request.fulfills_exercise_uid or '-'})"
         )
         return Result.ok(created)
+
+    @with_error_handling("submit_user_entry_file")
+    async def submit_file(
+        self,
+        file_content: bytes,
+        original_filename: str,
+        user_uid: UserUID,
+        pipeline: Pipeline,
+        title: str | None = None,
+        instructions: str | None = None,
+        fulfills_exercise_uid: str | None = None,
+        transforms_of_uid: str | None = None,
+        share_with_groups: list[str] | None = None,
+        share_with_users: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Result[UserEntry]:
+        """Bytes-to-disk + UserEntry creation helper.
+
+        Writes bytes to ``storage_path/YYYY-MM/{uid}/filename`` then delegates
+        to :meth:`create_entry`. On persistence failure the file is best-effort
+        removed.
+        """
+        uid = UIDGenerator.generate_random_uid("ue")
+        file_type = mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
+
+        store_result = self._store_file(file_content, original_filename, uid)
+        if store_result.is_error:
+            return Result.fail(store_result)
+        file_path = store_result.value
+
+        request = UserEntryCreateRequest(
+            title=title or original_filename,
+            pipeline=pipeline,
+            instructions=instructions,
+            original_filename=original_filename,
+            file_path=str(file_path),
+            file_size=len(file_content),
+            file_type=file_type,
+            fulfills_exercise_uid=fulfills_exercise_uid,
+            transforms_of_uid=transforms_of_uid,
+            share_with_groups=share_with_groups or [],
+            share_with_users=share_with_users or [],
+            metadata=metadata,
+        )
+
+        create_result = await self.create_entry(request=request, user_uid=user_uid)
+        if create_result.is_error:
+            try:
+                file_path.unlink()
+            except OSError as cleanup_error:
+                self.logger.warning(
+                    f"Failed to clean up file after UserEntry create error: {cleanup_error}"
+                )
+            return create_result
+        return create_result
+
+    def _store_file(
+        self, file_content: bytes, filename: str, entry_uid: str
+    ) -> Result[Path]:
+        """Write file bytes to ``storage_path/YYYY-MM/{entry_uid}/filename``."""
+        try:
+            month_dir = self.storage_path / datetime.now().strftime("%Y-%m")
+            entry_dir = month_dir / entry_uid
+            entry_dir.mkdir(parents=True, exist_ok=True)
+            file_path = entry_dir / filename
+            file_path.write_bytes(file_content)
+            self.logger.info(f"UserEntry file stored: {file_path}")
+            return Result.ok(file_path)
+        except FILE_IO_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.system(
+                    message=f"Failed to store file: {e!s}",
+                    operation="store_user_entry_file",
+                    exception=e,
+                )
+            )
 
     # =========================================================================
     # READ
