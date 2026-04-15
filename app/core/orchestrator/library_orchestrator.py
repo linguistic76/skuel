@@ -2,7 +2,7 @@
 =========================
 
 Application orchestrator for the Library Hub. Consolidates Exercises,
-Resources, KU, PathStep, Submissions, and UserRelationship services
+Resources, KU, PathStep, UserEntry, and UserRelationship services
 into a single unified facade for UI rendering.
 
 All service dependencies are required — bootstrap raises if any are missing
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from core.services.ku_service import KuService
     from core.services.ps_service import PsService
     from core.services.resource_service import ResourceService
-    from core.services.submissions.submissions_service import SubmissionsService
+    from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_relationship_service import UserRelationshipService
 
 
@@ -36,14 +36,14 @@ class LibraryOrchestrator:
         resource_service: "ResourceService",
         ku_service: "KuService",
         ps_service: "PsService",
-        submissions_service: "SubmissionsService",
+        user_entry_service: "UserEntryService",
         user_relationship_service: "UserRelationshipService",
     ) -> None:
         self._exercises = exercises_service
         self._resource = resource_service
         self._ku = ku_service
         self._ps = ps_service
-        self._submissions = submissions_service
+        self._user_entry = user_entry_service
         self._user_relationships = user_relationship_service
 
     # ------------------------------------------------------------------
@@ -63,16 +63,21 @@ class LibraryOrchestrator:
         return await self._resource.list_all()
 
     # ------------------------------------------------------------------
-    # Submissions
+    # UserEntry — teacher-review pipeline (ADR-054)
     # ------------------------------------------------------------------
 
     async def list_exercise_submissions(self, user_uid: str, limit: int = 50) -> Result[list[Any]]:
-        """List user's exercise submissions."""
-        from core.models.enums.entity_enums import EntityType
+        """List the user's exercise submissions (pipeline=TEACHER_REVIEW entries)."""
+        from core.models.enums.pipeline import Pipeline
 
-        return await self._submissions.list_submissions(
-            user_uid, entity_type=EntityType.EXERCISE_SUBMISSION, limit=limit
+        result = await self._user_entry.list_for_user(
+            user_uid=user_uid,
+            pipeline=Pipeline.TEACHER_REVIEW,
+            limit=limit,
         )
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        return Result.ok(list(result.value or []))
 
     # ------------------------------------------------------------------
     # Bookmarked KU

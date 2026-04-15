@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
     from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
+    from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
@@ -313,6 +314,7 @@ class Services:
     admin_orchestrator: "AdminOrchestrator | None" = None
     profile_orchestrator: "ProfileOrchestrator | None" = None
     submissions_orchestrator: "SubmissionsOrchestrator | None" = None
+    user_entry_orchestrator: "UserEntryOrchestrator | None" = None
     explore_orchestrator: "ExploreOrchestrator | None" = None
     library_orchestrator: "LibraryOrchestrator | None" = None
     teacher_orchestrator: "TeacherOrchestrator | None" = None

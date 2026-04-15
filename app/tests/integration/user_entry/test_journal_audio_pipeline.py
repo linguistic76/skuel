@@ -101,9 +101,7 @@ async def test_transcribe_and_structure_creates_linked_pair(
     assert process_result.is_ok, process_result.expect_error()
 
     # Adapters were called with the expected inputs
-    transcription_adapter.transcribe.assert_awaited_once_with(
-        audio_path="/tmp/does-not-matter.mp3"
-    )
+    transcription_adapter.transcribe.assert_awaited_once_with(audio_path="/tmp/does-not-matter.mp3")
     llm_caller.generate.assert_awaited_once()
     llm_kwargs = llm_caller.generate.await_args.kwargs
     assert transcript_text in llm_kwargs["prompt"]

@@ -44,9 +44,9 @@ class ReportRelationshipService:
     See: /docs/architecture/REPORT_ARCHITECTURE.md
     """
 
+    # ADR-054: EXERCISE_SUBMISSION + JE_INPUT collapsed into USER_ENTRY.
     _SUBMISSION_TYPES = [
-        EntityType.EXERCISE_SUBMISSION.value,
-        EntityType.JE_INPUT.value,
+        EntityType.USER_ENTRY.value,
     ]
 
     def __init__(self, backend: "SubmissionsBackend") -> None:

@@ -131,7 +131,8 @@ _JOURNAL_DISPATCH: list[
     ("is_path_step", activity_to_ps_dict, "path_steps", "PathStep"),
     ("is_lp", activity_to_lp_dict, "learning_paths", "LP"),
     # Meta Domains (2 — analytics has no is_analytics() guard)
-    ("is_report", activity_to_report_dict, "reports", "Report"),
+    # ADR-054: "is_report" branch dropped — DSL does not convert user entries.
+    # UserEntries are created directly via the API / UserEntryService.
     ("is_calendar", activity_to_calendar_dict, "calendar_items", "Calendar"),
     # The Destination (+1)
     ("is_lifepath", activity_to_lifepath_dict, "lifepath_items", "LifePath"),
@@ -337,10 +338,10 @@ class ActivityEntityConverter:
                 return activity_to_lp_dict(activity)
 
             # ================================================================
-            # CONTENT PROCESSING - EntityType
+            # CONTENT PROCESSING — ADR-054
             # ================================================================
-            case EntityType.EXERCISE_SUBMISSION:
-                return activity_to_report_dict(activity)
+            # UserEntry is never converted through the DSL path. It is created
+            # directly through the API / UserEntryService.
 
             # ================================================================
             # THE DESTINATION (+1) - EntityType

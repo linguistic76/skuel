@@ -1183,7 +1183,24 @@ async def compose_services(
             exercise_report_service=exercise_report_service,
             sharing_service=unified_sharing_service,
         )
-        logger.info("✅ Submissions Orchestrator created")
+        logger.info("✅ Submissions Orchestrator created (legacy — deleted in commit 5)")
+
+        # ADR-054 Commit 4: UserEntryOrchestrator collapses the submissions +
+        # journal orchestrators onto UserEntryService. Lives alongside the
+        # legacy orchestrator until commit 5 retires the legacy routes.
+        from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
+
+        user_entry_orchestrator = UserEntryOrchestrator(
+            user_entry_service=user_entry_service,
+            exercises_service=exercise_service,
+            teacher_review_service=teacher_review_service,
+            user_service=user_service,
+            activity_report_service=activity_report_service,
+            revised_exercise_service=revised_exercise_service,
+            exercise_report_service=exercise_report_service,
+            sharing_service=unified_sharing_service,
+        )
+        logger.info("✅ UserEntry Orchestrator created (ADR-054)")
 
         from core.orchestrator.explore_orchestrator import ExploreOrchestrator
 
@@ -1203,7 +1220,7 @@ async def compose_services(
             resource_service=resource_service,
             ku_service=learning_services["atomic_ku_service"],
             ps_service=learning_services["ps"],
-            submissions_service=submissions_service,
+            user_entry_service=user_entry_service,
             user_relationship_service=user_relationships,
         )
         logger.info("✅ Library Orchestrator created")
@@ -1417,6 +1434,7 @@ async def compose_services(
             admin_orchestrator=admin_orchestrator,
             profile_orchestrator=profile_orchestrator,
             submissions_orchestrator=submissions_orchestrator,
+            user_entry_orchestrator=user_entry_orchestrator,
             explore_orchestrator=explore_orchestrator,
             library_orchestrator=library_orchestrator,
             teacher_orchestrator=teacher_orchestrator,

@@ -44,9 +44,13 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "finance": NonKuDomain.FINANCE,
     # Groups (teacher-student class management)
     "group": NonKuDomain.GROUP,
-    # Content/Processing
-    "je_input": EntityType.JE_INPUT,
-    "exercise_submission": EntityType.EXERCISE_SUBMISSION,
+    # Content/Processing (ADR-054: UserEntry is the unified domain;
+    # legacy strings continue to route to USER_ENTRY for backward compat,
+    # pipeline is inferred from the legacy type in the preparer.)
+    "je_input": EntityType.USER_ENTRY,
+    "je_output": EntityType.USER_ENTRY,
+    "exercise_submission": EntityType.USER_ENTRY,
+    "user_entry": EntityType.USER_ENTRY,
     # Interaction audit (User Interaction Contract)
     "interaction": EntityType.INTERACTION,
     "ia": EntityType.INTERACTION,  # UID prefix alias

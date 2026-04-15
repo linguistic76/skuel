@@ -1279,7 +1279,7 @@ Return ONLY Markdown in this structure:
         ku = Submission(
             uid=UIDGenerator.generate_uid("sub"),
             user_uid=user_uid,
-            entity_type=EntityType.EXERCISE_SUBMISSION,
+            entity_type=EntityType.USER_ENTRY,
             status=EntityStatus.PROCESSING,
             title=insights.title,
             content=insights.formatted_content,
@@ -1317,7 +1317,7 @@ Return ONLY Markdown in this structure:
             Tuple of (matching reports, total_count)
         """
         # Get journal-type reports
-        filters: dict[str, Any] = {"entity_type": EntityType.EXERCISE_SUBMISSION.value}
+        filters: dict[str, Any] = {"entity_type": EntityType.USER_ENTRY.value}
         if user_uid:
             filters["user_uid"] = user_uid
 

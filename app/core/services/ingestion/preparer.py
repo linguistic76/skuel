@@ -134,7 +134,7 @@ def _prepare_core(
     # Only set body content if it's non-empty — an empty body means all content
     # is in the frontmatter (e.g. content: | in the YAML), and overwriting with ""
     # would erase the frontmatter-provided content before chunking.
-    if body and entity_type in (EntityType.PATH_STEP, EntityType.EXERCISE_SUBMISSION):
+    if body and entity_type in (EntityType.PATH_STEP, EntityType.USER_ENTRY):
         entity_data["content"] = body
 
     # PathStep: normalize USES_KU UIDs and activity domain UIDs

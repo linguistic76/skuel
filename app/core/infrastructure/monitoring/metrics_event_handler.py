@@ -86,10 +86,10 @@ class MetricsEventHandler:
         self.event_bus.subscribe(PathStepCreated, self._on_ls_created)
         self.event_bus.subscribe(LearningPathStarted, self._on_lp_started)
 
-        # Submission domain (1)
-        from core.events.submission_events import SubmissionCreated
+        # UserEntry domain (ADR-054 — replaces legacy SubmissionCreated)
+        from core.events.user_entry_events import UserEntryCreated
 
-        self.event_bus.subscribe(SubmissionCreated, self._on_report_submitted)
+        self.event_bus.subscribe(UserEntryCreated, self._on_user_entry_created)
 
     def _subscribe_to_completion_events(self) -> None:
         """Subscribe to entity completion events."""
@@ -153,10 +153,10 @@ class MetricsEventHandler:
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="lp").inc()
 
-    async def _on_report_submitted(self, event) -> None:
-        """Track report submission (proxy for creation)."""
+    async def _on_user_entry_created(self, event) -> None:
+        """Track UserEntry creation (any pipeline)."""
 
-        self.prometheus_metrics.domains.entities_created.labels(entity_type="report").inc()
+        self.prometheus_metrics.domains.entities_created.labels(entity_type="user_entry").inc()
 
     # === Completion Event Handlers ===
 
