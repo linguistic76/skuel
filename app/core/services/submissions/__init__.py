@@ -35,10 +35,6 @@ from core.services.submissions.learning_loop_event_handler_service import (
     LearningLoopEventHandlerService,
 )
 from core.services.submissions.learning_loop_query_service import LearningLoopQueryService
-from core.services.submissions.submission_processing_types import (
-    SubmissionAIInsights,
-    SubmissionProcessingContext,
-)
 from core.services.submissions.submissions_core_service import SubmissionsCoreService
 from core.services.submissions.submissions_processing_service import SubmissionsProcessingService
 from core.services.submissions.submissions_relationship_service import (
@@ -52,8 +48,6 @@ __all__ = [
     "AssessmentService",
     "LearningLoopEventHandlerService",
     "LearningLoopQueryService",
-    "SubmissionAIInsights",
-    "SubmissionProcessingContext",
     "SubmissionsCoreService",
     "SubmissionsProcessingService",
     "SubmissionsRelationshipService",

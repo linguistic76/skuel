@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.events.submission_events import (
+from core.events.learning_loop_events import (
     ReportSubmitted,
-    SubmissionApproved,
-    SubmissionRevisionRequested,
+    UserEntryApproved,
+    UserEntryRevisionRequested,
 )
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.utils.result_simplified import Errors, Result
@@ -354,8 +354,8 @@ class TestRequestRevision:
 
         event_bus.publish_async.assert_awaited_once()
         event = event_bus.publish_async.call_args[0][0]
-        assert isinstance(event, SubmissionRevisionRequested)
-        assert event.submission_uid == SUBMISSION_UID
+        assert isinstance(event, UserEntryRevisionRequested)
+        assert event.entity_uid == SUBMISSION_UID
         assert event.revision_notes == "Fix section 2"
 
     @pytest.mark.asyncio
@@ -517,8 +517,8 @@ class TestApproveReport:
 
         event_bus.publish_async.assert_awaited_once()
         event = event_bus.publish_async.call_args[0][0]
-        assert isinstance(event, SubmissionApproved)
-        assert event.submission_uid == SUBMISSION_UID
+        assert isinstance(event, UserEntryApproved)
+        assert event.entity_uid == SUBMISSION_UID
         assert event.mastered_ku_count == 0
 
     @pytest.mark.asyncio

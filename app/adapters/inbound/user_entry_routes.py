@@ -14,12 +14,8 @@ See: /home/mike/.claude/plans/starry-waddling-coral.md
 
 from typing import Any
 
-from adapters.inbound.auth import make_service_getter
-from adapters.inbound.exercise_report_api import create_exercise_report_api_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
-from adapters.inbound.progress_report_api import create_progress_report_api_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
-from adapters.inbound.submissions_sharing_api import create_submissions_sharing_api_routes
 from adapters.inbound.user_entry_api import create_user_entry_api_routes
 from adapters.inbound.user_entry_ui import create_user_entry_ui_routes
 from core.utils.logging import get_logger
@@ -48,43 +44,6 @@ def create_user_entry_routes(
     register_domain_routes(app, rt, services, USER_ENTRY_CONFIG)
 
     # -------------------------------------------------------------------------
-    # Extension: sharing routes (UnifiedSharingService + SubmissionsService)
-    # -------------------------------------------------------------------------
-    if (
-        services
-        and getattr(services, "sharing", None)
-        and getattr(services, "submissions_core", None)
-    ):
-        create_submissions_sharing_api_routes(
-            app,
-            rt,
-            services.sharing,
-            services.submissions_core,
-        )
-        logger.info("UserEntry: submission sharing routes registered (Portfolio feature)")
-
-    # -------------------------------------------------------------------------
-    # Extension: progress report generation routes
-    # -------------------------------------------------------------------------
-    progress_report_generator = getattr(services, "progress_report_generator", None)
-    if progress_report_generator and getattr(services, "submissions", None):
-        schedule_service = getattr(services, "progress_schedule", None)
-        activity_report_svc = getattr(services, "activity_report", None)
-        review_queue_svc = getattr(services, "review_queue", None)
-        create_progress_report_api_routes(
-            app,
-            rt,
-            progress_report_generator,
-            services.submissions,
-            schedule_service=schedule_service,
-            activity_report=activity_report_svc,
-            review_queue=review_queue_svc,
-            user_service=getattr(services, "user_service", None),
-            context_builder=getattr(activity_report_svc, "context_builder", None),
-        )
-        logger.info("UserEntry: progress + activity report routes registered")
-
-    # -------------------------------------------------------------------------
     # Extension: activity review UI (admin-only)
     # -------------------------------------------------------------------------
     activity_review_orch = getattr(services, "activity_review_orchestrator", None)
@@ -95,20 +54,7 @@ def create_user_entry_routes(
         logger.info("UserEntry: activity review UI routes registered")
 
     # -------------------------------------------------------------------------
-    # Extension: exercise-report assessment routes (teacher-only)
-    # -------------------------------------------------------------------------
-    if services and getattr(services, "submissions_core", None):
-        get_user_service = make_service_getter(services.user)
-        create_exercise_report_api_routes(
-            app,
-            rt,
-            services.submissions_core,
-            user_service_getter=get_user_service,
-        )
-        logger.info("UserEntry: exercise report assessment routes registered")
-
-    # -------------------------------------------------------------------------
-    # Extension: batch transcription/processing API (admin-only)
+    # Extension: batch transcription API (admin-only, Tier 1 only)
     # -------------------------------------------------------------------------
     batch_transcription_svc = getattr(services, "batch_transcription", None)
     if batch_transcription_svc:
@@ -120,7 +66,6 @@ def create_user_entry_routes(
             app,
             rt,
             batch_transcription_service=batch_transcription_svc,
-            batch_processing_service=getattr(services, "batch_processing", None),
             user_service=getattr(services, "user_service", None),
         )
         logger.info("UserEntry: batch transcription API routes registered (admin-only)")

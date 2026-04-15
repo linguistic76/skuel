@@ -193,6 +193,14 @@ from core.events.learning_events import (
     PrerequisitesAnalyzed,
 )
 
+# Learning loop events (ADR-054 — relocated from submission_events.py)
+from core.events.learning_loop_events import (
+    ReportSubmitted,
+    RevisedExerciseCreated,
+    UserEntryApproved,
+    UserEntryRevisionRequested,
+)
+
 # Principle events
 from core.events.principle_events import (
     PrincipleAlignmentAssessed,
@@ -205,15 +213,11 @@ from core.events.principle_events import (
 # Submission events
 from core.events.submission_events import (
     AssessmentCreated,
-    ReportSubmitted,
-    RevisedExerciseCreated,
-    SubmissionApproved,
     SubmissionCreated,
     SubmissionDeleted,
     SubmissionProcessingCompleted,
     SubmissionProcessingFailed,
     SubmissionProcessingStarted,
-    SubmissionRevisionRequested,
 )
 
 # Task events
@@ -255,13 +259,13 @@ __all__ = [
     "AssessmentCreated",
     "ReportSubmitted",
     "RevisedExerciseCreated",
-    "SubmissionApproved",
     "SubmissionCreated",
     "SubmissionDeleted",
     "SubmissionProcessingCompleted",
     "SubmissionProcessingFailed",
     "SubmissionProcessingStarted",
-    "SubmissionRevisionRequested",
+    "UserEntryApproved",
+    "UserEntryRevisionRequested",
     # Base
     "BaseEvent",
     # Calendar Events
@@ -397,9 +401,9 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "submission.processing_failed": SubmissionProcessingFailed,
     "submission.deleted": SubmissionDeleted,
     "submission.report_submitted": ReportSubmitted,
-    "submission.approved": SubmissionApproved,
+    "user_entry.approved": UserEntryApproved,
     "submission.assessment_created": AssessmentCreated,
-    "submission.revision_requested": SubmissionRevisionRequested,
+    "user_entry.revision_requested": UserEntryRevisionRequested,
     "revised_exercise.created": RevisedExerciseCreated,
     # Chunk embedding events (async background generation for RAG)
     "chunk.embedding_requested": ChunkEmbeddingRequested,
@@ -598,9 +602,9 @@ SUBMISSION_EVENTS = [
     SubmissionProcessingFailed,
     SubmissionDeleted,
     ReportSubmitted,
-    SubmissionApproved,
+    UserEntryApproved,
     AssessmentCreated,
-    SubmissionRevisionRequested,
+    UserEntryRevisionRequested,
     RevisedExerciseCreated,
 ]
 

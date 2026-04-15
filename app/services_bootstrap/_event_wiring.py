@@ -13,10 +13,11 @@ def _wire_event_subscribers(
     user_service: Any,
     activity_services: dict[str, Any],
     learning_services: dict[str, Any],
-    submissions_core_service: Any,
+    user_entry_exercise_linker: Any,
     notification_service: Any,
     advanced: dict[str, Any],
     analytics_service: Any,
+    user_entry_backend: Any = None,
     submissions_backend: Any = None,
     insight_store: Any = None,
     group_backend: Any = None,
@@ -92,20 +93,22 @@ def _wire_event_subscribers(
         KnowledgeInformedChoice,
         KnowledgePracticedInEvent,
     )
+    from core.events.learning_loop_events import (
+        ReportSubmitted,
+        RevisedExerciseCreated,
+        UserEntryApproved,
+        UserEntryRevisionRequested,
+    )
     from core.events.principle_events import (
         PrincipleConflictRevealed,
         PrincipleReflectionRecorded,
     )
     from core.events.submission_events import (
-        ReportSubmitted,
-        RevisedExerciseCreated,
-        SubmissionApproved,
-        SubmissionCreated,
         SubmissionProcessingCompleted,
         SubmissionProcessingFailed,
         SubmissionProcessingStarted,
-        SubmissionRevisionRequested,
     )
+    from core.events.user_entry_events import UserEntryCreated
 
     # ── Context invalidation handlers ───────────────────────────────────────
     # Two handlers: one for events that guarantee user_uid, one for events
@@ -181,14 +184,14 @@ def _wire_event_subscribers(
         f"✅ UserService subscribed to {len(activity_context_events)} activity/domain context events"
     )
 
-    # Subscribe to SubmissionCreated for exercise linking (ADR-040)
+    # Subscribe to UserEntryCreated for exercise linking (ADR-040 / ADR-054)
     exercise_handler = functools.partial(
         handle_exercise_submission,
-        reports_core_service=submissions_core_service,
+        exercise_linker=user_entry_exercise_linker,
     )
-    event_bus.subscribe(SubmissionCreated, exercise_handler)
+    event_bus.subscribe(UserEntryCreated, exercise_handler)
     logger.info(
-        "✅ Exercise handler subscribed to SubmissionCreated "
+        "✅ Exercise handler subscribed to UserEntryCreated "
         "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
     )
 
@@ -225,29 +228,31 @@ def _wire_event_subscribers(
         notification_service=notification_service,
     )
     event_bus.subscribe(ReportSubmitted, report_submitted_handler)
-    event_bus.subscribe(SubmissionApproved, submission_approved_handler)
-    event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
+    event_bus.subscribe(UserEntryApproved, submission_approved_handler)
+    event_bus.subscribe(UserEntryRevisionRequested, revision_requested_handler)
     event_bus.subscribe(RevisedExerciseCreated, revised_exercise_handler)
     logger.info(
         "✅ Learning loop notification handlers subscribed to ReportSubmitted + "
-        "SubmissionApproved + SubmissionRevisionRequested + RevisedExerciseCreated "
+        "UserEntryApproved + UserEntryRevisionRequested + RevisedExerciseCreated "
         "(student notifications)"
     )
 
     # Learning loop intelligence handlers — iteration tracking, feedback turnaround, mastery velocity
-    if submissions_backend and insight_store:
-        from core.services.submissions import LearningLoopEventHandlerService
+    if user_entry_backend and insight_store:
+        from core.services.user_entry.learning_loop_handler import (
+            LearningLoopEventHandlerService,
+        )
 
         learning_loop_handler = LearningLoopEventHandlerService(
-            backend=submissions_backend,
+            backend=user_entry_backend,
             insight_store=insight_store,
         )
-        event_bus.subscribe(SubmissionCreated, learning_loop_handler.handle_submission_created)
+        event_bus.subscribe(UserEntryCreated, learning_loop_handler.handle_submission_created)
         event_bus.subscribe(ReportSubmitted, learning_loop_handler.handle_report_submitted)
-        event_bus.subscribe(SubmissionApproved, learning_loop_handler.handle_submission_approved)
+        event_bus.subscribe(UserEntryApproved, learning_loop_handler.handle_submission_approved)
         logger.info(
-            "✅ LearningLoopEventHandlerService subscribed to SubmissionCreated, "
-            "ReportSubmitted, SubmissionApproved (iteration tracking + feedback turnaround + mastery velocity)"
+            "✅ LearningLoopEventHandlerService subscribed to UserEntryCreated, "
+            "ReportSubmitted, UserEntryApproved (iteration tracking + feedback turnaround + mastery velocity)"
         )
 
     # Learning events (user_uid may be absent on curriculum-level events)

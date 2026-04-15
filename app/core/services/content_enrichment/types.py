@@ -1,9 +1,11 @@
 """
-Ku AI Processing Types
+Content Enrichment Types
 ========================
 
-Frozen dataclasses for Ku AI processing returns.
-Replaces dict[str, Any] with strongly-typed, immutable structures.
+Frozen dataclasses for the LLM-driven transcript enrichment pipeline.
+Ported from ``submissions/submission_processing_types.py`` on ADR-054
+Commit 6a (Step 10) and renamed so that the content_enrichment package is
+no longer coupled to the legacy Submission naming.
 """
 
 from dataclasses import dataclass, field
@@ -13,12 +15,8 @@ from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
-class SubmissionProcessingContext:
-    """
-    Context gathered from Neo4j for intelligent Ku editing.
-
-    Used by ContentEnrichmentService to provide context-aware editing.
-    """
+class EnrichmentContext:
+    """Neo4j-gathered context consumed by ContentEnrichmentService."""
 
     user_uid: UserUID
     gathered_at: str
@@ -29,8 +27,8 @@ class SubmissionProcessingContext:
 
 
 @dataclass(frozen=True)
-class SubmissionAIInsights:
-    """Parsed AI response for entity formatting."""
+class EnrichmentInsights:
+    """Parsed LLM response produced by the enrichment pipeline."""
 
     title: str
     formatted_content: str

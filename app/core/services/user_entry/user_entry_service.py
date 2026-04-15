@@ -35,6 +35,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from core.events import publish_event
+from core.events.user_entry_events import UserEntryCreated
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.interaction_enums import InteractionType
 from core.models.enums.metadata_enums import Visibility
@@ -188,6 +190,21 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             f"UserEntry created: {created.uid} (pipeline={request.pipeline.value}, "
             f"fulfills_exercise={request.fulfills_exercise_uid or '-'})"
         )
+
+        await publish_event(
+            self.event_bus,
+            UserEntryCreated(
+                entity_uid=created.uid,
+                user_uid=user_uid,
+                pipeline=request.pipeline.value,
+                modality=request.modality.value if request.modality else None,
+                fulfills_exercise_uid=request.fulfills_exercise_uid,
+                transforms_of_uid=request.transforms_of_uid,
+                file_type=request.file_type,
+            ),
+            self.logger,
+        )
+
         return Result.ok(created)
 
     @with_error_handling("submit_user_entry_file")

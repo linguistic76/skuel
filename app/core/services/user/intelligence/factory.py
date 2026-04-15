@@ -50,8 +50,8 @@ if TYPE_CHECKING:
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
-    from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext
+    from core.services.user_entry import UserEntryRelationshipService
 
 
 class UserContextIntelligenceFactory:
@@ -103,7 +103,7 @@ class UserContextIntelligenceFactory:
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
-        submissions: SubmissionsRelationshipService,
+        user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
@@ -160,7 +160,7 @@ class UserContextIntelligenceFactory:
             "ps": ps,
             "lp": lp,
             # Processing Domains (3)
-            "submissions": submissions,
+            "user_entries": user_entries,
             "report": report,
             "analytics": analytics,
             # Temporal Domain (1)
@@ -186,7 +186,7 @@ class UserContextIntelligenceFactory:
         self._ps = ps
         self._lp = lp
         # Processing domains (3)
-        self._submissions = submissions
+        self._user_entries = user_entries
         self._report = report
         self._analytics = analytics
         # Temporal domain (1)
@@ -221,7 +221,7 @@ class UserContextIntelligenceFactory:
             ps=self._ps,
             lp=self._lp,
             # Processing domains (3)
-            submissions=self._submissions,
+            user_entries=self._user_entries,
             report=self._report,
             analytics=self._analytics,
             # Temporal domain (1)

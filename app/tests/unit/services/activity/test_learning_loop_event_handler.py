@@ -14,12 +14,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from neo4j.exceptions import ServiceUnavailable
 
-from core.events.submission_events import (
-    ReportSubmitted,
-    SubmissionApproved,
-    SubmissionCreated,
-)
-from core.services.submissions.learning_loop_event_handler_service import (
+from core.events.learning_loop_events import ReportSubmitted, UserEntryApproved
+from core.events.user_entry_events import UserEntryCreated
+from core.services.user_entry.learning_loop_handler import (
     LearningLoopEventHandlerService,
     _classify_iteration_count,
     _classify_mastery_velocity,
@@ -67,11 +64,11 @@ def _make_submission_created(
     submission_uid: str = "es_test_abc",
     user_uid: str = "user.test",
     fulfills_exercise_uid: str | None = "exercise_abc",
-) -> SubmissionCreated:
-    return SubmissionCreated(
-        submission_uid=submission_uid,
+) -> UserEntryCreated:
+    return UserEntryCreated(
+        entity_uid=submission_uid,
         user_uid=user_uid,
-        entity_type="exercise_submission",
+        pipeline="none",
         occurred_at=datetime.now(),
         fulfills_exercise_uid=fulfills_exercise_uid,
     )
@@ -99,9 +96,9 @@ def _make_submission_approved(
     student_uid: str = "user.student",
     mastered_ku_count: int = 2,
     occurred_at: datetime | None = None,
-) -> SubmissionApproved:
-    return SubmissionApproved(
-        submission_uid=submission_uid,
+) -> UserEntryApproved:
+    return UserEntryApproved(
+        entity_uid=submission_uid,
         teacher_uid=teacher_uid,
         student_uid=student_uid,
         occurred_at=occurred_at or datetime.now(),
@@ -204,7 +201,7 @@ class TestHandleSubmissionCreated:
         await service_with_insights.handle_submission_created(event)
         mock_insight_store.create_insight.assert_called_once()
         insight = mock_insight_store.create_insight.call_args[0][0]
-        assert insight.domain == "submissions"
+        assert insight.domain == "user_entry"
         assert insight.supporting_data["iteration_count"] == 3
         assert insight.supporting_data["classification"] == "persistent"
 

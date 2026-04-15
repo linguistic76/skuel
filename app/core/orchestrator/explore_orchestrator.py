@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
     from core.services.ps_service import PsService
-    from core.services.submissions.learning_loop_query_service import LearningLoopQueryService
+    from core.services.user_entry.learning_loop_query import LearningLoopQueryService
     from core.services.user_relationship_service import UserRelationshipService
 
 

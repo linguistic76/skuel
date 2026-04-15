@@ -88,8 +88,8 @@ RENAMED: dict[str, str] = {
     "from core.models.ku.ku_enums import": "from core.models.enums.entity_enums import (or domain-specific enums file)",
     "from core.models.ku import": "from core.models.<domain> import  (ku/ monolith deleted)",
     # Old report domain imports (Reports→Submissions, Feb 2026)
-    "from core.services.reports": "from core.services.submissions or core.services.report",
-    "from core.models.reports": "from core.models.submissions or core.models.report",
+    "from core.services.reports": "from core.services.report or core.services.user_entry",
+    "from core.models.reports": "from core.models.report or core.models.user_entry",
     # Old ActivityDataReader (absorbed into UserContext, Mar 2026)
     "ActivityDataReader": "UserContextBuilder.build_rich() — ActivityDataReader absorbed",
     "ActivityData(": "ActivityData frozen dataclass deleted — data now in UserContext",
@@ -121,6 +121,10 @@ RENAMED: dict[str, str] = {
     "SubmissionsProcessingService": "UserEntryProcessingService",
     "from core.services.submissions": "from core.services.user_entry",
     "from core.services.journal": "from core.services.user_entry",
+    "from core.models.submissions": "from core.models.user_entry",
+    "from core.models.journal": "from core.models.user_entry",
+    "from core.events.submission_events": "from core.events.learning_loop_events",
+    "from core.events.journal_events": "from core.events.learning_loop_events",
 }
 
 # ── Deleted identifiers ──────────────────────────────────────────────────────

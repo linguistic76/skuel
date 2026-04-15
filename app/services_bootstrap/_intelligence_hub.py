@@ -35,18 +35,13 @@ async def _create_intelligence_hub(
     """
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.report import ReportRelationshipService
-    from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.intelligence import UserContextIntelligenceFactory
+    from core.services.user_entry import UserEntryRelationshipService
 
-    # Create processing domain relationship services
-    # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Entity model
-    # SubmissionsRelationshipService handles all submission content relationships
-    submissions_relationship_service = SubmissionsRelationshipService(backend=submissions_backend)
+    entry_relationship_service = UserEntryRelationshipService(backend=submissions_backend)
     report_relationship_service = ReportRelationshipService(backend=submissions_backend)
     analytics_relationship_service = AnalyticsRelationshipService(driver)
-    logger.info(
-        "✅ Processing domain relationship services created (Submissions, Report, Analytics)"
-    )
+    logger.info("✅ Processing domain relationship services created (UserEntry, Report, Analytics)")
 
     # ── ZPD Service (March 2026 — pedagogical core of Askesis) ──────────────
     # Gated by INTELLIGENCE_TIER=FULL — requires behavioral signals from
@@ -81,21 +76,21 @@ async def _create_intelligence_hub(
         from core.events.learning_events import (
             LearningPathProgressUpdated as ZPDLPProgress,
         )
-        from core.events.submission_events import (
+        from core.events.learning_loop_events import (
             ReportSubmitted as ZPDReportSubmitted,
         )
-        from core.events.submission_events import (
-            SubmissionApproved as ZPDSubApproved,
+        from core.events.learning_loop_events import (
+            UserEntryApproved as ZPDEntryApproved,
         )
 
-        event_bus.subscribe(ZPDSubApproved, zpd_handler.handle_submission_approved)
+        event_bus.subscribe(ZPDEntryApproved, zpd_handler.handle_submission_approved)
         event_bus.subscribe(ZPDReportSubmitted, zpd_handler.handle_report_submitted)
         event_bus.subscribe(ZPDKMastered, zpd_handler.handle_knowledge_mastered)
         event_bus.subscribe(ZPDPSCompleted, zpd_handler.handle_path_step_completed)
         event_bus.subscribe(ZPDLPProgress, zpd_handler.handle_learning_path_progress)
         logger.info(
             "✅ ZPD snapshot handler subscribed to 5 events "
-            "(SubmissionApproved, ReportSubmitted, KnowledgeMastered, "
+            "(UserEntryApproved, ReportSubmitted, KnowledgeMastered, "
             "PathStepCompleted, LearningPathProgressUpdated)"
         )
     else:
@@ -134,7 +129,7 @@ async def _create_intelligence_hub(
         ps=learning_services["ps"],
         lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
         # Processing Domains (3)
-        submissions=submissions_relationship_service,  # SubmissionsRelationshipService
+        user_entries=entry_relationship_service,  # UserEntryRelationshipService
         report=report_relationship_service,  # ReportRelationshipService
         analytics=analytics_relationship_service,  # AnalyticsRelationshipService
         # Temporal Domain (1)

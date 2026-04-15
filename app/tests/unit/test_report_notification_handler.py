@@ -18,11 +18,11 @@ from core.events.handlers.report_notification_handler import (
     handle_revision_requested,
     handle_submission_approved,
 )
-from core.events.submission_events import (
+from core.events.learning_loop_events import (
     ReportSubmitted,
     RevisedExerciseCreated,
-    SubmissionApproved,
-    SubmissionRevisionRequested,
+    UserEntryApproved,
+    UserEntryRevisionRequested,
 )
 from core.utils.result_simplified import Result
 
@@ -87,8 +87,8 @@ async def test_handle_report_submitted_skips_when_no_student(mock_notification_s
 @pytest.mark.asyncio
 async def test_handle_submission_approved_creates_notification(mock_notification_service):
     """Should create a submission_approved notification."""
-    event = SubmissionApproved(
-        submission_uid="ku_submission_123",
+    event = UserEntryApproved(
+        entity_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
         occurred_at=datetime.now(),
@@ -110,8 +110,8 @@ async def test_handle_submission_approved_creates_notification(mock_notification
 @pytest.mark.asyncio
 async def test_handle_submission_approved_includes_mastery_count(mock_notification_service):
     """Should include mastered Ku count in message when mastered_ku_count > 0."""
-    event = SubmissionApproved(
-        submission_uid="ku_submission_123",
+    event = UserEntryApproved(
+        entity_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
         occurred_at=datetime.now(),
@@ -128,8 +128,8 @@ async def test_handle_submission_approved_includes_mastery_count(mock_notificati
 @pytest.mark.asyncio
 async def test_handle_submission_approved_skips_when_no_student(mock_notification_service):
     """Should skip notification when student_uid is empty."""
-    event = SubmissionApproved(
-        submission_uid="ku_submission_123",
+    event = UserEntryApproved(
+        entity_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="",
         occurred_at=datetime.now(),
@@ -148,8 +148,8 @@ async def test_handle_submission_approved_skips_when_no_student(mock_notificatio
 @pytest.mark.asyncio
 async def test_handle_revision_requested_creates_notification(mock_notification_service):
     """Should create a revision_requested notification for the student."""
-    event = SubmissionRevisionRequested(
-        submission_uid="ku_submission_123",
+    event = UserEntryRevisionRequested(
+        entity_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
         occurred_at=datetime.now(),
@@ -172,8 +172,8 @@ async def test_handle_revision_requested_creates_notification(mock_notification_
 @pytest.mark.asyncio
 async def test_handle_revision_requested_skips_when_no_student(mock_notification_service):
     """Should skip notification when student_uid is empty."""
-    event = SubmissionRevisionRequested(
-        submission_uid="ku_submission_123",
+    event = UserEntryRevisionRequested(
+        entity_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="",
         occurred_at=datetime.now(),

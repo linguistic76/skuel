@@ -850,25 +850,6 @@ async def compose_services(
         else:
             logger.warning(f"Default transcript exercise: {seed_result.error}")
 
-        # Create submissions submission and processing pipeline services
-        from core.services.submissions import (
-            LearningLoopQueryService,
-            SubmissionsCoreService,
-            SubmissionsProcessingService,
-            SubmissionsSearchService,
-            SubmissionsService,
-        )
-
-        # Get storage path from environment (default: /tmp/skuel_submissions)
-        storage_path = os.getenv("SKUEL_SUBMISSIONS_STORAGE", "/tmp/skuel_submissions")
-
-        submissions_service = SubmissionsService(
-            backend=submissions_backend,
-            storage_path=storage_path,
-            event_bus=event_bus,
-            interaction_service=interaction_service,
-        )
-
         # Create sharing backend + service (cross-domain, queries :Entity nodes)
         from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
         from core.models.entity import Entity
@@ -884,13 +865,6 @@ async def compose_services(
         # and FormSubmissionService need the sharing service post-hoc.
         form_submission_service.sharing_service = unified_sharing_service
         exercise_service.sharing_service = unified_sharing_service
-
-        # Create Submissions core service (content management: categories, tags, bulk operations)
-        submissions_core_service = SubmissionsCoreService(
-            backend=submissions_backend,
-            event_bus=event_bus,
-            sharing_service=unified_sharing_service,
-        )
 
         # LIFEPATH SERVICE (Domain #14: The Destination)
         # "Everything flows toward the life path"
@@ -909,76 +883,16 @@ async def compose_services(
         )
         logger.info("✅ LifePath service created (Vision→Action bridge)")
 
-        # Create report activity extractor (DSL integration for journal → entity extraction)
-        from core.services.dsl import ActivityExtractorService
-
-        activity_extractor = ActivityExtractorService(
-            # Activity Domains (6) - access .core for CRUD operations
-            tasks_service=activity_services["tasks"].core,
-            habits_service=activity_services["habits"].core,
-            goals_service=activity_services["goals"].core,
-            events_service=activity_services["events"].core,
-            principles_service=activity_services["principles"].core,
-            choices_service=activity_services["choices"].core,
-            # Finance Domain (1) - admin-only bookkeeping
-            finance_service=core_services["finance"],
-            # Curriculum Domains (3) - admin creates, all read
-            ku_service=learning_services["ps"],
-            ps_service=learning_services["ps"],
-            lp_service=learning_services["learning_paths"],
-            # Meta Domains (3)
-            report_service=submissions_service,  # For metadata updates
-            analytics_service=None,  # Not needed for extraction
-            calendar_service=None,  # Not needed for extraction
-            # The Destination (+1)
-            lifepath_service=lifepath_service,
-        )
-        logger.info("✅ Submission activity extractor created (DSL journal → entity extraction)")
-
-        # Create instruction resolver (stateless — works without AI)
+        # Create instruction resolver (stateless — works without AI).
+        # Consumed by UserEntryProcessingService for LLM-driven enrichment.
         from core.services.output import InstructionResolver
 
         instruction_resolver = InstructionResolver()
         logger.info("✅ InstructionResolver created")
 
-        # Journal input service (CRUD + file upload → JeInput entities)
-        from adapters.persistence.neo4j.backends.journal_backends import JournalInputBackend
-        from core.models.journal.je_input import JeInput
-        from core.services.journal import JournalInputService
-
-        journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
-        journal_input_backend = JournalInputBackend(
-            driver, NeoLabel.JE_INPUT, JeInput, base_label=NeoLabel.ENTITY
-        )
-        journal_input_service = JournalInputService(
-            backend=journal_input_backend,
-            storage_base=journal_storage,
-            event_bus=event_bus,
-        )
-        logger.info(f"✅ JournalInputService created (storage: {journal_storage})")
-
-        # Journal output service (LLM processing → JeOutput entities)
-        from adapters.persistence.neo4j.backends.journal_backends import JournalOutputBackend
-        from core.models.journal.je_output import JeOutput
-        from core.services.journal import JournalOutputService
-
-        journal_output_backend = JournalOutputBackend(
-            driver, NeoLabel.JE_OUTPUT, JeOutput, base_label=NeoLabel.ENTITY
-        )
-        journal_output_service = None
-        if llm_caller:
-            journal_output_service = JournalOutputService(
-                llm_caller=llm_caller,
-                instruction_resolver=instruction_resolver,
-                backend=journal_output_backend,
-                storage_base=journal_storage,
-                event_bus=event_bus,
-            )
-            logger.info(f"✅ JournalOutputService created (storage: {journal_storage})")
-        else:
-            logger.info("⏭️  JournalOutputService skipped (intelligence tier: CORE)")
-
-        # Create batch transcription service (Tier 1: audio → txt)
+        # Batch transcription service (Tier 1: audio → txt).
+        # Tier 2 (BatchProcessingService) retired with ADR-054 Commit 6a — the
+        # LLM-driven txt→md path now lives inside UserEntryProcessingService.
         from core.services.transcription import BatchTranscriptionService
 
         batch_transcription = BatchTranscriptionService(
@@ -987,51 +901,15 @@ async def compose_services(
         )
         logger.info("✅ BatchTranscriptionService created (Tier 1: audio → txt)")
 
-        # Create batch processing service (Tier 2: txt → md via LLM)
-        from core.services.transcription import BatchProcessingService
-
-        batch_processing = None
-        if journal_output_service:
-            batch_processing = BatchProcessingService(
-                output_generator=journal_output_service,
-                instruction_resolver=instruction_resolver,
-                max_concurrent=3,
-            )
-            logger.info("✅ BatchProcessingService created (Tier 2: txt → md)")
-        else:
-            logger.info("⏭️  BatchProcessingService skipped (requires JournalOutputService)")
-
-        submissions_processor = SubmissionsProcessingService(
-            submission_service=submissions_service,
-            transcription_service=core_services["transcription"],  # Simplified TranscriptionService
-            content_enrichment=content_enrichment,  # For LLM formatting
-            activity_extractor=activity_extractor,  # DSL entity extraction
-            journal_output_service=journal_output_service,  # JournalOutputService
-            event_bus=event_bus,
-        )
-
-        # Create Submissions search service (unified query interface)
-        submissions_search_service = SubmissionsSearchService(
-            submissions_backend=submissions_backend, event_bus=event_bus
-        )
-
         # Learning loop query service — read-side peer of LearningLoopEventHandlerService.
         # Owns Cypher that traverses Interaction/Exercise/Report edges, keeping
-        # generic submission search free of learning-loop shape.
-        learning_loop_query_service = LearningLoopQueryService(
-            submissions_backend=submissions_backend,
-        )
+        # UserEntry search free of learning-loop shape.
+        from core.services.user_entry.learning_loop_query import LearningLoopQueryService
 
-        logger.info("✅ Submissions pipeline services created")
-        logger.info(
-            "✅ Submissions core service created (content management: categories, tags, bulk ops)"
+        learning_loop_query_service = LearningLoopQueryService(
+            user_entry_backend=user_entry_backend,
         )
-        logger.info(
-            "✅ Submissions search service created (unified query interface for all submission types)"
-        )
-        logger.info(
-            "✅ Learning loop query service created (read-side peer of LearningLoopEventHandlerService)"
-        )
+        logger.info("✅ LearningLoopQueryService created (UserEntry read-side peer)")
 
         # ADR-054 Step 7 — UserEntry facade + processing dispatcher.
         # Additive through Step 13; lives alongside the legacy submissions
@@ -1293,16 +1171,24 @@ async def compose_services(
         activity_services["goals"].intelligence.habits_service = activity_services["habits"]
         logger.info("✅ GoalsIntelligenceService wired with HabitsService")
 
+        # Exercise linker for UserEntry → FULFILLS_EXERCISE validation.
+        # Subscribed to UserEntryCreated inside _wire_event_subscribers.
+        from core.services.user_entry.exercise_linker import UserEntryExerciseLinker
+
+        user_entry_exercise_linker = UserEntryExerciseLinker(backend=user_entry_backend)
+        logger.info("✅ UserEntryExerciseLinker created")
+
         # Wire all event subscribers (context invalidation + cross-domain + intelligence)
         _wire_event_subscribers(
             event_bus=event_bus,
             user_service=user_service,
             activity_services=activity_services,
             learning_services=learning_services,
-            submissions_core_service=submissions_core_service,
+            user_entry_exercise_linker=user_entry_exercise_linker,
             notification_service=notification_service,
             advanced=advanced,
             analytics_service=analytics_service,
+            user_entry_backend=user_entry_backend,
             submissions_backend=submissions_backend,
             insight_store=insight_store,
             group_backend=group_backend,
@@ -1335,23 +1221,17 @@ async def compose_services(
             form_templates=form_template_service,  # General-purpose form templates
             form_submissions=form_submission_service,  # User form submissions
             interaction_service=interaction_service,  # User Interaction Contract
-            journal_input=journal_input_service,  # JournalInputService
-            journal_generator=journal_output_service,  # JournalOutputService
-            # Batch transcription/processing (March 2026)
+            # Batch transcription (Tier 1). Tier 2 BatchProcessingService retired
+            # in ADR-054 Commit 6a — lives inside UserEntryProcessingService now.
             batch_transcription=batch_transcription,
-            batch_processing=batch_processing,
             # Group & Teaching (ADR-040: Teacher exercise workflow)
             groups=group_service,
             teacher_review=teacher_review_service,
             # Notifications
             notifications=notification_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
-            # Reports
-            submissions=submissions_service,
-            submissions_core=submissions_core_service,  # Content management (categories, tags, bulk ops)
+            # Sharing
             sharing=unified_sharing_service,  # Cross-domain sharing and visibility control
-            submissions_processor=submissions_processor,
-            submissions_search=submissions_search_service,  # Unified submission queries
             # UserEntry (ADR-054) — unified user-authored content
             user_entry=user_entry_service,
             user_entry_processor=user_entry_processor,

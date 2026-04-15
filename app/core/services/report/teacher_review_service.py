@@ -21,10 +21,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.events.submission_events import (
+from core.events.learning_loop_events import (
     ReportSubmitted,
-    SubmissionApproved,
-    SubmissionRevisionRequested,
+    UserEntryApproved,
+    UserEntryRevisionRequested,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
@@ -289,8 +289,8 @@ class TeacherReviewService:
 
         await publish_event(
             self.event_bus,
-            SubmissionRevisionRequested(
-                submission_uid=report_uid,
+            UserEntryRevisionRequested(
+                entity_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 revision_notes=notes,
@@ -420,8 +420,8 @@ class TeacherReviewService:
         # Publish events after successful transaction
         await publish_event(
             self.event_bus,
-            SubmissionRevisionRequested(
-                submission_uid=submission_uid,
+            UserEntryRevisionRequested(
+                entity_uid=submission_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 revision_notes=notes,
@@ -431,7 +431,7 @@ class TeacherReviewService:
         )
 
         from core.events import RevisedExerciseEmbeddingRequested
-        from core.events.submission_events import RevisedExerciseCreated
+        from core.events.learning_loop_events import RevisedExerciseCreated
 
         await publish_event(
             self.event_bus,
@@ -540,8 +540,8 @@ class TeacherReviewService:
 
         await publish_event(
             self.event_bus,
-            SubmissionApproved(
-                submission_uid=report_uid,
+            UserEntryApproved(
+                entity_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 mastered_ku_count=mastered_count,

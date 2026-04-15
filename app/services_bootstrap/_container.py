@@ -44,7 +44,6 @@ if TYPE_CHECKING:
     from core.services.ingestion.user_upload_service import UserUploadService
     from core.services.insight.insight_store import InsightStore
     from core.services.interaction.interaction_service import InteractionService
-    from core.services.journal import JournalInputService, JournalOutputService
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.knowledge_domain_service import KnowledgeDomainService
@@ -62,7 +61,6 @@ if TYPE_CHECKING:
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.resource_service import ResourceService
     from core.services.tasks_service import TasksService
-    from core.services.transcription.batch_processing_service import BatchProcessingService
     from core.services.transcription.batch_transcription_service import BatchTranscriptionService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
@@ -101,9 +99,6 @@ from core.ports import (
     RevisedExerciseOperations,
     SearchOperations,
     SharingOperations,
-    SubmissionOperations,
-    SubmissionProcessingOperations,
-    SubmissionSearchOperations,
     SystemServiceOperations,
     TeacherReviewOperations,
     UserContextOperations,
@@ -180,35 +175,18 @@ class Services:
     form_templates: "FormTemplateOperations | None" = None
     form_submissions: "FormSubmissionOperations | None" = None
 
-    # Journal services
-    journal_input: "JournalInputService | None" = None
-    journal_generator: "JournalOutputService | None" = None
-
-    # Batch transcription/processing services (March 2026)
+    # Batch transcription service (Tier 1: audio → txt).
+    # Tier 2 (BatchProcessingService) retired with ADR-054 Commit 6a — the
+    # LLM-driven txt→md path lives inside UserEntryProcessingService now.
     batch_transcription: "BatchTranscriptionService | None" = None
-    batch_processing: "BatchProcessingService | None" = None
 
-    # Submission pipeline services
-    submissions: SubmissionOperations | None = (
-        None  # SubmissionsService - File upload and submission content management
-    )
-    submissions_core: SubmissionOperations | None = (
-        None  # SubmissionsCoreService - Content management (categories, tags, bulk operations)
-    )
+    # Sharing (cross-domain)
     sharing: SharingOperations | None = (
         None  # UnifiedSharingService - Cross-domain sharing and visibility control
     )
-    submissions_processor: SubmissionProcessingOperations | None = (
-        None  # SubmissionsProcessingService - Orchestrates processing (LLM enrichment, transcription)
-    )
-
-    # Submission search service (unified query interface)
-    submissions_search: SubmissionSearchOperations | None = (
-        None  # SubmissionsSearchService - Query all submission types (journals, essays, projects, etc.)
-    )
 
     # UserEntry (ADR-054) — unified user-authored content facade.
-    # Additive through Step 13; lives alongside legacy submission/journal services.
+    # Replaces the legacy submission + journal services.
     user_entry: "UserEntryService | None" = None
     user_entry_processor: "UserEntryProcessingService | None" = None
     user_entry_assessment: "AssessmentService | None" = None

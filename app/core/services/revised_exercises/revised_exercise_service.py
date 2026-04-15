@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
 from core.events import RevisedExerciseEmbeddingRequested, publish_event
-from core.events.submission_events import RevisedExerciseCreated
+from core.events.learning_loop_events import RevisedExerciseCreated
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.revised_exercise import RevisedExercise
