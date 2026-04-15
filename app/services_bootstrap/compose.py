@@ -1049,6 +1049,10 @@ async def compose_services(
         )
         user_entry_processor = UserEntryProcessingService(
             entry_service=user_entry_service,
+            transcription_adapter=core_services["deepgram_adapter"],
+            llm_caller=llm_caller,
+            instruction_resolver=instruction_resolver,
+            event_bus=event_bus,
         )
         logger.info("✅ UserEntry service + processing dispatcher created (ADR-054)")
 

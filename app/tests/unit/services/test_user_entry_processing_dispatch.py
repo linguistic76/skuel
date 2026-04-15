@@ -2,9 +2,9 @@
 
 The dispatcher routes on `entry.pipeline`. `NONE` and `TEACHER_REVIEW` are
 legitimate no-ops (entries are complete or waiting on a teacher queue).
-The Deepgram/LLM pipelines return a `not_yet_wired` business error until
-the legacy `SubmissionsProcessingService` + `JournalOutputService` are
-retired (ADR-054 Step 11+).
+Active-pipeline wiring (TRANSCRIBE / TRANSCRIBE_AND_STRUCTURE / LLM_SUMMARY)
+is covered in ``test_user_entry_pipeline_wiring.py``; here we only guard
+the no-op paths and the fall-through regression.
 """
 
 from unittest.mock import MagicMock
@@ -47,26 +47,6 @@ class TestNoOpPipelines:
         result = await _make_dispatcher().process(entry)
         assert result.is_ok
         assert result.value is entry
-
-
-class TestDeferredPipelines:
-    """TRANSCRIBE / TRANSCRIBE_AND_STRUCTURE / LLM_SUMMARY are not yet wired."""
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "pipeline",
-        [
-            Pipeline.TRANSCRIBE,
-            Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            Pipeline.LLM_SUMMARY,
-        ],
-    )
-    async def test_deferred_pipeline_returns_not_yet_wired(self, pipeline: Pipeline):
-        entry = _make_entry(pipeline)
-        result = await _make_dispatcher().process(entry)
-        assert result.is_error
-        err = result.expect_error()
-        assert "not yet" in str(err).lower() or "user_entry_pipeline_not_yet_wired" in str(err)
 
 
 class TestEveryPipelineValueIsHandled:

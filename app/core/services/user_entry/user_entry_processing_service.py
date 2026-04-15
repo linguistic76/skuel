@@ -1,53 +1,81 @@
 """
-UserEntryProcessingService — ADR-054 Step 5
-============================================
+UserEntryProcessingService — ADR-054 Commit 1 (cosmic-kindling-papert)
+=======================================================================
 
 Pipeline dispatcher for ``UserEntry``. Reads ``entry.pipeline`` and routes
 to the matching processor:
 
     Pipeline.NONE                     → no-op (already complete)
-    Pipeline.TRANSCRIBE               → Deepgram transcription (Step 11+)
-    Pipeline.TRANSCRIBE_AND_STRUCTURE → transcribe + LLM structuring (Step 11+)
-    Pipeline.LLM_SUMMARY              → LLM summarization (Step 11+)
     Pipeline.TEACHER_REVIEW           → no-op (waits on teacher queue)
+    Pipeline.TRANSCRIBE               → Deepgram audio → transcript
+    Pipeline.LLM_SUMMARY              → LLM summarization of text/processed content
+    Pipeline.TRANSCRIBE_AND_STRUCTURE → transcribe + LLM structuring (two entries)
 
-Step 5 scope
-------------
-The additive through-Step-13 discipline keeps the legacy
-``SubmissionsProcessingService`` and ``JournalOutputService`` in place.
-This dispatcher is a real entry point for ``NONE`` and ``TEACHER_REVIEW``
-(which are legitimately no-ops), and returns a clear
-``not-yet-implemented`` error for the Deepgram / LLM pipelines. Those
-get wired in a later step when the legacy handlers are retired.
+TRANSCRIBE_AND_STRUCTURE produces a second ``UserEntry`` carrying the
+LLM-structured output, linked back to the source with a ``TRANSFORMS``
+edge (wired via ``UserEntryCreateRequest.transforms_of_uid`` on the
+facade).
 
-See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
+ADR-054: activity extraction from journals dropped; create Tasks/Goals directly.
+
+See: /home/mike/.claude/plans/cosmic-kindling-papert.md
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
+from core.events import publish_event
+from core.events.user_entry_events import (
+    UserEntryProcessingCompleted,
+    UserEntryProcessingFailed,
+    UserEntryProcessingStarted,
+)
+from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
+from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from adapters.external.deepgram import DeepgramAdapter
+    from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.llm_caller import UnifiedLLMCaller
+    from core.services.output.instruction_resolver import InstructionResolver
     from core.services.user_entry.user_entry_service import UserEntryService
 
 
 class UserEntryProcessingService:
     """Pipeline dispatcher for ``UserEntry``.
 
-    Composed with ``UserEntryService`` so NONE / TEACHER_REVIEW paths can
-    return the freshly-fetched entry without re-reading. The deepgram /
-    LLM pipelines will be wired in Step 11 once the legacy processing
-    services are retired.
+    Composes ``UserEntryService`` with the transcription and LLM
+    adapters so every pipeline branch can run without routing through
+    the legacy ``SubmissionsProcessingService`` / ``JournalOutputService``.
     """
 
-    def __init__(self, entry_service: UserEntryService) -> None:
+    def __init__(
+        self,
+        entry_service: UserEntryService,
+        transcription_adapter: DeepgramAdapter | None = None,
+        llm_caller: UnifiedLLMCaller | None = None,
+        instruction_resolver: InstructionResolver | None = None,
+        event_bus: EventBusOperations | None = None,
+    ) -> None:
         self.entry_service = entry_service
+        self.transcription_adapter = transcription_adapter
+        self.llm_caller = llm_caller
+        self.instruction_resolver = instruction_resolver
+        self.event_bus = event_bus
         self.logger = get_logger("skuel.services.user_entry.processing")  # type: ignore[assignment]
+
+    # =========================================================================
+    # DISPATCH
+    # =========================================================================
 
     async def process(
         self,
@@ -66,35 +94,334 @@ class UserEntryProcessingService:
         """
         pipeline = entry.pipeline
 
-        if pipeline == Pipeline.NONE:
+        if pipeline == Pipeline.NONE or pipeline == Pipeline.TEACHER_REVIEW:
             return Result.ok(entry)
 
-        if pipeline == Pipeline.TEACHER_REVIEW:
-            # No machine processing — entry stays in 'submitted' waiting
-            # on the teacher review queue.
-            return Result.ok(entry)
+        await self._emit_started(entry)
 
-        if pipeline in (
-            Pipeline.TRANSCRIBE,
-            Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            Pipeline.LLM_SUMMARY,
-        ):
-            # Wired in a later migration step; legacy
-            # JournalOutputService + SubmissionsProcessingService still
-            # handle these code paths for the legacy entity types.
-            return Result.fail(
-                Errors.business(
-                    rule="user_entry_pipeline_not_yet_wired",
-                    message=(
-                        f"Pipeline {pipeline.value} is not yet handled by "
-                        "UserEntryProcessingService. See ADR-054 Step 11."
-                    ),
-                )
-            )
+        if pipeline == Pipeline.TRANSCRIBE:
+            return await self._run_transcribe(entry)
+
+        if pipeline == Pipeline.LLM_SUMMARY:
+            return await self._run_llm_summary(entry, instructions)
+
+        if pipeline == Pipeline.TRANSCRIBE_AND_STRUCTURE:
+            return await self._run_transcribe_and_structure(entry, instructions)
 
         return Result.fail(
             Errors.validation(
                 f"Unknown pipeline: {pipeline}",
                 field="pipeline",
             )
+        )
+
+    # =========================================================================
+    # TRANSCRIBE
+    # =========================================================================
+
+    async def _run_transcribe(self, entry: UserEntry) -> Result[UserEntry]:
+        if self.transcription_adapter is None:
+            return await self._fail(
+                entry,
+                Errors.integration(
+                    service="deepgram",
+                    message="DeepgramAdapter not configured for UserEntryProcessingService",
+                ),
+            )
+        if not entry.file_path:
+            return await self._fail(
+                entry,
+                Errors.validation(
+                    "TRANSCRIBE pipeline requires entry.file_path",
+                    field="file_path",
+                ),
+            )
+
+        transcript = await self._transcribe(entry.file_path)
+        if transcript.is_error:
+            return await self._fail(entry, transcript.expect_error())
+
+        update_result = await self.entry_service.update_processed_content(
+            uid=entry.uid,
+            processed_content=transcript.value,
+        )
+        if update_result.is_error:
+            return await self._fail(entry, update_result.expect_error())
+
+        updated = update_result.value
+        await self._emit_completed(updated)
+        return Result.ok(updated)
+
+    # =========================================================================
+    # LLM_SUMMARY
+    # =========================================================================
+
+    async def _run_llm_summary(
+        self,
+        entry: UserEntry,
+        instructions: str | None,
+    ) -> Result[UserEntry]:
+        if self.llm_caller is None:
+            return await self._fail(
+                entry,
+                Errors.business(
+                    rule="llm_tier_required",
+                    message=(
+                        "Pipeline.LLM_SUMMARY requires INTELLIGENCE_TIER=full; "
+                        "UnifiedLLMCaller is not configured."
+                    ),
+                ),
+            )
+        if self.instruction_resolver is None:
+            return await self._fail(
+                entry,
+                Errors.system(
+                    message="InstructionResolver not configured for UserEntryProcessingService",
+                ),
+            )
+
+        source_text = entry.processed_content or entry.content
+        if not source_text:
+            return await self._fail(
+                entry,
+                Errors.validation(
+                    "LLM_SUMMARY pipeline requires entry.content or entry.processed_content",
+                    field="content",
+                ),
+            )
+
+        llm_result = await self._generate(
+            source_text,
+            custom_instructions=instructions or entry.instructions,
+            enrichment_mode=self._resolve_enrichment_mode(entry),
+        )
+        if llm_result.is_error:
+            return await self._fail(entry, llm_result.expect_error())
+
+        update_result = await self.entry_service.update_processed_content(
+            uid=entry.uid,
+            processed_content=llm_result.value,
+        )
+        if update_result.is_error:
+            return await self._fail(entry, update_result.expect_error())
+
+        updated = update_result.value
+        await self._emit_completed(updated)
+        return Result.ok(updated)
+
+    # =========================================================================
+    # TRANSCRIBE_AND_STRUCTURE
+    # =========================================================================
+
+    async def _run_transcribe_and_structure(
+        self,
+        entry: UserEntry,
+        instructions: str | None,
+    ) -> Result[UserEntry]:
+        if self.transcription_adapter is None:
+            return await self._fail(
+                entry,
+                Errors.integration(
+                    service="deepgram",
+                    message="DeepgramAdapter not configured for UserEntryProcessingService",
+                ),
+            )
+        if self.llm_caller is None:
+            return await self._fail(
+                entry,
+                Errors.business(
+                    rule="llm_tier_required",
+                    message=(
+                        "Pipeline.TRANSCRIBE_AND_STRUCTURE requires INTELLIGENCE_TIER=full; "
+                        "UnifiedLLMCaller is not configured."
+                    ),
+                ),
+            )
+        if self.instruction_resolver is None:
+            return await self._fail(
+                entry,
+                Errors.system(
+                    message="InstructionResolver not configured for UserEntryProcessingService",
+                ),
+            )
+        if not entry.file_path:
+            return await self._fail(
+                entry,
+                Errors.validation(
+                    "TRANSCRIBE_AND_STRUCTURE pipeline requires entry.file_path",
+                    field="file_path",
+                ),
+            )
+
+        # Phase 1 — transcribe and store on the source entry
+        transcript = await self._transcribe(entry.file_path)
+        if transcript.is_error:
+            return await self._fail(entry, transcript.expect_error())
+
+        update_source = await self.entry_service.update_processed_content(
+            uid=entry.uid,
+            processed_content=transcript.value,
+        )
+        if update_source.is_error:
+            return await self._fail(entry, update_source.expect_error())
+        updated_source = update_source.value
+
+        # Phase 2 — LLM-structure the transcript
+        structured = await self._generate(
+            transcript.value,
+            custom_instructions=instructions or entry.instructions,
+            enrichment_mode=self._resolve_enrichment_mode(entry),
+        )
+        if structured.is_error:
+            return await self._fail(updated_source, structured.expect_error())
+
+        # Phase 3 — persist the structured output as a second UserEntry
+        child_request = UserEntryCreateRequest(
+            title=f"{entry.title} — structured",
+            content=structured.value,
+            pipeline=Pipeline.NONE,
+            modality=entry.modality,
+            transforms_of_uid=entry.uid,
+            visibility=Visibility.PRIVATE,
+            tags=list(entry.tags) if entry.tags else [],
+        )
+        child_result = await self.entry_service.create_entry(
+            request=child_request,
+            user_uid=entry.user_uid,
+        )
+        if child_result.is_error:
+            return await self._fail(updated_source, child_result.expect_error())
+
+        child = child_result.value
+        await self._emit_completed(updated_source, produced_entry_uid=child.uid)
+        return Result.ok(updated_source)
+
+    # =========================================================================
+    # ADAPTER WRAPPERS
+    # =========================================================================
+
+    async def _transcribe(self, file_path: str) -> Result[str]:
+        """Call Deepgram adapter, narrowing exceptions to the expected set."""
+        assert self.transcription_adapter is not None
+        try:
+            result = await self.transcription_adapter.transcribe(audio_path=file_path)
+        except FILE_IO_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.system(message=f"Audio file read failed: {e}", service="user_entry")
+            )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value.transcript_text)
+
+    async def _generate(
+        self,
+        content: str,
+        custom_instructions: str | None,
+        enrichment_mode: EnrichmentMode,
+    ) -> Result[str]:
+        """Resolve an instruction template and call the LLM."""
+        assert self.llm_caller is not None
+        assert self.instruction_resolver is not None
+
+        instruction_result = self.instruction_resolver.resolve(
+            enrichment_mode=enrichment_mode,
+            custom_instructions=custom_instructions,
+        )
+        if instruction_result.is_error:
+            return Result.fail(instruction_result)
+        instruction = instruction_result.value
+
+        prompt = instruction.prompt_text.replace("{content}", content)
+
+        try:
+            return await self.llm_caller.generate(
+                prompt=prompt,
+                model=instruction.model,
+                temperature=instruction.temperature,
+                max_tokens=instruction.max_tokens,
+            )
+        except LLM_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.integration(
+                    service="llm",
+                    message=f"LLM call failed: {e}",
+                )
+            )
+
+    # =========================================================================
+    # HELPERS
+    # =========================================================================
+
+    @staticmethod
+    def _resolve_enrichment_mode(entry: UserEntry) -> EnrichmentMode:
+        """Pull EnrichmentMode from entry metadata or fall back to default."""
+        raw = (entry.metadata or {}).get("enrichment_mode") if entry.metadata else None
+        if isinstance(raw, EnrichmentMode):
+            return raw
+        if isinstance(raw, str):
+            try:
+                return EnrichmentMode(raw)
+            except ValueError:
+                pass
+        return EnrichmentMode.ACTIVITY_TRACKING
+
+    async def _fail(self, entry: UserEntry, error: Any) -> Result[UserEntry]:
+        """Mark the entry as FAILED, emit failure event, return Result.fail."""
+        message = getattr(error, "message", None) or str(error)
+        self.logger.error(
+            f"UserEntry pipeline {entry.pipeline.value} failed for {entry.uid}: {message}"
+        )
+        try:
+            await self.entry_service.backend.update(
+                entry.uid,
+                {
+                    "processing_error": message,
+                    "status": EntityStatus.FAILED.value,
+                    "updated_at": datetime.now(),
+                },
+            )
+        except Exception as update_exc:  # safety-net: failure-marking must not mask original error
+            self.logger.warning(
+                f"Failed to mark UserEntry {entry.uid} as FAILED: {update_exc}"
+            )
+
+        if self.event_bus is not None:
+            await publish_event(
+                self.event_bus,
+                UserEntryProcessingFailed(
+                    entity_uid=entry.uid,
+                    pipeline=entry.pipeline.value,
+                    error=message,
+                ),
+                self.logger,
+            )
+        return Result.fail(error)
+
+    async def _emit_started(self, entry: UserEntry) -> None:
+        if self.event_bus is None:
+            return
+        await publish_event(
+            self.event_bus,
+            UserEntryProcessingStarted(
+                entity_uid=entry.uid,
+                pipeline=entry.pipeline.value,
+            ),
+            self.logger,
+        )
+
+    async def _emit_completed(
+        self,
+        entry: UserEntry,
+        produced_entry_uid: str | None = None,
+    ) -> None:
+        if self.event_bus is None:
+            return
+        await publish_event(
+            self.event_bus,
+            UserEntryProcessingCompleted(
+                entity_uid=entry.uid,
+                pipeline=entry.pipeline.value,
+                produced_entry_uid=produced_entry_uid,
+            ),
+            self.logger,
         )
