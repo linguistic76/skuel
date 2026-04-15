@@ -22,14 +22,12 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.exercise_backends import ExerciseReportBackend
-from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
 from core.models.submissions.exercise_submission import ExerciseSubmission
-from core.models.submissions.submission import Submission
 from core.services.report.exercise_report_service import ExerciseReportService
 from core.utils.result_simplified import Result
 
@@ -92,8 +90,13 @@ async def seeded_submission(neo4j_driver, clean_neo4j):
 
 
 @pytest_asyncio.fixture
-async def submissions_backend(neo4j_driver):
-    return SubmissionsBackend(neo4j_driver, NeoLabel.ENTITY, Submission)
+async def exercise_report_backend(neo4j_driver):
+    return ExerciseReportBackend(
+        driver=neo4j_driver,
+        label=NeoLabel.EXERCISE_REPORT,
+        entity_class=ExerciseReport,
+        base_label=NeoLabel.ENTITY,
+    )
 
 
 def _make_llm_caller(text: str = "AI-generated feedback body.") -> MagicMock:
@@ -111,6 +114,7 @@ def _make_exercise() -> Exercise:
         entity_type=EntityType.EXERCISE,
         instructions="Evaluate the student's reasoning.",
         model="claude-sonnet-4-6",
+        path_step_uid="ps:test:week-3",  # PERSONAL scope requires a PathStep link
     )
 
 
@@ -131,12 +135,12 @@ def _make_submission() -> ExerciseSubmission:
 async def test_ai_report_creates_shares_with_edge_to_student(
     neo4j_driver,
     seeded_submission,
-    submissions_backend,
+    exercise_report_backend,
 ):
     """End-to-end: AI report is visible to the student via SHARES_WITH."""
     service = ExerciseReportService(
         llm_caller=_make_llm_caller("Detailed feedback body."),
-        submissions_backend=submissions_backend,
+        backend=exercise_report_backend,
     )
 
     result = await service.generate_report(
@@ -153,15 +157,16 @@ async def test_ai_report_creates_shares_with_edge_to_student(
             """
             MATCH (s:Entity {uid: $sub})<-[:REPORT_FOR]-(r:Entity {uid: $rep})
             OPTIONAL MATCH (student:User)-[share:SHARES_WITH]->(r)
-            OPTIONAL MATCH (author:User)-[:OWNS]->(r)
+            OPTIONAL MATCH (owner:User)-[:OWNS]->(r)
             RETURN labels(r)           AS labels,
                    r.entity_type       AS entity_type,
                    r.processor_type    AS processor_type,
                    r.assessment_outcome AS assessment_outcome,
                    r.processed_content AS content,
+                   r.author_uid        AS author_uid,
                    student.uid         AS student_uid,
                    share.role          AS share_role,
-                   author.uid          AS author_uid
+                   owner.uid           AS owner_uid
             """,
             sub=SUBMISSION_UID,
             rep=report_uid,
@@ -186,15 +191,18 @@ async def test_ai_report_creates_shares_with_edge_to_student(
     )
     assert record["share_role"] == "student"
 
-    # Symmetric with teacher reports: author owns the report node.
+    # author_uid node property tracks who triggered generation (symmetric with
+    # teacher reports where it tracks the teacher). The OWNS edge, by contrast,
+    # always points at the student so the report surfaces in the student's hub.
     assert record["author_uid"] == AUTHOR_UID
+    assert record["owner_uid"] == STUDENT_UID
 
 
 @pytest.mark.asyncio
 async def test_ai_report_is_discoverable_via_typed_read(
     neo4j_driver,
     seeded_submission,
-    submissions_backend,
+    exercise_report_backend,
 ):
     """The typed read path (ExerciseReportService.list_for_submission) is the
     canonical source of truth for report content after c703a596 — the former
@@ -203,13 +211,7 @@ async def test_ai_report_is_discoverable_via_typed_read(
     and the AI path must leave submission.status unchanged."""
     service = ExerciseReportService(
         llm_caller=_make_llm_caller("Typed read check."),
-        submissions_backend=submissions_backend,
-        backend=ExerciseReportBackend(
-            driver=neo4j_driver,
-            label=NeoLabel.EXERCISE_REPORT,
-            entity_class=ExerciseReport,
-            base_label=NeoLabel.ENTITY,
-        ),
+        backend=exercise_report_backend,
     )
 
     result = await service.generate_report(

@@ -2059,6 +2059,45 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     },
 )
 
+# -----------------------------------------------------------------------------
+# USER_ENTRY (ADR-054 — unified user-authored content)
+# Replaces legacy Submission / JeInput / JeOutput. Persisted as :Entity:UserEntry.
+# -----------------------------------------------------------------------------
+USER_ENTRY_CONFIG = DomainRelationshipConfig(
+    domain=Domain.SYSTEM,
+    entity_label="UserEntry",
+    dto_class=EntityDTO,
+    model_class=Entity,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.OWNS,
+    is_shared_content=False,
+    relationships=(
+        # Outgoing: UserEntry → UserEntry (multi-stage pipelines, e.g. journal
+        # transcript → LLM-structured entry). Target is another :UserEntry.
+        UnifiedRelationshipDefinition(
+            RelationshipName.TRANSFORMS,
+            "UserEntry",
+            "outgoing",
+            "source_entry",
+            "source_entry",
+            fields=("uid", "title", "pipeline"),
+            single=True,
+        ),
+        # Outgoing: UserEntry → Exercise (what the entry answers)
+        UnifiedRelationshipDefinition(
+            RelationshipName.FULFILLS_EXERCISE,
+            "Entity",
+            "outgoing",
+            "exercise",
+            "exercise",
+            fields=("uid", "title"),
+            single=True,
+        ),
+    ),
+    bidirectional_relationships=(),
+    default_context_intent=QueryIntent.HIERARCHICAL,
+)
+
 # =============================================================================
 # NOTE (February 2026): MOC_CONFIG REMOVED
 # =============================================================================
@@ -2110,6 +2149,8 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "LearningPath": LP_CONFIG,
     "Exercise": EXERCISE_CONFIG,
     "RevisedExercise": REVISED_EXERCISE_CONFIG,
+    # User-authored content (ADR-054)
+    "UserEntry": USER_ENTRY_CONFIG,
     # Backward-compat aliases (old label keys used by DomainConfig files)
     "Entity": PS_CONFIG,  # PathStep is THE curriculum content entity
     "Lesson": PS_CONFIG,  # backward-compat alias (Lesson merged into PathStep)

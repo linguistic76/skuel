@@ -583,11 +583,11 @@ class TestEndToEndEmbeddingIntegration:
         mock_config.genai.embedding_version = "v1"
 
         # 2. Give the embeddings_service a real backend if it doesn't have one
-        from adapters.persistence.neo4j.backends.embeddings_backend import Neo4jEmbeddingsBackend
+        from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
         from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
         executor = Neo4jQueryExecutor(neo4j_driver)
-        embeddings_service.backend = Neo4jEmbeddingsBackend(executor)
+        embeddings_service.backend = EmbeddingsBackend(executor)
 
         # 3. Create background worker
         worker = EmbeddingBackgroundWorker(
