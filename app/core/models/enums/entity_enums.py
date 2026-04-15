@@ -97,7 +97,8 @@ class EntityType(StrEnum):
 
     # Unified user-authored content (ADR-054) — collapses EXERCISE_SUBMISSION,
     # JE_INPUT, JE_OUTPUT into one type. Dispatch driven by `Pipeline` field,
-    # not entity_type. Added additively; legacy values removed in final cleanup.
+    # not entity_type. The superseded values above are removed in the final
+    # ADR-054 cleanup step.
     USER_ENTRY = "user_entry"
 
     # Activity (user-owned)
@@ -933,6 +934,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.FORM_SUBMISSION: EntityStatus.COMPLETED,
     EntityType.LIFE_PATH: EntityStatus.ACTIVE,
     EntityType.USER_ENTRY: EntityStatus.DRAFT,  # ADR-054
+    EntityType.INTERACTION: EntityStatus.ACTIVE,
 }
 
 
