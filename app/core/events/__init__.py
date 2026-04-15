@@ -233,6 +233,15 @@ from core.events.transcription_events import (
     TranscriptionFailed,
 )
 
+# UserEntry events (ADR-054 — additive through Step 13)
+from core.events.user_entry_events import (
+    UserEntryCreated,
+    UserEntryDeleted,
+    UserEntryProcessingCompleted,
+    UserEntryProcessingFailed,
+    UserEntryProcessingStarted,
+)
+
 # User events
 from core.events.user_events import (
     UserActivityRecorded,
@@ -364,6 +373,12 @@ __all__ = [
     # User
     "UserContextInvalidated",
     "UserPreferencesChanged",
+    # UserEntry (ADR-054)
+    "UserEntryCreated",
+    "UserEntryDeleted",
+    "UserEntryProcessingCompleted",
+    "UserEntryProcessingFailed",
+    "UserEntryProcessingStarted",
     # Utilities
     "publish_event",
 ]
@@ -486,6 +501,12 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "journal.input_created": JeInputCreated,
     "journal.input_deleted": JeInputDeleted,
     "journal.output_generated": JeOutputGenerated,
+    # UserEntry (ADR-054)
+    "user_entry.created": UserEntryCreated,
+    "user_entry.processing_started": UserEntryProcessingStarted,
+    "user_entry.processing_completed": UserEntryProcessingCompleted,
+    "user_entry.processing_failed": UserEntryProcessingFailed,
+    "user_entry.deleted": UserEntryDeleted,
     # Transcriptions
     "transcription.created": TranscriptionCreated,
     "transcription.completed": TranscriptionCompleted,
@@ -691,6 +712,14 @@ JOURNAL_EVENTS = [
     JeOutputGenerated,
 ]
 
+USER_ENTRY_EVENTS = [
+    UserEntryCreated,
+    UserEntryProcessingStarted,
+    UserEntryProcessingCompleted,
+    UserEntryProcessingFailed,
+    UserEntryDeleted,
+]
+
 TRANSCRIPTION_EVENTS = [
     TranscriptionCreated,
     TranscriptionCompleted,
@@ -713,6 +742,7 @@ ALL_EVENTS = (
     + FORM_EVENTS
     + FINANCE_EVENTS
     + JOURNAL_EVENTS
+    + USER_ENTRY_EVENTS
     + TRANSCRIPTION_EVENTS
 )
 

@@ -1,0 +1,86 @@
+"""
+UserEntry Domain Events (ADR-054 Step 8)
+========================================
+
+Events published across the unified ``UserEntry`` lifecycle — the single
+entry point that replaces the legacy Submission + Journal event streams
+post-migration. Lives alongside ``submission_events`` and ``journal_events``
+through Step 13 per the additive-through-Step-13 discipline.
+
+See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
+"""
+
+from dataclasses import dataclass
+
+from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
+
+
+@dataclass(frozen=True)
+class UserEntryCreated(BaseEvent):
+    """Published when a new UserEntry is persisted."""
+
+    entity_uid: str
+    user_uid: UserUID
+    pipeline: str  # Pipeline enum value
+    modality: str | None = None  # SubmissionModality enum value
+    fulfills_exercise_uid: str | None = None
+    transforms_of_uid: str | None = None
+    file_type: str | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "user_entry.created"
+
+
+@dataclass(frozen=True)
+class UserEntryProcessingStarted(BaseEvent):
+    """Published when the pipeline begins processing a UserEntry."""
+
+    entity_uid: str
+    pipeline: str
+
+    @property
+    def event_type(self) -> str:
+        return "user_entry.processing_started"
+
+
+@dataclass(frozen=True)
+class UserEntryProcessingCompleted(BaseEvent):
+    """Published when pipeline processing finishes successfully.
+
+    ``produced_entry_uid`` is populated for TRANSCRIBE_AND_STRUCTURE, which
+    writes an LLM-structured child entry alongside the raw transcript.
+    """
+
+    entity_uid: str
+    pipeline: str
+    produced_entry_uid: str | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "user_entry.processing_completed"
+
+
+@dataclass(frozen=True)
+class UserEntryProcessingFailed(BaseEvent):
+    """Published when pipeline processing fails."""
+
+    entity_uid: str
+    pipeline: str
+    error: str
+
+    @property
+    def event_type(self) -> str:
+        return "user_entry.processing_failed"
+
+
+@dataclass(frozen=True)
+class UserEntryDeleted(BaseEvent):
+    """Published when a UserEntry is deleted."""
+
+    entity_uid: str
+
+    @property
+    def event_type(self) -> str:
+        return "user_entry.deleted"
