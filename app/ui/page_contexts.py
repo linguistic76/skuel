@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.ku.ku import Ku
     from core.models.principle.principle import Principle
-    from core.models.submissions.exercise_submission import ExerciseSubmission
+    from core.models.user_entry.user_entry import UserEntry
     from core.models.task.task import Task
 
 
@@ -126,7 +126,7 @@ class CurriculumListContext(TypedDict, total=False):
 class SubmissionsPageContext(TypedDict, total=False):
     """Study submissions page context."""
 
-    submissions: list[ExerciseSubmission]
+    submissions: list[UserEntry]
     exercises: list[Exercise]
 
 

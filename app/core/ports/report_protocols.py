@@ -61,7 +61,7 @@ if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
     from core.models.report.exercise_report import ExerciseReport
     from core.models.report_schedule import ReportSchedule
-    from core.models.submissions.submission import Submission
+    from core.models.user_entry.user_entry import UserEntry
     from core.ports.query_types import (
         AnnotationResult,
         AnnotationState,
@@ -147,7 +147,7 @@ class ExerciseReportOperations(Protocol):
 
     async def generate_report(
         self,
-        entry: "Submission",
+        entry: "UserEntry",
         exercise: "Exercise",
         user_uid: UserUID,
         temperature: float = 0.7,

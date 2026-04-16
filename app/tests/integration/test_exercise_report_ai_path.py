@@ -27,7 +27,7 @@ from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
-from core.models.submissions.exercise_submission import ExerciseSubmission
+from core.models.user_entry.user_entry import UserEntry
 from core.services.report.exercise_report_service import ExerciseReportService
 from core.utils.result_simplified import Result
 
@@ -118,11 +118,11 @@ def _make_exercise() -> Exercise:
     )
 
 
-def _make_submission() -> ExerciseSubmission:
+def _make_submission() -> UserEntry:
     # Service only reads fields; the persisted node is what matters for Cypher.
     from core.models.enums.entity_enums import EntityStatus
 
-    return ExerciseSubmission(
+    return UserEntry(
         uid=SUBMISSION_UID,
         title="Integration Submission",
         user_uid=STUDENT_UID,

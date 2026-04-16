@@ -162,14 +162,6 @@ from core.events.habit_events import (
     HabitStreakMilestone,
 )
 
-# Journal events (JE_INPUT/JE_OUTPUT domain)
-from core.events.journal_events import (
-    JeInputCreated,
-    JeInputDeleted,
-    JeInputProcessingCompleted,
-    JeInputProcessingStarted,
-    JeOutputGenerated,
-)
 from core.events.knowledge_substance_events import (
     KnowledgeAppliedInTask,
     KnowledgeBuiltIntoHabit,
@@ -195,6 +187,8 @@ from core.events.learning_events import (
 
 # Learning loop events (ADR-054 — relocated from submission_events.py)
 from core.events.learning_loop_events import (
+    ActivitySnapshotAccessed,
+    AssessmentCreated,
     ReportSubmitted,
     RevisedExerciseCreated,
     UserEntryApproved,
@@ -208,16 +202,6 @@ from core.events.principle_events import (
     PrincipleDeleted,
     PrincipleStrengthChanged,
     PrincipleUpdated,
-)
-
-# Submission events
-from core.events.submission_events import (
-    AssessmentCreated,
-    SubmissionCreated,
-    SubmissionDeleted,
-    SubmissionProcessingCompleted,
-    SubmissionProcessingFailed,
-    SubmissionProcessingStarted,
 )
 
 # Task events
@@ -255,15 +239,11 @@ from core.events.user_events import (
 
 # Public API
 __all__ = [
-    # Submission events
+    # Learning loop events
+    "ActivitySnapshotAccessed",
     "AssessmentCreated",
     "ReportSubmitted",
     "RevisedExerciseCreated",
-    "SubmissionCreated",
-    "SubmissionDeleted",
-    "SubmissionProcessingCompleted",
-    "SubmissionProcessingFailed",
-    "SubmissionProcessingStarted",
     "UserEntryApproved",
     "UserEntryRevisionRequested",
     # Base
@@ -315,12 +295,6 @@ __all__ = [
     "GoalAchieved",
     # Goals
     "GoalCreated",
-    # Journal events (JE_INPUT/JE_OUTPUT)
-    "JeInputCreated",
-    "JeInputDeleted",
-    "JeInputProcessingCompleted",
-    "JeInputProcessingStarted",
-    "JeOutputGenerated",
     "GoalMilestoneReached",
     "GoalProgressUpdated",
     "HabitCompleted",
@@ -394,16 +368,12 @@ __all__ = [
 
 # Map event type strings to event classes for deserialization
 EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
-    # Submissions
-    "submission.created": SubmissionCreated,
-    "submission.processing_started": SubmissionProcessingStarted,
-    "submission.processing_completed": SubmissionProcessingCompleted,
-    "submission.processing_failed": SubmissionProcessingFailed,
-    "submission.deleted": SubmissionDeleted,
+    # Learning loop
     "submission.report_submitted": ReportSubmitted,
     "user_entry.approved": UserEntryApproved,
-    "submission.assessment_created": AssessmentCreated,
     "user_entry.revision_requested": UserEntryRevisionRequested,
+    "assessment.created": AssessmentCreated,
+    "activity.snapshot_accessed": ActivitySnapshotAccessed,
     "revised_exercise.created": RevisedExerciseCreated,
     # Chunk embedding events (async background generation for RAG)
     "chunk.embedding_requested": ChunkEmbeddingRequested,
@@ -501,10 +471,6 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "expense.updated": ExpenseUpdated,
     "expense.deleted": ExpenseDeleted,
     "expense.paid": ExpensePaid,
-    # Journal events (JE_INPUT/JE_OUTPUT domain)
-    "journal.input_created": JeInputCreated,
-    "journal.input_deleted": JeInputDeleted,
-    "journal.output_generated": JeOutputGenerated,
     # UserEntry (ADR-054)
     "user_entry.created": UserEntryCreated,
     "user_entry.processing_started": UserEntryProcessingStarted,
@@ -595,15 +561,11 @@ def list_event_types() -> list[str]:
 # EVENT GROUPS
 # ============================================================================
 
-SUBMISSION_EVENTS = [
-    SubmissionCreated,
-    SubmissionProcessingStarted,
-    SubmissionProcessingCompleted,
-    SubmissionProcessingFailed,
-    SubmissionDeleted,
+LEARNING_LOOP_EVENTS = [
     ReportSubmitted,
     UserEntryApproved,
     AssessmentCreated,
+    ActivitySnapshotAccessed,
     UserEntryRevisionRequested,
     RevisedExerciseCreated,
 ]
@@ -710,12 +672,6 @@ FINANCE_EVENTS = [
     ExpensePaid,
 ]
 
-JOURNAL_EVENTS = [
-    JeInputCreated,
-    JeInputDeleted,
-    JeOutputGenerated,
-]
-
 USER_ENTRY_EVENTS = [
     UserEntryCreated,
     UserEntryProcessingStarted,
@@ -732,7 +688,7 @@ TRANSCRIPTION_EVENTS = [
 
 # All events
 ALL_EVENTS = (
-    SUBMISSION_EVENTS
+    LEARNING_LOOP_EVENTS
     + TASK_EVENTS
     + GOAL_EVENTS
     + HABIT_EVENTS
@@ -745,7 +701,6 @@ ALL_EVENTS = (
     + CALENDAR_EVENT_EVENTS
     + FORM_EVENTS
     + FINANCE_EVENTS
-    + JOURNAL_EVENTS
     + USER_ENTRY_EVENTS
     + TRANSCRIPTION_EVENTS
 )

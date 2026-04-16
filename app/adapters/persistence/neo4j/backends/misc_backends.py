@@ -16,8 +16,6 @@ if TYPE_CHECKING:
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
-    from core.models.journal.je_input import JeInput  # noqa: F401
-    from core.models.journal.je_output import JeOutput  # noqa: F401
     from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
 

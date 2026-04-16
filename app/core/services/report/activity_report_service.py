@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 from core.constants import ReportTimePeriod
 from core.events import publish_event
-from core.events.submission_events import ActivitySnapshotAccessed
+from core.events.learning_loop_events import ActivitySnapshotAccessed
 from core.models.enums.entity_enums import ProcessorType
 from core.models.report.activity_report import ActivityReport
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS

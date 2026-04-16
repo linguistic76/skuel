@@ -98,3 +98,44 @@ class RevisedExerciseCreated(BaseEvent):
     @property
     def event_type(self) -> str:
         return "revised_exercise.created"
+
+
+@dataclass(frozen=True)
+class AssessmentCreated(BaseEvent):
+    """Published when a teacher creates an assessment for a student.
+
+    Relocated from ``submission_events.py`` during ADR-054 pre-6b sweep;
+    ``submission_uid`` → ``entity_uid`` since the subject is an
+    ExerciseReport, not a submission.
+    """
+
+    entity_uid: str
+    teacher_uid: str
+    subject_uid: str
+    metadata: dict[str, Any] | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "assessment.created"
+
+
+@dataclass(frozen=True)
+class ActivitySnapshotAccessed(BaseEvent):
+    """Published when an admin accesses a user's activity snapshot for review.
+
+    Enables:
+    - Audit trail of admin data access
+    - Future user notification when Messaging system is implemented
+    - Trust and transparency: users can query their own audit log
+
+    Relocated from ``submission_events.py`` during ADR-054 pre-6b sweep.
+    See: ADR-042 (Privacy as First-Class Citizen)
+    """
+
+    subject_uid: str  # User whose activity data was accessed
+    admin_uid: str  # Admin who accessed the data
+    time_period: str  # Time window reviewed (e.g. "7d")
+
+    @property
+    def event_type(self) -> str:
+        return "activity.snapshot_accessed"

@@ -11,7 +11,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
 from core.models.report.exercise_report_dto import ExerciseReportDTO
-from core.models.submissions.exercise_submission import ExerciseSubmission
+from core.models.user_entry.user_entry import UserEntry
 
 # ============================================================================
 # ENUM TESTS
@@ -120,13 +120,13 @@ class TestKuSubjectUid:
         assert ku.entity_type == EntityType.EXERCISE_REPORT
 
     def test_is_user_owned(self):
-        ku = ExerciseSubmission(
-            uid="es_test_123",
+        entry = UserEntry(
+            uid="ue_test_123",
             title="My Submission",
             user_uid="user_alice",
             status=EntityStatus.COMPLETED,
         )
-        assert ku.is_user_owned is True
+        assert entry.is_user_owned is True
 
     def test_curriculum_not_user_owned(self):
         ku = Curriculum(

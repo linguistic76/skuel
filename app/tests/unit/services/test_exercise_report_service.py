@@ -16,7 +16,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorTy
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
-from core.models.submissions.exercise_submission import ExerciseSubmission
+from core.models.user_entry.user_entry import UserEntry
 from core.services.report.exercise_report_service import ExerciseReportService
 from core.utils.result_simplified import Errors, Result
 
@@ -26,8 +26,8 @@ SUBMISSION_UID = "es_submission_001"
 EXERCISE_UID = "ex_exercise_001"
 
 
-def _make_submission(content: str = "My submitted work.") -> ExerciseSubmission:
-    return ExerciseSubmission(
+def _make_submission(content: str = "My submitted work.") -> UserEntry:
+    return UserEntry(
         uid=SUBMISSION_UID,
         title="Student Submission",
         user_uid=STUDENT_UID,
@@ -266,7 +266,7 @@ class TestGenerateReportValidation:
         llm = _make_llm_caller()
         backend = _make_ext_backend()
         service = _make_service(llm_caller=llm, backend=backend)
-        empty_submission = ExerciseSubmission(
+        empty_submission = UserEntry(
             uid=SUBMISSION_UID,
             title="Empty",
             user_uid=STUDENT_UID,

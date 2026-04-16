@@ -38,6 +38,7 @@ class UserEntryProcessingStarted(BaseEvent):
     """Published when the pipeline begins processing a UserEntry."""
 
     entity_uid: str
+    user_uid: UserUID
     pipeline: str
 
     @property
@@ -54,6 +55,7 @@ class UserEntryProcessingCompleted(BaseEvent):
     """
 
     entity_uid: str
+    user_uid: UserUID
     pipeline: str
     produced_entry_uid: str | None = None
 
@@ -67,6 +69,7 @@ class UserEntryProcessingFailed(BaseEvent):
     """Published when pipeline processing fails."""
 
     entity_uid: str
+    user_uid: UserUID
     pipeline: str
     error: str
 

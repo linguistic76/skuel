@@ -25,8 +25,6 @@ from core.models.forms.form_template import FormTemplate
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.interaction.interaction import Interaction
-from core.models.journal.je_input import JeInput
-from core.models.journal.je_output import JeOutput
 from core.models.ku.ku import Ku
 from core.models.life_path.life_path import LifePath
 from core.models.pathways.learning_path import LearningPath
@@ -35,9 +33,8 @@ from core.models.principle.principle import Principle
 from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
 from core.models.resource.resource import Resource
-from core.models.submissions.exercise_submission import ExerciseSubmission
-from core.models.submissions.submission import Submission
 from core.models.task.task import Task
+from core.models.user_entry.user_entry import UserEntry
 
 # =============================================================================
 # NARROWER TYPE ALIASES — for services that handle a subset of entity types
@@ -55,14 +52,14 @@ CurriculumEntity = PathStep | LearningPath | Exercise
 # Atomic Ku — lightweight ontology/reference node (extends Entity directly, not Curriculum)
 KuEntity = Ku
 
-# Submission entities — carry file_path, processed_content, file_type, etc.
-SubmissionEntity = Submission | ExerciseSubmission
+# User-authored entry — ADR-054 unified type. Replaces the old
+# SubmissionEntity/JournalEntity unions. Kept as aliases during the pre-6b
+# shelving window so existing imports resolve to UserEntry.
+SubmissionEntity = UserEntry
+JournalEntity = UserEntry
 
 # Report entities — report output (no file fields, report-specific fields)
 ReportEntity = ActivityReport | ExerciseReport
-
-# Journal entities — standalone domain (NOT submission, NOT report)
-JournalEntity = JeInput | JeOutput
 
 # =============================================================================
 # TYPE CLASS MAP — dispatcher for entity deserialization
@@ -83,9 +80,12 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.LEARNING_PATH: LearningPath,
     EntityType.EXERCISE: Exercise,
     EntityType.REVISED_EXERCISE: RevisedExercise,
-    EntityType.EXERCISE_SUBMISSION: ExerciseSubmission,
-    EntityType.JE_INPUT: JeInput,
-    EntityType.JE_OUTPUT: JeOutput,
+    # ADR-054: legacy split types unified under UserEntry. The old enum values
+    # still round-trip through the dispatcher so historical nodes can be read.
+    EntityType.USER_ENTRY: UserEntry,
+    EntityType.EXERCISE_SUBMISSION: UserEntry,
+    EntityType.JE_INPUT: UserEntry,
+    EntityType.JE_OUTPUT: UserEntry,
     EntityType.ACTIVITY_REPORT: ActivityReport,
     EntityType.EXERCISE_REPORT: ExerciseReport,
     EntityType.FORM_TEMPLATE: FormTemplate,

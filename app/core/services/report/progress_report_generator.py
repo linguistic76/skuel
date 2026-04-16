@@ -38,9 +38,7 @@ if TYPE_CHECKING:
     from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import ReportTimePeriod  # also: MIN_REPORT_COOLDOWN_MINUTES
-from core.events import publish_event
-from core.events.submission_events import SubmissionCreated
-from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.entity_enums import ProcessorType
 from core.models.enums.submissions_enums import ProgressDepth
 from core.models.report.activity_report import ActivityReport
 from core.models.type_hints import UserUID
@@ -244,15 +242,6 @@ class ProgressReportGenerator:
             create_result = await self.activity_report_service.persist(report)
             if create_result.is_error:
                 return Result.fail(create_result)
-
-            # 7. Publish event
-            event = SubmissionCreated(
-                submission_uid=report.uid,
-                user_uid=user_uid,
-                entity_type=EntityType.ACTIVITY_REPORT.value,
-                processor_type=processor_type.value,
-            )
-            await publish_event(self.event_bus, event, logger)
 
             logger.info(f"Generated progress report {report.uid} for {user_uid}")
             return Result.ok(report)

@@ -388,6 +388,7 @@ class UserEntryProcessingService:
                 self.event_bus,
                 UserEntryProcessingFailed(
                     entity_uid=entry.uid,
+                    user_uid=entry.user_uid,
                     pipeline=entry.pipeline.value,
                     error=message,
                 ),
@@ -402,6 +403,7 @@ class UserEntryProcessingService:
             self.event_bus,
             UserEntryProcessingStarted(
                 entity_uid=entry.uid,
+                user_uid=entry.user_uid,
                 pipeline=entry.pipeline.value,
             ),
             self.logger,
@@ -418,6 +420,7 @@ class UserEntryProcessingService:
             self.event_bus,
             UserEntryProcessingCompleted(
                 entity_uid=entry.uid,
+                user_uid=entry.user_uid,
                 pipeline=entry.pipeline.value,
                 produced_entry_uid=produced_entry_uid,
             ),

@@ -24,7 +24,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.models.submissions.exercise_submission import ExerciseSubmission
+    from core.models.user_entry.user_entry import UserEntry
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
 from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -92,7 +92,7 @@ def _sub_status_badge(status: str | None) -> Any:
     return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
-def _submission_item(sub: "ExerciseSubmission") -> Div:
+def _submission_item(sub: "UserEntry") -> Div:
     """Single row for a user's exercise submission."""
     status = sub.status.value
 
@@ -118,7 +118,7 @@ def _submission_item(sub: "ExerciseSubmission") -> Div:
     )
 
 
-def render_submissions_list(submissions: "list[ExerciseSubmission]") -> Div:
+def render_submissions_list(submissions: "list[UserEntry]") -> Div:
     """Render the user's exercise submissions for the Library Submissions tab."""
     if not submissions:
         return EmptyState(

@@ -24,7 +24,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorTy
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
-from core.models.submissions.submission import Submission
+from core.models.user_entry.user_entry import UserEntry
 from core.models.type_hints import UserUID
 from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -132,7 +132,7 @@ class ExerciseReportService:
 
     async def generate_report(
         self,
-        entry: Submission,
+        entry: UserEntry,
         exercise: Exercise,
         user_uid: UserUID,
         temperature: float = 0.7,
@@ -221,7 +221,7 @@ class ExerciseReportService:
 
     async def _persist_report_entity(
         self,
-        submission: Submission,
+        submission: UserEntry,
         exercise: Exercise,
         feedback_text: str,
         user_uid: UserUID,
@@ -327,7 +327,7 @@ class ExerciseReportService:
 
     async def _propagate_mastery_via_service(
         self,
-        submission: Submission,
+        submission: UserEntry,
         user_uid: UserUID,
         mastery_impact: MasteryImpact,
     ) -> None:
@@ -353,7 +353,7 @@ class ExerciseReportService:
 
     async def _update_mastery_for_linked_ku(
         self,
-        submission: Submission,
+        submission: UserEntry,
         user_uid: UserUID,
         mastery_impact: MasteryImpact = MasteryImpact.MODERATE,
     ) -> None:

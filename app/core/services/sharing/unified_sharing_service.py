@@ -24,9 +24,9 @@ See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.entity_dto import EntityDTO
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
-from core.models.submissions.submission_dto import SubmissionDTO
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -268,12 +268,12 @@ class UnifiedSharingService:
         self,
         user_uid: UserUID,
         limit: int = 50,
-    ) -> Result[list[SubmissionDTO]]:
+    ) -> Result[list[EntityDTO]]:
         """Get entities shared with a specific user."""
         result = await self.backend.query_shared_with_me(user_uid=user_uid, limit=limit)
         if result.is_error:
             return Result.fail(result)
-        entities = [SubmissionDTO.from_dict(record["ku"]) for record in (result.value or [])]
+        entities = [EntityDTO.from_dict(record["ku"]) for record in (result.value or [])]
         return Result.ok(entities)
 
     # =========================================================================

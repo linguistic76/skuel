@@ -19,12 +19,12 @@ from datetime import datetime
 from typing import Any
 
 from core.events import publish_event
-from core.events.submission_events import AssessmentCreated
+from core.events.learning_loop_events import AssessmentCreated
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.report.exercise_report import ExerciseReport
-from core.models.submissions.submission_dto import SubmissionDTO
+from core.models.report.exercise_report_dto import ExerciseReportDTO
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.decorators import with_error_handling
@@ -155,7 +155,7 @@ class AssessmentService:
 
         # Publish event
         event = AssessmentCreated(
-            submission_uid=uid,
+            entity_uid=uid,
             teacher_uid=teacher_uid,
             subject_uid=subject_uid,
         )
@@ -186,7 +186,7 @@ class AssessmentService:
         reports = []
         for record in result.value or []:
             node = record["report"]
-            dto = SubmissionDTO.from_dict(node)
+            dto = ExerciseReportDTO.from_dict(node)
             reports.append(Entity.from_dto(dto))
         return Result.ok(reports)
 

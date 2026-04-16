@@ -103,12 +103,12 @@ def _wire_event_subscribers(
         PrincipleConflictRevealed,
         PrincipleReflectionRecorded,
     )
-    from core.events.submission_events import (
-        SubmissionProcessingCompleted,
-        SubmissionProcessingFailed,
-        SubmissionProcessingStarted,
+    from core.events.user_entry_events import (
+        UserEntryCreated,
+        UserEntryProcessingCompleted,
+        UserEntryProcessingFailed,
+        UserEntryProcessingStarted,
     )
-    from core.events.user_entry_events import UserEntryCreated
 
     # ── Context invalidation handlers ───────────────────────────────────────
     # Two handlers: one for events that guarantee user_uid, one for events
@@ -173,10 +173,10 @@ def _wire_event_subscribers(
         ExpenseUpdated,
         ExpenseDeleted,
         ExpensePaid,
-        # Submission processing lifecycle
-        SubmissionProcessingStarted,
-        SubmissionProcessingCompleted,
-        SubmissionProcessingFailed,
+        # UserEntry processing lifecycle
+        UserEntryProcessingStarted,
+        UserEntryProcessingCompleted,
+        UserEntryProcessingFailed,
     ]
     for event_type in activity_context_events:
         event_bus.subscribe(event_type, invalidate_context)

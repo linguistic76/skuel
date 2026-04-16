@@ -7,14 +7,14 @@ from fasthtml.common import Div, P, Span
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.exercises.exercise import Exercise
-from core.models.journal.je_input import JeInput
+from core.models.user_entry.user_entry import UserEntry
 from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 
 
-def render_journal_card(je_input: JeInput) -> Any:
+def render_journal_card(je_input: UserEntry) -> Any:
     """Render a single journal entry card for the browse grid using CardGenerator."""
     from ui.feedback import StatusBadge
 
@@ -60,7 +60,7 @@ def render_journal_card(je_input: JeInput) -> Any:
     )
 
 
-def render_journals_grid(je_inputs: list[JeInput]) -> Any:
+def render_journals_grid(je_inputs: list[UserEntry]) -> Any:
     """Render journal entries grid as HTML fragment for HTMX swap."""
     if not je_inputs:
         return Div(
