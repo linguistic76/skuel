@@ -30,8 +30,8 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.ku.ku import Ku
     from core.models.principle.principle import Principle
-    from core.models.user_entry.user_entry import UserEntry
     from core.models.task.task import Task
+    from core.models.user_entry.user_entry import UserEntry
 
 
 # ============================================================================

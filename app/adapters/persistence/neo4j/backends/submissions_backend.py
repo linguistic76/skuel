@@ -35,15 +35,13 @@ from adapters.persistence.neo4j._submission_report_query_mixin import (
     _SubmissionReportQueryMixin,
 )
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.submissions.submission import Submission
+from core.models.user_entry.user_entry import UserEntry
 
 if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
-    from core.models.journal.je_input import JeInput  # noqa: F401
-    from core.models.journal.je_output import JeOutput  # noqa: F401
     from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
 
@@ -54,7 +52,7 @@ class SubmissionsBackend(  # type: ignore[misc]  # Mixin MRO overrides are inten
     _SubmissionAssessmentMixin,
     _SubmissionReportQueryMixin,
     _SubmissionContentMixin,
-    UniversalNeo4jBackend[Submission],
+    UniversalNeo4jBackend[UserEntry],
 ):
     """
     Domain backend for Submission entities.

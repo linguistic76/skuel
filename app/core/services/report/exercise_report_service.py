@@ -24,8 +24,8 @@ from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorTy
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
-from core.models.user_entry.user_entry import UserEntry
 from core.models.type_hints import UserUID
+from core.models.user_entry.user_entry import UserEntry
 from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger

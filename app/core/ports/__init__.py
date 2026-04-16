@@ -282,10 +282,6 @@ from .service_protocols import (
 # Sharing protocol — cross-cutting, any entity type can be shared
 from .sharing_protocols import SharingOperations
 
-# NOTE: SubmissionOperations / SubmissionProcessingOperations /
-# SubmissionSearchOperations re-exports removed with ADR-054 Commit 6a.
-# The underlying submission_protocols.py + journal_protocols.py files stay
-# in place until Commit 6b shelves the legacy packages.
 # ZPD protocol — Zone of Proximal Development (March 2026)
 from .zpd_protocols import ZPDOperations
 

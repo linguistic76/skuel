@@ -71,7 +71,6 @@ References:
 """
 
 # Base classes and protocols
-# Journal events extracted to core/events/journal_events.py (March 2026)
 # Knowledge substance events (tracking real-world application)
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
@@ -161,7 +160,6 @@ from core.events.habit_events import (
     HabitStreakBroken,
     HabitStreakMilestone,
 )
-
 from core.events.knowledge_substance_events import (
     KnowledgeAppliedInTask,
     KnowledgeBuiltIntoHabit,
@@ -304,7 +302,6 @@ __all__ = [
     "HabitMissed",
     "HabitStreakBroken",
     "HabitStreakMilestone",
-    # Journal (JE_INPUT/JE_OUTPUT domain — extracted March 2026)
     # Knowledge substance events
     "KnowledgeAppliedInTask",
     "KnowledgeBulkAppliedInTask",

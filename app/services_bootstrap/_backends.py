@@ -141,10 +141,10 @@ def create_all_backends(
     progress_backend = UniversalNeo4jBackend[UserProgress](
         driver, NeoLabel.USER_PROGRESS, UserProgress, prometheus_metrics=prometheus_metrics
     )
-    from core.models.submissions.submission import Submission
+    from core.models.user_entry.user_entry import UserEntry as _UserEntryModel
 
     submissions_backend = SubmissionsBackend(
-        driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
+        driver, NeoLabel.ENTITY, _UserEntryModel, prometheus_metrics=prometheus_metrics
     )
     # ADR-054 Step 7 — additive UserEntryBackend, lives alongside SubmissionsBackend
     user_entry_backend = UserEntryBackend(driver, prometheus_metrics=prometheus_metrics)

@@ -262,7 +262,6 @@ module = [
     "adapters.persistence.neo4j.backends.submissions_backend",
     "adapters.persistence.neo4j.backends.sharing_backend",
     "adapters.persistence.neo4j.backends.forms_backends",
-    "adapters.persistence.neo4j.backends.journal_backends",
     "adapters.persistence.neo4j.backends.collab_backends",
     "adapters.persistence.neo4j.backends.misc_backends",
 ]
