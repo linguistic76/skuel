@@ -1,4 +1,4 @@
-"""Integration test: AI report generation wires through SubmissionsBackend.
+"""Integration test: AI report generation wires through UserEntryBackend.
 
 Verifies the canonical report-creation path end-to-end against a real Neo4j
 instance. Covers the behavioral fix from plans/steady-swimming-axolotl.md
@@ -22,9 +22,10 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.exercise_backends import ExerciseReportBackend
-from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
 from core.models.user_entry.user_entry import UserEntry
@@ -181,7 +182,7 @@ async def test_ai_report_creates_shares_with_edge_to_student(
         f"Report node must carry both :Entity and :ExerciseReport labels, got {labels}"
     )
     assert record["entity_type"] == EntityType.EXERCISE_REPORT.value
-    assert record["processor_type"] == ProcessorType.LLM.value
+    assert record["processor_type"] == ReportSource.LLM.value
     assert record["assessment_outcome"] == AssessmentOutcome.AI_EVALUATED.value
     assert record["content"] == "Detailed feedback body."
 

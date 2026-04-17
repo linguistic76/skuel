@@ -10,7 +10,7 @@ from typing import Any
 
 from fasthtml.common import A, Div, P, Span
 
-from core.models.enums.entity_enums import ProcessorType
+from core.models.enums.pipeline import ReportSource
 from core.models.report.exercise_report import ExerciseReport
 
 
@@ -28,7 +28,7 @@ def render_report_item(report: ExerciseReport) -> Div:
             time_display = str(report.created_at)[:16]
 
     is_revision = "revision" in title.lower() if title else False
-    is_ai = report.processor_type == ProcessorType.LLM
+    is_ai = report.processor_type == ReportSource.LLM
     border_cls = "border-l-warning" if is_revision else "border-l-info"
     if is_revision:
         type_label = "Revision Request"

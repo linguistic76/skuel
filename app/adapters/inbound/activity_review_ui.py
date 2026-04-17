@@ -239,7 +239,7 @@ def create_activity_review_ui_routes(
                     cls="mb-0 font-semibold",
                 ),
                 P(
-                    f"Activity feedback for {subject_uid} saved with ProcessorType.HUMAN.",
+                    f"Activity feedback for {subject_uid} saved with ReportSource.HUMAN.",
                     cls="mb-0 text-sm",
                 ),
                 variant=AlertT.success,

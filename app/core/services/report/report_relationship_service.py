@@ -2,7 +2,7 @@
 Report Relationship Service
 =============================
 
-Graph queries against REPORT_FOR relationships — delegates Cypher to SubmissionsBackend.
+Graph queries against REPORT_FOR relationships — delegates Cypher to UserEntryBackend.
 
 Answers intelligence questions about the Report stage of the learning loop:
 - Which of the user's submissions are still awaiting a report?
@@ -27,7 +27,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
+    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 
 
 class ReportRelationshipService:
@@ -35,7 +35,7 @@ class ReportRelationshipService:
     Pure-Cypher relationship queries for the Report stage of the learning loop.
 
     Provides the intelligence layer with graph-level questions about REPORT_FOR
-    relationships — no LLM, no AI. Just graph queries delegated to SubmissionsBackend.
+    relationships — no LLM, no AI. Just graph queries delegated to UserEntryBackend.
 
     Used by UserContextIntelligence to answer:
     - "Does this user have submissions that haven't been reviewed yet?"
@@ -49,7 +49,7 @@ class ReportRelationshipService:
         EntityType.USER_ENTRY.value,
     ]
 
-    def __init__(self, backend: "SubmissionsBackend") -> None:
+    def __init__(self, backend: "UserEntryBackend") -> None:
         self.backend = backend
         self.logger = get_logger("skuel.services.report_relationship")
 

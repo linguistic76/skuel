@@ -1,18 +1,16 @@
 """
 UserEntryBackend — persistence layer for the unified ``UserEntry`` domain.
 
-Composes five mixins over ``UniversalNeo4jBackend[UserEntry]``. Each mixin
-is a thin subclass of its ``_Submission*Mixin`` counterpart, rewritten to
-expose entry-flavored method names and adding the two genuinely new
-operations:
+Composes five standalone mixins over ``UniversalNeo4jBackend[UserEntry]``.
+Each mixin provides a cohesive slice of persistence operations:
 
-    _UserEntryLifecycleMixin.create_with_exercise_link   — revision on edge
-    _UserEntryAssessmentMixin.get_review_queue_by_groups — SHARED_WITH_GROUP
+    _UserEntryCrudMixin        — content search, feedback counts, exercise lookups
+    _UserEntryLifecycleMixin   — exercise linking, temporal/thematic relationships
+    _UserEntryAssessmentMixin  — teacher review queue, assessment operations
+    _UserEntryReportQueryMixin — report cross-joins, learning-loop chain reads
+    _UserEntryContentMixin     — journal context, exercise instructions, goal links
 
-The legacy ``SubmissionsBackend`` and its ``_Submission*Mixin`` files stay
-in place through Step 13; this backend is additive.
-
-See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md (ADR-054)
+See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 
 from __future__ import annotations

@@ -46,7 +46,7 @@ class LearningLoopQueryService:
         result = await self.backend.get_submissions_for_path_step(  # type: ignore[attr-defined]
             user_uid=user_uid,
             ps_uid=ps_uid,
-            submission_type=EntityType.EXERCISE_SUBMISSION.value,
+            submission_type=EntityType.USER_ENTRY.value,
             limit=limit,
         )
         if result.is_error:

@@ -16,7 +16,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from core.models.enums.learning_enums import MasteryImpact
-from core.models.enums.submissions_enums import ExerciseScope
+from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.type_hints import UserUID
 
 

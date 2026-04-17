@@ -10,8 +10,8 @@ Route-facing protocols for the Report stage of SKUEL's core educational loop:
 
 Reports have two implementations — the mechanism differs, the concept is the same:
 
-    Human report  (teacher reviews and writes)  → processor_type = HUMAN
-    AI report     (LLM evaluates via Exercise)   → processor_type = LLM
+    Human report  (teacher reviews and writes)  → ReportSource.HUMAN
+    AI report     (LLM evaluates via Exercise)   → ReportSource.LLM
 
 Both create EXERCISE_REPORT entities (EntityType.EXERCISE_REPORT) linked to the
 submission via REPORT_FOR. The processor_type field discriminates the source.
@@ -78,8 +78,8 @@ class ExerciseReportOperations(Protocol):
     """Human + AI reports on submissions. Both create EXERCISE_REPORT entities.
 
     processor_type discriminates the source:
-        ProcessorType.HUMAN — teacher writes report (create_assessment)
-        ProcessorType.LLM   — LLM generates report via Exercise (generate_report)
+        ReportSource.HUMAN — teacher writes report (create_assessment)
+        ReportSource.LLM   — LLM generates report via Exercise (generate_report)
 
     Assessment methods and AI report generation are unified here because
     they represent the same concept: a response to student work.
@@ -100,7 +100,7 @@ class ExerciseReportOperations(Protocol):
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> "Result[ExerciseReport]":
-        """Create a teacher assessment (EntityType.EXERCISE_REPORT, processor_type=HUMAN).
+        """Create a teacher assessment (EntityType.EXERCISE_REPORT, ReportSource.HUMAN).
 
         Verifies teacher-student group membership before creating.
         Auto-shares with student via SHARES_WITH {role: 'student'}.
@@ -239,9 +239,9 @@ class ProgressReportOperations(Protocol):
     ActivityReport inherits UserOwnedEntity directly (not Submission).
 
     processor_type discriminates source:
-        ProcessorType.AUTOMATIC — scheduled system generation
-        ProcessorType.LLM       — on-demand AI generation
-        ProcessorType.HUMAN     — admin-written activity review
+        ReportSource.AUTOMATIC — scheduled system generation
+        ReportSource.LLM       — on-demand AI generation
+        ReportSource.HUMAN     — admin-written activity review
 
     Route consumer: progress_report_api.py
     Implementation: ProgressReportGenerator

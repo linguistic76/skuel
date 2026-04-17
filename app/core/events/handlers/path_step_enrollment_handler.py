@@ -21,7 +21,7 @@ logger = get_logger("skuel.events.path_step_enrollment_handler")
 
 async def handle_path_step_enrolled(
     event: PathStepEnrolled,
-    submissions_backend: Any,
+    user_entry_backend: Any,
     group_backend: Any,
 ) -> None:
     """Auto-enrol a student in the admin's default group on PathStep enrolment.
@@ -32,7 +32,7 @@ async def handle_path_step_enrolled(
 
     All steps are idempotent — safe to call on repeated enrolments.
     """
-    admin_result = await submissions_backend.get_admin_uid()
+    admin_result = await user_entry_backend.get_admin_uid()
     if admin_result.is_error or not admin_result.value:
         logger.warning(
             "PathStepEnrolled: no admin found — skipping default group enrolment",

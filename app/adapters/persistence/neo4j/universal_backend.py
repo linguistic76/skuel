@@ -16,7 +16,7 @@ BACKENDS IN USE (services_bootstrap.py)
     TasksBackend[Task], GoalsBackend[Goal], HabitsBackend[Habit]
     EventsBackend[Event], ChoicesBackend[Choice], PrinciplesBackend[Principle]
     PsBackend[PathStep], LpBackend[LearningPath], ExerciseBackend[Exercise]
-    SubmissionsBackend[Submission]
+    UserEntryBackend[UserEntry]
 
 **Generic backends (UniversalNeo4jBackend[T]):**
     ExpensePure, InvoicePure, ActivityReport

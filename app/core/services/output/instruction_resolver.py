@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.enums.submissions_enums import EnrichmentMode
+from core.models.enums.user_entry_enums import EnrichmentMode
 from core.ports.output_generator_protocols import OutputInstruction
 from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger

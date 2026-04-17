@@ -21,9 +21,10 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_dto import UserOwnedDTO
 from core.ports import get_enum_value
 
@@ -39,7 +40,7 @@ class ExerciseReportDTO(UserOwnedDTO):
 
     - report_generated_at: datetime | None — when report was generated
     - subject_uid: str | None — who/what this report is about
-    - processor_type: ProcessorType | None — HUMAN/LLM/AUTOMATIC
+    - processor_type: ReportSource | None — HUMAN/LLM/AUTOMATIC
     - assessment_outcome: AssessmentOutcome | None — APPROVED/NEEDS_REVISION/AI_EVALUATED
     - report_file_path: str | None — generated output file path
     """
@@ -50,7 +51,7 @@ class ExerciseReportDTO(UserOwnedDTO):
     processed_content: str | None = None
     report_generated_at: datetime | None = None
     subject_uid: str | None = None
-    processor_type: ProcessorType | None = None
+    processor_type: ReportSource | None = None
     assessment_outcome: AssessmentOutcome | None = None
     report_file_path: str | None = None
     assessment_score: float | None = None  # 0.0-1.0 score for assessments
@@ -99,7 +100,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
-                "processor_type": ProcessorType,
+                "processor_type": ReportSource,
                 "assessment_outcome": AssessmentOutcome,
             },
             datetime_fields=[
@@ -150,7 +151,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
-                "processor_type": ProcessorType,
+                "processor_type": ReportSource,
                 "assessment_outcome": AssessmentOutcome,
             },
         )

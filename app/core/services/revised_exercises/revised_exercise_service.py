@@ -140,7 +140,7 @@ class RevisedExerciseService(BaseService):
         if not expected_modality and entity.original_exercise_uid:
             exercise_result = await self.backend.get(entity.original_exercise_uid)
             if exercise_result.is_ok and exercise_result.value:
-                from core.models.enums.submissions_enums import SubmissionModality
+                from core.models.enums.user_entry_enums import SubmissionModality
 
                 raw_modality = exercise_result.value.get("expected_modality")
                 if raw_modality:

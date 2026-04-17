@@ -259,7 +259,7 @@ class TestPersist:
     @pytest.mark.asyncio
     async def test_persist_calls_backend_create(self, service, mock_backend):
         """persist() calls backend.create() with the given report."""
-        from core.models.enums.entity_enums import ProcessorType
+        from core.models.enums.pipeline import ReportSource
         from core.models.report.activity_report import ActivityReport
 
         mock_backend.create.return_value = Result.ok(MagicMock())
@@ -267,7 +267,7 @@ class TestPersist:
             user_uid="user_alice",
             subject_uid="user_alice",
             content="Test content",
-            processor_type=ProcessorType.AUTOMATIC,
+            processor_type=ReportSource.AUTOMATIC,
             period_start=datetime.now(),
             period_end=datetime.now(),
             time_period="7d",

@@ -22,7 +22,8 @@ from core.events import publish_event
 from core.events.learning_loop_events import AssessmentCreated
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.pipeline import ReportSource
 from core.models.report.exercise_report import ExerciseReport
 from core.models.report.exercise_report_dto import ExerciseReportDTO
 from core.ports import BackendOperations
@@ -113,7 +114,7 @@ class AssessmentService:
             user_uid=subject_uid,
             author_uid=teacher_uid,
             status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.HUMAN,
+            processor_type=ReportSource.HUMAN,
             content=content,
             subject_uid=subject_uid,
             created_by=teacher_uid,

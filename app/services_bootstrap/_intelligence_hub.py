@@ -17,7 +17,7 @@ async def _create_intelligence_hub(
     services: "Services",
     activity_services: dict[str, Any],
     learning_services: dict[str, Any],
-    submissions_backend: Any,
+    user_entry_backend: Any,
     calendar_service: Any,
     vector_search_service: Any,
     driver: Any,
@@ -38,8 +38,8 @@ async def _create_intelligence_hub(
     from core.services.user.intelligence import UserContextIntelligenceFactory
     from core.services.user_entry import UserEntryRelationshipService
 
-    entry_relationship_service = UserEntryRelationshipService(backend=submissions_backend)
-    report_relationship_service = ReportRelationshipService(backend=submissions_backend)
+    entry_relationship_service = UserEntryRelationshipService(backend=user_entry_backend)
+    report_relationship_service = ReportRelationshipService(backend=user_entry_backend)
     analytics_relationship_service = AnalyticsRelationshipService(driver)
     logger.info("✅ Processing domain relationship services created (UserEntry, Report, Analytics)")
 

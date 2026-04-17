@@ -8,7 +8,7 @@ import pytest
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
-from core.models.enums.submissions_enums import SubmissionModality
+from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_dto import UserEntryDTO
 

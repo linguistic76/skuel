@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import FeedbackCategory
-from core.models.enums.submissions_enums import SubmissionModality
+from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.user_owned_entity import UserOwnedEntity
 
 if TYPE_CHECKING:

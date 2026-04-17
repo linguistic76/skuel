@@ -25,7 +25,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from core.models.enums.submissions_enums import ExerciseScope
+from core.models.enums.user_entry_enums import ExerciseScope
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.exercises.inline_form import render_inline_exercise_form

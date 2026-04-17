@@ -268,7 +268,6 @@ async def compose_services(
         # reflection_backend shelved (2026-03-28)
         choices_backend = backends["choices_backend"]
         progress_backend = backends["progress_backend"]
-        submissions_backend = backends["submissions_backend"]
         user_entry_backend = backends["user_entry_backend"]
         activity_report_backend = backends["activity_report_backend"]
         askesis_backend = backends["askesis_backend"]
@@ -657,7 +656,7 @@ async def compose_services(
             logger.info("⏭️  OpenAI service skipped (intelligence tier: CORE)")
 
         content_enrichment = ContentEnrichmentService(
-            backend=submissions_backend,  # February 2026: Uses Entity backend (domain-first model)
+            backend=user_entry_backend,
             transcription_service=core_services["transcription"],
             ai_service=ai_service,  # None in CORE tier — already handles None gracefully
             event_bus=event_bus,  # Event-driven architecture
@@ -675,7 +674,7 @@ async def compose_services(
         from core.services.report.report_mastery_service import ReportMasteryService
 
         report_mastery_service = ReportMasteryService(
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
             ku_interaction_service=learning_services["ps"].mastery,
         )
         logger.info("✅ ReportMasteryService created")
@@ -825,7 +824,7 @@ async def compose_services(
         from core.services.report.teacher_review_service import TeacherReviewService
 
         teacher_review_service = TeacherReviewService(
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
             report_backend=exercise_report_backend,
             exercise_backend=exercise_backend,
             group_backend=group_backend,
@@ -1189,7 +1188,6 @@ async def compose_services(
             advanced=advanced,
             analytics_service=analytics_service,
             user_entry_backend=user_entry_backend,
-            submissions_backend=submissions_backend,
             insight_store=insight_store,
             group_backend=group_backend,
         )
@@ -1312,7 +1310,7 @@ async def compose_services(
             services=services,
             activity_services=activity_services,
             learning_services=learning_services,
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
             calendar_service=calendar_service,
             vector_search_service=vector_search_service,
             driver=driver,

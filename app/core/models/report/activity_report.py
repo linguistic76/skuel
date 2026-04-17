@@ -8,10 +8,10 @@ activity patterns over a time period (EntityType.ACTIVITY_REPORT).
 Distinct from ExerciseReport — which responds to a specific submitted artifact.
 ActivityReport responds to a user's aggregate behavior over a time window.
 
-ProcessorType discriminates the source:
-    ProcessorType.AUTOMATIC — system-generated on a schedule (default)
-    ProcessorType.LLM       — AI reasoned over activity graph data (on-demand)
-    ProcessorType.HUMAN     — admin reviewed activity domains manually
+ReportSource discriminates the source:
+    ReportSource.AUTOMATIC — system-generated on a schedule (default)
+    ReportSource.LLM       — AI reasoned over activity graph data (on-demand)
+    ReportSource.HUMAN     — admin reviewed activity domains manually
 
 Inherits from UserOwnedEntity directly (NOT Submission — no file fields apply).
 
@@ -29,7 +29,8 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.report.activity_report_dto import ActivityReportDTO
 
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -69,7 +70,7 @@ class ActivityReport(UserOwnedEntity):
     # =========================================================================
     # PROCESSOR
     # =========================================================================
-    processor_type: ProcessorType | None = None
+    processor_type: ReportSource | None = None
 
     # =========================================================================
     # SUBJECT
@@ -118,7 +119,7 @@ class ActivityReport(UserOwnedEntity):
         user_uid: UserUID,
         subject_uid: str,
         content: str,
-        processor_type: ProcessorType,
+        processor_type: ReportSource,
         period_start: datetime,
         period_end: datetime,
         time_period: str,

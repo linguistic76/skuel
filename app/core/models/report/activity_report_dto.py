@@ -26,8 +26,9 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_dto import UserOwnedDTO
 
 
@@ -43,7 +44,7 @@ class ActivityReportDTO(UserOwnedDTO):
     # =========================================================================
     # PROCESSOR
     # =========================================================================
-    processor_type: ProcessorType | None = None
+    processor_type: ReportSource | None = None
 
     # =========================================================================
     # SUBJECT
@@ -128,7 +129,7 @@ class ActivityReportDTO(UserOwnedDTO):
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
-                "processor_type": ProcessorType,
+                "processor_type": ReportSource,
             },
             datetime_fields=[
                 "created_at",

@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.enums.submissions_enums import ProgressDepth, ScheduleType
+from core.models.enums.user_entry_enums import ProgressDepth, ScheduleType
 from core.models.type_hints import UserUID
 
 # ============================================================================

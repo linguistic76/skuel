@@ -15,7 +15,7 @@ import pytest
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
-from core.models.enums.submissions_enums import EnrichmentMode
+from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.user_entry.user_entry import UserEntry
 from core.ports.output_generator_protocols import OutputInstruction
 from core.services.user_entry.user_entry_processing_service import (

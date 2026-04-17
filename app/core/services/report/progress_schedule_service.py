@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ReportTimePeriod
-from core.models.enums.submissions_enums import ScheduleType
+from core.models.enums.user_entry_enums import ScheduleType
 from core.models.report_schedule import (
     ReportSchedule,
     ReportScheduleDTO,

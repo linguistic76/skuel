@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
-from core.models.enums.submissions_enums import SubmissionModality
+from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.type_hints import UserUID
 from core.models.user_owned_entity import UserOwnedEntity
 

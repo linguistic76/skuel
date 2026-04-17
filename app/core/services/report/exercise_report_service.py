@@ -4,8 +4,8 @@ Exercise Report Service
 
 Generates AI reports for submission entries using Exercises.
 
-AI report creates a first-class EXERCISE_REPORT entity (processor_type=LLM),
-symmetric with human teacher reports (processor_type=HUMAN). Both are stored
+AI report creates a first-class EXERCISE_REPORT entity (ReportSource.LLM),
+symmetric with human teacher reports (ReportSource.HUMAN). Both are stored
 as EXERCISE_REPORT entities linked to the submission via REPORT_FOR.
 
 The core educational loop:
@@ -20,8 +20,9 @@ Following SKUEL principles:
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
+from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
 from core.models.type_hints import UserUID
@@ -44,7 +45,7 @@ class ExerciseReportService:
     """
     Generates AI reports for submission entries using exercise instructions.
 
-    Creates an EXERCISE_REPORT entity (processor_type=LLM) linked to the
+    Creates an EXERCISE_REPORT entity (ReportSource.LLM) linked to the
     submission via REPORT_FOR — symmetric with teacher reports.
 
     Supports both OpenAI and Anthropic models.
@@ -66,7 +67,7 @@ class ExerciseReportService:
             backend: The typed read facade for ExerciseReport — typed reads
                 (``list_for_submission``, etc.) plus the mastery-loop scalar
                 projection (``get_linked_ku_and_student``). Report *creation*
-                is delegated to ``submissions_backend.create_report_node`` —
+                is delegated to ``user_entry_backend.create_report_node`` —
                 the canonical path shared with teacher reports.
              Canonical
                 report-node creator shared with TeacherReviewService so AI
@@ -141,7 +142,7 @@ class ExerciseReportService:
         """
         Generate AI report for a submission entry using exercise instructions.
 
-        Creates an EXERCISE_REPORT entity (processor_type=LLM) in Neo4j, linked
+        Creates an EXERCISE_REPORT entity (ReportSource.LLM) in Neo4j, linked
         to the submission via REPORT_FOR. The typed read path
         (list_for_submission) is the authoritative source for report content.
 
@@ -229,7 +230,7 @@ class ExerciseReportService:
         """
         Persist AI report as an EXERCISE_REPORT entity in Neo4j.
 
-        Delegates to ``SubmissionsBackend.create_report_node`` — the canonical
+        Delegates to ``UserEntryBackend.create_report_node`` — the canonical
         report-creation path shared with teacher reports. Creates the entity,
         OWNS + REPORT_FOR relationships, and SHARES_WITH the student — all in
         one transaction.
@@ -268,7 +269,7 @@ class ExerciseReportService:
                     "entity_type": EntityType.EXERCISE_REPORT.value,
                     "submission_status": None,
                     "completed_status": EntityStatus.COMPLETED.value,
-                    "processor_type": ProcessorType.LLM.value,
+                    "processor_type": ReportSource.LLM.value,
                     "assessment_outcome": AssessmentOutcome.AI_EVALUATED.value,
                     "allowed_from_statuses": None,
                     "now": now,
@@ -297,7 +298,7 @@ class ExerciseReportService:
                 user_uid=student_uid,
                 author_uid=user_uid,
                 status=EntityStatus.COMPLETED,
-                processor_type=ProcessorType.LLM,
+                processor_type=ReportSource.LLM,
                 assessment_outcome=AssessmentOutcome.AI_EVALUATED,
                 processed_content=feedback_text,
                 subject_uid=submission.uid,

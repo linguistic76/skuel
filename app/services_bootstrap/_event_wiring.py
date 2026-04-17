@@ -18,7 +18,6 @@ def _wire_event_subscribers(
     advanced: dict[str, Any],
     analytics_service: Any,
     user_entry_backend: Any = None,
-    submissions_backend: Any = None,
     insight_store: Any = None,
     group_backend: Any = None,
 ) -> None:
@@ -196,12 +195,12 @@ def _wire_event_subscribers(
     )
 
     # Subscribe to PathStepEnrolled for auto default-group enrolment (ADR-040)
-    if submissions_backend and group_backend:
+    if user_entry_backend and group_backend:
         from core.events.handlers.path_step_enrollment_handler import handle_path_step_enrolled
 
         enrollment_handler = functools.partial(
             handle_path_step_enrolled,
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
             group_backend=group_backend,
         )
         event_bus.subscribe(PathStepEnrolled, enrollment_handler)

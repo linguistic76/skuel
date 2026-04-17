@@ -916,7 +916,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
         instances, ordered by created_at ASC (oldest → newest review round).
 
         Replaces the former dict-returning get_report_for_submission (this
-        backend) and the dict-returning SubmissionsBackend.get_report_history.
+        backend) and the dict-returning UserEntryBackend.get_report_history.
         Typed all the way to the route handler — no TypedDict projection.
         """
         cypher = f"""

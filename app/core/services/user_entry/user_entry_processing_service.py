@@ -35,7 +35,7 @@ from core.events.user_entry_events import (
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
-from core.models.enums.submissions_enums import EnrichmentMode
+from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS

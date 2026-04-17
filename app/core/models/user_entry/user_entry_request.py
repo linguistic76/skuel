@@ -21,7 +21,7 @@ from pydantic import Field
 from core.models.enums import Domain
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
-from core.models.enums.submissions_enums import SubmissionModality
+from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.request_base import CreateRequestBase, UpdateRequestBase
 from core.models.type_hints import EntityUID
 

@@ -2399,13 +2399,10 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     EntityType.EVENT: "Event",
     EntityType.CHOICE: "Choice",
     EntityType.PRINCIPLE: "Principle",
-    # Submissions/Reports (3)
-    EntityType.EXERCISE_SUBMISSION: "ExerciseSubmission",
+    # User-authored content + Reports (3)
+    EntityType.USER_ENTRY: "UserEntry",
     EntityType.ACTIVITY_REPORT: "ActivityReport",
     EntityType.EXERCISE_REPORT: "ExerciseReport",
-    # Journal (2)
-    EntityType.JE_INPUT: "JeInput",
-    EntityType.JE_OUTPUT: "JeOutput",
     # General-Purpose Forms (2)
     EntityType.FORM_TEMPLATE: "FormTemplate",
     EntityType.FORM_SUBMISSION: "FormSubmission",
@@ -2432,13 +2429,13 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     "Event": EntityType.EVENT,
     "Choice": EntityType.CHOICE,
     "Principle": EntityType.PRINCIPLE,
-    # Submissions/Reports (3)
-    "ExerciseSubmission": EntityType.EXERCISE_SUBMISSION,
+    # User-authored content + Reports (3)
+    "UserEntry": EntityType.USER_ENTRY,
+    "ExerciseSubmission": EntityType.USER_ENTRY,  # legacy alias
+    "JeInput": EntityType.USER_ENTRY,  # legacy alias
+    "JeOutput": EntityType.USER_ENTRY,  # legacy alias
     "ActivityReport": EntityType.ACTIVITY_REPORT,
     "ExerciseReport": EntityType.EXERCISE_REPORT,
-    # Journal (2)
-    "JeInput": EntityType.JE_INPUT,
-    "JeOutput": EntityType.JE_OUTPUT,
     # General-Purpose Forms (2)
     "FormTemplate": EntityType.FORM_TEMPLATE,
     "FormSubmission": EntityType.FORM_SUBMISSION,

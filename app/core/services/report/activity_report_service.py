@@ -6,9 +6,9 @@ Processor-neutral CRUD for ActivityReport entities. Owns all ActivityReport
 persistence regardless of who authored it — human admin or AI.
 
 Three creation paths all converge here:
-    Admin-written:   submit_report() → ProcessorType.HUMAN
-    AI-generated:    persist() called by ProgressReportGenerator → ProcessorType.LLM / AUTOMATIC
-    Scheduled:       persist() called by ProgressReportWorker → ProcessorType.AUTOMATIC
+    Admin-written:   submit_report() → ReportSource.HUMAN
+    AI-generated:    persist() called by ProgressReportGenerator → ReportSource.LLM / AUTOMATIC
+    Scheduled:       persist() called by ProgressReportWorker → ReportSource.AUTOMATIC
 
 Review queue management (ReviewRequest nodes) lives in ReviewQueueService.
 
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 from core.constants import ReportTimePeriod
 from core.events import publish_event
 from core.events.learning_loop_events import ActivitySnapshotAccessed
-from core.models.enums.entity_enums import ProcessorType
+from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -287,7 +287,7 @@ class ActivityReportService:
         """
         Create an ActivityReport entity from admin-written activity assessment.
 
-        Stores as EntityType.ACTIVITY_REPORT with ProcessorType.HUMAN.
+        Stores as EntityType.ACTIVITY_REPORT with ReportSource.HUMAN.
         The admin_uid becomes owner (user_uid), subject_uid tracks who was reviewed.
 
         IMPORTANT: This method writes to another user's activity record.
@@ -322,7 +322,7 @@ class ActivityReportService:
                 user_uid=admin_uid,
                 subject_uid=subject_uid,
                 content=feedback_text,
-                processor_type=ProcessorType.HUMAN,
+                processor_type=ReportSource.HUMAN,
                 period_start=start_date,
                 period_end=end_date,
                 time_period=time_period,

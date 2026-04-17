@@ -5,7 +5,7 @@ from typing import Any
 from fasthtml.common import H4, H5, Div, Option, P, Textarea
 
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.submissions_enums import EnrichmentMode
+from core.models.enums.user_entry_enums import EnrichmentMode
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT

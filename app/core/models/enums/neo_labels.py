@@ -82,17 +82,10 @@ class NeoLabel(StrEnum):
 
     # Content Processing — user submissions and reports
     SUBMISSION = "Submission"  # Base label for multi-label queries
-    EXERCISE_SUBMISSION = "ExerciseSubmission"
     ACTIVITY_REPORT = "ActivityReport"
     EXERCISE_REPORT = "ExerciseReport"
 
-    # Journal (standalone — NOT submission, NOT report)
-    JE_INPUT = "JeInput"  # Raw journal entry (audio or text)
-    JE_OUTPUT = "JeOutput"  # LLM-processed transformation
-
-    # Unified user-authored content (ADR-054) — collapses ExerciseSubmission,
-    # JeInput, JeOutput into one label. Added additively; legacy labels
-    # removed in final cleanup after migration.
+    # Unified user-authored content (ADR-054)
     USER_ENTRY = "UserEntry"
 
     # Instruction Templates (2)
@@ -268,9 +261,6 @@ def _init_entity_type_mapping() -> None:
             EntityType.REVISED_EXERCISE: NeoLabel.REVISED_EXERCISE,
             EntityType.FORM_TEMPLATE: NeoLabel.FORM_TEMPLATE,
             EntityType.FORM_SUBMISSION: NeoLabel.FORM_SUBMISSION,
-            EntityType.EXERCISE_SUBMISSION: NeoLabel.EXERCISE_SUBMISSION,
-            EntityType.JE_INPUT: NeoLabel.JE_INPUT,
-            EntityType.JE_OUTPUT: NeoLabel.JE_OUTPUT,
             EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT: NeoLabel.EXERCISE_REPORT,
             EntityType.INTERACTION: NeoLabel.INTERACTION,

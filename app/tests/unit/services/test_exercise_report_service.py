@@ -12,8 +12,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
+from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
 from core.models.user_entry.user_entry import UserEntry
@@ -109,7 +110,7 @@ class TestGenerateReportHappyPath:
         assert not result.is_error, result.error if result.is_error else None
         report = result.value
         assert report.entity_type == EntityType.EXERCISE_REPORT
-        assert report.processor_type == ProcessorType.LLM
+        assert report.processor_type == ReportSource.LLM
         assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
         assert report.status == EntityStatus.COMPLETED
         assert report.subject_uid == SUBMISSION_UID
@@ -173,7 +174,7 @@ class TestGenerateReportBackendDelegation:
         )
 
         (params,), _ = backend.create_report_node.await_args
-        assert params["processor_type"] == ProcessorType.LLM.value
+        assert params["processor_type"] == ReportSource.LLM.value
         assert params["assessment_outcome"] == AssessmentOutcome.AI_EVALUATED.value
         assert params["entity_type"] == EntityType.EXERCISE_REPORT.value
 
@@ -368,7 +369,7 @@ class TestGetByUid:
             title="Teacher Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.HUMAN,
+            processor_type=ReportSource.HUMAN,
             content="Solid work.",
             subject_uid=SUBMISSION_UID,
         )
@@ -424,7 +425,7 @@ class TestListForSubmission:
             title="AI Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.LLM,
+            processor_type=ReportSource.LLM,
             assessment_outcome=AssessmentOutcome.AI_EVALUATED,
             content="AI notes",
             subject_uid=SUBMISSION_UID,
@@ -435,7 +436,7 @@ class TestListForSubmission:
             title="Teacher Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.HUMAN,
+            processor_type=ReportSource.HUMAN,
             content="Teacher notes",
             subject_uid=SUBMISSION_UID,
         )

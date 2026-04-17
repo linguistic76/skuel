@@ -5,15 +5,15 @@ SKUEL Enums - Centralized Enumeration Types
 This module provides unified access to all SKUEL enumerations.
 
 Module Organization:
-- entity_enums: EntityType, EntityStatus, ContentOrigin, ProcessorType,
+- entity_enums: EntityType, EntityStatus, ContentOrigin,
                 Domain, NonKuDomain, DomainIdentifier, AnalyticsDomain, ContentScope, Context
 - activity_enums: Priority, Confidence, ActivityType, dual-track assessment levels
 - goal_enums: GoalType, GoalTimeframe, MeasurementType, HabitEssentiality
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- submissions_enums: SubmissionModality, ExerciseScope, EnrichmentMode, FormattingStyle, AnalysisDepth,
-                     ContextEnrichmentLevel, ScheduleType, ProgressDepth
+- user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, FormattingStyle, AnalysisDepth,
+                    ContextEnrichmentLevel, ScheduleType, ProgressDepth
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
@@ -26,7 +26,7 @@ Module Organization:
 
 Usage:
     from core.models.enums import Priority, EntityStatus, EntityType
-    from core.models.enums import EntityType, EntityStatus, ProcessorType, ExerciseScope
+    from core.models.enums import EntityType, EntityStatus, ReportSource, ExerciseScope
 """
 
 # Askesis enums - pedagogical companion interaction styles
@@ -60,7 +60,6 @@ from .entity_enums import (
     EntityStatus,
     EntityType,
     NonKuDomain,
-    ProcessorType,
 )
 
 # Finance enums (RecurrencePattern intentionally excluded — conflicts with scheduling_enums)
@@ -140,8 +139,11 @@ from .scheduling_enums import (
     TimeOfDay,
 )
 
-# Submissions enums - processing and scheduling
-from .submissions_enums import (
+# Transcription enums
+from .transcription_enums import TranscriptionStatus
+
+# User entry enums - processing and scheduling (renamed from submissions_enums)
+from .user_entry_enums import (
     AnalysisDepth,
     ContextEnrichmentLevel,
     EnrichmentMode,
@@ -151,9 +153,6 @@ from .submissions_enums import (
     ScheduleType,
     SubmissionModality,
 )
-
-# Transcription enums
-from .transcription_enums import TranscriptionStatus
 
 # User enums - roles, health scoring, and account management
 from .user_enums import ContextHealthScore, UserRole
@@ -228,7 +227,7 @@ __all__ = [
     "PrincipleStrength",
     "Priority",
     "TriggerType",
-    "ProcessorType",
+    "ReportSource",
     "QueryComplexity",
     "ProductivityLevel",
     "ProgressDepth",

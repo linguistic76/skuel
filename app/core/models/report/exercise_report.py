@@ -7,10 +7,10 @@ a teacher or AI responds with an ExerciseReport:
 
     Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → ...
 
-Two sources, same EntityType, different ProcessorType:
+Two sources, same EntityType, different ReportSource:
 
-    ProcessorType.HUMAN  → teacher uploads a .md file via TeacherReviewService
-    ProcessorType.LLM    → AI generates feedback via ExerciseReportService
+    ReportSource.HUMAN  → teacher uploads a .md file via TeacherReviewService
+    ReportSource.LLM    → AI generates feedback via ExerciseReportService
 
 assessment_outcome records the decision made:
     APPROVED        — teacher accepted the work; loop closes for this exercise
@@ -42,8 +42,9 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.report.exercise_report_dto import ExerciseReportDTO
 
-from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import AssessmentOutcome
+from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -87,7 +88,7 @@ class ExerciseReport(UserOwnedEntity):
     # Neo4j node property. create_report_node writes the REPORT_FOR relationship;
     # reads hydrate this field via `RETURN n{.*, subject_uid: sub.uid}`.
     subject_uid: str | None = None  # UID of the submission this report is about
-    processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC
+    processor_type: ReportSource | None = None  # HUMAN/LLM/AUTOMATIC
     assessment_outcome: AssessmentOutcome | None = None  # APPROVED/NEEDS_REVISION/AI_EVALUATED
     report_file_path: str | None = None  # Generated output file path
     assessment_score: float | None = None  # 0.0-1.0 score for ASSESSMENT-scope exercises

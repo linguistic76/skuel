@@ -18,7 +18,7 @@ helper is replaced with ``f"{exercise_title} v{revision}"``.
 from __future__ import annotations
 
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.submissions_enums import ExerciseScope
+from core.models.enums.user_entry_enums import ExerciseScope
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

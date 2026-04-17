@@ -2,7 +2,7 @@
 Entity Type Aliases and Class Dispatch Map
 ==========================================
 
-Type aliases and the EntityType→class map for all 22 entity types.
+Type aliases and the EntityType→class map for all 19 entity types.
 
 For construction: Use the specific subclass (Task, Ku, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
@@ -80,12 +80,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.LEARNING_PATH: LearningPath,
     EntityType.EXERCISE: Exercise,
     EntityType.REVISED_EXERCISE: RevisedExercise,
-    # ADR-054: legacy split types unified under UserEntry. The old enum values
-    # still round-trip through the dispatcher so historical nodes can be read.
     EntityType.USER_ENTRY: UserEntry,
-    EntityType.EXERCISE_SUBMISSION: UserEntry,
-    EntityType.JE_INPUT: UserEntry,
-    EntityType.JE_OUTPUT: UserEntry,
     EntityType.ACTIVITY_REPORT: ActivityReport,
     EntityType.EXERCISE_REPORT: ExerciseReport,
     EntityType.FORM_TEMPLATE: FormTemplate,
