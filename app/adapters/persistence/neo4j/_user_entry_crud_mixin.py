@@ -46,17 +46,16 @@ class _UserEntryCrudMixin:
     # Content search
     # ------------------------------------------------------------------
 
-    async def search_submission_content(
+    async def search_entry_content(
         self,
         user_uid: UserUID,
-        submission_type: str,
         query_text: str,
         limit: int = 50,
     ) -> Result[list[Neo4jProperties]]:
-        """Case-insensitive substring search across processed_content."""
+        """Case-insensitive substring search across ``processed_content``."""
         cypher = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
-        WHERE s.entity_type = $submission_type
+        WHERE s.entity_type = $entry_type
           AND s.processed_content IS NOT NULL
           AND toLower(s.processed_content) CONTAINS toLower($query)
         RETURN s
@@ -67,7 +66,7 @@ class _UserEntryCrudMixin:
             cypher,
             {
                 "user_uid": user_uid,
-                "submission_type": submission_type,
+                "entry_type": _USER_ENTRY,
                 "query": query_text,
                 "limit": limit,
             },
@@ -75,20 +74,6 @@ class _UserEntryCrudMixin:
         if result.is_error:
             return Result.fail(result)
         return Result.ok([record["s"] for record in result.value or []])
-
-    async def search_entry_content(
-        self,
-        user_uid: UserUID,
-        query_text: str,
-        limit: int = 50,
-    ) -> Result[list[Neo4jProperties]]:
-        """Case-insensitive substring search across ``processed_content``."""
-        return await self.search_submission_content(
-            user_uid=user_uid,
-            submission_type=_USER_ENTRY,
-            query_text=query_text,
-            limit=limit,
-        )
 
     # ------------------------------------------------------------------
     # Feedback counts

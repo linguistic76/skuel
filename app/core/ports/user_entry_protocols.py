@@ -148,28 +148,6 @@ class UserEntryLifecycleOperations(Protocol):
         """
         ...
 
-    async def create_entry_temporal_link(
-        self, entry_uid: str, user_uid: UserUID
-    ) -> Result[list[Neo4jProperties]]:
-        """Create FOLLOWS to the previous user entry by this user.
-
-        Renamed from the inherited ``create_temporal_relationship`` to avoid
-        an LSP conflict — the legacy ``_SubmissionLifecycleMixin`` version
-        takes ``(ku_uid, user_uid, entity_type)`` and is still used by the
-        legacy backend.
-        """
-        ...
-
-    async def create_entry_thematic_links(
-        self,
-        entry_uid: str,
-        user_uid: UserUID,
-        themes: list[str],
-        shared_topics_str: str,
-    ) -> Result[list[Neo4jProperties]]:
-        """Create RELATED_TO edges for entries sharing topics."""
-        ...
-
     async def get_related_entry_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
         """UIDs of entries related via RELATED_TO."""
         ...
@@ -385,28 +363,6 @@ class UserEntryContentOperations(Protocol):
         self, user_uid: UserUID, cutoff_datetime: str
     ) -> Result[list[Neo4jProperties]]:
         """``key_topics`` from recent journal entries for aggregation."""
-        ...
-
-    async def create_journal_temporal_link(
-        self, journal_uid: str, user_uid: UserUID
-    ) -> Result[list[Neo4jProperties]]:
-        """Create FOLLOWS to the previous journal-flavored entry."""
-        ...
-
-    async def create_journal_thematic_links(
-        self,
-        journal_uid: str,
-        user_uid: UserUID,
-        shared_topics: list[str],
-        shared_topics_str: str,
-    ) -> Result[list[Neo4jProperties]]:
-        """Create RELATED_TO edges across journals sharing topics."""
-        ...
-
-    async def create_journal_goal_links(
-        self, journal_uid: str, goal_uids: list[str]
-    ) -> Result[list[Neo4jProperties]]:
-        """Create SUPPORTS_GOAL for mentioned goals."""
         ...
 
     async def load_exercise_instructions(self, uid: str) -> Result[list[Neo4jProperties]]:

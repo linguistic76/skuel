@@ -214,16 +214,6 @@ class _UserEntryLifecycleMixin:
             query, {"ku_uid": ku_uid, "user_uid": user_uid, "entity_type": entity_type}
         )
 
-    async def create_entry_temporal_link(
-        self, entry_uid: str, user_uid: UserUID
-    ) -> Result[list[Neo4jProperties]]:
-        """Create FOLLOWS to the previous user entry by this user."""
-        return await self.create_temporal_relationship(
-            ku_uid=entry_uid,
-            user_uid=user_uid,
-            entity_type=_USER_ENTRY,
-        )
-
     async def create_thematic_relationships(
         self, ku_uid: str, user_uid: UserUID, themes: list[str], shared_topics_str: str
     ) -> Result[list[Neo4jProperties]]:
@@ -251,37 +241,18 @@ class _UserEntryLifecycleMixin:
             },
         )
 
-    async def create_entry_thematic_links(
-        self,
-        entry_uid: str,
-        user_uid: UserUID,
-        themes: list[str],
-        shared_topics_str: str,
-    ) -> Result[list[Neo4jProperties]]:
-        """Create RELATED_TO edges for entries sharing topics."""
-        return await self.create_thematic_relationships(
-            ku_uid=entry_uid,
-            user_uid=user_uid,
-            themes=themes,
-            shared_topics_str=shared_topics_str,
-        )
-
     # ========================================================================
     # RELATIONSHIP QUERIES
     # ========================================================================
 
-    async def get_related_submission_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_related_entry_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
         """Get UIDs of entries related via RELATED_TO."""
         query = """
-        MATCH (a:Entity {uid: $ku_uid})-[:RELATED_TO]->(related:Entity)
+        MATCH (a:Entity {uid: $entry_uid})-[:RELATED_TO]->(related:Entity)
         RETURN related.uid as uid
         ORDER BY related.uid
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid})
-
-    async def get_related_entry_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """UIDs of entries related via RELATED_TO."""
-        return await self.get_related_submission_uids(ku_uid=entry_uid)
+        return await self.execute_query(query, {"entry_uid": entry_uid})
 
     async def get_supported_goal_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Get UIDs of goals supported by an entry via SUPPORTS_GOAL."""

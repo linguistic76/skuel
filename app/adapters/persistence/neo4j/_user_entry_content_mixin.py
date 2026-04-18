@@ -148,68 +148,6 @@ class _UserEntryContentMixin:
             cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime}
         )
 
-    async def create_journal_temporal_link(
-        self, journal_uid: str, user_uid: UserUID
-    ) -> Result[list[Neo4jProperties]]:
-        """Create FOLLOWS relationship to most recent previous journal-type report."""
-        cypher = """
-        MATCH (new:Entity {uid: $journal_uid})
-        MATCH (prev:Entity {user_uid: $user_uid, report_type: 'journal'})
-        WHERE prev.uid <> $journal_uid
-          AND prev.entry_date <= new.entry_date
-        WITH new, prev
-        ORDER BY prev.entry_date DESC, prev.created_at DESC
-        LIMIT 1
-        MERGE (new)-[r:FOLLOWS]->(prev)
-        RETURN count(r) as count
-        """
-        return await self.execute_query(cypher, {"journal_uid": journal_uid, "user_uid": user_uid})
-
-    async def create_journal_thematic_links(
-        self,
-        journal_uid: str,
-        user_uid: UserUID,
-        shared_topics: list[str],
-        shared_topics_str: str,
-    ) -> Result[list[Neo4jProperties]]:
-        """Create RELATED_TO relationships for journal reports sharing topics."""
-        cypher = """
-        MATCH (new:Entity {uid: $journal_uid})
-        MATCH (other:Entity {user_uid: $user_uid, report_type: 'journal'})
-        WHERE other.uid <> $journal_uid
-          AND other.key_topics IS NOT NULL
-        WITH new, other, other.key_topics as other_topics_json
-        WHERE any(topic IN $shared_topics WHERE other_topics_json CONTAINS topic)
-        WITH new, other
-        LIMIT 5
-        MERGE (new)-[r:RELATED_TO {shared_topics: $shared_topics_str}]->(other)
-        RETURN count(r) as count
-        """
-        return await self.execute_query(
-            cypher,
-            {
-                "journal_uid": journal_uid,
-                "user_uid": user_uid,
-                "shared_topics": shared_topics,
-                "shared_topics_str": shared_topics_str,
-            },
-        )
-
-    async def create_journal_goal_links(
-        self, journal_uid: str, goal_uids: list[str]
-    ) -> Result[list[Neo4jProperties]]:
-        """Create SUPPORTS_GOAL relationships for mentioned goals."""
-        cypher = """
-        MATCH (j:Report {uid: $journal_uid})
-        UNWIND $goal_uids as goal_uid
-        MATCH (g:Goal {uid: goal_uid})
-        MERGE (j)-[r:SUPPORTS_GOAL]->(g)
-        RETURN count(r) as count
-        """
-        return await self.execute_query(
-            cypher, {"journal_uid": journal_uid, "goal_uids": goal_uids}
-        )
-
     async def load_exercise_instructions(self, uid: str) -> Result[list[Neo4jProperties]]:
         """Load formatting instructions from an Exercise entity node."""
         query = """

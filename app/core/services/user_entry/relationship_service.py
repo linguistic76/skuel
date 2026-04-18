@@ -143,7 +143,7 @@ class UserEntryRelationshipService:
         Method name preserved for source compatibility with the
         intelligence layer.
         """
-        result = await self.backend.get_related_submission_uids(entry_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_related_entry_uids(entry_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
