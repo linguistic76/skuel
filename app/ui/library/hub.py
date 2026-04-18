@@ -15,22 +15,6 @@ from ui.patterns.page_header import PageHeader
 
 LIBRARY_BLOCKS: list[HubBlockData] = [
     HubBlockData(
-        "Exercises",
-        "exercises",
-        "book-open",
-        "#3B82F6",
-        "/library/exercises",
-        "/api/library/exercises/preview",
-    ),
-    HubBlockData(
-        "Submission History",
-        "history",
-        "file-text",
-        "#8B5CF6",
-        "/submissions/history",
-        "/api/submissions/history/preview",
-    ),
-    HubBlockData(
         "Resources",
         "resources",
         "bookmark",
@@ -53,6 +37,22 @@ LIBRARY_BLOCKS: list[HubBlockData] = [
         "#10B981",
         "/library/path-steps",
         "/api/library/path-steps/preview",
+    ),
+    HubBlockData(
+        "Exercises",
+        "exercises",
+        "book-open",
+        "#3B82F6",
+        "/library/exercises",
+        "/api/library/exercises/preview",
+    ),
+    HubBlockData(
+        "Submission History",
+        "history",
+        "file-text",
+        "#8B5CF6",
+        "/submissions/history",
+        "/api/submissions/history/preview",
     ),
 ]
 
