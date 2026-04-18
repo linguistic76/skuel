@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.pipeline import ReportSource
+from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.services.dsl import (
     ActivityExtractionResult,
@@ -135,7 +135,7 @@ class TestJournalActivityExtractor:
             user_uid="user:mike",
             entity_type=EntityType.USER_ENTRY,
             status=EntityStatus.COMPLETED,
-            processor_type=ReportSource.LLM,
+            pipeline=Pipeline.NONE,
             original_filename="journal.md",
             file_path="/tmp/journal.md",
             file_type="text/plain",
@@ -203,7 +203,7 @@ Some reflections on the day...
             user_uid="user:mike",
             entity_type=EntityType.USER_ENTRY,
             status=EntityStatus.COMPLETED,
-            processor_type=ReportSource.LLM,
+            pipeline=Pipeline.NONE,
             original_filename="empty.md",
             file_path="/tmp/empty.md",
             file_type="text/plain",

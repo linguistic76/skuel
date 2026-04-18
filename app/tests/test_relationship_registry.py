@@ -76,6 +76,7 @@ class TestUnifiedRegistry:
             # Other entities
             "User",
             "PrincipleReflection",
+            "UserEntry",
         }
         assert set(LABEL_CONFIGS.keys()) == expected_labels
 
