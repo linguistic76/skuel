@@ -9,6 +9,7 @@ driven with mocked ``DeepgramAdapter`` + ``UnifiedLLMCaller`` +
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -21,6 +22,7 @@ from core.ports.output_generator_protocols import OutputInstruction
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
+from core.services.user_entry.user_entry_service import ShareOutcome
 from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
@@ -291,7 +293,7 @@ class TestTranscribeAndStructure:
         child = _make_entry(Pipeline.NONE)
 
         svc = _entry_service_with_updated(updated_source)
-        svc.create_entry = AsyncMock(return_value=Result.ok(child))
+        svc.create_entry = AsyncMock(return_value=Result.ok((child, ShareOutcome())))
 
         adapter = MagicMock()
         adapter.transcribe = AsyncMock(
@@ -392,6 +394,119 @@ class TestTranscribeAndStructure:
         svc.update_processed_content.assert_awaited_once()
         svc.backend.update.assert_awaited_once()
         assert svc.backend.update.await_args.args[1]["status"] == EntityStatus.FAILED.value
+
+
+# ---------------------------------------------------------------------------
+# Failure-event phase tagging (F8)
+# ---------------------------------------------------------------------------
+
+
+class TestFailedPhaseEventTag:
+    """UserEntryProcessingFailed.failed_phase identifies the broken stage."""
+
+    @staticmethod
+    def _event_bus_and_captured() -> tuple[MagicMock, list[Any]]:
+        captured: list[Any] = []
+
+        async def _publish(event: Any) -> None:
+            captured.append(event)
+
+        bus = MagicMock()
+        bus.publish_async = AsyncMock(side_effect=_publish)
+        return bus, captured
+
+    @pytest.mark.asyncio
+    async def test_transcribe_adapter_failure_tags_phase_transcribe(self):
+        entry = _make_entry(Pipeline.TRANSCRIBE, file_path="/tmp/a.mp3")
+        svc = _entry_service_with_updated(entry)
+        adapter = MagicMock()
+        adapter.transcribe = AsyncMock(
+            return_value=Result.fail(Errors.integration(service="deepgram", message="boom"))
+        )
+        bus, captured = self._event_bus_and_captured()
+
+        dispatcher = _make_dispatcher(
+            entry_service=svc, transcription_adapter=adapter, event_bus=bus
+        )
+        await dispatcher.process(entry)
+
+        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        assert len(failed) == 1
+        assert failed[0].failed_phase == "transcribe"
+
+    @pytest.mark.asyncio
+    async def test_transcribe_missing_adapter_tags_phase_setup(self):
+        entry = _make_entry(Pipeline.TRANSCRIBE, file_path="/tmp/a.mp3")
+        svc = _entry_service_with_updated(entry)
+        bus, captured = self._event_bus_and_captured()
+
+        dispatcher = _make_dispatcher(
+            entry_service=svc, transcription_adapter=None, event_bus=bus
+        )
+        await dispatcher.process(entry)
+
+        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        assert len(failed) == 1
+        assert failed[0].failed_phase == "setup"
+
+    @pytest.mark.asyncio
+    async def test_transcribe_and_structure_llm_failure_tags_phase_structure(self):
+        """Multi-phase pipeline — LLM break after transcript lands tagged `structure`."""
+        source = _make_entry(Pipeline.TRANSCRIBE_AND_STRUCTURE, file_path="/tmp/a.mp3")
+        updated_source = _make_entry(Pipeline.TRANSCRIBE_AND_STRUCTURE, file_path="/tmp/a.mp3")
+        svc = _entry_service_with_updated(updated_source)
+
+        adapter = MagicMock()
+        adapter.transcribe = AsyncMock(
+            return_value=Result.ok(_FakeTranscriptionResult(transcript_text="raw"))
+        )
+        resolver = MagicMock()
+        resolver.resolve = MagicMock(return_value=Result.ok(_instruction()))
+        llm = MagicMock()
+        llm.generate = AsyncMock(
+            return_value=Result.fail(Errors.integration(service="llm", message="nope"))
+        )
+        bus, captured = self._event_bus_and_captured()
+
+        dispatcher = _make_dispatcher(
+            entry_service=svc,
+            transcription_adapter=adapter,
+            llm_caller=llm,
+            instruction_resolver=resolver,
+            event_bus=bus,
+        )
+        await dispatcher.process(source)
+
+        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        assert len(failed) == 1
+        assert failed[0].failed_phase == "structure"
+
+    @pytest.mark.asyncio
+    async def test_transcribe_and_structure_transcribe_failure_tags_phase_transcribe(self):
+        """Multi-phase pipeline — Deepgram break tagged `transcribe`, not `structure`."""
+        source = _make_entry(Pipeline.TRANSCRIBE_AND_STRUCTURE, file_path="/tmp/a.mp3")
+        svc = _entry_service_with_updated(source)
+
+        adapter = MagicMock()
+        adapter.transcribe = AsyncMock(
+            return_value=Result.fail(Errors.integration(service="deepgram", message="boom"))
+        )
+        resolver = MagicMock()
+        llm = MagicMock()
+        bus, captured = self._event_bus_and_captured()
+
+        dispatcher = _make_dispatcher(
+            entry_service=svc,
+            transcription_adapter=adapter,
+            llm_caller=llm,
+            instruction_resolver=resolver,
+            event_bus=bus,
+        )
+        await dispatcher.process(source)
+
+        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        assert len(failed) == 1
+        assert failed[0].failed_phase == "transcribe"
 
 
 # ---------------------------------------------------------------------------

@@ -109,6 +109,74 @@ class TestValidateAudience:
         assert result.is_ok
 
 
+class TestJournalSharingPolicy:
+    """ADR-054 §5: TRANSCRIBE_AND_STRUCTURE is PRIVATE by policy."""
+
+    @pytest.mark.asyncio
+    async def test_journal_with_no_audience_passes(self):
+        service = _make_service(sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Morning reflection",
+            pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
+            file_path="/tmp/x.mp3",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_journal_with_share_with_groups_rejected(self):
+        service = _make_service(sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Reflection",
+            pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
+            share_with_groups=["g1"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+        assert "private" in str(result.expect_error()).lower()
+
+    @pytest.mark.asyncio
+    async def test_journal_with_share_with_users_rejected(self):
+        service = _make_service(sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Reflection",
+            pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
+            share_with_users=["user_peer"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_journal_with_public_visibility_rejected(self):
+        service = _make_service(sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Reflection",
+            pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
+            visibility=Visibility.PUBLIC,
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_journal_with_auto_share_flag_rejected(self):
+        service = _make_service(sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Reflection",
+            pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
+            auto_share_to_exercise_groups=True,
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+
+    def test_pipeline_allows_sharing_matrix(self):
+        """The policy: only TRANSCRIBE_AND_STRUCTURE is private."""
+        assert Pipeline.NONE.allows_sharing()
+        assert Pipeline.TRANSCRIBE.allows_sharing()
+        assert Pipeline.LLM_SUMMARY.allows_sharing()
+        assert Pipeline.TEACHER_REVIEW.allows_sharing()
+        assert not Pipeline.TRANSCRIBE_AND_STRUCTURE.allows_sharing()
+
+
 class TestCreateEntryRouting:
     """Service routes create calls based on exercise link presence."""
 

@@ -226,20 +226,27 @@ def render_upload_form(
             **{"x-bind:value": "audience"},
         ),
         cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
+        # Pipeline.allows_sharing() mirrored client-side: journal (TRANSCRIBE_AND_STRUCTURE)
+        # is PRIVATE by policy (ADR-054 §5), so the picker is hidden when selected.
+        **{"x-show": "allowsSharing", "x-cloak": True},
     )
 
     default_audience = "teachers" if from_exercise_context else "private"
+    non_sharing_pipeline = Pipeline.TRANSCRIBE_AND_STRUCTURE.value
 
     alpine_data = (
         "{ "
         f"pipeline: '{effective_pipeline.value}', "
         f"audience: '{default_audience}', "
         "validationError: false, "
+        f"get allowsSharing() {{ return this.pipeline !== '{non_sharing_pipeline}'; }}, "
         "get audienceOk() { "
+        "  if (!this.allowsSharing) return true; "
         "  if (this.pipeline !== 'teacher_review') return true; "
         "  return !!this.audience; "
         "}, "
         "validate(ev) { "
+        "  if (!this.allowsSharing) { this.audience = 'private'; } "
         "  if (!this.audienceOk) { this.validationError = true; ev.preventDefault(); return false; } "
         "  this.validationError = false; return true; "
         "} "

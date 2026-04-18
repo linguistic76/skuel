@@ -178,13 +178,29 @@ collapse. Audio submission:
 
 1. User creates `UserEntry` with `pipeline=TRANSCRIBE_AND_STRUCTURE`, audio
    file attached.
-2. `SubmissionsProcessingService` dispatches on pipeline: runs Deepgram,
+2. `UserEntryProcessingService` dispatches on pipeline: runs Deepgram,
    then runs the journal LLM, produces a **second** `UserEntry` (the
    structured output) with `pipeline=NONE`.
 3. The processed entry is linked to the raw entry by
    `(output)-[:TRANSFORMS]->(input)`.
-4. Audience choices on the input default to private; the student can share
-   the output entry independently.
+
+**Journal is PRIVATE by policy.** Preserving the historical
+`JeInput`/`JeOutput` norm, a `UserEntry` on `pipeline=TRANSCRIBE_AND_STRUCTURE`
+is not shareable at submit time. `Pipeline.allows_sharing()` encodes this:
+it returns `False` only for `TRANSCRIBE_AND_STRUCTURE`. `_validate_audience`
+rejects the create request if it carries `share_with_groups`,
+`share_with_users`, `auto_share_to_exercise_groups=True`, or any
+non-`PRIVATE` visibility. The `/submit` form hides the audience picker
+client-side when the student selects the journal pipeline; the dedicated
+`/journals/submit` form never offered one. The child `UserEntry` persisted
+in phase 3 is explicitly `visibility=PRIVATE` and inherits nothing from
+the source's (rejected) audience.
+
+A student can still widen reach **after the fact** by sharing the
+structured output entry through the normal `UnifiedSharingService` flow —
+the policy gates the submit-time audience, not the entry's lifetime
+audience. All other pipelines (`NONE`, `TRANSCRIBE`, `LLM_SUMMARY`,
+`TEACHER_REVIEW`) are shareable at submit time.
 
 Two `UserEntry` nodes, one `TRANSFORMS` edge. Same shape as today, half the
 type surface.

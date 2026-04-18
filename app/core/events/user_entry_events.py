@@ -66,12 +66,21 @@ class UserEntryProcessingCompleted(BaseEvent):
 
 @dataclass(frozen=True)
 class UserEntryProcessingFailed(BaseEvent):
-    """Published when pipeline processing fails."""
+    """Published when pipeline processing fails.
+
+    ``failed_phase`` identifies which stage of a multi-phase pipeline broke.
+    For ``TRANSCRIBE_AND_STRUCTURE`` the phases are ``transcribe`` (Deepgram),
+    ``update_source`` (persist transcript on source entry), ``structure``
+    (LLM structuring), and ``persist_child`` (create child entry). Single-
+    phase pipelines emit the phase name of their only step. Left ``None``
+    only when failure occurs before any phase dispatch (e.g. missing adapter).
+    """
 
     entity_uid: str
     user_uid: UserUID
     pipeline: str
     error: str
+    failed_phase: str | None = None
 
     @property
     def event_type(self) -> str:

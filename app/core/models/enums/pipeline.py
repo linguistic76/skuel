@@ -37,6 +37,20 @@ class Pipeline(StrEnum):
     LLM_SUMMARY = "llm_summary"
     TEACHER_REVIEW = "teacher_review"
 
+    def allows_sharing(self) -> bool:
+        """Whether a UserEntry on this pipeline may carry a non-private audience.
+
+        `TRANSCRIBE_AND_STRUCTURE` is the journal pipeline. Journals inherit
+        the historical `JeInput`/`JeOutput` privacy norm — raw audio + its
+        LLM-structured output are personal reflection, not shareable
+        artifacts. Enforced pre-persist in `_validate_audience`; the `/submit`
+        form hides the audience picker when this returns `False` (the
+        dedicated `/journals/submit` form never offered one).
+
+        See: ADR-054 §5 (Journal input → output, preserved).
+        """
+        return self is not Pipeline.TRANSCRIBE_AND_STRUCTURE
+
 
 class ReportSource(StrEnum):
     """

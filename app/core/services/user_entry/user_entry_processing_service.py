@@ -127,6 +127,7 @@ class UserEntryProcessingService:
                     service="deepgram",
                     message="DeepgramAdapter not configured for UserEntryProcessingService",
                 ),
+                phase="setup",
             )
         if not entry.file_path:
             return await self._fail(
@@ -135,18 +136,19 @@ class UserEntryProcessingService:
                     "TRANSCRIBE pipeline requires entry.file_path",
                     field="file_path",
                 ),
+                phase="setup",
             )
 
         transcript = await self._transcribe(entry.file_path)
         if transcript.is_error:
-            return await self._fail(entry, transcript.expect_error())
+            return await self._fail(entry, transcript.expect_error(), phase="transcribe")
 
         update_result = await self.entry_service.update_processed_content(
             uid=entry.uid,
             processed_content=transcript.value,
         )
         if update_result.is_error:
-            return await self._fail(entry, update_result.expect_error())
+            return await self._fail(entry, update_result.expect_error(), phase="persist_transcript")
 
         updated = update_result.value
         await self._emit_completed(updated)
@@ -171,6 +173,7 @@ class UserEntryProcessingService:
                         "UnifiedLLMCaller is not configured."
                     ),
                 ),
+                phase="setup",
             )
         if self.instruction_resolver is None:
             return await self._fail(
@@ -178,6 +181,7 @@ class UserEntryProcessingService:
                 Errors.system(
                     message="InstructionResolver not configured for UserEntryProcessingService",
                 ),
+                phase="setup",
             )
 
         source_text = entry.processed_content or entry.content
@@ -188,6 +192,7 @@ class UserEntryProcessingService:
                     "LLM_SUMMARY pipeline requires entry.content or entry.processed_content",
                     field="content",
                 ),
+                phase="setup",
             )
 
         llm_result = await self._generate(
@@ -196,14 +201,14 @@ class UserEntryProcessingService:
             enrichment_mode=self._resolve_enrichment_mode(entry),
         )
         if llm_result.is_error:
-            return await self._fail(entry, llm_result.expect_error())
+            return await self._fail(entry, llm_result.expect_error(), phase="generate_summary")
 
         update_result = await self.entry_service.update_processed_content(
             uid=entry.uid,
             processed_content=llm_result.value,
         )
         if update_result.is_error:
-            return await self._fail(entry, update_result.expect_error())
+            return await self._fail(entry, update_result.expect_error(), phase="persist_summary")
 
         updated = update_result.value
         await self._emit_completed(updated)
@@ -225,6 +230,7 @@ class UserEntryProcessingService:
                     service="deepgram",
                     message="DeepgramAdapter not configured for UserEntryProcessingService",
                 ),
+                phase="setup",
             )
         if self.llm_caller is None:
             return await self._fail(
@@ -236,6 +242,7 @@ class UserEntryProcessingService:
                         "UnifiedLLMCaller is not configured."
                     ),
                 ),
+                phase="setup",
             )
         if self.instruction_resolver is None:
             return await self._fail(
@@ -243,6 +250,7 @@ class UserEntryProcessingService:
                 Errors.system(
                     message="InstructionResolver not configured for UserEntryProcessingService",
                 ),
+                phase="setup",
             )
         if not entry.file_path:
             return await self._fail(
@@ -251,19 +259,20 @@ class UserEntryProcessingService:
                     "TRANSCRIBE_AND_STRUCTURE pipeline requires entry.file_path",
                     field="file_path",
                 ),
+                phase="setup",
             )
 
         # Phase 1 — transcribe and store on the source entry
         transcript = await self._transcribe(entry.file_path)
         if transcript.is_error:
-            return await self._fail(entry, transcript.expect_error())
+            return await self._fail(entry, transcript.expect_error(), phase="transcribe")
 
         update_source = await self.entry_service.update_processed_content(
             uid=entry.uid,
             processed_content=transcript.value,
         )
         if update_source.is_error:
-            return await self._fail(entry, update_source.expect_error())
+            return await self._fail(entry, update_source.expect_error(), phase="update_source")
         updated_source = update_source.value
 
         # Phase 2 — LLM-structure the transcript
@@ -273,9 +282,16 @@ class UserEntryProcessingService:
             enrichment_mode=self._resolve_enrichment_mode(entry),
         )
         if structured.is_error:
-            return await self._fail(updated_source, structured.expect_error())
+            return await self._fail(updated_source, structured.expect_error(), phase="structure")
 
-        # Phase 3 — persist the structured output as a second UserEntry
+        # Phase 3 — persist the structured output as a second UserEntry.
+        #
+        # The child is PRIVATE and inherits no audience from the source
+        # (ADR-054 §5: journal is private by policy; see
+        # Pipeline.allows_sharing). The source itself is already on
+        # pipeline=TRANSCRIBE_AND_STRUCTURE, so _validate_audience blocked
+        # any explicit audience at submit time — the child is anchored to
+        # the same norm rather than drifting to the default visibility.
         child_request = UserEntryCreateRequest(
             title=f"{entry.title} — structured",
             content=structured.value,
@@ -290,7 +306,9 @@ class UserEntryProcessingService:
             user_uid=entry.user_uid,
         )
         if child_result.is_error:
-            return await self._fail(updated_source, child_result.expect_error())
+            return await self._fail(
+                updated_source, child_result.expect_error(), phase="persist_child"
+            )
 
         child, _share_outcome = child_result.value
         await self._emit_completed(updated_source, produced_entry_uid=child.uid)
@@ -365,11 +383,24 @@ class UserEntryProcessingService:
                 pass
         return EnrichmentMode.ACTIVITY_TRACKING
 
-    async def _fail(self, entry: UserEntry, error: Any) -> Result[UserEntry]:
-        """Mark the entry as FAILED, emit failure event, return Result.fail."""
+    async def _fail(
+        self, entry: UserEntry, error: Any, phase: str | None = None
+    ) -> Result[UserEntry]:
+        """Mark the entry as FAILED, emit failure event, return Result.fail.
+
+        ``phase`` is the stage of the pipeline where the failure occurred
+        (``setup``, ``transcribe``, ``update_source``, ``structure``,
+        ``persist_child``, ``generate_summary``, ``persist_summary``,
+        ``persist_transcript``). Threaded onto the emitted
+        ``UserEntryProcessingFailed`` event so postmortems can tell a
+        Deepgram blip apart from an LLM blip inside a
+        ``TRANSCRIBE_AND_STRUCTURE`` run without re-reading logs.
+        """
         message = getattr(error, "message", None) or str(error)
+        phase_tag = f" [phase={phase}]" if phase else ""
         self.logger.error(
-            f"UserEntry pipeline {entry.pipeline.value} failed for {entry.uid}: {message}"
+            f"UserEntry pipeline {entry.pipeline.value}{phase_tag} failed "
+            f"for {entry.uid}: {message}"
         )
         try:
             await self.entry_service.backend.update(
@@ -391,6 +422,7 @@ class UserEntryProcessingService:
                     user_uid=entry.user_uid,
                     pipeline=entry.pipeline.value,
                     error=message,
+                    failed_phase=phase,
                 ),
                 self.logger,
             )

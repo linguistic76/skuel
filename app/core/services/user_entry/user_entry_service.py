@@ -492,15 +492,36 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     # =========================================================================
 
     def _validate_audience(self, request: UserEntryCreateRequest) -> Result[None]:
-        """ADR §3 guardrail: TEACHER_REVIEW must resolve to a real audience.
+        """ADR §3 + §5 guardrails on audience for this pipeline.
 
-        Allowed:
-          - Explicit ``share_with_groups`` / ``share_with_users``
-          - ``fulfills_exercise_uid`` set (we'll auto-share to exercise groups)
+        §3 (TEACHER_REVIEW must resolve to a real audience):
+          - Explicit ``share_with_groups`` / ``share_with_users`` OR
+            ``fulfills_exercise_uid`` (auto-share to exercise groups)
+          - Rejected: ``pipeline=TEACHER_REVIEW`` with none of the above.
 
-        Rejected:
-          - ``pipeline=TEACHER_REVIEW`` with neither of the above
+        §5 (journal is PRIVATE):
+          - ``Pipeline.allows_sharing()`` returns ``False`` for the journal
+            pipeline (``TRANSCRIBE_AND_STRUCTURE``). Any explicit audience on
+            such a request is rejected — the journal norm is preserved from
+            the legacy `JeInput`/`JeOutput` split.
         """
+        if not request.pipeline.allows_sharing():
+            has_explicit_audience = bool(
+                request.share_with_groups
+                or request.share_with_users
+                or request.auto_share_to_exercise_groups
+                or (request.visibility is not None and request.visibility != Visibility.PRIVATE)
+            )
+            if has_explicit_audience:
+                return Result.fail(
+                    Errors.validation(
+                        f"pipeline={request.pipeline.value} is private "
+                        "(journals are not shareable at submit time)",
+                        field="audience",
+                    )
+                )
+            return Result.ok(None)
+
         if request.pipeline != Pipeline.TEACHER_REVIEW:
             return Result.ok(None)
         has_audience = bool(
