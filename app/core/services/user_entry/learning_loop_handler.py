@@ -19,11 +19,11 @@ from core.constants import LearningLoop
 from core.events.learning_loop_events import ReportSubmitted, UserEntryApproved
 from core.events.user_entry_events import UserEntryCreated
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
+from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
     from core.services.insight.insight_store import InsightStore
 
 
@@ -67,7 +67,7 @@ class LearningLoopEventHandlerService:
 
     def __init__(
         self,
-        backend: UserEntryBackend,
+        backend: UserEntryOperations,
         insight_store: InsightStore | None = None,
     ) -> None:
         self.backend = backend
@@ -85,7 +85,7 @@ class LearningLoopEventHandlerService:
             if not event.fulfills_exercise_uid:
                 return
 
-            count_result = await self.backend.count_submissions_for_exercise(  # type: ignore[attr-defined]
+            count_result = await self.backend.count_entries_for_exercise(
                 event.user_uid, event.fulfills_exercise_uid
             )
             if count_result.is_error:
@@ -181,7 +181,7 @@ class LearningLoopEventHandlerService:
                 },
             )
 
-            state_result = await self.backend.get_teacher_feedback_state(event.teacher_uid)  # type: ignore[attr-defined]
+            state_result = await self.backend.get_teacher_feedback_state(event.teacher_uid)
             if state_result.is_error:
                 return
 
@@ -195,7 +195,7 @@ class LearningLoopEventHandlerService:
             new_ema = alpha * turnaround_hours + (1 - alpha) * ema_hours
             new_count = sample_count + 1
 
-            await self.backend.update_teacher_feedback_state(  # type: ignore[attr-defined]
+            await self.backend.update_teacher_feedback_state(
                 event.teacher_uid,
                 {
                     "feedback_ema_hours": new_ema,
@@ -252,9 +252,7 @@ class LearningLoopEventHandlerService:
             if event.mastered_ku_count == 0:
                 return
 
-            exercise_result = await self.backend.get_exercise_for_submission(  # type: ignore[attr-defined]
-                event.entity_uid
-            )
+            exercise_result = await self.backend.get_exercise_for_entry(event.entity_uid)
             if exercise_result.is_error or not exercise_result.value:
                 self.logger.debug(
                     f"No exercise found for user_entry {event.entity_uid}, skipping velocity calc"
@@ -263,14 +261,14 @@ class LearningLoopEventHandlerService:
 
             exercise_uid = exercise_result.value
 
-            count_result = await self.backend.count_submissions_for_exercise(  # type: ignore[attr-defined]
+            count_result = await self.backend.count_entries_for_exercise(
                 event.student_uid, exercise_uid
             )
             if count_result.is_error:
                 return
             iterations = count_result.value
 
-            first_result = await self.backend.get_first_submission_for_exercise(  # type: ignore[attr-defined]
+            first_result = await self.backend.get_first_entry_for_exercise(
                 event.student_uid, exercise_uid
             )
             if first_result.is_error or not first_result.value:

@@ -19,9 +19,9 @@ from core.utils.result_simplified import Errors, Result
 def _make_backend() -> MagicMock:
     backend = MagicMock()
     backend.get_exercise_context = AsyncMock()
-    backend.get_submission_owner = AsyncMock()
+    backend.get_entry_owner = AsyncMock()
     backend.verify_student_group_membership = AsyncMock()
-    backend.count_submissions_for_exercise = AsyncMock()
+    backend.count_entries_for_exercise = AsyncMock()
     backend.update = AsyncMock(return_value=Result.ok(True))
     return backend
 
@@ -49,8 +49,8 @@ class TestProcessExerciseSubmission:
         backend.verify_student_group_membership.return_value = Result.ok(
             [{"student_uid": "user_1", "member_of_group": "grp_1"}]
         )
-        backend.get_submission_owner.return_value = Result.ok([{"student_uid": "user_1"}])
-        backend.count_submissions_for_exercise.return_value = Result.ok(0)
+        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.count_entries_for_exercise.return_value = Result.ok(0)
         linker = _make_linker(backend)
 
         result = await linker.process_exercise_submission("sub_1", "ex_1")
@@ -118,15 +118,15 @@ class TestProcessExerciseSubmission:
                 }
             ]
         )
-        backend.get_submission_owner.return_value = Result.ok([{"student_uid": "user_1"}])
-        backend.count_submissions_for_exercise.return_value = Result.ok(1)
+        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.count_entries_for_exercise.return_value = Result.ok(1)
         linker = _make_linker(backend)
 
         result = await linker.process_exercise_submission("sub_1", "re_1")
 
         assert result.is_ok
         assert result.value == ProcessingOutcome.PROCESSED
-        backend.count_submissions_for_exercise.assert_awaited_once_with("user_1", "ex_original_1")
+        backend.count_entries_for_exercise.assert_awaited_once_with("user_1", "ex_original_1")
 
     @pytest.mark.asyncio
     async def test_wrong_student_for_revised_exercise(self):
@@ -144,7 +144,7 @@ class TestProcessExerciseSubmission:
                 }
             ]
         )
-        backend.get_submission_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
         linker = _make_linker(backend)
 
         result = await linker.process_exercise_submission("sub_1", "re_1")
@@ -192,8 +192,8 @@ class TestProcessExerciseSubmission:
                 }
             ]
         )
-        backend.get_submission_owner.return_value = Result.ok([{"student_uid": "user_1"}])
-        backend.count_submissions_for_exercise.return_value = Result.ok(0)
+        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.count_entries_for_exercise.return_value = Result.ok(0)
         linker = _make_linker(backend)
 
         result = await linker.process_exercise_submission("sub_1", "ex_1")

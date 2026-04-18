@@ -148,6 +148,22 @@ class UserEntryLifecycleOperations(Protocol):
         """
         ...
 
+    async def create_temporal_relationship(
+        self, entry_uid: str, user_uid: UserUID, entity_type: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Create FOLLOWS relationship to the most recent previous entry of the same type."""
+        ...
+
+    async def create_thematic_relationships(
+        self,
+        entry_uid: str,
+        user_uid: UserUID,
+        themes: list[str],
+        shared_topics_str: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """Create RELATED_TO relationships for entries sharing topics."""
+        ...
+
     async def get_related_entry_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
         """UIDs of entries related via RELATED_TO."""
         ...

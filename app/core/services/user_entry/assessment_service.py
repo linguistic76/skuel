@@ -26,8 +26,8 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.report.exercise_report import ExerciseReport
 from core.models.report.exercise_report_dto import ExerciseReportDTO
-from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -52,7 +52,7 @@ class AssessmentService:
 
     def __init__(
         self,
-        backend: BackendOperations[SubmissionEntity],
+        backend: UserEntryOperations,
         event_bus: EventBusOperations | None = None,
     ) -> None:
         self.backend = backend
@@ -87,7 +87,7 @@ class AssessmentService:
         from core.models.enums.metadata_enums import Visibility
 
         # Verify teacher has authority over student (share an active group)
-        authority_result = await self.backend.verify_teacher_authority(teacher_uid, subject_uid)  # type: ignore[attr-defined]
+        authority_result = await self.backend.verify_teacher_authority(teacher_uid, subject_uid)
 
         if authority_result.is_error:
             self.logger.error(
@@ -127,7 +127,7 @@ class AssessmentService:
             return Result.fail(result)
 
         # Create ASSESSMENT_OF relationship
-        assess_result = await self.backend.create_assessment_relationship(uid, subject_uid)  # type: ignore[attr-defined]
+        assess_result = await self.backend.create_assessment_relationship(uid, subject_uid)
 
         if assess_result.is_error:
             self.logger.error(f"Failed to create ASSESSMENT_OF relationship: {assess_result.error}")
@@ -140,7 +140,7 @@ class AssessmentService:
             )
 
         # Auto-share with student
-        share_result = await self.backend.auto_share_assessment_with_student(  # type: ignore[attr-defined]
+        share_result = await self.backend.auto_share_assessment_with_student(
             subject_uid, uid, datetime.now().isoformat()
         )
 
@@ -179,7 +179,7 @@ class AssessmentService:
         Returns:
             Result containing list of EXERCISE_REPORT entities
         """
-        result = await self.backend.get_assessments_for_student_raw(student_uid, limit)  # type: ignore[attr-defined]
+        result = await self.backend.get_assessments_for_student_raw(student_uid, limit)
 
         if result.is_error:
             return Result.fail(result)

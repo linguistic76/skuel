@@ -72,65 +72,28 @@ class _UserEntryLifecycleMixin:
     # OWNERSHIP & GROUP MEMBERSHIP
     # ========================================================================
 
-    async def get_submission_owner(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get student UID who owns an entry."""
-        query = """
-        MATCH (student:User)-[:OWNS]->(submission:Entity {uid: $submission_uid})
-        RETURN student.uid as student_uid
-        """
-        return await self.execute_query(query, {"submission_uid": submission_uid})
-
     async def get_entry_owner(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
         """Student UID who owns an entry."""
-        return await self.get_submission_owner(submission_uid=entry_uid)
+        query = """
+        MATCH (student:User)-[:OWNS]->(entry:Entity {uid: $entry_uid})
+        RETURN student.uid as student_uid
+        """
+        return await self.execute_query(query, {"entry_uid": entry_uid})
 
     async def verify_student_group_membership(
-        self, submission_uid: str, group_uid: str
+        self, entry_uid: str, group_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Check student owns entry AND is member of group."""
         query = """
-        MATCH (student:User)-[:OWNS]->(submission:Entity {uid: $submission_uid})
+        MATCH (student:User)-[:OWNS]->(entry:Entity {uid: $entry_uid})
         OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
         RETURN student.uid as student_uid, g.uid as member_of_group
         """
-        return await self.execute_query(
-            query, {"submission_uid": submission_uid, "group_uid": group_uid}
-        )
+        return await self.execute_query(query, {"entry_uid": entry_uid, "group_uid": group_uid})
 
     # ========================================================================
     # EXERCISE LINKING
     # ========================================================================
-
-    async def link_to_exercise(
-        self, submission_uid: str, exercise_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create exercise relationships for an entry.
-
-        Standard Exercise:
-            (entry)-[:FULFILLS_EXERCISE]->(exercise)
-
-        RevisedExercise:
-            (entry)-[:FULFILLS_EXERCISE]->(original_exercise)
-            (entry)-[:FULFILLS_REVISED_EXERCISE]->(revised_exercise)
-        """
-        query = f"""
-        MATCH (submission:Entity {{uid: $submission_uid}})
-        MATCH (exercise:Entity {{uid: $exercise_uid}})
-        WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
-        OPTIONAL MATCH (exercise)-[:{RelationshipName.REVISES_EXERCISE}]->(original:Entity {{entity_type: 'exercise'}})
-        WITH submission, exercise, original
-        FOREACH (_ IN CASE WHEN original IS NOT NULL THEN [1] ELSE [] END |
-          MERGE (submission)-[:{RelationshipName.FULFILLS_EXERCISE}]->(original)
-          MERGE (submission)-[:{RelationshipName.FULFILLS_REVISED_EXERCISE}]->(exercise)
-        )
-        FOREACH (_ IN CASE WHEN original IS NULL THEN [1] ELSE [] END |
-          MERGE (submission)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
-        )
-        RETURN true as success
-        """
-        return await self.execute_query(
-            query, {"submission_uid": submission_uid, "exercise_uid": exercise_uid}
-        )
 
     async def create_with_exercise_link(
         self,
@@ -196,13 +159,13 @@ class _UserEntryLifecycleMixin:
     # ========================================================================
 
     async def create_temporal_relationship(
-        self, ku_uid: str, user_uid: UserUID, entity_type: str
+        self, entry_uid: str, user_uid: UserUID, entity_type: str
     ) -> Result[list[Neo4jProperties]]:
         """Create FOLLOWS relationship to most recent previous entry."""
         query = """
-        MATCH (new:Entity {uid: $ku_uid})
+        MATCH (new:Entity {uid: $entry_uid})
         MATCH (prev:Entity {user_uid: $user_uid, entity_type: $entity_type})
-        WHERE prev.uid <> $ku_uid
+        WHERE prev.uid <> $entry_uid
           AND prev.created_at <= new.created_at
         WITH new, prev
         ORDER BY prev.created_at DESC
@@ -211,17 +174,21 @@ class _UserEntryLifecycleMixin:
         RETURN count(r) as count
         """
         return await self.execute_query(
-            query, {"ku_uid": ku_uid, "user_uid": user_uid, "entity_type": entity_type}
+            query, {"entry_uid": entry_uid, "user_uid": user_uid, "entity_type": entity_type}
         )
 
     async def create_thematic_relationships(
-        self, ku_uid: str, user_uid: UserUID, themes: list[str], shared_topics_str: str
+        self,
+        entry_uid: str,
+        user_uid: UserUID,
+        themes: list[str],
+        shared_topics_str: str,
     ) -> Result[list[Neo4jProperties]]:
         """Create RELATED_TO relationships for shared topics."""
         query = """
-        MATCH (new:Entity {uid: $ku_uid})
+        MATCH (new:Entity {uid: $entry_uid})
         MATCH (other:Entity {user_uid: $user_uid})
-        WHERE other.uid <> $ku_uid
+        WHERE other.uid <> $entry_uid
           AND other.metadata IS NOT NULL
         WITH new, other, other.metadata.themes as other_themes
         WHERE other_themes IS NOT NULL
@@ -234,7 +201,7 @@ class _UserEntryLifecycleMixin:
         return await self.execute_query(
             query,
             {
-                "ku_uid": ku_uid,
+                "entry_uid": entry_uid,
                 "user_uid": user_uid,
                 "themes": themes,
                 "shared_topics_str": shared_topics_str,
@@ -254,21 +221,19 @@ class _UserEntryLifecycleMixin:
         """
         return await self.execute_query(query, {"entry_uid": entry_uid})
 
-    async def get_supported_goal_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_supported_goal_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
         """Get UIDs of goals supported by an entry via SUPPORTS_GOAL."""
         query = """
-        MATCH (a:Entity {uid: $ku_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
+        MATCH (a:Entity {uid: $entry_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
         RETURN goal.uid as uid
         ORDER BY goal.uid
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid})
+        return await self.execute_query(query, {"entry_uid": entry_uid})
 
-    async def get_submission_relationship_summary(
-        self, ku_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Get relationship counts for an entry."""
+    async def get_entry_relationship_summary(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
+        """Per-entry relationship counts (related, goals, follows)."""
         query = """
-        MATCH (a:Entity {uid: $ku_uid})
+        MATCH (a:Entity {uid: $entry_uid})
         OPTIONAL MATCH (a)-[:RELATED_TO]->(related)
         OPTIONAL MATCH (a)-[:SUPPORTS_GOAL]->(goal)
         OPTIONAL MATCH (a)-[:FOLLOWS]->(prev)
@@ -276,8 +241,4 @@ class _UserEntryLifecycleMixin:
                count(DISTINCT goal) as goal_count,
                count(DISTINCT prev) as follows_count
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid})
-
-    async def get_entry_relationship_summary(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """Per-entry relationship counts (related, goals, follows)."""
-        return await self.get_submission_relationship_summary(ku_uid=entry_uid)
+        return await self.execute_query(query, {"entry_uid": entry_uid})

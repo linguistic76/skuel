@@ -79,17 +79,15 @@ class _UserEntryCrudMixin:
     # Feedback counts
     # ------------------------------------------------------------------
 
-    async def get_submissions_with_feedback_count(
+    async def get_entries_with_feedback_count(
         self,
         user_uid: UserUID,
-        submission_type: str,
-        report_type: str,
         limit: int = 50,
     ) -> Result[list[Neo4jProperties]]:
-        """Get entries enriched with teacher feedback count."""
+        """List user entries enriched with teacher feedback counts."""
         query = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
-        WHERE s.entity_type = $submission_type
+        WHERE s.entity_type = $entry_type
         OPTIONAL MATCH (fb:Entity {{entity_type: $report_type}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, count(fb) AS feedback_count
         RETURN s.uid AS uid,
@@ -107,50 +105,17 @@ class _UserEntryCrudMixin:
             {
                 "user_uid": user_uid,
                 "limit": limit,
-                "submission_type": submission_type,
-                "report_type": report_type,
+                "entry_type": _USER_ENTRY,
+                "report_type": EntityType.EXERCISE_REPORT.value,
             },
         )
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    async def get_entries_with_feedback_count(
-        self,
-        user_uid: UserUID,
-        limit: int = 50,
-    ) -> Result[list[Neo4jProperties]]:
-        """List user entries enriched with teacher feedback counts."""
-        return await self.get_submissions_with_feedback_count(
-            user_uid=user_uid,
-            submission_type=_USER_ENTRY,
-            report_type=EntityType.EXERCISE_REPORT.value,
-            limit=limit,
-        )
-
     # ------------------------------------------------------------------
     # Exercise-linked lookups
     # ------------------------------------------------------------------
-
-    async def count_submissions_for_exercise(
-        self, user_uid: UserUID, exercise_uid: str
-    ) -> Result[int]:
-        """Count all submissions by a user for an exercise across the full learning loop."""
-        query = """
-        MATCH (target:Entity {uid: $exercise_uid})
-        OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
-        WITH COALESCE(orig, target) AS exercise
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(exercise)
-        WHERE s.entity_type IN ['exercise_submission', 'submission']
-        RETURN count(s) AS count
-        """
-        result = await self.execute_query(
-            query, {"user_uid": user_uid, "exercise_uid": exercise_uid}
-        )
-        if result.is_error:
-            return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(record.get("count", 0))
 
     async def count_entries_for_exercise(self, user_uid: UserUID, exercise_uid: str) -> Result[int]:
         """Count entries a user has submitted against an exercise."""
@@ -174,29 +139,6 @@ class _UserEntryCrudMixin:
             return Result.fail(result)
         record = result.value[0] if result.value else {}
         return Result.ok(record.get("count", 0))
-
-    async def get_first_submission_for_exercise(
-        self, user_uid: UserUID, exercise_uid: str
-    ) -> Result[Neo4jProperties | None]:
-        """Get earliest submission's uid + created_at for a user+exercise pair."""
-        query = """
-        MATCH (target:Entity {uid: $exercise_uid})
-        OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
-        WITH COALESCE(orig, target) AS exercise
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(exercise)
-        WHERE s.entity_type IN ['exercise_submission', 'submission']
-        RETURN s.uid AS uid, s.created_at AS created_at
-        ORDER BY s.created_at ASC
-        LIMIT 1
-        """
-        result = await self.execute_query(
-            query, {"user_uid": user_uid, "exercise_uid": exercise_uid}
-        )
-        if result.is_error:
-            return Result.fail(result)
-        if not result.value:
-            return Result.ok(None)
-        return Result.ok(result.value[0])
 
     async def get_first_entry_for_exercise(
         self, user_uid: UserUID, exercise_uid: str
@@ -226,23 +168,19 @@ class _UserEntryCrudMixin:
             return Result.ok(None)
         return Result.ok(result.value[0])
 
-    async def get_exercise_for_submission(self, submission_uid: str) -> Result[str | None]:
-        """Get exercise UID linked to an entry via FULFILLS_EXERCISE."""
+    async def get_exercise_for_entry(self, entry_uid: str) -> Result[str | None]:
+        """Exercise UID linked via ``FULFILLS_EXERCISE``, if any."""
         query = """
-        MATCH (s:Entity {uid: $submission_uid})-[:FULFILLS_EXERCISE]->(e:Entity)
+        MATCH (s:Entity {uid: $entry_uid})-[:FULFILLS_EXERCISE]->(e:Entity)
         RETURN e.uid AS exercise_uid
         LIMIT 1
         """
-        result = await self.execute_query(query, {"submission_uid": submission_uid})
+        result = await self.execute_query(query, {"entry_uid": entry_uid})
         if result.is_error:
             return Result.fail(result)
         if not result.value:
             return Result.ok(None)
         return Result.ok(result.value[0]["exercise_uid"])
-
-    async def get_exercise_for_entry(self, entry_uid: str) -> Result[str | None]:
-        """Exercise UID linked via ``FULFILLS_EXERCISE``, if any."""
-        return await self.get_exercise_for_submission(submission_uid=entry_uid)
 
     # ------------------------------------------------------------------
     # Teacher feedback EMA state

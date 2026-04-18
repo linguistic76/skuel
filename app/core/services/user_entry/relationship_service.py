@@ -13,22 +13,18 @@ Relationships created:
     3. SUPPORTS_GOAL → goals mentioned in processed content (goal progress)
 """
 
-from typing import TYPE_CHECKING, Any
-
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry
+from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.ports import BackendOperations
 
 
 class UserEntryRelationshipService:
     """Create graph relationships on ``UserEntry`` nodes."""
 
-    def __init__(self, backend: "BackendOperations[Any]") -> None:
+    def __init__(self, backend: UserEntryOperations) -> None:
         self.backend = backend
         self.logger = get_logger("skuel.services.user_entry.relationship")
 
@@ -90,13 +86,11 @@ class UserEntryRelationshipService:
         if not user_uid:
             return 0
 
-        result = await self.backend.create_temporal_relationship(  # type: ignore[attr-defined]
-            entry_uid, user_uid, entity_type
-        )
+        result = await self.backend.create_temporal_relationship(entry_uid, user_uid, entity_type)
         if result.is_error:
             return 0
         records = result.value or []
-        return records[0]["count"] if records else 0
+        return int(records[0]["count"]) if records else 0
 
     async def _create_thematic_relationships(
         self,
@@ -107,13 +101,13 @@ class UserEntryRelationshipService:
         if not themes or not user_uid:
             return 0
 
-        result = await self.backend.create_thematic_relationships(  # type: ignore[attr-defined]
+        result = await self.backend.create_thematic_relationships(
             entry_uid, user_uid, themes, ", ".join(themes[:3])
         )
         if result.is_error:
             return 0
         records = result.value or []
-        return records[0]["count"] if records else 0
+        return int(records[0]["count"]) if records else 0
 
     async def _create_goal_relationships(
         self,
@@ -132,7 +126,7 @@ class UserEntryRelationshipService:
         if not mentioned_goal_uids:
             return 0
 
-        result = await self.backend.create_goal_support_relationships(  # type: ignore[attr-defined]
+        result = await self.backend.create_goal_support_relationships(
             entry_uid, mentioned_goal_uids
         )
         return result.value if result.is_ok else 0
@@ -143,23 +137,23 @@ class UserEntryRelationshipService:
         Method name preserved for source compatibility with the
         intelligence layer.
         """
-        result = await self.backend.get_related_entry_uids(entry_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_related_entry_uids(entry_uid)
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
+        return Result.ok([str(r["uid"]) for r in (result.value or []) if r["uid"]])
 
     async def get_supported_goals(self, entry_uid: str) -> Result[list[str]]:
         """Return UIDs of goals supported via ``SUPPORTS_GOAL``."""
-        result = await self.backend.get_supported_goal_uids(entry_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_supported_goal_uids(entry_uid)
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
+        return Result.ok([str(r["uid"]) for r in (result.value or []) if r["uid"]])
 
     async def get_submission_summary(self, entry_uid: str) -> Result[dict[str, int]]:
         """Return comprehensive relationship counts for a user entry."""
-        result = await self.backend.get_submission_relationship_summary(entry_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_entry_relationship_summary(entry_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -176,8 +170,8 @@ class UserEntryRelationshipService:
         record = records[0]
         return Result.ok(
             {
-                "related_ku_count": record["related_count"],
-                "supported_goal_count": record["goal_count"],
-                "follows_count": record["follows_count"],
+                "related_ku_count": int(record["related_count"] or 0),
+                "supported_goal_count": int(record["goal_count"] or 0),
+                "follows_count": int(record["follows_count"] or 0),
             }
         )

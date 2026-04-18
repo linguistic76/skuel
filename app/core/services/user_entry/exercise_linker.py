@@ -54,12 +54,12 @@ def _generate_exercise_title(exercise_title: str, revision: int) -> str:
 class UserEntryExerciseLinker:
     """Validates + retitles a ``UserEntry`` after exercise-link creation.
 
-    Called by the ``UserEntryCreated`` subscriber. The backend is the same
-    ``UserEntryOperations`` used by ``UserEntryService`` — we reuse the
-    inherited lifecycle methods (``get_exercise_context``,
-    ``get_submission_owner``, ``verify_student_group_membership``,
-    ``count_submissions_for_exercise``) via ``# type: ignore[attr-defined]``
-    because they come from the shared submission-lifecycle mixin.
+    Called by the ``UserEntryCreated`` subscriber. The backend is the
+    ``UserEntryOperations`` protocol consumed by ``UserEntryService`` —
+    ``get_exercise_context``, ``get_entry_owner``,
+    ``verify_student_group_membership``, and ``count_entries_for_exercise``
+    come from the ``UserEntryLifecycleOperations`` + ``UserEntryCrudOperations``
+    parents.
     """
 
     def __init__(self, backend: UserEntryOperations) -> None:
@@ -98,7 +98,7 @@ class UserEntryExerciseLinker:
         if exercise_entity_type == EntityType.REVISED_EXERCISE.value:
             re_student_uid = records[0]["student_uid"]
 
-            submitter_result = await self.backend.get_submission_owner(entry_uid)  # type: ignore[attr-defined]
+            submitter_result = await self.backend.get_entry_owner(entry_uid)
             if submitter_result.is_error:
                 self.logger.error(f"Error querying submitter: {submitter_result.expect_error()}")
                 return Result.ok(ProcessingOutcome.NOT_EXERCISE)
@@ -131,13 +131,13 @@ class UserEntryExerciseLinker:
                     return Result.ok(ProcessingOutcome.NOT_IN_GROUP)
 
         if exercise_title:
-            student_uid_result = await self.backend.get_submission_owner(entry_uid)  # type: ignore[attr-defined]
+            student_uid_result = await self.backend.get_entry_owner(entry_uid)
             if not student_uid_result.is_error:
                 student_uid_records = student_uid_result.value or []
                 if student_uid_records:
                     submitter_uid = student_uid_records[0]["student_uid"]
 
-                    prior_count_result = await self.backend.count_submissions_for_exercise(  # type: ignore[attr-defined]
+                    prior_count_result = await self.backend.count_entries_for_exercise(
                         submitter_uid, count_exercise_uid
                     )
                     prior_count = 0

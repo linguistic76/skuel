@@ -184,16 +184,15 @@ class _UserEntryContentMixin:
         """
         return await self.execute_query(query)
 
-    async def get_submissions_for_path_step(
+    async def get_entries_for_path_step(
         self,
         user_uid: UserUID,
         ps_uid: str,
-        submission_type: str,
         limit: int,
     ) -> Result[list[Neo4jProperties]]:
-        """Get entries for a path step via Interaction edges."""
+        """Entries for a path step via ``Interaction`` edges."""
         query = f"""
-        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: $submission_type}})
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: $entry_type}})
         MATCH (i:Entity:Interaction)-[:{RelationshipName.RECORDS.value}]->(sub)
         MATCH (i)-[:{RelationshipName.INTERACTION_DURING.value}]->(ps:Entity {{uid: $ps_uid}})
         OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
@@ -211,7 +210,7 @@ class _UserEntryContentMixin:
             {
                 "user_uid": user_uid,
                 "ps_uid": ps_uid,
-                "submission_type": submission_type,
+                "entry_type": _USER_ENTRY,
                 "limit": limit,
             },
         )
@@ -219,28 +218,14 @@ class _UserEntryContentMixin:
             return Result.fail(result)
         return Result.ok([dict(record) for record in result.value])
 
-    async def get_entries_for_path_step(
-        self,
-        user_uid: UserUID,
-        ps_uid: str,
-        limit: int,
-    ) -> Result[list[Neo4jProperties]]:
-        """Entries for a path step via ``Interaction`` edges."""
-        return await self.get_submissions_for_path_step(
-            user_uid=user_uid,
-            ps_uid=ps_uid,
-            submission_type=_USER_ENTRY,
-            limit=limit,
-        )
-
     async def create_goal_support_relationships(
-        self, submission_uid: str, goal_uids: list[str]
+        self, entry_uid: str, goal_uids: list[str]
     ) -> Result[int]:
         """Batch-create SUPPORTS_GOAL relationships from an entry to goals."""
         if not goal_uids:
             return Result.ok(0)
         relationships = [
-            (submission_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
+            (entry_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
             for goal_uid in goal_uids
         ]
         queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
