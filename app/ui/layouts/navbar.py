@@ -5,7 +5,8 @@ Navbar Component - SKUEL Patterns (MonsterUI)
 Navigation bar using Tailwind utilities.
 
 Layout:
-- Mobile: slim top bar (brand + bell + signout) + fixed bottom nav (Hub/Tasks+/Explore/Search)
+- Mobile: slim top bar (brand + bell + signout) + fixed bottom nav derived
+  from ``ICON_NAV_ITEMS`` with Search appended
 - Desktop: slim top bar (brand + text nav links + search + bell + signout)
 
 Usage:
@@ -25,6 +26,33 @@ from ui.layouts.nav_config import (
     IconNavItem,
     NavItem,
 )
+
+
+def _visible_icon_items(
+    *,
+    is_authenticated: bool,
+    is_admin: bool,
+    is_teacher: bool,
+    include_home: bool,
+) -> list[IconNavItem]:
+    """Filter ICON_NAV_ITEMS by the viewer's auth/role flags.
+
+    Shared by desktop text links and the mobile bottom nav so both surfaces
+    stay in lockstep with nav_config. Desktop excludes Hub because the brand
+    link already goes to /home; mobile keeps it (include_home=True).
+    """
+    visible: list[IconNavItem] = []
+    for item in ICON_NAV_ITEMS:
+        if item.page_key == "home" and not include_home:
+            continue
+        if item.requires_auth and not is_authenticated:
+            continue
+        if item.hide_for_admin and is_admin:
+            continue
+        if item.hide_for_teacher and (is_teacher or is_admin):
+            continue
+        visible.append(item)
+    return visible
 
 
 def _nav_link(item: NavItem, active_page: str) -> A:
@@ -231,18 +259,17 @@ def create_navbar(
 
     # --- Regular user top bar ---
 
-    # Desktop center: text links derived from ICON_NAV_ITEMS + teacher link
-    def _should_show(item: IconNavItem) -> bool:
-        # Hub is omitted — the SKUEL brand link already goes to /home
-        if item.page_key == "home":
-            return False
-        return not (item.requires_auth and not is_authenticated)
-
+    # Desktop center: text links derived from ICON_NAV_ITEMS + teacher link.
+    # Hub is omitted from desktop because the SKUEL brand link already goes to /home.
     desktop_links = Div(
         *[
             _nav_link(NavItem(item.label, item.href, item.page_key), active_page)
-            for item in ICON_NAV_ITEMS
-            if _should_show(item)
+            for item in _visible_icon_items(
+                is_authenticated=is_authenticated,
+                is_admin=is_admin,
+                is_teacher=is_teacher,
+                include_home=False,
+            )
         ],
         *[
             _nav_link(item, active_page)
@@ -284,22 +311,53 @@ def create_navbar(
     )
 
 
+_SEARCH_TAB = IconNavItem(
+    label="Search",
+    letter="",
+    href="/search",
+    page_key="search",
+    requires_auth=True,
+    icon="search",
+)
+
+
+def _bottom_nav_tab(item: IconNavItem, active_page: str) -> A:
+    is_active = active_page == item.page_key
+    color_cls = "text-primary" if is_active else "text-muted-foreground"
+    extra: dict[str, Any] = {"aria-current": "page"} if is_active else {}
+    return A(
+        UkIcon(item.icon or "circle", cls="size-5", aria_hidden="true"),
+        Span(item.label, cls="text-xs mt-0.5"),
+        Span(f"Go to {item.label}", cls="sr-only"),
+        href=item.href,
+        cls=(
+            "flex flex-col items-center justify-center gap-0.5 flex-1 py-2"
+            f" {color_cls} hover:text-foreground transition-colors"
+        ),
+        **extra,
+    )
+
+
 def create_bottom_nav(
     is_authenticated: bool = False,
     active_page: str = "",
     is_admin: bool = False,
+    is_teacher: bool = False,
 ) -> Any:
     """
     Create the mobile-only fixed bottom navigation bar.
 
     Shown only on mobile (sm:hidden) for authenticated non-admin users.
-    Four tabs: Hub | Tasks+ | Explore | Search.
+    Tabs are derived from ``ICON_NAV_ITEMS`` (same spec as the desktop center
+    menu) with Search appended — desktop keeps Search as a separate icon in
+    the right section, mobile folds it into the bottom nav.
     Respects iOS safe-area-inset-bottom for notched devices.
 
     Args:
         is_authenticated: Whether user is logged in
         active_page: Current page slug for active tab highlighting
         is_admin: Whether user has admin role
+        is_teacher: Whether user has teacher role or higher
 
     Returns:
         FastHTML Nav element or empty Div if not applicable
@@ -308,30 +366,17 @@ def create_bottom_nav(
         return Div()
 
     items = [
-        ("home", "home", "Hub", "/home"),
-        ("check-square", "tasks", "Tasks+", "/tasks"),
-        ("compass", "explore", "Explore", "/explore"),
-        ("search", "search", "Search", "/search"),
+        *_visible_icon_items(
+            is_authenticated=is_authenticated,
+            is_admin=is_admin,
+            is_teacher=is_teacher,
+            include_home=True,
+        ),
+        _SEARCH_TAB,
     ]
 
-    nav_items = []
-    for icon_name, page_key, label, href in items:
-        is_active = active_page == page_key
-        color_cls = "text-primary" if is_active else "text-muted-foreground"
-        extra: dict[str, Any] = {"aria-current": "page"} if is_active else {}
-        nav_items.append(
-            A(
-                UkIcon(icon_name, cls="size-5", aria_hidden="true"),
-                Span(label, cls="text-xs mt-0.5"),
-                Span(f"Go to {label}", cls="sr-only"),
-                href=href,
-                cls=f"flex flex-col items-center justify-center gap-0.5 flex-1 py-2 {color_cls} hover:text-foreground transition-colors",
-                **extra,
-            )
-        )
-
     return Nav(
-        *nav_items,
+        *[_bottom_nav_tab(item, active_page) for item in items],
         cls="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-background border-t border-border flex items-stretch h-16",
         style="padding-bottom: env(safe-area-inset-bottom)",
         **{"aria-label": "Primary navigation"},
@@ -390,12 +435,13 @@ async def create_bottom_nav_for_request(
     Returns:
         FastHTML Nav element or empty Div
     """
-    from adapters.inbound.auth import get_is_admin, is_authenticated
+    from adapters.inbound.auth import get_is_admin, get_is_teacher, is_authenticated
 
     return create_bottom_nav(
         is_authenticated=is_authenticated(request),
         active_page=active_page,
         is_admin=get_is_admin(request),
+        is_teacher=get_is_teacher(request),
     )
 
 

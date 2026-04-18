@@ -103,18 +103,14 @@ def create_groups_hub_routes(
         records = [] if result.is_error else (result.value or [])
 
         return await BasePage(
-            content=GroupSharesPage(
-                group_name=group_name, records=records, group_uid=group_uid
-            ),
+            content=GroupSharesPage(group_name=group_name, records=records, group_uid=group_uid),
             title=group_name,
             request=request,
             active_page="groups",
         )
 
     @rt("/groups/{group_uid}/entries/{entry_uid}")
-    async def peer_entry_detail(
-        request: Request, group_uid: str, entry_uid: str
-    ) -> Any:
+    async def peer_entry_detail(request: Request, group_uid: str, entry_uid: str) -> Any:
         """Read-only detail page for a peer UserEntry shared with a group."""
         user_uid = require_authenticated_user(request)
         from ui.groups.peer_entry import PeerEntryNotFound, PeerEntryView

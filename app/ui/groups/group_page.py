@@ -70,9 +70,7 @@ def GroupSharesNotAvailable() -> Div:
             "Group not available",
             subtitle="This group is either gone or no longer visible to you.",
         ),
-        render_inline_error(
-            "Ask a teacher to add you, or head back to the Groups hub."
-        ),
+        render_inline_error("Ask a teacher to add you, or head back to the Groups hub."),
         Div(
             ButtonLink("\u2190 Back to Groups", href="/groups", variant=ButtonT.ghost),
             cls="mt-4",

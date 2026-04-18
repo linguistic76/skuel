@@ -91,9 +91,7 @@ def PeerEntryNotFound() -> Div:
             "Entry not available",
             subtitle="This shared entry is either gone or no longer visible to you.",
         ),
-        render_inline_error(
-            "Ask a classmate to re-share it, or head back to the Groups hub."
-        ),
+        render_inline_error("Ask a classmate to re-share it, or head back to the Groups hub."),
         Div(
             ButtonLink("\u2190 Back to Groups", href="/groups", variant=ButtonT.ghost),
             cls="mt-4",

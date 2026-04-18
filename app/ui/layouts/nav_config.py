@@ -57,6 +57,8 @@ class IconNavItem:
     requires_auth: bool = True
     has_dropdown: bool = False
     icon: str = ""  # Lucide icon name — when set, renders UkIcon instead of letter
+    hide_for_teacher: bool = False
+    hide_for_admin: bool = False
 
 
 @dataclass(frozen=True)
@@ -109,6 +111,7 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         requires_auth=True,
         has_dropdown=False,
         icon="users",
+        hide_for_teacher=True,
     ),
     IconNavItem(
         "Explore",
