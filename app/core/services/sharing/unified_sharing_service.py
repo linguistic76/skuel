@@ -59,6 +59,9 @@ _CURRICULUM_ENTITY_TYPES = frozenset(
     }
 )
 
+# User-authored content — shareable in any status except archived.
+_USER_ENTRY_TYPES = frozenset({EntityType.USER_ENTRY.value})
+
 
 class UnifiedSharingService:
     """Entity-agnostic sharing and access control service.
@@ -407,7 +410,7 @@ class UnifiedSharingService:
     @staticmethod
     def _check_shareable(status: str, entity_type: str) -> Result[bool]:
         """Evaluate whether an entity with given status/entity_type can be shared."""
-        if entity_type == EntityType.USER_ENTRY.value:
+        if entity_type in _USER_ENTRY_TYPES:
             if status == "archived":
                 return Result.fail(
                     Errors.validation(
