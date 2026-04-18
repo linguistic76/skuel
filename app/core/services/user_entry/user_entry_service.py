@@ -423,7 +423,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     # PRIVATE HELPERS
     # =========================================================================
 
-    def _validate_audience(self, request: UserEntryCreateRequest) -> Result[bool]:
+    def _validate_audience(self, request: UserEntryCreateRequest) -> Result[None]:
         """ADR §3 guardrail: TEACHER_REVIEW must resolve to a real audience.
 
         Allowed:
@@ -434,7 +434,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
           - ``pipeline=TEACHER_REVIEW`` with neither of the above
         """
         if request.pipeline != Pipeline.TEACHER_REVIEW:
-            return Result.ok(True)
+            return Result.ok(None)
         has_audience = bool(
             request.share_with_groups or request.share_with_users or request.fulfills_exercise_uid
         )
@@ -446,7 +446,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                     field="audience",
                 )
             )
-        return Result.ok(True)
+        return Result.ok(None)
 
     async def _next_revision(self, user_uid: UserUID, exercise_uid: str) -> int:
         """Compute the next revision number for (user, exercise)."""
