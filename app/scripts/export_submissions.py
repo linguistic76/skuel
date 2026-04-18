@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Export pending ExerciseSubmissions to markdown files for offline review.
+Export pending UserEntries to markdown files for offline review.
 
 Usage:
     uv run scripts/export_submissions.py --teacher-uid <uid>

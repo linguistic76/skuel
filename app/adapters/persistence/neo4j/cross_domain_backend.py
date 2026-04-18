@@ -990,14 +990,23 @@ class CrossDomainBackend:
         start_datetime: str,
         end_datetime: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Get journal input entries within a date range."""
+        """Get journal source entries within a date range.
+
+        After ADR-054 the former `:JeInput` nodes are `:UserEntry` with
+        `pipeline='transcribe_and_structure'` — the audio source of the
+        journal flow. The LLM-structured child (pipeline='none', linked via
+        TRANSFORMS) is intentionally not included here: analytics consumes
+        the source's `processed_content` (transcript) plus the metadata
+        fields the migration preserved on the source node.
+        """
         return await self.executor.execute_query(
             """
-            MATCH (j:JeInput {user_uid: $user_uid})
-            WHERE j.created_at >= datetime($start_datetime)
+            MATCH (j:UserEntry {user_uid: $user_uid})
+            WHERE j.pipeline = 'transcribe_and_structure'
+              AND j.created_at >= datetime($start_datetime)
               AND j.created_at <= datetime($end_datetime)
             RETURN j.uid as uid,
-                   j.content as processed_content,
+                   coalesce(j.processed_content, j.content) as processed_content,
                    {title: j.title, summary: j.summary, themes: j.key_topics} as metadata,
                    j.created_at as created_at
             ORDER BY j.created_at DESC

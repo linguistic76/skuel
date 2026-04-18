@@ -5,9 +5,9 @@ Phase 4: RevisedExercise — Student-Facing Revision Pages
 Student view of teacher-created revision instructions. Phase 4 closes the feedback
 loop: after a teacher returns NEEDS_REVISION (Phase 3: ExerciseReport), they create
 a RevisedExercise targeting the student's gaps. The student then submits against it,
-re-entering Phase 2 (new ExerciseSubmission) for another round:
+re-entering Phase 2 (new UserEntry) for another round:
 
-    ExerciseReport (NEEDS_REVISION) → RevisedExercise → ExerciseSubmission v2 → ...
+    ExerciseReport (NEEDS_REVISION) → RevisedExercise → UserEntry v2 → ...
 
 These pages live in the GradeBook sidebar (ui/gradebook/nav.py).
 

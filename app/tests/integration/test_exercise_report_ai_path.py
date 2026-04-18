@@ -2,7 +2,7 @@
 
 Verifies the canonical report-creation path end-to-end against a real Neo4j
 instance. Covers the behavioral fix from plans/steady-swimming-axolotl.md
-Step 1: AI reports must get a SHARES_WITH edge from the submission owner
+Step 1: AI reports must get a SHARES_WITH edge from the entry owner
 (student) to the report node, so they appear in the same student-visible
 read path as teacher reports.
 
@@ -34,7 +34,7 @@ from core.utils.result_simplified import Result
 
 STUDENT_UID = "user_ai_report_student"
 AUTHOR_UID = "user_ai_report_author"
-SUBMISSION_UID = "es_ai_report_integration_001"
+SUBMISSION_UID = "ue_ai_report_integration_001"
 EXERCISE_UID = "ex_ai_report_integration_001"
 
 
@@ -45,7 +45,7 @@ async def seeded_submission(neo4j_driver, clean_neo4j):
     Creates:
       (student:User)
       (author:User)
-      (submission:Entity:ExerciseSubmission {uid, status})
+      (submission:Entity:UserEntry {uid, status, pipeline})
       (student)-[:OWNS]->(submission)
 
     The OWNS edge is what create_report_node uses to discover the student
@@ -57,10 +57,11 @@ async def seeded_submission(neo4j_driver, clean_neo4j):
                 """
                 MERGE (student:User {uid: $student_uid})
                 MERGE (author:User {uid: $author_uid})
-                CREATE (submission:Entity:ExerciseSubmission {
+                CREATE (submission:Entity:UserEntry {
                     uid: $submission_uid,
                     title: 'Integration Submission',
-                    entity_type: 'exercise_submission',
+                    entity_type: 'user_entry',
+                    pipeline: 'teacher_review',
                     status: 'active',
                     user_uid: $student_uid,
                     content: 'Student work.',

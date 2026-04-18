@@ -696,10 +696,14 @@ class Neo4jSchemaManager:
         Drop indexes that reference labels no longer in use.
 
         Stale indexes:
-        - ai_report_uid_idx (label AiReport — reports use ExerciseReport/JeOutput)
+        - ai_report_uid_idx (label AiReport — reports use ExerciseReport)
         - lpstep_embedding_idx (label LpStep — current label is PathStep)
-        - journal_submission_* (label JournalSubmission — renamed to JeInput)
-        - journal_report_* (label JournalReport — renamed to JeOutput)
+        - journal_submission_* (label JournalSubmission — predecessor of JeInput)
+        - journal_report_* (label JournalReport — predecessor of JeOutput)
+        - submission_uid_idx (label Submission — abstract base removed in ADR-054)
+        - exercise_submission_* (label ExerciseSubmission — collapsed into UserEntry, ADR-054)
+        - je_input_* (label JeInput — collapsed into UserEntry, ADR-054)
+        - je_output_* (label JeOutput — collapsed into UserEntry, ADR-054)
         - knowledge_fulltext (legacy — label Entity with old field set)
         - tasks_fulltext (legacy — replaced by task_fulltext_idx)
         - journals_fulltext (legacy — label Document no longer exists)
@@ -713,6 +717,17 @@ class Neo4jSchemaManager:
             "journal_submission_user_uid_idx",
             "journal_report_uid_idx",
             "journal_report_user_uid_idx",
+            # ADR-054: Submission/ExerciseSubmission/JeInput/JeOutput collapsed into UserEntry
+            "submission_uid_idx",
+            "exercise_submission_uid_idx",
+            "exercise_submission_user_uid_idx",
+            "exercise_submission_fulltext_idx",
+            "je_input_uid_idx",
+            "je_input_user_uid_idx",
+            "je_input_fulltext_idx",
+            "je_output_uid_idx",
+            "je_output_user_uid_idx",
+            "je_output_fulltext_idx",
             # Legacy fulltext indexes (replaced by sync_fulltext_indexes)
             "knowledge_fulltext",
             "tasks_fulltext",

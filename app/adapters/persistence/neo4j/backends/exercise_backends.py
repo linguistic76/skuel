@@ -1,7 +1,7 @@
 """Exercise-family backends: Exercise, RevisedExercise, ExerciseReport.
 
 The three entities that drive the five-phase learning loop:
-Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → …
+Exercise → UserEntry → ExerciseReport → RevisedExercise → …
 """
 
 from __future__ import annotations

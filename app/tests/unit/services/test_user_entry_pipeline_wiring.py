@@ -440,9 +440,7 @@ class TestFailedPhaseEventTag:
         svc = _entry_service_with_updated(entry)
         bus, captured = self._event_bus_and_captured()
 
-        dispatcher = _make_dispatcher(
-            entry_service=svc, transcription_adapter=None, event_bus=bus
-        )
+        dispatcher = _make_dispatcher(entry_service=svc, transcription_adapter=None, event_bus=bus)
         await dispatcher.process(entry)
 
         failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]

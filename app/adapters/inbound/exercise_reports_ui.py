@@ -3,10 +3,10 @@ Phase 3: ExerciseReport — Student-Facing Feedback Pages
 =========================================================
 
 Student view of exercise feedback. An ExerciseReport is created when a teacher
-or AI evaluates a submission (Phase 2: ExerciseSubmission):
+or AI evaluates a submission (Phase 2: UserEntry):
 
-    ExerciseSubmission → ExerciseReport  (teacher: ReportSource.HUMAN)
-                      → ExerciseReport  (AI: ReportSource.LLM)
+    UserEntry → ExerciseReport  (teacher: ReportSource.HUMAN)
+              → ExerciseReport  (AI: ReportSource.LLM)
 
 assessment_outcome drives what the student sees:
     APPROVED        — work accepted; loop closes for this exercise

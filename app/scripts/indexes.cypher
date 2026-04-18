@@ -7,7 +7,7 @@
 // Run manually only if needed: paste into Neo4j Browser or cypher-shell.
 // =============================================================================
 
-// UID indexes (23 — one per entity type + Entity base)
+// UID indexes (19 — one per indexed entity type + Entity base)
 CREATE INDEX entity_uid_idx IF NOT EXISTS FOR (n:Entity) ON (n.uid);
 CREATE INDEX task_uid_idx IF NOT EXISTS FOR (n:Task) ON (n.uid);
 CREATE INDEX goal_uid_idx IF NOT EXISTS FOR (n:Goal) ON (n.uid);
@@ -21,27 +21,22 @@ CREATE INDEX learning_path_uid_idx IF NOT EXISTS FOR (n:LearningPath) ON (n.uid)
 CREATE INDEX learning_step_uid_idx IF NOT EXISTS FOR (n:PathStep) ON (n.uid);
 CREATE INDEX life_path_uid_idx IF NOT EXISTS FOR (n:LifePath) ON (n.uid);
 CREATE INDEX resource_uid_idx IF NOT EXISTS FOR (n:Resource) ON (n.uid);
-CREATE INDEX submission_uid_idx IF NOT EXISTS FOR (n:Submission) ON (n.uid);
-CREATE INDEX exercise_submission_uid_idx IF NOT EXISTS FOR (n:ExerciseSubmission) ON (n.uid);
-CREATE INDEX je_input_uid_idx IF NOT EXISTS FOR (n:JeInput) ON (n.uid);
+CREATE INDEX user_entry_uid_idx IF NOT EXISTS FOR (n:UserEntry) ON (n.uid);
 CREATE INDEX exercise_report_uid_idx IF NOT EXISTS FOR (n:ExerciseReport) ON (n.uid);
-CREATE INDEX je_output_uid_idx IF NOT EXISTS FOR (n:JeOutput) ON (n.uid);
 CREATE INDEX activity_report_uid_idx IF NOT EXISTS FOR (n:ActivityReport) ON (n.uid);
 CREATE INDEX form_template_uid_idx IF NOT EXISTS FOR (n:FormTemplate) ON (n.uid);
 CREATE INDEX form_submission_uid_idx IF NOT EXISTS FOR (n:FormSubmission) ON (n.uid);
 CREATE INDEX revised_exercise_uid_idx IF NOT EXISTS FOR (n:RevisedExercise) ON (n.uid);
 
-// User UID indexes (14 — all UserOwnedEntity types)
+// User UID indexes (12 — all UserOwnedEntity types)
 CREATE INDEX task_user_uid_idx IF NOT EXISTS FOR (n:Task) ON (n.user_uid);
 CREATE INDEX goal_user_uid_idx IF NOT EXISTS FOR (n:Goal) ON (n.user_uid);
 CREATE INDEX habit_user_uid_idx IF NOT EXISTS FOR (n:Habit) ON (n.user_uid);
 CREATE INDEX event_user_uid_idx IF NOT EXISTS FOR (n:Event) ON (n.user_uid);
 CREATE INDEX choice_user_uid_idx IF NOT EXISTS FOR (n:Choice) ON (n.user_uid);
 CREATE INDEX principle_user_uid_idx IF NOT EXISTS FOR (n:Principle) ON (n.user_uid);
-CREATE INDEX exercise_submission_user_uid_idx IF NOT EXISTS FOR (n:ExerciseSubmission) ON (n.user_uid);
-CREATE INDEX je_input_user_uid_idx IF NOT EXISTS FOR (n:JeInput) ON (n.user_uid);
+CREATE INDEX user_entry_user_uid_idx IF NOT EXISTS FOR (n:UserEntry) ON (n.user_uid);
 CREATE INDEX exercise_report_user_uid_idx IF NOT EXISTS FOR (n:ExerciseReport) ON (n.user_uid);
-CREATE INDEX je_output_user_uid_idx IF NOT EXISTS FOR (n:JeOutput) ON (n.user_uid);
 CREATE INDEX activity_report_user_uid_idx IF NOT EXISTS FOR (n:ActivityReport) ON (n.user_uid);
 CREATE INDEX form_submission_user_uid_idx IF NOT EXISTS FOR (n:FormSubmission) ON (n.user_uid);
 CREATE INDEX revised_exercise_user_uid_idx IF NOT EXISTS FOR (n:RevisedExercise) ON (n.user_uid);

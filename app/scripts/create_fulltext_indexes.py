@@ -86,10 +86,10 @@ FULLTEXT_INDEX_DEFINITIONS = {
         "fields": ["title", "instructions"],
         "description": "Revised Exercises - title and instructions",
     },
-    "ExerciseSubmission": {
-        "index_name": "exercise_submission_fulltext_idx",
-        "fields": ["title", "processed_content"],
-        "description": "Exercise Submissions - title and processed content",
+    "UserEntry": {
+        "index_name": "user_entry_fulltext_idx",
+        "fields": ["title", "processed_content", "content"],
+        "description": "User entries — title, processed content, and content",
     },
     # Forms (2)
     "FormTemplate": {
