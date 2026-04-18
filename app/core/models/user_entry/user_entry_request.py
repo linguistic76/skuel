@@ -96,6 +96,14 @@ class UserEntryCreateRequest(CreateRequestBase):
     share_with_users: list[str] = Field(
         default_factory=list, description="User UIDs to share with (SHARES_WITH)"
     )
+    auto_share_to_exercise_groups: bool = Field(
+        default=False,
+        description=(
+            "When True, resolve the exercise's assigned groups server-side "
+            "and SHARED_WITH_GROUP this entry to each. Requires "
+            "``fulfills_exercise_uid``; silently noop without it."
+        ),
+    )
     visibility: Visibility | None = Field(
         None,
         description=(

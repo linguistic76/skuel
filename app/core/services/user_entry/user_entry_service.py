@@ -505,9 +505,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         Policy:
           1. Explicit ``share_with_groups`` / ``share_with_users`` — share
              directly via ``UnifiedSharingService``.
-          2. ``pipeline=TEACHER_REVIEW`` + ``fulfills_exercise_uid`` + no
-             explicit audience — auto-share to the exercise's assigned
-             groups (discovered via ``get_groups_shared_with``).
+          2. ``auto_share_to_exercise_groups=True`` (or, for programmatic
+             callers, implicit ``pipeline=TEACHER_REVIEW`` with exercise and
+             no explicit shares) — resolve the exercise's assigned groups
+             and SHARED_WITH_GROUP to each.
           3. Otherwise — no sharing (default visibility=PRIVATE).
         """
         if self.sharing_service is None:
@@ -543,12 +544,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             else:
                 shared_any = True
 
-        # Auto-share to exercise's assigned groups for TEACHER_REVIEW default
-        if (
-            not shared_any
-            and request.pipeline == Pipeline.TEACHER_REVIEW
-            and request.fulfills_exercise_uid
-        ):
+        # Auto-share to exercise groups: explicit flag wins; otherwise fall
+        # back to the implicit TEACHER_REVIEW+exercise+no-explicit-shares path
+        # so programmatic callers keep working without the new flag.
+        should_auto_share = request.auto_share_to_exercise_groups or (
+            not shared_any and request.pipeline == Pipeline.TEACHER_REVIEW
+        )
+        if should_auto_share and request.fulfills_exercise_uid:
             groups_result = await self.sharing_service.get_groups_shared_with(
                 entity_uid=request.fulfills_exercise_uid,
             )

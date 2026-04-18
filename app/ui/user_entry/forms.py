@@ -253,21 +253,24 @@ def render_upload_form(
             ),
             **{"x-show": "validationError", "x-cloak": True},
         ),
-        # Hidden fields bound to Alpine state — consumed by the upload route
+        # Hidden fields bound to Alpine state — consumed by the upload route.
+        # ``auto_share_to_exercise_groups`` is an explicit boolean: the server
+        # resolves the exercise's assigned groups instead of trusting a
+        # client-synthesized sentinel value.
         Input(
             type="hidden",
             name="share_with_groups",
-            **{
-                "x-bind:value": (
-                    "(sendToTeacher ? '__exercise_groups__,' : '') + "
-                    "(shareGroup && shareGroupUid ? shareGroupUid : '')"
-                )
-            },
+            **{"x-bind:value": "shareGroup && shareGroupUid ? shareGroupUid : ''"},
         ),
         Input(
             type="hidden",
             name="share_with_users",
             **{"x-bind:value": "sharePeer && sharePeerUid ? sharePeerUid : ''"},
+        ),
+        Input(
+            type="hidden",
+            name="auto_share_to_exercise_groups",
+            **{"x-bind:value": "sendToTeacher ? 'true' : 'false'"},
         ),
         Input(
             type="hidden",

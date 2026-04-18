@@ -120,14 +120,16 @@ def create_user_entry_api_routes(
         """Create a UserEntry from a multipart file upload.
 
         Form fields:
-            file                 — upload (required)
-            title                — entry title (defaults to filename)
-            pipeline             — Pipeline enum value (default: NONE)
-            fulfills_exercise_uid — optional exercise link
-            about_path_step_uid  — optional PathStep link
-            instructions         — pipeline-specific instructions
-            share_with_groups    — CSV of group UIDs
-            share_with_users     — CSV of user UIDs
+            file                           — upload (required)
+            title                          — entry title (defaults to filename)
+            pipeline                       — Pipeline enum value (default: NONE)
+            fulfills_exercise_uid          — optional exercise link
+            about_path_step_uid            — optional PathStep link
+            instructions                   — pipeline-specific instructions
+            share_with_groups              — CSV of group UIDs
+            share_with_users               — CSV of user UIDs
+            auto_share_to_exercise_groups  — ``"true"`` to server-resolve the
+                                             exercise's assigned groups
         """
         user_uid = require_authenticated_user(request)
 
@@ -155,6 +157,8 @@ def create_user_entry_api_routes(
         share_users_raw = form.get("share_with_users", "") or ""
         share_with_groups = [g.strip() for g in str(share_groups_raw).split(",") if g.strip()]
         share_with_users = [u.strip() for u in str(share_users_raw).split(",") if u.strip()]
+        auto_share_raw = str(form.get("auto_share_to_exercise_groups") or "").strip().lower()
+        auto_share_to_exercise_groups = auto_share_raw in {"true", "1", "on", "yes"}
 
         title_val = form.get("title") or uploaded_file.filename or "Untitled"
 
@@ -175,6 +179,7 @@ def create_user_entry_api_routes(
             ),
             share_with_groups=share_with_groups,
             share_with_users=share_with_users,
+            auto_share_to_exercise_groups=auto_share_to_exercise_groups,
         )
 
         result = await user_entry_service.create_entry(request=req, user_uid=user_uid)
