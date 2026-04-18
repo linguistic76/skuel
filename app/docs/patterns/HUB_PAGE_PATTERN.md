@@ -330,13 +330,13 @@ section = HubSection("Contents", cards)
 
 **Files:** `ui/home_hub.py` (unified tabbed hub — `HomeHub(active_tab)`), `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`), `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
 
-## Shelved Hubs
+## Retired Hubs
 
-| Old Route | Old File | Shelved To | Replaced By |
-|-----------|----------|------------|-------------|
-| `/curriculum` | `ui/curriculum/landing.py` | `_shelved/curriculum_landing/` | `/profile` (301 redirect) |
-| `/study` | `ui/study/dashboard.py` | `_shelved/study_dashboard/` | `/profile` (301 redirect) |
-| `/activities` | `adapters/inbound/activity_hub_routes.py` | — (route removed, content lives in `/profile`) | — (no redirect, route deleted) |
+| Old Route | Replaced By |
+|-----------|-------------|
+| `/curriculum` | `/profile` (301 redirect) |
+| `/study` | `/profile` (301 redirect) |
+| `/activities` | — (no redirect, route deleted; content lives in `/profile`) |
 
 ## File Locations
 
