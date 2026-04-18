@@ -147,7 +147,7 @@ instead of `dict[str, Any]` for parameters.
 
 *Phase 4 — Return types:* ~170 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
 to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_service_interface.py`):
-- Domain model returns: `Result[ExerciseSubmission]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
+- Domain model returns: `Result[UserEntry]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
 - Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`
 - Existing dataclasses: `Result[LearningVelocityMetrics]`, `Result[SpendingPatternAnalysis]`
 - 48 output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
@@ -169,7 +169,7 @@ protocol root cause fixed: 4 extended protocols (`GoalsSearchOperations`, `Event
 `ChoicesSearchOperations`, `PrinciplesSearchOperations`) re-parameterized from `Entity` to their
 domain model type, eliminating 27 `# type: ignore[return-value]` suppressions in facade delegation
 methods. `EntityStatus` enum now enforced in all status comparisons (previously only `UserRole`
-and `ExerciseScope`). `ProcessorType` and `Visibility` enums enforced in submission protocol
+and `ExerciseScope`). `Pipeline` and `Visibility` enums enforced in user entry protocol
 parameters (previously `Any`). 30 missing return type annotations added to service methods.
 
 *Phase 6 — Route handler returns:* All 27 `*_api.py` route files narrowed from `Result[Any]` to

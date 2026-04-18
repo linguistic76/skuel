@@ -282,7 +282,7 @@ from ui.buttons import Button, ButtonT
 # PathStep content with embedded exercise form
 def render_path_step_with_exercise(path_step, exercise):
     exercise_fields = FormGenerator.from_model(
-        ExerciseSubmissionRequest,
+        UserEntryRequest,
         include_fields=["response", "confidence_level"],
         values={"confidence_level": 0.5},
         help_texts={

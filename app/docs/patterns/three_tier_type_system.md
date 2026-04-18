@@ -175,8 +175,8 @@ Entity (~19 fields)
 │   ├── Task, Goal, Habit, Event, Choice, Principle
 │   ├── ActivityReport                           (activity feedback — no file fields)
 │   ├── Submission → ExerciseSubmission
-│   ├── ExerciseReport(UserOwnedEntity)  (NOT Submission — report fields only)
-│   ├── JeInput, JeOutput  (standalone journal domain)
+│   ├── UserEntry
+│   ├── ExerciseReport(UserOwnedEntity)
 │   └── LifePath
 ├── Curriculum(Entity) +21 fields → PathStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields
@@ -188,9 +188,8 @@ Entity (~19 fields)
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 fields → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
 ├── UserOwnedDTO → ActivityReportDTO              (activity feedback — no file fields)
-├── UserOwnedDTO → SubmissionDTO → ExerciseSubmissionDTO
-├── UserOwnedDTO → ExerciseReportDTO
-├── UserOwnedDTO → JeInputDTO, JeOutputDTO  (standalone journal domain)
+├── UserOwnedDTO -> UserEntryDTO
+├── UserOwnedDTO -> ExerciseReportDTO
 ├── CurriculumDTO(EntityDTO) → PathStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
@@ -570,8 +569,7 @@ As of February 2026 (domain-first architecture complete):
 - All 6 Activity domains: Task, Goal, Habit, Event, Choice, Principle (extend `UserOwnedEntity`)
 - All 3 Curriculum domains: PathStep, LearningPath, Exercise (extend `Curriculum`)
 - Resource domain (extends `Entity`)
-- Submissions: ExerciseSubmission (extends `Submission(UserOwnedEntity)`)
-- Journal: JeInput, JeOutput (extend `UserOwnedEntity` directly — standalone domain)
+- Submissions/Journal: UserEntry (extends `UserOwnedEntity`)
 - Feedback: ActivityReport (extends `UserOwnedEntity` directly — no file fields)
 - LifePath (extends `UserOwnedEntity`)
 - Each domain has a corresponding per-domain DTO (e.g., `TaskDTO`, `GoalDTO`)

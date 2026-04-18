@@ -62,7 +62,7 @@ ExerciseReport arrives
 
 ## Implementation Notes (When Ready)
 
-- `ProcessorType.HYBRID` already exists — fits this three-role model
+- `ReportSource.HYBRID` already exists — fits this three-role model
 - AI generation could use the same LLM infrastructure as ExerciseReport
   (Exercise instructions as prompt, Feedback as context)
 - Student draft could use annotation fields similar to ActivityReport

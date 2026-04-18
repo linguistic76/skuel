@@ -13,7 +13,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 
 | File | Purpose | Key Enums |
 |------|---------|-----------|
-| `entity_enums.py` | Core identity, lifecycle, domain classification | EntityType, EntityStatus, ContentOrigin, ProcessorType, Domain, NonKuDomain, ContentScope |
+| `entity_enums.py` | Core identity, lifecycle, domain classification | EntityType, EntityStatus, ContentOrigin, Domain, NonKuDomain, ContentScope |
 | `activity_enums.py` | Priority, Confidence, calendar types, dual-track assessment | Priority, Confidence, ActivityType, 5 assessment levels |
 | `goal_enums.py` | Goal classification | GoalType, GoalTimeframe, MeasurementType, HabitEssentiality |
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
@@ -52,7 +52,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | **Knowledge** (atomic curriculum) | KU, RESOURCE | Admin-created, no user_uid | :Entity:Ku, :Entity:Resource |
 | **Curriculum Structure** | PATH_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:PathStep, :Entity:LearningPath, :Entity:Exercise |
 | **Forms** | FORM_TEMPLATE, FORM_SUBMISSION | Template: admin-created; Submission: user-owned | :Entity:FormTemplate, :Entity:FormSubmission |
-| **Submissions** | EXERCISE_SUBMISSION | User-owned | :Entity:ExerciseSubmission:Submission |
+| **UserEntry** | USER_ENTRY | User-owned | :Entity:UserEntry |
 | **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport, :Entity:ActivityReport |
 | **Journal** | JE_INPUT, JE_OUTPUT | User-owned | :Entity:JeInput, :Entity:JeOutput |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
@@ -64,7 +64,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |------|---------------|-------------|
 | A | CURATED | Resource, FormTemplate |
 | B | CURRICULUM | KU, PathStep, LearningPath, Exercise, RevisedExercise |
-| C | USER_CREATED | All 6 Activity types + ExerciseSubmission, JeInput, JeOutput, LifePath, FormSubmission |
+| C | USER_CREATED | All 6 Activity types + UserEntry, LifePath, FormSubmission |
 | D | REPORT | ActivityReport, ExerciseReport |
 
 **Key methods:**
@@ -73,7 +73,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |--------|---------|---------|
 | `is_activity()` | bool | Is it one of the 6 user activity domains? |
 | `is_knowledge()` | bool | Is it shared curriculum (KU, Resource)? |
-| `is_content_processing()` | bool | Is it in the processing chain (ExerciseSubmission, JeInput, etc.)? |
+| `is_content_processing()` | bool | Is it in the processing chain (UserEntry, etc.)? |
 | `is_user_owned()` | bool | Does it require a user_uid? |
 | `valid_statuses()` | frozenset[EntityStatus] | Which statuses are valid for this type? |
 | `default_status()` | EntityStatus | What status does a new entity get? |
@@ -113,7 +113,7 @@ Activity:
 ```
 
 **Reprocessing path:** COMPLETED → SUBMITTED and FAILED → SUBMITTED are valid transitions
-for content-processing entities (ExerciseSubmission, JE_INPUT). Used by
+for content-processing entities (UserEntry). Used by
 `SubmissionsProcessingService.reprocess_submission()` to retry or re-evaluate submissions.
 Non-submission entity types can't use this path — they don't have SUBMITTED in their
 `valid_statuses()`.
@@ -137,7 +137,7 @@ Non-submission entity types can't use this path — they don't have SUBMITTED in
 |------------|---------------|---------|
 | Ku, Resource, ExerciseReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
 | PathStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
-| ExerciseSubmission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
+| UserEntry | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
 | ActivityReport | COMPLETED (always — created already complete) | COMPLETED |
 | Task | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED | DRAFT |
 | Goal | DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED, FAILED, ARCHIVED | DRAFT |
@@ -291,9 +291,9 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 
 | Enum | Values | Purpose |
 |------|--------|---------|
-| SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `Submission.modality` (set at creation). Orthogonal to `ProcessorType` (who processes) — modality is *how* the submission was created. |
+| SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `UserEntry.modality` (set at creation). Orthogonal to `Pipeline` (what processes) — modality is *how* the submission was created. |
 | ExerciseScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
-| EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `JeOutput.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |
+| EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `UserEntry.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |
 | FormattingStyle | STRUCTURED, NARRATIVE, BULLET_POINTS, CONVERSATIONAL, EXECUTIVE_SUMMARY | Transcript formatting |
 | AnalysisDepth | BASIC, DETAILED, COMPREHENSIVE | LLM processing depth |
 | ContextEnrichmentLevel | NONE, BASIC, STANDARD, DEEP | SKUEL context integration |

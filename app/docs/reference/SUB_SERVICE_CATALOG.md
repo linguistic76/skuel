@@ -347,7 +347,7 @@ handler = TaskEventHandlerService(
 # Subscribed via event_bus in bootstrap — not called directly
 
 # Learning Loop handler — wired directly (not part of a facade)
-from core.services.submissions import LearningLoopEventHandlerService
+from core.services.user_entry import LearningLoopEventHandlerService
 
 handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_store=insight_store)
 # Subscribes to: SubmissionCreated, ReportSubmitted, SubmissionApproved
@@ -372,7 +372,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 
 **Usage:**
 ```python
-from core.services.submissions import LearningLoopQueryService
+from core.services.user_entry import LearningLoopQueryService
 
 service = LearningLoopQueryService(submissions_backend=submissions_backend)
 result = await service.get_submissions_for_path_step(user_uid, ps_uid)
@@ -408,7 +408,7 @@ result = await service.get_submissions_for_path_step(user_uid, ps_uid)
 
 **Usage:**
 ```python
-from core.services.submissions.submissions_search_service import SubmissionsSearchService
+from core.services.user_entry.user_entry_search_service import UserEntrySearchService
 
 service = SubmissionsSearchService(submissions_backend=submissions_backend)
 result = await service.list_reports_by_date_range(

@@ -325,13 +325,13 @@ full pipeline from upload to sharing and teacher review queue.
 
 ### Phase 3.5: Interaction — The Situated Audit Record
 
-Every ExerciseSubmission immediately spawns an **Interaction** node — a first-class
+Every UserEntry immediately spawns an **Interaction** node — a first-class
 Neo4j entity capturing *where in the curriculum* the student was when they submitted.
 
 **EntityType:** `EntityType.INTERACTION` (22nd entity type)
 **UID prefix:** `ia_`
 **Key fields:** `context_path_step_uid`, `context_learning_path_uid`, `target_uid` (exercise),
-`source_entity_uid` (back-pointer to ExerciseSubmission), `result_status` (PENDING → COMPLETED)
+`source_entity_uid` (back-pointer to UserEntry), `result_status` (PENDING → COMPLETED)
 
 **Graph relationships:**
 ```cypher
@@ -391,7 +391,7 @@ Reads across all 6 Activity Domains **and** the Curriculum track (KU mastery, LP
 PS progress) in a single MEGA_QUERY round-trip.
 
 **See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
-canonical taxonomy, all services, API routes, ProcessorType table, graph patterns.
+canonical taxonomy, all services, API routes, ReportSource table, graph patterns.
 
 ---
 
@@ -499,14 +499,14 @@ is no separate activity query layer. Both `ProgressReportGenerator` and
 
 ---
 
-## The ProcessorType Discriminator
+## The ReportSource Discriminator
 
-`ProcessorType` distinguishes who produced a report entity — not a separate entity type.
-New report sources add `ProcessorType` values; they do not create new EntityTypes.
+`ReportSource` distinguishes who produced a report entity — not a separate entity type.
+New report sources add `ReportSource` values; they do not create new EntityTypes.
 
-**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md#processortype-taxonomy) for the canonical ProcessorType table.
+**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md#reportsource-taxonomy) for the canonical ReportSource table.
 
-**Import:** `from core.models.enums.entity_enums import ProcessorType`
+**Import:** `from core.models.enums.pipeline import ReportSource`
 
 ---
 
@@ -581,7 +581,7 @@ See: `docs/user-guides/zpd.md`, `docs/user-guides/learning-loop.md`
 
 | Document | What It Covers |
 |----------|---------------|
-| [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Canonical report reference — all services, APIs, graph patterns, ProcessorType taxonomy |
+| [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Canonical report reference — all services, APIs, graph patterns, ReportSource taxonomy |
 | [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) | How the loop fits the Entity Type Architecture |
 | [ADR-038: Content Sharing](/docs/decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
 | [ADR-040: Teacher Exercise Workflow](/docs/decisions/ADR-040-teacher-exercise-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |

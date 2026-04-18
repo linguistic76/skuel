@@ -58,7 +58,7 @@ All 14 entity types are searchable via `SearchRouter` using `graph_aware_faceted
 |-------|---------|-----------|-------------|
 | Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) | Graph-Aware |
 | Curriculum (3) | KU, PS, LP | Shared content (no ownership filter) | Graph-Aware |
-| Learning Loop (3) | Exercise, RevisedExercise, ExerciseSubmission | User-owned (`OWNS`) | Graph-Aware |
+| Learning Loop (3) | Exercise, RevisedExercise, UserEntry | User-owned (`OWNS`) | Graph-Aware |
 | Forms (2) | FormTemplate, FormSubmission | Template=shared, Submission=user-owned | Standard |
 
 **Note:** MOC is emergent identity (any entity with `ORGANIZES` relationships), not an `EntityType`, and is not a standalone searchable domain.

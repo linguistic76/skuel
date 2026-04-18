@@ -22,7 +22,7 @@ They provide no value and actively undermine type safety.
 - `UserOperations` return types — Were `Result[Any]`, now `Result[User]` / `Result[UserContext]` (no circular import existed)
 - `get_active_learners` — Was `Result[list[Any]]`, now `Result[list[User]]`
 - `bookmark_knowledge` `tags` param — Was `list | None`, now `list[str] | None`
-- `SubmissionOperations.submit_file()` params — Were `entity_type: Any`, `processor_type: Any`, now `EntityType`, `ProcessorType`
+- `UserEntryOperations.submit_file()` params — Were `entity_type: Any`, `pipeline: Any`, now `EntityType`, `Pipeline`
 - `SubmissionOperations.list_submissions()` params — Were `entity_type: Any`, `status: Any`, now `EntityType`, `EntityStatus`
 - `SubmissionOperations.set_visibility()` — Was `visibility: Any`, now `Visibility`
 - `ExerciseReportOperations.generate_report()` — Were `entry: Any`, `exercise: Any`, now `Submission`, `Exercise`
@@ -113,7 +113,7 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 **Phase 4 — Return types:** ~170 protocol methods migrated from `Result[Any]` to specific types (0 `Result[Any]` remain in protocols, 2 intentional: `base_service_interface.py` and `OwnershipVerifier.verify_ownership` in `service_protocols.py` — the latter is a narrow internal callback protocol used by `LateralRelationshipService` and `LateralRelationshipsOrchestrator` to accept any domain facade's `verify_ownership(uid, user_uid) -> Result[T]`; `Result[T]` is invariant, each facade returns a different concrete `T`, and callers only branch on `.is_error`):
 
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
-  `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
+  `Result[CalendarData]`, `Result[Group]`, `Result[UserEntry]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
 - **110 output TypedDicts** in `query_types.py` for structured dict returns:
 

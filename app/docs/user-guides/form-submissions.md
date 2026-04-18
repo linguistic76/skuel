@@ -15,7 +15,7 @@ Forms are a **general-purpose content collection system** decoupled from the lea
 |---------|----------|-------------|
 | Purpose | Practice curriculum concepts | Collect any structured data |
 | Base class | `Curriculum` (21 extra fields) | `Entity` (lightweight) |
-| Submission type | `ExerciseSubmission` (file upload or inline form, typed by `SubmissionModality`) | `FormSubmission` (JSON) |
+| Submission type | `UserEntry` (file upload or inline form, typed by `SubmissionModality`) | `FormSubmission` (JSON) |
 | Report cycle | Yes (ExerciseReport → RevisedExercise) | No |
 | Embedding | PathSteps only | PathSteps (via EMBEDS_FORM) |
 | Sharing | Via group assignment | At submit time (group, direct, admin) |

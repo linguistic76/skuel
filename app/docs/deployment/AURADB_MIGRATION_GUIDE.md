@@ -422,7 +422,7 @@ CREATE CONSTRAINT lp_uid_unique IF NOT EXISTS FOR (n:LearningPath) REQUIRE n.uid
 CREATE CONSTRAINT exercise_uid_unique IF NOT EXISTS FOR (n:Exercise) REQUIRE n.uid IS UNIQUE;
 
 // Submission/Report constraints
-CREATE CONSTRAINT exercise_submission_uid_unique IF NOT EXISTS FOR (n:ExerciseSubmission) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT user_entry_uid_unique IF NOT EXISTS FOR (n:UserEntry) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT journal_submission_uid_unique IF NOT EXISTS FOR (n:JournalSubmission) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT exercise_report_uid_unique IF NOT EXISTS FOR (n:ExerciseReport) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT journal_report_uid_unique IF NOT EXISTS FOR (n:JournalReport) REQUIRE n.uid IS UNIQUE;

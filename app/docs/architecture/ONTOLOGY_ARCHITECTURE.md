@@ -94,10 +94,8 @@ moving through the World Layer:
 
 | Node | World Layer Anchor |
 |------|-------------------|
-| `ExerciseSubmission` | Responds to `Exercise` |
-| `ExerciseReport` | Reports on `ExerciseSubmission` |
-| `JeInput` | Anchored to user experience (journal) |
-| `JeOutput` | Derived from `JeInput` |
+| `UserEntry` | Responds to `Exercise` (or acts as standalone entry) |
+| `ExerciseReport` | Reports on `UserEntry` |
 | `Task` | May link to `Ku`, `Goal`, `PathStep` |
 | `Goal` | May align with `LifePath`, link to `Ku` |
 | `Habit` | May reinforce `Ku`, align with `PathStep` |
@@ -128,7 +126,7 @@ This chain is everything:
 ```cypher
 (:User)
   -[:SUBMITTED]->
-(:ExerciseSubmission)
+(:UserEntry)
   -[:SUBMISSION_FOR]->
 (:Exercise)
   <-[:USES_EXERCISE]-
@@ -181,7 +179,7 @@ Not everything connects to the user. **Only interaction + ownership objects do.*
 
 ```cypher
 // ✅ These are correct
-(:User)-[:SUBMITTED]->(:ExerciseSubmission)
+(:User)-[:OWNS]->(:UserEntry)
 (:User)-[:OWNS]->(:Task)
 (:User)-[:OWNS]->(:Goal)
 

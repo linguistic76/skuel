@@ -638,8 +638,7 @@ Routes / Application Code
 │   └─ learning_loop_query_service.py          (read-side: Interaction/Report traversals)
 │
 ├─ journal/
-│   ├─ journal_input_service.py     (JeInput CRUD + file upload — JournalInputOperations)
-│   └─ journal_output_service.py    (LLM processing → JeOutput — JournalOutputOperations)
+│   ├─ user_entry_processing_service.py     (LLM processing → UserEntry)
 │
 ├─ output/
 │   └─ instruction_resolver.py        (unified instruction resolution)
