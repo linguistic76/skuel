@@ -38,7 +38,10 @@ def create_groups_hub_routes(
 
         groups_list: list[Any] = []
         if services.groups is not None:
-            groups_result = await services.groups.get_user_groups(user_uid)
+            # Student hub: only count student-role memberships against the cap.
+            # A user who is a teaching-assistant (MEMBER_OF {role: "teacher"})
+            # in several groups would otherwise starve their student tabs.
+            groups_result = await services.groups.get_user_groups(user_uid, role="student")
             if not groups_result.is_error:
                 groups_list = (groups_result.value or [])[:MAX_STUDENT_GROUPS]
 

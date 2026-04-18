@@ -307,11 +307,15 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
         The first MATCH is also the membership guard — if the user is not in
         the group, no rows are returned (empty result, not an error). Own
-        entries are excluded so students see peer work, not their own.
+        entries are excluded so students see peer work, not their own. The
+        `group.is_active = true` predicate keeps deactivated groups from
+        leaking peer content to a still-MEMBER_OF viewer who URL-types the
+        old group UID.
         """
         result = await self.execute_query(
             """
             MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group {uid: $group_uid})
+            WHERE group.is_active = true
             MATCH (entry:UserEntry)-[r:SHARED_WITH_GROUP]->(group)
             WHERE entry.user_uid <> $user_uid
             OPTIONAL MATCH (author:User {uid: entry.user_uid})
@@ -348,6 +352,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         result = await self.execute_query(
             """
             MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group {uid: $group_uid})
+            WHERE group.is_active = true
             MATCH (entry:UserEntry {uid: $entry_uid})-[r:SHARED_WITH_GROUP]->(group)
             WHERE entry.user_uid <> $user_uid
             OPTIONAL MATCH (author:User {uid: entry.user_uid})

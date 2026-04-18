@@ -47,16 +47,29 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             return Result.fail(result)
         return Result.ok(True)
 
-    async def get_user_groups(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Get all groups a user is a member of (via MEMBER_OF relationship)."""
+    async def get_user_groups(
+        self, user_uid: UserUID, role: str | None = None
+    ) -> Result[list[Neo4jProperties]]:
+        """Get all groups a user is a member of (via MEMBER_OF relationship).
+
+        Args:
+            user_uid: UID of the member.
+            role: Optional MEMBER_OF role filter (e.g. "student", "teacher").
+                None returns memberships in all roles.
+        """
+        params: dict[str, Any] = {"user_uid": user_uid}
+        role_clause = ""
+        if role is not None:
+            role_clause = "AND r.role = $role"
+            params["role"] = role
         result = await self.execute_query(
             f"""
-            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            WHERE group.is_active = true
+            MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.MEMBER_OF}]->(group:Group)
+            WHERE group.is_active = true {role_clause}
             RETURN group
             ORDER BY group.created_at DESC
             """,
-            {"user_uid": user_uid},
+            params,
         )
         if result.is_error:
             return Result.fail(result)

@@ -9,7 +9,6 @@ block of UserEntry content peers shared via SHARED_WITH_GROUP.
 from fasthtml.common import Button, Div
 
 from core.models.group.group import Group
-from core.services.groups.group_service import MAX_STUDENT_GROUPS
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.hub import HubBlockData, HubDomainBlock
 
@@ -86,18 +85,16 @@ def GroupsHub(groups: list[Group], active_group_uid: str | None) -> Div:
             )
         )
 
-    # Defensive: clip to the enforced cap even if the caller forgot.
-    visible = groups[:MAX_STUDENT_GROUPS]
-    active = active_group_uid if any(g.uid == active_group_uid for g in visible) else visible[0].uid
+    active = active_group_uid if any(g.uid == active_group_uid for g in groups) else groups[0].uid
 
     return Div(
         Div(
             Div(
-                *[_tab_button(g) for g in visible],
+                *[_tab_button(g) for g in groups],
                 role="tablist",
                 style=_TAB_BAR_STYLE,
             ),
-            *[_tab_panel(g) for g in visible],
+            *[_tab_panel(g) for g in groups],
             **{"x-data": f"{{ activeTab: '{active}' }}", "x-cloak": True},
         ),
     )

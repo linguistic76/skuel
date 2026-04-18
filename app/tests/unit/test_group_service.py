@@ -212,8 +212,50 @@ class TestGetUserGroups:
         assert {g.uid for g in result.value} == {"group_good"}
 
 
+class TestGetUserGroupsRoleFilter:
+    """get_user_groups forwards the optional role filter to the backend.
+
+    The /groups hub and the cap check pass role="student" so teacher/TA
+    memberships don't starve the student-role tab cap (finding #6).
+    """
+
+    @pytest.mark.anyio
+    async def test_no_role_filter_by_default(self):
+        service, backend, _ = _make_service()
+        backend.get_user_groups = AsyncMock(return_value=Result.ok([]))
+
+        await service.get_user_groups("user_stud_01")
+
+        backend.get_user_groups.assert_awaited_once_with("user_stud_01", role=None)
+
+    @pytest.mark.anyio
+    async def test_forwards_student_role_filter(self):
+        service, backend, _ = _make_service()
+        backend.get_user_groups = AsyncMock(return_value=Result.ok([]))
+
+        await service.get_user_groups("user_stud_01", role="student")
+
+        backend.get_user_groups.assert_awaited_once_with("user_stud_01", role="student")
+
+
 class TestStudentGroupCap:
     """MAX_STUDENT_GROUPS cap enforcement in add_member()."""
+
+    @pytest.mark.anyio
+    async def test_cap_check_queries_student_role_only(self):
+        """Finding #6: cap counts only student-role memberships, so a user
+        who is a TA in 4 groups can still be added as a student to a 5th.
+        """
+        group = _make_group(uid="group_new")
+        service, backend, _ = _make_service()
+        backend.get = AsyncMock(return_value=Result.ok(group))
+        backend.get_user_groups = AsyncMock(return_value=Result.ok([]))
+        backend.add_member = AsyncMock(return_value=Result.ok([{"user_uid": "user_stud_01"}]))
+
+        result = await service.add_member(group.uid, "user_stud_01", role="student")
+
+        assert result.is_ok
+        backend.get_user_groups.assert_awaited_once_with("user_stud_01", role="student")
 
     @pytest.mark.anyio
     async def test_add_member_cap_rejects_5th_group_for_student(self):

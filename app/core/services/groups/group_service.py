@@ -153,17 +153,23 @@ class GroupService(BaseService):
     # ========================================================================
 
     @with_error_handling("get_user_groups", error_type="database")
-    async def get_user_groups(self, user_uid: UserUID) -> Result[list[Group]]:
+    async def get_user_groups(
+        self, user_uid: UserUID, role: str | None = None
+    ) -> Result[list[Group]]:
         """
         Get all groups a user is a member of (via MEMBER_OF relationship).
 
         Args:
             user_uid: UID of the student/member
+            role: Optional MEMBER_OF role filter — pass "student" to count
+                only student-role memberships (for the per-student cap and
+                the student-facing /groups hub), leave as None to get every
+                group the user is a member of regardless of role.
 
         Returns:
             Result containing list of groups
         """
-        result = await self.backend.get_user_groups(user_uid)
+        result = await self.backend.get_user_groups(user_uid, role=role)
 
         if result.is_error:
             return Result.fail(result)
@@ -220,9 +226,11 @@ class GroupService(BaseService):
                 )
 
         # Enforce per-student group cap — a student cannot be an active member of
-        # more than MAX_STUDENT_GROUPS groups at once.
+        # more than MAX_STUDENT_GROUPS groups *as a student*. Teacher/TA role
+        # memberships are counted separately (see /groups hub) and do not eat
+        # into the student cap.
         if role == "student":
-            user_groups_result = await self.get_user_groups(user_uid)
+            user_groups_result = await self.get_user_groups(user_uid, role="student")
             if user_groups_result.is_ok:
                 current_groups = user_groups_result.value or []
                 already_in = any(g.uid == group_uid for g in current_groups)
