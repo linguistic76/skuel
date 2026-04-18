@@ -606,3 +606,90 @@ async def test_check_access_database_error(mock_backend, sharing_service):
 
     assert result.is_error
     assert "Query timeout" in str(result.error)
+
+
+# ============================================================================
+# GET USER ENTRIES SHARED WITH GROUP TESTS
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_user_entries_shared_with_group_success(mock_backend, sharing_service):
+    """Returns list of dicts with entity/share_version/shared_at keys."""
+    mock_backend.query_user_entries_shared_with_group = AsyncMock(
+        return_value=Result.ok(
+            [
+                {
+                    "entry": {"uid": "ue_1", "title": "Reflection 1"},
+                    "share_version": "original",
+                    "shared_at": "2026-04-10T12:00:00",
+                },
+                {
+                    "entry": {"uid": "ue_2", "title": "Reflection 2"},
+                    "share_version": "original",
+                    "shared_at": "2026-04-11T12:00:00",
+                },
+            ]
+        )
+    )
+
+    result = await sharing_service.get_user_entries_shared_with_group(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+    )
+
+    assert result.is_ok
+    assert len(result.value) == 2
+    assert result.value[0]["entity"] == {"uid": "ue_1", "title": "Reflection 1"}
+    assert result.value[0]["share_version"] == "original"
+    assert result.value[0]["shared_at"] == "2026-04-10T12:00:00"
+
+
+@pytest.mark.asyncio
+async def test_get_user_entries_shared_with_group_empty(mock_backend, sharing_service):
+    """Empty backend result (e.g., non-member) yields Result.ok([])."""
+    mock_backend.query_user_entries_shared_with_group = AsyncMock(return_value=Result.ok([]))
+
+    result = await sharing_service.get_user_entries_shared_with_group(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+    )
+
+    assert result.is_ok
+    assert result.value == []
+
+
+@pytest.mark.asyncio
+async def test_get_user_entries_shared_with_group_backend_error(mock_backend, sharing_service):
+    """Backend errors propagate via Result.fail."""
+    from core.utils.result_simplified import Errors
+
+    mock_backend.query_user_entries_shared_with_group = AsyncMock(
+        return_value=Result.fail(Errors.database(operation="execute_query", message="boom"))
+    )
+
+    result = await sharing_service.get_user_entries_shared_with_group(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+    )
+
+    assert result.is_error
+    assert "boom" in str(result.error)
+
+
+@pytest.mark.asyncio
+async def test_get_user_entries_shared_with_group_forwards_limit(mock_backend, sharing_service):
+    """Custom limit is forwarded to the backend query."""
+    mock_backend.query_user_entries_shared_with_group = AsyncMock(return_value=Result.ok([]))
+
+    await sharing_service.get_user_entries_shared_with_group(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+        limit=5,
+    )
+
+    mock_backend.query_user_entries_shared_with_group.assert_awaited_once_with(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+        limit=5,
+    )

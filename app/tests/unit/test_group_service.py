@@ -210,3 +210,87 @@ class TestGetUserGroups:
 
         assert result.is_ok
         assert {g.uid for g in result.value} == {"group_good"}
+
+
+class TestStudentGroupCap:
+    """MAX_STUDENT_GROUPS cap enforcement in add_member()."""
+
+    @pytest.mark.anyio
+    async def test_add_member_cap_rejects_5th_group_for_student(self):
+        group = _make_group(uid="group_new")
+        existing = [_make_group(uid=f"group_{i}") for i in range(4)]  # student already in 4 groups
+        service, backend, _ = _make_service()
+        backend.get = AsyncMock(return_value=Result.ok(group))
+        backend.get_user_groups = AsyncMock(
+            return_value=Result.ok(
+                [{"uid": g.uid, "name": g.name, "owner_uid": g.owner_uid} for g in existing]
+            )
+        )
+        backend.add_member = AsyncMock()
+
+        result = await service.add_member(group.uid, "user_stud_01", role="student")
+
+        assert result.is_error
+        assert "4" in str(result.error.message)
+        backend.add_member.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_add_member_cap_allows_readd_to_existing_group(self):
+        """Student already in group_x can be re-added to group_x even at cap."""
+        group = _make_group(uid="group_x")
+        existing = [
+            _make_group(uid="group_x"),
+            _make_group(uid="group_2"),
+            _make_group(uid="group_3"),
+            _make_group(uid="group_4"),
+        ]
+        service, backend, _ = _make_service()
+        backend.get = AsyncMock(return_value=Result.ok(group))
+        backend.get_user_groups = AsyncMock(
+            return_value=Result.ok(
+                [{"uid": g.uid, "name": g.name, "owner_uid": g.owner_uid} for g in existing]
+            )
+        )
+        backend.add_member = AsyncMock(return_value=Result.ok([{"user_uid": "user_stud_01"}]))
+
+        result = await service.add_member(group.uid, "user_stud_01", role="student")
+
+        assert result.is_ok
+        backend.add_member.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_add_member_cap_does_not_apply_to_teacher_role(self):
+        group = _make_group(uid="group_new")
+        existing = [_make_group(uid=f"group_{i}") for i in range(4)]
+        service, backend, _ = _make_service()
+        backend.get = AsyncMock(return_value=Result.ok(group))
+        backend.get_user_groups = AsyncMock(
+            return_value=Result.ok(
+                [{"uid": g.uid, "name": g.name, "owner_uid": g.owner_uid} for g in existing]
+            )
+        )
+        backend.add_member = AsyncMock(return_value=Result.ok([{"user_uid": "user_teach_01"}]))
+
+        result = await service.add_member(group.uid, "user_teach_01", role="teacher")
+
+        assert result.is_ok
+        backend.add_member.assert_awaited_once()
+
+    @pytest.mark.anyio
+    async def test_add_member_cap_allows_4th_group(self):
+        """Boundary: student in 3 groups can be added to a 4th (3 < 4)."""
+        group = _make_group(uid="group_4")
+        existing = [_make_group(uid=f"group_{i}") for i in range(3)]
+        service, backend, _ = _make_service()
+        backend.get = AsyncMock(return_value=Result.ok(group))
+        backend.get_user_groups = AsyncMock(
+            return_value=Result.ok(
+                [{"uid": g.uid, "name": g.name, "owner_uid": g.owner_uid} for g in existing]
+            )
+        )
+        backend.add_member = AsyncMock(return_value=Result.ok([{"user_uid": "user_stud_01"}]))
+
+        result = await service.add_member(group.uid, "user_stud_01", role="student")
+
+        assert result.is_ok
+        backend.add_member.assert_awaited_once()
