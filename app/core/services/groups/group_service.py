@@ -32,6 +32,8 @@ from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
+MAX_STUDENT_GROUPS = 4
+
 
 class GroupService(BaseService):
     """
@@ -216,6 +218,20 @@ class GroupService(BaseService):
                         f"Group {group_uid} has reached its member limit ({group.max_members})"
                     )
                 )
+
+        # Enforce per-student group cap — a student cannot be an active member of
+        # more than MAX_STUDENT_GROUPS groups at once.
+        if role == "student":
+            user_groups_result = await self.get_user_groups(user_uid)
+            if user_groups_result.is_ok:
+                current_groups = user_groups_result.value or []
+                already_in = any(g.uid == group_uid for g in current_groups)
+                if not already_in and len(current_groups) >= MAX_STUDENT_GROUPS:
+                    return Result.fail(
+                        Errors.validation(
+                            f"Students can belong to a maximum of {MAX_STUDENT_GROUPS} groups."
+                        )
+                    )
 
         result = await self.backend.add_member(
             group_uid=group_uid,

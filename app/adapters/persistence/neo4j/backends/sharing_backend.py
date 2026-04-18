@@ -296,3 +296,32 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])
+
+    async def query_user_entries_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get UserEntries shared with a specific group the user belongs to.
+
+        The first MATCH is also the membership guard — if the user is not in
+        the group, no rows are returned (empty result, not an error). Own
+        entries are excluded so students see peer work, not their own.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group {uid: $group_uid})
+            MATCH (entry:UserEntry)-[r:SHARED_WITH_GROUP]->(group)
+            WHERE entry.user_uid <> $user_uid
+            RETURN entry,
+                   r.share_version as share_version,
+                   r.shared_at as shared_at
+            ORDER BY r.shared_at DESC
+            LIMIT $limit
+            """,
+            {"user_uid": user_uid, "group_uid": group_uid, "limit": limit},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])

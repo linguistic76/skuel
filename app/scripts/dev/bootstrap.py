@@ -616,6 +616,10 @@ async def _wire_all_routes(
 
     create_groups_routes(app, rt, services)
 
+    from adapters.inbound.groups_hub_routes import create_groups_hub_routes
+
+    create_groups_hub_routes(app, rt, services)
+
     from adapters.inbound.teaching_routes import create_teaching_routes
 
     create_teaching_routes(app, rt, services)

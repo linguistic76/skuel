@@ -372,6 +372,34 @@ class UnifiedSharingService:
         ]
         return Result.ok(entities)
 
+    async def get_user_entries_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        limit: int = 20,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get UserEntries shared with a specific group the user belongs to.
+
+        Empty list if the user is not a member of the group (query guards on
+        MEMBER_OF). Own entries are excluded.
+        """
+        result = await self.backend.query_user_entries_shared_with_group(
+            user_uid=user_uid, group_uid=group_uid, limit=limit
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        return Result.ok(
+            [
+                {
+                    "entity": dict(r["entry"]),
+                    "share_version": r["share_version"],
+                    "shared_at": r["shared_at"],
+                }
+                for r in records
+            ]
+        )
+
     # =========================================================================
     # PRIVATE HELPERS
     # =========================================================================

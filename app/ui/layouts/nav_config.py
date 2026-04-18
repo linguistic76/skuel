@@ -102,6 +102,15 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         icon="check-square",
     ),
     IconNavItem(
+        "Groups",
+        "",
+        "/groups",
+        "groups",
+        requires_auth=True,
+        has_dropdown=False,
+        icon="users",
+    ),
+    IconNavItem(
         "Explore",
         "",
         "/explore",

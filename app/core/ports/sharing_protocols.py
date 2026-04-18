@@ -127,3 +127,12 @@ class SharingOperations(Protocol):
     ) -> Result[list[Any]]:
         """Get entities shared via group membership. Returns Result[list[dict]]."""
         ...
+
+    async def get_user_entries_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        limit: int = 20,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get UserEntries shared with one specific group the user belongs to."""
+        ...
