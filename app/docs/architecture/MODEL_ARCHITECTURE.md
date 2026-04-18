@@ -68,11 +68,8 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   ├── Choice ───────── + choice_type, options, decision_context, outcome
 │   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
 │   │
-│   ├── Submission ───── + processor_type, modality, file_path, file_type, processed_content
-│   │   └── UserEntry   (forces entity_type=USER_ENTRY)
-│   ├── ExerciseReport ── + processed_content, subject_uid, assessment_outcome, report_file_path, report_generated_at (NOT Submission; forces entity_type=EXERCISE_REPORT)
-│   ├── JeInput ──────── (forces entity_type=JE_INPUT, standalone journal domain)
-│   ├── JeOutput ─────── (forces entity_type=JE_OUTPUT, standalone journal domain)
+│   ├── UserEntry ────── + pipeline, modality, file_path, file_size, file_type, processed_content (forces entity_type=USER_ENTRY)
+│   ├── ExerciseReport ── + processed_content, subject_uid, assessment_outcome, report_file_path, report_generated_at (forces entity_type=EXERCISE_REPORT)
 │   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)
 │   │
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score
@@ -142,7 +139,6 @@ core/models/{domain}/
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
 | `user_entry/` | UserEntry + DTOs | User Entry | + report_schedule.py |
 | `report/` | ActivityReport + ActivityReportDTO, ExerciseReport + ExerciseReportDTO | Report | ActivityReport: no file fields; ExerciseReport: tied to submission via subject_uid |
-| `journal/` | JeInput, JeOutput + DTOs | Journal | Standalone domain — NOT under submissions |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |
 | `finance/` | Finance + FinanceDTO + requests | Finance | + Invoice, FinanceIntelligence |

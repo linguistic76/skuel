@@ -174,7 +174,6 @@ Entity (~19 fields)
 ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle
 │   ├── ActivityReport                           (activity feedback — no file fields)
-│   ├── Submission → ExerciseSubmission
 │   ├── UserEntry
 │   ├── ExerciseReport(UserOwnedEntity)
 │   └── LifePath
@@ -220,7 +219,7 @@ core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
 ├── choice.py / choice_dto.py      # Choice domain
 ├── principle.py / principle_dto.py # Principle domain
 ├── life_path.py / life_path_dto.py # LifePath domain
-├── submission.py / submission_dto.py # Submission base
+├── user_entry.py / user_entry_dto.py # UserEntry(UserOwnedEntity)
 ├── activity_report.py / activity_report_dto.py # ActivityReport(UserOwnedEntity) — no file fields
 ├── exercise_report.py / exercise_report_dto.py  # ExerciseReport(UserOwnedEntity)
 ├── curriculum.py / curriculum_dto.py # Curriculum base

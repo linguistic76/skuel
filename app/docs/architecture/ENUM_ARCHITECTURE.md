@@ -54,7 +54,6 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | **Forms** | FORM_TEMPLATE, FORM_SUBMISSION | Template: admin-created; Submission: user-owned | :Entity:FormTemplate, :Entity:FormSubmission |
 | **UserEntry** | USER_ENTRY | User-owned | :Entity:UserEntry |
 | **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport, :Entity:ActivityReport |
-| **Journal** | JE_INPUT, JE_OUTPUT | User-owned | :Entity:JeInput, :Entity:JeOutput |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
 | **Hybrid/Destination** | REVISED_EXERCISE, LIFE_PATH | User-owned | :Entity:RevisedExercise, :Entity:LifePath |
 
@@ -291,6 +290,8 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 
 | Enum | Values | Purpose |
 |------|--------|---------|
+| Pipeline | NONE, TRANSCRIBE, TRANSCRIBE_AND_STRUCTURE, LLM_SUMMARY, TEACHER_REVIEW | User entry processing dispatch. Replaces `ProcessorType`. |
+| ReportSource | HUMAN, LLM, HYBRID, AUTOMATIC | Provenance of a report. Replaces `ProcessorType`. |
 | SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `UserEntry.modality` (set at creation). Orthogonal to `Pipeline` (what processes) — modality is *how* the submission was created. |
 | ExerciseScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
 | EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `UserEntry.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |
