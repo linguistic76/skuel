@@ -393,11 +393,43 @@ class UnifiedSharingService:
             [
                 {
                     "entity": dict(r["entry"]),
+                    "author_name": r["author_name"],
                     "share_version": r["share_version"],
                     "shared_at": r["shared_at"],
                 }
                 for r in records
             ]
+        )
+
+    async def get_user_entry_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        entry_uid: EntityUID,
+    ) -> Result[dict[str, Any] | None]:
+        """Read-only peer fetch for a single UserEntry, gated by group membership.
+
+        Returns ``Result.ok(None)`` when the entry is not visible to the viewer
+        via this group — callers should render a 404-equivalent view so we do
+        not leak whether the entry or group exists.
+        """
+        result = await self.backend.query_user_entry_shared_with_group(
+            user_uid=user_uid, group_uid=group_uid, entry_uid=entry_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        record = records[0]
+        return Result.ok(
+            {
+                "entity": dict(record["entry"]),
+                "group_name": record["group_name"],
+                "author_name": record["author_name"],
+                "share_version": record["share_version"],
+                "shared_at": record["shared_at"],
+            }
         )
 
     # =========================================================================

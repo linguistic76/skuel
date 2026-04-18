@@ -615,17 +615,19 @@ async def test_check_access_database_error(mock_backend, sharing_service):
 
 @pytest.mark.asyncio
 async def test_get_user_entries_shared_with_group_success(mock_backend, sharing_service):
-    """Returns list of dicts with entity/share_version/shared_at keys."""
+    """Returns list of dicts with entity/author_name/share_version/shared_at keys."""
     mock_backend.query_user_entries_shared_with_group = AsyncMock(
         return_value=Result.ok(
             [
                 {
                     "entry": {"uid": "ue_1", "title": "Reflection 1"},
+                    "author_name": "Alex Rivera",
                     "share_version": "original",
                     "shared_at": "2026-04-10T12:00:00",
                 },
                 {
                     "entry": {"uid": "ue_2", "title": "Reflection 2"},
+                    "author_name": None,
                     "share_version": "original",
                     "shared_at": "2026-04-11T12:00:00",
                 },
@@ -641,8 +643,10 @@ async def test_get_user_entries_shared_with_group_success(mock_backend, sharing_
     assert result.is_ok
     assert len(result.value) == 2
     assert result.value[0]["entity"] == {"uid": "ue_1", "title": "Reflection 1"}
+    assert result.value[0]["author_name"] == "Alex Rivera"
     assert result.value[0]["share_version"] == "original"
     assert result.value[0]["shared_at"] == "2026-04-10T12:00:00"
+    assert result.value[1]["author_name"] is None
 
 
 @pytest.mark.asyncio
@@ -692,4 +696,103 @@ async def test_get_user_entries_shared_with_group_forwards_limit(mock_backend, s
         user_uid="user_stud_01",
         group_uid="group_physics",
         limit=5,
+    )
+
+
+# ============================================================================
+# GET USER ENTRY SHARED WITH GROUP (single-entry peer fetch) TESTS
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_user_entry_shared_with_group_success(mock_backend, sharing_service):
+    """Returns flattened payload with entity/group_name/author_name."""
+    mock_backend.query_user_entry_shared_with_group = AsyncMock(
+        return_value=Result.ok(
+            [
+                {
+                    "entry": {
+                        "uid": "ue_1",
+                        "title": "Reflection 1",
+                        "content": "body text",
+                        "user_uid": "user_peer",
+                    },
+                    "group_name": "Physics 101",
+                    "author_name": "Alex Rivera",
+                    "share_version": "original",
+                    "shared_at": "2026-04-10T12:00:00",
+                }
+            ]
+        )
+    )
+
+    result = await sharing_service.get_user_entry_shared_with_group(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+        entry_uid="ue_1",
+    )
+
+    assert result.is_ok
+    payload = result.value
+    assert payload is not None
+    assert payload["entity"]["uid"] == "ue_1"
+    assert payload["entity"]["content"] == "body text"
+    assert payload["group_name"] == "Physics 101"
+    assert payload["author_name"] == "Alex Rivera"
+    assert payload["shared_at"] == "2026-04-10T12:00:00"
+
+
+@pytest.mark.asyncio
+async def test_get_user_entry_shared_with_group_not_visible(mock_backend, sharing_service):
+    """Empty backend result (non-member, wrong group, own entry) -> Result.ok(None).
+
+    We explicitly want ok(None) rather than Result.fail so callers render a
+    404-equivalent page without distinguishing the failure mode to the viewer.
+    """
+    mock_backend.query_user_entry_shared_with_group = AsyncMock(return_value=Result.ok([]))
+
+    result = await sharing_service.get_user_entry_shared_with_group(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+        entry_uid="ue_missing",
+    )
+
+    assert result.is_ok
+    assert result.value is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_entry_shared_with_group_backend_error(mock_backend, sharing_service):
+    """Backend errors propagate via Result.fail."""
+    from core.utils.result_simplified import Errors
+
+    mock_backend.query_user_entry_shared_with_group = AsyncMock(
+        return_value=Result.fail(Errors.database(operation="execute_query", message="boom"))
+    )
+
+    result = await sharing_service.get_user_entry_shared_with_group(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+        entry_uid="ue_1",
+    )
+
+    assert result.is_error
+    assert "boom" in str(result.error)
+
+
+@pytest.mark.asyncio
+async def test_get_user_entry_shared_with_group_passes_all_uids(mock_backend, sharing_service):
+    """All three UIDs (viewer, group, entry) are forwarded to the backend."""
+    mock_backend.query_user_entry_shared_with_group = AsyncMock(return_value=Result.ok([]))
+
+    await sharing_service.get_user_entry_shared_with_group(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+        entry_uid="ue_abc",
+    )
+
+    mock_backend.query_user_entry_shared_with_group.assert_awaited_once_with(
+        user_uid="user_stud_01",
+        group_uid="group_physics",
+        entry_uid="ue_abc",
     )

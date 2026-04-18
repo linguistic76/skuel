@@ -35,7 +35,7 @@ def _group_block(group: Group) -> HubBlockData:
         slug=f"group-{group.uid}",
         icon="share-2",
         color="#8B5CF6",
-        href=f"/groups?group={group.uid}",
+        href=f"/groups/{group.uid}",
         preview_url=f"/api/groups/{group.uid}/shared/preview",
     )
 

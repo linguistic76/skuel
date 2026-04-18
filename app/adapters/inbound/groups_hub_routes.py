@@ -1,12 +1,14 @@
 """Groups hub routes — student-facing tabbed view of group-shared content.
 
 Routes:
-- GET /groups                                — tabbed hub (one tab per group)
-- GET /api/groups/{group_uid}/shared/preview — HTMX fragment of peer UserEntries
+- GET /groups                                       — tabbed hub (one tab per group)
+- GET /groups/{group_uid}                           — full list for one group
+- GET /groups/{group_uid}/entries/{entry_uid}       — peer UserEntry detail
+- GET /api/groups/{group_uid}/shared/preview        — HTMX fragment of peer UserEntries
 
-The preview endpoint's backend query uses the user's MEMBER_OF edge to the
-target group as the access guard — non-members get an empty list, not an
-error.
+All four endpoints use the viewer's MEMBER_OF edge as the Cypher-level
+access guard — non-members get an empty/404 response, never an error that
+leaks existence.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -69,7 +71,76 @@ def create_groups_hub_routes(
         records = [] if result.is_error else (result.value or [])
         if not records:
             return HubPreviewEmpty("shared entries")
-        return GroupSharedPreviewList(records)
+        return GroupSharedPreviewList(records, group_uid=group_uid)
+
+    @rt("/groups/{group_uid}")
+    async def group_shares_page(request: Request, group_uid: str) -> Any:
+        """Full list of peer UserEntries shared with one group."""
+        user_uid = require_authenticated_user(request)
+        from ui.groups.group_page import GroupSharesNotAvailable, GroupSharesPage
+        from ui.layouts.base_page import BasePage
+
+        group_name: str | None = None
+        if services.groups is not None:
+            groups_result = await services.groups.get_user_groups(user_uid)
+            if not groups_result.is_error:
+                for g in groups_result.value or []:
+                    if g.uid == group_uid:
+                        group_name = g.name
+                        break
+
+        if group_name is None or services.sharing is None:
+            return await BasePage(
+                content=GroupSharesNotAvailable(),
+                title="Group not available",
+                request=request,
+                active_page="groups",
+            )
+
+        result = await services.sharing.get_user_entries_shared_with_group(
+            user_uid=user_uid, group_uid=group_uid, limit=100
+        )
+        records = [] if result.is_error else (result.value or [])
+
+        return await BasePage(
+            content=GroupSharesPage(
+                group_name=group_name, records=records, group_uid=group_uid
+            ),
+            title=group_name,
+            request=request,
+            active_page="groups",
+        )
+
+    @rt("/groups/{group_uid}/entries/{entry_uid}")
+    async def peer_entry_detail(
+        request: Request, group_uid: str, entry_uid: str
+    ) -> Any:
+        """Read-only detail page for a peer UserEntry shared with a group."""
+        user_uid = require_authenticated_user(request)
+        from ui.groups.peer_entry import PeerEntryNotFound, PeerEntryView
+        from ui.layouts.base_page import BasePage
+
+        payload: dict[str, Any] | None = None
+        if services.sharing is not None:
+            result = await services.sharing.get_user_entry_shared_with_group(
+                user_uid=user_uid, group_uid=group_uid, entry_uid=entry_uid
+            )
+            if not result.is_error:
+                payload = result.value
+
+        if payload is None:
+            title = "Entry not available"
+            content = PeerEntryNotFound()
+        else:
+            title = (payload.get("entity") or {}).get("title") or "Shared entry"
+            content = PeerEntryView(payload, group_uid=group_uid)
+
+        return await BasePage(
+            content=content,
+            title=title,
+            request=request,
+            active_page="groups",
+        )
 
 
 __all__ = ["create_groups_hub_routes"]

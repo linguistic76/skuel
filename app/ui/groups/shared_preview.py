@@ -1,9 +1,9 @@
 """HTMX fragment renderer for 'Recent Shares' inside a group tab.
 
-Peers do not own each other's UserEntries, so the cards are non-clickable
-tiles — a detail-view-for-peers route is deliberately out of scope for
-this surface. Each tile shows the entry title and an attribution line
-("shared by <author>, <relative-when>").
+Each tile is a link to the read-only peer detail view at
+``/groups/{group_uid}/entries/{entry_uid}`` — the same Cypher guard
+(MEMBER_OF + SHARED_WITH_GROUP) enforces access there. Tiles show the
+entry title and an attribution line ("by <author> · <relative-when>").
 """
 
 from __future__ import annotations
@@ -11,12 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from fasthtml.common import Div, P, Span
-
-
-def _author_label(user_uid: str) -> str:
-    """Strip the ``user_`` prefix, mirroring UserEntry.generate_exercise_title."""
-    return user_uid.removeprefix("user_") or user_uid
+from fasthtml.common import A, Div, P, Span
 
 
 def _format_shared_at(shared_at: Any) -> str:
@@ -58,11 +53,12 @@ def _format_shared_at(shared_at: Any) -> str:
     return dt.strftime("%b %d")
 
 
-def _preview_tile(record: dict[str, Any]) -> Div:
+def _preview_tile(record: dict[str, Any], group_uid: str) -> A:
     entity = record.get("entity") or {}
     title = entity.get("title") or "Untitled entry"
-    author = _author_label(entity.get("user_uid") or "")
+    author = record.get("author_name") or ""
     when = _format_shared_at(record.get("shared_at"))
+    entry_uid = entity.get("uid") or ""
 
     meta_bits: list[str] = []
     if author:
@@ -71,20 +67,33 @@ def _preview_tile(record: dict[str, Any]) -> Div:
         meta_bits.append(when)
     meta_line = " \u00b7 ".join(meta_bits)
 
-    return Div(
+    return A(
         Span(
             title,
             cls="text-xs font-medium text-foreground line-clamp-2 leading-snug",
         ),
         P(meta_line, cls="text-[11px] text-muted-foreground mt-1") if meta_line else "",
-        cls=("flex flex-col gap-1 p-2.5 rounded-lg border border-border bg-muted/30 min-h-[60px]"),
+        href=f"/groups/{group_uid}/entries/{entry_uid}",
+        cls=(
+            "flex flex-col gap-1 p-2.5 rounded-lg border border-border "
+            "bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-colors "
+            "min-h-[60px] no-underline"
+        ),
     )
 
 
-def GroupSharedPreviewList(records: list[dict[str, Any]]) -> Div:
-    """Render the preview list for one group's Recent Shares block."""
+def GroupSharedPreviewList(records: list[dict[str, Any]], group_uid: str) -> Div:
+    """Render the preview list for one group's Recent Shares block.
+
+    Args:
+        records: Payloads from
+            ``UnifiedSharingService.get_user_entries_shared_with_group``.
+        group_uid: UID of the group whose tab this list belongs to. Threaded
+            into each tile's href so clicking a tile reaches
+            ``/groups/{group_uid}/entries/{entry_uid}``.
+    """
     return Div(
-        *[_preview_tile(r) for r in records],
+        *[_preview_tile(r, group_uid=group_uid) for r in records],
         cls="grid grid-cols-2 sm:grid-cols-3 gap-2",
     )
 

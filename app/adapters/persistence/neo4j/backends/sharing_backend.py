@@ -314,13 +314,54 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group {uid: $group_uid})
             MATCH (entry:UserEntry)-[r:SHARED_WITH_GROUP]->(group)
             WHERE entry.user_uid <> $user_uid
+            OPTIONAL MATCH (author:User {uid: entry.user_uid})
             RETURN entry,
+                   coalesce(author.display_name, author.username) AS author_name,
                    r.share_version as share_version,
                    r.shared_at as shared_at
             ORDER BY r.shared_at DESC
             LIMIT $limit
             """,
             {"user_uid": user_uid, "group_uid": group_uid, "limit": limit},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_user_entry_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        entry_uid: EntityUID,
+    ) -> Result[list[Neo4jProperties]]:
+        """Fetch a single peer UserEntry iff the viewer can see it via this group.
+
+        Access is granted only when all three hold:
+        - viewer is MEMBER_OF the group
+        - entry is SHARED_WITH_GROUP with the group
+        - viewer is not the entry's owner (this is the peer-view surface;
+          owners read their own entries via /gradebook/{uid})
+
+        Any mismatch returns an empty list — no partial data, no oracle for
+        UID enumeration.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group {uid: $group_uid})
+            MATCH (entry:UserEntry {uid: $entry_uid})-[r:SHARED_WITH_GROUP]->(group)
+            WHERE entry.user_uid <> $user_uid
+            OPTIONAL MATCH (author:User {uid: entry.user_uid})
+            RETURN entry,
+                   group.name AS group_name,
+                   coalesce(author.display_name, author.username) AS author_name,
+                   r.share_version AS share_version,
+                   r.shared_at AS shared_at
+            """,
+            {
+                "user_uid": user_uid,
+                "group_uid": group_uid,
+                "entry_uid": entry_uid,
+            },
         )
         if result.is_error:
             return Result.fail(result)
