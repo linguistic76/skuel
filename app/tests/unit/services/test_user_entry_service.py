@@ -12,8 +12,8 @@ from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryUpdateRequest,
 )
-from core.services.user_entry.user_entry_service import UserEntryService
-from core.utils.result_simplified import Result
+from core.services.user_entry.user_entry_service import ShareOutcome, UserEntryService
+from core.utils.result_simplified import Errors, Result
 
 
 def _make_entry(**kwargs) -> UserEntry:
@@ -347,3 +347,128 @@ class TestVisibilityDefault:
         await service.create_entry(request, user_uid="user_1")
         entry_passed = backend.create.await_args.args[0]
         assert entry_passed.visibility == Visibility.PRIVATE
+
+
+class TestShareOutcome:
+    """ShareOutcome surfaces share successes/failures and drives compensation.
+
+    ADR-054 §3 requires that a TEACHER_REVIEW submission resolves to a real
+    audience. The pre-persist guard rejects naked requests; this layer covers
+    the post-persist path: when every requested share fails, the orphaned
+    entry must be rolled back, not silently left as PRIVATE.
+    """
+
+    @pytest.mark.asyncio
+    async def test_success_returns_outcome_with_shared_group(self):
+        sharing = _make_sharing_service()
+        service = _make_service(sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            title="Share",
+            pipeline=Pipeline.NONE,
+            share_with_groups=["g1"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        _entry, outcome = result.value
+        assert isinstance(outcome, ShareOutcome)
+        assert outcome.shared_groups == ("g1",)
+        assert outcome.failed == ()
+
+    @pytest.mark.asyncio
+    async def test_partial_failure_on_non_teacher_pipeline_is_surfaced_not_fatal(self):
+        """NONE pipeline with mixed success/failure returns ok + failed list."""
+        sharing = _make_sharing_service()
+        sharing.share_with_group = AsyncMock(
+            side_effect=[
+                Result.ok(True),
+                Result.fail(Errors.not_found("Group", "g_missing")),
+            ]
+        )
+        service = _make_service(sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            title="Share",
+            pipeline=Pipeline.NONE,
+            share_with_groups=["g1", "g_missing"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        _entry, outcome = result.value
+        assert outcome.shared_groups == ("g1",)
+        assert len(outcome.failed) == 1
+        assert outcome.failed[0][0] == "g_missing"
+
+    @pytest.mark.asyncio
+    async def test_teacher_review_total_share_failure_compensates(self):
+        """TEACHER_REVIEW + every share fails → entry deleted + validation error."""
+        backend = _make_backend()
+        sharing = _make_sharing_service()
+        sharing.share_with_group = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Group", "g1"))
+        )
+        service = _make_service(backend=backend, sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            title="Naked to bad group",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            share_with_groups=["g1"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+        err = str(result.expect_error())
+        assert "no audience was reached" in err.lower() or "could not be shared" in err.lower()
+        # The just-persisted node must have been rolled back
+        backend.delete.assert_awaited_once()
+        delete_kwargs = backend.delete.await_args.kwargs
+        assert delete_kwargs.get("cascade") is True
+
+    @pytest.mark.asyncio
+    async def test_teacher_review_partial_success_does_not_compensate(self):
+        """At least one recipient landed → keep the entry, surface partial warning."""
+        backend = _make_backend()
+        sharing = _make_sharing_service()
+        sharing.share_with_group = AsyncMock(
+            side_effect=[
+                Result.ok(True),
+                Result.fail(Errors.not_found("Group", "g_missing")),
+            ]
+        )
+        service = _make_service(backend=backend, sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            title="Mixed success",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            share_with_groups=["g1", "g_missing"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        _entry, outcome = result.value
+        backend.delete.assert_not_called()
+        assert outcome.shared_groups == ("g1",)
+        assert len(outcome.failed) == 1
+
+    @pytest.mark.asyncio
+    async def test_teacher_review_auto_share_failure_compensates(self):
+        """TEACHER_REVIEW + exercise resolves to zero groups failure → compensate."""
+        backend = _make_backend()
+        sharing = _make_sharing_service()
+        sharing.get_groups_shared_with = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="cypher", message="resolve failed"))
+        )
+        service = _make_service(backend=backend, sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            title="Auto-share crash",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+        backend.delete.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_empty_outcome_when_no_sharing_service(self):
+        """Services without sharing still return a well-formed empty outcome."""
+        service = _make_service(sharing_service=None)
+        request = UserEntryCreateRequest(title="Solo", pipeline=Pipeline.NONE)
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        _entry, outcome = result.value
+        assert outcome == ShareOutcome()
+        assert not outcome.any_success and not outcome.any_failure

@@ -336,7 +336,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             if not exercises_result.is_error and exercises_result.value:
                 assigned_exercises = exercises_result.value
 
-            from ui.submissions.forms import render_upload_form, upload_form_script
+            from ui.user_entry.forms import render_upload_form, upload_form_script
 
             return Div(
                 render_upload_form(assigned_exercises),

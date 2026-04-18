@@ -94,7 +94,7 @@ async def test_transcribe_and_structure_creates_linked_pair(
         user_uid=student_uid,
     )
     assert source_result.is_ok, source_result.expect_error()
-    source = source_result.value
+    source, _outcome = source_result.value
 
     # Run the pipeline
     process_result = await dispatcher.process(source)

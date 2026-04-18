@@ -8,7 +8,6 @@ registered in parallel through Commit 5a.
 
 Routes:
 - GET  /submit                           — Exercise worksheet upload form
-- POST /gradebook/upload                 — HTMX multipart submission
 - GET  /gradebook/{uid}                  — Submission detail page
 - GET  /submissions                      — Submissions hub (HomeHub tab)
 - GET  /submissions/history              — Submission history
@@ -43,7 +42,6 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
-from core.utils.frontmatter import parse_frontmatter_bytes
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody, CardHeader, CardTitle
@@ -58,12 +56,12 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
-from ui.submissions.cards import render_upload_status
-from ui.submissions.forms import render_upload_form, upload_form_script
+from ui.user_entry.forms import render_upload_form, upload_form_script
 from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
+    from core.services.groups.group_service import GroupService
     from core.services.report.exercise_report_service import ExerciseReportService
     from core.services.user_entry.user_entry_service import UserEntryService
 
@@ -142,6 +140,7 @@ def create_user_entry_ui_routes(
     *,
     orchestrator: UserEntryOrchestrator | None = None,
     exercise_report_service: ExerciseReportService | None = None,
+    groups_service: GroupService | None = None,
 ) -> list[Any]:
     """Register the UserEntry UI routes.
 
@@ -151,6 +150,8 @@ def create_user_entry_ui_routes(
         user_entry_service: Primary ``UserEntryService`` (writes)
         orchestrator: ``UserEntryOrchestrator`` (reads across related services)
         exercise_report_service: Used to guard delete when feedback exists
+        groups_service: ``GroupService`` used by ``/submit`` to enumerate the
+            student's own groups for the audience radio selector.
     """
     if user_entry_service is None:
         raise RuntimeError("UserEntryService is required — check bootstrap wiring")
@@ -173,6 +174,12 @@ def create_user_entry_ui_routes(
         if not exercises_result.is_error and exercises_result.value:
             assigned_exercises = exercises_result.value
 
+        user_groups: list[Any] = []
+        if groups_service is not None:
+            groups_result = await groups_service.get_user_groups(user_uid)
+            if not groups_result.is_error and groups_result.value:
+                user_groups = groups_result.value
+
         selected_exercise_uid = request.query_params.get("exercise_uid")
         from_ps = request.query_params.get("from_ps") or None
 
@@ -182,6 +189,7 @@ def create_user_entry_ui_routes(
                 assigned_exercises,
                 selected_exercise_uid=selected_exercise_uid,
                 from_ps=from_ps,
+                user_groups=user_groups,
             ),
             upload_form_script(),
         )
@@ -190,76 +198,6 @@ def create_user_entry_ui_routes(
             active="submit",
             request=request,
         )
-
-    @rt("/gradebook/upload")
-    async def upload_submission(request: Request) -> Any:
-        """HTMX endpoint for exercise worksheet submission."""
-        try:
-            form = await request.form()
-            uploaded_file = form.get("file")
-
-            if not uploaded_file or not isinstance(uploaded_file, UploadFile):
-                return render_upload_status("error", "No file provided", is_error=True)
-
-            user_uid = require_authenticated_user(request)
-            file_content = await uploaded_file.read()
-            filename = uploaded_file.filename or "unknown"
-
-            frontmatter: dict[str, Any] = {}
-            if filename.endswith(".md"):
-                frontmatter = parse_frontmatter_bytes(file_content)
-
-            raw_exercise_uid = form.get("fulfills_exercise_uid")
-            fm_exercise_uid = frontmatter.get("exercise_uid")
-            fulfills_exercise_uid = (
-                (str(raw_exercise_uid).strip() or None if raw_exercise_uid else None)
-                or (str(fm_exercise_uid) if fm_exercise_uid else None)
-                or None
-            )
-
-            try:
-                revision_number = int(frontmatter.get("revision", 1))
-            except (ValueError, TypeError):
-                revision_number = 1
-
-            submission_metadata: dict[str, Any] = {}
-            if frontmatter.get("exercise_number"):
-                submission_metadata["exercise_number"] = str(frontmatter["exercise_number"])
-            if revision_number != 1:
-                submission_metadata["revision_number"] = revision_number
-
-            from_ps_raw = form.get("from_ps")
-            if from_ps_raw:
-                submission_metadata["from_ps"] = str(from_ps_raw).strip()
-
-            logger.info(
-                f"UserEntry submission upload: {filename} ({len(file_content)} bytes, "
-                f"exercise={fulfills_exercise_uid}, revision={revision_number})"
-            )
-
-            result = await user_entry_service.submit_file(
-                file_content=file_content,
-                original_filename=filename,
-                user_uid=user_uid,
-                pipeline=Pipeline.TEACHER_REVIEW,
-                title=filename,
-                fulfills_exercise_uid=fulfills_exercise_uid,
-                metadata=submission_metadata or None,
-            )
-
-            if result.is_error:
-                return render_upload_status("error", str(result.error), is_error=True)
-
-            entry = result.value
-            return render_upload_status(
-                status=_status_value(entry),
-                message="File uploaded successfully",
-                submission_uid=entry.uid,
-            )
-
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error uploading submission: {e}", exc_info=True)
-            return render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
     # =========================================================================
     # SUBMISSIONS HUB
@@ -479,7 +417,7 @@ def create_user_entry_ui_routes(
             if result.is_error:
                 return render_journal_upload_status("error", str(result.error), is_error=True)
 
-            entry = result.value
+            entry, _outcome = result.value
             return render_journal_upload_status(
                 _status_value(entry),
                 f"Journal entry created: {entry.title}",
@@ -603,7 +541,6 @@ def create_user_entry_ui_routes(
 
     return [
         submit_page,
-        upload_submission,
         submissions_hub,
         upload_preview,
         submit_preview,

@@ -292,7 +292,7 @@ class UserEntryProcessingService:
         if child_result.is_error:
             return await self._fail(updated_source, child_result.expect_error())
 
-        child = child_result.value
+        child, _share_outcome = child_result.value
         await self._emit_completed(updated_source, produced_entry_uid=child.uid)
         return Result.ok(updated_source)
 

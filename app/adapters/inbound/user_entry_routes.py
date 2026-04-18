@@ -33,6 +33,7 @@ USER_ENTRY_CONFIG = DomainRouteConfig(
     ui_related_services={
         "orchestrator": "user_entry_orchestrator",
         "exercise_report_service": "exercise_report",
+        "groups_service": "groups",
     },
 )
 

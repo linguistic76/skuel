@@ -43,7 +43,7 @@ async def test_teacher_review_submission_lands_in_review_queue(
         user_uid=ctx["student_uid"],
     )
     assert create_result.is_ok, create_result.expect_error()
-    entry = create_result.value
+    entry, _outcome = create_result.value
     assert entry.uid.startswith("ue_")
 
     # Node exists with :Entity:UserEntry labels + user_entry type + pipeline set

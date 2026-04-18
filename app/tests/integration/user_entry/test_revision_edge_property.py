@@ -36,7 +36,7 @@ async def test_second_attempt_creates_new_entry_with_revision_two(
         user_uid=ctx["student_uid"],
     )
     assert first.is_ok, first.expect_error()
-    first_uid = first.value.uid
+    first_uid = first.value[0].uid
 
     second = await user_entry_service.create_entry(
         request=UserEntryCreateRequest(
@@ -48,7 +48,7 @@ async def test_second_attempt_creates_new_entry_with_revision_two(
         user_uid=ctx["student_uid"],
     )
     assert second.is_ok, second.expect_error()
-    second_uid = second.value.uid
+    second_uid = second.value[0].uid
     assert second_uid != first_uid, "second attempt must create a distinct node"
 
     async with neo4j_driver.session() as session:

@@ -80,10 +80,14 @@ async def test_review_queue_isolates_by_group_ownership(
     uids_a = {row["entry_uid"] for row in queue_a}
     uids_b = {row["entry_uid"] for row in queue_b}
 
-    assert r1.value.uid in uids_a
-    assert r2.value.uid not in uids_a
-    assert r3.value.uid not in uids_a
+    r1_uid = r1.value[0].uid
+    r2_uid = r2.value[0].uid
+    r3_uid = r3.value[0].uid
 
-    assert r2.value.uid in uids_b
-    assert r1.value.uid not in uids_b
-    assert r3.value.uid not in uids_b
+    assert r1_uid in uids_a
+    assert r2_uid not in uids_a
+    assert r3_uid not in uids_a
+
+    assert r2_uid in uids_b
+    assert r1_uid not in uids_b
+    assert r3_uid not in uids_b

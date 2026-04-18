@@ -36,6 +36,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.entity_converters import entity_to_response
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.forms.form_submission_request import FormSubmitRequest
 from core.models.type_hints import UserUID
@@ -103,12 +104,14 @@ def create_user_entry_api_routes(
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok(
-            {
-                "user_entry": entity_to_response(result.value),
-                "message": "UserEntry created successfully",
-            }
-        )
+        entry, outcome = result.value
+        response: dict[str, Any] = {
+            "user_entry": entity_to_response(entry),
+            "message": "UserEntry created successfully",
+        }
+        if outcome.any_success or outcome.any_failure:
+            response["share_outcome"] = outcome.to_payload()
+        return Result.ok(response)
 
     # =========================================================================
     # CREATE — multipart file upload
@@ -120,16 +123,18 @@ def create_user_entry_api_routes(
         """Create a UserEntry from a multipart file upload.
 
         Form fields:
-            file                           — upload (required)
-            title                          — entry title (defaults to filename)
-            pipeline                       — Pipeline enum value (default: NONE)
-            fulfills_exercise_uid          — optional exercise link
-            about_path_step_uid            — optional PathStep link
-            instructions                   — pipeline-specific instructions
-            share_with_groups              — CSV of group UIDs
-            share_with_users               — CSV of user UIDs
-            auto_share_to_exercise_groups  — ``"true"`` to server-resolve the
-                                             exercise's assigned groups
+            file                   — upload (required)
+            title                  — entry title (defaults to filename)
+            pipeline               — Pipeline enum value (default: NONE)
+            fulfills_exercise_uid  — optional exercise link
+            about_path_step_uid    — optional PathStep link
+            instructions           — pipeline-specific instructions
+            audience               — single-choice audience selector emitted
+                                     by the ``/submit`` form. One of:
+                                     ``teachers``       (auto-share to exercise groups)
+                                     ``group:<uid>``    (share with a specific group)
+                                     ``public``         (visibility=PUBLIC)
+                                     ``private`` / ``"" (default — owner only)
         """
         user_uid = require_authenticated_user(request)
 
@@ -153,12 +158,22 @@ def create_user_entry_api_routes(
                 Errors.validation(f"Invalid pipeline: {pipeline_str}", field="pipeline")
             )
 
-        share_groups_raw = form.get("share_with_groups", "") or ""
-        share_users_raw = form.get("share_with_users", "") or ""
-        share_with_groups = [g.strip() for g in str(share_groups_raw).split(",") if g.strip()]
-        share_with_users = [u.strip() for u in str(share_users_raw).split(",") if u.strip()]
-        auto_share_raw = str(form.get("auto_share_to_exercise_groups") or "").strip().lower()
-        auto_share_to_exercise_groups = auto_share_raw in {"true", "1", "on", "yes"}
+        audience_raw = str(form.get("audience") or "private").strip().lower()
+        share_with_groups: list[str] = []
+        auto_share_to_exercise_groups = False
+        visibility: Visibility | None = None
+        if audience_raw == "teachers":
+            auto_share_to_exercise_groups = True
+        elif audience_raw.startswith("group:"):
+            group_uid = audience_raw.split(":", 1)[1].strip()
+            if group_uid:
+                share_with_groups = [group_uid]
+        elif audience_raw == "public":
+            visibility = Visibility.PUBLIC
+        elif audience_raw not in {"private", ""}:
+            return Result.fail(
+                Errors.validation(f"Unknown audience: {audience_raw}", field="audience")
+            )
 
         title_val = form.get("title") or uploaded_file.filename or "Untitled"
 
@@ -178,20 +193,22 @@ def create_user_entry_api_routes(
                 str(form.get("about_path_step_uid")) if form.get("about_path_step_uid") else None
             ),
             share_with_groups=share_with_groups,
-            share_with_users=share_with_users,
             auto_share_to_exercise_groups=auto_share_to_exercise_groups,
+            visibility=visibility,
         )
 
         result = await user_entry_service.create_entry(request=req, user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok(
-            {
-                "user_entry": entity_to_response(result.value),
-                "message": "UserEntry uploaded successfully",
-            }
-        )
+        entry, outcome = result.value
+        response: dict[str, Any] = {
+            "user_entry": entity_to_response(entry),
+            "message": "UserEntry uploaded successfully",
+        }
+        if outcome.any_success or outcome.any_failure:
+            response["share_outcome"] = outcome.to_payload()
+        return Result.ok(response)
 
     # =========================================================================
     # CREATE — structured form (inline Ku/PS exercise forms)
@@ -241,12 +258,14 @@ def create_user_entry_api_routes(
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok(
-            {
-                "user_entry": entity_to_response(result.value),
-                "message": "Form submitted successfully",
-            }
-        )
+        entry, outcome = result.value
+        response: dict[str, Any] = {
+            "user_entry": entity_to_response(entry),
+            "message": "Form submitted successfully",
+        }
+        if outcome.any_success or outcome.any_failure:
+            response["share_outcome"] = outcome.to_payload()
+        return Result.ok(response)
 
     # =========================================================================
     # PROCESS

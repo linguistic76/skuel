@@ -31,6 +31,7 @@ See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
 from __future__ import annotations
 
 import mimetypes
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -62,6 +63,35 @@ if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.interaction.interaction_service import InteractionService
     from core.services.sharing.unified_sharing_service import UnifiedSharingService
+
+
+@dataclass(frozen=True)
+class ShareOutcome:
+    """Result of a post-persist audience resolution pass.
+
+    ``shared_groups`` / ``shared_users`` are the targets that succeeded.
+    ``failed`` pairs each failed target with its error message so callers can
+    surface partial-success warnings without re-fetching.
+    """
+
+    shared_groups: tuple[str, ...] = field(default_factory=tuple)
+    shared_users: tuple[str, ...] = field(default_factory=tuple)
+    failed: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+    @property
+    def any_success(self) -> bool:
+        return bool(self.shared_groups) or bool(self.shared_users)
+
+    @property
+    def any_failure(self) -> bool:
+        return bool(self.failed)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "shared_groups": list(self.shared_groups),
+            "shared_users": list(self.shared_users),
+            "failed": [{"target": t, "reason": r} for t, r in self.failed],
+        }
 
 
 class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
@@ -108,8 +138,18 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         self,
         request: UserEntryCreateRequest,
         user_uid: UserUID,
-    ) -> Result[UserEntry]:
+    ) -> Result[tuple[UserEntry, ShareOutcome]]:
         """Create a ``UserEntry`` from a create request.
+
+        Returns ``(entry, share_outcome)`` on success. The share outcome is
+        empty when the pipeline does not require sharing; when sharing was
+        attempted it carries the targets that landed and any that failed.
+
+        For ``pipeline=TEACHER_REVIEW`` a total-share-failure (every requested
+        target failed and none succeeded) is treated as compensation: the
+        just-persisted entry is deleted and a validation error is returned,
+        so ADR-054 §3's "no silent no-audience turn-ins" guarantee holds
+        post-persist as well as pre-persist.
 
         See module docstring for the full create flow.
         """
@@ -180,11 +220,39 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 )
 
         # 5. Resolve audience + share
-        await self._resolve_and_share(
+        share_result = await self._resolve_and_share(
             entry_uid=created.uid,
             user_uid=user_uid,
             request=request,
         )
+        if share_result.is_error:
+            return Result.fail(share_result)
+        outcome: ShareOutcome = share_result.value
+
+        # 5a. Compensation: a TEACHER_REVIEW entry with zero successful shares
+        # and at least one failure would be an orphaned, invisible turn-in —
+        # delete the entry and surface the failure (ADR §3 post-persist).
+        if (
+            request.pipeline == Pipeline.TEACHER_REVIEW
+            and not outcome.any_success
+            and outcome.any_failure
+        ):
+            failure_summary = ", ".join(f"{target}: {reason}" for target, reason in outcome.failed)
+            self.logger.warning(
+                f"Compensating orphaned TEACHER_REVIEW UserEntry {created.uid}: {failure_summary}"
+            )
+            cleanup = await self.backend.delete(created.uid, cascade=True)
+            if cleanup.is_error:
+                self.logger.error(
+                    f"Compensation delete of {created.uid} failed: {cleanup.expect_error()}"
+                )
+            return Result.fail(
+                Errors.validation(
+                    "Submission could not be shared with any recipient; "
+                    f"no audience was reached ({failure_summary})",
+                    field="audience",
+                )
+            )
 
         self.logger.info(
             f"UserEntry created: {created.uid} (pipeline={request.pipeline.value}, "
@@ -205,7 +273,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             self.logger,
         )
 
-        return Result.ok(created)
+        return Result.ok((created, outcome))
 
     @with_error_handling("submit_user_entry_file")
     async def submit_file(
@@ -221,17 +289,18 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         share_with_groups: list[str] | None = None,
         share_with_users: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[UserEntry]:
+    ) -> Result[tuple[UserEntry, ShareOutcome]]:
         """Bytes-to-disk + UserEntry creation helper.
 
         Writes bytes to ``storage_path/YYYY-MM/{uid}/filename`` then delegates
         to :meth:`create_entry`. On persistence failure the file is best-effort
         removed.
         """
-        uid = UIDGenerator.generate_random_uid("ue")
         file_type = mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
 
-        store_result = self._store_file(file_content, original_filename, uid)
+        store_result = self._store_file(
+            file_content, original_filename, UIDGenerator.generate_random_uid("ue")
+        )
         if store_result.is_error:
             return Result.fail(store_result)
         file_path = store_result.value
@@ -259,7 +328,6 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 self.logger.warning(
                     f"Failed to clean up file after UserEntry create error: {cleanup_error}"
                 )
-            return create_result
         return create_result
 
     def _store_file(self, file_content: bytes, filename: str, entry_uid: str) -> Result[Path]:
@@ -392,10 +460,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(Errors.not_found("UserEntry", uid))
 
         updates: dict[str, Any] = {}
-        for field in ("title", "content", "summary", "description"):
-            value = getattr(request, field, None)
+        for attr_name in ("title", "content", "summary", "description"):
+            value = getattr(request, attr_name, None)
             if value is not None:
-                updates[field] = value
+                updates[attr_name] = value
         if request.tags is not None:
             updates["tags"] = list(request.tags)
         if request.metadata is not None:
@@ -499,8 +567,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         entry_uid: str,
         user_uid: UserUID,
         request: UserEntryCreateRequest,
-    ) -> None:
-        """Fire-and-forget audience resolution + share calls.
+    ) -> Result[ShareOutcome]:
+        """Audience resolution + share calls. Returns which targets landed.
 
         Policy:
           1. Explicit ``share_with_groups`` / ``share_with_users`` — share
@@ -510,11 +578,17 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
              no explicit shares) — resolve the exercise's assigned groups
              and SHARED_WITH_GROUP to each.
           3. Otherwise — no sharing (default visibility=PRIVATE).
+
+        Failures are collected into the returned ``ShareOutcome`` rather than
+        propagated — the caller decides whether to compensate (delete the
+        just-persisted entry) or surface partial-success warnings.
         """
         if self.sharing_service is None:
-            return
+            return Result.ok(ShareOutcome())
 
-        shared_any = False
+        shared_groups: list[str] = []
+        shared_users: list[str] = []
+        failed: list[tuple[str, str]] = []
 
         for group_uid in request.share_with_groups:
             result = await self.sharing_service.share_with_group(
@@ -523,12 +597,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 group_uid=group_uid,
             )
             if result.is_error:
+                reason = str(result.expect_error())
                 self.logger.warning(
-                    f"Failed to share UserEntry {entry_uid} with group "
-                    f"{group_uid}: {result.expect_error()}"
+                    f"Failed to share UserEntry {entry_uid} with group {group_uid}: {reason}"
                 )
+                failed.append((group_uid, reason))
             else:
-                shared_any = True
+                shared_groups.append(group_uid)
 
         for recipient_uid in request.share_with_users:
             result = await self.sharing_service.share(
@@ -537,16 +612,18 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 recipient_uid=recipient_uid,
             )
             if result.is_error:
+                reason = str(result.expect_error())
                 self.logger.warning(
-                    f"Failed to share UserEntry {entry_uid} with user "
-                    f"{recipient_uid}: {result.expect_error()}"
+                    f"Failed to share UserEntry {entry_uid} with user {recipient_uid}: {reason}"
                 )
+                failed.append((recipient_uid, reason))
             else:
-                shared_any = True
+                shared_users.append(recipient_uid)
 
         # Auto-share to exercise groups: explicit flag wins; otherwise fall
         # back to the implicit TEACHER_REVIEW+exercise+no-explicit-shares path
         # so programmatic callers keep working without the new flag.
+        shared_any = bool(shared_groups) or bool(shared_users)
         should_auto_share = request.auto_share_to_exercise_groups or (
             not shared_any and request.pipeline == Pipeline.TEACHER_REVIEW
         )
@@ -555,23 +632,33 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 entity_uid=request.fulfills_exercise_uid,
             )
             if groups_result.is_error:
-                self.logger.warning(
-                    f"Could not resolve exercise groups for auto-share: "
-                    f"{groups_result.expect_error()}"
-                )
-                return
-            for record in groups_result.value or []:
-                raw = record.get("group_uid") if isinstance(record, dict) else None
-                if not raw:
-                    continue
-                group_uid_str = str(raw)
-                share_result = await self.sharing_service.share_with_group(
-                    entity_uid=entry_uid,
-                    owner_uid=user_uid,
-                    group_uid=group_uid_str,
-                )
-                if share_result.is_error:
-                    self.logger.warning(
-                        f"Auto-share of {entry_uid} to group {group_uid_str} failed: "
-                        f"{share_result.expect_error()}"
+                reason = str(groups_result.expect_error())
+                self.logger.warning(f"Could not resolve exercise groups for auto-share: {reason}")
+                failed.append((request.fulfills_exercise_uid, reason))
+            else:
+                for record in groups_result.value or []:
+                    raw = record.get("group_uid") if isinstance(record, dict) else None
+                    if not raw:
+                        continue
+                    group_uid_str = str(raw)
+                    share_result = await self.sharing_service.share_with_group(
+                        entity_uid=entry_uid,
+                        owner_uid=user_uid,
+                        group_uid=group_uid_str,
                     )
+                    if share_result.is_error:
+                        reason = str(share_result.expect_error())
+                        self.logger.warning(
+                            f"Auto-share of {entry_uid} to group {group_uid_str} failed: {reason}"
+                        )
+                        failed.append((group_uid_str, reason))
+                    else:
+                        shared_groups.append(group_uid_str)
+
+        return Result.ok(
+            ShareOutcome(
+                shared_groups=tuple(shared_groups),
+                shared_users=tuple(shared_users),
+                failed=tuple(failed),
+            )
+        )

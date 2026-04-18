@@ -2,24 +2,27 @@
 UserEntry Submit Form (ADR-054 Step 9)
 =======================================
 
-Rewritten from ``ui/submissions/forms.py::render_upload_form`` with two
-first-class additions:
+Single-screen upload form backing ``/submit``. One radio group — the
+**audience selector** — replaces the previous four-checkbox matrix so a
+student can complete a turn-in in one deliberate choice rather than three
+interacting toggles.
 
-- **Audience section** — students declare who sees the entry at submit
-  time (teacher, group, peer, public). No implicit role-based inference.
-- **Pipeline selector** — drives the processing dispatcher. Hidden and
-  forced to ``TEACHER_REVIEW`` when reached from an exercise context;
-  visible ``<select>`` on the general ``/user-entries/new`` page; forced
-  to ``TRANSCRIBE_AND_STRUCTURE`` for the journal audio surface.
+The selector emits a single hidden ``audience`` field with one of:
 
-Client-side validation (Alpine.js) prevents silent no-audience turn-ins:
-when ``pipeline == TEACHER_REVIEW``, at least one audience must be
-selected or ``visibility`` must be ``PUBLIC``.
+- ``teachers``            — auto-share to the exercise's assigned groups
+                            (shown only when an exercise is in context)
+- ``group:<group_uid>``   — share with a specific group the student is in
+- ``public``              — publish publicly (``visibility=PUBLIC``)
+- ``private``             — keep to self (default when no exercise context)
 
-Posts to the new ``POST /api/user-entries/upload`` endpoint — the multipart
-boundary that accepts audience + pipeline fields.
+``POST /api/user-entries/upload`` translates ``audience`` into the existing
+``share_with_groups`` / ``auto_share_to_exercise_groups`` / ``visibility``
+fields on ``UserEntryCreateRequest``. Client-side validation blocks submit
+when the student has picked no option *and* the pipeline is
+``TEACHER_REVIEW`` — a defense-in-depth layer above the service's ADR §3
+guard and post-persist compensation.
 
-See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md § Step 9
+See: /home/mike/.claude/plans/user-entry-audience-selection.md
 """
 
 from typing import Any
@@ -38,10 +41,6 @@ from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Input, Label, Select
 
-# ---------------------------------------------------------------------------
-# Pipeline option labels (shown in the general-page <select>)
-# ---------------------------------------------------------------------------
-
 _PIPELINE_LABELS: dict[Pipeline, str] = {
     Pipeline.NONE: "None — store only",
     Pipeline.TRANSCRIBE: "Transcribe (audio \u2192 text)",
@@ -51,6 +50,27 @@ _PIPELINE_LABELS: dict[Pipeline, str] = {
 }
 
 
+def _audience_radio(value: str, label: str, description: str, model: str) -> Any:
+    """One row in the audience radio group — label, sublabel, hit area."""
+    return Label(
+        Div(
+            Input(
+                type="radio",
+                name="audience_choice",
+                value=value,
+                cls="mr-3 mt-1",
+                **{"x-model": model},
+            ),
+            Div(
+                P(label, cls="text-sm font-medium"),
+                P(description, cls="text-xs text-muted-foreground"),
+            ),
+            cls="flex items-start",
+        ),
+        cls="block p-2 rounded cursor-pointer hover:bg-muted/50",
+    )
+
+
 def render_upload_form(
     assigned_exercises: list[Any] | None = None,
     selected_exercise_uid: str | None = None,
@@ -58,23 +78,18 @@ def render_upload_form(
     user_groups: list[Any] | None = None,
     force_pipeline: Pipeline | None = None,
 ) -> Any:
-    """Render the UserEntry upload form card.
+    """Render the UserEntry upload form.
 
     Args:
         assigned_exercises: Exercises the user can link to. When non-empty,
-            a dropdown is rendered. When empty but ``selected_exercise_uid``
-            is set, a hidden field carries the UID through.
-        selected_exercise_uid: Pre-selected exercise (deep-link from an
-            exercise page). Also forces the pipeline to ``TEACHER_REVIEW``
-            unless ``force_pipeline`` overrides it.
+            a dropdown is rendered.
+        selected_exercise_uid: Pre-selected exercise (deep-link). Also
+            forces the pipeline to ``TEACHER_REVIEW`` unless overridden.
         from_ps: PathStep UID for the ``Interaction`` audit record.
-        user_groups: The user's groups (from ``UserContext.groups``).
-            Rendered in the group-share dropdown when present.
-        force_pipeline: Lock the pipeline to a specific value and hide the
-            selector. Used by the exercise-context and journal-audio pages.
-
-    The form posts to ``POST /api/user-entries/upload`` (multipart) — the
-    new UserEntry boundary introduced in Step 7.
+        user_groups: The user's groups (pre-loaded by the route handler).
+            Each element may be a ``Group`` dataclass or duck-typed object
+            with ``.uid`` and ``.name``.
+        force_pipeline: Lock the pipeline (exercise-context + journal pages).
     """
     from_exercise_context = bool(selected_exercise_uid) or bool(assigned_exercises)
     effective_pipeline = force_pipeline or (
@@ -109,7 +124,6 @@ def render_upload_form(
             value=selected_exercise_uid,
         )
 
-    # PathStep context carried through as the Interaction anchor
     from_ps_field: Any = (
         Input(type="hidden", name="about_path_step_uid", value=from_ps) if from_ps else ""
     )
@@ -145,156 +159,85 @@ def render_upload_form(
             cls="mb-4",
         )
 
-    # -- Audience section --------------------------------------------------
-    group_options: list[Any] = [Option("\u2014 select a group \u2014", value="")]
+    # -- Audience radio group ---------------------------------------------
+    #
+    # Options are ordered for the dominant use case: from an exercise page
+    # the student nearly always wants "Submit to teacher", so it's first +
+    # pre-selected. From a standalone /submit page "Keep to myself" wins.
+    audience_options: list[Any] = []
+
+    if from_exercise_context:
+        audience_options.append(
+            _audience_radio(
+                value="teachers",
+                label="Submit to teacher",
+                description="Shares with the exercise's assigned groups.",
+                model="audience",
+            )
+        )
+
     if user_groups:
         for g in user_groups:
             guid = getattr(g, "uid", None) or getattr(g, "group_uid", None)
             if not guid:
                 continue
             gname = getattr(g, "name", None) or getattr(g, "title", None) or guid
-            group_options.append(Option(gname, value=guid))
+            audience_options.append(
+                _audience_radio(
+                    value=f"group:{guid}",
+                    label=f"Share with {gname}",
+                    description="Visible to members of this group.",
+                    model="audience",
+                )
+            )
+
+    audience_options.append(
+        _audience_radio(
+            value="public",
+            label="Publish publicly",
+            description="Visible to everyone on your public portfolio.",
+            model="audience",
+        )
+    )
+    audience_options.append(
+        _audience_radio(
+            value="private",
+            label="Keep to myself",
+            description="Only you can see this entry.",
+            model="audience",
+        )
+    )
 
     audience_section = Div(
         P("Audience", cls="text-sm font-semibold mb-2"),
-        # Submit to teacher (auto-share to exercise groups on the server)
+        Div(*audience_options, cls="space-y-1"),
         Div(
-            Label(
-                Input(
-                    type="checkbox",
-                    cls="mr-2",
-                    **{"x-model": "sendToTeacher"},
-                ),
-                "Submit to teacher",
-                cls="flex items-center cursor-pointer",
-            ),
-            P(
-                "Shares with the exercise's assigned groups.",
-                cls="text-xs text-muted-foreground ml-6",
-            ),
-            cls="mb-2",
-        ),
-        # Share with group
-        Div(
-            Label(
-                Input(
-                    type="checkbox",
-                    cls="mr-2",
-                    **{"x-model": "shareGroup"},
-                ),
-                "Share with group\u2026",
-                cls="flex items-center cursor-pointer",
-            ),
-            Div(
-                Select(
-                    *group_options,
-                    cls="mt-1",
-                    **{"x-model": "shareGroupUid", "x-show": "shareGroup"},
-                ),
-                cls="ml-6",
-            )
-            if user_groups
-            else Div(
-                Input(
-                    type="text",
-                    placeholder="Group UID",
-                    cls="mt-1",
-                    **{"x-model": "shareGroupUid", "x-show": "shareGroup"},
-                ),
-                cls="ml-6",
-            ),
-            cls="mb-2",
-        ),
-        # Share with peer
-        Div(
-            Label(
-                Input(
-                    type="checkbox",
-                    cls="mr-2",
-                    **{"x-model": "sharePeer"},
-                ),
-                "Share with a peer\u2026",
-                cls="flex items-center cursor-pointer",
-            ),
-            Div(
-                Input(
-                    type="text",
-                    placeholder="Peer user UID",
-                    cls="mt-1",
-                    **{"x-model": "sharePeerUid", "x-show": "sharePeer"},
-                ),
-                cls="ml-6",
-            ),
-            cls="mb-2",
-        ),
-        # Publish publicly
-        Div(
-            Label(
-                Input(
-                    type="checkbox",
-                    cls="mr-2",
-                    **{"x-model": "publishPublic"},
-                ),
-                "Publish publicly",
-                cls="flex items-center cursor-pointer",
-            ),
-            P(
-                "Visible to everyone on your public portfolio.",
-                cls="text-xs text-muted-foreground ml-6",
-            ),
-            cls="mb-2",
-        ),
-        # Validation banner — only shown when the submit handler refused
-        Div(
-            "Select at least one audience before submitting for teacher review.",
+            "Choose who sees this entry before submitting.",
             cls=(
                 "text-xs text-destructive mt-2 p-2 rounded bg-destructive/10 "
                 "border border-destructive/30"
             ),
             **{"x-show": "validationError", "x-cloak": True},
         ),
-        # Hidden fields bound to Alpine state — consumed by the upload route.
-        # ``auto_share_to_exercise_groups`` is an explicit boolean: the server
-        # resolves the exercise's assigned groups instead of trusting a
-        # client-synthesized sentinel value.
+        # One hidden field carries the choice to the server.
         Input(
             type="hidden",
-            name="share_with_groups",
-            **{"x-bind:value": "shareGroup && shareGroupUid ? shareGroupUid : ''"},
-        ),
-        Input(
-            type="hidden",
-            name="share_with_users",
-            **{"x-bind:value": "sharePeer && sharePeerUid ? sharePeerUid : ''"},
-        ),
-        Input(
-            type="hidden",
-            name="auto_share_to_exercise_groups",
-            **{"x-bind:value": "sendToTeacher ? 'true' : 'false'"},
-        ),
-        Input(
-            type="hidden",
-            name="visibility",
-            **{"x-bind:value": "publishPublic ? 'public' : 'private'"},
+            name="audience",
+            **{"x-bind:value": "audience"},
         ),
         cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
     )
 
-    # -- Alpine component state --------------------------------------------
+    default_audience = "teachers" if from_exercise_context else "private"
+
     alpine_data = (
         "{ "
         f"pipeline: '{effective_pipeline.value}', "
-        f"sendToTeacher: {str(from_exercise_context).lower()}, "
-        "shareGroup: false, shareGroupUid: '', "
-        "sharePeer: false, sharePeerUid: '', "
-        "publishPublic: false, "
+        f"audience: '{default_audience}', "
         "validationError: false, "
         "get audienceOk() { "
         "  if (this.pipeline !== 'teacher_review') return true; "
-        "  return this.sendToTeacher || "
-        "    (this.shareGroup && this.shareGroupUid) || "
-        "    (this.sharePeer && this.sharePeerUid) || "
-        "    this.publishPublic; "
+        "  return !!this.audience; "
         "}, "
         "validate(ev) { "
         "  if (!this.audienceOk) { this.validationError = true; ev.preventDefault(); return false; } "
@@ -358,12 +301,7 @@ def render_upload_form(
 
 
 def upload_form_script() -> Any:
-    """HTMX UX polish for the user-entry upload form.
-
-    Disables the submit button while the request is in flight and resets
-    the form on success. Paired with the Alpine component in
-    ``render_upload_form``.
-    """
+    """HTMX UX polish — disable-while-submitting + form reset on success."""
     return Script(
         NotStr("""
         document.body.addEventListener('htmx:beforeRequest', function(evt) {

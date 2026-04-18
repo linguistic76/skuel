@@ -2,7 +2,8 @@
 Submission Form UI Components
 ==============================
 
-Upload form, filter controls, and content management widgets.
+Filter controls and content management widgets for the submissions hub.
+Upload form moved to ``ui/user_entry/forms.py`` as part of ADR-054 Step 5b.
 """
 
 from typing import Any
@@ -10,10 +11,7 @@ from typing import Any
 from fasthtml.common import (
     Div,
     Form,
-    NotStr,
     Option,
-    P,
-    Script,
     Span,
 )
 
@@ -23,131 +21,6 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
 from ui.patterns.skeleton import SkeletonList
-
-
-def render_upload_form(
-    assigned_exercises: list[Any] | None = None,
-    selected_exercise_uid: str | None = None,
-    from_ps: str | None = None,
-) -> Any:
-    """Render the file upload form card with optional exercise selector.
-
-    When selected_exercise_uid is provided (deep-linked from an exercise page)
-    but the user has no assigned exercises to show in a dropdown, a hidden
-    field carries the UID so the submission still links to that exercise.
-
-    When from_ps is provided (deep-linked from a PathStep reading page), a
-    hidden field carries the PathStep UID as the Interaction context — so the
-    submission audit record captures where in the curriculum the student was.
-    """
-    exercise_section: Any = ""
-    if assigned_exercises:
-        exercise_options = [Option("None \u2014 standalone submission", value="")]
-
-        def _exercise_option(p: Any) -> Any:
-            uid = p.uid
-            label = getattr(p, "title", None) or getattr(p, "name", None) or uid
-            return Option(label, value=uid, selected=(uid == selected_exercise_uid))
-
-        exercise_options.extend(_exercise_option(p) for p in assigned_exercises)
-        exercise_section = Div(
-            Label("Exercise (optional)", cls="label"),
-            Select(
-                *exercise_options,
-                name="fulfills_exercise_uid",
-            ),
-            P(
-                "Link this submission to a teacher exercise",
-                cls="text-xs text-muted-foreground mt-1",
-            ),
-            cls="mb-4",
-        )
-    elif selected_exercise_uid:
-        # Deep-linked from an exercise page — carry the UID as a hidden field
-        exercise_section = Input(
-            type="hidden",
-            name="fulfills_exercise_uid",
-            value=selected_exercise_uid,
-        )
-
-    # PathStep context — carry through from navigation so the Interaction
-    # audit record captures the curriculum position deterministically.
-    from_ps_field: Any = Input(type="hidden", name="from_ps", value=from_ps) if from_ps else ""
-
-    return Card(
-        CardBody(
-            Form(
-                exercise_section,
-                from_ps_field,
-                Div(
-                    Label(
-                        Div(
-                            P("Select File", cls="text-center mb-0"),
-                            P(
-                                "Click to browse for files (audio, text, PDF, images, video)",
-                                cls="text-sm text-muted-foreground text-center mt-0",
-                            ),
-                            cls="p-4 text-center bg-muted rounded-lg cursor-pointer border-2 border-dashed border-border",
-                        ),
-                        Input(
-                            type="file",
-                            name="file",
-                            accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
-                            cls="hidden",
-                        ),
-                        cls="w-full cursor-pointer",
-                    ),
-                    cls="mb-4",
-                ),
-                Div(
-                    Button(
-                        "Submit for Review",
-                        variant=ButtonT.primary,
-                        type="submit",
-                    ),
-                    cls="text-center",
-                ),
-                Div(id="upload-status", cls="mt-4 text-center"),
-                hx_post="/gradebook/upload",
-                hx_target="#upload-status",
-                hx_swap="outerHTML",
-                hx_encoding="multipart/form-data",
-                id="upload-form",
-            ),
-        ),
-        cls="bg-background shadow-sm hover:shadow-md transition-shadow",
-    )
-
-
-def upload_form_script() -> Any:
-    """HTMX event handlers for upload form UX polish."""
-    return Script(
-        NotStr("""
-        document.body.addEventListener('htmx:beforeRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
-                var btn = form.querySelector('button[type="submit"]');
-                if (btn) {
-                    btn.disabled = true;
-                    btn.textContent = 'Uploading...';
-                }
-            }
-        });
-
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
-                form.reset();
-                var btn = form.querySelector('button[type="submit"]');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = 'Submit for Review';
-                }
-                htmx.trigger('#submissions-grid-container', 'load');
-            }
-        });
-    """)
-    )
 
 
 def render_filters_section() -> Any:
