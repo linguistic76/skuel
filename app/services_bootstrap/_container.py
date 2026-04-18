@@ -168,7 +168,7 @@ class Services:
         None  # ExerciseService - Reusable LLM instruction templates
     )
     revised_exercises: RevisedExerciseOperations | None = (
-        None  # RevisedExerciseService - Five-phase learning loop revision cycle
+        None  # RevisedExerciseService - Four-phase learning loop revision cycle
     )
 
     # General-purpose forms (March 2026)

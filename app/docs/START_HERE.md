@@ -45,7 +45,7 @@ Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a N
 
 **Other**: FormTemplate, FormSubmission, LifePath, Groups
 
-The learning loop is SKUEL's core purpose: **PathStep → Exercise → Submission → Report → RevisedExercise → ...** See [Learning Loop Architecture](architecture/LEARNING_LOOP_ARCHITECTURE.md).
+The learning loop is SKUEL's core purpose (4 phases): **Exercise → UserEntry → ExerciseReport → RevisedExercise → ...** PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)`. See [Learning Loop Architecture](architecture/LEARNING_LOOP_ARCHITECTURE.md).
 
 Full reference: [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)
 

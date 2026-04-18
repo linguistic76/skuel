@@ -361,7 +361,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 **File:** `learning_loop_query_service.py`
 **Package:** `core/services/submissions/`
 
-**Responsibility:** Read-only queries that traverse the five-phase learning loop graph (Exercise → Submission → Interaction → Report → RevisedExercise). Read-side peer of `LearningLoopEventHandlerService`.
+**Responsibility:** Read-only queries that traverse the four-phase learning loop graph (Exercise → UserEntry → ExerciseReport → RevisedExercise). Interaction nodes provide situated context for each UserEntry. Read-side peer of `LearningLoopEventHandlerService`.
 
 **Rationale:** Keeps generic submission search (`SubmissionsSearchService`) free of Cypher that traverses Interaction/Exercise/Report edges. New learning-loop reads land here.
 

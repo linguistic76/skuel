@@ -1524,7 +1524,7 @@ class ExerciseOperations(Protocol):
 
 
 class RevisedExerciseOperations(Protocol):
-    """Revised exercise operations for the five-phase learning loop.
+    """Revised exercise operations for the four-phase learning loop.
 
     RevisedExercise is a UserOwnedEntity (teacher-owned, student-targeted)
     that provides targeted revision instructions after ExerciseReport.

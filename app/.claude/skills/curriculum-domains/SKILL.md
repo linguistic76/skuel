@@ -197,7 +197,7 @@ See: `core/services/ku/` and `docs/domains/moc.md`
 - [activity-domains](../activity-domains/SKILL.md) - Contrast with user-owned domains
 - [result-pattern](../result-pattern/SKILL.md) - All methods return `Result[T]`
 - [neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md) - Graph queries
-- [learning-loop](../learning-loop/SKILL.md) - Five-phase learning loop (Exercise → Submission → Report)
+- [learning-loop](../learning-loop/SKILL.md) - Four-phase learning loop (Exercise → UserEntry → ExerciseReport → RevisedExercise)
 
 ## Related Documentation
 

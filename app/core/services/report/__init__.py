@@ -4,9 +4,9 @@ Report Service Package
 
 Sub-services for the Report stage of SKUEL's educational loop:
 
-    Ku → Exercise → Submission → Report
-                                    ↑
-                        teacher/AI responds to work
+    Exercise → UserEntry → ExerciseReport → RevisedExercise
+                              ↑
+                    teacher/AI responds to work
 
 Sub-services:
 - ActivityReportService: Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)

@@ -4,9 +4,11 @@ Report Protocols
 
 Route-facing protocols for the Report stage of SKUEL's core educational loop:
 
-    PathStep → Exercise → Submission → Report
-                                     ↑
-                           someone responds to the work
+    Exercise → UserEntry → ExerciseReport → RevisedExercise
+                              ↑
+                    someone responds to the work
+
+PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``.
 
 Reports have two implementations — the mechanism differs, the concept is the same:
 

@@ -1999,7 +1999,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
 )
 
 # -----------------------------------------------------------------------------
-# REVISED_EXERCISE (Five-Phase Learning Loop — teacher-owned, student-targeted)
+# REVISED_EXERCISE (Four-Phase Learning Loop — teacher-owned, student-targeted)
 # RevisedExercise responds to ExerciseReport and revises an Exercise
 # -----------------------------------------------------------------------------
 REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(

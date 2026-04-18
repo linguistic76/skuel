@@ -1,13 +1,16 @@
 """
-RevisedExercise - Five-Phase Learning Loop Domain Model
+RevisedExercise - Four-Phase Learning Loop Domain Model
 ========================================================
 
 Frozen dataclass for teacher-created revised exercise instructions that
-address specific feedback gaps. Part of the five-phase learning loop:
+address specific feedback gaps. Part of the four-phase learning loop:
 
-    PathStep → Exercise v1 → Submission v1 → ExerciseReport v1
-                                                  ↓
-                                            RevisedExercise v2 → Submission v2 → ...
+    Exercise v1 → UserEntry v1 → ExerciseReport v1
+                                      ↓
+                                RevisedExercise v2 → UserEntry v2 → ...
+
+PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``
+(denormalized as ``Exercise.path_step_uid`` for PERSONAL scope).
 
 RevisedExercise is teacher-owned but student-targeted: the teacher creates
 targeted revision instructions based on feedback, and the student submits

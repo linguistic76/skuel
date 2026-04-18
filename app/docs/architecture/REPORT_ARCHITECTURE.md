@@ -311,7 +311,7 @@ Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report
 
 ## Where Reports Sit in the 4-Layer Architecture
 
-The 5-phase learning loop is: **PathStep → Exercise → Submission → Report → RevisedExercise**
+The 4-phase learning loop is: **Exercise → UserEntry → ExerciseReport → RevisedExercise**. PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)`.
 
 The first three stages are **leaf domains** — each owns its own Neo4j nodes and fits the standard 4-layer pattern:
 

@@ -214,7 +214,7 @@ Educational foundation. PathStep extends `Curriculum(Entity)` and is THE curricu
 
 ### Resource — Curated External Content
 
-Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `PathStep → Exercise → UserEntry → ExerciseReport → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
+Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Exercise → UserEntry → ExerciseReport → RevisedExercise` loop (PathStep anchors Exercises, but Resource sits outside that chain entirely). Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
 
 **Two paths to knowledge (Montessori-inspired):**
 - **PS Path**: Structured, linear, teacher-directed (Ku -> PathStep -> LearningPath)
@@ -336,7 +336,7 @@ Both live in `core/models/enums/user_entry_enums.py` (formerly `submissions_enum
 
 `ProcessorType` has been removed from the codebase. Legacy aliases ensure old serialized data continues to read: the ingestion alias map redirects legacy string values onto the new enums.
 
-### RevisedExercise — Five-Phase Learning Loop
+### RevisedExercise — Four-Phase Learning Loop
 
 Teacher-created revision of an Exercise that addresses specific `ExerciseReport` gaps. Extends `UserOwnedEntity` (NOT Curriculum — needs `user_uid` but not 21 Curriculum fields). `ContentOrigin.USER_CREATED` — teacher-authored content targeted at a specific student.
 

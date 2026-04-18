@@ -637,8 +637,8 @@ class ExerciseService(BaseService):
         Link an exercise to a curriculum KU via REQUIRES_KNOWLEDGE.
 
         This declares that the exercise requires understanding of the
-        curriculum knowledge unit — completing the learning pipeline:
-        Curriculum → Exercise → Submission → Feedback
+        curriculum knowledge unit — anchoring the exercise to the
+        four-phase loop: Exercise → UserEntry → ExerciseReport → RevisedExercise.
 
         Args:
             exercise_uid: Exercise UID (entity_type='exercise')

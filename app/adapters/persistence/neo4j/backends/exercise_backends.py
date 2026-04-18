@@ -1,7 +1,10 @@
 """Exercise-family backends: Exercise, RevisedExercise, ExerciseReport.
 
-The three entities that drive the five-phase learning loop:
+The three entities that drive the four-phase learning loop:
 Exercise → UserEntry → ExerciseReport → RevisedExercise → …
+
+PathStep is the curriculum anchor, linked via (PathStep)-[:RELATED_TO]->(Exercise)
+(denormalized as Exercise.path_step_uid for PERSONAL scope).
 """
 
 from __future__ import annotations
@@ -441,7 +444,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     """
     Domain backend for RevisedExercise entities.
 
-    Provides relationship-specific Cypher for the five-phase learning loop:
+    Provides relationship-specific Cypher for the four-phase learning loop:
     - verify_teacher_authority    — Check teacher review authority graph path
     - create_owns_relationship   — MERGE OWNS (teacher -> revised exercise)
     - auto_share_with_student    — MERGE SHARES_WITH (student -> revised exercise)
@@ -506,8 +509,8 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """Verify teacher has review authority over a report.
 
         Checks the graph path (OWNS-based, per ADR-040):
-        - (ExerciseReport)-[:REPORT_FOR]->(Submission) exists
-        - (Student)-[:OWNS]->(Submission)
+        - (ExerciseReport)-[:REPORT_FOR]->(UserEntry) exists
+        - (Student)-[:OWNS]->(UserEntry)
         - Teacher identity is role-gated at the route level (@require_role)
 
         teacher_uid is retained for audit logging and future per-teacher scoping.
@@ -696,7 +699,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     """
     Domain backend for ExerciseReport entities.
 
-    Provides typed relationship-specific reads for the five-phase learning loop.
+    Provides typed relationship-specific reads for the four-phase learning loop.
     All reads assert both labels (``:Entity:ExerciseReport``) and return
     ``list[ExerciseReport]`` via ``from_neo4j_node``.
 
@@ -940,8 +943,8 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     ) -> Result[list[ExerciseReport]]:
         """All ExerciseReports for a student's submissions on a given exercise.
 
-        Traverses: (Student)-[:OWNS]->(Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-                   (Report)-[:REPORT_FOR]->(Submission)
+        Traverses: (Student)-[:OWNS]->(UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
+                   (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
 
         Returns typed ExerciseReport instances ordered by created_at DESC
         (newest-first — natural reading order for "most recent feedback").

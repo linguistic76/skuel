@@ -12,8 +12,8 @@ No LLM dependencies — this is a Level 1 graph analytics service.
 The higher-level ExerciseReportService (LLM report generation) is a separate concern.
 
 Graph relationships queried:
-- REPORT_FOR: (ExerciseReport)-[:REPORT_FOR]->(Submission)
-- OWNS: (User)-[:OWNS]->(Submission)
+- REPORT_FOR: (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
+- OWNS: (User)-[:OWNS]->(UserEntry)
 
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
@@ -163,8 +163,8 @@ class ReportRelationshipService:
         Teacher/admin view: "show me everything related to this exercise."
 
         Graph pattern (mixed directions):
-            (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (ExerciseReport)-[:REPORT_FOR]->(Submission)
+            (UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
+            (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
             (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
             (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
 
@@ -202,8 +202,8 @@ class ReportRelationshipService:
         Student view: "what happened after I submitted?"
 
         Graph pattern:
-            (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (ExerciseReport)-[:REPORT_FOR]->(Submission)
+            (UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
+            (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
             (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
 
         Args:

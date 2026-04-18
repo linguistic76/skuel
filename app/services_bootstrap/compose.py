@@ -736,7 +736,7 @@ async def compose_services(
 
         logger.info("✅ Report, exercise, and resource services created")
 
-        # Create revised exercise service (five-phase learning loop)
+        # Create revised exercise service (four-phase learning loop)
         from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
         from core.models.exercises.revised_exercise import RevisedExercise
         from core.services.revised_exercises import RevisedExerciseService
@@ -751,7 +751,7 @@ async def compose_services(
         revised_exercise_service = RevisedExerciseService(
             backend=revised_exercise_backend, event_bus=event_bus
         )
-        logger.info("✅ RevisedExerciseService created (five-phase learning loop)")
+        logger.info("✅ RevisedExerciseService created (four-phase learning loop)")
 
         # Create form services (general-purpose form system)
         from adapters.persistence.neo4j.backends.forms_backends import (
@@ -1215,7 +1215,7 @@ async def compose_services(
             report_mastery=report_mastery_service,  # Explicit mastery propagation
             exercise_report=exercise_report_service,  # LLM report on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
-            revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
+            revised_exercises=revised_exercise_service,  # Four-phase learning loop revisions
             form_templates=form_template_service,  # General-purpose form templates
             form_submissions=form_submission_service,  # User form submissions
             interaction_service=interaction_service,  # User Interaction Contract

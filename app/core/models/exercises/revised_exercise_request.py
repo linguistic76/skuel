@@ -5,8 +5,8 @@ Revised Exercise Request Models (Tier 1 - External)
 Pydantic models for RevisedExercise API validation and serialization.
 Handles input validation at the API boundary.
 
-Part of the five-phase learning loop:
-Exercise → Submission → ExerciseReport → RevisedExercise → Submission v2 → ...
+Part of the four-phase learning loop:
+Exercise → UserEntry → ExerciseReport → RevisedExercise → UserEntry v2 → ...
 """
 
 from pydantic import BaseModel, Field

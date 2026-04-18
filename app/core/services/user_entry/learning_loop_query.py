@@ -2,9 +2,13 @@
 UserEntry Learning Loop Query Service — ADR-054 Commit 6a
 ==========================================================
 
-Read-only queries that traverse the five-phase learning loop graph:
+Read-only queries that traverse the four-phase learning loop graph:
 
-    PathStep → Exercise → UserEntry → Interaction → Report → RevisedExercise
+    Exercise → UserEntry → ExerciseReport → RevisedExercise
+
+PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``
+(denormalized as ``Exercise.path_step_uid`` for PERSONAL scope). Interaction
+nodes provide situated context for each UserEntry.
 
 Ported from ``LearningLoopQueryService`` unchanged — the backing Cypher is
 label-agnostic and works against ``:Entity`` regardless of subtype. Only
@@ -24,7 +28,7 @@ logger = get_logger("skuel.services.user_entry.learning_loop_query")
 
 
 class LearningLoopQueryService:
-    """Read-side queries for the five-phase learning loop."""
+    """Read-side queries for the four-phase learning loop."""
 
     def __init__(
         self,

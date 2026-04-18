@@ -308,7 +308,7 @@ class RelationshipName(StrEnum):
     FULFILLS_REVISED_EXERCISE = "FULFILLS_REVISED_EXERCISE"
     # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing
     SHARED_WITH_GROUP = "SHARED_WITH_GROUP"
-    # Revision cycle (5-phase learning loop)
+    # Revision cycle (four-phase learning loop)
     # (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
     RESPONDS_TO_REPORT = "RESPONDS_TO_REPORT"
     # (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
