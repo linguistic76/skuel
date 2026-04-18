@@ -16,6 +16,23 @@ allowed-tools: Read, Grep, Glob
 
 > "Knowledge is learned by doing, evaluated by responding, and refined by reflecting."
 
+> **ADR-054 update (2026-04-17).** `ExerciseSubmission`, `JeInput`, and `JeOutput` were
+> collapsed into a single `UserEntry(UserOwnedEntity)` entity type discriminated by the
+> `Pipeline` enum (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`,
+> `TRANSCRIBE_AND_STRUCTURE`). Revision count moved onto the edge:
+> `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Reports use a new
+> `ReportSource` enum (`HUMAN`, `LLM`, `AUTOMATIC`) in place of `ProcessorType`. The
+> journal track is now a *pipeline*, not a domain: audio uploads create a source
+> `UserEntry` with `pipeline=TRANSCRIBE_AND_STRUCTURE`, which is then transformed into a
+> structured second `UserEntry` via `(structured)-[:TRANSFORMS]->(source)`. Activity
+> extraction from journals (DSL auto-creating Tasks/Goals) was **dropped**.
+> Services live in `core/services/user_entry/`; the legacy `core/services/submissions/`
+> and `core/services/journal/` packages are shelved. Historical references to
+> `ExerciseSubmission`, `JeInput`, `JeOutput`, `ProcessorType`,
+> `SubmissionsBackend`, `submission_protocols.py`, and `process_exercise_submission()`
+> in this file now point to their `UserEntry` / `UserEntryBackend` /
+> `user_entry_protocols.py` / `UserEntryProcessingService` counterparts.
+
 The Learning Loop is the **gravitational center of SKUEL**. Every feature either feeds
 this loop, supports its infrastructure, or should be questioned. Understanding the loop
 is the prerequisite for all architectural decisions.
@@ -23,7 +40,7 @@ is the prerequisite for all architectural decisions.
 **The loop, in its narrowest form:**
 
 ```
-Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → repeat
+Exercise → UserEntry → ExerciseReport → RevisedExercise → repeat
 ```
 
 These four entity types ARE the learning loop. Everything else is substrate (Ku, PathStep),
@@ -46,16 +63,16 @@ The cycle repeats until the teacher approves or the student reaches mastery.
 ║                                                                          ║
 ║  THE LOOP (iterates until mastered)                                      ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Exercise] → [ExerciseSubmission] → [ExerciseReport]                   ║
-║   Phase 1      Phase 2                Phase 3                            ║
-║   directive    student's work         teacher/AI response                ║
-║                                           ↓                              ║
-║                                   [RevisedExercise]  (optional)          ║
-║                                    Phase 4                               ║
-║                                    targeted revision                     ║
-║                                           ↓                              ║
-║                                   [ExerciseSubmission v2] → ...          ║
-║                  ↑_____________________________________↓                 ║
+║  [Exercise] → [UserEntry] → [ExerciseReport]                             ║
+║   Phase 1      Phase 2        Phase 3                                    ║
+║   directive    student's work teacher/AI response                        ║
+║                                    ↓                                     ║
+║                             [RevisedExercise]  (optional)                ║
+║                              Phase 4                                     ║
+║                              targeted revision                           ║
+║                                    ↓                                     ║
+║                             [UserEntry v2, revision=2] → ...             ║
+║                  ↑__________________________________________↓            ║
 ║                                                                          ║
 ║  PARALLEL REPORTING (sibling system — same feedback philosophy,          ║
 ║  structurally separate)                                                  ║
@@ -64,9 +81,10 @@ The cycle repeats until the teacher approves or the student reaches mastery.
 ║                    ↓ (over time window)                                   ║
 ║             [ActivityReport] ←── AI or Admin                            ║
 ║                                                                          ║
-║  JOURNAL TRACK (self-directed, standalone domain)                        ║
+║  JOURNAL TRACK (self-directed pipeline on UserEntry)                     ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [JeInput] → Deepgram/text → LLM → [JeOutput] → user downloads         ║
+║  [UserEntry(source, pipeline=TRANSCRIBE_AND_STRUCTURE)] → Deepgram       ║
+║    → LLM → [UserEntry(structured)] -[:TRANSFORMS]-> source               ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 ```

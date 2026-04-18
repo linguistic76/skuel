@@ -14,8 +14,8 @@ Hierarchy:
     Entity (~19 fields: identity, content, status, visibility, meta, embedding)
     ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
     │   ├── Task, Goal, Habit, Event, Choice, Principle
-    │   ├── Submission → ExerciseSubmission, ExerciseReport
-    │   ├── ActivityReport (activity-level feedback — no file fields)
+    │   ├── UserEntry (ADR-054 — replaces ExerciseSubmission/JeInput/JeOutput)
+    │   ├── ExerciseReport, ActivityReport (activity-level feedback — no file fields)
     │   └── LifePath
     ├── Curriculum(Entity) → PathStep, LearningPath, Exercise
     └── Resource(Entity)

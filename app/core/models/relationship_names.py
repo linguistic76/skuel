@@ -299,9 +299,9 @@ class RelationshipName(StrEnum):
     # Teacher exercise workflow and group management. FOR_GROUP retired;
     # all curriculum->group sharing now uses SHARED_WITH_GROUP.
     # =========================================================================
-    # (ExerciseSubmission)-[:FULFILLS_EXERCISE]->(Exercise) - Always the ROOT Exercise
+    # (UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise) - Always the ROOT Exercise; revision on edge (ADR-054)
     FULFILLS_EXERCISE = "FULFILLS_EXERCISE"
-    # (ExerciseSubmission)-[:FULFILLS_REVISED_EXERCISE]->(RevisedExercise) - Revision cycle only
+    # (UserEntry)-[:FULFILLS_REVISED_EXERCISE]->(RevisedExercise) - Revision cycle only
     # Created alongside FULFILLS_EXERCISE when submitting against a RevisedExercise.
     # FULFILLS_EXERCISE always anchors to the root Exercise; FULFILLS_REVISED_EXERCISE
     # captures which specific revision instructions the student addressed.
@@ -342,10 +342,10 @@ class RelationshipName(StrEnum):
     REPORT_FOR = "REPORT_FOR"  # (Entity)-[:REPORT_FOR]->(Entity) - Report targets submission
 
     # =========================================================================
-    # JOURNAL RELATIONSHIPS
-    # Journal entry pipeline: JE_INPUT → LLM → JE_OUTPUT
+    # JOURNAL PIPELINE RELATIONSHIPS (ADR-054)
+    # Journal is a pipeline on UserEntry: source UserEntry → Deepgram/LLM → structured UserEntry
     # =========================================================================
-    TRANSFORMS = "TRANSFORMS"  # (JeOutput)-[:TRANSFORMS]->(JeInput) - Output derived from input
+    TRANSFORMS = "TRANSFORMS"  # (UserEntry structured)-[:TRANSFORMS]->(UserEntry source) - Output derived from input
 
     # =========================================================================
     # EVIDENCE RELATIONSHIPS
@@ -403,7 +403,7 @@ class RelationshipName(StrEnum):
     # INTERACTION RELATIONSHIPS (User Interaction Contract)
     # Interaction → artifact/context: audit trail for situated learning events.
     # =========================================================================
-    RECORDS = "RECORDS"  # (Interaction)-[:RECORDS]->(ExerciseSubmission|...) — source artifact
+    RECORDS = "RECORDS"  # (Interaction)-[:RECORDS]->(UserEntry|...) — source artifact
     INTERACTION_DURING = "INTERACTION_DURING"  # (Interaction)-[:INTERACTION_DURING]->(PathStep)
     INTERACTION_WITHIN = "INTERACTION_WITHIN"  # (Interaction)-[:INTERACTION_WITHIN]->(LearningPath)
 

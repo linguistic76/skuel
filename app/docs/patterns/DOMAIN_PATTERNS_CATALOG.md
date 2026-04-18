@@ -547,7 +547,6 @@ def task_pure_to_dto(task: Task) -> TaskDTO:
 
 ✅ **Use Pattern B when**:
 - Domain is admin-only bookkeeping (Finance)
-- Simple content storage (Journals)
 - Minimal or no business logic (<3 methods)
 - No immutability requirements
 - Not used by generic protocol-based services
@@ -798,9 +797,10 @@ class FinanceService:
 
 ### Current Implementations
 
-**Pattern B domains (2)**:
+**Pattern B domains (1)**:
 1. Finance ✅ (admin-only bookkeeping)
-2. Journals ✅ (simple content storage)
+
+Journals migrated to Pattern A via ADR-054 — they are now a `pipeline=TRANSCRIBE_AND_STRUCTURE` flow on `UserEntry`, sharing the full Pattern A stack (frozen dataclass → DTO → Pydantic request) with every other user-authored content type.
 
 ---
 

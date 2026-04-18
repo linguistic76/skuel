@@ -2,10 +2,10 @@
 Phase 3: ExerciseReport — The Loop's Response
 ==============================================
 
-The evaluation entity. When a student submits work (Phase 2: ExerciseSubmission),
+The evaluation entity. When a student submits work (Phase 2: UserEntry, ADR-054),
 a teacher or AI responds with an ExerciseReport:
 
-    Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → ...
+    Exercise → UserEntry → ExerciseReport → RevisedExercise → ...
 
 Two sources, same EntityType, different ReportSource:
 
@@ -19,7 +19,7 @@ assessment_outcome records the decision made:
 
 Graph pattern:
     (teacher:User)-[:OWNS]->(report:Entity:ExerciseReport)
-    (report)-[:REPORT_FOR]->(submission:Entity:ExerciseSubmission)
+    (report)-[:REPORT_FOR]->(entry:Entity:UserEntry)
     (report)-[:SHARES_WITH]->(student:User)  ← grants student read access
 
 Note: subject_uid is GRAPH-NATIVE — projected from REPORT_FOR on read, not stored

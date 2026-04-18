@@ -2782,7 +2782,7 @@ class RelationshipGraphRow(TypedDict, total=False):
 
 
 class CleanupStats(TypedDict):
-    """Result of file cleanup operations (e.g., JeOutput date range cleanup)."""
+    """Result of file cleanup operations (e.g., UserEntry date range cleanup)."""
 
     files_deleted: int
     bytes_freed: int

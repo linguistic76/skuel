@@ -32,13 +32,10 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Knowledge Domains | `KnowledgeDomain` | `kd.{domain_name}` | `kd.self_awareness` |
 | **Curated Content — shared content** | | | |
 | Resources | `Resource` | *(no fixed format)* | |
-| **Submissions/Reports (3)** | | | |
-| Exercise Submissions | `ExerciseSubmission` | `es_{slug}_{random}` | `es_my-essay_abc123` |
+| **User-authored content + Reports (3) — ADR-054** | | | |
+| User Entries | `UserEntry` | `ue_{slug}_{random}` | `ue_my-essay_abc123` |
 | Activity Reports | `ActivityReport` | `ar_{random}` | |
 | Exercise Reports | `ExerciseReport` | `sr_{random}` | |
-| **Journal (2, standalone domain)** | | | |
-| JeInput | `JeInput` | `ji_{slug}_{random}` | `ji_morning-reflection_abc123` |
-| JeOutput | `JeOutput` | `jo_{slug}_{random}` | `jo_morning-reflection_def456` |
 | **Destination** | | | |
 | Life Path | `LifePath` | `lp_{random}` | `lp_abc123` |
 | **Other** | | | |

@@ -140,8 +140,8 @@ class ZPDAssessment:
         KUs with is_confirmed=True have 2+ signal types.
 
     submission_scores : dict[str, float]
-        Best submission score per KU, derived from ExerciseSubmission
-        scores linked via FULFILLS_EXERCISE -> APPLIES_KNOWLEDGE.
+        Best submission score per KU, derived from UserEntry scores
+        linked via FULFILLS_EXERCISE -> APPLIES_KNOWLEDGE.
     """
 
     current_zone: list[str]

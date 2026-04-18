@@ -3,7 +3,7 @@ Inline Exercise Form Renderer
 ===============================
 
 Renders an Exercise's form_schema as an embeddable HTMX form.
-When submitted, creates an ExerciseSubmission via POST /api/submissions/form.
+When submitted, creates a UserEntry via POST /api/submissions/form.
 
 Supported field types: text, textarea, select, checkbox, number, date.
 

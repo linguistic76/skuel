@@ -47,7 +47,7 @@ async def test_share_success(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_owner",
                     "status": "completed",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                 }
             ]
         )
@@ -74,7 +74,7 @@ async def test_share_not_owner(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_other",
                     "status": "completed",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                 }
             ]
         )
@@ -102,7 +102,7 @@ async def test_share_not_completed(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_owner",
                     "status": "processing",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "exercise_report",
                 }
             ]
         )
@@ -150,7 +150,7 @@ async def test_unshare_success(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_owner",
                     "status": "completed",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                 }
             ]
         )
@@ -176,7 +176,7 @@ async def test_unshare_not_owner(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_other",
                     "status": "completed",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                 }
             ]
         )
@@ -202,7 +202,7 @@ async def test_unshare_no_relationship(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_owner",
                     "status": "completed",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                 }
             ]
         )
@@ -279,7 +279,7 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
     entity_data = {
         "uid": "report_123",
         "user_uid": "user_student",
-        "entity_type": "exercise_submission",
+        "entity_type": "user_entry",
         "status": "completed",
         "title": "My Report",
         "original_filename": "report.pdf",
@@ -328,7 +328,7 @@ async def test_set_visibility_to_public_success(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_owner",
                     "status": "completed",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                 }
             ]
         )
@@ -378,7 +378,7 @@ async def test_set_visibility_not_owner(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_other",
                     "status": "completed",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                 }
             ]
         )
@@ -408,7 +408,7 @@ async def test_check_access_owner(mock_backend, sharing_service):
                 {
                     "owner_uid": "user_owner",
                     "visibility": "private",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                     "has_direct_share": False,
                     "has_group_share": False,
                 }
@@ -434,7 +434,7 @@ async def test_check_access_public(mock_backend, sharing_service):
                 {
                     "owner_uid": "user_owner",
                     "visibility": "public",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                     "has_direct_share": False,
                     "has_group_share": False,
                 }
@@ -460,7 +460,7 @@ async def test_check_access_shared_with_relationship(mock_backend, sharing_servi
                 {
                     "owner_uid": "user_owner",
                     "visibility": "shared",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                     "has_direct_share": True,
                     "has_group_share": False,
                 }
@@ -486,7 +486,7 @@ async def test_check_access_private_not_owner(mock_backend, sharing_service):
                 {
                     "owner_uid": "user_owner",
                     "visibility": "private",
-                    "entity_type": "exercise_submission",
+                    "entity_type": "user_entry",
                     "has_direct_share": False,
                     "has_group_share": False,
                 }
@@ -526,7 +526,7 @@ async def test_check_access_entity_not_found(mock_backend, sharing_service):
 async def test_verify_shareable_completed(mock_backend, sharing_service):
     """Test verify_shareable succeeds for completed entities."""
     mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "completed", "entity_type": "exercise_submission"}])
+        return_value=Result.ok([{"status": "completed", "entity_type": "user_entry"}])
     )
 
     result = await sharing_service.verify_shareable(entity_uid="report_123")
@@ -552,7 +552,7 @@ async def test_verify_shareable_activity_active(mock_backend, sharing_service):
 async def test_verify_shareable_not_completed(mock_backend, sharing_service):
     """Test verify_shareable fails for non-completed non-activity entities."""
     mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "processing", "entity_type": "exercise_submission"}])
+        return_value=Result.ok([{"status": "processing", "entity_type": "exercise_report"}])
     )
 
     result = await sharing_service.verify_shareable(entity_uid="report_123")

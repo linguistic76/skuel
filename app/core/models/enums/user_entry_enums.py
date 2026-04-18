@@ -11,7 +11,7 @@ from enum import StrEnum
 
 class SubmissionModality(StrEnum):
     """
-    Format of submission expected by an Exercise or used by an ExerciseSubmission.
+    Format of submission expected by an Exercise or used by a UserEntry.
 
     FILE_UPLOAD: Student uploads a file (audio, PDF, document, image)
     STRUCTURED_FORM: Student fills out an inline form defined by Exercise.form_schema

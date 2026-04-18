@@ -1,9 +1,9 @@
 ---
-title: SKUEL Architecture — 22 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-04-02
+title: SKUEL Architecture — 20 Entity Types + 5 Cross-Cutting Systems
+updated: 2026-04-17
 status: current
 category: architecture
-version: 7.0.0
+version: 8.0.0
 tags:
 - architecture
 - entity-types
@@ -12,6 +12,7 @@ related:
 - ADR-041-unified-ku-model
 - ADR-047-entity-types-replace-domain-categories
 - ADR-051-user-interaction-contract
+- ADR-054-user-entry-unified-submissions
 ---
 
 # SKUEL Architecture
@@ -20,7 +21,7 @@ related:
 
 SKUEL is a **knowledge-centric productivity platform** where every operation connects to and enriches understanding. **Knowledge is the fertile soil from which all activity grows.**
 
-### 22 Entity Types + 5 Cross-Cutting Systems
+### 20 Entity Types + 5 Cross-Cutting Systems
 
 | EntityType | What It Is | Ownership |
 |------------|-----------|-----------|
@@ -37,11 +38,9 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | Exercise | Instruction template, assignment, or formal assessment | Admin-created, shared |
 | FormTemplate | Reusable form definition | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | User-owned |
-| ExerciseSubmission | Student-uploaded work against an exercise | User-owned |
+| UserEntry | Unified user-authored content — submissions, journals, uploads (ADR-054) | User-owned |
 | Interaction | Situated learning-loop event (curriculum context at submission time) | User-owned |
-| JeInput | Journal entry input (voice/text) | User-owned |
-| JeOutput | Journal entry output (LLM-transformed) | User-owned |
-| ExerciseReport | Assessment tied to a specific submission | User-owned |
+| ExerciseReport | Assessment tied to a specific UserEntry fulfilling an exercise | User-owned |
 | ActivityReport | Feedback about activity patterns over time | User-owned |
 | RevisedExercise | Targeted revision after feedback | Teacher-owned |
 | LifePath | The user's life direction | User-owned |
@@ -109,12 +108,9 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- LifePath
 |   +-- ActivityReport                           (no file fields)
 |   +-- FormSubmission(UserOwnedEntity)          FORM_SUBMISSION (structured JSON)
-|   +-- Submission(UserOwnedEntity) +14 file/processing/modality fields
-|   |   +-- ExerciseSubmission(Submission)        EXERCISE_SUBMISSION
-|   +-- ExerciseReport(UserOwnedEntity) +6 report fields (NOT Submission)    EXERCISE_REPORT
-|   +-- JeInput(UserOwnedEntity)                  JE_INPUT (standalone journal domain)
-|   +-- JeOutput(UserOwnedEntity)                 JE_OUTPUT (standalone journal domain)
-|   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
+|   +-- UserEntry(UserOwnedEntity) +file/processing/pipeline fields   USER_ENTRY (ADR-054)
+|   +-- ExerciseReport(UserOwnedEntity) +6 report fields              EXERCISE_REPORT
+|   +-- RevisedExercise(UserOwnedEntity)                              REVISED_EXERCISE
 +-- FormTemplate(Entity) — reusable form definition (shared, embeddable)
 +-- Curriculum(Entity) +21 fields (base class only)
 |   +-- PathStep(Curriculum), LearningPath, Exercise
@@ -129,9 +125,8 @@ EntityDTO (~18 fields)
 +-- UserOwnedDTO(EntityDTO) +3 -> TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
 +-- UserOwnedDTO -> ActivityReportDTO              (no file fields)
 +-- UserOwnedDTO -> FormSubmissionDTO              (structured JSON, no file fields)
-+-- UserOwnedDTO -> SubmissionDTO -> ExerciseSubmissionDTO
-+-- UserOwnedDTO -> ExerciseReportDTO  (NOT SubmissionDTO)
-+-- UserOwnedDTO -> JeInputDTO, JeOutputDTO        (standalone journal domain)
++-- UserOwnedDTO -> UserEntryDTO                   (file + processing + pipeline)
++-- UserOwnedDTO -> ExerciseReportDTO
 +-- EntityDTO -> FormTemplateDTO                   (form_schema, instructions)
 +-- CurriculumDTO(EntityDTO) -> PathStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
@@ -152,9 +147,8 @@ Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task
 | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
 | `:Curriculum`, `:Resource`, `:PathStep`, `:LearningPath` |
 | `:FormTemplate`, `:FormSubmission` |
-| `:Submission`, `:ExerciseSubmission` |
+| `:UserEntry` |
 | `:ExerciseReport` |
-| `:JeInput`, `:JeOutput` |
 | `:ActivityReport` |
 | `:Exercise` |
 | `:LifePath` |
@@ -168,7 +162,7 @@ CREATE (n:Entity:Goal {uid: $uid, ...})
 
 **Key files:**
 - `/core/models/entity.py` — `Entity` + `UserOwnedEntity` base classes
-- `/core/models/enums/entity_enums.py` — `EntityType` (21 values), `EntityStatus`
+- `/core/models/enums/entity_enums.py` — `EntityType` (20 values), `EntityStatus`
 
 ---
 
@@ -220,7 +214,7 @@ Educational foundation. PathStep extends `Curriculum(Entity)` and is THE curricu
 
 ### Resource — Curated External Content
 
-Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `PathStep → Exercise → Submission → Report → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
+Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `PathStep → Exercise → UserEntry → ExerciseReport → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
 
 **Two paths to knowledge (Montessori-inspired):**
 - **PS Path**: Structured, linear, teacher-directed (Ku -> PathStep -> LearningPath)
@@ -276,7 +270,7 @@ Exercise is a single entity type serving three distinct pedagogical roles via `E
 
 **ExerciseReport** carries `assessment_score` (0.0-1.0) for ASSESSMENT-scope exercises — the numeric result evaluated against the rubric. This is the **objective measurement layer** that substance tracking and ExerciseReports don't otherwise provide.
 
-**Design rationale:** A Test is an Exercise with `scope=ASSESSMENT` and a scoring rubric — not a separate entity type. The learning loop (`Exercise → Submission → Report → RevisedExercise`) applies identically to all three scopes. What differs is the evaluation mechanism (AI feedback vs teacher review vs rubric scoring) and the strength of the mastery signal.
+**Design rationale:** A Test is an Exercise with `scope=ASSESSMENT` and a scoring rubric — not a separate entity type. The learning loop (`Exercise → UserEntry → ExerciseReport → RevisedExercise`) applies identically to all three scopes. What differs is the evaluation mechanism (AI feedback vs teacher review vs rubric scoring) and the strength of the mastery signal.
 
 ### FormTemplate + FormSubmission — General-Purpose Forms
 
@@ -287,7 +281,7 @@ A general-purpose form system decoupled from the learning loop. Admin creates re
 | `FORM_TEMPLATE` | `Entity` directly | Reusable form definition with `form_schema` (field specs) |
 | `FORM_SUBMISSION` | `UserOwnedEntity` | User response storing structured JSON `form_data` |
 
-FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fields). `ContentOrigin.CURATED`, publicly readable via `ContentScope.SHARED`. FormSubmission extends `UserOwnedEntity` (NOT Submission — no file fields). `ContentOrigin.USER_CREATED`, `is_derived()=True`.
+FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fields). `ContentOrigin.CURATED`, publicly readable via `ContentScope.SHARED`. FormSubmission extends `UserOwnedEntity` (NOT UserEntry — no file fields). `ContentOrigin.USER_CREATED`, `is_derived()=True`.
 
 **Graph relationships:**
 ```cypher
@@ -303,43 +297,44 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 - Backend-level: `FormTemplateBackendOperations(BackendOperations["FormTemplate"])`, `FormSubmissionBackendOperations(BackendOperations["FormSubmission"])` — typed `self.backend` in services (import directly from `core.ports.form_protocols`)
 - Route-level: `FormTemplateOperations`, `FormSubmissionOperations` — typed service in routes (re-exported from `core.ports`)
 
-### Submissions, Reports, ActivityReport — Content Processing
+### UserEntry, Reports, ActivityReport — Content Processing
 
-The educational loop: `PathStep -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
+The educational loop: `PathStep -> Exercise -> UserEntry -> ExerciseReport -> RevisedExercise -> UserEntry -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
 
-| EntityType | Inherits | ProcessorType | Description |
-|------------|---------|---------------|-------------|
-| `EXERCISE_SUBMISSION` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
-| `EXERCISE_REPORT` | `ExerciseReport(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
-| `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
+`UserEntry` (ADR-054) collapses the former `ExerciseSubmission`, `JeInput`, and `JeOutput` entity types into a single user-authored content type. Behavior is discriminated by two dimensions: a `Pipeline` field on the node (how the entry is processed) and a `ReportSource` field on derived reports (who or what produced the report).
 
-**Key structural note:** `ExerciseReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 6 report-specific fields (`report_generated_at`, `subject_uid`, `processor_type`, `assessment_outcome`, `report_file_path`, `assessment_score`) but no file/processing fields. The report body lives on the inherited `Entity.content` field — written by `SubmissionsBackend.create_report_node` as `content: $feedback` and read back via `from_neo4j_node`. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text. `assessment_score` (0.0-1.0) carries the numeric result for ASSESSMENT-scope exercises.
+| EntityType | Inherits | Pipeline / ReportSource | Description |
+|------------|---------|------------------------|-------------|
+| `USER_ENTRY` | `UserOwnedEntity` | `Pipeline` (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`) | Unified user-authored content — exercise submissions, journal audio, uploads |
+| `EXERCISE_REPORT` | `UserOwnedEntity` | `ReportSource` (`HUMAN`, `LLM`) | Assessment tied to a `UserEntry` via `subject_uid` |
+| `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `ReportSource` (`AUTOMATIC`, `LLM`, `HUMAN`) | Activity-level feedback (no file fields; covers a time window) |
+
+**Revision lives on the edge, not the node.** The `revision_number` field that used to sit on `ExerciseSubmission` now lives on `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Re-submitting the same exercise creates a new `UserEntry` node carrying its own `FULFILLS_EXERCISE {revision: N+1}` edge.
+
+**Key structural note:** `ExerciseReport` has 6 report-specific fields (`report_generated_at`, `subject_uid`, `report_source`, `assessment_outcome`, `report_file_path`, `assessment_score`) but no file/processing fields. The report body lives on the inherited `Entity.content` field. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text. `assessment_score` (0.0-1.0) carries the numeric result for ASSESSMENT-scope exercises. `report_source` (`ReportSource` enum) replaces the former `processor_type`.
 
 `ACTIVITY_REPORT` also inherits `UserOwnedEntity` directly — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 
-**Removed aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT` (removed from enum; old string values still parsed via `from_string()`).
+**Ingestion aliases:** `exercise_submission`, `submission`, `journal`, `je_input`, `je_output` still parse via `_ENTITY_TYPE_ALIASES` — all of them map to `EntityType.USER_ENTRY`, with `pipeline` inferred from the alias. Legacy YAMLs in `/home/mike/0bsidian/0vault/` continue ingesting without rewrites.
 
-**Services split:**
-- `core/services/submissions/` — `ActivityReportService`, `ReviewQueueService`, student work pipeline
-- `core/services/report/` — `ExerciseReportService`, `ProgressReportGenerator`, `ProgressScheduleService`
+**Services:**
+- `core/services/user_entry/` — `UserEntryService` (facade), `UserEntryProcessingService` (pipeline dispatch: Deepgram transcribe, LLM summarize, transcribe-and-structure), `AssessmentService`, `ReviewQueueService`, relationship + exercise linking helpers.
+- `core/services/report/` — `ExerciseReportService`, `ProgressReportGenerator`, `ProgressScheduleService`.
 
-### JeInput + JeOutput — Standalone Journal Domain
+**See:** `/docs/architecture/REPORT_ARCHITECTURE.md`, [ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md)
 
-Journal is a **standalone domain**, NOT under submissions/reports. Two entity types: `JeInput` (user's raw journal entry) and `JeOutput` (LLM-transformed output).
+### Pipeline and ReportSource (supersede ProcessorType)
 
-| EntityType | Inherits | Description |
-|------------|---------|-------------|
-| `JE_INPUT` | `UserOwnedEntity` directly | Journal entry input (voice/text), UID prefix `ji_` |
-| `JE_OUTPUT` | `UserOwnedEntity` directly | Journal entry output (LLM-transformed), UID prefix `jo_` |
+`ProcessorType` was a single enum doing two jobs: classifying how a submission was processed AND labeling who generated a report. ADR-054 splits those into two purpose-built enums.
 
-Both extend `UserOwnedEntity` directly (NOT `Submission` or `ExerciseReport`). `JeOutput` has `ContentOrigin.USER_CREATED` (not REPORT). Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`.
+| Enum | Applies to | Values | Purpose |
+|------|-----------|--------|---------|
+| `Pipeline` | `UserEntry` nodes | `NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE` | How a user entry is processed after creation. Drives `UserEntryProcessingService` dispatch. |
+| `ReportSource` | `ExerciseReport`, `ActivityReport` | `HUMAN`, `LLM`, `AUTOMATIC` | Who or what produced the report. Stored as `report_source` on the report node. |
 
-**Pipeline:** JE_INPUT(audio) → Deepgram → JE_INPUT(text) → LLM → JE_OUTPUT
+Both live in `core/models/enums/user_entry_enums.py` (formerly `submissions_enums.py`). `SubmissionModality` and `EnrichmentMode` remain in the same file — both are still load-bearing.
 
-**Models:** `core/models/journal/`
-**Services:** `JournalInputService` (CRUD + file upload), `JournalOutputService` (LLM processing) in `core/services/journal/`
-
-**See:** `/docs/architecture/REPORT_ARCHITECTURE.md`
+`ProcessorType` has been removed from the codebase. Legacy aliases ensure old serialized data continues to read: the ingestion alias map redirects legacy string values onto the new enums.
 
 ### RevisedExercise — Five-Phase Learning Loop
 
@@ -352,7 +347,7 @@ Teacher-created revision of an Exercise that addresses specific `ExerciseReport`
 **Graph relationships:**
 - `RESPONDS_TO_REPORT` → ExerciseReport (what report this addresses)
 - `REVISES_EXERCISE` → Exercise (what exercise this revises)
-- `FULFILLS_EXERCISE` ← Submission (student submits against this)
+- `FULFILLS_EXERCISE` ← UserEntry (student submits against this; `revision` stored on edge)
 
 **Service:** `core/services/revised_exercises/revised_exercise_service.py`
 **See:** `/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md`
@@ -366,7 +361,7 @@ Groups mediate ALL teacher-student relationships. Teacher creates group -> adds 
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
 (exercise:Exercise)-[:FOR_GROUP]->(group:Group)
-(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
+(entry:UserEntry)-[:FULFILLS_EXERCISE {revision}]->(exercise:Exercise)
 ```
 
 **See:** `/docs/decisions/ADR-040-teacher-exercise-workflow.md`
@@ -479,11 +474,12 @@ Natural Text
 // MOC organization
 (entity:Entity)-[:ORGANIZES {order: int}]->(entity:Entity)
 
-// Groups + exercises (ADR-040)
+// Groups + exercises (ADR-040 + ADR-054)
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
 (exercise:Exercise)-[:FOR_GROUP]->(group:Group)
-(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
+(entry:UserEntry)-[:FULFILLS_EXERCISE {revision}]->(exercise:Exercise)
+(structured:UserEntry)-[:TRANSFORMS]->(source:UserEntry)  // journal pipeline
 
 // Forms
 (ps:PathStep)-[:EMBEDS_FORM]->(ft:FormTemplate)

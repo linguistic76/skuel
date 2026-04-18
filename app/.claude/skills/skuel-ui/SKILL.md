@@ -808,7 +808,7 @@ FormGenerator.from_instance(
 
 # Fragment mode — embed in article content (no <form> tag, no submit button)
 exercise_fields = FormGenerator.from_model(
-    ExerciseSubmissionRequest,
+    UserEntryRequest,
     include_fields=["response", "confidence_level"],
     as_fragment=True,
 )

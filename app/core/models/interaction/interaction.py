@@ -10,7 +10,7 @@ Contract" design concept: a first-class, YAML-ingestible, graph-queryable record
 of every meaningful user-curriculum interaction.
 
 Learning context at interaction time — the critical gap this fills:
-    ExerciseSubmission records WHAT was submitted but not WHERE in the curriculum
+    UserEntry records WHAT was submitted but not WHERE in the curriculum
     the user was when they submitted. Interaction bridges that gap, enabling
     ZPD and Askesis to reason about situated learning events.
 
@@ -20,7 +20,7 @@ Hierarchy:
         └── Interaction(UserOwnedEntity) +6 fields
 
 Graph relationships:
-    (Interaction)-[:RECORDS]->(ExerciseSubmission | ...)   source artifact
+    (Interaction)-[:RECORDS]->(UserEntry | ...)            source artifact
     (Interaction)-[:INTERACTION_DURING]->(PathStep)        curriculum context
     (Interaction)-[:INTERACTION_WITHIN]->(LearningPath)    path context
 
@@ -95,7 +95,7 @@ class Interaction(UserOwnedEntity):
 
     source_entity_uid: str | None = None
     # UID of the artifact this interaction generated or relates to.
-    # For EXERCISE_SUBMISSION: the ExerciseSubmission UID (back-pointer).
+    # For EXERCISE_SUBMISSION: the UserEntry UID (back-pointer, ADR-054).
 
     result_status: InteractionResult = InteractionResult.PENDING
     # What happened as a result of this interaction.

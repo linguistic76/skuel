@@ -34,11 +34,11 @@ Curriculum entities are **World Layer** nodes — they exist independently of an
 | Layer | Nodes |
 |-------|-------|
 | **World (shared, stable)** | KnowledgeDomain, Ku, PathStep, LearningPath, Exercise, Resource |
-| **User (contextual, dynamic)** | ExerciseSubmission, ExerciseReport, and all Activity Domains |
+| **User (contextual, dynamic)** | UserEntry, ExerciseReport, and all Activity Domains |
 
 The interaction edge between layers is where SKUEL's power emerges:
 ```cypher
-(:User)-[:SUBMITTED]->(:ExerciseSubmission)-[:SUBMISSION_FOR]->(:Exercise)<-[:USES_EXERCISE]-(:PathStep)
+(:User)-[:OWNS]->(:UserEntry)-[:FULFILLS_EXERCISE {revision}]->(:Exercise)<-[:USES_EXERCISE]-(:PathStep)
 ```
 
 See: `docs/architecture/ONTOLOGY_ARCHITECTURE.md`

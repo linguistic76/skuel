@@ -240,8 +240,8 @@ class KuIntelligenceService(
             for uid, ku_list in user_context.principle_knowledge_grounded.items()
             if ku_uid in ku_list
         ]
-        # Journals not yet tracked in UserContext — JeInput/JeOutput are submissions,
-        # not activities, so MEGA_QUERY doesn't collect journal→KU relationships
+        # Journals not yet tracked in UserContext — post-ADR-054 they are UserEntry rows
+        # with pipeline=TRANSCRIBE_AND_STRUCTURE; MEGA_QUERY doesn't collect journal→KU yet
         journal_count = 0
 
         # Apply Knowledge Substance Philosophy weights with per-channel caps

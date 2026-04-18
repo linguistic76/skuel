@@ -216,13 +216,15 @@ MATCH (lp:LearningPath)-[:HAS_STEP]->(ps:PathStep)-[:CITES_RESOURCE]->(r:Resourc
 RETURN ps.title AS path_step, r.title AS resource, r.author, r.media_type
 ```
 
-### Journal Relationships (Standalone Domain)
+### Journal Pipeline (UserEntry, ADR-054)
 
-Journal entries use `(JeOutput)-[:TRANSFORMS]->(JeInput)` — not `REPORT_FOR`.
+Journals are a **pipeline**, not a domain. Audio upload creates a source `UserEntry` with
+`pipeline=TRANSCRIBE_AND_STRUCTURE`; Deepgram transcribes, then the LLM generates a
+structured second `UserEntry` linked by `TRANSFORMS`.
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `TRANSFORMS` | JeOutput | JeInput | LLM-processed output transforms raw input |
+| `TRANSFORMS` | UserEntry (structured) | UserEntry (source) | LLM-processed output transforms raw input |
 
 ### Authentication Relationships
 

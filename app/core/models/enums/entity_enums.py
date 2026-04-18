@@ -339,10 +339,9 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "interaction": EntityType.INTERACTION,
     "ia": EntityType.INTERACTION,  # UID prefix alias
     "lifepath": EntityType.LIFE_PATH,
-    # ADR-054 unified user-authored content
+    # ADR-054 unified user-authored content — pre-collapse strings redirect to USER_ENTRY
     "user_entry": EntityType.USER_ENTRY,
     "ue": EntityType.USER_ENTRY,
-    # Legacy aliases — point at USER_ENTRY for backward compatibility
     "exercise_submission": EntityType.USER_ENTRY,
     "je_input": EntityType.USER_ENTRY,
     "je_output": EntityType.USER_ENTRY,

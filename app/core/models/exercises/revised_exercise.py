@@ -61,13 +61,13 @@ class RevisedExercise(UserOwnedEntity):
     feedback gaps from an ExerciseReport entity. It links back to:
     - The original Exercise it revises (via REVISES_EXERCISE)
     - The ExerciseReport it responds to (via RESPONDS_TO_REPORT)
-    - The ExerciseSubmission that was evaluated (via submission_uid)
+    - The UserEntry that was evaluated (via submission_uid)
 
     Fields (12 exercise-specific):
     - revision_number: Which revision iteration (1, 2, 3, ...)
     - original_exercise_uid: UID of the original Exercise being revised
     - report_uid: UID of the ExerciseReport this addresses
-    - submission_uid: UID of the ExerciseSubmission that was evaluated
+    - submission_uid: UID of the UserEntry that was evaluated
     - student_uid: UID of the student this revision targets
     - instructions: Plain text instructions for the revision
     - model: Which LLM to use for feedback generation

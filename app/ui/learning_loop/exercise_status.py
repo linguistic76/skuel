@@ -1,10 +1,10 @@
 """Phase 2→3 bridge: exercise status — status pills, action links, exercise list rendering.
 
-Status reflects both Phase 2 (ExerciseSubmission state) and Phase 3 (ExerciseReport
+Status reflects both Phase 2 (UserEntry state, ADR-054) and Phase 3 (ExerciseReport
 outcome) collapsed into a single display key:
 
-    not_submitted     — no ExerciseSubmission exists yet → "Submit →" link
-    submitted         — submission exists, no report yet → "View Submission →" link
+    not_submitted     — no UserEntry exists yet → "Submit →" link
+    submitted         — UserEntry exists, no report yet → "View Submission →" link
     feedback_available — ExerciseReport exists (APPROVED or AI_EVALUATED) → "View Report →"
     revision_requested — ExerciseReport with NEEDS_REVISION → "View Report →"
 

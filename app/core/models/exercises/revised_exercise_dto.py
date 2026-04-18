@@ -34,7 +34,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
     - revision_number: Which revision iteration
     - original_exercise_uid: UID of the original Exercise
     - report_uid: UID of the ExerciseReport this addresses
-    - submission_uid: UID of the ExerciseSubmission that was evaluated
+    - submission_uid: UID of the UserEntry that was evaluated
     - student_uid: Target student
     - instructions: Revision instructions
     - model: Which LLM to use
