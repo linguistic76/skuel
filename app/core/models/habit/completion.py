@@ -62,16 +62,9 @@ class HabitCompletion:
 
     def to_dto(self) -> HabitCompletionDTO:
         """Convert to DTO for transfer operations."""
-        return HabitCompletionDTO(
-            uid=self.uid,
-            habit_uid=self.habit_uid,
-            completed_at=self.completed_at,
-            notes=self.notes,
-            quality=self.quality,
-            duration_actual=self.duration_actual,
-            created_at=self.created_at,
-            updated_at=self.updated_at,
-        )
+        from core.models.dto_helpers import domain_to_dto
+
+        return domain_to_dto(self, HabitCompletionDTO)
 
     # ========================================================================
     # BUSINESS LOGIC METHODS

@@ -65,32 +65,10 @@ class FormSubmission(UserOwnedEntity):
 
     def to_dto(self) -> "FormSubmissionDTO":
         """Convert to FormSubmissionDTO."""
+        from core.models.dto_helpers import domain_to_dto
         from core.models.forms.form_submission_dto import FormSubmissionDTO
 
-        return FormSubmissionDTO(
-            uid=self.uid,
-            title=self.title,
-            entity_type=self.entity_type,
-            parent_entity_uid=self.parent_entity_uid,
-            domain=self.domain,
-            created_by=self.created_by,
-            content=self.content,
-            summary=self.summary,
-            description=self.description,
-            word_count=self.word_count,
-            status=self.status,
-            tags=list(self.tags),
-            created_at=self.created_at,
-            updated_at=self.updated_at,
-            metadata=dict(self.metadata) if self.metadata else {},
-            user_uid=self.user_uid,
-            priority=self.priority,
-            visibility=self.visibility,
-            form_template_uid=self.form_template_uid,
-            form_data=dict(self.form_data) if self.form_data else None,
-            processed_content=self.processed_content,
-            template_schema_hash=self.template_schema_hash,
-        )
+        return domain_to_dto(self, FormSubmissionDTO)
 
     # =========================================================================
     # DISPLAY

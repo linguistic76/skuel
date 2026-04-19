@@ -115,28 +115,10 @@ class Interaction(UserOwnedEntity):
 
     def to_dto(self) -> InteractionDTO:
         """Convert to mutable InteractionDTO for service layer operations."""
+        from core.models.dto_helpers import domain_to_dto
         from core.models.interaction.interaction_dto import InteractionDTO
 
-        dto = InteractionDTO()
-        dto.uid = self.uid
-        dto.entity_type = self.entity_type
-        dto.title = self.title
-        dto.description = self.description
-        dto.content = self.content
-        dto.status = self.status
-        dto.tags = list(self.tags)
-        dto.metadata = dict(self.metadata)
-        dto.user_uid = self.user_uid
-        dto.priority = self.priority
-        dto.created_at = self.created_at
-        dto.updated_at = self.updated_at
-        dto.interaction_type = self.interaction_type
-        dto.target_uid = self.target_uid
-        dto.context_path_step_uid = self.context_path_step_uid
-        dto.context_learning_path_uid = self.context_learning_path_uid
-        dto.source_entity_uid = self.source_entity_uid
-        dto.result_status = self.result_status
-        return dto
+        return domain_to_dto(self, InteractionDTO)
 
     @classmethod
     def from_interaction_dto(cls, dto: InteractionDTO) -> Interaction:
