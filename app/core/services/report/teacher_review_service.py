@@ -158,7 +158,7 @@ class TeacherReviewService:
         Returns:
             Result containing report info
         """
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
 
@@ -243,7 +243,7 @@ class TeacherReviewService:
         Returns:
             Result containing revision info
         """
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
 
@@ -333,7 +333,7 @@ class TeacherReviewService:
             feedback_points: List of {category, detail} dicts
             revision_rationale: Why this revision was created
         """
-        access_check = await self._verify_teacher_access(submission_uid, teacher_uid)
+        access_check = await self._verify_teacher_has_group_access(submission_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
 
@@ -489,7 +489,7 @@ class TeacherReviewService:
         Returns:
             Result containing updated submission info
         """
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
 
@@ -868,13 +868,21 @@ class TeacherReviewService:
         """Get the report_file_path for an ExerciseReport node by UID."""
         return await self.user_entry_backend.get_report_file_path(report_uid)
 
-    async def _verify_teacher_access(
+    async def _verify_teacher_has_group_access(
         self,
         report_uid: str,
         teacher_uid: str,
     ) -> Result[bool]:
-        """Verify the submission is owned by a student (not the teacher themselves)."""
-        result = await self.user_entry_backend.verify_teacher_access(report_uid, teacher_uid)
+        """Verify teacher shares an active group with the submission's owner.
+
+        Maps empty backend results to ``Errors.not_found(...)`` (404) so a
+        teacher outside the student's group cannot distinguish between
+        "submission does not exist" and "submission exists but belongs to
+        another teacher's student."
+        """
+        result = await self.user_entry_backend.verify_teacher_has_group_access(
+            report_uid, teacher_uid
+        )
         if result.is_error:
             return Result.fail(result)
 

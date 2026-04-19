@@ -368,14 +368,25 @@ class _UserEntryAssessmentMixin:
         """
         return await self.execute_query(query, {"teacher_uid": teacher_uid})
 
-    async def verify_teacher_access(
+    async def verify_teacher_has_group_access(
         self, submission_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify a student (not the teacher) owns the entry."""
+        """Verify teacher and the entry's owner share an active group.
+
+        Anchors on the submission to resolve the student, then requires
+        ``(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)``.
+        Returns empty when the teacher has no shared active group with the
+        submission's owner — callers map empty to 404 (not found) so we do
+        not leak the existence of unrelated students' submissions.
+        """
         query = f"""
-        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission:Entity {{uid: $submission_uid}})
-        WHERE student.uid <> $teacher_uid
-        RETURN true as has_access
+        MATCH (submission:Entity {{uid: $submission_uid}})
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
+              <-[:{RelationshipName.MEMBER_OF.value}]-(student)
+        WHERE g.is_active = true
+          AND student.uid <> $teacher_uid
+        RETURN true AS has_access LIMIT 1
         """
         return await self.execute_query(
             query, {"submission_uid": submission_uid, "teacher_uid": teacher_uid}

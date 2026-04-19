@@ -169,7 +169,7 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 **Existing backends extended:**
 | Backend | Methods Added |
 |---------|-------------|
-| `SubmissionsBackend` | +9 teacher review methods: `get_review_queue`, `create_report_node`, `approve_and_get_linked_kus`, `get_submissions_for_exercise_review`, `get_students_summary`, `get_student_submissions_for_teacher`, `get_submission_detail_for_teacher`, `get_dashboard_stats`, `verify_teacher_access`. Typed report reads live on `ExerciseReportBackend.list_for_submission` (2026-04) — the prior dict-returning `get_report_history` was deleted when ExerciseReport was promoted to a first-class typed read path |
+| `SubmissionsBackend` | +9 teacher review methods: `get_review_queue`, `create_report_node`, `approve_and_get_linked_kus`, `get_submissions_for_exercise_review`, `get_students_summary`, `get_student_submissions_for_teacher`, `get_submission_detail_for_teacher`, `get_dashboard_stats`, `verify_teacher_has_group_access`. Typed report reads live on `ExerciseReportBackend.list_for_submission` (2026-04) — the prior dict-returning `get_report_history` was deleted when ExerciseReport was promoted to a first-class typed read path |
 | `ExerciseBackend` | +1: `get_exercises_with_submission_counts` |
 | `GroupBackend` | +2: `get_teacher_groups_with_stats`, `get_group_detail` |
 

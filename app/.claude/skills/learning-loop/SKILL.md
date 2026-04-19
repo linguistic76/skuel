@@ -610,7 +610,7 @@ in `core/ports/report_protocols.py`):
 atomically in the database via `WHERE submission.status IN $allowed_from_statuses`.
 The service passes the allowed source statuses; if the guard rejects, the query
 returns empty results and the service returns a validation error (not "not found",
-since `_verify_teacher_access` already confirmed existence). This is race-safe —
+since `_verify_teacher_has_group_access` already confirmed existence). This is race-safe —
 no gap between read and write.
 
 Each feedback round creates a new `ExerciseReport` entity via `REPORT_FOR` —
@@ -970,7 +970,7 @@ that never closes the loop.
 | `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% (491/625 lines) |
 | `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD only |
 
-**TeacherReviewService tests cover:** access control (`_verify_teacher_access`), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
+**TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — requires teacher and student share an active group), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
 **SubmissionsCoreService tests cover:** retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export. (Journal tests were removed — journal is now a standalone domain with `JournalOutputService`.)
 

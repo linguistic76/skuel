@@ -76,7 +76,7 @@ if not records:
 **Trade-offs**:
 - Atomic — no gap between status check and mutation (race-safe)
 - Zero extra queries — guard is part of the existing MATCH
-- Empty results are ambiguous (not found vs guard rejected) — resolve by checking existence separately first (e.g., `_verify_teacher_access`)
+- Empty results are ambiguous (not found vs guard rejected) — resolve by checking existence separately first (e.g., `_verify_teacher_has_group_access`)
 
 **Real-world usage**: `SubmissionsBackend.create_report_node()` (submit_report, request_revision), `SubmissionsBackend.approve_and_get_linked_kus()` (approve_report). Guards enforce: PROCESSING→COMPLETED, COMPLETED→REVISION_REQUESTED, REVISION_REQUESTED→COMPLETED.
 
