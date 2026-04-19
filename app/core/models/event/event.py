@@ -196,23 +196,11 @@ class Event(UserOwnedEntity):
 
     def to_dto(self) -> "EventDTO":  # type: ignore[override]
         """Convert Event to domain-specific EventDTO."""
-        import dataclasses
-        from typing import Any
 
         from core.models.event.event_dto import EventDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(EventDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return EventDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, EventDTO)
 
     def __str__(self) -> str:
         return f"Event(uid={self.uid}, title='{self.title}', date={self.event_date})"

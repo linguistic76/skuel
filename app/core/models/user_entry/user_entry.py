@@ -168,23 +168,11 @@ class UserEntry(UserOwnedEntity):
 
     def to_dto(self) -> "UserEntryDTO":  # type: ignore[override]
         """Convert UserEntry to domain-specific UserEntryDTO."""
-        import dataclasses
-        from typing import Any
 
         from core.models.user_entry.user_entry_dto import UserEntryDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(UserEntryDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return UserEntryDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, UserEntryDTO)
 
     def __str__(self) -> str:
         return f"UserEntry(uid={self.uid}, pipeline={self.pipeline.value}, title='{self.title}')"

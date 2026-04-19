@@ -265,24 +265,11 @@ class Task(UserOwnedEntity):
 
     def to_dto(self) -> "TaskDTO":  # type: ignore[override]
         """Convert Task to domain-specific TaskDTO."""
-        import dataclasses
 
         from core.models.task.task_dto import TaskDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(TaskDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, MappingProxyType):
-                value = dict(value)
-            elif isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return TaskDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, TaskDTO)
 
     def __str__(self) -> str:
         return f"Task(uid={self.uid}, title='{self.title}', due={self.due_date})"

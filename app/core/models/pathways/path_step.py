@@ -129,23 +129,11 @@ class PathStep(Curriculum):
 
     def to_dto(self) -> "PathStepDTO":  # type: ignore[override]
         """Convert PathStep to domain-specific PathStepDTO."""
-        import dataclasses
-        from typing import Any
 
         from core.models.pathways.path_step_dto import PathStepDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(PathStepDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return PathStepDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, PathStepDTO)
 
     def __str__(self) -> str:
         return f"PathStep(uid={self.uid}, sequence={self.sequence}, title='{self.title}')"

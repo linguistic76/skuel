@@ -300,20 +300,8 @@ class Entity:
         """
         from core.models.entity_dto import EntityDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(EntityDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, MappingProxyType):
-                value = dict(value)
-            elif isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return EntityDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, EntityDTO)
 
     # =========================================================================
     # DISPLAY

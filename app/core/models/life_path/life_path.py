@@ -132,23 +132,11 @@ class LifePath(UserOwnedEntity):
 
     def to_dto(self) -> "LifePathDTO":  # type: ignore[override]
         """Convert LifePath to domain-specific LifePathDTO."""
-        import dataclasses
-        from typing import Any
 
         from core.models.life_path.life_path_dto import LifePathDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(LifePathDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return LifePathDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, LifePathDTO)
 
     def __str__(self) -> str:
         return f"LifePath(uid={self.uid}, title='{self.title}')"

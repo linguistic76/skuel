@@ -108,23 +108,11 @@ class ExerciseReport(UserOwnedEntity):
 
     def to_dto(self) -> "ExerciseReportDTO":  # type: ignore[override]
         """Convert to ExerciseReportDTO."""
-        import dataclasses
-        from typing import Any
 
         from core.models.report.exercise_report_dto import ExerciseReportDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(ExerciseReportDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return ExerciseReportDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, ExerciseReportDTO)
 
     def __str__(self) -> str:
         return f"ExerciseReport(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"

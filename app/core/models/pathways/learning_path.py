@@ -91,23 +91,11 @@ class LearningPath(Curriculum):
 
     def to_dto(self) -> "LearningPathDTO":  # type: ignore[override]
         """Convert LearningPath to domain-specific LearningPathDTO."""
-        import dataclasses
-        from typing import Any
 
         from core.models.pathways.learning_path_dto import LearningPathDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(LearningPathDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return LearningPathDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, LearningPathDTO)
 
     def __str__(self) -> str:
         return f"LearningPath(uid={self.uid}, path_type={self.path_type}, title='{self.title}')"

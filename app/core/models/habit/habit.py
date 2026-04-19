@@ -262,22 +262,11 @@ class Habit(UserOwnedEntity):
 
     def to_dto(self) -> "HabitDTO":  # type: ignore[override]
         """Convert Habit to domain-specific HabitDTO."""
-        import dataclasses
 
         from core.models.habit.habit_dto import HabitDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(HabitDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return HabitDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, HabitDTO)
 
     def __str__(self) -> str:
         return f"Habit(uid={self.uid}, title='{self.title}', streak={self.current_streak})"

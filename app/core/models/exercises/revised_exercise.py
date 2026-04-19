@@ -180,28 +180,11 @@ class RevisedExercise(UserOwnedEntity):
 
     def to_dto(self) -> "RevisedExerciseDTO":  # type: ignore[override]
         """Convert RevisedExercise to domain-specific RevisedExerciseDTO."""
-        import dataclasses
 
         from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(RevisedExerciseDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if f.name == "feedback_points":
-                # Serialize FeedbackPoints to list of dicts for DTO
-                value = [p.to_dict() for p in value] if value else []
-            elif f.name == "expected_modality":
-                # Serialize enum to string for DTO
-                value = value.value if value else None
-            elif isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return RevisedExerciseDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, RevisedExerciseDTO)
 
     def __str__(self) -> str:
         return f"RevisedExercise(uid={self.uid}, title='{self.title}')"

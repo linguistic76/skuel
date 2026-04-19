@@ -82,16 +82,8 @@ class Ku(Entity):
         """Convert Ku to domain-specific KuDTO."""
         from core.models.ku.ku_dto import KuDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(KuDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_") or f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return KuDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, KuDTO)
 
     def __str__(self) -> str:
         ns = f" [{self.namespace}]" if self.namespace else ""

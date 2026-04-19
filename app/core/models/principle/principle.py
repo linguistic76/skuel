@@ -230,22 +230,11 @@ class Principle(UserOwnedEntity):
 
     def to_dto(self) -> "PrincipleDTO":  # type: ignore[override]
         """Convert Principle to domain-specific PrincipleDTO."""
-        import dataclasses
 
         from core.models.principle.principle_dto import PrincipleDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(PrincipleDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return PrincipleDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, PrincipleDTO)
 
     def __str__(self) -> str:
         return (

@@ -168,23 +168,11 @@ class ActivityReport(UserOwnedEntity):
 
     def to_dto(self) -> "ActivityReportDTO":  # type: ignore[override]
         """Convert ActivityReport to domain-specific ActivityReportDTO."""
-        import dataclasses
-        from typing import Any
 
         from core.models.report.activity_report_dto import ActivityReportDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(ActivityReportDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return ActivityReportDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, ActivityReportDTO)
 
     def __str__(self) -> str:
         return f"ActivityReport(uid={self.uid}, title='{self.title}')"

@@ -292,24 +292,11 @@ class Goal(UserOwnedEntity):
 
     def to_dto(self) -> "GoalDTO":  # type: ignore[override]
         """Convert Goal to domain-specific GoalDTO."""
-        import dataclasses
 
         from core.models.goal.goal_dto import GoalDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(GoalDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, MappingProxyType):
-                value = dict(value)
-            elif isinstance(value, tuple):
-                value = [dict(e) if isinstance(e, MappingProxyType) else e for e in value]
-            kwargs[f.name] = value
-        return GoalDTO(**kwargs)
+        from core.models.dto_helpers import domain_to_dto
+        return domain_to_dto(self, GoalDTO)
 
     def __str__(self) -> str:
         return f"Goal(uid={self.uid}, title='{self.title}', target={self.target_date})"
