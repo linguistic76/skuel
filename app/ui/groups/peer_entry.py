@@ -18,15 +18,8 @@ from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
 
 
-def _fallback_author(user_uid: str | None) -> str:
-    if not user_uid:
-        return ""
-    return user_uid.removeprefix("user_") or user_uid
-
-
 def _attribution(payload: dict[str, Any]) -> str:
-    entity = payload.get("entity") or {}
-    author = payload.get("author_name") or _fallback_author(entity.get("user_uid"))
+    author = payload.get("author_name") or ""
     group_name = payload.get("group_name") or ""
     when = _format_shared_at(payload.get("shared_at"))
 

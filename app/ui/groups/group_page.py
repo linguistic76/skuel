@@ -51,7 +51,11 @@ def GroupSharesPage(
         PageHeader(group_name, subtitle="Shared with this group"),
         body,
         Div(
-            ButtonLink("\u2190 Back to Groups", href="/groups", variant=ButtonT.ghost),
+            ButtonLink(
+                "\u2190 Back to Groups",
+                href=f"/groups?group={group_uid}",
+                variant=ButtonT.ghost,
+            ),
             cls="mt-6",
         ),
         cls="max-w-5xl mx-auto",

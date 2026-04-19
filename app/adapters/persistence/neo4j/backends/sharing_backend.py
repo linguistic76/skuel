@@ -361,6 +361,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                    coalesce(author.display_name, author.username) AS author_name,
                    r.share_version AS share_version,
                    r.shared_at AS shared_at
+            LIMIT 1
             """,
             {
                 "user_uid": user_uid,

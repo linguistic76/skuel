@@ -85,7 +85,7 @@ def create_groups_hub_routes(
 
         group_name: str | None = None
         if services.groups is not None:
-            groups_result = await services.groups.get_user_groups(user_uid)
+            groups_result = await services.groups.get_user_groups(user_uid, role="student")
             if not groups_result.is_error:
                 for g in groups_result.value or []:
                     if g.uid == group_uid:
