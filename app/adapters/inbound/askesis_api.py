@@ -28,6 +28,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.route_factories import parse_int_query_param, split_csv
 from core.models.askesis.askesis import Askesis
 from core.models.askesis.askesis_request import (
@@ -134,6 +135,7 @@ def create_askesis_api_routes(
         return await askesis_core_service.get_or_create_for_user(user_uid)
 
     @rt("/api/askesis")
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def create_askesis_instance_route(request: Request) -> Result[Askesis]:
         """Create new Askesis AI assistant instance."""
@@ -154,6 +156,7 @@ def create_askesis_api_routes(
         return await askesis_core_service.create_askesis(user_uid, askesis_request)
 
     @rt("/api/askesis/settings", methods=["PUT"])
+    @csrf_protected
     @boundary_handler()
     async def update_askesis_settings_route(request: Request, askesis_uid: str) -> Result[Askesis]:
         """Update Askesis settings and preferences."""
@@ -177,6 +180,7 @@ def create_askesis_api_routes(
     # ========================================================================
 
     @rt("/api/askesis/guidance", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def generate_proactive_guidance_route(
         request: Request, askesis_uid: str
@@ -242,6 +246,7 @@ def create_askesis_api_routes(
     # ========================================================================
 
     @rt("/api/askesis/domain-integration", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def trigger_domain_integration_route(
         request: Request, askesis_uid: str
@@ -321,6 +326,7 @@ def create_askesis_api_routes(
     # ========================================================================
 
     @rt("/api/askesis/suggestions")
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def get_domain_suggestions_route(request: Request) -> Result[dict[str, Any]]:
         """
@@ -370,6 +376,7 @@ def create_askesis_api_routes(
         )
 
     @rt("/api/askesis/intelligence", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def update_intelligence_route(
         request: Request, askesis_uid: str

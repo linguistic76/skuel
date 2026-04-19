@@ -13,6 +13,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.exercises.exercise_request import (
     ExerciseKnowledgeRequest,
@@ -55,6 +56,7 @@ def create_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/exercises/report", methods=["POST"])
+    @csrf_protected
     @require_teacher(get_user_service)
     @boundary_handler()
     async def generate_report(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
@@ -138,6 +140,7 @@ def create_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/exercises/require-knowledge", methods=["POST"])
+    @csrf_protected
     @require_teacher(get_user_service)
     @boundary_handler()
     async def require_knowledge(request: Request, current_user: Any = None) -> Result[bool]:
@@ -160,6 +163,7 @@ def create_exercises_api_routes(
         return await exercises_service.link_to_curriculum(req.exercise_uid, req.curriculum_uid)
 
     @rt("/api/exercises/unrequire-knowledge", methods=["POST"])
+    @csrf_protected
     @require_teacher(get_user_service)
     @boundary_handler()
     async def unrequire_knowledge(request: Request, current_user: Any = None) -> Result[bool]:

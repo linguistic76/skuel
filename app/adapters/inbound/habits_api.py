@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.habits_views import HabitCard
@@ -33,6 +34,7 @@ def create_habits_api_routes(
     routes: list[Any] = []
 
     @rt("/api/habits/{uid}/status", methods=["POST"])
+    @csrf_protected
     async def update_habit_status(request: Request, uid: str) -> Any:
         """Update habit status (HTMX endpoint). Returns updated HabitCard."""
         user_uid = require_authenticated_user(request)

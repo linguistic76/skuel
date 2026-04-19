@@ -194,7 +194,7 @@ class Askesis:
     def to_dto(self) -> "AskesisDTO":
         """Convert from immutable domain model to mutable DTO."""
         from core.models.dto_helpers import domain_to_dto
-        
+
         return domain_to_dto(self, AskesisDTO)
 
 

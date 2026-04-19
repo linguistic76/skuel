@@ -14,6 +14,7 @@ from fasthtml.common import Div, P, Request
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
@@ -58,6 +59,7 @@ def create_path_steps_api_routes(
     # ========================================================================
 
     @rt("/api/path-steps/attach-to-path", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def attach_step_to_path_route(request: Request, step_uid: str) -> Result[bool]:
         """Attach a path step to a learning path."""
@@ -70,6 +72,7 @@ def create_path_steps_api_routes(
         )
 
     @rt("/api/path-steps/detach-from-path", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def detach_step_from_path_route(request: Request, step_uid: str) -> Result[bool]:
         """Detach a path step from a learning path."""
@@ -112,6 +115,7 @@ def create_path_steps_api_routes(
     # ========================================================================
 
     @rt("/api/path-steps/relationships", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def create_step_relationship_route(
@@ -149,6 +153,7 @@ def create_path_steps_api_routes(
     # ========================================================================
 
     @rt("/api/path-steps/content", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def update_step_content_route(
@@ -162,6 +167,7 @@ def create_path_steps_api_routes(
         return await ps_service.update_step_content(uid, result.value.content, result.value.title)
 
     @rt("/api/path-steps/tags", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def add_step_tags_route(
@@ -175,6 +181,7 @@ def create_path_steps_api_routes(
         return await ps_service.add_step_tags(uid, result.value.tags)
 
     @rt("/api/path-steps/tags", methods=["DELETE"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def remove_step_tags_route(
@@ -430,6 +437,7 @@ def create_path_steps_api_routes(
     # -------------------------------------
 
     @rt("/api/path-steps/organize", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
     async def organize_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:
@@ -447,6 +455,7 @@ def create_path_steps_api_routes(
         )
 
     @rt("/api/path-steps/unorganize", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def unorganize_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:
@@ -462,6 +471,7 @@ def create_path_steps_api_routes(
         return Result.ok({"success": result.value})
 
     @rt("/api/path-steps/reorder", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def reorder_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:

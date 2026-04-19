@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.tasks_views import TaskCard
@@ -33,6 +34,7 @@ def create_tasks_api_routes(
     routes: list[Any] = []
 
     @rt("/api/tasks/{uid}/status", methods=["POST"])
+    @csrf_protected
     async def update_task_status(request: Request, uid: str) -> Any:
         """Update task status (HTMX endpoint). Returns updated TaskCard."""
         user_uid = require_authenticated_user(request)

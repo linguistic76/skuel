@@ -112,6 +112,7 @@ class PrincipleReflection:
     def to_dto(self) -> "PrincipleReflectionDTO":
         """Convert to DTO for transfer operations."""
         from core.models.dto_helpers import domain_to_dto
+
         from .reflection_dto import PrincipleReflectionDTO
 
         return domain_to_dto(self, PrincipleReflectionDTO)

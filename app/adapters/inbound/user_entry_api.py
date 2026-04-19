@@ -32,6 +32,7 @@ from starlette.datastructures import UploadFile
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.entity_converters import entity_to_response
@@ -90,6 +91,7 @@ def create_user_entry_api_routes(
     # =========================================================================
 
     @rt("/api/user-entries", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def create_user_entry_route(request: Request) -> Result[dict[str, Any]]:
         """Create a UserEntry from a JSON ``UserEntryCreateRequest`` body."""
@@ -118,6 +120,7 @@ def create_user_entry_api_routes(
     # =========================================================================
 
     @rt("/api/user-entries/upload", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def upload_user_entry_route(request: Request) -> Result[dict[str, Any]]:
         """Create a UserEntry from a multipart file upload.
@@ -215,6 +218,7 @@ def create_user_entry_api_routes(
     # =========================================================================
 
     @rt("/api/user-entries/form", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def submit_form_route(request: Request) -> Result[dict[str, Any]]:
         """Submit structured form data against an exercise as a ``UserEntry``.
@@ -272,6 +276,7 @@ def create_user_entry_api_routes(
     # =========================================================================
 
     @rt("/api/user-entries/process", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def process_user_entry_route(request: Request) -> Result[dict[str, Any]]:
         """Trigger the pipeline on an existing entry.
@@ -381,6 +386,7 @@ def create_user_entry_api_routes(
     # =========================================================================
 
     @rt("/api/user-entries/delete", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def delete_user_entry_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Ownership-verified cascade delete."""

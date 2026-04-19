@@ -38,6 +38,7 @@ from starlette.datastructures import UploadFile
 from starlette.responses import FileResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
@@ -319,6 +320,7 @@ def create_user_entry_ui_routes(
             )
 
     @rt("/submissions/history/delete", methods=["POST"])
+    @csrf_protected
     async def delete_submission(request: Request, uid: str) -> Any:
         """Delete a user-owned UserEntry (blocked when feedback exists)."""
         user_uid = require_authenticated_user(request)
@@ -389,6 +391,7 @@ def create_user_entry_ui_routes(
         )
 
     @rt("/journals/upload")
+    @csrf_protected
     async def upload_journal(request: Request) -> Any:
         """HTMX endpoint for journal file upload (TRANSCRIBE_AND_STRUCTURE)."""
         try:

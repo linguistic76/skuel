@@ -24,6 +24,7 @@ from fasthtml.common import H3, Div, P
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activity_review import (
@@ -178,6 +179,7 @@ def create_activity_review_ui_routes(
         )
 
     @rt("/activity-review/submit-feedback", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     async def activity_review_submit_feedback(
         request: Request,

@@ -11,6 +11,7 @@ from typing import Any
 from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
@@ -58,6 +59,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
     # ========================================================================
 
     @rt("/api/path-steps/{uid}/start", methods=["POST"])
+    @csrf_protected
     async def start_step(request: Request, uid: str) -> Any:
         """Start a path step (mark as in-progress). Returns updated button HTML.
 
@@ -89,6 +91,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
         return Badge("In Progress", variant=BadgeT.secondary, size=Size.sm)
 
     @rt("/api/path-steps/{uid}/mark-read", methods=["POST"])
+    @csrf_protected
     async def mark_step_as_read(request: Request, uid: str) -> Any:
         """Mark path step as read. Returns updated button HTML."""
         user_uid = require_authenticated_user(request)
@@ -111,6 +114,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
         )
 
     @rt("/api/path-steps/{uid}/bookmark", methods=["POST"])
+    @csrf_protected
     async def toggle_step_bookmark(request: Request, uid: str) -> Any:
         """Toggle path step bookmark. Returns updated button HTML."""
         user_uid = require_authenticated_user(request)

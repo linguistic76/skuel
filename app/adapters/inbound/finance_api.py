@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 # Pydantic schemas for boundary
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     parse_date_param_strict,
@@ -359,6 +360,7 @@ def create_finance_api_routes(
         return Result.fail(result)
 
     @rt("/api/invoices", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def create_invoice_route(request, current_user) -> Result[dict[str, Any]]:

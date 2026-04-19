@@ -13,6 +13,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.forms.form_template_request import FormPathStepLinkRequest
 from core.utils.logging import get_logger
@@ -44,6 +45,7 @@ def create_form_templates_api_routes(
     # ========================================================================
 
     @rt("/api/form-templates/link-path-step", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def link_form_to_path_step(request: Request, current_user: Any = None) -> Result[bool]:
@@ -56,6 +58,7 @@ def create_form_templates_api_routes(
         return await form_template_service.link_to_path_step(req.form_template_uid, req.ps_uid)
 
     @rt("/api/form-templates/unlink-path-step", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def unlink_form_from_path_step(

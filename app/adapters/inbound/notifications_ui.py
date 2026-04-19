@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
@@ -90,6 +91,7 @@ def create_notifications_ui_routes(
         )
 
     @rt("/notifications/{notification_uid}/read", methods=["POST"])
+    @csrf_protected
     async def mark_notification_read(request: Request, notification_uid: str) -> Any:
         """Mark a single notification as read. Returns updated card via HTMX."""
         user_uid = require_authenticated_user(request)
@@ -109,6 +111,7 @@ def create_notifications_ui_routes(
         return ""
 
     @rt("/notifications/read-all", methods=["POST"])
+    @csrf_protected
     async def mark_all_read(request: Request) -> Any:
         """Mark all notifications as read. Returns updated list via HTMX."""
         user_uid = require_authenticated_user(request)

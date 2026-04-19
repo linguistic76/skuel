@@ -49,6 +49,7 @@ from typing import Any, Protocol, cast
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
 from core.models.type_hints import UserUID
@@ -245,6 +246,7 @@ class StatusRouteFactory:
         method_name = config.method_name or f"{action}_{domain_singular}"
 
         @rt(f"{self.base_path}/{action}")
+        @csrf_protected
         @boundary_handler(success_status=config.success_status)
         async def status_route(request, uid: str) -> Result[Any]:
             # {action.title()} {domain_singular} (requires ownership).

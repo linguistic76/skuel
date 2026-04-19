@@ -40,6 +40,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties
 from core.utils.logging import get_logger
@@ -90,6 +91,7 @@ class LateralRouteFactory:
 
         # POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocks", methods=["POST"])
+        @csrf_protected
         @boundary_handler(success_status=201)
         async def create_blocking(
             request: Request,
@@ -204,6 +206,7 @@ class LateralRouteFactory:
 
         # POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite relationship
         @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["POST"])
+        @csrf_protected
         @boundary_handler(success_status=201)
         async def create_prerequisite(
             request: Request,
@@ -294,6 +297,7 @@ class LateralRouteFactory:
 
         # POST /api/{domain}/{uid}/lateral/alternatives - Create alternative relationship
         @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["POST"])
+        @csrf_protected
         @boundary_handler(success_status=201)
         async def create_alternative(
             request: Request,
@@ -383,6 +387,7 @@ class LateralRouteFactory:
 
         # POST /api/{domain}/{uid}/lateral/complementary - Create complementary relationship
         @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["POST"])
+        @csrf_protected
         @boundary_handler(success_status=201)
         async def create_complementary(
             request: Request,
@@ -500,6 +505,7 @@ class LateralRouteFactory:
             f"/api/{self.domain}/{{uid}}/lateral/{{relationship_type}}/{{target_uid}}",
             methods=["DELETE"],
         )
+        @csrf_protected
         @boundary_handler()
         async def delete_lateral_relationship(
             request: Request,

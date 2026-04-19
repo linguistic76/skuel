@@ -18,6 +18,7 @@ from starlette.datastructures import UploadFile
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.models.enums.user_enums import UserRole
 from core.services.ingestion.user_upload_service import MAX_FILES_PER_REQUEST
@@ -39,6 +40,7 @@ def create_upload_api_routes(
     """Create user-facing upload API routes."""
 
     @rt("/api/upload", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def upload_files(request: Request) -> Any:
         """Upload and ingest YAML files for the authenticated user.

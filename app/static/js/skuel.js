@@ -65,6 +65,27 @@
     document.addEventListener('DOMContentLoaded', function() {
         var body = document.body;
 
+        // -------------------------------------------------------------------
+        // CSRF double-submit: attach X-CSRF-Token on every mutating HTMX call.
+        // Paired with adapters/inbound/csrf.py (the cookie is set by
+        // CSRFMiddleware and readable because HttpOnly=False).
+        // -------------------------------------------------------------------
+        function readCsrfCookie() {
+            var match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : null;
+        }
+
+        body.addEventListener('htmx:configRequest', function(event) {
+            var method = (event.detail.verb || '').toUpperCase();
+            if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+                return;
+            }
+            var token = readCsrfCookie();
+            if (token) {
+                event.detail.headers['X-CSRF-Token'] = token;
+            }
+        });
+
         // Before HTMX request - announce loading state
         body.addEventListener('htmx:beforeRequest', function(event) {
             var target = event.detail.target;

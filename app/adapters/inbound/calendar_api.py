@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body, safe_form_string
 from core.models.entity_requests import CalendarQuickCreateRequest
@@ -33,6 +34,7 @@ def create_calendar_api_routes(
     """Register calendar API routes."""
 
     @rt("/api/calendar/quick-create", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def quick_create(request: Request) -> Result[dict[str, Any]]:
         """Quick create a calendar item."""
@@ -93,6 +95,7 @@ def create_calendar_api_routes(
             return Result.fail(Errors.not_found(resource="CalendarItem", identifier=item_id))
 
     @rt("/api/events/calendar/reschedule", methods=["PATCH"])
+    @csrf_protected
     async def reschedule_item(request: Request) -> Any:
         """
         Reschedule a calendar item via HTMX drag-drop.

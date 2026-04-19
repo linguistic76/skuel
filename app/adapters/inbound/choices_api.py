@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.choices_views import ChoiceCard
@@ -33,6 +34,7 @@ def create_choices_api_routes(
     routes: list[Any] = []
 
     @rt("/api/choices/{uid}/status", methods=["POST"])
+    @csrf_protected
     async def update_choice_status(request: Request, uid: str) -> Any:
         """Update choice status (HTMX endpoint). Returns updated ChoiceCard."""
         user_uid = require_authenticated_user(request)

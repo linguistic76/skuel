@@ -24,6 +24,7 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.teaching.teaching_request import RequestRevisionRequest
 
@@ -103,6 +104,7 @@ def create_teaching_api_routes(
         )
 
     @rt("/api/teaching/review/{uid}/report", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     async def submit_feedback(request: Request, uid: str, current_user: Any) -> Any:
         """Submit a .md feedback file as the teacher report for a student submission."""
@@ -136,6 +138,7 @@ def create_teaching_api_routes(
         )
 
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     async def request_revision(request: Request, uid: str, current_user: Any) -> Any:
         """Request revision for a student submission with structured feedback.
@@ -230,6 +233,7 @@ def create_teaching_api_routes(
         )
 
     @rt("/api/teaching/review/{uid}/approve", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     async def approve_report(request: Request, uid: str, current_user: Any) -> Any:
         """Approve a student report."""
@@ -362,6 +366,7 @@ def create_teaching_api_routes(
         )
 
     @rt("/api/teaching/submissions/{uid}/delete", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     async def delete_submission(request: Request, uid: str, current_user: Any = None) -> Any:
         """Delete a student submission (teacher action).

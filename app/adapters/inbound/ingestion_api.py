@@ -26,6 +26,7 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.services.ingestion.types import IncrementalStats, IngestionStats
 from core.utils.logging import get_logger
@@ -139,6 +140,7 @@ def create_ingestion_api_routes(
     # ============================================================================
 
     @rt("/api/ingest/file", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def ingest_file_route(request: Request, current_user):
@@ -180,6 +182,7 @@ def create_ingestion_api_routes(
             )
 
     @rt("/api/ingest/directory", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def ingest_directory_route(request: Request, current_user):
@@ -245,6 +248,7 @@ def create_ingestion_api_routes(
             )
 
     @rt("/api/ingest/vault", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def ingest_vault_route(request: Request, current_user):
@@ -302,6 +306,7 @@ def create_ingestion_api_routes(
             )
 
     @rt("/api/ingest/bundle", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def ingest_bundle_route(request: Request, current_user):
@@ -365,6 +370,7 @@ def create_ingestion_api_routes(
 
     # Domain-specific ingestion endpoint
     @rt("/api/ingest/domain/{domain_name}", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=200)
     async def domain_ingest(request: Request, domain_name: str, current_user):

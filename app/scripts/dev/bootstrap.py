@@ -25,6 +25,7 @@ from typing import Any
 
 from fasthtml.common import StaticFiles, fast_app
 
+from adapters.inbound.csrf import CSRFMiddleware
 from adapters.inbound.middleware import RequestIDMiddleware, RequestTimingMiddleware
 from core.config import UnifiedConfig
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -426,6 +427,12 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
 
     # Add request timing middleware for performance diagnosis
     app.add_middleware(RequestTimingMiddleware)
+
+    # CSRF defense-in-depth — mints csrf_token cookie on first response so the
+    # HTMX layer can echo it back on state-changing requests. SameSite=Strict
+    # on the session cookie is still the primary defense; this is the revert
+    # lever if that ever gets loosened.
+    app.add_middleware(CSRFMiddleware)
 
     return app, rt
 

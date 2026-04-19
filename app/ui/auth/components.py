@@ -15,6 +15,7 @@ from typing import Any
 
 from fasthtml.common import H1, H3, A, Div, Form, Li, P, Span, Strong, Ul
 
+from adapters.inbound.csrf import csrf_hidden_input
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms.components import Checkbox, Input, LabelInput
@@ -67,6 +68,7 @@ class AuthComponents:
             ),
             _error_banner(error_message),
             Form(
+                csrf_hidden_input(),
                 LabelInput(
                     "Email or Username",
                     id="username",
@@ -139,6 +141,7 @@ class AuthComponents:
             ),
             _error_banner(error_message),
             Form(
+                csrf_hidden_input(),
                 LabelInput(
                     "Username",
                     id="username",
@@ -306,6 +309,7 @@ class AuthComponents:
                 ),
                 _error_banner(error_message),
                 Form(
+                    csrf_hidden_input(),
                     Input(
                         type="email",
                         name="email",
@@ -351,6 +355,7 @@ class AuthComponents:
             ),
             _error_banner(error_message),
             Form(
+                csrf_hidden_input(),
                 LabelInput(
                     "Reset Token",
                     name="token",

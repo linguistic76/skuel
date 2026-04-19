@@ -35,6 +35,7 @@ from adapters.inbound.auth import (
     is_authenticated,
     set_current_user,
 )
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_string
 from core.models.auth import (
@@ -117,6 +118,7 @@ def create_auth_ui_routes(
         return AuthPage(AuthComponents.render_registration_page(), title="Create Account")
 
     @rt("/register/submit")
+    @csrf_protected
     async def register_submit(request: Request) -> Any:
         """Process registration with graph-native auth"""
         logger.info("POST /register/submit - Registration form submitted")
@@ -235,6 +237,7 @@ def create_auth_ui_routes(
         return AuthPage(AuthComponents.render_login_page(), title="Sign In")
 
     @rt("/login/submit")
+    @csrf_protected
     async def login_submit(request: Request) -> Any:
         """Process login with graph-native auth"""
         try:
@@ -333,6 +336,7 @@ def create_auth_ui_routes(
         return AuthComponents.render_forgot_password_form()
 
     @rt("/forgot-password")
+    @csrf_protected
     async def forgot_password_submit(request: Request) -> Any:
         """Process forgot password request — send reset email"""
         form_data = await request.form()
@@ -366,6 +370,7 @@ def create_auth_ui_routes(
         return AuthComponents.render_reset_password_page(token=token)
 
     @rt("/reset-password/submit")
+    @csrf_protected
     async def reset_password_submit(request: Request) -> Any:
         """Process password reset with token"""
         try:

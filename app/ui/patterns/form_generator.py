@@ -19,6 +19,7 @@ from fasthtml.common import Input as FTInput
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from adapters.inbound.csrf import CSRF_FORM_FIELD, current_csrf_token
 from core.ports import (
     GeConstraint,
     GtConstraint,
@@ -259,6 +260,13 @@ class FormGenerator:
         # Hidden fields
         for hf_name, hf_value in hidden_fields.items():
             form_fields.append(FTInput(type="hidden", name=hf_name, value=str(hf_value)))
+
+        # Auto-inject CSRF token for mutating forms. Fragments are composed
+        # into a parent form that already carries the token, so skip there.
+        if not as_fragment and method.upper() != "GET" and CSRF_FORM_FIELD not in hidden_fields:
+            token = current_csrf_token()
+            if token:
+                form_fields.append(FTInput(type="hidden", name=CSRF_FORM_FIELD, value=token))
 
         # Fragment mode: Div with fields only (for embedding in path steps)
         if as_fragment:
