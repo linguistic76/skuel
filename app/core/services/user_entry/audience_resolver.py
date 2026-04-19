@@ -133,6 +133,87 @@ class AudienceResolver:
         return Result.ok(None)
 
     # =========================================================================
+    # REFERENCE VALIDATION (authorization guard)
+    # =========================================================================
+
+    async def validate_references(
+        self,
+        user_uid: UserUID,
+        fulfills_exercise_uid: str | None,
+        transforms_of_uid: str | None,
+    ) -> Result[None]:
+        """Verify the uploader has a legitimate claim to referenced entities.
+
+        YAML uploads can name any UID in ``fulfills_exercise_uid`` /
+        ``transforms_of_uid``. Without validation, a user could submit a
+        UserEntry that silently attaches to an exercise or predecessor
+        entry they have no relationship to — enabling cross-tenant leakage
+        via the exercise auto-share fan-out, or masquerading a transforms
+        chain over someone else's entry.
+
+        Policy:
+          - ``fulfills_exercise_uid``: user must be the exercise's owner, a
+            member of a group the exercise is shared with, or currently in
+            progress on a PathStep the exercise is linked to.
+          - ``transforms_of_uid``: predecessor entry must belong to the
+            uploader (TRANSFORMS chains are per-user).
+
+        Returns a ``forbidden`` error on miss; ``not_found`` when the
+        referenced entity doesn't exist; ``Result.ok(None)`` otherwise.
+        """
+        if self.sharing_service is None:
+            # No backend to verify against — fail closed.
+            if fulfills_exercise_uid or transforms_of_uid:
+                return Result.fail(
+                    Errors.forbidden(
+                        action="reference external entity",
+                        reason=(
+                            "Cannot verify relationship to referenced entity — "
+                            "sharing service unavailable."
+                        ),
+                    )
+                )
+            return Result.ok(None)
+
+        backend = self.sharing_service.backend
+
+        if fulfills_exercise_uid:
+            allowed = await backend.query_user_can_use_exercise(
+                exercise_uid=fulfills_exercise_uid,
+                user_uid=user_uid,
+            )
+            if allowed.is_error:
+                return Result.fail(allowed)
+            if not allowed.value:
+                return Result.fail(
+                    Errors.forbidden(
+                        action="submit for exercise",
+                        reason=(
+                            f"Exercise {fulfills_exercise_uid} is not assigned to "
+                            "any of your groups and you are not its owner."
+                        ),
+                    )
+                )
+
+        if transforms_of_uid:
+            owner = await backend.query_entity_owner(entity_uid=transforms_of_uid)
+            if owner.is_error:
+                return Result.fail(owner)
+            if owner.value is None:
+                return Result.fail(
+                    Errors.not_found(resource="UserEntry", identifier=transforms_of_uid)
+                )
+            if owner.value != user_uid:
+                return Result.fail(
+                    Errors.forbidden(
+                        action="transform predecessor entry",
+                        reason=(f"Predecessor entry {transforms_of_uid} belongs to another user."),
+                    )
+                )
+
+        return Result.ok(None)
+
+    # =========================================================================
     # RESOLVE & SHARE
     # =========================================================================
 
@@ -202,8 +283,14 @@ class AudienceResolver:
             not shared_any and request.pipeline == Pipeline.TEACHER_REVIEW
         )
         if should_auto_share and request.fulfills_exercise_uid:
-            groups_result = await self.sharing_service.get_groups_shared_with(
-                entity_uid=request.fulfills_exercise_uid,
+            # Auto-share is scoped to the intersection of the exercise's
+            # assigned groups and the uploader's memberships. Without this
+            # intersection, an exercise assigned to groups A and B would
+            # leak a submission from a member of A out to group B even
+            # though that uploader has no relationship to B.
+            groups_result = await self.sharing_service.backend.query_exercise_groups_for_member(
+                exercise_uid=request.fulfills_exercise_uid,
+                user_uid=user_uid,
             )
             if groups_result.is_error:
                 reason = str(groups_result.expect_error())

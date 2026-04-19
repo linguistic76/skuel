@@ -796,3 +796,70 @@ async def test_get_user_entry_shared_with_group_passes_all_uids(mock_backend, sh
         group_uid="group_physics",
         entry_uid="ue_abc",
     )
+
+
+# ============================================================================
+# SHARE WITH GROUP — MEMBERSHIP GUARD (Finding 1)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_share_with_group_rejects_non_member(mock_backend, sharing_service):
+    """The backend's MEMBER_OF MATCH returns empty when the owner is not a
+    member — the service maps that to ``forbidden``, not ``not_found``,
+    so the uploader sees the real reason.
+    """
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [
+                {
+                    "actual_owner": "user_owner",
+                    "status": "completed",
+                    "entity_type": "user_entry",
+                }
+            ]
+        )
+    )
+    # Empty result simulates either missing group/entity OR non-membership.
+    mock_backend.create_group_share = AsyncMock(return_value=Result.ok([]))
+
+    result = await sharing_service.share_with_group(
+        entity_uid="ue_1",
+        owner_uid="user_owner",
+        group_uid="group_someone_elses_class",
+    )
+
+    assert result.is_error
+    err = result.expect_error()
+    assert err.category.value == "forbidden"
+    assert "member" in str(err).lower()
+    # The backend received the owner_uid so membership could be enforced at Cypher.
+    _, kwargs = mock_backend.create_group_share.await_args
+    assert kwargs["owner_uid"] == "user_owner"
+    assert kwargs["group_uid"] == "group_someone_elses_class"
+
+
+@pytest.mark.asyncio
+async def test_share_with_group_success_passes_owner_uid(mock_backend, sharing_service):
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [
+                {
+                    "actual_owner": "user_owner",
+                    "status": "completed",
+                    "entity_type": "user_entry",
+                }
+            ]
+        )
+    )
+    mock_backend.create_group_share = AsyncMock(return_value=Result.ok([{"success": True}]))
+
+    result = await sharing_service.share_with_group(
+        entity_uid="ue_1",
+        owner_uid="user_owner",
+        group_uid="group_my_class",
+    )
+
+    assert result.is_ok
+    _, kwargs = mock_backend.create_group_share.await_args
+    assert kwargs["owner_uid"] == "user_owner"

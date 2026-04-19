@@ -19,6 +19,11 @@ def _make_sharing_service() -> MagicMock:
     svc.share = AsyncMock(return_value=Result.ok(True))
     svc.share_with_group = AsyncMock(return_value=Result.ok(True))
     svc.get_groups_shared_with = AsyncMock(return_value=Result.ok([]))
+    backend = MagicMock()
+    backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
+    backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
+    backend.query_entity_owner = AsyncMock(return_value=Result.ok(None))
+    svc.backend = backend
     return svc
 
 
@@ -178,7 +183,7 @@ class TestResolveAndShare:
     @pytest.mark.asyncio
     async def test_teacher_review_auto_share_from_exercise_groups(self):
         sharing = _make_sharing_service()
-        sharing.get_groups_shared_with = AsyncMock(
+        sharing.backend.query_exercise_groups_for_member = AsyncMock(
             return_value=Result.ok([{"group_uid": "g_class"}])
         )
         resolver = AudienceResolver(sharing_service=sharing, group_service=None)
@@ -192,7 +197,130 @@ class TestResolveAndShare:
 
         assert result.is_ok
         assert result.value.shared_groups == ("g_class",)
-        sharing.get_groups_shared_with.assert_awaited_once()
+        sharing.backend.query_exercise_groups_for_member.assert_awaited_once_with(
+            exercise_uid="ex_1", user_uid="user_1"
+        )
+
+    @pytest.mark.asyncio
+    async def test_auto_share_filters_by_student_membership(self):
+        """Exercise assigned to groups A + B; uploader only in A → only A gets the share."""
+        sharing = _make_sharing_service()
+        # The backend query intersects at Cypher level — returns only groups the
+        # user is a member of. Simulate: exercise is assigned to {A, B}; user
+        # belongs only to A.
+        sharing.backend.query_exercise_groups_for_member = AsyncMock(
+            return_value=Result.ok([{"group_uid": "g_A"}])
+        )
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+        req = UserEntryCreateRequest(
+            title="x",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_shared_AB",
+        )
+
+        result = await resolver.resolve_and_share("ue_1", "user_1", req)
+
+        assert result.is_ok
+        assert result.value.shared_groups == ("g_A",)
+        # Exactly one share call — to A, not B.
+        assert sharing.share_with_group.await_count == 1
+        _, kwargs = sharing.share_with_group.await_args
+        assert kwargs["group_uid"] == "g_A"
+
+
+class TestValidateReferences:
+    @pytest.mark.asyncio
+    async def test_missing_sharing_service_rejects_any_reference(self):
+        """Fail-closed: without a backend we cannot verify relationships."""
+        resolver = AudienceResolver(sharing_service=None, group_service=None)
+        result = await resolver.validate_references(
+            user_uid="user_1",
+            fulfills_exercise_uid="ex_1",
+            transforms_of_uid=None,
+        )
+        assert result.is_error
+        assert "verify" in str(result.expect_error()).lower()
+
+    @pytest.mark.asyncio
+    async def test_no_references_passes_without_service(self):
+        resolver = AudienceResolver(sharing_service=None, group_service=None)
+        result = await resolver.validate_references(
+            user_uid="user_1",
+            fulfills_exercise_uid=None,
+            transforms_of_uid=None,
+        )
+        assert result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_rejects_unassigned_exercise(self):
+        sharing = _make_sharing_service()
+        sharing.backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(False))
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+
+        result = await resolver.validate_references(
+            user_uid="user_1",
+            fulfills_exercise_uid="ex_not_mine",
+            transforms_of_uid=None,
+        )
+
+        assert result.is_error
+        err = str(result.expect_error()).lower()
+        assert "exercise" in err or "group" in err
+
+    @pytest.mark.asyncio
+    async def test_accepts_assigned_exercise(self):
+        sharing = _make_sharing_service()
+        sharing.backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+
+        result = await resolver.validate_references(
+            user_uid="user_1",
+            fulfills_exercise_uid="ex_ok",
+            transforms_of_uid=None,
+        )
+        assert result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_rejects_unowned_transforms_of(self):
+        sharing = _make_sharing_service()
+        sharing.backend.query_entity_owner = AsyncMock(return_value=Result.ok("other_user"))
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+
+        result = await resolver.validate_references(
+            user_uid="user_1",
+            fulfills_exercise_uid=None,
+            transforms_of_uid="ue_not_mine",
+        )
+
+        assert result.is_error
+        assert "predecessor" in str(result.expect_error()).lower()
+
+    @pytest.mark.asyncio
+    async def test_transforms_of_missing_entity_returns_not_found(self):
+        sharing = _make_sharing_service()
+        sharing.backend.query_entity_owner = AsyncMock(return_value=Result.ok(None))
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+
+        result = await resolver.validate_references(
+            user_uid="user_1",
+            fulfills_exercise_uid=None,
+            transforms_of_uid="ue_missing",
+        )
+
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_accepts_owned_transforms_of(self):
+        sharing = _make_sharing_service()
+        sharing.backend.query_entity_owner = AsyncMock(return_value=Result.ok("user_1"))
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+
+        result = await resolver.validate_references(
+            user_uid="user_1",
+            fulfills_exercise_uid=None,
+            transforms_of_uid="ue_mine",
+        )
+        assert result.is_ok
 
 
 class TestShareOutcome:

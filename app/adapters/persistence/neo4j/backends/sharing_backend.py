@@ -209,22 +209,36 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     async def create_group_share(
         self,
         entity_uid: EntityUID,
+        owner_uid: UserUID,
         group_uid: str,
         share_version: str,
         shared_at: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Create SHARED_WITH_GROUP relationship from entity to group."""
+        """Create SHARED_WITH_GROUP relationship, guarded by owner relationship.
+
+        The sharer must either OWN the target group (teacher sharing curriculum
+        with their own class) or be MEMBER_OF it (student sharing a
+        UserEntry with a group they belong to). Without either edge the
+        ``OPTIONAL MATCH`` collapses and the ``WHERE`` predicate rejects the
+        row — callers translate the empty result into a forbidden error,
+        preventing users from sharing to groups they have no relationship to.
+        """
         result = await self.execute_query(
             """
             MATCH (entity:Entity {uid: $entity_uid})
             MATCH (group:Group {uid: $group_uid})
+            OPTIONAL MATCH (owner:User {uid: $owner_uid})-[:MEMBER_OF]->(group)
+            OPTIONAL MATCH (owner2:User {uid: $owner_uid})-[:OWNS]->(group)
+            WITH entity, group, owner, owner2
+            WHERE owner IS NOT NULL OR owner2 IS NOT NULL
             MERGE (entity)-[r:SHARED_WITH_GROUP]->(group)
-            SET r.shared_at = datetime($shared_at),
-                r.share_version = $share_version
+              ON CREATE SET r.shared_at = datetime($shared_at),
+                            r.share_version = $share_version
             RETURN true as success
             """,
             {
                 "entity_uid": entity_uid,
+                "owner_uid": owner_uid,
                 "group_uid": group_uid,
                 "shared_at": shared_at,
                 "share_version": share_version,
@@ -233,6 +247,83 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])
+
+    async def query_exercise_groups_for_member(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[list[Neo4jProperties]]:
+        """Return the groups the exercise is shared with AND the user belongs to.
+
+        Used for auto-share scoping: when a submission fulfills an exercise
+        that was assigned to multiple groups, only fan out to the ones the
+        submitter is actually in.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (ex:Entity {uid: $exercise_uid})-[:SHARED_WITH_GROUP]->(g:Group)
+            MATCH (u:User {uid: $user_uid})-[:MEMBER_OF]->(g)
+            RETURN g.uid AS group_uid
+            """,
+            {"exercise_uid": exercise_uid, "user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_user_can_use_exercise(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[bool]:
+        """Verify the user has a legitimate relationship to an exercise.
+
+        True if any hold:
+          - user owns the exercise (teacher previewing their own)
+          - exercise is SHARED_WITH_GROUP with a group the user is a member of
+          - exercise is linked to a PathStep the user is currently in progress on
+
+        Prevents YAML uploads from smuggling ``fulfills_exercise_uid`` values
+        for exercises the uploader has no legitimate tie to.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (ex:Entity {uid: $exercise_uid})
+            OPTIONAL MATCH (ex)-[:SHARED_WITH_GROUP]->(g:Group)<-[:MEMBER_OF]-(:User {uid: $user_uid})
+            OPTIONAL MATCH (ex)-[:RELATED_TO]->(ps:Entity)<-[:IN_PROGRESS]-(:User {uid: $user_uid})
+            WITH ex.user_uid = $user_uid AS is_owner,
+                 count(g) > 0 AS via_group,
+                 count(ps) > 0 AS via_progress
+            RETURN (is_owner OR via_group OR via_progress) AS allowed
+            """,
+            {"exercise_uid": exercise_uid, "user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(False)
+        return Result.ok(bool(records[0].get("allowed")))
+
+    async def query_entity_owner(
+        self,
+        entity_uid: EntityUID,
+    ) -> Result[str | None]:
+        """Return the ``user_uid`` of an entity's owner, or None if missing."""
+        result = await self.execute_query(
+            """
+            MATCH (e:Entity {uid: $entity_uid})
+            RETURN e.user_uid AS owner_uid
+            """,
+            {"entity_uid": entity_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        owner = records[0].get("owner_uid")
+        return Result.ok(str(owner) if owner is not None else None)
 
     async def delete_group_share(
         self,

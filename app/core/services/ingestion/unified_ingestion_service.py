@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from core.services.user_entry.user_entry_service import UserEntryService
+    from core.services.user_service import UserService
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
@@ -116,6 +117,7 @@ class UnifiedIngestionService:
         chunking_service: Any | None = None,
         ingestion_backend: Any | None = None,
         user_entry_service: UserEntryService | None = None,
+        user_service: UserService | None = None,
     ) -> None:
         """
         Initialize unified ingestion service.
@@ -134,6 +136,10 @@ class UnifiedIngestionService:
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
                                 the same create_entry() pipeline as /submit. Required
                                 when ingesting ``type: user_entry`` files.
+            user_service: UserService for role lookup during UserEntry ingestion
+                          (gates ``audience: public`` on TEACHER role). When not
+                          wired, ``audience: public`` uploads are rejected as
+                          forbidden.
         """
         if not driver:
             raise ValueError("Neo4j driver is required")
@@ -147,6 +153,7 @@ class UnifiedIngestionService:
         self.embeddings = embeddings_service  # Can be None - graceful degradation
         self.chunking = chunking_service  # Can be None - graceful degradation
         self.user_entry_service = user_entry_service
+        self.user_service = user_service
         self.logger = logger
 
         # Log embedding availability
@@ -424,6 +431,7 @@ class UnifiedIngestionService:
                 file_path=file_path,
                 user_uid=effective_user_uid,
                 user_entry_service=self.user_entry_service,
+                user_service=self.user_service,
             )
 
         # Validate UID format before preparation (early fail-fast)

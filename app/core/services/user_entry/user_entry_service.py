@@ -41,6 +41,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.interaction_enums import InteractionType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
+from core.models.enums.user_enums import UserRole
 from core.models.interaction.interaction import Interaction
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -64,6 +65,7 @@ if TYPE_CHECKING:
     from core.services.groups.group_service import GroupService
     from core.services.interaction.interaction_service import InteractionService
     from core.services.sharing.unified_sharing_service import UnifiedSharingService
+    from core.services.user_service import UserService
 
 # Re-exported for callers that import ``ShareOutcome`` from this module
 # (the dataclass moved to ``audience_resolver`` during the /upload integration).
@@ -97,11 +99,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         storage_path: str = "/tmp/skuel_user_entries",
         audience_resolver: AudienceResolver | None = None,
         group_service: GroupService | None = None,
+        user_service: UserService | None = None,
     ) -> None:
         super().__init__(backend, "UserEntryService")  # type: ignore[arg-type]  # protocol type
         self.sharing_service = sharing_service
         self.interaction_service = interaction_service
         self.event_bus = event_bus
+        self.user_service = user_service
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger("skuel.services.user_entry")  # type: ignore[assignment]
@@ -141,6 +145,15 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         audience_check = self.audience_resolver.validate(request)
         if audience_check.is_error:
             return Result.fail(audience_check)
+
+        # PUBLIC visibility is portfolio-publication and gated on TEACHER
+        # role. This covers every entry point (YAML /upload, /submit form,
+        # programmatic callers) so no path can set visibility=PUBLIC on a
+        # REGISTERED user's entry.
+        if request.visibility == Visibility.PUBLIC:
+            public_check = await self._require_teacher_for_public(user_uid)
+            if public_check.is_error:
+                return Result.fail(public_check)
 
         uid = UIDGenerator.generate_random_uid("ue")
         now = datetime.now()
@@ -475,6 +488,34 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     # =========================================================================
     # PRIVATE HELPERS
     # =========================================================================
+
+    async def _require_teacher_for_public(self, user_uid: UserUID) -> Result[None]:
+        """Gate ``visibility=PUBLIC`` on TEACHER role. Fail-closed if role cannot
+        be resolved."""
+        if self.user_service is None:
+            return Result.fail(
+                Errors.forbidden(
+                    action="publish public UserEntry",
+                    reason=(
+                        "PUBLIC visibility requires TEACHER role but role cannot "
+                        "be resolved (user_service unavailable)."
+                    ),
+                    required_role=UserRole.TEACHER.value,
+                )
+            )
+        user_result = await self.user_service.get_user(user_uid)
+        if user_result.is_error:
+            return Result.fail(user_result)
+        user = user_result.value
+        if user is None or not user.has_permission(UserRole.TEACHER):
+            return Result.fail(
+                Errors.forbidden(
+                    action="publish public UserEntry",
+                    reason="PUBLIC visibility requires TEACHER role.",
+                    required_role=UserRole.TEACHER.value,
+                )
+            )
+        return Result.ok(None)
 
     async def _next_revision(self, user_uid: UserUID, exercise_uid: str) -> int:
         """Compute the next revision number for (user, exercise)."""

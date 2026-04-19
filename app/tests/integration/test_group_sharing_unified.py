@@ -203,6 +203,63 @@ async def test_student_reachable_via_shared_curriculum(
 
 @pytest.mark.asyncio
 @pytest.mark.integration
+async def test_share_with_group_rejects_non_member_non_owner(
+    sharing_service, curriculum_group_fixture, neo4j_driver
+):
+    """A user who neither OWNS nor is MEMBER_OF the group cannot share into it,
+    and the Cypher guard leaves the graph untouched."""
+    ctx = curriculum_group_fixture
+    stranger_uid = "test_unified_sharing_stranger"
+
+    # Stranger user + their own entity (so the ownership check passes)
+    stranger_entity_uid = "ue_stranger_attempt"
+    await neo4j_driver.execute_query(
+        """
+        MERGE (u:User {uid: $user_uid})
+        MERGE (e:Entity {uid: $entity_uid})
+          SET e.entity_type = 'user_entry',
+              e.status = 'completed',
+              e.user_uid = $user_uid,
+              e.created_at = datetime(),
+              e.updated_at = datetime()
+        """,
+        user_uid=stranger_uid,
+        entity_uid=stranger_entity_uid,
+    )
+
+    try:
+        result = await sharing_service.share_with_group(
+            entity_uid=stranger_entity_uid,
+            owner_uid=stranger_uid,
+            group_uid=ctx["group_uid"],
+        )
+
+        assert result.is_error
+        assert result.expect_error().category.value == "forbidden"
+
+        # No SHARED_WITH_GROUP edge was produced.
+        check = await neo4j_driver.execute_query(
+            """
+            MATCH (e:Entity {uid: $entity_uid})-[r:SHARED_WITH_GROUP]->(g:Group {uid: $group_uid})
+            RETURN count(r) as c
+            """,
+            entity_uid=stranger_entity_uid,
+            group_uid=ctx["group_uid"],
+        )
+        assert check.records[0]["c"] == 0
+    finally:
+        await neo4j_driver.execute_query(
+            "MATCH (e:Entity {uid: $uid}) DETACH DELETE e",
+            uid=stranger_entity_uid,
+        )
+        await neo4j_driver.execute_query(
+            "MATCH (u:User {uid: $uid}) DETACH DELETE u",
+            uid=stranger_uid,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
 async def test_unshare_removes_edge(sharing_service, curriculum_group_fixture, neo4j_driver):
     ctx = curriculum_group_fixture
     entity_uid = ctx["entities"]["exercise"]

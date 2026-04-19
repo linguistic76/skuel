@@ -46,6 +46,11 @@ def _make_sharing_service() -> MagicMock:
     svc.share = AsyncMock(return_value=Result.ok(True))
     svc.share_with_group = AsyncMock(return_value=Result.ok(True))
     svc.get_groups_shared_with = AsyncMock(return_value=Result.ok([]))
+    backend = MagicMock()
+    backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
+    backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
+    backend.query_entity_owner = AsyncMock(return_value=Result.ok(None))
+    svc.backend = backend
     return svc
 
 
@@ -55,12 +60,27 @@ def _make_interaction_service() -> MagicMock:
     return svc
 
 
-def _make_service(backend=None, sharing_service=None, interaction_service=None) -> UserEntryService:
+def _make_service(
+    backend=None,
+    sharing_service=None,
+    interaction_service=None,
+    user_service=None,
+) -> UserEntryService:
     return UserEntryService(
         backend=backend or _make_backend(),
         sharing_service=sharing_service,
         interaction_service=interaction_service,
+        user_service=user_service,
     )
+
+
+def _make_user_service_for_role(role) -> MagicMock:
+    """Build a user_service that returns a User with the given role via has_permission."""
+    user = MagicMock()
+    user.has_permission = role.has_permission
+    svc = MagicMock()
+    svc.get_user = AsyncMock(return_value=Result.ok(user))
+    return svc
 
 
 class TestValidateAudience:
@@ -302,9 +322,10 @@ class TestAudienceResolution:
 
     @pytest.mark.asyncio
     async def test_teacher_review_auto_shares_to_exercise_groups(self):
-        """TEACHER_REVIEW + exercise + no explicit audience → auto-share."""
+        """TEACHER_REVIEW + exercise + no explicit audience → auto-share
+        scoped to the intersection of exercise groups and uploader membership."""
         sharing = _make_sharing_service()
-        sharing.get_groups_shared_with = AsyncMock(
+        sharing.backend.query_exercise_groups_for_member = AsyncMock(
             return_value=Result.ok([{"group_uid": "teacher_group_1"}])
         )
         service = _make_service(sharing_service=sharing)
@@ -314,7 +335,9 @@ class TestAudienceResolution:
             fulfills_exercise_uid="ex_1",
         )
         await service.create_entry(request, user_uid="user_1")
-        sharing.get_groups_shared_with.assert_awaited_once()
+        sharing.backend.query_exercise_groups_for_member.assert_awaited_once_with(
+            exercise_uid="ex_1", user_uid="user_1"
+        )
         sharing.share_with_group.assert_awaited_once()
         kwargs = sharing.share_with_group.await_args.kwargs
         assert kwargs["group_uid"] == "teacher_group_1"
@@ -331,8 +354,65 @@ class TestAudienceResolution:
             share_with_groups=["explicit_group"],
         )
         await service.create_entry(request, user_uid="user_1")
-        sharing.get_groups_shared_with.assert_not_called()
+        sharing.backend.query_exercise_groups_for_member.assert_not_called()
         sharing.share_with_group.assert_awaited_once()
+
+
+class TestPublicVisibilityGate:
+    """``visibility=PUBLIC`` must be TEACHER-gated at the service layer so
+    every caller (YAML upload, form API, programmatic) hits the same check."""
+
+    @pytest.mark.asyncio
+    async def test_public_rejected_for_registered_user(self):
+        from core.models.enums.user_enums import UserRole
+
+        user_service = _make_user_service_for_role(UserRole.REGISTERED)
+        service = _make_service(
+            sharing_service=_make_sharing_service(),
+            user_service=user_service,
+        )
+        request = UserEntryCreateRequest(
+            title="Brag post",
+            pipeline=Pipeline.NONE,
+            visibility=Visibility.PUBLIC,
+        )
+        result = await service.create_entry(request, user_uid="user_registered")
+        assert result.is_error
+        err = result.expect_error()
+        assert err.category.value == "forbidden"
+        assert "teacher" in str(err).lower()
+
+    @pytest.mark.asyncio
+    async def test_public_accepted_for_teacher(self):
+        from core.models.enums.user_enums import UserRole
+
+        user_service = _make_user_service_for_role(UserRole.TEACHER)
+        service = _make_service(
+            sharing_service=_make_sharing_service(),
+            user_service=user_service,
+        )
+        request = UserEntryCreateRequest(
+            title="Published exemplar",
+            pipeline=Pipeline.NONE,
+            visibility=Visibility.PUBLIC,
+        )
+        result = await service.create_entry(request, user_uid="user_teacher")
+        assert result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_public_fail_closed_without_user_service(self):
+        service = _make_service(
+            sharing_service=_make_sharing_service(),
+            user_service=None,
+        )
+        request = UserEntryCreateRequest(
+            title="Anything",
+            pipeline=Pipeline.NONE,
+            visibility=Visibility.PUBLIC,
+        )
+        result = await service.create_entry(request, user_uid="user_unknown")
+        assert result.is_error
+        assert "teacher" in str(result.expect_error()).lower()
 
 
 class TestEntryStatus:
@@ -517,7 +597,7 @@ class TestShareOutcome:
         """TEACHER_REVIEW + exercise resolves to zero groups failure → compensate."""
         backend = _make_backend()
         sharing = _make_sharing_service()
-        sharing.get_groups_shared_with = AsyncMock(
+        sharing.backend.query_exercise_groups_for_member = AsyncMock(
             return_value=Result.fail(Errors.database(operation="cypher", message="resolve failed"))
         )
         service = _make_service(backend=backend, sharing_service=sharing)

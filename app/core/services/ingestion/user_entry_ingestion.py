@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
+from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.logging import get_logger
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 
     from core.services.user_entry.audience_resolver import AudienceResolver
     from core.services.user_entry.user_entry_service import UserEntryService
+    from core.services.user_service import UserService
 
 logger = get_logger("skuel.services.ingestion.user_entry")
 
@@ -128,6 +130,7 @@ async def build_user_entry_request(
     file_path: Path,
     user_uid: UserUID,
     audience_resolver: AudienceResolver,
+    user_service: UserService | None = None,
 ) -> Result[UserEntryCreateRequest]:
     """Validate YAML + build a ``UserEntryCreateRequest`` ready for the service.
 
@@ -136,6 +139,11 @@ async def build_user_entry_request(
     is in no groups gets an empty share list — the entry is persisted but
     private (no compensation delete in that branch, since the absence of
     teachers is a state-of-the-world fact, not a sharing failure).
+
+    ``audience: public`` is gated on ``UserRole.TEACHER`` — a REGISTERED user
+    cannot publish portfolio-visible content through YAML upload. The role is
+    resolved via ``user_service``; when unavailable the public audience is
+    rejected (fail-closed).
     """
     pipeline_result = _parse_pipeline(data.get("pipeline"), file_path.name)
     if pipeline_result.is_error:
@@ -158,8 +166,24 @@ async def build_user_entry_request(
         assert audience.group_uid is not None  # parser guarantees this
         share_with_groups = [audience.group_uid]
     elif audience.kind == "public":
+        role_check = await _require_teacher_for_public(user_uid, user_service)
+        if role_check.is_error:
+            return Result.fail(role_check)
         visibility = Visibility.PUBLIC
     # "private" → no shares, default visibility
+
+    # Authorization guard on raw UID references before the request is built.
+    # Prevents YAML from smuggling arbitrary exercise / predecessor UIDs that
+    # the uploader has no legitimate relationship to.
+    fulfills_exercise_uid = data.get("fulfills_exercise_uid")
+    transforms_of_uid = data.get("transforms_of_uid")
+    refs_check = await audience_resolver.validate_references(
+        user_uid=user_uid,
+        fulfills_exercise_uid=fulfills_exercise_uid,
+        transforms_of_uid=transforms_of_uid,
+    )
+    if refs_check.is_error:
+        return Result.fail(refs_check)
 
     title = data.get("title") or data.get("name") or file_path.stem.replace("-", " ").title()
     tags_raw = data.get("tags") or []
@@ -180,8 +204,8 @@ async def build_user_entry_request(
         metadata=dict(metadata),
         pipeline=pipeline,
         instructions=data.get("instructions"),
-        fulfills_exercise_uid=data.get("fulfills_exercise_uid"),
-        transforms_of_uid=data.get("transforms_of_uid"),
+        fulfills_exercise_uid=fulfills_exercise_uid,
+        transforms_of_uid=transforms_of_uid,
         share_with_groups=share_with_groups,
         share_with_users=[],
         visibility=visibility,
@@ -197,11 +221,46 @@ async def build_user_entry_request(
     return Result.ok(request)
 
 
+async def _require_teacher_for_public(
+    user_uid: UserUID,
+    user_service: UserService | None,
+) -> Result[None]:
+    """Reject ``audience: public`` unless the caller is TEACHER or higher."""
+    if user_service is None:
+        return Result.fail(
+            Errors.forbidden(
+                action="publish public UserEntry",
+                reason=(
+                    "'audience: public' requires TEACHER role but role cannot be "
+                    "resolved (user_service unavailable)."
+                ),
+                required_role=UserRole.TEACHER.value,
+            )
+        )
+    user_result = await user_service.get_user(user_uid)
+    if user_result.is_error:
+        return Result.fail(user_result)
+    user = user_result.value
+    if user is None or not user.has_permission(UserRole.TEACHER):
+        return Result.fail(
+            Errors.forbidden(
+                action="publish public UserEntry",
+                reason=(
+                    "'audience: public' requires TEACHER role; this user does not "
+                    "have permission to publish."
+                ),
+                required_role=UserRole.TEACHER.value,
+            )
+        )
+    return Result.ok(None)
+
+
 async def ingest_user_entry(
     data: dict[str, Any],
     file_path: Path,
     user_uid: UserUID,
     user_entry_service: UserEntryService,
+    user_service: UserService | None = None,
 ) -> Result[dict[str, Any]]:
     """Ingest a single UserEntry YAML through ``UserEntryService.create_entry()``.
 
@@ -213,6 +272,7 @@ async def ingest_user_entry(
         file_path=file_path,
         user_uid=user_uid,
         audience_resolver=user_entry_service.audience_resolver,
+        user_service=user_service,
     )
     if request_result.is_error:
         return Result.fail(request_result)

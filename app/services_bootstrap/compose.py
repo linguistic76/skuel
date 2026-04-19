@@ -464,6 +464,7 @@ async def compose_services(
             ingestion_backend=ingestion_backend,
             embeddings_service=None,  # Optional - will be created later in learning_services
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
+            user_service=user_service,  # Role lookup for audience:public gate (Finding 2)
         )
 
         # Per-user bulk upload service (wraps UnifiedIngestionService)
@@ -925,6 +926,7 @@ async def compose_services(
             interaction_service=interaction_service,
             event_bus=event_bus,
             group_service=group_service,
+            user_service=user_service,  # Role gate for visibility=PUBLIC (Finding 2)
         )
 
         # Wire UserEntryService into the ingestion service so YAML uploads of

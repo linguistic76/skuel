@@ -290,13 +290,22 @@ class UnifiedSharingService:
         group_uid: str,
         share_version: str = "original",
     ) -> Result[bool]:
-        """Share an entity with all members of a group."""
+        """Share an entity with all members of a group.
+
+        The owner must either OWN the target group (teacher sharing curriculum
+        with their class) or be MEMBER_OF it (student sharing their UserEntry
+        with a group they belong to). The backend Cypher enforces this. An
+        empty result covers all miss cases (missing entity/group OR no
+        qualifying relationship); we treat it as a ``forbidden`` error so
+        callers can surface the real reason rather than a generic 404.
+        """
         check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
         if check.is_error:
             return check
 
         result = await self.backend.create_group_share(
             entity_uid=entity_uid,
+            owner_uid=owner_uid,
             group_uid=group_uid,
             share_version=share_version,
             shared_at=datetime.now().isoformat(),
@@ -305,7 +314,14 @@ class UnifiedSharingService:
             return Result.fail(result)
         if not result.value:
             return Result.fail(
-                Errors.not_found(f"Entity {entity_uid} or Group {group_uid} not found")
+                Errors.forbidden(
+                    action="share with group",
+                    reason=(
+                        f"Cannot share {entity_uid} with group {group_uid}: "
+                        "you must own or be a member of the group, "
+                        "or the group does not exist."
+                    ),
+                )
             )
         logger.info(f"Entity {entity_uid} shared with group {group_uid}")
         return Result.ok(True)

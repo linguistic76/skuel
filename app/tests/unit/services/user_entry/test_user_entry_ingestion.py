@@ -7,6 +7,7 @@ import pytest
 
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
+from core.models.enums.user_enums import UserRole
 from core.models.user_entry.user_entry import UserEntry
 from core.services.ingestion.user_entry_ingestion import (
     build_user_entry_request,
@@ -20,6 +21,16 @@ def _resolver(teachers=None) -> AudienceResolver:
     resolver = AudienceResolver(sharing_service=None, group_service=None)
     resolver.resolve_default_teachers = AsyncMock(return_value=teachers or [])  # type: ignore[method-assign]
     return resolver
+
+
+def _user_service_for_role(role: UserRole) -> MagicMock:
+    """Build a user_service mock whose ``get_user`` returns a User with ``role``."""
+    user = MagicMock()
+    # Bound method from the real enum — hierarchy-aware, no hand-rolled lambdas.
+    user.has_permission = role.has_permission
+    svc = MagicMock()
+    svc.get_user = AsyncMock(return_value=Result.ok(user))
+    return svc
 
 
 class TestBuildUserEntryRequest:
@@ -83,16 +94,44 @@ class TestBuildUserEntryRequest:
         assert "group" in str(result.expect_error()).lower()
 
     @pytest.mark.asyncio
-    async def test_public_audience_sets_visibility(self):
+    async def test_public_audience_accepted_for_teacher(self):
         result = await build_user_entry_request(
             data={"pipeline": "none", "audience": "public"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
             audience_resolver=_resolver(),
+            user_service=_user_service_for_role(UserRole.TEACHER),
         )
         assert result.is_ok
         assert result.value.visibility == Visibility.PUBLIC
         assert result.value.share_with_groups == []
+
+    @pytest.mark.asyncio
+    async def test_public_audience_rejected_for_registered(self):
+        """REGISTERED users cannot publish portfolio-visible content via YAML."""
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "audience": "public"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+            user_service=_user_service_for_role(UserRole.REGISTERED),
+        )
+        assert result.is_error
+        err = str(result.expect_error()).lower()
+        assert "teacher" in err
+
+    @pytest.mark.asyncio
+    async def test_public_audience_fail_closed_without_user_service(self):
+        """Without a user_service we cannot resolve role — reject rather than publish."""
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "audience": "public"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+            user_service=None,
+        )
+        assert result.is_error
+        assert "teacher" in str(result.expect_error()).lower()
 
     @pytest.mark.asyncio
     async def test_private_audience_no_shares_no_visibility(self):
