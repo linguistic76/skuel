@@ -13,6 +13,7 @@ related:
 - ADR-047-entity-types-replace-domain-categories
 - ADR-051-user-interaction-contract
 - ADR-054-user-entry-unified-submissions
+- ADR-055-architectural-lenses
 ---
 
 # SKUEL Architecture
@@ -20,6 +21,8 @@ related:
 ## Executive Summary
 
 SKUEL is a **knowledge-centric productivity platform** where every operation connects to and enriches understanding. **Knowledge is the fertile soil from which all activity grows.**
+
+This doc is **Model A at the fine grain** per ADR-055 — the 20 EntityTypes. For the coarse rollup into 7 subsystems (Object / Context / Meta), see [`SEVEN_SUBSYSTEMS.md`](SEVEN_SUBSYSTEMS.md). For the flow-of-information view (Curriculum → Action → Feedback), see [`THREE_LAYER_LENS.md`](THREE_LAYER_LENS.md). The 5 Cross-Cutting Systems below are infrastructure layers orthogonal to both lenses.
 
 ### 20 Entity Types + 5 Cross-Cutting Systems
 

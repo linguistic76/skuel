@@ -84,9 +84,9 @@ The 3 layers are a coarsening of the 4-valued `ContentOrigin` enum (`core/models
 
 `RevisedExercise` has `ContentOrigin.CURRICULUM` but sits in the Feedback layer by role. The hybrid is the structural signature of *adapted curriculum*: teacher-authored (user_uid required) but curricular in function. It is the loop closing — feedback returning to curriculum informed by what happened.
 
-## The Seven Domains × Three Layers
+## The Seven Subsystems × Three Layers
 
-| Domain | Curriculum | Action | Feedback |
+| Subsystem | Curriculum | Action | Feedback |
 |--------|-----------|--------|----------|
 | Ku | Primary | — | — |
 | Curriculum Domains (PathStep, LearningPath, Exercise) | Primary | — | — |

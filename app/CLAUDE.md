@@ -114,6 +114,8 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **Core Principle:** "Everything flows toward the life path"
 
+**Two lenses (ADR-055):** *Model A — Subsystems* groups the 20 EntityTypes into **7 subsystems** (Ku, Curriculum Domains, Activity Domains, Learning Loop, User, Groups, Askesis) across **3 sections** (Object / Context / Meta) — see `/docs/architecture/SEVEN_SUBSYSTEMS.md`. *Model B — 3-Layer Lens* reads the flow as **Curriculum → Action → Feedback** — see `/docs/architecture/THREE_LAYER_LENS.md`. The **5 Cross-Cutting Systems** below are infrastructure (UserContext, Search, Calendar, Askesis, Messaging), orthogonal to both lenses.
+
 ### The 20 Entity Types
 
 | EntityType | What It Is | UID Format | Ownership |

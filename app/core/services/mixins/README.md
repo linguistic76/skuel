@@ -15,7 +15,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     UserProgressMixin[B, T],
     ContextOperationsMixin[B, T],
 ):
-    """Unified base service for 6 of 14 SKUEL domains."""
+    """Unified base service for the 6 Activity Domains (Task, Goal, Habit, Event, Choice, Principle)."""
 ```
 
 ---
