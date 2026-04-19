@@ -21,18 +21,18 @@ This service is part of the refactored UserService architecture:
 
 import dataclasses
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from core.events import publish_event
+from core.events.user_events import UserDeleted
+from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
 from core.models.user import User, create_user
-from core.ports.infrastructure_protocols import UserCrudOperations
+from core.ports.infrastructure_protocols import EventBusOperations, UserCrudOperations
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.models.enums.user_enums import UserRole
 
 logger = get_logger(__name__)
 
@@ -55,12 +55,19 @@ class UserCoreService:
     - Graph-native authentication with bcrypt password hashing
     """
 
-    def __init__(self, user_repo: UserCrudOperations) -> None:
+    def __init__(
+        self,
+        user_repo: UserCrudOperations,
+        event_bus: EventBusOperations | None = None,
+    ) -> None:
         """
         Initialize user core service.
 
         Args:
             user_repo: Repository implementation for user persistence (protocol-based)
+            event_bus: Optional event bus for publishing UserDeleted events.
+                Passed through by ``UserService``; ``None`` during isolated
+                unit tests means deletion still happens but no event fires.
 
         Raises:
             ValueError: If user_repo is None
@@ -68,6 +75,7 @@ class UserCoreService:
         if not user_repo:
             raise ValueError("User repository is required")
         self.repo = user_repo
+        self.event_bus = event_bus
 
     # ========================================================================
     # USER CRUD OPERATIONS
@@ -267,15 +275,30 @@ class UserCoreService:
         return result
 
     @with_error_handling("delete_user", error_type="database", uid_param="user_uid")
-    async def delete_user(self, user_uid: UserUID) -> Result[bool]:
+    async def delete_user(
+        self,
+        user_uid: UserUID,
+        reason: str = "",
+        deleted_by: UserUID | None = None,
+    ) -> Result[bool]:
         """
-        DETACH DELETE a user.
+        Soft-delete a user (default account closure path).
+
+        Marks ``status=DELETED``, scrubs PII (email, display_name,
+        password_hash), and preserves the User node plus every OWNS-linked
+        entity so teachers can still render historical submissions. Login is
+        blocked because ``authenticate()`` already rejects ``is_active=false``.
+
+        For GDPR right-to-erasure (wipe everything), use
+        ``hard_delete_user`` — admin-gated separate method.
 
         Args:
-            user_uid: User's unique identifier
+            user_uid: User to soft-delete
+            reason: Free-form note saved to the ``UserDeleted`` event payload
+            deleted_by: Admin UID when an admin initiates; None for self-delete
 
         Returns:
-            Result[bool]: True if deleted successfully
+            Result[bool]: True if the user existed and was marked deleted.
 
         Error cases:
             - Database operation fails → DATABASE
@@ -283,9 +306,89 @@ class UserCoreService:
         result = await self.repo.delete_user(user_uid)
 
         if result.is_ok:
-            logger.info(f"Deleted user: {user_uid}")
+            logger.info(f"Soft-deleted user: {user_uid} (by={deleted_by or 'self'})")
+            if result.value:
+                await publish_event(
+                    self.event_bus,
+                    UserDeleted(
+                        user_uid=user_uid,
+                        hard_delete=False,
+                        deleted_by=deleted_by,
+                        reason=reason,
+                    ),
+                    logger,
+                )
         else:
-            logger.error(f"Failed to delete user {user_uid}: {result.error}")
+            logger.error(f"Failed to soft-delete user {user_uid}: {result.error}")
+
+        return result
+
+    @with_error_handling("hard_delete_user", error_type="database", uid_param="user_uid")
+    async def hard_delete_user(
+        self,
+        user_uid: UserUID,
+        requester_role: UserRole,
+        deleted_by: UserUID,
+        reason: str,
+    ) -> Result[int]:
+        """
+        GDPR right-to-erasure: wipe user + every OWNS-linked entity.
+
+        Admin-only. Destroys the User node and cascades through every :OWNS
+        edge, removing UserEntry / Task / Goal / Habit / ... nodes owned by
+        the user. Unlike soft-delete this is irreversible and erases teacher-
+        visible history — reserve for explicit erasure requests.
+
+        Args:
+            user_uid: User to erase
+            requester_role: Role of the admin initiating the erasure. Gate is
+                ``requester_role.has_permission(UserRole.ADMIN)`` — non-admin
+                callers receive an authorization error.
+            deleted_by: Admin UID (for audit trail on the emitted event)
+            reason: Admin-supplied justification (required by the admin UI)
+
+        Returns:
+            Result[int]: Total nodes deleted (user + owned entities).
+            0 when the UID did not match.
+
+        Error cases:
+            - Non-admin requester → AUTHORIZATION
+            - Database operation fails → DATABASE
+        """
+        if not requester_role.has_permission(UserRole.ADMIN):
+            logger.warning(
+                f"Hard-delete denied for {user_uid} — requester {deleted_by} "
+                f"has role {requester_role.value}, not admin"
+            )
+            return Result.fail(
+                Errors.forbidden(
+                    action="hard_delete_user",
+                    reason="Hard-delete requires ADMIN role",
+                    required_role=UserRole.ADMIN.value,
+                )
+            )
+
+        result = await self.repo.hard_delete_user(user_uid)
+
+        if result.is_ok:
+            count = result.value or 0
+            logger.warning(
+                f"Hard-deleted user {user_uid}: {count} nodes erased "
+                f"(by={deleted_by}, reason={reason!r})"
+            )
+            if count > 0:
+                await publish_event(
+                    self.event_bus,
+                    UserDeleted(
+                        user_uid=user_uid,
+                        hard_delete=True,
+                        deleted_by=deleted_by,
+                        reason=reason,
+                    ),
+                    logger,
+                )
+        else:
+            logger.error(f"Failed to hard-delete user {user_uid}: {result.error}")
 
         return result
 

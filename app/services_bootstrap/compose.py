@@ -276,7 +276,10 @@ async def compose_services(
         from core.services.user_service import create_user_service
 
         user_service = create_user_service(
-            users_backend, query_executor, metrics_cache=metrics_cache
+            users_backend,
+            query_executor,
+            event_bus=event_bus,
+            metrics_cache=metrics_cache,
         )
         logger.info("✅ UserService created (foundation service)")
 

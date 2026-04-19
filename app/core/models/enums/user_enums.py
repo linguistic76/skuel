@@ -16,6 +16,14 @@ Design Principles:
 - New users default to REGISTERED
 - Payment upgrades REGISTERED -> MEMBER
 - Only ADMIN can promote to TEACHER or ADMIN
+
+Two-state account lifecycle:
+    ACTIVE < DELETED
+
+Soft-delete marks the User node with status=DELETED, scrubs PII, and keeps the
+node + OWNS-linked entities (UserEntry, Task, Goal, ...) intact so teachers can
+still render the owner's historical submissions. Hard-delete (admin-only, GDPR
+right-to-erasure) DETACH DELETEs the User + cascade over every OWNS edge.
 """
 
 from enum import StrEnum
@@ -110,6 +118,29 @@ class UserRole(StrEnum):
     def default(cls) -> "UserRole":
         """Get the default role for new users."""
         return cls.REGISTERED
+
+
+class UserStatus(StrEnum):
+    """
+    Account lifecycle state for User nodes.
+
+    Two states:
+    - ACTIVE: normal account. Can authenticate; owned entities are mutable.
+    - DELETED: soft-deleted. Blocks login, PII scrubbed, but the User node +
+      every OWNS-linked entity are preserved so downstream views
+      (teacher gradebook, analytics, audit) still resolve.
+
+    Paired with the legacy ``User.is_active`` boolean, which
+    ``authenticate()`` still checks. Soft-delete flips both
+    (``status=DELETED``, ``is_active=False``) so the existing auth guard
+    continues to reject the user without a migration.
+    """
+
+    ACTIVE = "active"
+    DELETED = "deleted"
+
+    def is_deleted(self) -> bool:
+        return self is UserStatus.DELETED
 
 
 class ContextHealthScore(StrEnum):

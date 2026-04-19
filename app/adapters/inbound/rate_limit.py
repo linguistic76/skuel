@@ -94,9 +94,9 @@ def rate_limited(
 def _extract_user_uid(request: Request) -> str | None:
     """Read ``user_uid`` from the session without throwing for unauth requests."""
     session = getattr(request, "session", None)
-    if not session:
+    if not isinstance(session, dict):
         return None
-    uid = session.get("user_uid") if hasattr(session, "get") else None
+    uid = session.get("user_uid")
     return str(uid) if uid else None
 
 

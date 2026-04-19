@@ -155,7 +155,7 @@ from .user_entry_enums import (
 )
 
 # User enums - roles, health scoring, and account management
-from .user_enums import ContextHealthScore, UserRole
+from .user_enums import ContextHealthScore, UserRole, UserStatus
 
 __all__ = [
     "DOMAIN_SEL_MAPPING",
@@ -248,5 +248,6 @@ __all__ = [
     "TranscriptionStatus",
     "TrendDirection",
     "UserRole",
+    "UserStatus",
     "Visibility",
 ]

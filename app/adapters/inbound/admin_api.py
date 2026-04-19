@@ -12,6 +12,7 @@ Routes:
 - POST /api/admin/users/{uid}/role - Change user role
 - POST /api/admin/users/{uid}/deactivate - Deactivate user account
 - POST /api/admin/users/{uid}/activate - Reactivate user account
+- POST /api/admin/users/{uid}/hard-delete - GDPR erasure (destroys user + OWNS tree)
 
 Security:
 - All routes require authentication (401 if not logged in)
@@ -327,6 +328,88 @@ def create_admin_api_routes(
         )
 
     # ========================================================================
+    # HARD-DELETE USER (GDPR ERASURE)
+    # ========================================================================
+
+    @rt("/api/admin/users/hard-delete")
+    @require_admin(get_user_service)
+    @boundary_handler()
+    async def hard_delete_user(
+        request: Request,
+        current_user: Any,
+        uid: str,
+    ):
+        """
+        Hard-delete a user and every OWNS-linked entity (ADMIN only, GDPR erasure).
+
+        Irreversible. Destroys the User node plus every owned entity (UserEntry,
+        Task, Goal, Habit, ...). For routine deletions use
+        POST /api/admin/users/deactivate instead — that soft-deletes, scrubs PII,
+        and preserves teacher-visible history.
+
+        Query Parameters:
+            uid: User UID to erase.
+
+        Request Body (JSON, required):
+            confirm: Must be the literal string ``"erase"`` (typo guard).
+            reason: Free-form justification recorded on the emitted event.
+
+        Returns:
+            JSON object with count of deleted nodes.
+        """
+        try:
+            body = await request.json()
+        except Exception:  # safety-net: HTTP error boundary — malformed JSON
+            return Result.fail(
+                Errors.validation(
+                    "Request body must be JSON with 'confirm' and 'reason' fields",
+                    field="body",
+                )
+            )
+
+        confirm = body.get("confirm", "")
+        reason = body.get("reason", "")
+
+        if confirm != "erase":
+            return Result.fail(
+                Errors.validation(
+                    "Hard-delete requires confirm='erase' to guard against typos",
+                    field="confirm",
+                    value=confirm,
+                )
+            )
+
+        if not reason.strip():
+            return Result.fail(
+                Errors.validation(
+                    "Hard-delete requires a non-empty reason for audit trail",
+                    field="reason",
+                )
+            )
+
+        result = await user_service.hard_delete_user(
+            target_user_uid=uid,
+            admin_user_uid=current_user.uid,
+            reason=reason,
+        )
+
+        if result.is_error:
+            return result
+
+        deleted_count = result.value or 0
+        logger.warning(
+            f"Admin {current_user.uid} hard-deleted user {uid}: "
+            f"{deleted_count} nodes erased (reason={reason!r})"
+        )
+        return Result.ok(
+            {
+                "uid": uid,
+                "deleted_count": deleted_count,
+                "message": f"User {uid} and {deleted_count - 1} owned entities erased",
+            }
+        )
+
+    # ========================================================================
     # GENERATE PASSWORD RESET TOKEN (Admin-Initiated)
     # ========================================================================
 
@@ -395,6 +478,7 @@ def create_admin_api_routes(
             change_user_role,
             deactivate_user,
             activate_user,
+            hard_delete_user,
             generate_reset_token,
         ]
     )

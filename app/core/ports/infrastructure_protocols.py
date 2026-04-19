@@ -85,7 +85,11 @@ class UserCrudOperations(Protocol):
         ...
 
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
-        """DETACH DELETE a user."""
+        """Soft-delete a user: mark status=DELETED, scrub PII, preserve graph."""
+        ...
+
+    async def hard_delete_user(self, user_uid: UserUID) -> Result[int]:
+        """DETACH DELETE a user + every OWNS-linked entity (GDPR erasure)."""
         ...
 
     async def find_by(self, **filters: Any) -> Result[list["User"]]:  # boundary: kwargs

@@ -133,7 +133,9 @@ class TestVerifyTeacherHasGroupAccess:
 
         await service._verify_teacher_has_group_access(SUBMISSION_UID, TEACHER_UID)
 
-        backend.verify_teacher_has_group_access.assert_awaited_once_with(SUBMISSION_UID, TEACHER_UID)
+        backend.verify_teacher_has_group_access.assert_awaited_once_with(
+            SUBMISSION_UID, TEACHER_UID
+        )
 
 
 # ========================================================================

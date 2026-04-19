@@ -26,10 +26,12 @@ See Also:
 - /docs/USER_MODEL_ARCHITECTURE.md
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 from neo4j import AsyncDriver
 
+from core.models.enums.user_enums import UserStatus
 from core.models.type_hints import UserUID
 from core.models.user import User
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -249,37 +251,109 @@ class UserBackend:
 
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """
-        DETACH DELETE user identity and all relationships.
+        Soft-delete the User node: mark status=DELETED, scrub PII, preserve graph.
+
+        The node + every OWNS-linked entity (UserEntry, Task, Goal, Habit, ...)
+        are kept so teachers can still render historical submissions and
+        analytics stay intact. Login is blocked via ``is_active=false`` which
+        ``UserCoreService.authenticate`` already rejects.
+
+        For GDPR right-to-erasure (wipe the node + cascade over OWNS), use
+        ``hard_delete_user`` instead — admin-gated separate path.
 
         Args:
-            user_uid: UID of user to DETACH DELETE
+            user_uid: UID of user to soft-delete
 
         Returns:
-            Result[bool]: True if deleted, False if not found
+            Result[bool]: True if the user was marked deleted, False if the
+            UID did not match an existing user.
+        """
+        try:
+            now_iso = datetime.now(UTC).isoformat()
+            query = f"""
+            MATCH (u:{self.label} {{uid: $uid}})
+            SET u.status = $deleted_status,
+                u.is_active = false,
+                u.deleted_at = datetime($now),
+                u.email = null,
+                u.display_name = 'Deleted User',
+                u.password_hash = ''
+            RETURN count(u) as deleted_count
+            """
+
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {
+                        "uid": user_uid,
+                        "deleted_status": UserStatus.DELETED.value,
+                        "now": now_iso,
+                    },
+                )
+                record = await result.single()
+
+                deleted = record["deleted_count"] > 0 if record else False
+
+                if deleted:
+                    self.logger.info(f"Soft-deleted user identity: {user_uid}")
+                else:
+                    self.logger.warning(f"User not found for soft-delete: {user_uid}")
+
+                return Result.ok(deleted)
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed to soft-delete user: {e}")
+            return Result.fail(Errors.database(operation="delete_user", message=str(e)))
+
+    async def hard_delete_user(self, user_uid: UserUID) -> Result[int]:
+        """
+        GDPR right-to-erasure: DETACH DELETE the user + every OWNS-linked entity.
+
+        Destroys the User node and cascades through every :OWNS edge, removing
+        the user's UserEntry / Task / Goal / Habit / ... nodes as well. Use
+        only when compliance requires full erasure — the default account
+        closure path is ``delete_user`` (soft-delete, keeps history).
+
+        The service layer MUST gate this on ``UserRole.ADMIN`` before calling;
+        the backend does not re-check role (it has no user context).
+
+        Args:
+            user_uid: UID of user to erase
+
+        Returns:
+            Result[int]: Total nodes deleted (user + every OWNS-linked entity).
+            0 when the UID does not match an existing user.
         """
         try:
             query = f"""
             MATCH (u:{self.label} {{uid: $uid}})
+            OPTIONAL MATCH (u)-[:OWNS]->(owned)
+            WITH u, collect(owned) AS owned_nodes
+            WITH u, owned_nodes, size(owned_nodes) AS owned_count
             DETACH DELETE u
-            RETURN count(u) as deleted_count
+            FOREACH (n IN owned_nodes | DETACH DELETE n)
+            RETURN owned_count + 1 AS deleted_count
             """
 
             async with self.driver.session() as session:
                 result = await session.run(query, {"uid": user_uid})
                 record = await result.single()
 
-                deleted = record["deleted_count"] > 0 if record else False
+                deleted_count: int = record["deleted_count"] if record else 0
 
-                if deleted:
-                    self.logger.info(f"Deleted user identity: {user_uid}")
+                if deleted_count > 0:
+                    self.logger.warning(
+                        f"Hard-deleted user {user_uid}: {deleted_count} nodes erased "
+                        f"(user + {deleted_count - 1} owned entities)"
+                    )
                 else:
-                    self.logger.warning(f"User not found for deletion: {user_uid}")
+                    self.logger.warning(f"User not found for hard-delete: {user_uid}")
 
-                return Result.ok(deleted)
+                return Result.ok(deleted_count)
 
         except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to delete user: {e}")
-            return Result.fail(Errors.database(operation="delete_user", message=str(e)))
+            self.logger.error(f"Failed to hard-delete user: {e}")
+            return Result.fail(Errors.database(operation="hard_delete_user", message=str(e)))
 
     # ========================================================================
     # LEARNING & PROGRESS TRACKING

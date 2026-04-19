@@ -172,9 +172,7 @@ class TestVerifyTeacherHasGroupAccess:
             self_owned=self_owned,
         )
         try:
-            result = await user_entry_backend.verify_teacher_has_group_access(
-                self_owned, teacher_a
-            )
+            result = await user_entry_backend.verify_teacher_has_group_access(self_owned, teacher_a)
             assert not result.is_error
             assert result.value == []
         finally:

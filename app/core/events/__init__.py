@@ -57,7 +57,7 @@ Finance:
     ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid,
 
 User:
-    UserContextInvalidated, UserPreferencesChanged,
+    UserContextInvalidated, UserPreferencesChanged, UserDeleted,
 
 Learning:
     KnowledgeMastered, LearningPathStarted, LearningPathCompleted,
@@ -232,6 +232,7 @@ from core.events.user_entry_events import (
 from core.events.user_events import (
     UserActivityRecorded,
     UserContextInvalidated,
+    UserDeleted,
     UserPreferencesChanged,
 )
 
@@ -347,6 +348,7 @@ __all__ = [
     "UserActivityRecorded",
     # User
     "UserContextInvalidated",
+    "UserDeleted",
     "UserPreferencesChanged",
     # UserEntry (ADR-054)
     "UserEntryCreated",
@@ -413,6 +415,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "user.context_invalidated": UserContextInvalidated,
     "user.preferences_changed": UserPreferencesChanged,
     "user.activity_recorded": UserActivityRecorded,
+    "user.deleted": UserDeleted,
     # Learning
     "knowledge.mastered": KnowledgeMastered,
     "knowledge.created": KnowledgeCreated,
@@ -597,6 +600,7 @@ USER_EVENTS = [
     UserContextInvalidated,
     UserPreferencesChanged,
     UserActivityRecorded,
+    UserDeleted,
 ]
 
 LEARNING_EVENTS = [

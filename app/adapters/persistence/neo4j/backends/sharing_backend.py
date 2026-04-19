@@ -227,8 +227,11 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             """
             MATCH (entity:Entity {uid: $entity_uid})
             MATCH (group:Group {uid: $group_uid})
+            WHERE coalesce(group.is_active, true) = true
             OPTIONAL MATCH (owner:User {uid: $owner_uid})-[:MEMBER_OF]->(group)
+              WHERE coalesce(owner.is_active, true) = true
             OPTIONAL MATCH (owner2:User {uid: $owner_uid})-[:OWNS]->(group)
+              WHERE coalesce(owner2.is_active, true) = true
             WITH entity, group, owner, owner2
             WHERE owner IS NOT NULL OR owner2 IS NOT NULL
             MERGE (entity)-[r:SHARED_WITH_GROUP]->(group)
@@ -262,7 +265,9 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         result = await self.execute_query(
             """
             MATCH (ex:Entity {uid: $exercise_uid})-[:SHARED_WITH_GROUP]->(g:Group)
+            WHERE coalesce(g.is_active, true) = true
             MATCH (u:User {uid: $user_uid})-[:MEMBER_OF]->(g)
+            WHERE coalesce(u.is_active, true) = true
             RETURN g.uid AS group_uid
             """,
             {"exercise_uid": exercise_uid, "user_uid": user_uid},

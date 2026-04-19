@@ -91,7 +91,7 @@ class UserService:
             raise ValueError("User repository is required")
 
         # Initialize all sub-services
-        self.core = UserCoreService(user_repo)
+        self.core = UserCoreService(user_repo, event_bus=event_bus)
         self.progress = UserProgressRecorderService(user_repo)
         self.activity = UserActivityService(
             user_repo, event_bus=event_bus, metrics_cache=metrics_cache
@@ -196,9 +196,57 @@ class UserService:
         """Update user preferences (convenience method)."""
         return await self.core.update_preferences(user_uid, preferences_update)
 
-    async def delete_user(self, user_uid: UserUID) -> Result[bool]:
-        """Delete a user."""
-        return await self.core.delete_user(user_uid)
+    async def delete_user(
+        self,
+        user_uid: UserUID,
+        reason: str = "",
+        deleted_by: UserUID | None = None,
+    ) -> Result[bool]:
+        """Soft-delete a user: mark status=DELETED, scrub PII, preserve OWNS graph."""
+        return await self.core.delete_user(user_uid, reason=reason, deleted_by=deleted_by)
+
+    async def hard_delete_user(
+        self,
+        target_user_uid: UserUID,
+        admin_user_uid: UserUID,
+        reason: str,
+    ) -> Result[int]:
+        """
+        Hard-delete a user and every OWNS-linked entity (GDPR erasure, ADMIN only).
+
+        Args:
+            target_user_uid: User to erase.
+            admin_user_uid: Admin initiating erasure (audit trail).
+            reason: Free-form reason (required for audit).
+
+        Returns:
+            Result[int]: Count of deleted nodes (user + owned entities), or error.
+        """
+        admin_result = await self.get_user(admin_user_uid)
+        if admin_result.is_error:
+            return Result.fail(admin_result)
+
+        if not admin_result.value:
+            return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
+
+        admin = admin_result.value
+
+        if not admin.can_manage_users():
+            logger.warning(f"Non-admin {admin_user_uid} attempted hard-delete of {target_user_uid}")
+            return Result.fail(
+                Errors.forbidden(
+                    action="hard_delete_user",
+                    reason="Hard-delete requires ADMIN role",
+                    required_role=UserRole.ADMIN.value,
+                )
+            )
+
+        return await self.core.hard_delete_user(
+            target_user_uid,
+            requester_role=admin.role,
+            deleted_by=admin_user_uid,
+            reason=reason,
+        )
 
     # ========================================================================
     # AUTHENTICATION (Delegate to UserCoreService)
