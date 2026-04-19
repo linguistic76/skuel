@@ -104,6 +104,30 @@ async def seed_group(neo4j_driver) -> Callable[..., Awaitable[str]]:
 
 
 @pytest_asyncio.fixture
+async def seed_membership(neo4j_driver) -> Callable[..., Awaitable[None]]:
+    """MERGE a ``(:User)-[:MEMBER_OF]->(:Group)`` edge.
+
+    Required for auto-share fan-out: ``query_exercise_groups_for_member``
+    only returns groups the submitter is an active member of (commit 7dc89f3f,
+    "security(upload): close UserEntry authorization holes").
+    """
+
+    async def _seed(user_uid: str, group_uid: str) -> None:
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                MATCH (u:User {uid: $user_uid})
+                MATCH (g:Group {uid: $group_uid})
+                MERGE (u)-[:MEMBER_OF]->(g)
+                """,
+                user_uid=user_uid,
+                group_uid=group_uid,
+            )
+
+    return _seed
+
+
+@pytest_asyncio.fixture
 async def seed_exercise(neo4j_driver) -> Callable[..., Awaitable[str]]:
     """MERGE an ``(:Entity:Exercise)`` node and SHARED_WITH_GROUP to a group."""
 
@@ -150,6 +174,7 @@ async def seed_exercise(neo4j_driver) -> Callable[..., Awaitable[str]]:
 async def seed_classroom(
     seed_user: Callable[..., Awaitable[str]],
     seed_group: Callable[..., Awaitable[str]],
+    seed_membership: Callable[..., Awaitable[None]],
     seed_exercise: Callable[..., Awaitable[str]],
 ) -> Callable[..., Awaitable[dict[str, Any]]]:
     """Compose one teacher + one group + one exercise + one student.
@@ -168,6 +193,7 @@ async def seed_classroom(
         await seed_user(teacher_uid, name="Teacher")
         await seed_user(student_uid, name="Student")
         await seed_group(group_uid, teacher_uid)
+        await seed_membership(student_uid, group_uid)
         await seed_exercise(exercise_uid, group_uid=group_uid)
         return {
             "teacher_uid": teacher_uid,

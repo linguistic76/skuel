@@ -121,10 +121,7 @@ async def teacher_review_fixture(neo4j_driver):
 
 @pytest.fixture
 def user_entry_backend(neo4j_driver):
-    from core.models.enums.neo_labels import NeoLabel
-    from core.models.user_entry.user_entry import UserEntry
-
-    return UserEntryBackend(neo4j_driver, NeoLabel.USER_ENTRY, UserEntry)
+    return UserEntryBackend(neo4j_driver)
 
 
 @pytest.mark.asyncio

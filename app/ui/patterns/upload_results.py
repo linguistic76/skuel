@@ -6,6 +6,8 @@ FastHTML component for displaying per-file upload results.
 Used by the HTMX upload endpoint to render results inline.
 """
 
+from __future__ import annotations
+
 from fasthtml.common import Div, Li, Span, Ul
 
 from core.services.ingestion.user_upload_service import FileUploadResult, UploadBatchResult

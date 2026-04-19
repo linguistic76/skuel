@@ -114,7 +114,8 @@ async def ensure_test_users(neo4j_driver):
                 result = await session.run(
                     """
                     MERGE (u:User {uid: $user_uid})
-                    ON CREATE SET u.created_at = datetime($created_at)
+                    ON CREATE SET u.title = $user_uid,
+                                  u.created_at = datetime($created_at)
                     """,
                     user_uid=user_uid,
                     created_at=datetime.now().isoformat(),
@@ -330,7 +331,8 @@ async def create_test_users(neo4j_driver):
         await session.run(
             """
             MERGE (u:User {uid: $user_uid})
-            ON CREATE SET u.created_at = datetime($created_at)
+            ON CREATE SET u.title = $user_uid,
+                          u.created_at = datetime($created_at)
             RETURN u
             """,
             user_uid="user_test_123",
@@ -339,7 +341,8 @@ async def create_test_users(neo4j_driver):
         await session.run(
             """
             MERGE (u:User {uid: $user_uid})
-            ON CREATE SET u.created_at = datetime($created_at)
+            ON CREATE SET u.title = $user_uid,
+                          u.created_at = datetime($created_at)
             RETURN u
             """,
             user_uid="user_test_456",
