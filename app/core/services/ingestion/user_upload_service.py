@@ -88,13 +88,20 @@ MAX_FILE_SIZE_BYTES = DEFAULT_MAX_FILE_SIZE_BYTES  # 10 MB
 
 @dataclass(frozen=True)
 class FileUploadResult:
-    """Result for a single uploaded file."""
+    """Result for a single uploaded file.
+
+    ``warnings`` surfaces non-fatal issues — e.g. a UserEntry persisted
+    successfully but one of its declared group shares failed (user not a
+    member, group missing). The entry exists; the uploader just needs to
+    know it did not reach every intended audience.
+    """
 
     filename: str
     success: bool
     entity_type: str | None = None
     uid: str | None = None
     error: str | None = None
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -341,9 +348,34 @@ class UserUploadService:
 
         # 7. Extract result details
         result_data: dict[str, Any] = ingest_result.value
+        warnings = _extract_share_warnings(result_data)
         return FileUploadResult(
             filename=filename,
             success=True,
             entity_type=type_str,
             uid=result_data.get("uid"),
+            warnings=warnings,
         )
+
+
+def _extract_share_warnings(result_data: dict[str, Any]) -> tuple[str, ...]:
+    """Lift per-target ``ShareOutcome.failed`` entries into human-readable warnings.
+
+    Only UserEntry ingestion populates ``share_outcome``; other types return
+    an empty tuple. The shape is ``{"failed": [{"target": ..., "reason": ...}]}``
+    as produced by ``ShareOutcome.to_payload()``.
+    """
+    share_outcome = result_data.get("share_outcome")
+    if not isinstance(share_outcome, dict):
+        return ()
+    failed = share_outcome.get("failed")
+    if not isinstance(failed, list):
+        return ()
+    warnings: list[str] = []
+    for item in failed:
+        if not isinstance(item, dict):
+            continue
+        target = str(item.get("target") or "(unknown)")
+        reason = str(item.get("reason") or "unknown reason")
+        warnings.append(f"Share to {target} failed: {reason}")
+    return tuple(warnings)

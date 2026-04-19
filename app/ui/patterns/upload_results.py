@@ -43,6 +43,7 @@ def _file_result_item(result: FileUploadResult) -> Li:
             if result.entity_type
             else "",
             Span(f" → {result.uid}", cls="text-sm text-muted-foreground") if result.uid else "",
+            _warnings_block(result.warnings),
             cls="text-green-600 py-2",
         )
     else:
@@ -55,8 +56,22 @@ def _file_result_item(result: FileUploadResult) -> Li:
                 result.error or "Unknown error",
                 cls="text-sm text-destructive",
             ),
+            _warnings_block(result.warnings),
             cls="py-2",
         )
+
+
+def _warnings_block(warnings: tuple[str, ...]) -> Div | str:
+    """Render non-fatal warnings (e.g., partial share failures) as an amber list."""
+    if not warnings:
+        return ""
+    return Div(
+        Ul(
+            *(Li(w, cls="text-sm") for w in warnings),
+            cls="list-disc pl-5",
+        ),
+        cls="text-amber-600 mt-1",
+    )
 
 
 def UploadError(message: str) -> Div:
