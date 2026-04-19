@@ -499,8 +499,10 @@ class Task(UserOwnedEntity):
 
     def to_dto(self) -> "TaskDTO":  # type: ignore[override]
         """Convert Task to domain-specific TaskDTO."""
-        from core.models.ku.task_dto import TaskDTO
-        ...
+        from core.models.dto_helpers import domain_to_dto
+        from core.models.task.task_dto import TaskDTO
+        
+        return domain_to_dto(self, TaskDTO)
 ```
 
 **Note:** The `# type: ignore[override]` on `to_dto()` is expected -- child classes return a more specific DTO type (covariant return), which is correct at runtime but requires suppression for MyPy.
@@ -790,7 +792,7 @@ The `total=False` makes all fields optional, matching the partial update semanti
 **Mitigation**: The domain-first hierarchy reduces boilerplate:
 - `to_dict()` chains via `super()` -- EntityDTO serializes 18 fields, UserOwnedDTO adds 3, TaskDTO adds 25
 - `from_dict()` uses `dto_from_dict()` generic helper that filters data to only fields on the dataclass
-- `to_dto()` / `from_dto()` methods on domain models handle the Domain-to-DTO conversion directly
+- `to_dto()` / `from_dto()` methods on domain models utilize the `domain_to_dto()` generic helper. This eliminates repetitive field mapping, automatically handles deep immutability unwrapping (like `MappingProxyType`), and enforces structural integrity.
 
 ## Complete Example: Following a Request
 

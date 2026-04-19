@@ -161,7 +161,7 @@ core/models/{domain}/
 | `search_request.py` | Canonical search request (~50 fields, all search strategies) |
 | `relationship_registry.py` | Single source of truth for all relationship definitions |
 | `relationship_names.py` | `RelationshipName` enum for Neo4j relationship types |
-| `dto_helpers.py` | DTO conversion utilities (dto_from_dict, dict_from_dto, model_from_dto) |
+| `dto_helpers.py` | DTO conversion utilities (domain_to_dto, dto_from_dict, dict_from_dto) |
 | `request_base.py` | Base Pydantic request class with common mixins |
 | `type_hints.py` | `Neo4jProperties`, `FilterParams`, `RelationshipMetadata` type aliases |
 
