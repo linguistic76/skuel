@@ -41,7 +41,7 @@ from core.models.enums import EntityType, EntityStatus, Priority
 
 ## The Two Core Enums
 
-### EntityType — What Is It? (21 values)
+### EntityType — What Is It? (20 values)
 
 EntityType is the type discriminator for every entity in SKUEL. It lives on the `entity_type` field of every Entity and determines valid statuses, default status, content origin, ownership rules, and Neo4j labels.
 
@@ -191,7 +191,7 @@ task.is_shareable()  # method — True only when COMPLETED (quality control)
 | Validating a state transition | Enum methods | `status.can_transition_to(target, entity_type)` |
 | Filtering/querying by status category | Enum methods | `[s for s in statuses if s.is_active()]` |
 
-Entity properties are defined on the `Entity` base class (`core/models/entity.py`), so they are available on all 22 entity types. They are simple one-liner `@property` methods — no configuration or overrides needed because all types share the single `EntityStatus` enum.
+Entity properties are defined on the `Entity` base class (`core/models/entity.py`), so they are available on all 20 entity types. They are simple one-liner `@property` methods — no configuration or overrides needed because all types share the single `EntityStatus` enum.
 
 ### How They Interact
 
@@ -225,7 +225,7 @@ Enums wire into the model layer through a class hierarchy. Each level inherits e
 
 | Base Class | Enum Fields | Models |
 |------------|-------------|--------|
-| Entity | entity_type, status, visibility | *(all 22 entity types)* |
+| Entity | entity_type, status, visibility | *(all 20 entity types)* |
 | UserOwnedEntity | *(inherits above)* | Task, Goal, Habit, Event, Choice, Principle, Submission types, LifePath |
 | Curriculum *(base class)* | + complexity, learning_level, sel_category | PathStep, LearningPath, Exercise |
 

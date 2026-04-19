@@ -33,9 +33,9 @@ Run the app: `./dev up-neo4j` (Terminal 1), then `./dev serve` (Terminal 2). See
 
 ---
 
-## 2. The 22 Entity Types
+## 2. The 20 Entity Types
 
-Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a Neo4j node. The `entity_type` field says which kind it is. There are 22 types in five groups:
+Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a Neo4j node. The `entity_type` field says which kind it is. There are 20 types in four groups:
 
 **Activities** (user-owned, daily life): Task, Goal, Habit, Event, Choice, Principle
 

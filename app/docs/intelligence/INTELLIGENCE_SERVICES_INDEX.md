@@ -701,7 +701,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Central intelligence hub answering "What should I work on next?"
 - 8 flagship methods across 5 mixins
 - **Flagship method:** `get_ready_to_work_on_today()` - Daily planning based on goals, habits, knowledge, schedule
-- Requires 13 domain services (6 Activity + 3 Curriculum + 3 Processing + 1 Temporal)
+- Requires 12 domain services (6 Activity + 2 Curriculum + 3 Processing + 1 Temporal)
 - Optional: `filtered_providers` dict (11 `FilteredContextProvider` facades) — consumed by daily planning for domain health warnings (all 6 Activity domains + cross-domain balance checks)
 - Modular package architecture (~3,124 lines)
 

@@ -160,7 +160,7 @@ SKUEL has two query builders for domain services (SKUEL001: no APOC in domain se
 ```
 Layer 1: UniversalNeo4jBackend (Generic CRUD)
 ├── Uses UnifiedQueryBuilder for generic operations
-└── Powers ALL 22 entity types with CRUD, search, relationships
+└── Powers ALL 20 entity types with CRUD, search, relationships
 
 Layer 2: Domain Backends (Domain-Specific Cypher)
 ├── 27 typed subclasses in backends/ (9 cluster files — import directly from the cluster file)

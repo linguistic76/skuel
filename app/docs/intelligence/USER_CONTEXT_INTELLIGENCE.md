@@ -21,14 +21,14 @@ For implementation guidance, see:
 
 UserContextIntelligence is THE central intelligence hub answering: **"What should I work on next?"**
 
-This service synthesizes user state (UserContext ~240 fields) with complete graph intelligence (13 domain services) to provide actionable daily planning, learning recommendations, and life path alignment insights.
+This service synthesizes user state (UserContext ~240 fields) with complete graph intelligence (12 domain services) to provide actionable daily planning, learning recommendations, and life path alignment insights.
 
 **Depends on:** UserContext (~240 fields) — see [Unified User Architecture](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md)
 
 UserContext provides the state. This service provides the synthesis.
 
 **Core Value Proposition:**
-- Combines user state (UserContext) with graph intelligence (13 domain services)
+- Combines user state (UserContext) with graph intelligence (12 domain services)
 - Answers "What should I work on?" across all entity types
 - Provides schedule-aware, capacity-respecting recommendations
 - Measures life path alignment across 5 dimensions
@@ -110,7 +110,7 @@ UserContextIntelligence provides 8 core methods across 5 mixins:
 
 **Philosophy:** "SKUEL runs at full capacity or not at all"
 
-UserContextIntelligence requires ALL 13 domain services because each contributes unique intelligence:
+UserContextIntelligence requires ALL 12 domain services because each contributes unique intelligence:
 
 ### Activity (6) - All use UnifiedRelationshipService
 
@@ -907,14 +907,14 @@ class UserContextIntelligence(
 
 **Why a Factory?**
 - UserContextIntelligence requires a **context at construction** (user-specific)
-- The **13 domain services are singletons** (created once at bootstrap)
+- The **12 domain services are singletons** (created once at bootstrap)
 - Factory separates service wiring from context binding
 
 **Bootstrap (services_bootstrap.py):**
 ```python
 from core.services.user.intelligence import UserContextIntelligenceFactory
 
-# Create factory with all 13 domain services
+# Create factory with all 12 domain services
 factory = UserContextIntelligenceFactory(
     # Activity (6)
     tasks=tasks_service.relationships,
@@ -1186,7 +1186,7 @@ def create_test_intelligence(context: UserContext) -> UserContextIntelligence:
         tasks=mock_tasks_service(),
         goals=mock_goals_service(),
         habits=mock_habits_service(),
-        # ... etc for all 13 services
+        # ... etc for all 12 services
     )
 ```
 

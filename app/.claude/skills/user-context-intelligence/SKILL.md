@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "THE CORE VALUE PROPOSITION: What should I work on next?"
 
-SKUEL's `UserContextIntelligence` is the central intelligence hub that synthesizes user state (`UserContext` ~250 fields) with all 13 domain services to answer the fundamental question: **"What should I work on today?"**
+SKUEL's `UserContextIntelligence` is the central intelligence hub that synthesizes user state (`UserContext` ~250 fields) with all 12 domain services to answer the fundamental question: **"What should I work on today?"**
 
 ## Quick Start
 
@@ -25,13 +25,13 @@ class UserContextIntelligence(
     TemporalMomentumMixin,          # Momentum signals (entities_rich analysis)
     DailyPlanningMixin,             # Method 5: THE FLAGSHIP - Daily work plan
 ):
-    """Learning journey intelligence = Context + 13 Domain Services."""
+    """Learning journey intelligence = Context + 12 Domain Services."""
 ```
 
 ### Core Architecture
 
 ```
-UserContextIntelligence = UserContext + 13 Domain Services
+UserContextIntelligence = UserContext + 12 Domain Services
                         = User State + Complete Graph Intelligence
 ```
 
@@ -41,7 +41,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 - Workload capacity, available time, energy levels
 - Life path alignment, recommended next steps
 
-**13 Domain Services** provide:
+**12 Domain Services** provide:
 - Fresh graph queries for real-time data
 - Cross-domain relationship traversal
 - Actionable recommendations
@@ -63,9 +63,9 @@ UserContextIntelligence = UserContext + 13 Domain Services
 
 ---
 
-## The 13 Required Domain Services
+## The 12 Required Domain Services
 
-`UserContextIntelligence` requires ALL 13 domain services at construction:
+`UserContextIntelligence` requires ALL 12 domain services at construction:
 
 ### Activity (6)
 
@@ -144,7 +144,7 @@ if tier.ai_enabled:  # FULL tier
     services.zpd_service = zpd_service
 
 factory = UserContextIntelligenceFactory(
-    ...,  # 13 required services
+    ...,  # 12 required services
     zpd_service=zpd_service,
 )
 ```
@@ -252,7 +252,7 @@ UserContextIntelligence (Level 1)
 └── ScheduleIntelligenceMixin     → Pure Cypher: calendar + capacity scoring
 ```
 
-All 13 required services are Level 1. `SubmissionsRelationshipService`, `ReportRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
+All 12 required services are Level 1. `SubmissionsRelationshipService`, `ReportRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
 
 ### Level 2 — AI Enhancement (Optional)
 
@@ -279,7 +279,7 @@ This is by design. The slot reservation ensures future implementation is a fill-
 
 - `UserContextIntelligence` requires a `UserContext` at construction
 - Context is user-specific and built on-demand
-- The 13 domain services are singletons (created once at bootstrap)
+- The 12 domain services are singletons (created once at bootstrap)
 - Factory pattern separates **service wiring** from **context binding**
 
 ### UserContextIntelligenceFactory
@@ -341,7 +341,7 @@ async def get_ready_to_work_on_today(
     """
     THE FLAGSHIP METHOD - What should I focus on TODAY?
 
-    Currently synthesizes 10 of 13 wired domains:
+    Currently synthesizes 10 of 12 wired domains:
     - Activity (6): tasks, habits, goals, events, choices, principles
     - Curriculum (3): ku, ls, lp
     - Submissions Domain (1): self.report — Priority 2.5: unsubmitted exercises
@@ -443,10 +443,10 @@ class UserContextIntelligence(
     DailyPlanningMixin,
 ):
     def __init__(self, context: UserContext, ...):
-        # Store context and all 13 services
+        # Store context and all 12 services
         self.context = context
         self.tasks = tasks
-        # ... 12 more services
+        # ... 11 more services
 ```
 
 ### Mixin Requirements
@@ -720,6 +720,6 @@ intelligence = factory.create(context)
 
 ## See Also
 
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - 13 services, 8 methods, 5 return types
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - 12 services, 8 methods, 5 return types
 - [MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md) - 5 mixins and responsibilities
 - [FACTORY_PATTERN.md](FACTORY_PATTERN.md) - UserContextIntelligenceFactory usage

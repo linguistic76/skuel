@@ -23,7 +23,7 @@ class UserContextIntelligence(
 | Aspect | BaseIntelligenceService | Mixin Composition |
 |--------|------------------------|-------------------|
 | **Focus** | Single domain entities | Cross-domain synthesis |
-| **Backend** | Single domain backend | 13 domain services |
+| **Backend** | Single domain backend | 12 domain services |
 | **Context** | Entity-focused | User state (~250 fields) |
 | **Methods** | CRUD + intelligence | 8 specialized methods |
 | **Testing** | Mock single backend | Mock context + services |
@@ -368,11 +368,11 @@ class UserContextIntelligence(...):
         # Optional
         vector_search: Any = None,
     ):
-        # Validate all 13 required services present
+        # Validate all 12 required services present
         required = {
             "context": context,
             "tasks": tasks,
-            # ... all 13
+            # ... all 12
         }
         missing = [name for name, svc in required.items() if svc is None]
         if missing:
