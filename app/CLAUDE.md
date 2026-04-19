@@ -632,7 +632,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 13 of 20 entity types are file-ingestible (Group added 2026-04-14; legacy `exercise_submission` / `je_input` / `je_output` YAMLs still ingest, aliased onto `UserEntry` with `pipeline` inferred). **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
+One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 13 of 20 entity types are file-ingestible (Group added 2026-04-14; `type: user_entry` routes through `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` so `/upload` and `/submit` share the same pipeline — ADR-054). Legacy `exercise_submission` / `je_input` / `je_output` YAMLs are **rejected** with a clear ADR-054 error (no compat shim — One Path Forward). **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
 
 **Default Vault:** `/home/mike/0bsidian/0vault/` — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
 
@@ -641,6 +641,8 @@ One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, i
 **API:** `POST /api/ingest/file`, `POST /api/ingest/directory`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `WS /ws/ingest/progress/{operation_id}`
 
 **Per-User Upload:** `UserUploadService` enables authenticated users to bulk-upload content into isolated per-user vaults. Files are validated, stored under `VaultConfig.user_vaults_root/{user_uid}/`, and ingested via `UnifiedIngestionService`. **API:** `POST /api/upload` (file upload), **UI:** `GET /upload` (upload page, Submissions sidebar), `POST /upload/files` (form submission). Hub: `GET /submissions` (Submissions hub). Import: `from core.services.ingestion.user_upload_service import UserUploadService`.
+
+**UserEntry YAMLs** declare `pipeline:` (required — one of `none` / `teacher_review` / `llm_summary`; audio pipelines use the audio-upload flow and are rejected by `/upload`) and `audience:` (optional — `teachers` (default) / `group:<uid>` / `public` / `private`). `audience: teachers` expands to the user's student-role group memberships via `AudienceResolver.resolve_default_teachers()`; zero groups means no shares (no silent broadcast). The resolver (`core/services/user_entry/audience_resolver.py`) is shared between `/upload` and `/submit` so both paths validate identically.
 
 **See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`, `/docs/patterns/UNIFIED_INGESTION_GUIDE.md`
 

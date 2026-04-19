@@ -154,6 +154,30 @@ non-archived status. For ASSIGNED exercise flows, the submission pipeline
 defaults `pipeline=TEACHER_REVIEW` and audience to the Exercise's groups;
 the student can widen the audience but not silently submit to nobody.
 
+**YAML ingestion (`/upload`) uses the same pipeline.** When
+`ingest_file()` detects `type: user_entry`, it delegates to
+`core/services/ingestion/user_entry_ingestion.py`, which builds a
+`UserEntryCreateRequest` and calls `UserEntryService.create_entry()` —
+the same entry point the `/submit` form uses. YAML files declare a
+required `pipeline:` field and an optional `audience:` field:
+
+| YAML `audience:` | Effect |
+|------------------|--------|
+| `teachers` (default) | Expand to the uploader's student-role group memberships via `AudienceResolver.resolve_default_teachers()`. Zero groups → no shares (no silent broadcast). |
+| `group:<uid>` | `SHARED_WITH_GROUP` with one specific group. |
+| `public` | `visibility=PUBLIC`. |
+| `private` | No shares, no visibility change. |
+
+`AudienceResolver` (`core/services/user_entry/audience_resolver.py`) is
+the shared home for audience validation, share fan-out, and default-
+teacher expansion. Both the form and the ingestion bridge hold the same
+resolver instance — there is no second code path. Audio pipelines
+(`TRANSCRIBE`, `TRANSCRIBE_AND_STRUCTURE`) are rejected by `/upload`
+because the path is YAML-only; audio uploads keep the dedicated audio-
+upload flow. Legacy type strings `exercise_submission` / `je_input` /
+`je_output` are rejected in `detector.py` with an ADR-054 error — no
+compat shim (One Path Forward).
+
 ### 4. Context edges — optional, type-agnostic
 
 What an entry "is for" is encoded as optional outgoing relationships:
