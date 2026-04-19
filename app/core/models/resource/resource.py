@@ -107,9 +107,9 @@ class Resource(Entity):
     def to_dto(self) -> "ResourceDTO":  # type: ignore[override]
         """Convert Resource to domain-specific ResourceDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.resource.resource_dto import ResourceDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, ResourceDTO)
 
     def __str__(self) -> str:

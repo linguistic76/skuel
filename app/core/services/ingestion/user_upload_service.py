@@ -34,8 +34,11 @@ UploadType = EntityType | NonKuDomain
 
 logger = get_logger("skuel.services.ingestion.user_upload")
 
-# Types users may upload. Activity Domain types are open to all authenticated
-# users; Group uploads are additionally gated on UserRole.TEACHER (ADR-053).
+# Types users may upload. Activity Domain types and UserEntry are open to all
+# authenticated users; Group uploads are additionally gated on
+# UserRole.TEACHER (ADR-053). UserEntry uploads carry a ``pipeline:`` field
+# that is validated separately by the ingestion preparer (ADR-054) — audio
+# pipelines are rejected because /upload is YAML-only.
 ALLOWED_UPLOAD_TYPES: frozenset[UploadType] = frozenset(
     {
         EntityType.TASK,
@@ -44,6 +47,7 @@ ALLOWED_UPLOAD_TYPES: frozenset[UploadType] = frozenset(
         EntityType.EVENT,
         EntityType.CHOICE,
         EntityType.PRINCIPLE,
+        EntityType.USER_ENTRY,
         NonKuDomain.GROUP,
     }
 )
@@ -59,6 +63,7 @@ _TYPE_STRING_TO_ENTITY: dict[str, UploadType] = {
     "event": EntityType.EVENT,
     "choice": EntityType.CHOICE,
     "principle": EntityType.PRINCIPLE,
+    "user_entry": EntityType.USER_ENTRY,
     "group": NonKuDomain.GROUP,
 }
 
@@ -70,6 +75,7 @@ _TYPE_TO_SUBDIR: dict[UploadType, str] = {
     EntityType.EVENT: "events",
     EntityType.CHOICE: "choices",
     EntityType.PRINCIPLE: "principles",
+    EntityType.USER_ENTRY: "user_entries",
     NonKuDomain.GROUP: "groups",
 }
 

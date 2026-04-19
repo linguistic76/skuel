@@ -130,9 +130,9 @@ class PathStep(Curriculum):
     def to_dto(self) -> "PathStepDTO":  # type: ignore[override]
         """Convert PathStep to domain-specific PathStepDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.pathways.path_step_dto import PathStepDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, PathStepDTO)
 
     def __str__(self) -> str:

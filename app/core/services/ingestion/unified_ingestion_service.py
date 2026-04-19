@@ -38,6 +38,8 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.services.user_entry.user_entry_service import UserEntryService
+
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import UserUID
@@ -65,6 +67,7 @@ from .types import (
     IngestionStats,
     ValidationResult,
 )
+from .user_entry_ingestion import ingest_user_entry
 from .validator import (
     validate_directory,
     validate_edge_data,
@@ -112,6 +115,7 @@ class UnifiedIngestionService:
         embeddings_service: Any | None = None,
         chunking_service: Any | None = None,
         ingestion_backend: Any | None = None,
+        user_entry_service: UserEntryService | None = None,
     ) -> None:
         """
         Initialize unified ingestion service.
@@ -127,6 +131,9 @@ class UnifiedIngestionService:
             chunking_service: Optional EntityChunkingService for automatic chunk generation.
                               If not provided, ingestion works without chunking (graceful degradation).
             ingestion_backend: IngestionBackend for ingestion tracking (optional).
+            user_entry_service: UserEntryService for routing UserEntry YAMLs through
+                                the same create_entry() pipeline as /submit. Required
+                                when ingesting ``type: user_entry`` files.
         """
         if not driver:
             raise ValueError("Neo4j driver is required")
@@ -139,6 +146,7 @@ class UnifiedIngestionService:
         self.max_file_size_bytes = max_file_size_bytes
         self.embeddings = embeddings_service  # Can be None - graceful degradation
         self.chunking = chunking_service  # Can be None - graceful degradation
+        self.user_entry_service = user_entry_service
         self.logger = logger
 
         # Log embedding availability
@@ -395,6 +403,27 @@ class UnifiedIngestionService:
                     f"Unsupported entity type: {entity_type.value}",
                     field="type",
                 )
+            )
+
+        # UserEntry has its own creation pipeline (audience resolution,
+        # Interaction audit, TRANSFORMS edges, compensation delete) that the
+        # bulk engine cannot replicate. Route through UserEntryService so
+        # /upload and /submit share every downstream step.
+        if entity_type == EntityType.USER_ENTRY:
+            if self.user_entry_service is None:
+                return Result.fail(
+                    Errors.system(
+                        "UserEntry ingestion requires user_entry_service "
+                        "to be wired into UnifiedIngestionService.",
+                        operation="ingest_user_entry",
+                    )
+                )
+            effective_user_uid = user_uid or self.default_user_uid
+            return await ingest_user_entry(
+                data=data,
+                file_path=file_path,
+                user_uid=effective_user_uid,
+                user_entry_service=self.user_entry_service,
             )
 
         # Validate UID format before preparation (early fail-fast)

@@ -197,9 +197,9 @@ class Event(UserOwnedEntity):
     def to_dto(self) -> "EventDTO":  # type: ignore[override]
         """Convert Event to domain-specific EventDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.event.event_dto import EventDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, EventDTO)
 
     def __str__(self) -> str:

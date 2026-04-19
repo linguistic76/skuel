@@ -13,6 +13,15 @@ from typing import Any
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 
+# ADR-054 retired ``ExerciseSubmission`` / ``JeInput`` / ``JeOutput`` in favour
+# of a single ``UserEntry`` type discriminated by ``pipeline``. Legacy YAMLs
+# carrying these type strings are rejected with a clear error rather than
+# silently routed (which previously stamped ``pipeline=NONE`` because the
+# inference code was never written). One Path Forward — no compat shims.
+_LEGACY_USER_ENTRY_ALIASES: frozenset[str] = frozenset(
+    {"je_input", "je_output", "exercise_submission"}
+)
+
 # ============================================================================
 # TYPE MAPPING
 # ============================================================================
@@ -44,12 +53,11 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "finance": NonKuDomain.FINANCE,
     # Groups (teacher-student class management)
     "group": NonKuDomain.GROUP,
-    # Content/Processing (ADR-054: UserEntry is the unified domain;
-    # legacy strings continue to route to USER_ENTRY for backward compat,
-    # pipeline is inferred from the legacy type in the preparer.)
-    "je_input": EntityType.USER_ENTRY,
-    "je_output": EntityType.USER_ENTRY,
-    "exercise_submission": EntityType.USER_ENTRY,
+    # User-authored content (ADR-054: UserEntry is the unified domain).
+    # YAMLs must declare ``type: user_entry`` + an explicit ``pipeline:``.
+    # No backward-compat aliases — per SKUEL's One Path Forward principle,
+    # legacy ``je_input`` / ``je_output`` / ``exercise_submission`` strings
+    # are rejected with a clear error pointing at ADR-054.
     "user_entry": EntityType.USER_ENTRY,
     # Interaction audit (User Interaction Contract)
     "interaction": EntityType.INTERACTION,
@@ -101,6 +109,13 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
     # Check for explicit type field
     explicit_type = data.get("type", "").lower().strip()
     if explicit_type:
+        if explicit_type in _LEGACY_USER_ENTRY_ALIASES:
+            raise ValueError(
+                f"Type '{explicit_type}' was retired by ADR-054. "
+                "Use 'type: user_entry' with an explicit 'pipeline:' field "
+                "(none | teacher_review | llm_summary). "
+                f"File: {file_path.name}"
+            )
         if explicit_type in TYPE_MAPPING:
             return TYPE_MAPPING[explicit_type]
 

@@ -28,7 +28,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-
 from core.models.enums import EnergyLevel, LearningLevel, TimeOfDay, UserRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID, UserUID

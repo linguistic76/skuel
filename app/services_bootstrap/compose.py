@@ -924,7 +924,13 @@ async def compose_services(
             sharing_service=unified_sharing_service,
             interaction_service=interaction_service,
             event_bus=event_bus,
+            group_service=group_service,
         )
+
+        # Wire UserEntryService into the ingestion service so YAML uploads of
+        # ``type: user_entry`` route through the same create_entry() pipeline
+        # as the /submit form (ADR-054 — one path forward).
+        unified_ingestion.user_entry_service = user_entry_service
         user_entry_processor = UserEntryProcessingService(
             entry_service=user_entry_service,
             transcription_adapter=core_services["deepgram_adapter"],

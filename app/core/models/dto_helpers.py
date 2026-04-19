@@ -431,11 +431,11 @@ def domain_to_dto[T](domain_obj: Any, dto_class: type[T]) -> T:
 
     Replaces boilerplate iteration across dataclass fields in every domain model's to_dto() method.
     Automatically handles unwrapping MappingProxyType and tuple conversions for deep immutability.
-    
+
     Args:
         domain_obj: The frozen dataclass domain model
         dto_class: The DTO class to instantiate
-        
+
     Returns:
         Instance of dto_class
     """

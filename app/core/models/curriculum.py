@@ -501,8 +501,8 @@ class Curriculum(Entity):
         """Convert Curriculum to domain-specific CurriculumDTO."""
 
         from core.models.curriculum_dto import CurriculumDTO
-
         from core.models.dto_helpers import domain_to_dto
+
         return domain_to_dto(self, CurriculumDTO)
 
     def __str__(self) -> str:

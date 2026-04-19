@@ -28,7 +28,6 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-
     from core.models.enums.activity_enums import Priority
     from core.ports.calendar_protocol import CalendarTrackable
     from core.utils.result_simplified import Result as _Result
@@ -542,7 +541,6 @@ __all__ = [
     "Success",
     # Type variables
     "T",
-
     "T_Trackable",
     "Tag",
     # Collection types

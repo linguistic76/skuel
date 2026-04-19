@@ -169,9 +169,9 @@ class ActivityReport(UserOwnedEntity):
     def to_dto(self) -> "ActivityReportDTO":  # type: ignore[override]
         """Convert ActivityReport to domain-specific ActivityReportDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.report.activity_report_dto import ActivityReportDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, ActivityReportDTO)
 
     def __str__(self) -> str:

@@ -133,9 +133,9 @@ class LifePath(UserOwnedEntity):
     def to_dto(self) -> "LifePathDTO":  # type: ignore[override]
         """Convert LifePath to domain-specific LifePathDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.life_path.life_path_dto import LifePathDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, LifePathDTO)
 
     def __str__(self) -> str:

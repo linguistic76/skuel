@@ -59,6 +59,18 @@ def _supported_types_section(is_teacher: bool = False) -> Div:
             ", ",
             Code("statement"),
         ),
+        Li(
+            Span("UserEntry", cls="font-bold"),
+            " — required field: ",
+            Code("pipeline"),
+            " (one of ",
+            Code("none"),
+            ", ",
+            Code("teacher_review"),
+            ", ",
+            Code("llm_summary"),
+            "). Audio pipelines use the audio-upload flow.",
+        ),
     ]
     if is_teacher:
         items.append(
@@ -86,6 +98,32 @@ def _supported_types_section(is_teacher: bool = False) -> Div:
             ),
             " for examples.",
             cls="text-muted-foreground mt-2",
+        ),
+        cls="mb-6",
+    )
+
+
+def _audience_section() -> Div:
+    """Document the UserEntry ``audience:`` field."""
+    return Div(
+        H3("UserEntry Audience", cls="text-lg font-semibold mb-2"),
+        P(
+            "UserEntry files may declare who sees the submission via an ",
+            Code("audience"),
+            " field. Defaults to ",
+            Code("teachers"),
+            " when omitted.",
+            cls="text-muted-foreground mb-2",
+        ),
+        Ul(
+            Li(
+                Code("teachers"),
+                " — shares with every group you belong to as a student (default).",
+            ),
+            Li(Code("group:<group_uid>"), " — shares with one specific group."),
+            Li(Code("public"), " — publishes to your portfolio."),
+            Li(Code("private"), " — keeps the entry unshared."),
+            cls="list-disc pl-6 mt-2",
         ),
         cls="mb-6",
     )
@@ -169,6 +207,7 @@ def create_upload_ui_routes(
                 subtitle="Bulk upload YAML files for Tasks, Goals, Habits, Events, Choices, and Principles.",
             ),
             _supported_types_section(is_teacher=is_teacher),
+            _audience_section(),
             _upload_form(),
             _results_area(),
             cls="max-w-3xl mx-auto px-4",

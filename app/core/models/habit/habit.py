@@ -263,9 +263,9 @@ class Habit(UserOwnedEntity):
     def to_dto(self) -> "HabitDTO":  # type: ignore[override]
         """Convert Habit to domain-specific HabitDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.habit.habit_dto import HabitDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, HabitDTO)
 
     def __str__(self) -> str:

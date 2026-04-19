@@ -293,9 +293,9 @@ class Goal(UserOwnedEntity):
     def to_dto(self) -> "GoalDTO":  # type: ignore[override]
         """Convert Goal to domain-specific GoalDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.goal.goal_dto import GoalDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, GoalDTO)
 
     def __str__(self) -> str:

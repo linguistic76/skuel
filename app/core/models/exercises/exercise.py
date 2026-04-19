@@ -226,9 +226,9 @@ class Exercise(Curriculum):
     def to_dto(self) -> "ExerciseDTO":  # type: ignore[override]
         """Convert Exercise to domain-specific ExerciseDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.exercises.exercise_dto import ExerciseDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, ExerciseDTO)
 
     def __str__(self) -> str:

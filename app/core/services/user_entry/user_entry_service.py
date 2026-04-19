@@ -31,7 +31,6 @@ See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
 from __future__ import annotations
 
 import mimetypes
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -53,6 +52,7 @@ from core.models.user_entry.user_entry_request import (
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
+from core.services.user_entry.audience_resolver import AudienceResolver, ShareOutcome
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -61,37 +61,13 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.groups.group_service import GroupService
     from core.services.interaction.interaction_service import InteractionService
     from core.services.sharing.unified_sharing_service import UnifiedSharingService
 
-
-@dataclass(frozen=True)
-class ShareOutcome:
-    """Result of a post-persist audience resolution pass.
-
-    ``shared_groups`` / ``shared_users`` are the targets that succeeded.
-    ``failed`` pairs each failed target with its error message so callers can
-    surface partial-success warnings without re-fetching.
-    """
-
-    shared_groups: tuple[str, ...] = field(default_factory=tuple)
-    shared_users: tuple[str, ...] = field(default_factory=tuple)
-    failed: tuple[tuple[str, str], ...] = field(default_factory=tuple)
-
-    @property
-    def any_success(self) -> bool:
-        return bool(self.shared_groups) or bool(self.shared_users)
-
-    @property
-    def any_failure(self) -> bool:
-        return bool(self.failed)
-
-    def to_payload(self) -> dict[str, Any]:
-        return {
-            "shared_groups": list(self.shared_groups),
-            "shared_users": list(self.shared_users),
-            "failed": [{"target": t, "reason": r} for t, r in self.failed],
-        }
+# Re-exported for callers that import ``ShareOutcome`` from this module
+# (the dataclass moved to ``audience_resolver`` during the /upload integration).
+__all__ = ["ShareOutcome", "UserEntryService"]
 
 
 class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
@@ -119,6 +95,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         interaction_service: InteractionService | None = None,
         event_bus: EventBusOperations | None = None,
         storage_path: str = "/tmp/skuel_user_entries",
+        audience_resolver: AudienceResolver | None = None,
+        group_service: GroupService | None = None,
     ) -> None:
         super().__init__(backend, "UserEntryService")  # type: ignore[arg-type]  # protocol type
         self.sharing_service = sharing_service
@@ -127,6 +105,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger("skuel.services.user_entry")  # type: ignore[assignment]
+        # AudienceResolver owns audience validation + sharing fan-out so the
+        # /upload ingestion path can reuse the same logic without going
+        # through this facade. Construct one if a caller hasn't provided it.
+        self.audience_resolver = audience_resolver or AudienceResolver(
+            sharing_service=sharing_service,
+            group_service=group_service,
+        )
         self.logger.info(f"UserEntry storage path: {self.storage_path}")
 
     # =========================================================================
@@ -153,7 +138,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
 
         See module docstring for the full create flow.
         """
-        audience_check = self._validate_audience(request)
+        audience_check = self.audience_resolver.validate(request)
         if audience_check.is_error:
             return Result.fail(audience_check)
 
@@ -220,7 +205,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 )
 
         # 5. Resolve audience + share
-        share_result = await self._resolve_and_share(
+        share_result = await self.audience_resolver.resolve_and_share(
             entry_uid=created.uid,
             user_uid=user_uid,
             request=request,
@@ -491,52 +476,6 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     # PRIVATE HELPERS
     # =========================================================================
 
-    def _validate_audience(self, request: UserEntryCreateRequest) -> Result[None]:
-        """ADR §3 + §5 guardrails on audience for this pipeline.
-
-        §3 (TEACHER_REVIEW must resolve to a real audience):
-          - Explicit ``share_with_groups`` / ``share_with_users`` OR
-            ``fulfills_exercise_uid`` (auto-share to exercise groups)
-          - Rejected: ``pipeline=TEACHER_REVIEW`` with none of the above.
-
-        §5 (journal is PRIVATE):
-          - ``Pipeline.allows_sharing()`` returns ``False`` for the journal
-            pipeline (``TRANSCRIBE_AND_STRUCTURE``). Any explicit audience on
-            such a request is rejected — the journal norm is preserved from
-            the legacy `JeInput`/`JeOutput` split.
-        """
-        if not request.pipeline.allows_sharing():
-            has_explicit_audience = bool(
-                request.share_with_groups
-                or request.share_with_users
-                or request.auto_share_to_exercise_groups
-                or (request.visibility is not None and request.visibility != Visibility.PRIVATE)
-            )
-            if has_explicit_audience:
-                return Result.fail(
-                    Errors.validation(
-                        f"pipeline={request.pipeline.value} is private "
-                        "(journals are not shareable at submit time)",
-                        field="audience",
-                    )
-                )
-            return Result.ok(None)
-
-        if request.pipeline != Pipeline.TEACHER_REVIEW:
-            return Result.ok(None)
-        has_audience = bool(
-            request.share_with_groups or request.share_with_users or request.fulfills_exercise_uid
-        )
-        if not has_audience:
-            return Result.fail(
-                Errors.validation(
-                    "pipeline=TEACHER_REVIEW requires an audience: set "
-                    "fulfills_exercise_uid, share_with_groups, or share_with_users",
-                    field="audience",
-                )
-            )
-        return Result.ok(None)
-
     async def _next_revision(self, user_uid: UserUID, exercise_uid: str) -> int:
         """Compute the next revision number for (user, exercise)."""
         count_result = await self.backend.count_entries_for_exercise(
@@ -582,104 +521,3 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             self.logger.warning(
                 f"Unexpected error creating Interaction for UserEntry {entry_uid}: {e}"
             )
-
-    async def _resolve_and_share(
-        self,
-        entry_uid: str,
-        user_uid: UserUID,
-        request: UserEntryCreateRequest,
-    ) -> Result[ShareOutcome]:
-        """Audience resolution + share calls. Returns which targets landed.
-
-        Policy:
-          1. Explicit ``share_with_groups`` / ``share_with_users`` — share
-             directly via ``UnifiedSharingService``.
-          2. ``auto_share_to_exercise_groups=True`` (or, for programmatic
-             callers, implicit ``pipeline=TEACHER_REVIEW`` with exercise and
-             no explicit shares) — resolve the exercise's assigned groups
-             and SHARED_WITH_GROUP to each.
-          3. Otherwise — no sharing (default visibility=PRIVATE).
-
-        Failures are collected into the returned ``ShareOutcome`` rather than
-        propagated — the caller decides whether to compensate (delete the
-        just-persisted entry) or surface partial-success warnings.
-        """
-        if self.sharing_service is None:
-            return Result.ok(ShareOutcome())
-
-        shared_groups: list[str] = []
-        shared_users: list[str] = []
-        failed: list[tuple[str, str]] = []
-
-        for group_uid in request.share_with_groups:
-            result = await self.sharing_service.share_with_group(
-                entity_uid=entry_uid,
-                owner_uid=user_uid,
-                group_uid=group_uid,
-            )
-            if result.is_error:
-                reason = str(result.expect_error())
-                self.logger.warning(
-                    f"Failed to share UserEntry {entry_uid} with group {group_uid}: {reason}"
-                )
-                failed.append((group_uid, reason))
-            else:
-                shared_groups.append(group_uid)
-
-        for recipient_uid in request.share_with_users:
-            result = await self.sharing_service.share(
-                entity_uid=entry_uid,
-                owner_uid=user_uid,
-                recipient_uid=recipient_uid,
-            )
-            if result.is_error:
-                reason = str(result.expect_error())
-                self.logger.warning(
-                    f"Failed to share UserEntry {entry_uid} with user {recipient_uid}: {reason}"
-                )
-                failed.append((recipient_uid, reason))
-            else:
-                shared_users.append(recipient_uid)
-
-        # Auto-share to exercise groups: explicit flag wins; otherwise fall
-        # back to the implicit TEACHER_REVIEW+exercise+no-explicit-shares path
-        # so programmatic callers keep working without the new flag.
-        shared_any = bool(shared_groups) or bool(shared_users)
-        should_auto_share = request.auto_share_to_exercise_groups or (
-            not shared_any and request.pipeline == Pipeline.TEACHER_REVIEW
-        )
-        if should_auto_share and request.fulfills_exercise_uid:
-            groups_result = await self.sharing_service.get_groups_shared_with(
-                entity_uid=request.fulfills_exercise_uid,
-            )
-            if groups_result.is_error:
-                reason = str(groups_result.expect_error())
-                self.logger.warning(f"Could not resolve exercise groups for auto-share: {reason}")
-                failed.append((request.fulfills_exercise_uid, reason))
-            else:
-                for record in groups_result.value or []:
-                    raw = record.get("group_uid") if isinstance(record, dict) else None
-                    if not raw:
-                        continue
-                    group_uid_str = str(raw)
-                    share_result = await self.sharing_service.share_with_group(
-                        entity_uid=entry_uid,
-                        owner_uid=user_uid,
-                        group_uid=group_uid_str,
-                    )
-                    if share_result.is_error:
-                        reason = str(share_result.expect_error())
-                        self.logger.warning(
-                            f"Auto-share of {entry_uid} to group {group_uid_str} failed: {reason}"
-                        )
-                        failed.append((group_uid_str, reason))
-                    else:
-                        shared_groups.append(group_uid_str)
-
-        return Result.ok(
-            ShareOutcome(
-                shared_groups=tuple(shared_groups),
-                shared_users=tuple(shared_users),
-                failed=tuple(failed),
-            )
-        )

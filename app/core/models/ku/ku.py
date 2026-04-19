@@ -21,9 +21,8 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -80,9 +79,9 @@ class Ku(Entity):
 
     def to_dto(self) -> KuDTO:  # type: ignore[override]
         """Convert Ku to domain-specific KuDTO."""
+        from core.models.dto_helpers import domain_to_dto
         from core.models.ku.ku_dto import KuDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, KuDTO)
 
     def __str__(self) -> str:

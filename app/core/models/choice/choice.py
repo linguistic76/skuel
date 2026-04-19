@@ -153,8 +153,8 @@ class Choice(UserOwnedEntity):
         """Convert Choice to domain-specific ChoiceDTO."""
 
         from core.models.choice.choice_dto import ChoiceDTO
-
         from core.models.dto_helpers import domain_to_dto
+
         return domain_to_dto(self, ChoiceDTO)
 
     def __str__(self) -> str:

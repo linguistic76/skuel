@@ -92,9 +92,9 @@ class LearningPath(Curriculum):
     def to_dto(self) -> "LearningPathDTO":  # type: ignore[override]
         """Convert LearningPath to domain-specific LearningPathDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.pathways.learning_path_dto import LearningPathDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, LearningPathDTO)
 
     def __str__(self) -> str:

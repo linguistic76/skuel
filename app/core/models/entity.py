@@ -298,9 +298,9 @@ class Entity:
 
         Converts tuples back to lists for DTO mutability.
         """
+        from core.models.dto_helpers import domain_to_dto
         from core.models.entity_dto import EntityDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, EntityDTO)
 
     # =========================================================================

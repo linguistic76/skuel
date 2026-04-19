@@ -181,9 +181,9 @@ class RevisedExercise(UserOwnedEntity):
     def to_dto(self) -> "RevisedExerciseDTO":  # type: ignore[override]
         """Convert RevisedExercise to domain-specific RevisedExerciseDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, RevisedExerciseDTO)
 
     def __str__(self) -> str:

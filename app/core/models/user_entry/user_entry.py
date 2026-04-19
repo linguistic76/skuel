@@ -169,9 +169,9 @@ class UserEntry(UserOwnedEntity):
     def to_dto(self) -> "UserEntryDTO":  # type: ignore[override]
         """Convert UserEntry to domain-specific UserEntryDTO."""
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.user_entry.user_entry_dto import UserEntryDTO
 
-        from core.models.dto_helpers import domain_to_dto
         return domain_to_dto(self, UserEntryDTO)
 
     def __str__(self) -> str:
