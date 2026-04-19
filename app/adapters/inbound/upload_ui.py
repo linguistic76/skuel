@@ -28,6 +28,7 @@ from starlette.datastructures import UploadFile
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.rate_limit import rate_limited
 from core.models.enums.user_enums import UserRole
 from core.services.ingestion.user_upload_service import MAX_FILES_PER_REQUEST
 from core.utils.logging import get_logger
@@ -220,6 +221,7 @@ def create_upload_ui_routes(
         )
 
     @rt("/upload/files", methods=["POST"])
+    @rate_limited(per_user=10, window_s=60)
     async def upload_files_htmx(request: Request) -> Any:
         """HTMX endpoint: upload YAML files and return HTML results fragment."""
         try:
