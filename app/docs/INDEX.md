@@ -108,6 +108,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | **[Report Architecture](architecture/REPORT_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | [SKUEL Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md) | 2026-03-07 | — |
+| **[The 7 Subsystems — Functional Organization](architecture/SEVEN_SUBSYSTEMS.md)** | **2026-04-19** | **Ku / Curriculum / Activity / Learning Loop / User / Groups / Askesis — Object·Context·Meta split + 7×3 MVP matrix** |
+| **[The 3-Layer Lens — A Cross-Cutting View](architecture/THREE_LAYER_LENS.md)** | **2026-04-19** | **Curriculum → Action → Feedback; how to read SKUEL operationally (Model B, companion to Entity Types = Model A)** |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |
 | [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-03-03 | — |
 | [Service Architecture: File Organization & Topology](architecture/SERVICE_TOPOLOGY.md) | 2026-03-03 | — |
@@ -257,6 +259,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-052: Firefly III Replaces SKUEL Expense/Budget/Reporting](decisions/ADR-052-firefly-iii-finance-integration.md)** | **2026-04-12** | **—** |
 | **[ADR-053: Groups First-Class + Unified Sharing](decisions/ADR-053-groups-first-class-and-unified-sharing.md)** | **2026-04-14** | **—** |
 | **[ADR-054: UserEntry — Unified User-Authored Content](decisions/ADR-054-user-entry-unified-submissions.md)** | **2026-04-14** | **—** |
+| **[ADR-055: Architectural Lenses — Subsystems + 3-Layer Lens](decisions/ADR-055-architectural-lenses.md)** | **2026-04-19** | **Model A (7 Subsystems / 20 EntityTypes) + Model B (3-Layer Lens); adopts "Subsystems" vocabulary** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Tools
