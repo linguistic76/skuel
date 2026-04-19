@@ -72,7 +72,6 @@ These are architectural choices that depend on business decisions, not code qual
 | Decision | Current State | What Triggers Action |
 |----------|---------------|---------------------|
 | **Per-user intelligence tier** | `intelligence_tier_service.py` exists but is not wired into routes (ADR-043). System-wide toggle works. | Billing model decision — when paid vs free tiers are defined, wire `get_user_intelligence_tier()` into route middleware. |
-| **KnowledgeConfig validation** | `config/validation.py:199` returns empty list. | When `embedding_model` and `embedding_dimension` fields are added to `KnowledgeConfig`, add real validation. |
 
 ---
 
@@ -81,7 +80,6 @@ These are architectural choices that depend on business decisions, not code qual
 | File | Description |
 |------|-------------|
 | `tests/integration/test_async_embeddings.py:560-561` | Add end-to-end test with real Neo4j + performance benchmarking test. |
-| `scripts/sync_cross_references.py:210` | Could update existing "Related Skills" sections instead of skipping files that already have one. |
 
 ---
 
