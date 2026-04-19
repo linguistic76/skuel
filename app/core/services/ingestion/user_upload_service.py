@@ -21,12 +21,25 @@ import yaml
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
-from core.utils.exception_types import FILE_IO_EXCEPTIONS, PARSING_EXCEPTIONS
+from core.utils.exception_types import (
+    FILE_IO_EXCEPTIONS,
+    NEO4J_EXCEPTIONS,
+    PARSING_EXCEPTIONS,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .config import DEFAULT_MAX_FILE_SIZE_BYTES
 from .unified_ingestion_service import UnifiedIngestionService
+
+# Ingestion can fail across three substrates: Neo4j writes, filesystem I/O on
+# referenced vault files, and YAML/content parsing of dependent documents.
+# Narrow the catch to this union so genuinely unexpected bugs still propagate.
+_INGESTION_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    *NEO4J_EXCEPTIONS,
+    *FILE_IO_EXCEPTIONS,
+    *PARSING_EXCEPTIONS,
+)
 
 # Entity identifier union covering both Activity Domain (EntityType) and
 # non-Entity domains like Group (NonKuDomain).
@@ -328,7 +341,7 @@ class UserUploadService:
         # 6. Ingest via UnifiedIngestionService with user's UID
         try:
             ingest_result = await self.ingestion_service.ingest_file(file_path, user_uid=user_uid)
-        except Exception as e:  # safety-net: ingestion can fail in many ways
+        except _INGESTION_EXCEPTIONS as e:
             logger.error("Ingestion failed for %s (user %s): %s", filename, user_uid, e)
             return FileUploadResult(
                 filename=filename,
