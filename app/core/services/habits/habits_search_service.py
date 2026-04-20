@@ -25,6 +25,7 @@ from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.search.scoring import score_habit
 from core.models.type_hints import Metadata, UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
@@ -130,14 +131,8 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         """
         Get habits prioritized for the user's current context.
 
-        Uses Cypher WHERE clause to filter at database level for efficiency.
-        Then applies UserContext-aware scoring in Python.
-
-        Uses UserContext to determine relevance:
-        - Streak status (at-risk habits get priority)
-        - Goal alignment
-        - Time since last completion
-        - Frequency requirements
+        Uses Cypher WHERE clause to filter terminal statuses at the database
+        level, then delegates to the unified ``score_habit`` scorer.
 
         Args:
             user_context: User's current context (~240 fields)
@@ -146,7 +141,6 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing habits sorted by priority/relevance
         """
-        # Use backend method to filter active habits at database level
         result = await self.backend.get_active_habits_prioritized(
             user_uid=user_context.user_uid,
             terminal_statuses=list(self._TERMINAL_STATUSES),
@@ -155,92 +149,13 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
-
-        # Apply fine-grained scoring that uses UserContext
-        scored_habits = []
-        for habit in habits:
-            score = self._calculate_priority_score(habit, user_context)
-            scored_habits.append((habit, score))
-
-        # Sort by score descending
-        scored_habits.sort(key=get_result_score, reverse=True)
-
-        # Return top N
-        prioritized = [habit for habit, _ in scored_habits[:limit]]
+        scored = [(habit, score_habit(habit, user_context).total) for habit in habits]
+        scored.sort(key=get_result_score, reverse=True)
+        prioritized = [habit for habit, _ in scored[:limit]]
 
         self.logger.info(f"Prioritized {len(prioritized)} habits for user {user_context.user_uid}")
         return Result.ok(prioritized)
-
-    def _calculate_priority_score(self, habit: Habit, user_context: UserContext) -> float:
-        """
-        Calculate priority score for a habit based on user context.
-
-        Factors:
-        - Streak at risk (highest priority if about to break)
-        - Time since last completion
-        - Goal support (supporting active goals)
-        - Frequency alignment
-        """
-        score = 0.0
-        today = date.today()
-
-        # Streak at risk (0-40 points)
-        if habit.current_streak and habit.current_streak > 0:
-            if habit.last_completed:
-                # last_completed is typed as datetime | None, so .date() is safe here
-                last_date = habit.last_completed.date()
-                days_since = (today - last_date).days
-
-                # Daily habits at risk after 1 day
-                if days_since >= 1:
-                    score += 40  # At risk - highest priority
-                elif habit.current_streak >= 7:
-                    score += 30  # Protect long streaks
-                elif habit.current_streak >= 3:
-                    score += 20
-                else:
-                    score += 10
-            else:
-                score += 35  # Never completed but has streak data - priority
-
-        # Time since last completion (0-25 points)
-        if habit.last_completed:
-            # last_completed is typed as datetime | None, so .date() is safe here
-            last_date = habit.last_completed.date()
-            days_since = (today - last_date).days
-            if days_since >= 3:
-                score += 25  # Overdue
-            elif days_since >= 2:
-                score += 20
-            elif days_since >= 1:
-                score += 15
-            else:
-                score += 5  # Done today
-        else:
-            score += 20  # Never done - needs attention
-
-        # Goal support (0-20 points)
-        # Habits supporting active goals get priority
-        if user_context.active_goal_uids and habit.uid:
-            # Check if habit supports any active goals via context
-            habit_streaks = user_context.habit_streaks or {}
-            if habit.uid in habit_streaks:
-                score += 15  # Tracked habit supporting goals
-
-        # Frequency alignment (0-15 points)
-        # recurrence_pattern is stored as plain string
-        if habit.recurrence_pattern:
-            freq_value = habit.recurrence_pattern
-            if freq_value == "daily":
-                score += 15  # Daily habits need daily attention
-            elif freq_value == "weekly":
-                score += 10
-            else:
-                score += 5
-
-        return score
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
 

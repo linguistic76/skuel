@@ -22,7 +22,7 @@ This service follows the SearchService pattern documented in:
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
 
@@ -34,13 +34,13 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.search.scoring import score_event
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
-from core.utils.timestamp_helpers import score_deadline_proximity
 
 
 class EventsSearchService(BaseService["EventsOperations", Event]):
@@ -88,14 +88,6 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         search_order_by="event_date",  # Events ordered by event date, not created_at
         temporal_secondary_sort="start_time",
     )
-
-    _PROXIMITY_BANDS: ClassVar[tuple[tuple[int, int], ...]] = (
-        (0, 40),
-        (1, 35),
-        (3, 30),
-        (7, 20),
-    )
-    _PROXIMITY_DEFAULT: ClassVar[int] = 10
 
     def __init__(self, backend: EventsOperations) -> None:
         """Initialize service with required backend."""
@@ -145,7 +137,6 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
         all_events = self._to_domain_models(result.value, EventDTO, Event)
 
-        # Filter out completed/cancelled
         active_events = [
             e
             for e in all_events
@@ -157,66 +148,13 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
             }
         ]
 
-        # Score and sort by priority factors
-        scored_events = []
-        for event in active_events:
-            score = self._calculate_priority_score(event, user_context)
-            scored_events.append((event, score))
-
-        # Sort by score descending
+        scored_events = [(event, score_event(event, user_context).total) for event in active_events]
         scored_events.sort(key=get_result_score, reverse=True)
 
-        # Return top N
         prioritized = [event for event, _ in scored_events[:limit]]
 
         self.logger.info(f"Prioritized {len(prioritized)} events for user {user_context.user_uid}")
         return Result.ok(prioritized)
-
-    def _calculate_priority_score(self, event: Event, user_context: UserContext) -> float:
-        """
-        Calculate priority score for an event based on user context.
-
-        Factors:
-        - Time proximity (sooner = higher)
-        - Goal support (supporting active goals)
-        - Habit reinforcement (maintaining streaks)
-        - Learning alignment
-        """
-        score = 0.0
-        today = date.today()
-
-        # Time proximity (0-40 points)
-        if event.event_date:
-            days_remaining = (event.event_date - today).days
-            score += score_deadline_proximity(
-                days_remaining, self._PROXIMITY_BANDS, self._PROXIMITY_DEFAULT
-            )
-
-        # Goal support (0-25 points) - use milestone_celebration_for_goal field
-        # Note: supports_goal_uid is graph-native (SUPPORTS_GOAL relationship)
-        if event.milestone_celebration_for_goal and user_context.active_goal_uids:
-            if event.milestone_celebration_for_goal in user_context.active_goal_uids:
-                score += 25
-
-        # Habit reinforcement (0-25 points)
-        if event.reinforces_habit_uid:
-            habit_streaks = user_context.habit_streaks or {}
-            streak = habit_streaks.get(event.reinforces_habit_uid, 0)
-            if streak > 0:
-                score += 25  # Protecting an active streak
-            elif event.reinforces_habit_uid in user_context.active_habit_uids:
-                score += 15  # Supporting active habit
-
-        # Event type priority (0-10 points)
-        if event.event_type:
-            from core.ports import get_enum_value
-
-            event_type = get_enum_value(event.event_type)
-            # Learning events get slight priority
-            if event_type in {"study", "learning", "practice"}:
-                score += 10
-
-        return score
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
     # get_due_soon() and get_overdue() - inherited from TimeQueryMixin via DomainConfig

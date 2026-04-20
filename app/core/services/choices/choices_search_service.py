@@ -20,8 +20,8 @@ This service follows the SearchService pattern documented in:
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, ClassVar
+from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
 
@@ -33,13 +33,13 @@ from core.models.choice.choice_dto import ChoiceDTO
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.search.scoring import score_choice
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
-from core.utils.timestamp_helpers import score_deadline_proximity
 
 
 class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
@@ -82,14 +82,6 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
-    _PROXIMITY_BANDS: ClassVar[tuple[tuple[int, int], ...]] = (
-        (0, 40),
-        (3, 35),
-        (7, 30),
-        (14, 20),
-    )
-    _PROXIMITY_DEFAULT: ClassVar[int] = 10
-
     def __init__(self, backend: ChoicesOperations) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="choices.search")
@@ -131,82 +123,30 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
         all_choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
 
-        # Filter to pending/active choices
         pending_choices = [
             c
             for c in all_choices
-            if not c.status
-            or c.status.value
-            not in {
-                EntityStatus.COMPLETED.value,
-                EntityStatus.CANCELLED.value,
-                EntityStatus.ARCHIVED.value,
-            }
+            if isinstance(c, Choice)
+            and (
+                not c.status
+                or c.status.value
+                not in {
+                    EntityStatus.COMPLETED.value,
+                    EntityStatus.CANCELLED.value,
+                    EntityStatus.ARCHIVED.value,
+                }
+            )
         ]
 
-        # Score and sort by priority factors
-        scored_choices = []
-        for choice in pending_choices:
-            if not isinstance(choice, Choice):
-                continue
-            score = self._calculate_priority_score(choice, user_context)
-            scored_choices.append((choice, score))
-
-        # Sort by score descending
+        scored_choices = [
+            (choice, score_choice(choice, user_context).total) for choice in pending_choices
+        ]
         scored_choices.sort(key=get_result_score, reverse=True)
 
-        # Return top N
         prioritized = [choice for choice, _ in scored_choices[:limit]]
 
         self.logger.info(f"Prioritized {len(prioritized)} choices for user {user_context.user_uid}")
         return Result.ok(prioritized)
-
-    def _calculate_priority_score(self, choice: Choice, user_context: UserContext) -> float:
-        """
-        Calculate priority score for a choice based on user context.
-
-        Factors:
-        - Deadline proximity (higher if deadline soon)
-        - Priority level (using existing priority field)
-        - Decision complexity (as proxy for impact)
-        """
-        score = 0.0
-        today = date.today()
-
-        # Deadline proximity (0-40 points) - use decision_deadline field
-        if choice.decision_deadline:
-            deadline_date = (
-                choice.decision_deadline.date()
-                if isinstance(choice.decision_deadline, datetime)
-                else choice.decision_deadline
-            )
-            days_remaining = (deadline_date - today).days
-            score += score_deadline_proximity(
-                days_remaining, self._PROXIMITY_BANDS, self._PROXIMITY_DEFAULT
-            )
-
-        # Priority level (0-25 points) - use existing priority field
-        from core.ports import get_enum_value
-
-        priority_value = get_enum_value(choice.priority)
-        if priority_value == "critical":
-            score += 25
-        elif priority_value == "high":
-            score += 20
-        elif priority_value == "medium":
-            score += 15
-        else:
-            score += 5
-
-        # High stakes bonus (0-20 points) - choices affecting multiple stakeholders or complex
-        if choice.has_high_stakes():
-            score += 20
-
-        # Decision complexity as impact proxy (0-15 points)
-        complexity = choice.calculate_decision_complexity()
-        score += complexity * 15
-
-        return score
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
     # get_due_soon() and get_overdue() - inherited from TimeQueryMixin via DomainConfig

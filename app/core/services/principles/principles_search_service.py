@@ -26,6 +26,7 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.search.scoring import score_principle
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
@@ -33,6 +34,7 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
+from core.utils.sort_functions import get_result_score
 
 
 class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
@@ -183,69 +185,23 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         if result.is_error:
             return Result.fail(result)
 
-        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
+        principles = [
+            p
+            for p in self._to_domain_models(result.value, PrincipleDTO, Principle)
+            if isinstance(p, Principle)
+        ]
 
-        # Score and sort by priority factors
-        scored_principles = []
-        for principle in principles:
-            score = self._calculate_priority_score(principle, user_context)
-            scored_principles.append((principle, score))
+        scored_principles = [
+            (principle, score_principle(principle, user_context).total) for principle in principles
+        ]
+        scored_principles.sort(key=get_result_score, reverse=True)
 
-        # Sort by score descending
-        from core.utils.sort_functions import get_second_item
-
-        scored_principles.sort(key=get_second_item, reverse=True)
-
-        # Return top N
         prioritized = [principle for principle, _ in scored_principles[:limit]]
 
         self.logger.info(
             f"Prioritized {len(prioritized)} principles for user {user_context.user_uid}"
         )
         return Result.ok(prioritized)
-
-    def _calculate_priority_score(self, principle: Principle, user_context: UserContext) -> float:
-        """
-        Calculate priority score for a principle based on user context.
-
-        Factors:
-        - Strength level (core principles prioritized)
-        - Alignment with active goals
-        - Review needs
-        - Integration level (guiding goals and habits)
-        """
-        if not isinstance(principle, Principle):
-            return 0.0
-
-        score = 0.0
-
-        # Strength level (0-40 points)
-        strength_scores = {
-            PrincipleStrength.CORE: 40,
-            PrincipleStrength.STRONG: 30,
-            PrincipleStrength.MODERATE: 20,
-            PrincipleStrength.DEVELOPING: 15,
-            PrincipleStrength.EXPLORING: 10,
-        }
-        score += strength_scores.get(principle.strength, 20) if principle.strength else 20
-
-        # Needs review (0-25 points)
-        if principle.needs_review():
-            score += 25
-
-        # Well-aligned (0-20 points) - prioritize principles being lived
-        if principle.is_well_aligned():
-            score += 20
-        elif principle.has_alignment_issues():
-            score += 15  # Also prioritize those needing attention
-
-        # Has concrete behaviors (0-15 points) - actionable principles
-        if principle.has_concrete_behaviors():
-            score += 15
-        if principle.is_actionable():
-            score += 10
-
-        return score
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
 

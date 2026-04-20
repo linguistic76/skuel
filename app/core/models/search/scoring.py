@@ -278,13 +278,13 @@ def score_deadline_proximity(
 
 
 def score_priority_level(
-    priority: "Priority | None",
+    priority: "Priority | str | None",
 ) -> ComponentScore:
     """
     Score based on explicit Priority enum value.
 
     Args:
-        priority: Priority enum value or None
+        priority: Priority enum, raw string value (as stored on UserOwnedEntity), or None
 
     Returns:
         ComponentScore for priority level
@@ -300,7 +300,18 @@ def score_priority_level(
             reason="No priority set",
         )
 
-    # Type-safe scoring based on Priority enum
+    if isinstance(priority, str):
+        try:
+            priority = Priority(priority)
+        except ValueError:
+            return ComponentScore(
+                component=ScoringComponent.PRIORITY_LEVEL,
+                raw_value=0.0,
+                weight=1.0,
+                normalized=0.5,
+                reason=f"Priority: {priority}",
+            )
+
     score_map = {
         Priority.CRITICAL: (1.0, "Critical priority"),
         Priority.HIGH: (0.8, "High priority"),
@@ -308,7 +319,7 @@ def score_priority_level(
         Priority.LOW: (0.25, "Low priority"),
     }
 
-    normalized, reason = score_map.get(priority, (0.5, f"Priority: {priority.value}"))
+    normalized, reason = score_map[priority]
 
     return ComponentScore(
         component=ScoringComponent.PRIORITY_LEVEL,

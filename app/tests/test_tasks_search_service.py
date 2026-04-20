@@ -354,29 +354,29 @@ async def test_get_blocked_tasks_empty(search_service, mock_backend):
 
 
 @pytest.mark.asyncio
-async def test_get_prioritized_tasks_success(
-    search_service, mock_backend, sample_tasks, user_context
-):
-    """Test retrieval of prioritized tasks based on impact score."""
+async def test_get_prioritized_success(search_service, mock_backend, sample_tasks, user_context):
+    """Test retrieval of prioritized tasks using unified score_task."""
+    from core.models.search.scoring import score_task
+
     # Setup - get_user_entities returns (entities, total_count) tuple
     task_data = [t.to_dto().to_dict() for t in sample_tasks]
     mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
 
     # Execute
-    result = await search_service.get_prioritized_tasks(user_context, limit=2)
+    result = await search_service.get_prioritized(user_context, limit=2)
 
     # Verify
     assert result.is_ok
     tasks = result.value
     assert len(tasks) <= 2
 
-    # Verify sorted by impact score (descending)
+    # Verify sorted by unified score_task total (descending)
     if len(tasks) > 1:
-        assert tasks[0].impact_score() >= tasks[1].impact_score()
+        assert score_task(tasks[0], user_context).total >= score_task(tasks[1], user_context).total
 
 
 @pytest.mark.asyncio
-async def test_get_prioritized_tasks_respects_limit(
+async def test_get_prioritized_respects_limit(
     search_service, mock_backend, sample_tasks, user_context
 ):
     """Test that prioritized tasks respects the limit parameter."""
@@ -385,7 +385,7 @@ async def test_get_prioritized_tasks_respects_limit(
     mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
 
     # Execute with limit 1
-    result = await search_service.get_prioritized_tasks(user_context, limit=1)
+    result = await search_service.get_prioritized(user_context, limit=1)
 
     # Verify
     assert result.is_ok

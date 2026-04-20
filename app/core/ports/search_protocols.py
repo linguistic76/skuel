@@ -497,12 +497,6 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
         """Get tasks blocked by unfulfilled prerequisites."""
         ...
 
-    async def get_prioritized_tasks(
-        self, user_context: "UserContext", limit: int = 10
-    ) -> Result[list["Task"]]:
-        """Get tasks prioritized for user context (alias for get_prioritized)."""
-        ...
-
     async def get_learning_relevant_tasks(
         self, user_uid: UserUID, learning_path_uid: str | None = None, limit: int = 20
     ) -> Result[list["Task"]]:

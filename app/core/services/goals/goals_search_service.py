@@ -17,15 +17,13 @@ This service follows the SearchService pattern documented in:
 /docs/patterns/search_service_pattern.md
 """
 
-from datetime import date
-from typing import ClassVar
-
 from core.models.enums import EntityStatus
 from core.models.enums.goal_enums import GoalTimeframe
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.search.scoring import score_goal
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
@@ -35,7 +33,6 @@ from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_result_score
-from core.utils.timestamp_helpers import score_deadline_proximity
 
 
 class GoalsSearchService(BaseService[GoalsOperations, Goal]):
@@ -82,14 +79,6 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         entity_label="Entity",
     )
 
-    _PROXIMITY_BANDS: ClassVar[tuple[tuple[int, int], ...]] = (
-        (0, 40),
-        (7, 35),
-        (30, 25),
-        (90, 15),
-    )
-    _PROXIMITY_DEFAULT: ClassVar[int] = 5
-
     # Inherited from BaseService (December 2025):
     # - search() - Text search on title/description
     # - get_by_relationship() - Graph relationship queries
@@ -111,11 +100,8 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         """
         Get goals prioritized for the user's current context.
 
-        Uses UserContext to determine relevance:
-        - Current focus areas and active tasks
-        - Learning position and knowledge gaps
-        - Goal progress and momentum
-        - Deadline proximity
+        Delegates to the unified ``score_goal`` scorer so ranking is
+        consistent with the other Activity Domains.
 
         Args:
             user_context: User's current context (~240 fields)
@@ -124,7 +110,6 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing goals sorted by priority/relevance
         """
-        # Get user's active goals
         result = await self.backend.find_by(
             user_uid=user_context.user_uid, status=EntityStatus.ACTIVE.value
         )
@@ -132,72 +117,12 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
             return result
 
         goals = self._to_domain_models(result.value, GoalDTO, Goal)
-
-        # Score and sort by priority factors
-        scored_goals = []
-        for goal in goals:
-            score = self._calculate_priority_score(goal, user_context)
-            scored_goals.append((goal, score))
-
-        # Sort by score descending
-        scored_goals.sort(key=get_result_score, reverse=True)
-
-        # Return top N
-        prioritized = [goal for goal, _ in scored_goals[:limit]]
+        scored = [(goal, score_goal(goal, user_context).total) for goal in goals]
+        scored.sort(key=get_result_score, reverse=True)
+        prioritized = [goal for goal, _ in scored[:limit]]
 
         self.logger.info(f"Prioritized {len(prioritized)} goals for user {user_context.user_uid}")
         return Result.ok(prioritized)
-
-    def _calculate_priority_score(self, goal: Goal, user_context: UserContext) -> float:
-        """
-        Calculate priority score for a goal based on user context.
-
-        Factors:
-        - Deadline proximity (higher score if closer)
-        - Progress momentum (higher if making progress)
-        - Domain alignment with current focus
-        - Has active tasks (execution context)
-        """
-        score = 0.0
-
-        # Deadline proximity (0-40 points)
-        if goal.target_date:
-            days_remaining = (goal.target_date - date.today()).days
-            score += score_deadline_proximity(
-                days_remaining, self._PROXIMITY_BANDS, self._PROXIMITY_DEFAULT
-            )
-
-        # Progress momentum (0-30 points)
-        progress = goal.progress_percentage or 0.0
-        if 25 <= progress <= 75:
-            score += 30  # In-progress goals get priority
-        elif progress > 75:
-            score += 25  # Near completion
-        elif progress > 0:
-            score += 15  # Started but slow
-        else:
-            score += 10  # Not started
-
-        # Priority level (0-20 points)
-        if goal.priority:
-            from core.models.enums import Priority
-            from core.ports import get_enum_value
-
-            priority_value = get_enum_value(goal.priority)
-            if priority_value == Priority.CRITICAL.value:
-                score += 20
-            elif priority_value == Priority.HIGH.value:
-                score += 15
-            elif priority_value == Priority.MEDIUM.value:
-                score += 10
-            else:
-                score += 5
-
-        # Context alignment (0-10 points)
-        if user_context.active_goal_uids and goal.uid in user_context.active_goal_uids:
-            score += 10  # Already in active focus
-
-        return score
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
     # get_due_soon() and get_overdue() - inherited from TimeQueryMixin via DomainConfig

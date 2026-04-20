@@ -22,7 +22,7 @@ Handles advanced task search and discovery operations.
 
 from __future__ import annotations
 
-from operator import attrgetter, itemgetter, methodcaller
+from operator import attrgetter, itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
@@ -35,6 +35,7 @@ from core.models.enums import EntityStatus
 from core.models.pathways.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.search.scoring import score_task
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.services.base_service import BaseService
@@ -42,6 +43,7 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
+from core.utils.sort_functions import get_result_score
 
 
 class TasksSearchService(BaseService["TasksOperations", Task]):
@@ -213,39 +215,37 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
     # SMART PRIORITIZATION
     # ========================================================================
 
-    @with_error_handling("get_prioritized_tasks", error_type="database")
-    async def get_prioritized_tasks(
+    @with_error_handling("get_prioritized", error_type="database")
+    async def get_prioritized(
         self, user_context: UserContext, limit: int = 10
     ) -> Result[list[Task]]:
         """
-        Get prioritized tasks based on impact score and context.
+        Get prioritized tasks using the unified cross-domain scorer.
 
-        Gets all user tasks and sorts by impact score.
+        Delegates to ``score_task`` in ``core.models.search.scoring``, which
+        blends deadline proximity, priority level, goal alignment (Goals),
+        habit streak protection (Habits), knowledge-gap coverage (KU),
+        learning-path alignment, and the user's current focus.
 
         Args:
-            user_context: User context for prioritization,
+            user_context: User context for prioritization
             limit: Maximum tasks to return
 
         Returns:
-            Result containing prioritized tasks
+            Result containing prioritized tasks (highest score first)
         """
-        # Get all user's tasks
         tasks_result = await self.backend.get_user_entities(user_context.user_uid)
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
-        # Unpack tuple (entities, total_count) from get_user_entities
         entities, _total = tasks_result.value
-
-        # Convert to Task models and filter completed
         all_tasks = self._to_domain_models(entities, TaskDTO, Task)
         tasks = [task for task in all_tasks if task.status != EntityStatus.COMPLETED]
 
-        # Sort by impact score (descending)
-        tasks.sort(key=methodcaller("impact_score"), reverse=True)
+        scored = [(task, score_task(task, user_context).total) for task in tasks]
+        scored.sort(key=get_result_score, reverse=True)
+        prioritized = [task for task, _ in scored[:limit]]
 
-        # Return limited results
-        prioritized = tasks[:limit]
         self.logger.debug(f"Prioritized {len(prioritized)} tasks for user {user_context.user_uid}")
         return Result.ok(prioritized)
 

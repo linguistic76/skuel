@@ -236,7 +236,7 @@ class TasksService(
 
     Delegation Methods:
     - Core CRUD: get_task, get_user_tasks, list_tasks, update_task, delete_task
-    - Search: get_tasks_for_goal, get_tasks_for_habit, get_prioritized_tasks, etc.
+    - Search: get_tasks_for_goal, get_tasks_for_habit, get_prioritized, etc.
     - Progress: check_prerequisites, unblock_task_if_ready, record_task_completion, etc.
     - Scheduling: create_task_with_context, get_next_learning_task, etc.
     - Analytics: analyze_learning_patterns, generate_task_insights, etc.
@@ -439,10 +439,10 @@ class TasksService(
     async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list[Task]]:
         return await self.search.get_blocked_by_prerequisites(user_uid)
 
-    async def get_prioritized_tasks(
+    async def get_prioritized(
         self, user_context: UserContext, limit: int = 10
     ) -> Result[list[Task]]:
-        return await self.search.get_prioritized_tasks(user_context, limit)
+        return await self.search.get_prioritized(user_context, limit)
 
     async def get_learning_relevant_tasks(
         self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
