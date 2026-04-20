@@ -105,6 +105,7 @@ class ScoringComponent(StrEnum):
     # Cross-domain
     CONTEXT_ALIGNMENT = "context_alignment"
     LEARNING_ALIGNMENT = "learning_alignment"
+    KNOWLEDGE_ALIGNMENT = "knowledge_alignment"
     IMPACT_POTENTIAL = "impact_potential"
 
 
@@ -482,7 +483,13 @@ def score_streak_protection(
 
 def score_task(task: "Task", context: "UserContext") -> PriorityScore:
     """
-    Calculate priority score for a task.
+    Calculate priority score for a task using full-graph context.
+
+    Mirrors the component-weighted pattern used by score_goal / score_habit /
+    score_event / score_choice / score_principle so tasks are ranked by the
+    same cross-domain signals: goal alignment (Goals), habit streak
+    protection (Habits), knowledge mastery gaps (KU graph), learning path
+    alignment (Curriculum), and the user's current focus (UserContext).
 
     Args:
         task: Task to score
@@ -493,57 +500,116 @@ def score_task(task: "Task", context: "UserContext") -> PriorityScore:
     """
     components: list[ComponentScore] = []
 
-    # Deadline component
-    deadline_score = score_deadline_proximity(task.due_date)
-    if deadline_score.normalized > 0:
+    # Deadline proximity (weight: 0.25)
+    deadline = score_deadline_proximity(task.due_date)
+    if deadline.normalized > 0:
         components.append(
             ComponentScore(
                 component=ScoringComponent.DEADLINE_PROXIMITY,
-                raw_value=deadline_score.raw_value,
-                weight=0.4,
-                normalized=deadline_score.normalized,
-                reason=deadline_score.reason,
+                raw_value=deadline.raw_value,
+                weight=0.25,
+                normalized=deadline.normalized,
+                reason=deadline.reason,
             )
         )
 
-    # Priority component
-    priority_score = score_priority_level(task.priority)
+    # Priority level (weight: 0.15)
+    priority = score_priority_level(task.priority)
     components.append(
         ComponentScore(
             component=ScoringComponent.PRIORITY_LEVEL,
-            raw_value=priority_score.raw_value,
-            weight=0.3,
-            normalized=priority_score.normalized,
-            reason=priority_score.reason,
+            raw_value=priority.raw_value,
+            weight=0.15,
+            normalized=priority.normalized,
+            reason=priority.reason,
         )
     )
 
-    # Goal alignment component
-    goal_score = score_goal_alignment(
+    # Goal alignment (weight: 0.15) — Tasks → Goals insight
+    goal_alignment = score_goal_alignment(
         task.fulfills_goal_uid,
         context.active_goal_uids,
     )
-    if goal_score.normalized > 0:
+    if goal_alignment.normalized > 0:
         components.append(
             ComponentScore(
                 component=ScoringComponent.GOAL_ALIGNMENT,
-                raw_value=goal_score.raw_value,
-                weight=0.2,
-                normalized=goal_score.normalized,
-                reason=goal_score.reason,
+                raw_value=goal_alignment.raw_value,
+                weight=0.15,
+                normalized=goal_alignment.normalized,
+                reason=goal_alignment.reason,
             )
         )
 
-    # Learning alignment (from task model)
+    # Streak protection (weight: 0.15) — Tasks → Habits insight
+    if task.reinforces_habit_uid:
+        habit_streaks = context.habit_streaks or {}
+        streak = habit_streaks.get(task.reinforces_habit_uid, 0)
+        if task.habit_streak_maintainer and streak > 0:
+            streak_normalized = 1.0
+            streak_reason = f"Maintains {streak}-day streak"
+        elif streak > 0:
+            streak_normalized = 0.8
+            streak_reason = f"Reinforces {streak}-day streak"
+        elif task.reinforces_habit_uid in (context.active_habit_uids or []):
+            streak_normalized = 0.5
+            streak_reason = "Reinforces active habit"
+        else:
+            streak_normalized = 0.3
+            streak_reason = "Has habit relationship"
+        components.append(
+            ComponentScore(
+                component=ScoringComponent.STREAK_PROTECTION,
+                raw_value=float(streak),
+                weight=0.15,
+                normalized=streak_normalized,
+                reason=streak_reason,
+            )
+        )
+
+    # Knowledge alignment (weight: 0.10) — Tasks → KU insight
+    # Highest score when the task covers KUs the user is weakest in (gap-filling).
+    task_knowledge = task.knowledge_confidence_scores or {}
+    user_mastery = context.knowledge_mastery or {}
+    if task_knowledge:
+        gaps = [
+            max(0.0, task_conf - user_mastery.get(ku_uid, 0.0))
+            for ku_uid, task_conf in task_knowledge.items()
+        ]
+        if gaps:
+            mean_gap = sum(gaps) / len(gaps)
+            components.append(
+                ComponentScore(
+                    component=ScoringComponent.KNOWLEDGE_ALIGNMENT,
+                    raw_value=mean_gap,
+                    weight=0.10,
+                    normalized=mean_gap,
+                    reason=f"Covers knowledge gaps ({mean_gap:.0%})",
+                )
+            )
+
+    # Learning alignment (weight: 0.10) — Tasks → Curriculum insight
     learning = task.learning_alignment_score()
     if learning > 0:
         components.append(
             ComponentScore(
                 component=ScoringComponent.LEARNING_ALIGNMENT,
                 raw_value=learning,
-                weight=0.1,
+                weight=0.10,
                 normalized=learning,
                 reason=f"Learning alignment: {learning:.0%}",
+            )
+        )
+
+    # Context alignment (weight: 0.10) — task already in user's active focus
+    if context.active_task_uids and task.uid in context.active_task_uids:
+        components.append(
+            ComponentScore(
+                component=ScoringComponent.CONTEXT_ALIGNMENT,
+                raw_value=1.0,
+                weight=0.10,
+                normalized=1.0,
+                reason="Currently in active focus",
             )
         )
 
