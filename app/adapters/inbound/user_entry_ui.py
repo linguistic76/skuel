@@ -15,6 +15,7 @@ Routes:
 - POST /submissions/history/delete       — HTMX row delete
 - GET  /api/submissions/upload/preview   — HTMX hub preview (upload)
 - GET  /api/submissions/submit/preview   — HTMX hub preview (submit)
+- GET  /api/submissions/journal/preview  — HTMX hub preview (journal CTA)
 - GET  /api/submissions/history/preview  — HTMX hub preview (history)
 - GET  /journals/submit                  — Journal upload form
 - GET  /journals/browse                  — Journal entry grid
@@ -232,6 +233,23 @@ def create_user_entry_ui_routes(
         require_authenticated_user(request)
         return HubPreviewEmpty("submissions")
 
+    @rt("/api/submissions/journal/preview")
+    async def journal_preview(request: Request) -> Any:
+        """HTMX preview: short CTA linking into the journal upload form."""
+        require_authenticated_user(request)
+        return Div(
+            P(
+                "Upload audio, video, or text — AI transcribes and structures it into a journal entry.",
+                cls="text-sm text-muted-foreground mb-3",
+            ),
+            ButtonLink(
+                "Browse my journals",
+                href="/journals/browse",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+            ),
+        )
+
     @rt("/api/submissions/history/preview")
     async def history_preview(request: Request) -> Any:
         """HTMX preview: 3 most recent teacher-review entries."""
@@ -357,7 +375,16 @@ def create_user_entry_ui_routes(
         from ui.layouts.base_page import BasePage
 
         content = Div(
-            PageHeader("New Journal Entry", subtitle="Upload a file to be processed by AI"),
+            PageHeader(
+                "New Journal Entry",
+                subtitle="Upload a file to be processed by AI",
+                actions=ButtonLink(
+                    "Browse my journals",
+                    href="/journals/browse",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                ),
+            ),
             render_journal_upload_form(exercises),
         )
         return await BasePage(
@@ -380,7 +407,16 @@ def create_user_entry_ui_routes(
         from ui.layouts.base_page import BasePage
 
         content = Div(
-            PageHeader("My Journals", subtitle="Browse your AI-processed journal entries"),
+            PageHeader(
+                "My Journals",
+                subtitle="Browse your AI-processed journal entries",
+                actions=ButtonLink(
+                    "New Journal",
+                    href="/journals/submit",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
+                ),
+            ),
             _render_user_entry_journal_grid(entries),
         )
         return await BasePage(
@@ -547,6 +583,7 @@ def create_user_entry_ui_routes(
         submissions_hub,
         upload_preview,
         submit_preview,
+        journal_preview,
         history_preview,
         submissions_history,
         history_list,

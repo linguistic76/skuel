@@ -18,6 +18,14 @@ SUBMISSIONS_BLOCKS: list[HubBlockData] = [
         "/api/submissions/upload/preview",
     ),
     HubBlockData(
+        "New Journal",
+        "journal",
+        "book-open",
+        "#8B5CF6",
+        "/journals/submit",
+        "/api/submissions/journal/preview",
+    ),
+    HubBlockData(
         "Submit Exercise",
         "submit",
         "send",
