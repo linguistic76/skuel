@@ -485,6 +485,22 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(Errors.not_found("UserEntry", uid))
         return await self.backend.delete(uid, cascade=True)
 
+    @with_error_handling("delete_user_entry_as_teacher")
+    async def delete_entry_as_teacher(self, uid: str, teacher_uid: UserUID) -> Result[bool]:
+        """Cascade delete by a teacher who shares an active group with the entry's owner.
+
+        Mirrors ``TeacherReviewService._verify_teacher_has_group_access``:
+        empty access → ``not_found`` (404) so teachers outside the student's
+        group cannot distinguish between "entry does not exist" and "entry
+        belongs to another teacher's student."
+        """
+        access = await self.backend.verify_teacher_has_group_access(uid, teacher_uid)
+        if access.is_error:
+            return Result.fail(access)
+        if not access.value:
+            return Result.fail(Errors.not_found("UserEntry", uid))
+        return await self.backend.delete(uid, cascade=True)
+
     # =========================================================================
     # PRIVATE HELPERS
     # =========================================================================

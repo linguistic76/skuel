@@ -315,7 +315,7 @@ def create_activity_domain_route_config(
     See: /docs/patterns/ROUTE_FACTORIES.md, /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
     related = dict(api_related_services or {})
-    related.setdefault("user_service", "user_service")
+    related.setdefault("user_service", "user")
 
     return DomainRouteConfig(
         domain_name=domain_name,

@@ -378,7 +378,8 @@ def test_factory_auto_adds_user_service():
     )
 
     assert "user_service" in cfg.api_related_services
-    assert cfg.api_related_services["user_service"] == "user_service"
+    # Default maps to the `user` attribute on the Services container
+    assert cfg.api_related_services["user_service"] == "user"
     # Original key preserved
     assert cfg.api_related_services["goals_service"] == "goals"
 

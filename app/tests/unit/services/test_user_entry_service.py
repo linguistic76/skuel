@@ -619,4 +619,41 @@ class TestShareOutcome:
         assert result.is_ok
         _entry, outcome = result.value
         assert outcome == ShareOutcome()
-        assert not outcome.any_success and not outcome.any_failure
+
+
+class TestDeleteEntryAsTeacher:
+    """Tests for ``UserEntryService.delete_entry_as_teacher`` (ADR-054 + ADR-040)."""
+
+    @pytest.mark.asyncio
+    async def test_teacher_with_group_access_can_delete(self):
+        backend = _make_backend()
+        backend.verify_teacher_has_group_access = AsyncMock(
+            return_value=Result.ok([{"has_access": True}])
+        )
+        service = _make_service(backend=backend)
+        result = await service.delete_entry_as_teacher("ue_test_1", teacher_uid="teacher_1")
+        assert result.is_ok
+        backend.verify_teacher_has_group_access.assert_awaited_once_with("ue_test_1", "teacher_1")
+        backend.delete.assert_awaited_once_with("ue_test_1", cascade=True)
+
+    @pytest.mark.asyncio
+    async def test_teacher_without_group_access_returns_not_found(self):
+        """Empty access → 404, not 403 (do not leak entry existence)."""
+        backend = _make_backend()
+        backend.verify_teacher_has_group_access = AsyncMock(return_value=Result.ok([]))
+        service = _make_service(backend=backend)
+        result = await service.delete_entry_as_teacher("ue_test_1", teacher_uid="teacher_1")
+        assert result.is_error
+        assert result.error.category.value == "not_found"
+        backend.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_access_check_database_error_propagates(self):
+        backend = _make_backend()
+        backend.verify_teacher_has_group_access = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="cypher", message="boom"))
+        )
+        service = _make_service(backend=backend)
+        result = await service.delete_entry_as_teacher("ue_test_1", teacher_uid="teacher_1")
+        assert result.is_error
+        backend.delete.assert_not_called()

@@ -72,7 +72,7 @@ def create_teaching_api_routes(
     teacher_review_service: "TeacherReviewOperations",
     user_service: Any,
     exercises_service: Any,
-    submissions_service: Any = None,
+    user_entry_service: Any = None,
     revised_exercise_service: Any = None,
     exercise_report_service: "ExerciseReportOperations | None" = None,
 ) -> list[Any]:
@@ -84,7 +84,7 @@ def create_teaching_api_routes(
         rt: Route decorator
         teacher_review_service: TeacherReviewService instance
         user_service: UserService for role checks
-        submissions_service: SubmissionsService for deletion
+        user_entry_service: UserEntryService — teacher-authorized entry deletion (ADR-054)
         revised_exercise_service: Retained for DomainRouteConfig signature compatibility
     """
 
@@ -369,23 +369,24 @@ def create_teaching_api_routes(
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     async def delete_submission(request: Request, uid: str, current_user: Any = None) -> Any:
-        """Delete a student submission (teacher action).
+        """Delete a student UserEntry (teacher action).
 
-        Hard-deletes the Neo4j node and associated file from disk.
-        Returns an empty response so HTMX removes the row.
+        Authorized when the teacher shares an active group with the entry's
+        owner (see ``UserEntryService.delete_entry_as_teacher``). Hard-deletes
+        the Neo4j node via cascade. Returns an empty response so HTMX removes
+        the row.
         """
         from fasthtml.common import Div, P
 
-        if not submissions_service:
+        if not user_entry_service:
             return Div(P("Submission deletion not available.", cls="text-sm text-destructive"))
 
-        result = await submissions_service.delete_submission_with_file(uid)
+        result = await user_entry_service.delete_entry_as_teacher(uid, current_user.uid)
         if result.is_error:
             return Div(
                 P(f"Failed to delete: {result.error}", cls="text-sm text-destructive"),
             )
 
-        # Return empty string so hx-swap="outerHTML" removes the row
         return ""
 
     logger.info("Teaching API routes registered")
