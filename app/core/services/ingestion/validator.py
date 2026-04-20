@@ -327,14 +327,12 @@ async def validate_file(
         # Validate UID format before preparation
         uid_result = validate_uid_format(entity_type, data, file_path)
         if uid_result.is_error:
-            error = uid_result.expect_error()
-            errors.append(error.user_message or error.message)
+            errors.append(uid_result.expect_error().display_message)
 
         # Validate required fields before preparation
         validation_result = validate_required_fields(entity_type, data, file_path)
         if validation_result.is_error:
-            error = validation_result.expect_error()
-            errors.append(error.user_message or error.message)
+            errors.append(validation_result.expect_error().display_message)
 
         # Prepare entity data (even if validation failed, to show what would be created)
         try:
@@ -355,8 +353,7 @@ async def validate_file(
         # Validate entity data after preparation
         validation_result = validate_entity_data(entity_type, entity_data, file_path)
         if validation_result.is_error:
-            error = validation_result.expect_error()
-            errors.append(error.user_message or error.message)
+            errors.append(validation_result.expect_error().display_message)
 
         # Extract relationship targets for preview
         relationship_targets: dict[str, list[str]] = {}

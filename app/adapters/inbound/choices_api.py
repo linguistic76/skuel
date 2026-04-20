@@ -5,23 +5,18 @@ Provides HTMX-compatible endpoints for choice status updates.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
-from core.utils.logging import get_logger
+from adapters.inbound.activity_status_api_factory import (
+    ActivityStatusApiConfig,
+    create_activity_status_api_routes,
+)
 from ui.activities.choices_views import ChoiceCard
-from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import (
-        FastHTMLApp,
-        RouteDecorator,
-    )
+    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.choices_service import ChoicesService
-
-logger = get_logger("skuel.routes.choices_api")
+    from core.utils.result_simplified import Result
 
 
 def create_choices_api_routes(
@@ -31,35 +26,21 @@ def create_choices_api_routes(
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Choices API routes."""
-    routes: list[Any] = []
 
-    @rt("/api/choices/{uid}/status", methods=["POST"])
-    @csrf_protected
-    async def update_choice_status(request: Request, uid: str) -> Any:
-        """Update choice status (HTMX endpoint). Returns updated ChoiceCard."""
-        user_uid = require_authenticated_user(request)
+    async def update(uid: str, new_status: str) -> Result[Any]:
+        # self.core is loosely typed on the facade; cast narrows for mypy.
+        return cast(
+            "Result[Any]",
+            await choices_service.core.update(uid, {"status": new_status}),
+        )
 
-        # Verify ownership
-        choice_result = await choices_service.get_choice(uid)
-        if choice_result.is_error:
-            return render_error_banner("Choice not found")
-        choice = choice_result.value
-        if choice.user_uid != user_uid:
-            return render_error_banner("Choice not found")
-
-        # Get new status from form data
-        form = await request.form()
-        new_status = form.get("status")
-
-        if not new_status:
-            return render_error_banner("Missing status value")
-
-        result = await choices_service.core.update(uid, {"status": new_status})
-        if result.is_error:
-            error = result.expect_error()
-            return render_error_banner(error.user_message or error.message)
-
-        return ChoiceCard(result.value)
-
-    routes.extend([update_choice_status])
-    return routes
+    return create_activity_status_api_routes(
+        rt,
+        ActivityStatusApiConfig(
+            domain_name="choices",
+            singular="choice",
+            service=choices_service,
+            update_status=update,
+            card_fn=ChoiceCard,
+        ),
+    )

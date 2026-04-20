@@ -57,7 +57,7 @@ from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_stats import compute_goal_stats
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
     PRIORITY_STRING_SORT_ORDER,
     get_created_at_attr,
@@ -249,6 +249,37 @@ class GoalsService(
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
         return await self.core.archive_goal(uid, reason)
 
+    async def set_status(self, uid: str, new_status: str) -> Result[Goal]:
+        """Apply a status transition and return the refreshed goal.
+
+        Why: ``activate_goal`` / ``complete_goal`` / ``archive_goal`` each carry
+        different side effects (progress_percentage, completion_date, archive
+        metadata). Centralising the dispatch here keeps transition semantics in
+        the domain service so every caller — route, CLI, future batch job —
+        applies them uniformly.
+        """
+        if new_status == EntityStatus.ACTIVE.value:
+            transition: Result[bool] = await self.activate_goal(uid)
+        elif new_status == EntityStatus.COMPLETED.value:
+            transition = await self.complete_goal(uid)
+        elif new_status == EntityStatus.ARCHIVED.value:
+            transition = await self.archive_goal(uid)
+        elif new_status == EntityStatus.CANCELLED.value:
+            transition = await self.cancel_goal(uid)
+        else:
+            return Result.fail(
+                Errors.validation(
+                    message=f"Invalid goal status: {new_status}",
+                    field="status",
+                    value=new_status,
+                )
+            )
+
+        if transition.is_error:
+            return Result.fail(transition)
+
+        return await self.get_goal(uid)
+
     async def cancel_goal(self, uid: str) -> Result[bool]:
         """Cancel a goal, rejecting the request if the goal has active tasks.
 
@@ -256,8 +287,6 @@ class GoalsService(
         Placing it here (facade) allows it to coordinate across the task and goal
         domains without leaking cross-domain dependencies into GoalsCoreService.
         """
-        from core.utils.result_simplified import Errors
-
         count_result = await self.cross_domain_query.count_active_tasks_for_goal(uid)
         if count_result.is_error:
             self.logger.warning(

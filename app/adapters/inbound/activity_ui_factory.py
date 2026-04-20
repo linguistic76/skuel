@@ -160,7 +160,7 @@ def create_activity_ui_routes(
         error, all_items, filtered, connections_map, param_values = await _fetch_filtered(request)
         if error is not None:
             return Div(
-                render_error_banner(error.user_message or error.message),
+                render_error_banner(error.display_message),
                 id=f"{domain}-content",
             )
 
@@ -181,7 +181,7 @@ def create_activity_ui_routes(
         error, _all_items, filtered, connections_map, _param_values = await _fetch_filtered(request)
         if error is not None:
             return Div(
-                render_error_banner(error.user_message or error.message),
+                render_error_banner(error.display_message),
                 id=f"{singular}-list",
             )
 

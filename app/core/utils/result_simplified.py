@@ -103,6 +103,16 @@ class ErrorContext:
             f"[{self.severity.value}] {self.category.value}:{self.code} - {self.message}{location}"
         )
 
+    @property
+    def display_message(self) -> str:
+        """User-facing message, falling back to developer message when unset.
+
+        Use this whenever rendering an error to the UI (banners, form errors,
+        toast notifications). Prefer the safe ``user_message`` when the factory
+        set one; fall back to ``message`` so nothing silently renders empty.
+        """
+        return self.user_message or self.message
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization (internal/logging use)."""
         return {

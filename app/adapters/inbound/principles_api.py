@@ -5,23 +5,18 @@ Provides HTMX-compatible endpoints for principle status updates.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
-from core.utils.logging import get_logger
+from adapters.inbound.activity_status_api_factory import (
+    ActivityStatusApiConfig,
+    create_activity_status_api_routes,
+)
 from ui.activities.principles_views import PrincipleCard
-from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import (
-        FastHTMLApp,
-        RouteDecorator,
-    )
+    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.principles_service import PrinciplesService
-
-logger = get_logger("skuel.routes.principles_api")
+    from core.utils.result_simplified import Result
 
 
 def create_principles_api_routes(
@@ -31,35 +26,21 @@ def create_principles_api_routes(
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Principles API routes."""
-    routes: list[Any] = []
 
-    @rt("/api/principles/{uid}/status", methods=["POST"])
-    @csrf_protected
-    async def update_principle_status(request: Request, uid: str) -> Any:
-        """Update principle status (HTMX endpoint). Returns updated PrincipleCard."""
-        user_uid = require_authenticated_user(request)
+    async def update(uid: str, new_status: str) -> Result[Any]:
+        # self.core is loosely typed on the facade; cast narrows for mypy.
+        return cast(
+            "Result[Any]",
+            await principles_service.core.update(uid, {"status": new_status}),
+        )
 
-        # Verify ownership
-        principle_result = await principles_service.get_principle(uid)
-        if principle_result.is_error:
-            return render_error_banner("Principle not found")
-        principle = principle_result.value
-        if principle.user_uid != user_uid:
-            return render_error_banner("Principle not found")
-
-        # Get new status from form data
-        form = await request.form()
-        new_status = form.get("status")
-
-        if not new_status:
-            return render_error_banner("Missing status value")
-
-        result = await principles_service.core.update(uid, {"status": new_status})
-        if result.is_error:
-            error = result.expect_error()
-            return render_error_banner(error.user_message or error.message)
-
-        return PrincipleCard(result.value)
-
-    routes.extend([update_principle_status])
-    return routes
+    return create_activity_status_api_routes(
+        rt,
+        ActivityStatusApiConfig(
+            domain_name="principles",
+            singular="principle",
+            service=principles_service,
+            update_status=update,
+            card_fn=PrincipleCard,
+        ),
+    )
