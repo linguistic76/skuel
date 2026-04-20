@@ -17,13 +17,35 @@ Design Principles:
 - Progressive Enhancement: Core functionality works without JS
 """
 
+from pathlib import Path
 from typing import Any
 
+import httpx
 from fasthtml.common import Link, Script
-from monsterui.core import Theme as MonsterTheme
+from monsterui.core import HEADER_URLS, Theme as MonsterTheme
 
 # Re-export MonsterUI Theme for direct access
 Theme = MonsterTheme
+
+
+def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: Any) -> list[Any]:
+    """Drop-in for ``theme.local_headers`` that doesn't hit the network when vendor files exist.
+
+    Upstream ``monsterui.Theme.local_headers`` unconditionally re-downloads every file in
+    ``HEADER_URLS`` on every call, which crashes app startup whenever DNS or the CDN is
+    unreachable. The vendor files are committed under ``static/vendor/monsterui/``, so we
+    reuse them and only fall back to download for anything genuinely missing.
+    """
+    static_path = Path(static_dir)
+    static_path.mkdir(exist_ok=True)
+    local_urls: dict[str, str] = {}
+    for name, url in HEADER_URLS.items():
+        ext = "js" if "js" in url else "css"
+        fname = static_path / f"{name}.{ext}"
+        if not fname.exists():
+            fname.write_bytes(httpx.get(url, follow_redirects=True).content)
+        local_urls[name] = f"/{static_dir}/{fname.name}"
+    return theme._create_headers(local_urls, **kwargs)
 
 # Single source of truth for SKUEL's brand color.
 # Change this to switch the entire app's primary color (buttons, links, focus rings).
@@ -60,7 +82,7 @@ def monster_headers(
     """
     # MonsterUI theme headers (includes FrankenUI + Tailwind + Lucide icons)
     # Serve from local static directory — no CDN dependency
-    mu_headers = theme.local_headers(static_dir="static/vendor/monsterui", radii="sm")
+    mu_headers = _local_headers_offline_safe(theme, static_dir="static/vendor/monsterui", radii="sm")
 
     headers = list(mu_headers)
 
