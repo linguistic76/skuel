@@ -31,10 +31,18 @@ def _build_app() -> Starlette:
     async def write(request: Request) -> PlainTextResponse:
         return PlainTextResponse("written")
 
+    async def static_asset(request: Request) -> PlainTextResponse:
+        return PlainTextResponse("body {}")
+
+    async def manifest(request: Request) -> PlainTextResponse:
+        return PlainTextResponse("{}")
+
     return Starlette(
         routes=[
             Route("/read", read, methods=["GET"]),
             Route("/write", write, methods=["POST"]),
+            Route("/static/css/main.css", static_asset, methods=["GET"]),
+            Route("/manifest.json", manifest, methods=["GET"]),
         ],
         middleware=[Middleware(CSRFMiddleware)],
     )
@@ -92,6 +100,33 @@ class TestProtectedWrites:
         client.get("/read")
         response = client.post("/write", headers={CSRF_HEADER_NAME: "nope"})
         assert response.status_code == 403
+
+
+class TestMintExemption:
+    """Static assets and PWA subresources must not mint a new token — see
+    the comment on `_MINT_EXEMPT_PREFIXES` in `adapters/inbound/csrf.py`."""
+
+    def test_cookieless_static_fetch_does_not_set_cookie(self, client: TestClient):
+        response = client.get("/static/css/main.css")
+        assert response.status_code == 200
+        assert CSRF_COOKIE_NAME not in response.cookies
+
+    def test_cookieless_manifest_fetch_does_not_set_cookie(self, client: TestClient):
+        response = client.get("/manifest.json")
+        assert response.status_code == 200
+        assert CSRF_COOKIE_NAME not in response.cookies
+
+    def test_static_fetch_does_not_overwrite_existing_cookie(self, client: TestClient):
+        client.get("/read")
+        token = client.cookies[CSRF_COOKIE_NAME]
+        # Simulate a cookieless parallel subresource fetch (preload scanner,
+        # service worker install). Must not mint a replacement cookie.
+        bare = TestClient(_build_app())
+        bare.get("/static/css/main.css")
+        assert CSRF_COOKIE_NAME not in bare.cookies
+        # Original client's cookie survives and the form-POST flow still works.
+        response = client.post("/write", headers={CSRF_HEADER_NAME: token})
+        assert response.status_code == 200
 
 
 class TestEnforcementOff:

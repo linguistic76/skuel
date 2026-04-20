@@ -7,15 +7,27 @@ Primary CSRF defense is `SameSite=Strict` on the session cookie (see
 defense so the app stays safe if `SameSite` is ever loosened (cross-subdomain
 SSO, OAuth embeds) or if an XSS on the same origin forges writes.
 
-Mechanism
----------
-- On first response per browser, `CSRFMiddleware` mints a 32-byte URL-safe
-  token and sets it in the `csrf_token` cookie. The cookie is readable by
-  JavaScript (`HttpOnly=False`) so the HTMX layer can echo it back.
-- State-changing POST/PUT/DELETE handlers wrapped with `@csrf_protected`
-  require the request to carry the same token via `X-CSRF-Token` header or
-  `csrf_token` form field. Constant-time compare; mismatch → 403.
-- Safe methods (GET, HEAD, OPTIONS) always pass.
+The `csrf_token` cookie is the single source of truth. Three layers mirror
+it into the request so handlers can verify a match:
+
+1. **Server-render** — `csrf_hidden_input()` emits a hidden form field seeded
+   from a ContextVar the middleware sets per request. Works with JS disabled.
+2. **HTMX header** — `static/js/skuel.js` attaches `X-CSRF-Token` to every
+   mutating HTMX request via the `htmx:configRequest` hook.
+3. **Native form sync** — the same JS file also re-injects/refreshes the
+   hidden input from the cookie on the capture-phase `submit` event. Covers
+   native `<form method="POST">` when the server-rendered input went stale
+   (service-worker-cached HTML, extension-mutated DOM, etc).
+
+State-changing handlers wrapped with `@csrf_protected` pull the submitted
+token from either header or form field, constant-time compare against the
+cookie, and 403 on mismatch. Safe methods (GET/HEAD/OPTIONS) always pass.
+
+Mint exemption
+--------------
+Static assets, manifest, service worker, and favicon never mint a new cookie
+— the preload scanner and SW install race the HTML response, and a cookieless
+subresource minting a replacement would desync the form/cookie pair.
 
 Rollout
 -------
@@ -60,6 +72,22 @@ CSRF_TOKEN_BYTES = 32
 CSRF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # match session max_age
 
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+# Paths that must NEVER mint a token. Static assets, PWA manifest, service
+# worker, and favicon are fetched by the browser in parallel with the HTML
+# response — the preload scanner and service worker install can race the
+# page's own Set-Cookie. If any of those subresource fetches arrives before
+# the browser has stored the token, minting here would overwrite the cookie
+# the HTML form was rendered with, causing a form/cookie mismatch on POST.
+_MINT_EXEMPT_PREFIXES: tuple[str, ...] = ("/static/",)
+_MINT_EXEMPT_PATHS: frozenset[str] = frozenset(
+    {"/manifest.json", "/service-worker.js", "/favicon.ico", "/robots.txt"}
+)
+
+
+def _is_mint_exempt(path: str) -> bool:
+    return path in _MINT_EXEMPT_PATHS or path.startswith(_MINT_EXEMPT_PREFIXES)
+
 
 # ContextVar lets form generators fetch the current request's token without a
 # plumbed `request` argument. Scope is per request/task (set in middleware).
@@ -130,12 +158,17 @@ async def _read_submitted_token(request: Request) -> str | None:
     return None
 
 
-async def verify_csrf(request: Request) -> bool:
-    """Constant-time compare the cookie token against the submitted token."""
+async def verify_csrf(request: Request) -> tuple[bool, str]:
+    """Constant-time compare the cookie token against the submitted token.
+
+    Returns ``(ok, reason)``. ``reason`` is a short diagnostic string that
+    identifies which check failed — useful for surfacing the specific failure
+    in the 403 response and for log correlation.
+    """
     cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
     if not cookie_token:
         logger.warning("CSRF verify failed: no %s cookie on %s", CSRF_COOKIE_NAME, request.url.path)
-        return False
+        return False, "no_cookie"
 
     submitted = await _read_submitted_token(request)
     if not submitted:
@@ -145,12 +178,13 @@ async def verify_csrf(request: Request) -> bool:
             CSRF_FORM_FIELD,
             request.url.path,
         )
-        return False
+        return False, "no_submitted_token"
 
     ok = hmac.compare_digest(cookie_token, submitted)
     if not ok:
         logger.warning("CSRF verify failed: token mismatch on %s", request.url.path)
-    return ok
+        return False, "token_mismatch"
+    return True, "ok"
 
 
 # ============================================================================
@@ -177,6 +211,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             finally:
                 _current_csrf_token.reset(ctx_token)
 
+        # Static assets and PWA subresources must never mint — see comment on
+        # _MINT_EXEMPT_PREFIXES. Pass straight through with no Set-Cookie.
+        if _is_mint_exempt(request.url.path):
+            return await call_next(request)
+
         token = mint_token()
         request.state.csrf_token = token
         ctx_token = _current_csrf_token.set(token)
@@ -201,13 +240,14 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 # ============================================================================
 
 
-def _forbidden_response() -> JSONResponse:
+def _forbidden_response(reason: str = "invalid") -> JSONResponse:
     return JSONResponse(
         content={
             "error": {
                 "category": "forbidden",
                 "code": "CSRF_INVALID",
                 "message": "CSRF token missing or invalid",
+                "reason": reason,
             }
         },
         status_code=403,
@@ -229,8 +269,9 @@ def csrf_protected(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitab
             return await func(request, *args, **kwargs)
         if not is_csrf_enforced():
             return await func(request, *args, **kwargs)
-        if not await verify_csrf(request):
-            return _forbidden_response()
+        ok, reason = await verify_csrf(request)
+        if not ok:
+            return _forbidden_response(reason)
         return await func(request, *args, **kwargs)
 
     return wrapper

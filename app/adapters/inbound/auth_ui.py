@@ -26,7 +26,8 @@ Date: 2026-01-21
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
-from starlette.responses import RedirectResponse
+from fasthtml.common import to_xml
+from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import (
     clear_current_user,
@@ -234,7 +235,13 @@ def create_auth_ui_routes(
         if is_authenticated(request):
             return RedirectResponse("/" if get_is_admin(request) else "/home", status_code=303)
 
-        return AuthPage(AuthComponents.render_login_page(), title="Sign In")
+        # no-store: the hidden csrf_token must always reflect the current
+        # cookie. A cached copy of this page with a stale token would cause
+        # the mismatch we just debugged.
+        return HTMLResponse(
+            to_xml(AuthPage(AuthComponents.render_login_page(), title="Sign In")),
+            headers={"Cache-Control": "no-store"},
+        )
 
     @rt("/login/submit")
     @csrf_protected

@@ -32,6 +32,8 @@ BRAND_THEME = MonsterTheme.blue
 # Version constants for self-hosted dependencies
 HTMX_VERSION = "1.9.10"
 ALPINE_VERSION = "3.14.8"
+CHARTJS_VERSION = "4"
+CHARTJS_ADAPTER_VERSION = "3"
 
 
 def monster_headers(
@@ -62,8 +64,9 @@ def monster_headers(
 
     headers = list(mu_headers)
 
-    # HTMX for hypermedia (MonsterUI doesn't include this)
-    headers.append(Script(src=f"https://unpkg.com/htmx.org@{htmx_version}"))
+    # HTMX for hypermedia — self-hosted so Firefox doesn't classify /login as
+    # cross-site and reject the csrf_token cookie (see adapters/inbound/csrf.py).
+    headers.append(Script(src=f"/static/vendor/htmx.org/htmx.{htmx_version}.min.js"))
 
     # Alpine.js (self-hosted for stability)
     headers.append(
@@ -157,17 +160,17 @@ def dark_mode_script() -> Script:
 def htmx_extensions() -> tuple[Any, ...]:
     """HTMX extensions commonly used in SKUEL."""
     return (
-        Script(src="https://unpkg.com/htmx.org/dist/ext/sse.js"),
-        Script(src="https://unpkg.com/htmx.org/dist/ext/ws.js"),
-        Script(src="https://unpkg.com/htmx.org/dist/ext/response-targets.js"),
+        Script(src="/static/vendor/htmx.org/ext/sse.js"),
+        Script(src="/static/vendor/htmx.org/ext/ws.js"),
+        Script(src="/static/vendor/htmx.org/ext/response-targets.js"),
     )
 
 
 def chartjs_headers() -> tuple[Any, ...]:
     """Chart.js headers for analytics dashboards."""
     return (
-        Script(src="https://cdn.jsdelivr.net/npm/chart.js@4"),
-        Script(src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"),
+        Script(src="/static/vendor/chart.js/chart.umd.js"),
+        Script(src=f"/static/vendor/chart.js/chartjs-adapter-date-fns.{CHARTJS_ADAPTER_VERSION}.min.js"),
     )
 
 
@@ -181,4 +184,6 @@ __all__ = [
     "chartjs_headers",
     "HTMX_VERSION",
     "ALPINE_VERSION",
+    "CHARTJS_VERSION",
+    "CHARTJS_ADAPTER_VERSION",
 ]

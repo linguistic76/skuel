@@ -76,8 +76,8 @@ def build_head(
         Title(f"{title} - SKUEL"),
         # MonsterUI headers (FrankenUI CSS/JS + Tailwind + Lucide icons) — cached at import
         *_MU_HEADERS,
-        # HTMX for hypermedia
-        Script(src=f"https://unpkg.com/htmx.org@{HTMX_VERSION}"),
+        # HTMX for hypermedia (self-hosted — see ui/theme.py:monster_headers)
+        Script(src=f"/static/vendor/htmx.org/htmx.{HTMX_VERSION}.min.js"),
         # Alpine.js (self-hosted, version-pinned)
         Script(src=f"/static/vendor/alpinejs/alpine.{ALPINE_VERSION}.min.js", defer=True),
         # Vis.js Network (self-hosted, v9.1.9) - Lateral Relationships

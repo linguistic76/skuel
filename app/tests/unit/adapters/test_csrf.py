@@ -111,12 +111,12 @@ class TestVerifyCsrf:
     @pytest.mark.asyncio
     async def test_missing_cookie_fails(self):
         request = _make_request(cookies={}, headers={CSRF_HEADER_NAME: "whatever"})
-        assert await verify_csrf(request) is False
+        assert await verify_csrf(request) == (False, "no_cookie")
 
     @pytest.mark.asyncio
     async def test_missing_submitted_token_fails(self):
         request = _make_request(cookies={CSRF_COOKIE_NAME: "t"})
-        assert await verify_csrf(request) is False
+        assert await verify_csrf(request) == (False, "no_submitted_token")
 
     @pytest.mark.asyncio
     async def test_mismatched_token_fails(self):
@@ -124,7 +124,7 @@ class TestVerifyCsrf:
             cookies={CSRF_COOKIE_NAME: "cookie-token"},
             headers={CSRF_HEADER_NAME: "different-token"},
         )
-        assert await verify_csrf(request) is False
+        assert await verify_csrf(request) == (False, "token_mismatch")
 
     @pytest.mark.asyncio
     async def test_matching_header_token_passes(self):
@@ -133,7 +133,7 @@ class TestVerifyCsrf:
             cookies={CSRF_COOKIE_NAME: token},
             headers={CSRF_HEADER_NAME: token},
         )
-        assert await verify_csrf(request) is True
+        assert await verify_csrf(request) == (True, "ok")
 
     @pytest.mark.asyncio
     async def test_matching_form_field_passes(self):
@@ -143,7 +143,7 @@ class TestVerifyCsrf:
             content_type="application/x-www-form-urlencoded",
             form_data={CSRF_FORM_FIELD: token},
         )
-        assert await verify_csrf(request) is True
+        assert await verify_csrf(request) == (True, "ok")
 
     @pytest.mark.asyncio
     async def test_multipart_form_field_passes(self):
@@ -153,7 +153,7 @@ class TestVerifyCsrf:
             content_type="multipart/form-data; boundary=---x",
             form_data={CSRF_FORM_FIELD: token},
         )
-        assert await verify_csrf(request) is True
+        assert await verify_csrf(request) == (True, "ok")
 
     @pytest.mark.asyncio
     async def test_header_preferred_over_form(self):
@@ -164,7 +164,7 @@ class TestVerifyCsrf:
             content_type="application/x-www-form-urlencoded",
             form_data={CSRF_FORM_FIELD: "wrong"},
         )
-        assert await verify_csrf(request) is True
+        assert await verify_csrf(request) == (True, "ok")
 
 
 # ============================================================================

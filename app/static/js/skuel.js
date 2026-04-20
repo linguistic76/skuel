@@ -86,6 +86,32 @@
             }
         });
 
+        // Native form submissions (non-HTMX) — guarantee the hidden csrf_token
+        // input exists and carries the current cookie value. Fires on capture
+        // so we run before any other submit handler and before serialization.
+        body.addEventListener('submit', function(event) {
+            var form = event.target;
+            if (!form || form.tagName !== 'FORM') return;
+            var method = (form.method || 'GET').toUpperCase();
+            if (method === 'GET' || method === 'HEAD') return;
+            if (form.hasAttribute('hx-post') || form.hasAttribute('hx-put') ||
+                form.hasAttribute('hx-delete') || form.hasAttribute('hx-patch')) {
+                return;
+            }
+            var token = readCsrfCookie();
+            if (!token) return;
+            var existing = form.querySelector('input[name="csrf_token"]');
+            if (existing) {
+                existing.value = token;
+            } else {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'csrf_token';
+                input.value = token;
+                form.appendChild(input);
+            }
+        }, true);
+
         // Before HTMX request - announce loading state
         body.addEventListener('htmx:beforeRequest', function(event) {
             var target = event.detail.target;
