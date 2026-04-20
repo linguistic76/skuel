@@ -22,7 +22,8 @@ from typing import Any
 
 import httpx
 from fasthtml.common import Link, Script
-from monsterui.core import HEADER_URLS, Theme as MonsterTheme
+from monsterui.core import HEADER_URLS
+from monsterui.core import Theme as MonsterTheme
 
 # Re-export MonsterUI Theme for direct access
 Theme = MonsterTheme
@@ -46,6 +47,7 @@ def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: 
             fname.write_bytes(httpx.get(url, follow_redirects=True).content)
         local_urls[name] = f"/{static_dir}/{fname.name}"
     return theme._create_headers(local_urls, **kwargs)
+
 
 # Single source of truth for SKUEL's brand color.
 # Change this to switch the entire app's primary color (buttons, links, focus rings).
@@ -82,7 +84,9 @@ def monster_headers(
     """
     # MonsterUI theme headers (includes FrankenUI + Tailwind + Lucide icons)
     # Serve from local static directory — no CDN dependency
-    mu_headers = _local_headers_offline_safe(theme, static_dir="static/vendor/monsterui", radii="sm")
+    mu_headers = _local_headers_offline_safe(
+        theme, static_dir="static/vendor/monsterui", radii="sm"
+    )
 
     headers = list(mu_headers)
 
@@ -192,7 +196,9 @@ def chartjs_headers() -> tuple[Any, ...]:
     """Chart.js headers for analytics dashboards."""
     return (
         Script(src="/static/vendor/chart.js/chart.umd.js"),
-        Script(src=f"/static/vendor/chart.js/chartjs-adapter-date-fns.{CHARTJS_ADAPTER_VERSION}.min.js"),
+        Script(
+            src=f"/static/vendor/chart.js/chartjs-adapter-date-fns.{CHARTJS_ADAPTER_VERSION}.min.js"
+        ),
     )
 
 

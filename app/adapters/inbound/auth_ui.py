@@ -25,8 +25,8 @@ Date: 2026-01-21
 
 from typing import TYPE_CHECKING, Any
 
-from pydantic import ValidationError
 from fasthtml.common import to_xml
+from pydantic import ValidationError
 from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import (

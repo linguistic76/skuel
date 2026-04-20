@@ -328,7 +328,11 @@ class AudienceResolver:
     # DEFAULT-AUDIENCE EXPANSION (ingestion only)
     # =========================================================================
 
-    async def resolve_default_teachers(self, user_uid: UserUID) -> list[str]:
+    async def resolve_default_teachers(
+        self, user_uid: UserUID
+    ) -> list[
+        str
+    ]:  # skuel-lint: disable=SKUEL005 -- fail-soft expansion helper; empty list is the documented safe fallback
         """Expand ``audience: teachers`` (the YAML-ingestion default) to
         the explicit list of group UIDs the user is a student-member of.
 
