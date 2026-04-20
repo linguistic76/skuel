@@ -24,6 +24,7 @@ SUBMISSIONS_BLOCKS: list[HubBlockData] = [
         "#8B5CF6",
         "/journals/submit",
         "/api/submissions/journal/preview",
+        view_all_href="/journals/browse",
     ),
     HubBlockData(
         "Submit Exercise",

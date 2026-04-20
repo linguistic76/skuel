@@ -235,18 +235,12 @@ def create_user_entry_ui_routes(
 
     @rt("/api/submissions/journal/preview")
     async def journal_preview(request: Request) -> Any:
-        """HTMX preview: short CTA linking into the journal upload form."""
+        """HTMX preview: short CTA describing the journal pipeline."""
         require_authenticated_user(request)
         return Div(
             P(
                 "Upload audio, video, or text — AI transcribes and structures it into a journal entry.",
-                cls="text-sm text-muted-foreground mb-3",
-            ),
-            ButtonLink(
-                "Browse my journals",
-                href="/journals/browse",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls="text-sm text-muted-foreground",
             ),
         )
 
