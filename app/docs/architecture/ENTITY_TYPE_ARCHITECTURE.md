@@ -26,28 +26,30 @@ This doc is **Model A at the fine grain** per ADR-055 — the 20 EntityTypes. Fo
 
 ### 20 Entity Types + 5 Cross-Cutting Systems
 
-| EntityType | What It Is | Ownership |
-|------------|-----------|-----------|
-| Task | Work to be done | User-owned |
-| Goal | Outcome to achieve | User-owned |
-| Habit | Behavior to build | User-owned |
-| Event | Time commitment to keep | User-owned |
-| Choice | Decision to make | User-owned |
-| Principle | Value to embody | User-owned |
-| Ku | Atomic knowledge unit (concept, principle, substance) | Admin-created, shared |
-| Resource | Curated content (books, talks, films) | Admin-created, shared |
-| PathStep | THE curriculum content entity (composes Kus into learning content) | Admin-created, shared |
-| LearningPath | An ordered sequence of PathSteps | Admin-created, shared |
-| Exercise | Instruction template, assignment, or formal assessment | Admin-created, shared |
-| FormTemplate | Reusable form definition | Admin-created, shared |
-| FormSubmission | User response to a FormTemplate | User-owned |
-| UserEntry | Unified user-authored content — submissions, journals, uploads (ADR-054) | User-owned |
-| Interaction | Situated learning-loop event (curriculum context at submission time) | User-owned |
-| ExerciseReport | Assessment tied to a specific UserEntry fulfilling an exercise | User-owned |
-| ActivityReport | Feedback about activity patterns over time | User-owned |
-| RevisedExercise | Targeted revision after feedback | Teacher-owned |
-| LifePath | The user's life direction | User-owned |
-| Groups | Teacher-student class management | Teacher-owned |
+| EntityType | What It Is | UID Format | Ownership |
+|------------|-----------|-----------|-----------|
+| Task | Work to be done | `task_{slug}_{random}` | User-owned |
+| Goal | Outcome to achieve | `goal_{slug}_{random}` | User-owned |
+| Habit | Behavior to build | `habit_{slug}_{random}` | User-owned |
+| Event | Time commitment to keep | `event_{slug}_{random}` | User-owned |
+| Choice | Decision to make | `choice_{slug}_{random}` | User-owned |
+| Principle | Value to embody | `principle_{slug}_{random}` | User-owned |
+| FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
+| FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
+| Finance | Admin-only bookkeeping — Firefly III for expenses/budgets/reports; local for invoices (ADR-052) | `inv_{random}` (invoices) | Admin-only |
+| Ku | Atomic knowledge unit (concept, principle, substance) | `ku_{slug}_{random}` | Admin-created, shared |
+| Resource | Curated content (books, talks, films) | N/A | Admin-created, shared |
+| PathStep | THE curriculum content entity (composes Kus into learning content) | `ps:{namespace}:{slug}` | Admin-created, shared |
+| LearningPath | An ordered sequence of PathSteps | `lp:{namespace}:{slug}` | Admin-created, shared |
+| Exercise | Instruction template, assignment, or formal assessment | N/A | Admin-created, shared |
+| RevisedExercise | Targeted revision after feedback | `re_{slug}_{random}` | Teacher-owned |
+| UserEntry | Unified user-authored content — submissions, journals, uploads (ADR-054) | `ue_{slug}_{random}` | User-owned |
+| Interaction | Situated learning-loop event (curriculum context at submission time) | `ia_{slug}_{random}` | User-owned |
+| ActivityReport | Feedback about activity patterns over time | `ar_{random}` | User-owned |
+| ExerciseReport | Assessment tied to a specific UserEntry fulfilling an exercise | `sr_{random}` | User-owned |
+| LifePath | The user's life direction | `lp_{random}` | User-owned |
+| Groups | Teacher-student class management | `group_{slug}_{random}` | Teacher-owned |
+| MOC | Non-linear KU navigation | N/A (emergent — any Entity with ORGANIZES) | Emergent |
 
 **Cross-Cutting Systems (5)**: UserContext, Search, Calendar, Askesis, Messaging (planned)
 

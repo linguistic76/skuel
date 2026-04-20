@@ -98,6 +98,38 @@ core/ports/
 └── submission_protocols.py            # Submission stage (4 protocols)
 ```
 
+### Protocol Hierarchies
+
+Three key protocol hierarchies organize the contracts at their respective layers. Each is ISP-compliant — consumers depend on the narrowest slice they actually use.
+
+**BackendOperations** (the backend-level contract; `UniversalNeo4jBackend` implements this):
+```
+BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
+    ├── CrudOperations[T]
+    ├── EntitySearchOperations[T]
+    ├── RelationshipCrudOperations
+    ├── RelationshipQueryOperations
+    ├── GraphTraversalOperations
+    └── LowLevelOperations
+```
+
+**UserOperations** (decomposed per sub-service; `UserBackend` implements the composed protocol):
+```
+UserOperations  <- composed protocol (UserBackend implements this)
+    ├── UserCrudOperations (6)           <- UserCoreService
+    ├── UserLearningStateOperations (8)  <- UserProgressRecorderService
+    └── UserActivityOperations (3)       <- UserActivityService
+```
+
+**IntelligenceOperations** (shared knowledge + per-domain intelligence):
+```
+IntelligenceOperations  <- composed protocol
+    ├── KnowledgeIntelligenceOperations (4)  <- ActivityKnowledgeIntelligenceService (shared across all 6 Activity Domains)
+    └── DomainIntelligenceOperations (7)     <- Per-domain intelligence services
+```
+
+Note: `*Operations` protocols in `domain_protocols.py` are **backend-level** — they type `self.backend` inside `BaseService[Op, T]`, NOT service-level contracts. Facade services use concrete class types in routes (see "Facade Services — Explicit Delegation" below).
+
 ### Protocol Categories
 
 | Category | File | Purpose | Count |

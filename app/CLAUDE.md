@@ -116,52 +116,16 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **Two lenses (ADR-055):** *Model A — Subsystems* groups the 20 EntityTypes into **7 subsystems** (Ku, Curriculum Domains, Activity Domains, Learning Loop, User, Groups, Askesis) across **3 sections** (Object / Context / Meta) — see `/docs/architecture/SEVEN_SUBSYSTEMS.md`. *Model B — 3-Layer Lens* reads the flow as **Curriculum → Action → Feedback** — see `/docs/architecture/THREE_LAYER_LENS.md`. The **5 Cross-Cutting Systems** below are infrastructure (UserContext, Search, Calendar, Askesis, Messaging), orthogonal to both lenses.
 
-### The 20 Entity Types
+### The 20 Entity Types (group summary)
 
-| EntityType | What It Is | UID Format | Ownership |
-|------------|-----------|-----------|-----------|
-| Task | Work to be done | `task_{slug}_{random}` | User-owned |
-| Goal | Outcome to achieve | `goal_{slug}_{random}` | User-owned |
-| Habit | Behavior to build | `habit_{slug}_{random}` | User-owned |
-| Choice | Decision to make | `choice_{slug}_{random}` | User-owned |
-| Principle | Value to embody | `principle_{slug}_{random}` | User-owned |
-| Event | Time commitment to keep | `event_{slug}_{random}` | User-owned |
-| FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
-| FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
-| Finance | Admin-only bookkeeping — Firefly III for expenses/budgets/reports; local for invoices (ADR-052) | `inv_{random}` (invoices) | Admin-only |
-| Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |
-| Resource | Curated content (books, talks, films) | N/A | Admin-created, shared. `ResourceService` in `core/services/resource_service.py` |
-| PathStep | THE curriculum content entity (composes Kus) | `ps:{namespace}:{slug}` | Admin-created, shared |
-| LearningPath | An ordered sequence of path steps | `lp:{namespace}:{slug}` | Admin-created, shared |
-| Exercise | Instruction template, assignment, or formal assessment | N/A | Admin-created, shared |
-| RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
-| UserEntry | Unified user-authored content — submissions, journals, uploads (ADR-054) | `ue_{slug}_{random}` | User-owned |
-| Interaction | Situated learning-loop event (curriculum context at submission time) | `ia_{slug}_{random}` | User-owned |
-| ActivityReport | Report about activity patterns over time | `ar_{random}` | User-owned |
-| ExerciseReport | Teacher or AI report on a UserEntry fulfilling an exercise | `sr_{random}` | User-owned |
-| LifePath | The user's life direction | `lp_{random}` | User-owned |
-| Groups | Teacher-student class management | `group_{slug}_{random}` | Teacher-owned |
-| MOC | Non-linear KU navigation | N/A (emergent — any Entity with ORGANIZES) | Emergent |
+- **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — user-owned; share facade pattern with `.core`/`.search`/`.intelligence`/`.ai` sub-services via `create_common_sub_services()`
+- **Curriculum (4):** Ku, PathStep, LearningPath, Exercise — admin-created, `ContentScope.SHARED`; PathStep composes Kus into learning content
+- **Forms (2):** FormTemplate (admin), FormSubmission (user-owned response)
+- **Learning loop (4):** UserEntry (ADR-054 — collapses former ExerciseSubmission/JeInput/JeOutput; pipeline-discriminated), ExerciseReport, ActivityReport, Interaction
+- **Other (4):** RevisedExercise (teacher-owned), LifePath, Groups (ADR-053), MOC (emergent via ORGANIZES)
+- **Admin-only:** Finance (Firefly III sidecar + local invoicing, ADR-052)
 
-### Behavioral Traits (ADR-047)
-
-Entity types have behavioral traits — not category membership — that determine infrastructure behavior:
-
-| Trait | Method | What It Determines |
-|-------|--------|--------------------|
-| **Ownership** | `requires_user_uid()` | User-owned vs shared (admin-created) |
-| **Content Origin** | `content_origin()` | Where content comes from (Curated, Curriculum, User-Created, Report) |
-| **Activity** | `is_activity()` | Shares Activity infrastructure (factory, facade, sub-services) |
-| **Processable** | `is_processable()` | Goes through a processing pipeline |
-| **Derived** | `is_derived()` | Has parent in derivation chain |
-
-### Entity Type Groups
-
-- **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence`, `.ai` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation. **Read-focused UI:** All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection` — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`), Choices (`/choices`), Principles (`/principles`). Principles use gravity-well pattern (incoming connections) like Goals. Activity data enters via `/upload`; also viewable via ActivityReport at `/activity-reports`.
-- **Curriculum (4):** Ku, PathStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read. Exercise has three scopes: `PERSONAL` (user's AI feedback template), `ASSIGNED` (teacher → group), `ASSESSMENT` (formal test with `scoring_rubric` + `pass_threshold`). ExerciseReport carries `assessment_score` for ASSESSMENT-scope exercises.
-- **Submissions/Reports (4):** UserEntry, ExerciseReport, ActivityReport, Interaction — the learning loop: Exercise → UserEntry → ExerciseReport → RevisedExercise → UserEntry → ... Services in `core/services/user_entry/` + `core/services/report/` + `core/services/interaction/`. `UserEntry` (ADR-054) collapses the former `ExerciseSubmission`, `JeInput`, and `JeOutput` into one user-authored content type discriminated by a `pipeline` field (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`). Revision count lives on the `FULFILLS_EXERCISE {revision}` edge, not on the node. Interaction is auto-created at entry-creation time, capturing the user's `context_path_step_uid` + `context_learning_path_uid` from `UserContext`. Three graph relationships: `RECORDS` (→ entry), `INTERACTION_DURING` (→ PathStep), `INTERACTION_WITHIN` (→ LearningPath).
-- **Journal:** Journal is a `pipeline=TRANSCRIBE_AND_STRUCTURE` flow on `UserEntry`, not a separate domain. Audio upload creates a source `UserEntry`, Deepgram transcribes it, the LLM produces a structured second `UserEntry` linked by `(structured)-[:TRANSFORMS]->(source)`. No `JeInput`/`JeOutput` types, no `core/services/journal/`, no journal-specific routes.
-- **Other:** Finance (admin-only hybrid — Firefly III sidecar for expenses/budgets/reports + local invoicing, ADR-052), Resource (curated, not curriculum), Groups (ADR-053), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
+Full table with UID formats + behavioral traits (`requires_user_uid()`, `content_origin()`, `is_activity()`, `is_processable()`, `is_derived()`): see `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`.
 
 ### The 5 Cross-Cutting Systems
 
@@ -332,33 +296,7 @@ class NonKuDomain(str, Enum):
 | **Facade** | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP | Concrete class | Facade IS the contract (~50 delegation methods) |
 | **Thin/ISP** | Groups, UserEntry, Sharing, etc. | ISP protocol | Routes use a narrow slice; protocol makes it explicit |
 
-`*Operations` protocols in `domain_protocols.py` are **backend-level** — they type `self.backend` inside `BaseService[Op, T]`, NOT service-level contracts.
-
-**BackendOperations Protocol Hierarchy:**
-```
-BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
-    +-- CrudOperations[T]
-    +-- EntitySearchOperations[T]
-    +-- RelationshipCrudOperations
-    +-- RelationshipQueryOperations
-    +-- GraphTraversalOperations
-    +-- LowLevelOperations
-```
-
-**UserOperations Protocol Hierarchy (ISP-compliant):**
-```
-UserOperations  <- composed protocol (UserBackend implements this)
-    +-- UserCrudOperations (6)      <- UserCoreService
-    +-- UserLearningStateOperations (8)  <- UserProgressRecorderService
-    +-- UserActivityOperations (3)  <- UserActivityService
-```
-
-**IntelligenceOperations Protocol Hierarchy (ISP-compliant):**
-```
-IntelligenceOperations  <- composed protocol
-    +-- KnowledgeIntelligenceOperations (4)  <- ActivityKnowledgeIntelligenceService (shared)
-    +-- DomainIntelligenceOperations (7)     <- Per-domain intelligence services
-```
+`*Operations` protocols in `domain_protocols.py` are **backend-level** — they type `self.backend` inside `BaseService[Op, T]`, NOT service-level contracts. Three hierarchies (BackendOperations, UserOperations, IntelligenceOperations) compose narrow ISP slices.
 
 **See:** `/docs/patterns/protocol_architecture.md`, `/docs/patterns/BACKEND_OPERATIONS_ISP.md`
 
@@ -509,22 +447,14 @@ type Scorer[T] = Callable[[T], Score]
 | `BasePage(CUSTOM)` | Full-width, page manages layout (SidebarPage) |
 | `AuthPage()` | Unauthenticated pages (login, register, landing — no navbar/chrome) |
 
-All three load CSS through `build_head()` (local MonsterUI vendor files). Never hand-assemble `<link>` tags or use `NotStr` for full HTML documents.
+All three load CSS through `build_head()` (local MonsterUI vendor files). Never hand-assemble `<link>` tags or use `NotStr` for full HTML documents. Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, static in `/static/`.
 
-- Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
-- **Admin navbar:** SKUEL logo (left, → `/`) + empty center + avatar (→ `/`) + Sign out (icon+text). Admin home hub at `/` shows two cards: Admin (`/admin`) + Teaching (`/teaching/students`). Mobile: hamburger with Admin + Teaching + Sign out links. Icon links hidden for admins.
-- **Regular user navbar** icon links (left section, in order): **Hub** (`/home`) + **Tasks+** (`/tasks`) + **Groups** (`/groups`) + **Explore** (`/explore`). Right section: **Search** (`/search`) icon + notification bell + **Sign out** (`/logout`) icon. After login, regular users land on `/home`.
-- `/groups` is the **student-facing group-shares hub** — tabbed layout mirroring `/home`, with one tab per group the student is a member of (capped at `MAX_STUDENT_GROUPS = 4`, enforced server-side in `GroupService.add_member()`). Each tab shows a single "Recent Shares" block HTMX-loaded from `GET /api/groups/{group_uid}/shared/preview` — peer-authored `UserEntry`s linked via `(entry)-[:SHARED_WITH_GROUP]->(group)`, with own entries excluded and membership guarded by the Cypher `MATCH` on `(user)-[:MEMBER_OF]->(group)`. Zero-group students see an EmptyState. UI in `ui/groups/hub.py` + `ui/groups/shared_preview.py`; routes in `adapters/inbound/groups_hub_routes.py`; backing service method `UnifiedSharingService.get_user_entries_shared_with_group()`. Distinct from `/teaching/groups` (teacher-facing group management).
-- `/explore` is the **Explore hub** — discovery grid of Ku + PathStep entities with search/filter. Uses `SidebarPage` (wider `w-96`/384px) with graph-centered sidebar (shared across `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`); nav defined in `ui/explore/nav.py`, graph component in `ui/explore/graph.py`. Sidebar hero is an interactive Vis.js force-directed graph (`ExploreGraphView`): hub mode shows the user's learning universe ("You" center node + studying Kus + in-progress PSes), entity mode centers on the current Ku/PS with lateral relationships. Filter tabs (All/Learning/Saved) control both graph node highlighting and list visibility. Three supporting sections below graph: Learning, Saved, Completed. Node colors: violet (#8B5CF6) for Ku, teal (#14B8A6) for PS, blue for "You". Graph expands to full-screen JS overlay on `document.body` (Escape or backdrop click to close) — bypasses sidebar `overflow:hidden` + `transform` traps by creating a second Vis.js network in a fresh overlay div. Alpine component: `exploreGraph` in `skuel.js`. API: `GET /api/explore/graph` returns hub learning universe as Vis.js JSON. Each sidebar item shows a type pill (violet=Ku, teal=PS). Unauthenticated users see graph + "Sign in to track your learning". Detail pages center the graph on the current entity. **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) via `/learning-loop/ps/{ps_uid}/*` fragment endpoints wired in `explore_ui.py` (`create_explore_ui_routes`); renderers in `ui/learning_loop/`.
-- `/home` is the **post-login landing hub** — no UserContext on the page itself. Three-tab interface (Submissions / GradeBook / Library) with HTMX-loaded domain blocks per tab; Settings button in footer. `/submissions`, `/gradebook`, `/library` render the same `HomeHub()` with the matching tab pre-selected via `active_tab` param. Hub view in `ui/home_hub.py`, route in `adapters/inbound/home_routes.py`. Also registers `GET /api/personal-header` — HTMX fragment endpoint for the Focus+Velocity header used on all 6 Activity Domain list pages (Tasks, Goals, Habits, Events, Choices, Principles) and any future page that wants it without loading the full MEGA_QUERY on the critical path. **Two patterns for Focus+Velocity:** `personal_header(context)` when `UserContext` is already in scope (e.g. `/profile`); `personal_header_placeholder()` everywhere else — renders an `hx-get="/api/personal-header" hx-trigger="load"` div that fills in after page render without blocking. Both in `ui/patterns/personal_header.py`.
-- `/profile` is the **personal overview hub** — Focus + Velocity via `personal_header(context)` (already has `UserContext` from its full page load), Activity Domains (6 HTMX-loaded blocks with colored headers and 3 priority-sorted cards each from `/api/profile/{slug}/preview`). Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`) links back to `/profile`. `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/gradebook` — renders `HomeHub(active_tab='gradebook')` — same three-tab interface as `/home`, GradeBook tab pre-selected; block definitions in `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`). Child pages use `SidebarPage` with GradeBook sidebar; nav defined in `ui/gradebook/nav.py`. `/library` — renders `HomeHub(active_tab='library')` — Library tab pre-selected; block definitions in `ui/library/hub.py` (`LIBRARY_BLOCKS`). Child pages use `SidebarPage` with Library sidebar; nav defined in `ui/library/nav.py`. Teaching child pages (Students, Groups, Review Queue, Forms) use `SidebarPage` with Teaching sidebar; nav defined in `ui/teaching/nav.py`. Forms (`/teaching/forms`) lets teachers view FormTemplate submissions — template list with counts, per-template submission list with user names, and read-only submission detail; routes in `adapters/inbound/teaching_forms_ui.py`. Individual students have a nested hub at `/teaching/students/{uid}` (no sidebar) with 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline via `/api/teaching/students/{uid}/{section}/preview`, linking to `/teaching/students/{uid}/submissions?tab=...` (Alpine section switching with student-specific sidebar) — Exercises page shows exercises from two sources merged by `ExerciseService.get_student_exercises_with_status()`: (1) `scope=assigned` exercises via `FOR_GROUP` group membership, (2) `scope=personal` exercises linked via `RELATED_TO` to PathSteps the user is `IN_PROGRESS` in; inline submission/feedback status pills (Not Submitted / Submitted / Feedback Available / Revision Requested) and context-sensitive action links; exercise titles link to `GET /exercises/get?uid=` (student detail page with Submit + Download buttons; Markdown download via `GET /api/exercises/md?uid=`, renderer at `adapters/outbound/exercise_renderer.py`); Ku tab shows only the user's bookmarked (PINNED) Ku; Path Steps tab shows only enrolled (IN_PROGRESS) steps; Resources tab lists `Resource` entities (admin-curated books, talks, films). Tasks (`/tasks`) and Goals (`/goals`) have read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport at `/activity-reports`. `/path-steps` lists all PathSteps with learning-state-aware enrollment buttons (Start / In Progress / Mastered); clicking a PathStep navigates to `/path-steps/get?uid={uid}` — a reading page with markdown content, learning objectives, and action buttons using `BasePage(CUSTOM)`. Other curriculum sub-pages (`/learning-paths`, `/exercises`) use `BasePage(STANDARD)`. Study sub-pages (`/exercise-reports`, `/exercise-reports/detail`, `/activity-reports`, `/submit-activity-report`, `/revised-exercises`, `/revised-exercises/detail`) use `SidebarPage` via GradeBook sidebar. `/submissions` — renders `HomeHub(active_tab='submissions')` — Submissions tab pre-selected; block definitions in `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`. `/upload` is the user-facing bulk upload page — drag-and-drop YAML file upload with results display. `/submit` is the exercise worksheet submission page. `/submissions/history` shows exercise submissions with feedback status, view, and delete. All three use Submissions sidebar. `/settings` is the **user preferences page** (learning, scheduling, notifications, display, goals) — top-level page with `BasePage` (no sidebar); route in `adapters/inbound/settings_routes.py`.
-**Shared Components:** `PageHeader` (page title + subtitle + actions — adopted across all 6 Activity Domain dashboards, Study, Curriculum, Admin, Analytics, Calendar, LifePath, Finance, Pathways, Askesis, Form Submissions, Submissions, Profile, and Preferences; never use raw `H1()`/`H2()` for page headers), `SectionHeader` (section titles — ~8 files; never use raw `H2()` for section headers outside cards), `CardHeader`/`CardTitle` (semantic card titles from `ui/cards` — never use raw `H2()`/`H3()` directly inside `Card()`; canonical pattern: `Card(CardHeader(CardTitle("...")), CardBody(content))`), `EmptyState` (empty lists — ~75 usages across ~38 files; never hand-roll `Div(P("No ..."))` for empty states), `CardGenerator` (THE single card component — detail cards, list cards, teaching rows, insight cards; supports subtitle, metadata, extra, header_badges with FT pass-through), `StatsGrid`/`StatItem` (statistics grids — ~16 files; never hand-roll `Div()` + grid + Tailwind stat layouts), `ButtonLink` (action CTAs — ~45 files; never use raw `A()` for action links; `ButtonT.primary` for CTAs, `ButtonT.ghost` for navigation), `StatusBadge`/`Badge`/`PriorityBadge` (all badges use these components from `ui/feedback` — never raw `Span()` with hand-rolled Tailwind; `StatusBadge` for EntityStatus values, `Badge` for category/type pills, `PriorityBadge` for priorities), `render_error_banner`/`render_inline_error` (accessible error states — adopted across 25+ route files), `AlpineModal` (standardized Alpine.js modal wrapper — ~5 files; never hand-roll modals with raw `Div()` + `fixed inset-0` + onclick handlers; backdrop, transitions, click-outside-to-close). All in `/ui/patterns/` or `/ui/feedback.py`.
+**Page Contexts:** Per-domain TypedDicts in `/ui/page_contexts.py` define route→UI contracts with typed entities (`list[Task]`, etc.). `render_list_view(ctx)` is the only signature. NOT in `core/ports/` — page contexts are UI concerns.
 
-**Page Contexts:** Per-domain TypedDicts in `/ui/page_contexts.py` define route→UI contracts with typed entities (`list[Task]`, etc.) and `total=True` for required fields. `render_list_view(ctx)` is the only signature — no dual-path. NOT in `core/ports/` — page contexts are UI concerns.
-
-**Key Files:** `/ui/home_hub.py` (Home hub), `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/modal.py` (AlpineModal), `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.), `/ui/explore/nav.py` (Explore graph-centered sidebar), `/ui/explore/graph.py` (ExploreGraphView — Vis.js sidebar graph component), `/ui/explore/cards.py` (card rendering + search panel), `/ui/explore/filters.py` (filter/sort helpers), `/ui/exercises/cards.py` (exercise list + card), `/ui/exercises/editor.py` (exercise form editor), `/ui/exercises/detail.py` (exercise view + student detail), `/ui/learning_loop/` (exercise status pills, PS submissions/feedback renderers — shared with Library), `/ui/submissions/revised_exercise.py` (RevisedExercise renderers), `/ui/submissions/report.py` (ExerciseReport detail renderer), `/ui/teaching/nav.py` (Teaching sidebar), `/ui/teaching/student_hub.py` (Student hub), `/ui/teaching/types.py` (status constants + view model converters), `/ui/lifepath/` (dashboard, vision form, alignment — delegated from `lifepath_ui.py`), `/ui/askesis/` (welcome, chat, settings — delegated from `askesis_ui.py`), `/ui/activity_review/` (cards, forms, nav — delegated from `activity_review_ui.py`), `/ui/analytics/` (dashboard, domain_metrics, life_path, life_summary — delegated from `analytics_ui.py`), `/ui/ingestion/` (ingestion dashboard — delegated from `ingestion_ui.py`), `/ui/system/` (landing page, admin hub, 404 — delegated from `system_ui.py`), `/ui/workbench/hub.py` (Submissions block definitions — `SUBMISSIONS_BLOCKS`), `/ui/workbench/nav.py` (Submissions sidebar), `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout), `/core/utils/palette.py` (centralized hex colors — `ui/palette.py` re-exports), `/core/services/visualization_service.py` (pure Chart.js/Vis.js/Gantt formatter — no domain deps; `ui/visualization/` re-exports), `/core/services/analytics/visualization_aggregation_service.py` (data fetching + aggregation for visualization endpoints — delegates formatting to VisualizationService), `/adapters/inbound/activity_ui_factory.py` (ActivityUIConfig + shared 5-route factory for all 6 Activity Domains — each `{domain}_ui.py` is ~50 lines delegating here), `/ui/journals/` (cards, components, forms — extracted from `journals_ui.py`), `/ui/insights/` (components, filters, insight_card — extracted from `insights_ui.py`), `/ui/pathways/` (components — extracted from `pathways_ui.py`), `/ui/notifications/` (cards — extracted from `notifications_routes.py`), `/ui/calendar/` (components, converters — extracted from `calendar_ui.py`), `/ui/finance/` (components, invoice_views, layout, section_views, types — extracted from `finance_ui.py`), `/ui/explore/ku_detail.py` (Ku detail rendering — extracted from `explore_ui.py`), `/ui/explore/ps_detail.py` (PathStep detail rendering — extracted from `explore_ui.py`)
-
-**See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`, `/docs/ui/COMPONENT_CATALOG.md`
+**See:**
+- `/docs/ui/ROUTE_MAP.md` — per-page descriptions grouped by navigation section (Admin / Regular / Teaching / Study / Settings)
+- `/docs/patterns/UI_COMPONENT_PATTERNS.md` — shared components (`PageHeader`, `CardGenerator`, `StatsGrid`, `ButtonLink`, badges, `AlpineModal`, etc.) + Key UI Files inventory
+- `/docs/ui/COMPONENT_CATALOG.md` — component catalog
 
 ## Alpine.js Architecture
 
@@ -600,9 +530,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **`UniversalNeo4jBackend` is the hexagonal boundary** — Neo4j-specific code stops here. Neo4j is a committed architectural choice (ADR-044), not a swappable adapter.
 
-**File Layout:** `universal_backend.py` is a shell; methods live in 11 mixin files: `_crud_mixin.py`, `_search_mixin.py` (find_by_date_range, search, find_by, count, health_check, get_domain_context_raw, execute_query), `_search_raw_mixin.py` (text_search_raw, relationship_traversal_raw, graph_aware_search_raw, array ops, distinct_values_raw, faceted_search_raw), `_temporal_mixin.py` (user_activity_range_raw, due_soon_raw, overdue_raw), `_prereq_progress_mixin.py` (prerequisite_traversal_raw, hierarchy_query_raw, user_progress_raw, update_user_mastery_rel, user_curriculum_raw), `_context_query_mixin.py` (context_query_raw, basic_context_query_raw), `_relationship_query_mixin.py` (core reads, batch counts, edge metadata, fluent `relate()` entry point), `_relationship_ordered_mixin.py` (ordered/hierarchical traversals + lateral-getter convenience wrappers: `get_ordered_related_uids`, `get_related_with_metadata`, `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, `get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`), `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py`. `_hierarchy_mixin.py` provides `_HierarchyMixin` — generic parent-child hierarchy ops shared by all 6 Activity Domain backends (parameterized via `HierarchyConfig`). `PsBackend` is decomposed into 5 domain-specific mixins: `_organizes_mixin.py` (ORGANIZES relationships), `_learning_state_mixin.py` (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED/MARKED_AS_READ), `_semantic_mixin.py` (semantic relationships + graph analysis), `_knowledge_context_mixin.py` (context, discovery, readiness), `_adaptive_mixin.py` (practice, search, adaptive mastery). `LpBackend` is decomposed into 3 domain-specific mixins: `_lp_step_mixin.py` (step management CRUD + path CRUD, 14 methods), `_lp_progress_mixin.py` (KU mastery progress + search queries, 6 methods), `_lp_intelligence_mixin.py` (intelligence + adaptive learning, 8 methods). `UserEntryBackend` is decomposed into 5 domain-specific mixins: `_user_entry_crud_mixin.py` (entry CRUD + teacher feedback state), `_user_entry_lifecycle_mixin.py` (exercise processing, temporal/thematic relationships, `FULFILLS_EXERCISE {revision}` edges, `TRANSFORMS` links), `_user_entry_assessment_mixin.py` (assessments + teacher review operations), `_user_entry_report_query_mixin.py` (report relationship queries, learning loop chains), `_user_entry_content_mixin.py` (pipeline processing context + exercise-instruction enrichment). Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) in `_backend_helpers.py`.
-
-**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`
+**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md` (full mixin file layout: `universal_backend.py` shell + 11 mixins; PsBackend's 5 mixins; LpBackend's 3 mixins; UserEntryBackend's 5 mixins)
 
 ## Search & Query Architecture
 
@@ -634,19 +562,15 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 13 of 20 entity types are file-ingestible (Group added 2026-04-14; `type: user_entry` routes through `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` so `/upload` and `/submit` share the same pipeline — ADR-054). Legacy `exercise_submission` / `je_input` / `je_output` YAMLs are **rejected** with a clear ADR-054 error (no compat shim — One Path Forward). **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
+One-way pipeline: Markdown/YAML -> Neo4j. 13 of 20 entity types are file-ingestible. `/upload` (user) and `/submit` (exercise) share the same `UserEntryService.create_entry()` path via `core/services/ingestion/user_entry_ingestion.py` (ADR-054).
 
-**Default Vault:** `/home/mike/0bsidian/0vault/` — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
+**Default Vault:** `/home/mike/0bsidian/0vault/` — configurable via `INGESTION_PATH` env var.
 
 **Import:** `from core.services.ingestion import UnifiedIngestionService`
 
-**API:** `POST /api/ingest/file`, `POST /api/ingest/directory`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `WS /ws/ingest/progress/{operation_id}`
+**API:** `POST /api/ingest/file`, `POST /api/ingest/directory`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `POST /api/upload`, `WS /ws/ingest/progress/{operation_id}`
 
-**Per-User Upload:** `UserUploadService` enables authenticated users to bulk-upload content into isolated per-user vaults. Files are validated, stored under `VaultConfig.user_vaults_root/{user_uid}/`, and ingested via `UnifiedIngestionService`. **API:** `POST /api/upload` (file upload), **UI:** `GET /upload` (upload page, Submissions sidebar), `POST /upload/files` (form submission). Hub: `GET /submissions` (Submissions hub). Import: `from core.services.ingestion.user_upload_service import UserUploadService`.
-
-**UserEntry YAMLs** declare `pipeline:` (required — one of `none` / `teacher_review` / `llm_summary`; audio pipelines use the audio-upload flow and are rejected by `/upload`) and `audience:` (optional — `teachers` (default) / `group:<uid>` / `public` / `private`). `audience: teachers` expands to the user's student-role group memberships via `AudienceResolver.resolve_default_teachers()`; zero groups means no shares (no silent broadcast). The resolver (`core/services/user_entry/audience_resolver.py`) is shared between `/upload` and `/submit` so both paths validate identically.
-
-**See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`, `/docs/patterns/UNIFIED_INGESTION_GUIDE.md`
+**See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` (legacy YAML rejection, explicit `type` field rule, UID prefix validation, per-user upload, UserEntry `pipeline`/`audience` fields), `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`
 
 ## Curriculum Grouping Patterns
 

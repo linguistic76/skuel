@@ -1687,6 +1687,81 @@ SKUEL does NOT maintain backward compatibility. When a better pattern emerges:
 
 ---
 
+## Shared Components
+
+All live in `/ui/patterns/` or `/ui/feedback.py`.
+
+| Component | Purpose | Notes |
+|-----------|---------|-------|
+| `PageHeader` | Page title + subtitle + actions | Adopted across all 6 Activity Domain dashboards, Study, Curriculum, Admin, Analytics, Calendar, LifePath, Finance, Pathways, Askesis, Form Submissions, Submissions, Profile, Preferences. **Never use raw `H1()`/`H2()` for page headers.** |
+| `SectionHeader` | Section titles | ~8 files. **Never use raw `H2()` for section headers outside cards.** |
+| `CardHeader` / `CardTitle` | Semantic card titles from `ui/cards` | **Never use raw `H2()`/`H3()` directly inside `Card()`.** Canonical pattern: `Card(CardHeader(CardTitle("…")), CardBody(content))`. |
+| `EmptyState` | Empty-list placeholder | ~75 usages across ~38 files. **Never hand-roll `Div(P("No …"))` for empty states.** |
+| `CardGenerator` | THE single card component | Detail cards, list cards, teaching rows, insight cards. Supports subtitle, metadata, extra, header_badges with FT pass-through. |
+| `StatsGrid` / `StatItem` | Statistics grids | ~16 files. **Never hand-roll `Div()` + grid + Tailwind stat layouts.** |
+| `ButtonLink` | Action CTAs | ~45 files. **Never use raw `A()` for action links.** `ButtonT.primary` for CTAs, `ButtonT.ghost` for navigation. |
+| `StatusBadge` / `Badge` / `PriorityBadge` | All badges | From `ui/feedback`. **Never raw `Span()` with hand-rolled Tailwind.** `StatusBadge` for `EntityStatus` values, `Badge` for category/type pills, `PriorityBadge` for priorities. |
+| `render_error_banner` / `render_inline_error` | Accessible error states | Adopted across 25+ route files. |
+| `AlpineModal` | Standardized Alpine.js modal wrapper | ~5 files. **Never hand-roll modals with raw `Div()` + `fixed inset-0` + onclick handlers.** Provides backdrop, transitions, click-outside-to-close. |
+
+---
+
+## Page Contexts
+
+Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts with typed entities (`list[Task]`, etc.) and `total=True` for required fields. `render_list_view(ctx)` is the only signature — no dual-path. **NOT in `core/ports/`** — page contexts are UI concerns.
+
+---
+
+## Key UI Files
+
+**Layout & navigation:**
+- `/ui/home_hub.py` — Home hub
+- `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`
+- `/ui/patterns/sidebar.py`, `/ui/patterns/modal.py` (AlpineModal)
+- `/ui/patterns/` — `PageHeader`, `form_generator`, `card_generator`, etc.
+
+**Explore:**
+- `/ui/explore/nav.py` — graph-centered sidebar
+- `/ui/explore/graph.py` — `ExploreGraphView` Vis.js component
+- `/ui/explore/cards.py` — card rendering + search panel
+- `/ui/explore/filters.py` — filter/sort helpers
+- `/ui/explore/ku_detail.py`, `/ui/explore/ps_detail.py` — extracted from `explore_ui.py`
+
+**Exercises & learning loop:**
+- `/ui/exercises/cards.py`, `/ui/exercises/editor.py`, `/ui/exercises/detail.py`
+- `/ui/learning_loop/` — exercise status pills, PS submissions/feedback renderers (shared with Library)
+- `/ui/submissions/revised_exercise.py`, `/ui/submissions/report.py`
+
+**Teaching:**
+- `/ui/teaching/nav.py`, `/ui/teaching/student_hub.py`, `/ui/teaching/types.py`
+
+**Domain-specific UI packages (extracted from their `*_ui.py` modules):**
+- `/ui/lifepath/` (dashboard, vision form, alignment)
+- `/ui/askesis/` (welcome, chat, settings)
+- `/ui/activity_review/` (cards, forms, nav)
+- `/ui/analytics/` (dashboard, domain_metrics, life_path, life_summary)
+- `/ui/ingestion/` (ingestion dashboard)
+- `/ui/system/` (landing page, admin hub, 404)
+- `/ui/journals/` (cards, components, forms)
+- `/ui/insights/` (components, filters, insight_card)
+- `/ui/pathways/` (components)
+- `/ui/notifications/` (cards)
+- `/ui/calendar/` (components, converters)
+- `/ui/finance/` (components, invoice_views, layout, section_views, types)
+
+**Workbench:**
+- `/ui/workbench/hub.py` — `SUBMISSIONS_BLOCKS`
+- `/ui/workbench/nav.py` — Submissions sidebar
+
+**Shared:**
+- `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout)
+- `/core/utils/palette.py` (centralized hex colors; `ui/palette.py` re-exports)
+- `/core/services/visualization_service.py` (pure Chart.js/Vis.js/Gantt formatter — no domain deps; `ui/visualization/` re-exports)
+- `/core/services/analytics/visualization_aggregation_service.py` (data fetching + aggregation for visualization endpoints — delegates formatting to `VisualizationService`)
+- `/adapters/inbound/activity_ui_factory.py` — `ActivityUIConfig` + shared 5-route factory for all 6 Activity Domains (each `{domain}_ui.py` is ~50 lines delegating here)
+
+---
+
 ## See Also
 
 - `/.claude/skills/ui-css/SKILL.md` - MonsterUI (FrankenUI + Tailwind) component reference
