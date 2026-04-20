@@ -232,7 +232,7 @@ TasksService (Facade)
     │   ├─ Extends: BaseService[TasksOperations, Task]
     │   ├─ Responsibility: Search and discovery
     │   ├─ Config: _config = create_activity_domain_config(...)
-    │   └─ Methods: search(), get_tasks_for_goal(), get_prioritized_tasks()
+    │   └─ Methods: search(), get_tasks_for_goal(), get_prioritized()
     │
     ├─ self.progress: TasksProgressService
     │   ├─ Extends: BaseService[TasksOperations, Task]

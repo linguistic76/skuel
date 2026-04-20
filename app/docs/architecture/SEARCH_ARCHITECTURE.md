@@ -552,53 +552,60 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 
 ---
 
-## Temporal Scoring Patterns
+## Priority Scoring — Unified Across 6 Activity Domains
 
-Activity domains use two distinct temporal patterns for prioritization — **forward-looking** (deadline proximity) and **backwards-looking** (frequency windows). Both extract shared helpers to eliminate duplication while keeping domain-specific thresholds configurable.
+All 6 Activity Domain search services implement `get_prioritized(user_context)` by delegating to a single `score_<domain>(entity, context) -> PriorityScore` function in `core/models/search/scoring.py`. Each scorer composes the same shared component helpers (deadline proximity, priority level, goal alignment, streak protection, knowledge alignment, progress momentum, etc.) with domain-specific weights that sum to 1.0.
 
-### Deadline Proximity Scoring (Goals, Events, Choices)
+The same scorers back `SearchRouter._score_results()` — cross-domain search and per-domain prioritization go through one code path.
 
-Search services use `get_prioritized(user_context)` to rank entities by urgency. Deadline proximity is one scoring factor (0–40 points out of a ~100-point composite).
-
-#### Shared Helper
-
-All deadline-based domains use `score_deadline_proximity()` from `core/utils/timestamp_helpers.py`:
+### Canonical Service Shape
 
 ```python
-from core.utils.timestamp_helpers import score_deadline_proximity
+from core.models.search.scoring import score_goal
+from core.utils.sort_functions import get_result_score
 
-score = score_deadline_proximity(
-    days_until=5,                          # days until deadline (negative = overdue)
-    bands=((0, 40), (7, 35), (30, 25)),    # (max_days, score) pairs, ascending
-    default_score=5,                       # beyond all bands
-)
-# First matching band wins: days_until <= max_days → return score
+@with_error_handling("get_prioritized", error_type="database")
+async def get_prioritized(
+    self, user_context: UserContext, limit: int = 10
+) -> Result[list[Goal]]:
+    result = await self.backend.find_by(user_uid=user_context.user_uid)
+    if result.is_error:
+        return Result.fail(result)
+
+    entities = self._to_domain_models(result.value, GoalDTO, Goal)
+    entities = [e for e in entities if <domain terminal filter>]
+
+    scored = [(e, score_goal(e, user_context).total) for e in entities]
+    scored.sort(key=get_result_score, reverse=True)
+    return Result.ok([e for e, _ in scored[:limit]])
 ```
 
-#### Per-Domain Band Thresholds
+### Component Weights by Domain
 
-Each domain defines `_PROXIMITY_BANDS` and `_PROXIMITY_DEFAULT` as `ClassVar` on its search service. The bands reflect how urgently each domain type demands attention:
+Each `score_<domain>` combines `ComponentScore`s with weights summing to 1.0. `PriorityScore.total` is the weighted sum; `PriorityScore.explain()` and `.components` expose the breakdown for debugging.
 
-| Domain | Date Field | Bands | Default | Rationale |
-|--------|-----------|-------|---------|-----------|
-| **Goals** | `target_date` | `(0,40) (7,35) (30,25) (90,15)` | 5 | Long horizons — monthly/quarterly goals are normal |
-| **Events** | `event_date` | `(0,40) (1,35) (3,30) (7,20)` | 10 | Tight windows — tomorrow's event is urgent |
-| **Choices** | `decision_deadline` | `(0,40) (3,35) (7,30) (14,20)` | 10 | Medium urgency — decisions have natural deliberation time |
+| Domain | Primary components (weights) |
+|--------|-----------------------------|
+| **Task** | Deadline 0.25, Priority 0.15, Goal alignment 0.15, Streak protection 0.15, Knowledge alignment 0.10, Learning alignment 0.10, Context alignment 0.10 |
+| **Goal** | Deadline 0.25, Priority 0.20, Progress momentum 0.25, Context alignment 0.15, Learning alignment 0.15 |
+| **Habit** | Streak protection 0.30, Priority 0.15, Context alignment 0.20, Goal alignment 0.15, Learning alignment 0.20 |
+| **Event** | Deadline 0.30, Goal alignment 0.20, Streak protection 0.20, Event-type bonus 0.15, Context alignment 0.15 |
+| **Choice** | Deadline 0.30, Priority 0.25, High-stakes 0.20, Complexity 0.15, Context alignment 0.10 |
+| **Principle** | Strength 0.30, Review need 0.25, Alignment health 0.20, Actionability 0.25 |
 
-**Domains without deadline scoring:**
-- **Tasks** — uses `task.impact_score()` model method (priority + goal fulfillment), not deadline bands
-- **Habits** — backwards-looking streak logic, not deadline-based
-- **Principles** — strength-based scoring, no deadlines
+Actual weights live in `core/models/search/scoring.py` — check the source when tuning.
 
-#### Composite Score Structure
+### Shared Component Helpers
 
-Deadline proximity is one factor in `_calculate_priority_score()`. The full composite varies by domain:
+Reused by multiple `score_<domain>` functions. Each returns a `ComponentScore` with normalized `[0.0, 1.0]` value + rationale string:
 
-| Domain | Deadline (0–40) | Other factors |
-|--------|----------------|---------------|
-| **Goals** | Proximity bands | Progress momentum (0–30), Priority level (0–20), Context alignment (0–10) |
-| **Events** | Proximity bands | Goal support (0–25), Habit reinforcement (0–25), Event type (0–10) |
-| **Choices** | Proximity bands | Priority level (0–25), High stakes (0–20), Decision complexity (0–15) |
+| Helper | Inputs | Used by |
+|--------|--------|---------|
+| `score_deadline_proximity(target_date)` | Target date, today, urgent/soon day thresholds | Task, Goal, Event, Choice |
+| `score_priority_level(priority)` | `Priority` enum or raw string | Task, Goal, Choice |
+| `score_goal_alignment(goal_uid, context.active_goal_uids)` | Foreign key + active set | Task, Goal, Event, Habit |
+| `score_streak_protection(habit_uid, context.habit_streaks, context.active_habit_uids)` | Habit UID + streak map | Task, Habit, Event |
+| `score_progress_momentum(progress)` | Progress percentage | Goal |
 
 ### Config-Driven Temporal Queries (get_due_soon / get_overdue)
 
@@ -643,23 +650,17 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_due_today()
 
 **See:** `/docs/domains/habits.md` → "Frequency Window Logic" for full details.
 
-### Domains Without Temporal Scoring
-
-- **Tasks** — uses `task.impact_score()` model method (priority + goal fulfillment), not temporal bands
-- **Principles** — strength-based scoring, no time dimension
-
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `core/utils/timestamp_helpers.py` | `score_deadline_proximity()`, `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS`, `week_bounds()`, `month_bounds()`, `prev_month()`, `next_month()`, `week_label()` |
+| `core/models/search/scoring.py` | Unified `score_<domain>` functions + shared `ComponentScore` helpers (`score_deadline_proximity`, `score_priority_level`, `score_goal_alignment`, `score_streak_protection`, `score_progress_momentum`) and the `PriorityScore` dataclass |
+| `core/models/search/search_router.py` | `SearchRouter._score_results()` consumes the same scorers for cross-domain ranking |
+| `core/utils/timestamp_helpers.py` | `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS`, `week_bounds()`, `month_bounds()`, `prev_month()`, `next_month()`, `week_label()` |
 | `core/services/domain_config.py` | `temporal_exclude_statuses`, `temporal_secondary_sort` config fields |
 | `core/services/mixins/time_query_mixin.py` | `get_due_soon()`, `get_overdue()` base implementations |
 | `adapters/persistence/neo4j/query/cypher/domain_queries.py` | `build_due_soon_query()`, `build_overdue_query()` |
-| `core/services/goals/goaps_search_service.py` | `GoalsSearchService._PROXIMITY_BANDS` |
-| `core/services/events/events_search_service.py` | `EventsSearchService._PROXIMITY_BANDS`, `temporal_secondary_sort="start_time"` |
-| `core/services/choices/choices_search_service.py` | `ChoicesSearchService._PROXIMITY_BANDS` |
-| `core/services/habits/habit_search_service.py` | Habit-specific overrides using `get_frequency_window_days()` |
+| `core/services/habits/habits_search_service.py` | Habit-specific frequency-window logic using `get_frequency_window_days()` |
 
 ---
 
