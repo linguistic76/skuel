@@ -484,9 +484,6 @@ def score_task(task: "Task", context: "UserContext") -> PriorityScore:
     """
     Calculate priority score for a task.
 
-    Uses task's existing impact_score() for compatibility,
-    wrapped in the unified PriorityScore structure.
-
     Args:
         task: Task to score
         context: User's current context
@@ -494,10 +491,6 @@ def score_task(task: "Task", context: "UserContext") -> PriorityScore:
     Returns:
         PriorityScore with breakdown
     """
-    # Leverage task's existing impact_score method
-    impact = task.impact_score()
-
-    # Build component scores for transparency
     components: list[ComponentScore] = []
 
     # Deadline component
@@ -554,8 +547,9 @@ def score_task(task: "Task", context: "UserContext") -> PriorityScore:
             )
         )
 
+    total = sum(c.weighted for c in components)
     return PriorityScore(
-        total=impact,
+        total=total,
         components=tuple(components),
         entity_uid=task.uid,
         entity_type="task",
