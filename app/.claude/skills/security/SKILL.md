@@ -16,6 +16,7 @@ SKUEL has a strong security foundation built into the architecture:
 | **Ownership verification** | Returns 404 (not 403) for entities the user doesn't own — no information leakage | Active |
 | **Error stripping** | `@boundary_handler` strips internal details from HTTP responses | Active |
 | **Session security** | SHA-256 hashing, `SameSite=strict`, `HttpOnly`, `Secure` in production | Active |
+| **CSRF protection** | `SameSite=Strict` (primary) + double-submit `csrf_token` cookie verified by `@csrf_protected` | Active |
 | **Path traversal** | `VaultConfig.validate_paths`, `restrict_access`, allowed subdirs/extensions | Active |
 | **Login rate limiting** | Account lockout after failed attempts | Active |
 | **Docker production** | Non-root user, minimal image | Active |
@@ -92,6 +93,33 @@ Internal error details (stack traces, Cypher queries, Neo4j internals) are never
 - Cookies: `HttpOnly=True`, `SameSite=strict`, `Secure=True` in production
 - Session data stored in Neo4j (graph-native, no separate session store)
 
+### CSRF Protection (Double-Submit Token + SameSite)
+
+Primary defense is `SameSite=Strict` on the session cookie — the browser refuses to send it on cross-site POSTs, so forged requests have no identity. Double-submit is the second line so the app stays safe if `SameSite` is ever loosened (cross-subdomain SSO, OAuth embeds) or if an XSS on the same origin forges writes.
+
+`CSRFMiddleware` mints a non-HttpOnly `csrf_token` cookie on first GET and exposes it via a ContextVar. Three mirror paths feed the submitted token back to the server:
+
+1. **Server-render** — `csrf_hidden_input()` emits a hidden form field from the ContextVar
+2. **HTMX header** — `static/js/skuel.js` attaches `X-CSRF-Token` via `htmx:configRequest`
+3. **Native form sync** — capture-phase `submit` handler in `skuel.js` refreshes the hidden input from the cookie before serialization (covers SW-cached HTML, extension-mutated DOM)
+
+State-changing routes wear `@csrf_protected`. The decorator reads header first then form field, constant-time compares against the cookie, returns 403 on mismatch. `SKUEL_CSRF_ENFORCE=false` is a revert lever; production runs enforcement on.
+
+```python
+from adapters.inbound.csrf import csrf_protected, csrf_hidden_input
+
+@rt("/tasks/create", methods=["POST"])
+@csrf_protected
+async def create_task(request): ...
+
+# Hand-built forms need the hidden field (FormGenerator adds it automatically)
+Form(csrf_hidden_input(), ..., method="POST", action="/login/submit")
+```
+
+**CSRF cookie is deliberately `HttpOnly=False`** — JS must read it to echo back via HTMX header. XSS can already post anything as the user; protecting the CSRF token from JS would add no defense against a threat that's already past the perimeter. See `/docs/security/COOKIES_AND_CSRF.md` § 4 for the threat model.
+
+**See:** `/docs/security/COOKIES_AND_CSRF.md` — teaching-focused deep dive on both cookies, the double-submit pattern, and the forward security posture.
+
 ### Path Traversal Protection
 
 `VaultConfig` restricts file access to:
@@ -150,6 +178,7 @@ Network security monitoring is tracked in `/docs/roadmap/network-security-monito
 
 ## References
 
+- `/docs/security/COOKIES_AND_CSRF.md` — teaching-focused deep dive on session + CSRF cookies, double-submit pattern, forward posture
 - `/docs/patterns/AUTH_PATTERNS.md` — authentication and authorization implementation
 - `/docs/security/ROUTE_AUTH_REQUIREMENTS.md` — per-route auth requirements
 - `/docs/patterns/OWNERSHIP_VERIFICATION.md` — ownership verification patterns
