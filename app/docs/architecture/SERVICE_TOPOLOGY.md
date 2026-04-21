@@ -275,8 +275,8 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService     (8 sub-services + 2 facade mixins)
-│   └─ core, search, progress, scheduling, planning, intelligence,
+├─ TasksService     (9 sub-services + 2 facade mixins)
+│   └─ core, search, progress, scheduling, planning, learning, intelligence,
 │      event_handler, knowledge_intelligence
 │   └─ mixins: _OrchestrationMixin, _RelationshipMixin
 │
@@ -301,9 +301,9 @@ Activity Domain Facades (6 total)
     └─ mixins: _EmbodimentMixin, _GravityMixin, _EnrichmentMixin
 ```
 
-**Pattern:** All 6 domains share up to 7 common sub-services via factory: core, search, relationships,
-intelligence (skippable via `skip={}`) + event_handler, learning (Tasks omits), knowledge_intelligence
-(always auto-wired when conditions met). `KnowledgeIntelligenceDelegationMixin` remains for the 4
+**Pattern:** All 6 domains share the same 7 common sub-services via factory: core, search, relationships,
+intelligence (skippable via `skip={}`) + event_handler, learning, knowledge_intelligence
+(always auto-wired). The shape is uniform — no domain opts out. `KnowledgeIntelligenceDelegationMixin` remains for the 4
 delegation method shortcuts but is no longer the wiring path for `knowledge_intelligence`. Cross-domain reads spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), injected as a constructor dependency into facades that need it (Goals, Habits, Choices, Principles). Activity domain stat computation centralized in `core/utils/activity_stats.py` (April 2026).
 
 **Shared Knowledge Intelligence (singleton):**
@@ -708,7 +708,7 @@ CommonSubServices[EventsIntelligenceService]
 - Centralized configuration via `ACTIVITY_DOMAIN_CONFIGS` registry
 - Generic type parameter for intelligence service
 - `skip` parameter covers the first 4 (core/search/relationships/intelligence); event_handler, learning,
-  and knowledge_intelligence are always auto-wired (Tasks omits learning)
+  and knowledge_intelligence are always auto-wired for every domain
 
 ---
 
@@ -758,7 +758,7 @@ BaseService._get_config_value("search_fields")
 1. **Mixin Composition** — 7 focused mixins provide 100+ methods to `BaseService`
 2. **Facade Pattern** — 1 facade per domain delegates to 7–14 specialized sub-services
 3. **Explicit Delegation** — Facade services have explicit `async def` delegation methods (not dynamic generation)
-4. **Factory Pattern** — `create_common_sub_services()` creates up to 7 sub-services from registry: core/search/relationships/intelligence (skippable via `skip={}`) + event_handler, learning (Tasks omits), knowledge_intelligence (always auto-wired when conditions met)
+4. **Factory Pattern** — `create_common_sub_services()` creates the same 7 sub-services for every Activity Domain from the registry: core/search/relationships/intelligence (skippable via `skip={}`) + event_handler, learning, knowledge_intelligence (always auto-wired). The shared shape is the contract for interconnectivity — see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization".
 5. **Configuration Pattern** — `DomainConfig` dataclass is single source of truth
 6. **Event-Driven** — Domain events published for side effects (analytics, achievements, etc.)
 

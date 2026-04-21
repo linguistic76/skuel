@@ -408,10 +408,9 @@ class TasksService(BaseService[TasksOperations, Task]):
     def __init__(self, backend, ...):
         super().__init__(backend, "tasks")
 
-        # Factory creates 7 common sub-services:
+        # Factory creates the same 7 common sub-services for every Activity Domain:
         # core, search, relationships, intelligence (skippable via skip={})
-        # + event_handler, learning*, knowledge_intelligence (always auto-wired)
-        # *Tasks omits learning — no learning_class in its ActivityDomainConfig
+        # + event_handler, learning, knowledge_intelligence (always auto-wired, no domain opts out)
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,
@@ -426,7 +425,7 @@ class TasksService(BaseService[TasksOperations, Task]):
         self.relationships = common.relationships      # UnifiedRelationshipService
         self.intelligence = common.intelligence        # TasksIntelligenceService
         self.event_handler = common.event_handler      # TaskEventHandlerService
-        self.learning = common.learning                # None for Tasks
+        self.learning = common.learning                # TasksLearningService
         self.knowledge_intelligence = common.knowledge_intelligence  # shared singleton
 ```
 

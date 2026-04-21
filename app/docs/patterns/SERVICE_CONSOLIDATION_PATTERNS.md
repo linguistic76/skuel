@@ -33,6 +33,27 @@ For hands-on implementation:
 
 ---
 
+## Foundational Principle: Harmony Without Over-Generalization
+
+The tactical patterns below (DomainConfig, explicit delegation, factory-created sub-services, etc.) exist in service of one design decision: **all 6 Activity Domains share the same seven common sub-services, and no domain opts out.** `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence` — every facade has all seven, produced by `create_common_sub_services()`.
+
+**The shared shape is a contract for interconnectivity, not a cage.** Unified search, user context aggregation, cross-domain relationship queries, the knowledge substance pipeline, ZPD assessment — these all work because every domain exposes the same surface in the same place. When the system asks "what is this user working on today," the answer doesn't care whether it comes from Tasks, Habits, or Events.
+
+**Inside the shape, each domain keeps its voice.** Habits's `completions`/`patterns`, Events's `habit_integration`, Principles's `alignment`, Tasks's `progress`/`scheduling`/`planning` are specific to their domain and belong nowhere else. Facade mixins (`_OrchestrationMixin`, `_GravityMixin`, etc.) organize domain-specific delegation methods by concern without leaking them into the shared layer.
+
+**The harmony enables the uniqueness.** Without the shared shape, every cross-domain operation fragments into a case statement. Without the domain-specific sub-services, the model collapses into a generic "thing with a status" — exactly the over-generalization to avoid. One shape for what a domain owes the system, total freedom for what it owes itself.
+
+**When adding a capability, ask in this order:**
+1. Does it fit in the existing shared shape? (new method on an existing common sub-service)
+2. Is it cross-domain infrastructure all 6 will benefit from? (extend `create_common_sub_services()` — raises the floor for every domain, as the April 2026 Tasks learning extraction did)
+3. Is it genuinely domain-specific? (new domain-specific sub-service or facade mixin — keep it out of the shared layer)
+
+Never promote a capability only one domain uses into a common sub-service. Never push a genuinely domain-specific concern into a shared sub-service.
+
+**See:** `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization" for the canonical statement with examples.
+
+---
+
 ## 1. DomainConfig Dataclass
 
 **Status:** ✅ Production (January 2026)

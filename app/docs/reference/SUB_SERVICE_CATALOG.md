@@ -636,7 +636,7 @@ self.event_handler = TaskEventHandlerService(
     insight_store=insight_store, event_bus=event_bus,
     ku_generation_service=ku_generation_service,  # triggers knowledge gen on TaskCompleted
 )
-self.learning = common.learning                        # auto-wired (None for Tasks, which has no learning service)
+self.learning = common.learning                        # auto-wired (TasksLearningService — uniform across all 6 domains)
 self.knowledge_intelligence = common.knowledge_intelligence  # auto-wired (was via mixin only)
 # core and intelligence created manually when they need domain-specific params
 ```
@@ -660,18 +660,16 @@ config includes a learning class; singleton is passed in).
 
 | Domain | Sub-services | Facade Mixins | Common (factory) | Domain-Specific |
 |--------|-------------|---------------|-----------------|-----------------|
-| Tasks | 8 | 2 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | progress, scheduling, planning |
-| Goals | 10 | 2 | 7 (+ learning) | progress, scheduling, planning |
-| Habits | 12 | 3 | 7 (+ learning) | progress, scheduling, planning, completions, patterns |
-| Events | 10 | 0 | 7 (+ learning) | progress, scheduling, habit_integration |
-| Choices | 7 | 3 | 7 (+ learning) | — |
-| Principles | 10 | 3 | 7 (+ learning) | alignment, planning, reflection |
+| Tasks | 10 | 2 | 7 (core, search, rels, intel, event_handler, learning, knowledge_intelligence) | progress, scheduling, planning |
+| Goals | 10 | 2 | 7 | progress, scheduling, planning |
+| Habits | 12 | 3 | 7 | progress, scheduling, planning, completions, patterns |
+| Events | 10 | 0 | 7 | progress, scheduling, habit_integration |
+| Choices | 7 | 3 | 7 | — |
+| Principles | 10 | 3 | 7 | alignment, planning, reflection |
 
-**Facade Mixins (April 2026):** Goals (2: `_OrchestrationMixin`, `_RelationshipMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (3: `_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). These group related facade delegation methods by concern — methods are not removed from the facade's public API, just organized into mixin files.
+**Facade Mixins (April 2026):** Tasks (2: `_OrchestrationMixin`, `_RelationshipMixin`), Goals (2: `_OrchestrationMixin`, `_RelationshipMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (3: `_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). These group related facade delegation methods by concern — methods are not removed from the facade's public API, just organized into mixin files.
 
-**Common (Tasks):** core, search, relationships, intelligence, event_handler, knowledge_intelligence
-(factory-created; Tasks has no learning service).
-**Common (Goals/Habits/Events/Choices/Principles):** + learning.
+**Common (all 6 domains, uniform):** core, search, relationships, intelligence, event_handler, learning, knowledge_intelligence — factory-created, always the same seven. The shared shape is the contract for interconnectivity (see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization").
 
 Habits has one event service: `HabitEventHandlerService` (reactive fire-and-forget, auto-wired by
 factory as `self.event_handler`). Event scheduling intelligence (recurrence logic, UserContext lookups)
