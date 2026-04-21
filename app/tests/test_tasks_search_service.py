@@ -52,6 +52,10 @@ def mock_backend() -> Any:
     backend.create_relationship = AsyncMock(return_value=Result.ok(True))
     # count_related returns Result[int] for relationship counting
     backend.count_related = AsyncMock(return_value=Result.ok(0))
+    # Temporal raw helpers used by TimeQueryMixin (get_upcoming/get_overdue/get_active)
+    backend.upcoming_raw = AsyncMock(return_value=Result.ok([]))
+    backend.overdue_raw = AsyncMock(return_value=Result.ok([]))
+    backend.active_raw = AsyncMock(return_value=Result.ok([]))
     return backend
 
 
@@ -510,6 +514,130 @@ async def test_search_with_backend_error(search_service, mock_backend):
     result = await search_service.get_tasks_for_goal("goal:test")
 
     # Verify
+    assert result.is_error
+
+
+# ============================================================================
+# HARMONIZED TIME-QUERY SURFACE TESTS (get_upcoming / get_overdue / get_active)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_upcoming_success(search_service, mock_backend, sample_tasks):
+    """get_upcoming forwards date_field + exclusions to backend.upcoming_raw."""
+    # Tasks use due_date as the date_field (DomainConfig).
+    tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
+    mock_backend.upcoming_raw.return_value = Result.ok(tasks_data)
+
+    result = await search_service.get_upcoming(days_ahead=14, user_uid="user:demo", limit=50)
+
+    assert result.is_ok
+    assert len(result.value) == len(sample_tasks)
+    mock_backend.upcoming_raw.assert_awaited_once()
+    kwargs = mock_backend.upcoming_raw.call_args.kwargs
+    assert kwargs["date_field"] == "due_date"
+    assert kwargs["days_ahead"] == 14
+    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["limit"] == 50
+    # Terminal statuses are excluded by default via temporal_exclude_statuses
+    assert set(kwargs["exclude_statuses"]) >= {"completed", "failed", "cancelled", "archived"}
+
+
+@pytest.mark.asyncio
+async def test_get_upcoming_empty(search_service, mock_backend):
+    """get_upcoming returns empty list when backend finds nothing."""
+    mock_backend.upcoming_raw.return_value = Result.ok([])
+
+    result = await search_service.get_upcoming(user_uid="user:demo")
+
+    assert result.is_ok
+    assert result.value == []
+
+
+@pytest.mark.asyncio
+async def test_get_upcoming_error_propagates(search_service, mock_backend):
+    """Backend failure surfaces as Result.fail."""
+    mock_backend.upcoming_raw.return_value = Result.fail(
+        Errors.database("upcoming_raw", "backend down")
+    )
+
+    result = await search_service.get_upcoming()
+
+    assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_success(search_service, mock_backend, sample_tasks):
+    """get_overdue forwards date_field to backend.overdue_raw."""
+    tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
+    mock_backend.overdue_raw.return_value = Result.ok(tasks_data)
+
+    result = await search_service.get_overdue(user_uid="user:demo", limit=25)
+
+    assert result.is_ok
+    assert len(result.value) == len(sample_tasks)
+    mock_backend.overdue_raw.assert_awaited_once()
+    kwargs = mock_backend.overdue_raw.call_args.kwargs
+    assert kwargs["date_field"] == "due_date"
+    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["limit"] == 25
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_admin_path(search_service, mock_backend):
+    """get_overdue allows user_uid=None for admin/system queries."""
+    mock_backend.overdue_raw.return_value = Result.ok([])
+
+    result = await search_service.get_overdue()
+
+    assert result.is_ok
+    kwargs = mock_backend.overdue_raw.call_args.kwargs
+    assert kwargs["user_uid"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_error_propagates(search_service, mock_backend):
+    """Backend failure on overdue surfaces cleanly."""
+    mock_backend.overdue_raw.return_value = Result.fail(Errors.database("overdue_raw", "boom"))
+
+    result = await search_service.get_overdue(user_uid="user:demo")
+
+    assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_get_active_success(search_service, mock_backend, sample_tasks):
+    """get_active delegates to backend.active_raw with terminal exclusions."""
+    tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
+    mock_backend.active_raw.return_value = Result.ok(tasks_data)
+
+    result = await search_service.get_active(user_uid="user:demo", limit=10)
+
+    assert result.is_ok
+    assert len(result.value) == len(sample_tasks)
+    mock_backend.active_raw.assert_awaited_once()
+    kwargs = mock_backend.active_raw.call_args.kwargs
+    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["limit"] == 10
+    assert set(kwargs["exclude_statuses"]) >= {"completed", "failed", "cancelled", "archived"}
+
+
+@pytest.mark.asyncio
+async def test_get_active_requires_user_uid(search_service, mock_backend):
+    """get_active rejects empty user_uid — there is no 'active for nobody' query."""
+    result = await search_service.get_active(user_uid="")
+
+    assert result.is_error
+    mock_backend.active_raw.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_active_error_propagates(search_service, mock_backend):
+    """Backend failure on active surfaces cleanly."""
+    mock_backend.active_raw.return_value = Result.fail(Errors.database("active_raw", "kaput"))
+
+    result = await search_service.get_active(user_uid="user:demo")
+
     assert result.is_error
 
 
