@@ -269,21 +269,45 @@ def test_get_principle_integration_score_at_rich_depth(rich_context: RichUserCon
     assert rich_context.get_principle_integration_score() == 0.75
 
 
-def test_graceful_accessors_return_populated_data_at_rich_depth(
+def test_tasks_by_goal_or_empty_returns_populated_dict_at_rich_depth(
     rich_context: RichUserContext,
 ) -> None:
-    """Graceful accessors must return the populated container at rich depth."""
     assert rich_context.tasks_by_goal_or_empty() == {
         "goal:a": ["task:1", "task:2"],
         "goal:b": ["task:3"],
     }
+
+
+def test_habits_by_goal_or_empty_returns_populated_dict_at_rich_depth(
+    rich_context: RichUserContext,
+) -> None:
     assert rich_context.habits_by_goal_or_empty() == {
         "goal:a": ["habit:x"],
         "goal:c": ["habit:y", "habit:z"],
     }
+
+
+def test_at_risk_habits_or_empty_returns_populated_list_at_rich_depth(
+    rich_context: RichUserContext,
+) -> None:
     assert rich_context.at_risk_habits_or_empty() == ["habit:x", "habit:y"]
+
+
+def test_blocked_task_uids_or_empty_returns_populated_set_at_rich_depth(
+    rich_context: RichUserContext,
+) -> None:
     assert rich_context.blocked_task_uids_or_empty() == {"task:blocked_1", "task:blocked_2"}
+
+
+def test_principle_guided_choice_counts_or_empty_at_rich_depth(
+    rich_context: RichUserContext,
+) -> None:
     assert rich_context.principle_guided_choice_counts_or_empty() == {"principle:minimalism": 3}
+
+
+def test_recent_principle_aligned_choices_or_empty_at_rich_depth(
+    rich_context: RichUserContext,
+) -> None:
     assert rich_context.recent_principle_aligned_choices_or_empty() == ["choice:1", "choice:2"]
 
 
