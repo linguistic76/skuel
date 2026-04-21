@@ -343,12 +343,12 @@ class PrinciplesService(
     ) -> Result[list[Principle]]:
         return await self.search.get_needing_review(user_uid, days_threshold, limit)
 
-    async def get_upcoming_principles(
+    async def get_upcoming(
         self, days_ahead: int = 30, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Principle]]:
         return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
-    async def get_overdue_principles(
+    async def get_overdue(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Principle]]:
         return await self.search.get_overdue(user_uid, limit)

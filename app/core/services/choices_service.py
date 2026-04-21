@@ -160,7 +160,7 @@ class ChoicesService(
     Delegations (explicit methods):
     - Core: get_choice, get_user_choices, get_user_items_in_range
     - Learning: create_choice_with_learning_guidance, suggest_learning_aligned_choices, etc.
-    - Search: search_choices, get_choices_by_status, get_pending_choices, etc.
+    - Search: get_choices_by_status, get_pending_choices, get_upcoming, get_overdue, etc.
     - Intelligence: get_choice_with_context, get_decision_intelligence, get_decision_patterns, etc.
 
     Facade Mixins:
@@ -299,11 +299,6 @@ class ChoicesService(
         return await self.intelligence.get_domain_decision_patterns(user_uid, days)
 
     # Search delegations
-    async def search_choices(
-        self, query: str, limit: int = 50, user_uid: UserUID | None = None
-    ) -> Result[list[Choice]]:
-        return await self.search.search(query, limit, user_uid)
-
     async def get_choices_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Choice]]:
@@ -317,17 +312,17 @@ class ChoicesService(
     ) -> Result[list[Choice]]:
         return await self.search.get_pending(user_uid, limit)
 
-    async def get_upcoming_choices(
+    async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
-    async def get_overdue_choices(
+    async def get_overdue(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         return await self.search.get_overdue(user_uid, limit)
 
-    async def get_active_choices(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
         return await self.search.get_active(user_uid, limit)
 
     async def get_choices_by_urgency(
@@ -521,4 +516,5 @@ class ChoicesService(
 
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations
-    # (search_choices, get_choices_by_status, etc.) delegated via explicit methods above.
+    # (get_choices_by_status, get_pending_choices, get_upcoming, get_overdue, etc.) delegated
+    # via explicit methods above.

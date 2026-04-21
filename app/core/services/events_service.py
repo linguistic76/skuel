@@ -153,7 +153,7 @@ class EventsService(
     - Core CRUD: get_event, get_user_events, find_events, count_events
     - Habits: get_events_for_habit, get_habit_reinforcement_events, etc.
     - Learning: get_learning_events, create_study_session, etc.
-    - Search: search_events, get_calendar_events, get_event_history, etc.
+    - Search: get_calendar_events, get_event_history, get_upcoming, get_overdue, etc.
     - Intelligence: get_event_with_context, analyze_event_performance, etc.
     - Scheduling: optimize_recurring_schedule, create_recurring_events
 
@@ -335,11 +335,6 @@ class EventsService(
         )
 
     # Search delegations
-    async def search_events(
-        self, query: str, limit: int = 50, user_uid: UserUID | None = None
-    ) -> Result[list[Event]]:
-        return await self.search.search(query, limit, user_uid)
-
     async def get_calendar_events(
         self,
         user_uid: UserUID,
@@ -354,17 +349,17 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.search.get_history(user_uid, days_back, limit)
 
-    async def get_upcoming_events(
+    async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
         return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
-    async def get_overdue_events(
+    async def get_overdue(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
         return await self.search.get_overdue(user_uid, limit)
 
-    async def get_active_events(self, user_uid: UserUID, limit: int = 100) -> Result[list[Event]]:
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Event]]:
         return await self.search.get_active(user_uid, limit)
 
     async def get_events_by_status(
@@ -578,8 +573,8 @@ class EventsService(
     # get_next_habit_events
     # - Learning: get_learning_events, get_events_for_learning_path,
     # create_study_session, suggest_spaced_repetition_events, create_learning_path_schedule
-    # - Search: search_events, get_calendar_events, get_event_history, get_upcoming_events,
-    # get_overdue_events, get_events_by_status, get_events_in_range, get_prioritized_events
+    # - Search: get_calendar_events, get_event_history, get_upcoming, get_overdue,
+    # get_active, get_events_by_status, get_events_in_range, get_prioritized_events
     # - Relationships: get_event_cross_domain_context, get_event_with_semantic_context, analyze_event_impact
     # - Intelligence: get_event_with_context, analyze_event_performance, analyze_upcoming_events
     # ========================================================================

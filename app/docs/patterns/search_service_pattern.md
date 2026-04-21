@@ -475,11 +475,12 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         self.relationships = GoalRelationshipService(...)
         # ... other sub-services
 
-    # Delegate search methods to search sub-service
-    async def search_goals(self, query: str, limit: int = 50) -> Result[list[Goal]]:
-        return await self.search.search(query, limit)
-
-    async def get_goals_upcoming(self, days_ahead: int = 7) -> Result[list[Goal]]:
+    # Harmonized search surface — explicit delegation uses the generic method names
+    # (`search`, `get_upcoming`, `get_overdue`, `get_active`). No domain suffix.
+    # Full-text search: callers use `goals_service.search.search(query, limit)` through
+    # the sub-service attribute (facade cannot expose `search()` directly because
+    # `self.search` is the sub-service instance attribute).
+    async def get_upcoming(self, days_ahead: int = 7) -> Result[list[Goal]]:
         return await self.search.get_upcoming(days_ahead)
 ```
 

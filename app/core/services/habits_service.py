@@ -160,7 +160,7 @@ class HabitsService(
     Delegation methods (explicit ~45 methods):
     - Core: get_habit, get_user_habits, list_habits, get_user_items_in_range
     - Progress: complete_habit_with_quality, get_at_risk_habits, analyze_habit_consistency, etc.
-    - Search: search_habits, get_habits_by_status, get_habits_by_domain, etc.
+    - Search: get_habits_by_status, get_habits_by_domain, get_upcoming, get_overdue, etc.
     - Learning: get_learning_habits, create_habit_from_learning_goal, etc.
     - Planning: get_habit_priorities_for_user, get_actionable_habits_for_user, etc.
     - Scheduling: check_habit_capacity, suggest_habit_stacking, etc.
@@ -256,20 +256,15 @@ class HabitsService(
     async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
         return await self.search.get_active(user_uid, limit)
 
-    async def get_upcoming_habits(
+    async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Habit]]:
         return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
-    async def get_overdue_habits(
+    async def get_overdue(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Habit]]:
         return await self.search.get_overdue(user_uid, limit)
-
-    async def search_habits(
-        self, query: str, limit: int = 50, user_uid: UserUID | None = None
-    ) -> Result[list[Habit]]:
-        return await self.search.search(query, limit, user_uid)
 
     async def list_habit_categories(self, user_uid: UserUID) -> Result[list[str]]:
         return await self.search.list_user_categories(user_uid)
