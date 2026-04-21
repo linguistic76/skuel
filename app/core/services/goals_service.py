@@ -444,7 +444,7 @@ class GoalsService(
     ) -> Result[list[Goal]]:
         return await self.search.get_overdue(user_uid, limit)
 
-    async def get_active_goals(self, user_uid: UserUID, limit: int = 100) -> Result[list[Goal]]:
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Goal]]:
         return await self.search.get_active(user_uid, limit)
 
     async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:

@@ -353,9 +353,7 @@ class PrinciplesService(
     ) -> Result[list[Principle]]:
         return await self.search.get_overdue(user_uid, limit)
 
-    async def get_active_principles(
-        self, user_uid: UserUID, limit: int = 100
-    ) -> Result[list[Principle]]:
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Principle]]:
         return await self.search.get_active(user_uid, limit)
 
     async def get_principles_for_goal(

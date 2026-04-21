@@ -253,7 +253,7 @@ class HabitsService(
         return await self.progress.identify_potential_keystone_habits(user_context)
 
     # Search delegations
-    async def get_active_habits(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
         return await self.search.get_active(user_uid, limit)
 
     async def get_upcoming_habits(
