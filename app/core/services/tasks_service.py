@@ -8,7 +8,8 @@ Sub-Services:
 - TasksCoreService: CRUD operations
 - TasksSearchService: Search and discovery (DomainSearchOperations[Task] protocol)
 - TasksProgressService: Progress tracking and completion
-- TasksSchedulingService: Scheduling and learning path integration
+- TasksSchedulingService: Scheduling and context-aware creation
+- TasksLearningService: Learning path integration and learning-aligned suggestions
 - UnifiedRelationshipService (TASKS_CONFIG): Dependencies and relationships
 """
 
@@ -50,6 +51,7 @@ from core.services.tasks import (
     TaskEventHandlerService,
     TasksCoreService,
     TasksIntelligenceService,
+    TasksLearningService,
     TasksPlanningService,
     TasksProgressService,
     TasksSchedulingService,
@@ -237,7 +239,8 @@ class TasksService(
     - Core CRUD: get_task, get_user_tasks, list_tasks, update_task, delete_task
     - Search: get_tasks_for_goal, get_tasks_for_habit, get_prioritized, etc.
     - Progress: check_prerequisites, unblock_task_if_ready, record_task_completion, etc.
-    - Scheduling: create_task_with_context, get_next_learning_task, etc.
+    - Scheduling: create_task_with_context, create_task_with_learning_context, etc.
+    - Learning: get_learning_relevant_tasks, get_next_learning_task, suggest_learning_aligned_tasks
     - Analytics: analyze_learning_patterns, generate_task_insights, etc.
 
     Explicit Methods (custom logic):
@@ -343,6 +346,7 @@ class TasksService(
         # TasksProductivityService shelved (2026-03-28)
 
         # Domain-specific sub-services
+        self.learning: TasksLearningService = common.learning
         self.progress = TasksProgressService(backend=backend, event_bus=event_bus)
         self.scheduling = TasksSchedulingService(backend=backend)
         self.planning = TasksPlanningService(
@@ -366,8 +370,8 @@ class TasksService(
         self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
-            "TasksService facade initialized with 8 sub-services: "
-            "core, search, progress, scheduling, planning, relationships, "
+            "TasksService facade initialized with 9 sub-services: "
+            "core, search, progress, scheduling, planning, learning, relationships, "
             "intelligence, event_handler"
         )
 
@@ -435,7 +439,7 @@ class TasksService(
     async def get_learning_relevant_tasks(
         self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
     ) -> Result[list[Task]]:
-        return await self.search.get_learning_relevant_tasks(user_uid, learning_position, limit)
+        return await self.learning.get_learning_relevant_tasks(user_uid, learning_position, limit)
 
     async def get_curriculum_tasks(self) -> Result[list[Task]]:
         return await self.search.get_curriculum_tasks()
@@ -509,17 +513,15 @@ class TasksService(
     async def create_tasks_from_learning_path(
         self, learning_path_uid: str, _user_context: UserContext
     ) -> Result[list[Task]]:
-        return await self.scheduling.create_tasks_from_learning_path(
-            learning_path_uid, _user_context
-        )
+        return await self.learning.create_tasks_from_learning_path(learning_path_uid, _user_context)
 
     async def get_next_learning_task(self, user_context: UserContext) -> Result[Task | None]:
-        return await self.scheduling.get_next_learning_task(user_context)
+        return await self.learning.get_next_learning_task(user_context)
 
     async def suggest_learning_aligned_tasks(
         self, learning_position: LpPosition, _task_domain: str | None = None, limit: int = 10
     ) -> Result[list[dict[str, Any]]]:
-        return await self.scheduling.suggest_learning_aligned_tasks(
+        return await self.learning.suggest_learning_aligned_tasks(
             learning_position, _task_domain, limit
         )
 

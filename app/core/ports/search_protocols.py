@@ -509,12 +509,6 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
         """Get tasks blocked by unfulfilled prerequisites."""
         ...
 
-    async def get_learning_relevant_tasks(
-        self, user_uid: UserUID, learning_path_uid: str | None = None, limit: int = 20
-    ) -> Result[list["Task"]]:
-        """Get tasks relevant to current learning."""
-        ...
-
     async def get_curriculum_tasks(self) -> Result[list["Task"]]:
         """Get tasks related to curriculum learning."""
         ...

@@ -11,7 +11,6 @@ Handles advanced task search and discovery operations.
 - Search tasks by relationships (goal, habit, knowledge)
 - Smart task prioritization
 - Semantic knowledge search
-- Learning-aligned task discovery
 - Curriculum task filtering
 - Graph-aware faceted search ()
 
@@ -22,7 +21,7 @@ Handles advanced task search and discovery operations.
 
 from __future__ import annotations
 
-from operator import attrgetter, itemgetter
+from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
@@ -32,7 +31,6 @@ if TYPE_CHECKING:
 
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus
-from core.models.pathways.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.search.scoring import score_task
@@ -248,71 +246,6 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
         self.logger.debug(f"Prioritized {len(prioritized)} tasks for user {user_context.user_uid}")
         return Result.ok(prioritized)
-
-    # ========================================================================
-    # LEARNING-ALIGNED DISCOVERY
-    # ========================================================================
-
-    @with_error_handling("get_learning_relevant_tasks", error_type="database", uid_param="user_uid")
-    async def get_learning_relevant_tasks(
-        self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
-    ) -> Result[list[Task]]:
-        """
-        Get tasks most relevant to user's current learning path position.
-
-        Args:
-            user_uid: User identifier,
-            learning_position: User's learning path position,
-            limit: Maximum tasks to return
-
-        Returns:
-            Result containing learning-relevant tasks sorted by relevance
-        """
-        # Get user's tasks
-        tasks_result = await self.backend.get_user_entities(user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        # Unpack tuple (entities, total_count) from get_user_entities
-        entities, _total = tasks_result.value
-
-        # Score tasks by learning relevance
-        all_tasks = self._to_domain_models(entities, TaskDTO, Task)
-        task_scores = []
-        for task in all_tasks:
-            # Skip completed tasks
-            if task.status == EntityStatus.COMPLETED:
-                continue
-
-            # GRAPH-NATIVE: Fetch knowledge relationships from graph
-            applies_knowledge_result = await self.backend.get_related_uids(
-                task.uid, RelationshipName.APPLIES_KNOWLEDGE, direction="outgoing"
-            )
-            task_knowledge_uids = (
-                applies_knowledge_result.value if applies_knowledge_result.is_ok else []
-            )
-
-            task_domain = task.priority if task.priority else "general"
-
-            relevance_score = learning_position.assess_task_relevance(
-                task_domain, task_knowledge_uids
-            )
-            task_scores.append((task, relevance_score))
-
-        # Sort by relevance score (highest first)
-        task_scores.sort(key=itemgetter(1), reverse=True)
-
-        # Return top tasks
-        relevant_tasks = [task for task, score in task_scores[:limit]]
-
-        self.logger.info(
-            "Found %d learning-relevant tasks for user %s (from %d total)",
-            len(relevant_tasks),
-            user_uid,
-            len(tasks_result.value),
-        )
-
-        return Result.ok(relevant_tasks)
 
     # ========================================================================
     # CURRICULUM TASK DISCOVERY

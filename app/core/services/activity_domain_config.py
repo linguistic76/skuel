@@ -65,9 +65,9 @@ class ActivityDomainConfig:
     event_handler_module: str
     event_handler_class: str
 
-    # Learning service (None for Tasks — no LP-integration feature yet)
-    learning_module: str | None
-    learning_class: str | None
+    # Learning service (required for all 6 domains)
+    learning_module: str
+    learning_class: str
 
     # Relationship config
     relationship_config: Any
@@ -88,8 +88,8 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         intelligence_class="TasksIntelligenceService",
         event_handler_module="core.services.tasks.task_event_handler_service",
         event_handler_class="TaskEventHandlerService",
-        learning_module=None,
-        learning_class=None,
+        learning_module="core.services.tasks.tasks_learning_service",
+        learning_class="TasksLearningService",
         relationship_config=TASKS_CONFIG,
         domain_name="tasks",
         entity_label="Task",
@@ -193,7 +193,7 @@ class CommonSubServices(Generic[T_Intelligence]):
     relationships: UnifiedRelationshipService | None
     intelligence: T_Intelligence | None
     event_handler: Any
-    learning: Any  # None for Tasks (no learning service)
+    learning: Any
     knowledge_intelligence: Any  # None unless passed via activity_knowledge_intelligence
 
 
@@ -243,7 +243,7 @@ def create_common_sub_services(
         self.relationships = common.relationships
         self.intelligence = common.intelligence  # Typed as TasksIntelligenceService
         self.event_handler = common.event_handler
-        self.learning = common.learning        # None for Tasks
+        self.learning = common.learning
         self.knowledge_intelligence = common.knowledge_intelligence
     """
     import importlib
@@ -299,16 +299,14 @@ def create_common_sub_services(
         event_bus=event_bus,
     )
 
-    # learning — 5 domains have one; Tasks (learning_module=None) skips
-    learning = None
-    if config.learning_module is not None:
-        learn_module = importlib.import_module(config.learning_module)
-        learn_class = getattr(learn_module, config.learning_class)
-        learning = learn_class(
-            backend=backend,
-            event_bus=event_bus,
-            relationship_service=relationships,
-        )
+    # learning — all 6 domains have one
+    learn_module = importlib.import_module(config.learning_module)
+    learn_class = getattr(learn_module, config.learning_class)
+    learning = learn_class(
+        backend=backend,
+        event_bus=event_bus,
+        relationship_service=relationships,
+    )
 
     return CommonSubServices(
         core=core,

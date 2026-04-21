@@ -11,7 +11,6 @@ This service handles:
 - Knowledge-based task search
 - Blocked task discovery
 - Prioritized task recommendations
-- Learning-relevant task discovery
 - Curriculum task filtering
 """
 
@@ -21,10 +20,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import Domain, EntityStatus, Priority
-from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.lp_position import LpPosition
-from core.models.pathways.path_step import PathStep
+from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
 from core.services.tasks.tasks_search_service import TasksSearchService
@@ -138,45 +134,6 @@ def user_context() -> UserContext:
         completed_task_uids={"task:completed_1", "task:completed_2"},
         active_goal_uids={"goal:learn_python"},
         active_habit_uids={"habit:daily_code"},
-    )
-
-
-@pytest.fixture
-def learning_position() -> LpPosition:
-    """Create sample learning position."""
-    step1 = PathStep(
-        uid="ps:python_fundamentals",
-        title="Python Fundamentals",
-        intent="Learn Python basics",
-        knowledge_uids=("ku.python.basics",),
-        mastery_threshold=0.8,
-        estimated_hours=10.0,
-    )
-    step2 = PathStep(
-        uid="ps:python_advanced",
-        title="Python Advanced",
-        intent="Master advanced Python concepts",
-        knowledge_uids=("ku.python.advanced",),
-        mastery_threshold=0.85,
-        estimated_hours=20.0,
-    )
-
-    path = LearningPath(
-        uid="lp:python_mastery",
-        title="Python Mastery",
-        description="Master Python programming",
-        domain=Domain.TECH,
-        metadata={"steps": [step1, step2]},
-    )
-
-    return LpPosition(
-        user_uid="user:123",
-        active_paths=[path],
-        current_steps={"lp:python_mastery": step1},
-        completed_step_uids=set(),
-        next_recommended=["ps:python_advanced"],
-        generated_at=datetime.now(),
-        readiness_scores={"ps:python_advanced": 0.8},
     )
 
 
@@ -394,34 +351,6 @@ async def test_get_prioritized_respects_limit(
     # Verify
     assert result.is_ok
     assert len(result.value) == 1
-
-
-# ============================================================================
-# LEARNING-RELEVANT TASKS TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_get_learning_relevant_tasks(
-    search_service, mock_backend, sample_tasks, learning_position
-):
-    """Test retrieval of tasks relevant to learning position."""
-    # Setup - get_user_entities returns (entities, total_count) tuple
-    task_data = [t.to_dto().to_dict() for t in sample_tasks]
-    mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
-
-    # Execute
-    result = await search_service.get_learning_relevant_tasks(
-        "user:123", learning_position, limit=3
-    )
-
-    # Verify
-    assert result.is_ok
-    tasks = result.value
-    assert len(tasks) <= 3
-
-    # NOTE: Knowledge alignment verification removed - requires backend queries
-    # Tasks are sorted by relevance score calculated via backend.get_related_uids()
 
 
 # ============================================================================
