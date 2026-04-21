@@ -9,7 +9,7 @@
 **File Structure (decomposed April 2026):**
 | File | Responsibility |
 |------|---------------|
-| `goals_intelligence_service.py` | Shell: `__init__`, `entity_label`, dataclasses (`GoalPrediction`, `HabitImpactAnalysis`) |
+| `goals_intelligence_service.py` | Shell: `__init__` + dataclasses (`GoalPrediction`, `HabitImpactAnalysis`); label attrs resolved via `DomainConfig` |
 | `_core_intelligence_mixin.py` | `get_goal_with_context` (alias for `get_with_context`); inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
 | `_analytics_mixin.py` | `get_performance_analytics`, `get_domain_insights`, `get_goal_progress_dashboard`, `_generate_progress_recommendations` |
 | `_predictive_mixin.py` | `predict_goal_success`, `analyze_habit_impact`, `assess_goal_risk`, `run_scenario_analysis` + all `_calculate_*` / `_identify_*` / `_determine_*` private helpers |

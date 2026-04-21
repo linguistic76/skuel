@@ -830,7 +830,8 @@ assert service._service_name == "principles.intelligence"
 assert service.backend == backend
 assert service.graph_intel == graph_intel
 assert service.relationships == relationships
-assert service.entity_label == "Principle"
+assert service.entity_label == "Entity"  # Neo4j base-label for multi-label matching
+assert service.config_lookup_label == "Principle"  # LABEL_CONFIGS registry key
 ```
 
 ---

@@ -146,7 +146,8 @@ _config = create_curriculum_domain_config(
 |-------|------|---------|---------|
 | `dto_class` | `type` | Required | DTO class for this domain |
 | `model_class` | `type` | Required | Domain model class |
-| `entity_label` | `str \| None` | Auto-inferred | Neo4j label |
+| `entity_label` | `str \| None` | Auto-inferred | Neo4j base-label for multi-label Cypher matching (e.g., `"Entity"`, `"Ku"`) |
+| `config_lookup_label` | `str \| None` | `model_class.__name__` | `LABEL_CONFIGS` registry key (e.g., `"Task"`, `"PathStep"`). Split from `entity_label` on 2026-04-21 — separates Neo4j-match concerns from registry-lookup concerns |
 | `service_name` | `str \| None` | Auto-inferred | Logger name prefix |
 | `date_field` | `str` | `"created_at"` | Field for date range queries |
 | `completed_statuses` | `tuple[str, ...]` | `()` | Status values indicating completion |

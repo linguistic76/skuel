@@ -15,6 +15,8 @@ related: [ADR-017-relationship-service-unification.md, ADR-025-service-consolida
 
 **February 2026 Evolution:** The intermediate `RelationshipConfig`/`domain_configs.py` translation layer described in this ADR has been removed. All consumers now use `DomainRelationshipConfig` directly from `relationship_registry.py`. The `generate_relationship_config()` and `generate_relationship_config_by_label()` functions were deleted. Named configs (e.g., `TASKS_CONFIG`, `KU_CONFIG`) are imported directly from the registry. ~395 lines of translation ceremony removed.
 
+**April 2026 Evolution — entity_label / config_lookup_label split:** The service-layer `DomainConfig` previously carried one `entity_label` attribute doing two jobs (Neo4j base-label + `LABEL_CONFIGS` registry key), papered over by a `LABEL_CONFIGS["Entity"] → PS_CONFIG` backward-compat alias that silently routed Activity Domains to PathStep's relationship patterns. The two jobs are now split: `entity_label` is the Neo4j base-label for multi-label Cypher matching (`"Entity"` or `"Ku"`), `config_lookup_label` is the registry key (defaults to `model_class.__name__`). The `"Entity"` alias was deleted; factories (`create_activity_domain_config`, `create_curriculum_domain_config`) raise `ValueError` if a `config_lookup_label` is missing from `LABEL_CONFIGS`. This does not change the registry-level `DomainRelationshipConfig.entity_label` field, which remains the Neo4j label for that registry entry. See `.claude/skills/activity-domains/SKILL.md` § "Two labels, two jobs" for the in-repo record.
+
 **Decision Type:** ☑ Pattern/Practice
 
 **Related ADRs:**
