@@ -57,6 +57,8 @@ class LifePathIntelligenceMixin:
         Returns:
             Result containing LifePathAlignment with overall score, dimension scores, and insights
         """
+        self.context.require_rich_context("calculate_life_path_alignment")
+
         # Check if user has a life path defined
         if not self.context.life_path_uid:
             return Result.ok(

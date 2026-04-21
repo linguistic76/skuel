@@ -107,6 +107,8 @@ class DailyPlanningMixin:
         Returns:
             Result[DailyWorkPlan] with rationale and priorities
         """
+        self.context.require_rich_context("get_ready_to_work_on_today")
+
         available_time = self.context.available_minutes_daily
 
         # Accumulators for frozen DailyWorkPlan construction

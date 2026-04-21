@@ -543,6 +543,8 @@ class LearningIntelligenceMixin:
         Returns:
             Result containing dict of {domain: [uid_list]} showing application opportunities
         """
+        self.context.require_rich_context("get_knowledge_application_opportunities")
+
         opportunities: dict[str, list[str]] = {
             "tasks": [],
             "habits": [],

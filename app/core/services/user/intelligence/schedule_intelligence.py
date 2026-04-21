@@ -70,6 +70,8 @@ class ScheduleIntelligenceMixin:
         Returns:
             List of ScheduleAwareRecommendation sorted by overall score
         """
+        self.context.require_rich_context("get_schedule_aware_recommendations")
+
         recommendations: list[ScheduleAwareRecommendation] = []
 
         # Calculate available capacity
@@ -175,7 +177,6 @@ class ScheduleIntelligenceMixin:
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware task recommendations."""
-        self.context.require_rich_context("_get_task_schedule_recommendations")
         assert self.context.blocked_task_uids is not None
         recommendations = []
 
@@ -247,7 +248,6 @@ class ScheduleIntelligenceMixin:
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware habit recommendations."""
-        self.context.require_rich_context("_get_habit_schedule_recommendations")
         assert self.context.at_risk_habits is not None
         recommendations = []
 

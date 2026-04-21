@@ -46,7 +46,10 @@ def make_context(
     """Minimal UserContext stand-in for DailyPlanningMixin."""
 
     class _Context:
-        pass
+        is_rich_context = True
+
+        def require_rich_context(self, operation: str) -> None:
+            return None
 
     ctx = _Context()
     ctx.user_uid = user_uid

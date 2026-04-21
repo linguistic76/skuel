@@ -268,31 +268,15 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
 
         Returns:
             Result[list[ContextualTask]] - sorted by priority (highest first)
-            Returns error if entities_rich["tasks"] is not populated
+            Raises RichContextRequiredError if context was not built via build_rich().
         """
         from core.models.context_types import ContextualTask
 
-        # FAIL-FAST: Validate rich context is available
-        rich_tasks = context.entities_rich.get("tasks", [])
-        if not rich_tasks:
-            if len(context.active_task_uids) > 0:
-                # User has active tasks but rich context not populated
-                return Result.fail(
-                    Errors.system(
-                        message=(
-                            f"Rich context not populated for {len(context.active_task_uids)} active tasks. "
-                            "MEGA-QUERY may not have been executed. "
-                            "Use user_service.get_rich_unified_context() to build complete context."
-                        ),
-                        operation="get_actionable_tasks_for_user",
-                    )
-                )
-            # No active tasks - return empty list (not an error)
-            return Result.ok([])
+        context.require_rich_context("get_actionable_tasks_for_user")
 
         # Build lookup from rich context for O(1) access
         rich_tasks_by_uid: dict[str, RichEntityItem] = {}
-        for task_data in rich_tasks:
+        for task_data in context.entities_rich.get("tasks", []):
             task_dict = task_data.get("entity", {})
             uid = task_dict.get("uid")
             if uid:

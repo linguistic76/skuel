@@ -108,31 +108,15 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
 
         Returns:
             Result[list[ContextualGoal]] - sorted by priority (highest first)
-            Returns error if entities_rich["goals"] is not populated
+            Raises RichContextRequiredError if context was not built via build_rich().
         """
         from core.models.context_types import ContextualGoal
 
-        # FAIL-FAST: Validate rich context is available
-        rich_goals = context.entities_rich.get("goals", [])
-        if not rich_goals:
-            if len(context.active_goal_uids) > 0:
-                # User has active goals but rich context not populated
-                return Result.fail(
-                    Errors.system(
-                        message=(
-                            f"Rich context not populated for {len(context.active_goal_uids)} active goals. "
-                            "MEGA-QUERY may not have been executed. "
-                            "Use user_service.get_rich_unified_context() to build complete context."
-                        ),
-                        operation="get_advancing_goals_for_user",
-                    )
-                )
-            # No active goals - return empty list (not an error)
-            return Result.ok([])
+        context.require_rich_context("get_advancing_goals_for_user")
 
         # Build lookup from rich context for O(1) access
         rich_goals_by_uid: dict[str, RichEntityItem] = {}
-        for goal_data in rich_goals:
+        for goal_data in context.entities_rich.get("goals", []):
             goal_dict = goal_data.get("entity", {})
             uid = goal_dict.get("uid")
             if uid:

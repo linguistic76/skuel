@@ -64,6 +64,8 @@ class SynergyIntelligenceMixin:
         Returns:
             Result[list[CrossDomainSynergy]] sorted by score (highest first)
         """
+        self.context.require_rich_context("get_cross_domain_synergies")
+
         synergies: list[CrossDomainSynergy] = []
 
         # Default to all types
@@ -126,7 +128,6 @@ class SynergyIntelligenceMixin:
         **High Leverage:** A habit supporting 3+ goals is extremely valuable.
         Example: "Daily exercise" -> Health goal, Energy goal, Stress reduction goal
         """
-        self.context.require_rich_context("_detect_habit_goal_synergies")
         assert self.context.habits_by_goal is not None
         assert self.context.at_risk_habits is not None
         synergies: list[CrossDomainSynergy] = []
@@ -183,7 +184,6 @@ class SynergyIntelligenceMixin:
 
         Example: "Write morning pages" task -> "Daily journaling" habit
         """
-        self.context.require_rich_context("_detect_task_habit_synergies")
         assert self.context.habits_by_goal is not None
         synergies: list[CrossDomainSynergy] = []
 
