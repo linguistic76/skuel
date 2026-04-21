@@ -78,8 +78,9 @@ class DomainSearchOperations(Protocol[T]):
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
-    - get_due_soon() - Time-based filtering
-    - get_overdue() - Past-due items
+    - get_upcoming() - Entities with upcoming dates / work still to do
+    - get_overdue() - Past-due entities
+    - get_active() - Non-terminal entities owned by the user
 
     Domain-Specific Methods (examples):
     - TaskSearchService: get_tasks_for_goal(), get_curriculum_tasks()

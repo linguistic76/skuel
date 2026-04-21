@@ -187,7 +187,7 @@ BaseService[B: BackendOperations, T: DomainModelProtocol]
     │                get_prerequisites(), get_enables()
     │
     ├─ TimeQueryMixin               ← Depends on ConversionHelpersMixin
-    │   └─ Methods: get_user_items_in_range(), get_due_soon(), get_overdue()
+    │   └─ Methods: get_user_items_in_range(), get_upcoming(), get_overdue(), get_active()
     │
     ├─ UserProgressMixin            ← Depends on ConversionHelpersMixin
     │   └─ Methods: get_user_progress(), update_user_mastery()

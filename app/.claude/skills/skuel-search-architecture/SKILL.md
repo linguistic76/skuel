@@ -174,13 +174,15 @@ scored = [(e, score_<domain>(e, user_context).total) for e in entities]
 scored.sort(key=get_result_score, reverse=True)
 ```
 
-**Frequency Windows (Habits, separate concern):** `get_frequency_window_days()` in `timestamp_helpers.py` powers `get_due_soon()`/`get_overdue()` only — the *prioritization* scorer uses the unified pipeline above.
+**Frequency Windows (Habits, separate concern):** `get_frequency_window_days()` in `timestamp_helpers.py` powers the Habits-specific `get_upcoming()`/`get_overdue()` overrides only — the *prioritization* scorer uses the unified pipeline above.
 
-**Config-Driven Temporal Queries:** `TimeQueryMixin.get_due_soon()` / `get_overdue()` use two `DomainConfig` fields:
+**Config-Driven Temporal Queries:** `TimeQueryMixin.get_upcoming()` / `get_overdue()` / `get_active()` use `DomainConfig` fields:
+- `date_field` — column driving upcoming/overdue (e.g., `target_date`, `decision_deadline`)
 - `temporal_exclude_statuses` — defaults to the 4 `EntityStatus.is_terminal()` values
 - `temporal_secondary_sort` — optional secondary ORDER BY (Events use `"start_time"`)
+- `completed_statuses` — excluded from `get_active` (Goals extend to `("completed", "cancelled")`)
 
-Tasks, Goals, Events, and Choices use the base implementation. Only Habits and Principles override (fundamentally different semantics).
+Tasks, Goals, Events, and Choices use the base implementation. Only Habits and Principles override (fundamentally different semantics — frequency windows / 90-day review threshold).
 
 **See:** `/docs/architecture/SEARCH_ARCHITECTURE.md` → "Priority Scoring — Unified Across 6 Activity Domains" for full weights and breakdown.
 

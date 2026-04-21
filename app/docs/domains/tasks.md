@@ -215,8 +215,9 @@ task, context = await tasks_rel.get_entity_with_context("task:123", depth=2)
 | `get_blocking_tasks(uid, user_uid)` | Tasks blocking this task |
 | `get_blocked_tasks(uid, user_uid)` | Tasks blocked by this task |
 | `get_by_priority(priority, user_uid)` | Filter by priority level |
-| `get_overdue(user_uid)` | Tasks past due date |
-| `get_due_soon(user_uid, days=7)` | Tasks due within N days |
+| `get_upcoming(days_ahead=7, user_uid, limit=100)` | Tasks due within N days (inherited from `TimeQueryMixin`) |
+| `get_overdue(user_uid, limit=100)` | Tasks past due date (inherited) |
+| `get_active(user_uid, limit=100)` | Non-terminal tasks for a user (inherited) |
 | `get_pending(user_uid)` | Tasks with pending status |
 | `search_by_parent_goal(goal_uid, user_uid)` | Tasks fulfilling a goal |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |

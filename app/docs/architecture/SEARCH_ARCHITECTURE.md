@@ -607,19 +607,21 @@ Reused by multiple `score_<domain>` functions. Each returns a `ComponentScore` w
 | `score_streak_protection(habit_uid, context.habit_streaks, context.active_habit_uids)` | Habit UID + streak map | Task, Habit, Event |
 | `score_progress_momentum(progress)` | Progress percentage | Goal |
 
-### Config-Driven Temporal Queries (get_due_soon / get_overdue)
+### Config-Driven Temporal Queries (get_upcoming / get_overdue / get_active)
 
-`TimeQueryMixin` provides `get_due_soon()` and `get_overdue()` using two `DomainConfig` fields:
+`TimeQueryMixin` provides `get_upcoming()`, `get_overdue()`, and `get_active()` using `DomainConfig` fields:
 
 | Config Field | Default | Purpose |
 |-------------|---------|---------|
+| `date_field` | `None` | Column driving `get_upcoming` / `get_overdue` (e.g., `target_date` for Goals, `decision_deadline` for Choices) |
 | `temporal_exclude_statuses` | `("completed", "failed", "cancelled", "archived")` | The 4 `EntityStatus.is_terminal()` values — excludes finished entities |
 | `temporal_secondary_sort` | `None` | Optional secondary ORDER BY (e.g., Events use `"start_time"`) |
+| `completed_statuses` | `("completed",)` | Excluded from `get_active` — Goals extend this with `"cancelled"` |
 
 **Domains using base TimeQueryMixin (no override):** Tasks, Goals, Events, Choices
-**Domains with custom override:** Habits (frequency-based), Principles (strength-based)
+**Domains with custom override:** Habits (frequency-based windows), Principles (90-day review threshold via `is_active` flag)
 
-The base implementation delegates to `build_due_soon_query()` / `build_overdue_query()` in `adapters/persistence/neo4j/query/cypher/domain_queries.py`, which generate Cypher filtered by `temporal_exclude_statuses` and sorted by the domain's `date_field` (+ `temporal_secondary_sort` when set).
+The base implementation delegates to `upcoming_raw()`, `overdue_raw()`, `active_raw()` on `UniversalNeo4jBackend._TemporalMixin`, which generate Cypher filtered by `temporal_exclude_statuses` and sorted by the domain's `date_field` (+ `temporal_secondary_sort` when set).
 
 ### Frequency Window Scoring (Habits)
 
@@ -646,7 +648,7 @@ get_frequency_window_days(None)      # 1 (default)
 **Overdue:** `days_since_last_completion > window_days`
 **Never completed:** always due
 
-Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_due_today()`.
+Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_user_due_today()` (plus the `get_upcoming()`/`get_overdue()` overrides in `HabitsSearchService`).
 
 **See:** `/docs/domains/habits.md` → "Frequency Window Logic" for full details.
 
@@ -657,9 +659,9 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_due_today()
 | `core/models/search/scoring.py` | Unified `score_<domain>` functions + shared `ComponentScore` helpers (`score_deadline_proximity`, `score_priority_level`, `score_goal_alignment`, `score_streak_protection`, `score_progress_momentum`) and the `PriorityScore` dataclass |
 | `core/models/search/search_router.py` | `SearchRouter._score_results()` consumes the same scorers for cross-domain ranking |
 | `core/utils/timestamp_helpers.py` | `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS`, `week_bounds()`, `month_bounds()`, `prev_month()`, `next_month()`, `week_label()` |
-| `core/services/domain_config.py` | `temporal_exclude_statuses`, `temporal_secondary_sort` config fields |
-| `core/services/mixins/time_query_mixin.py` | `get_due_soon()`, `get_overdue()` base implementations |
-| `adapters/persistence/neo4j/query/cypher/domain_queries.py` | `build_due_soon_query()`, `build_overdue_query()` |
+| `core/services/domain_config.py` | `date_field`, `temporal_exclude_statuses`, `temporal_secondary_sort`, `completed_statuses` config fields |
+| `core/services/mixins/time_query_mixin.py` | `get_upcoming()`, `get_overdue()`, `get_active()` base implementations |
+| `adapters/persistence/neo4j/universal_backend.py` | `upcoming_raw()`, `overdue_raw()`, `active_raw()` on the shared `_TemporalMixin` |
 | `core/services/habits/habits_search_service.py` | Habit-specific frequency-window logic using `get_frequency_window_days()` |
 
 ---

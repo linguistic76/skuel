@@ -871,7 +871,7 @@ The BaseService mixins *implement* the backend abstraction. They call `execute_q
 |-------|---------|
 | `SearchOperationsMixin` | `search()`, `get_by_relationship()`, `search_connected_to()` |
 | `RelationshipOperationsMixin` | `get_prerequisites()`, `get_enables()` |
-| `TimeQueryMixin` | `get_user_items_in_range()`, `get_due_soon()`, `get_overdue()` |
+| `TimeQueryMixin` | `get_user_items_in_range()`, `get_upcoming()`, `get_overdue()`, `get_active()` |
 | `ContextOperationsMixin` | `get_with_context()` |
 
 ### Tier 4: Tolerated — Domain Sub-Services

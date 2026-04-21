@@ -225,7 +225,10 @@ The habit model tracks all four components of the habit loop:
 |--------|-------------|
 | `get_by_frequency(frequency, user_uid)` | Filter by frequency (daily/weekly/etc) |
 | `get_by_streak_status(min_streak, user_uid)` | Filter by streak length |
-| `get_active_habits(user_uid)` | Active habits only |
+| `get_active(user_uid)` | Override of `TimeQueryMixin.get_active` — keeps PAUSED alongside ACTIVE |
+| `get_upcoming(days_ahead, user_uid)` | Override — frequency-window logic, not due-date columns |
+| `get_overdue(user_uid)` | Override — frequency-window logic, not due-date columns |
+| `get_user_due_today(user_uid)` | Habits due today (frequency-window) |
 | `get_habits_needing_attention(user_uid)` | Broken streaks or declining |
 | `intelligent_search(query, user_uid, context)` | AI-enhanced search |
 | `get_habits_by_time_of_day(time, user_uid)` | Morning/afternoon/evening habits |
@@ -275,9 +278,9 @@ Unlike deadline-based domains (Goals, Events, Choices), Habits use **backwards-l
 | `monthly` | 30 | `days_since_last >= 30` | `days_since_last > 30` |
 
 **Methods using this logic:**
-- `_is_habit_due_in_window()` — used by `get_due_soon()`
-- `_is_habit_overdue()` — used by `get_overdue()`
-- `get_due_today()` — standalone method for daily planning
+- `_is_habit_due_in_window()` — used by the `get_upcoming()` override
+- `_is_habit_overdue()` — used by the `get_overdue()` override
+- `get_user_due_today()` — standalone method for daily planning
 
 **Never-completed habits** are always considered due. Unknown frequencies default to daily.
 

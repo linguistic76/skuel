@@ -100,13 +100,14 @@ These methods are available on **all services that extend BaseService**.
 
 **Purpose:** Calendar and scheduling queries
 
-**Config fields:** `temporal_exclude_statuses` (default: 4 terminal statuses), `temporal_secondary_sort` (optional secondary ORDER BY)
+**Config fields:** `date_field` (column driving upcoming/overdue), `temporal_exclude_statuses` (default: 4 terminal statuses), `temporal_secondary_sort` (optional secondary ORDER BY), `completed_statuses` (default: `("completed",)`)
 
 | Method | Public |
 |--------|--------|
 | `__init__()` | 🔒 (internal) |
-| `get_due_soon()` | ✅ |
+| `get_upcoming()` | ✅ |
 | `get_overdue()` | ✅ |
+| `get_active()` | ✅ |
 | `get_user_items_in_range()` | ✅ |
 | `get_user_items_in_range_base()` | ✅ |
 
