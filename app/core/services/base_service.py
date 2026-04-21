@@ -195,6 +195,17 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         self.service_name = service_name or self._service_name or self.__class__.__name__
         self.logger = get_logger(f"skuel.services.{self.service_name}")  # type: ignore[assignment]  # structlog BoundLogger
 
+        # Sync DomainConfig values onto the instance so mixins that read
+        # self._dto_class / self._model_class see the configured classes.
+        # Without this, services configured via _config (the modern pattern)
+        # fall through to the None class-level defaults at runtime.
+        config = self._get_config_cls()
+        if config is not None:
+            if getattr(config, "dto_class", None) is not None:
+                self._dto_class = config.dto_class
+            if getattr(config, "model_class", None) is not None:
+                self._model_class = config.model_class
+
         # Log initialization
         self.logger.debug(f"{self.service_name} initialized with BackendOperations backend")
 
