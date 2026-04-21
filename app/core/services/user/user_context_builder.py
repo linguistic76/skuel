@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import UserUID
 from core.models.user import User
 from core.services.user import UserContext
+from core.services.user.unified_user_context import RichUserContext
 from core.services.user.user_context_extractor import UserContextExtractor
 from core.services.user.user_context_populator import UserContextPopulator
 from core.services.user.user_context_queries import UserContextQueryExecutor
@@ -192,7 +193,7 @@ class UserContextBuilder:
         user_uid: UserUID,
         min_confidence: float = 0.7,
         window: str = "30d",
-    ) -> Result[UserContext]:
+    ) -> Result[RichUserContext]:
         """
         Build COMPLETE UserContext with rich fields - handles user resolution internally.
 
@@ -300,7 +301,7 @@ class UserContextBuilder:
         user: User,
         min_confidence: float = 0.7,
         window: str = "30d",
-    ) -> Result[UserContext]:
+    ) -> Result[RichUserContext]:
         """
         Build COMPLETE UserContext with BOTH standard AND rich fields in ONE query.
 
@@ -345,8 +346,9 @@ class UserContextBuilder:
 
         # User.title stores the username (inherited from BaseEntity, see user.py line 101-102)
         # This mapping is intentional: User uses title for username, UserContext exposes it as username
-        # Initialize context with user identity
-        context = UserContext(
+        # Initialize RICH context with user identity — rich-only fields start as
+        # empty containers (narrowed from `X | None`) and get populated below.
+        context = RichUserContext(
             user_uid=user_uid,
             username=user.title,
             email=user.email,

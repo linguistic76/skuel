@@ -60,6 +60,7 @@ if TYPE_CHECKING:
         AskesisRecommendation,
     )
     from core.services.user import UserContext
+    from core.services.user.unified_user_context import RichUserContext
     from core.utils.result_simplified import Result
 
 
@@ -251,7 +252,7 @@ class AskesisDomainSynthesisOperations(Protocol):
 
     async def get_daily_work_plan(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         prioritize_life_path: bool = True,
         respect_capacity: bool = True,
     ) -> Result[DailyWorkPlan]:
@@ -280,7 +281,7 @@ class AskesisDomainSynthesisOperations(Protocol):
 
     async def get_optimal_next_path_steps(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         max_steps: int = 5,
         consider_goals: bool = True,
         consider_capacity: bool = True,
@@ -304,7 +305,9 @@ class AskesisDomainSynthesisOperations(Protocol):
         """
         ...
 
-    async def get_learning_path_critical_path(self, user_context: UserContext) -> Result[list[str]]:
+    async def get_learning_path_critical_path(
+        self, user_context: RichUserContext
+    ) -> Result[list[str]]:
         """Get the critical path to life path alignment.
 
         Calculates the shortest sequence of path steps that maximizes
@@ -319,7 +322,7 @@ class AskesisDomainSynthesisOperations(Protocol):
         ...
 
     async def get_knowledge_application_opportunities(
-        self, user_context: UserContext, ku_uid: str
+        self, user_context: RichUserContext, ku_uid: str
     ) -> Result[dict[str, list[str]]]:
         """Find where knowledge can be applied across Activity Domains.
 
@@ -341,7 +344,7 @@ class AskesisDomainSynthesisOperations(Protocol):
         ...
 
     async def get_unblocking_priority_order(
-        self, user_context: UserContext
+        self, user_context: RichUserContext
     ) -> Result[list[tuple[str, int]]]:
         """Get learning order that unlocks the most downstream items.
 
@@ -358,7 +361,7 @@ class AskesisDomainSynthesisOperations(Protocol):
 
     async def get_cross_domain_synergies(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         min_synergy_score: float = 0.3,
         include_types: list[str] | None = None,
     ) -> Result[list[CrossDomainSynergy]]:
@@ -381,7 +384,7 @@ class AskesisDomainSynthesisOperations(Protocol):
         ...
 
     async def calculate_life_path_alignment(
-        self, user_context: UserContext
+        self, user_context: RichUserContext
     ) -> Result[LifePathAlignment]:
         """Calculate comprehensive life path alignment score.
 
@@ -402,7 +405,7 @@ class AskesisDomainSynthesisOperations(Protocol):
 
     async def get_schedule_aware_recommendations(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         max_recommendations: int = 5,
         time_horizon_hours: int = 8,
         respect_energy: bool = True,

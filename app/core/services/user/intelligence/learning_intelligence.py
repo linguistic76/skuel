@@ -21,7 +21,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 class LearningIntelligenceMixin:
@@ -33,7 +33,7 @@ class LearningIntelligenceMixin:
     Optional: self.zpd_service (ZPDOperations) for curriculum-graph-aware step ranking.
     """
 
-    context: UserContext
+    context: RichUserContext
     tasks: Any  # UnifiedRelationshipService
     ps: Any  # PsService facade
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
@@ -543,8 +543,7 @@ class LearningIntelligenceMixin:
         Returns:
             Result containing dict of {domain: [uid_list]} showing application opportunities
         """
-        self.context.require_rich_context("get_knowledge_application_opportunities")
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         opportunities: dict[str, list[str]] = {
             "tasks": [],
             "habits": [],

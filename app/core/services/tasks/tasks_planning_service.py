@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.ports.query_types import RichEntityItem
     from core.services.cross_domain import CrossDomainQueryService
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext, UserContext
 
 
 class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
@@ -237,7 +237,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     @with_error_handling("get_actionable_tasks_for_user", error_type="database")
     async def get_actionable_tasks_for_user(
         self,
-        context: UserContext,
+        context: RichUserContext,
         limit: int = 10,
     ) -> Result[list[ContextualTask]]:
         """
@@ -272,8 +272,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         """
         from core.models.context_types import ContextualTask
 
-        context.require_rich_context("get_actionable_tasks_for_user")
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         # Build lookup from rich context for O(1) access
         rich_tasks_by_uid: dict[str, RichEntityItem] = {}
         for task_data in context.entities_rich.get("tasks", []):

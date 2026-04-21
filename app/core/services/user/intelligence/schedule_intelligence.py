@@ -22,17 +22,17 @@ from core.models.context_types import ScheduleAwareRecommendation
 from core.models.enums.entity_enums import EntityType
 
 if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 class ScheduleIntelligenceMixin:
     """
     Mixin providing schedule-aware recommendation methods.
 
-    Requires self.context (UserContext).
+    Requires self.context (RichUserContext — rich-only fields are needed).
     """
 
-    context: UserContext
+    context: RichUserContext
 
     # =========================================================================
     # METHOD 8: Schedule-Aware Recommendations
@@ -70,8 +70,7 @@ class ScheduleIntelligenceMixin:
         Returns:
             List of ScheduleAwareRecommendation sorted by overall score
         """
-        self.context.require_rich_context("get_schedule_aware_recommendations")
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         recommendations: list[ScheduleAwareRecommendation] = []
 
         # Calculate available capacity

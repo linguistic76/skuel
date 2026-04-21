@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 from core.models.context_types import DailyWorkPlan, PathStep
 from core.services.user import UserContext
 from core.services.user.intelligence import UserContextIntelligenceFactory
+from core.services.user.unified_user_context import RichUserContext
 from core.services.user.user_activity_service import UserActivityService
 from core.services.user.user_context_builder import UserContextBuilder
 from core.services.user.user_core_service import UserCoreService
@@ -606,7 +607,7 @@ class UserService:
 
     async def get_rich_unified_context(
         self, user_uid: UserUID, min_confidence: float = 0.7
-    ) -> Result[UserContext]:
+    ) -> Result[RichUserContext]:
         """
         Get COMPLETE UserContext with BOTH standard AND rich fields.
 
@@ -750,8 +751,8 @@ class UserService:
                 )
             )
 
-        # Build user context
-        context_result = await self.get_user_context(user_uid)
+        # Build rich user context — intelligence methods consume rich-only fields.
+        context_result = await self.get_rich_unified_context(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)
 
@@ -804,8 +805,8 @@ class UserService:
                 )
             )
 
-        # Build user context
-        context_result = await self.get_user_context(user_uid)
+        # Build rich user context — intelligence methods consume rich-only fields.
+        context_result = await self.get_rich_unified_context(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)
 

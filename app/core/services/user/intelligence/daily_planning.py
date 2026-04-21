@@ -31,7 +31,7 @@ if TYPE_CHECKING:
         ContextualTask,
     )
     from core.ports.filtered_context_protocols import FilteredContextProvider
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 class DailyPlanningMixin:
@@ -46,7 +46,7 @@ class DailyPlanningMixin:
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
 
-    context: UserContext
+    context: RichUserContext
     tasks: Any  # UnifiedRelationshipService
     habits: Any  # UnifiedRelationshipService
     goals: Any  # UnifiedRelationshipService
@@ -107,8 +107,7 @@ class DailyPlanningMixin:
         Returns:
             Result[DailyWorkPlan] with rationale and priorities
         """
-        self.context.require_rich_context("get_ready_to_work_on_today")
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         available_time = self.context.available_minutes_daily
 
         # Accumulators for frozen DailyWorkPlan construction

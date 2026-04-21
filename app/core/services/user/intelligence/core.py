@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
     from core.services.user_entry import UserEntryRelationshipService
 
 
@@ -113,7 +113,7 @@ class UserContextIntelligence(
 
     def __init__(
         self,
-        context: UserContext,
+        context: RichUserContext,
         # Activity Domains (6) - REQUIRED (UnifiedRelationshipService with domain configs)
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,

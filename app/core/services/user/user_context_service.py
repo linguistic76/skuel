@@ -267,13 +267,6 @@ class UserContextService:
 
         # Add insights if requested
         if include_insights:
-            # Use factory to create intelligence instance (requires all 13 domain services)
-            if self.intelligence_factory:
-                intel = self.intelligence_factory.create(context)
-                # intel can be used for advanced intelligence queries here
-                # Currently unused but available for future features
-                _ = intel  # Suppress unused variable warning
-
             ready_to_learn = context.get_ready_to_learn()
 
             summary["insights"] = {

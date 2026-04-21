@@ -17,7 +17,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
     from core.ports.report_protocols import ActivityReportOperations, ReviewQueueOperations
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext, UserContext
     from core.services.user.user_context_builder import UserContextBuilder
     from core.services.user_service import UserService
 
@@ -60,7 +60,7 @@ class ActivityReviewOrchestrator:
 
     async def build_rich_context(
         self, subject_uid: str, window: str = "7d"
-    ) -> "Result[UserContext]":
+    ) -> "Result[RichUserContext]":
         """Build rich UserContext for a subject user. Fails when builder unavailable."""
         if self._context_builder is None:
             return Result.fail(

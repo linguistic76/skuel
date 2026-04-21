@@ -77,6 +77,7 @@ if TYPE_CHECKING:
     from core.models.task.task_request import TaskCreateRequest
     from core.ports.query_types import ListContext
     from core.services.user import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 # TypedDicts for analytics dashboard structure (fixes MyPy index errors)
@@ -536,7 +537,7 @@ class TasksService(
         )
 
     async def get_actionable_tasks_for_user(
-        self, context: UserContext, limit: int = 10
+        self, context: RichUserContext, limit: int = 10
     ) -> Result[list[ContextualTask]]:
         return await self.planning.get_actionable_tasks_for_user(context, limit)
 

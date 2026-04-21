@@ -8,7 +8,7 @@ from UserContext.
 
 import pytest
 
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext, UserContext
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
     choices_active,
@@ -36,15 +36,16 @@ from ui.profile.domain_stats_config import (
 
 
 @pytest.fixture
-def mock_context() -> UserContext:
+def mock_context() -> RichUserContext:
     """
-    Create a mock UserContext with sample data.
+    Create a mock RichUserContext with sample data.
 
-    Uses minimal initialization - UserContext provides defaults for all fields.
+    Uses minimal initialization — RichUserContext provides defaults for all fields.
     """
-    context = UserContext(
+    context = RichUserContext(
         user_uid="user_test_123",
         username="testuser",
+        blocked_task_uids={"task_2"},
     )
 
     # Populate test data by modifying the context object
@@ -52,8 +53,6 @@ def mock_context() -> UserContext:
     context.active_task_uids = ["task_1", "task_2", "task_3"]
     context.completed_task_uids = ["task_4", "task_5"]
     context.overdue_task_uids = ["task_1"]
-    context.blocked_task_uids = {"task_2"}  # rich-only; set[str]
-    context.is_rich_context = True  # rich-only fields require the flag
 
     # Events
     context.upcoming_event_uids = ["event_1", "event_2"]
@@ -67,7 +66,7 @@ def mock_context() -> UserContext:
 
     # Habits
     context.active_habit_uids = ["habit_1", "habit_2", "habit_3"]
-    context.at_risk_habits = ["habit_1"]
+    context.at_risk_habits = ["habit_1"]  # rich-only; RichUserContext narrows to list[str]
 
     # Principles
     context.core_principle_uids = ["principle_1", "principle_2"]

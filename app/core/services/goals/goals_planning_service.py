@@ -42,7 +42,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.context_types import ContextualGoal
     from core.ports.query_types import RichEntityItem
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext, UserContext
 
 
 class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
@@ -74,7 +74,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
     @with_error_handling("get_advancing_goals_for_user", error_type="database")
     async def get_advancing_goals_for_user(
         self,
-        context: UserContext,
+        context: RichUserContext,
         min_progress: float = 0.1,
         limit: int = 10,
     ) -> Result[list[ContextualGoal]]:
@@ -112,8 +112,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
         """
         from core.models.context_types import ContextualGoal
 
-        context.require_rich_context("get_advancing_goals_for_user")
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         # Build lookup from rich context for O(1) access
         rich_goals_by_uid: dict[str, RichEntityItem] = {}
         for goal_data in context.entities_rich.get("goals", []):

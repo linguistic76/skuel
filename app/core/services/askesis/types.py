@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from core.models.askesis.askesis import Askesis
     from core.models.enums import Domain, Priority
     from core.models.zpd.zpd_assessment import ZPDAssessment
-    from core.services.user import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 # ============================================================================
 # ENUMS - INSIGHT & RECOMMENDATION TYPES
@@ -336,4 +336,4 @@ class AskesisContext:
 
     askesis: Askesis
     user_uid: UserUID
-    user_context: UserContext
+    user_context: RichUserContext

@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.tasks_service import TasksService
     from core.services.user.intelligence.factory import UserContextIntelligenceFactory
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 logger = get_logger("skuel.orchestrators.profile")
@@ -162,7 +162,7 @@ class ProfileOrchestrator:
         return await self._ps_service.get_all_user_knowledge_status(user_uid)
 
     async def get_intelligence_data(
-        self, context: "UserContext"
+        self, context: "RichUserContext"
     ) -> "Result[dict[str, Any] | None]":
         """Gather cross-domain intelligence for the Profile Hub.
 

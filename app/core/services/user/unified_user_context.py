@@ -84,7 +84,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard
 
 from core.models.enums import (
     Domain,
@@ -636,19 +636,20 @@ class UserContext:
         """
         Validate this context was built with rich data (build_rich path).
 
-        Some operations require full entity data + graph neighborhoods, not just UIDs.
-        Call this at the start of such operations to fail fast with a clear message.
+        Defensive runtime guard used inside the strict rich-only accessors
+        (``get_tasks_for_goal``, ``get_blocked_tasks``, etc.) so a
+        ``UserContext``-typed value that slipped through static typing still
+        fails loudly.
+
+        Prefer the compile-time guard: type the parameter as
+        ``RichUserContext`` and the subclass's narrowed fields + pinned
+        ``is_rich_context=True`` remove the need for a runtime check.
 
         Args:
             operation: Name of the operation requiring rich context
 
         Raises:
             RichContextRequiredError: If context is not rich (built via build() not build_rich())
-
-        Example:
-            def get_advancing_goals_for_user(self, context: UserContext) -> Result[...]:
-                context.require_rich_context("get_advancing_goals_for_user")
-                # Now safe to access context.entities_rich["goals"]
         """
         if not self.is_rich_context:
             from core.errors import RichContextRequiredError
@@ -1223,9 +1224,65 @@ class UserContext:
 
 
 # =========================================================================
+# RICH USER CONTEXT — static-type split (ADR-like Step B, 2026-04-21)
+# =========================================================================
+
+
+@dataclass
+class RichUserContext(UserContext):
+    """
+    UserContext subclass whose type narrows the seven RICH_ONLY_FIELDS
+    to their populated container types (no `| None`).
+
+    `is_rich_context` is pinned `True`, so the runtime `require_rich_context()`
+    guard is effectively compile-time enforced for any code typed against
+    `RichUserContext`.
+
+    **When to use:**
+    - Builder `build_rich()` / `build_rich_user_context()` return this.
+    - Intelligence services that require rich data declare `context: RichUserContext`.
+    - Planning methods that need rich-only fields take `context: RichUserContext`.
+
+    **mypy note:** narrowing a dataclass field in a subclass needs
+    `type: ignore[assignment]` — this is a well-known mypy limitation
+    (python/mypy#9254), not a design flaw. Six ignores total.
+    """
+
+    # Narrow rich-only containers from `X | None` to `X`.
+    # mypy flags the override as incompatible because `default_factory=...`
+    # changes the effective default from None → empty container.
+    tasks_by_goal: dict[str, list[str]] = field(default_factory=dict)  # type: ignore[assignment]
+    habits_by_goal: dict[str, list[str]] = field(default_factory=dict)  # type: ignore[assignment]
+    at_risk_habits: list[str] = field(default_factory=list)  # type: ignore[assignment]
+    blocked_task_uids: set[str] = field(default_factory=set)  # type: ignore[assignment]
+    principle_guided_choice_counts: dict[str, int] = field(default_factory=dict)  # type: ignore[assignment]
+    recent_principle_aligned_choices: list[str] = field(default_factory=list)  # type: ignore[assignment]
+    principle_integration_score: float = 0.0  # type: ignore[assignment]
+
+    # Pinned: every RichUserContext is — by construction — a rich context.
+    is_rich_context: bool = True
+
+
+def is_rich(ctx: UserContext) -> TypeGuard[RichUserContext]:
+    """
+    Type guard for opportunistic narrowing.
+
+    Use when you hold a `UserContext` and want to call rich-required methods
+    when the context happens to be rich, without a cast:
+
+        if is_rich(ctx):
+            # ctx is narrowed to RichUserContext in this block
+            plan = await intelligence_factory.create(ctx).get_ready_to_work_on_today()
+    """
+    return ctx.is_rich_context
+
+
+# =========================================================================
 # EXPORTS
 # =========================================================================
 
 __all__ = [
     "UserContext",
+    "RichUserContext",
+    "is_rich",
 ]

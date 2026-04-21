@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 from adapters.inbound.auth import require_authenticated_user
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext, UserContext
 from core.utils.logging import get_logger
 from ui.cards import Card, CardBody
 from ui.enum_helpers import get_submission_status_badge_class
@@ -150,7 +150,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     async def _get_context(
         user_uid: UserUID,
-    ) -> UserContext:
+    ) -> RichUserContext:
         """
         Get rich UserContext — single call, includes user identity + role.
 
@@ -158,7 +158,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             user_uid: Authenticated user's UID
 
         Returns:
-            UserContext with ~250 fields including user_role, display_name, username
+            RichUserContext with ~250 fields including user_role, display_name, username
 
         Raises:
             ValueError: If context cannot be loaded

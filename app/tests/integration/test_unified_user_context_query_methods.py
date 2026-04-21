@@ -22,7 +22,7 @@ from datetime import date, timedelta
 import pytest
 
 from core.models.enums import Domain
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext, UserContext
 
 
 class TestTaskQueryMethods:
@@ -44,10 +44,9 @@ class TestTaskQueryMethods:
 
     def test_get_tasks_for_goal(self):
         """Should return tasks contributing to a specific goal"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
-            is_rich_context=True,
             tasks_by_goal={
                 "goal:launch_app": ["task:1", "task:2", "task:3"],
                 "goal:learn_python": ["task:4"],
@@ -66,10 +65,9 @@ class TestTaskQueryMethods:
 
     def test_get_blocked_tasks(self):
         """Should return tasks blocked by prerequisites"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
-            is_rich_context=True,
             blocked_task_uids={"task:blocked_1", "task:blocked_2"},
         )
 
@@ -212,10 +210,9 @@ class TestHabitQueryMethods:
 
     def test_get_habits_needing_reinforcement(self):
         """Should return at-risk habits"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
-            is_rich_context=True,
             at_risk_habits=["habit:meditation", "habit:exercise"],
         )
 
@@ -227,10 +224,9 @@ class TestHabitQueryMethods:
 
     def test_get_habits_for_goal(self):
         """Should return habits supporting a specific goal"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
-            is_rich_context=True,
             habits_by_goal={
                 "goal:fitness": ["habit:run", "habit:yoga", "habit:diet"],
                 "goal:mindfulness": ["habit:meditation"],
@@ -585,11 +581,10 @@ class TestRecommendationMethods:
 
     def test_get_recommended_next_action_at_risk_habits(self):
         """Should recommend habit reinforcement when streaks at risk"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
             is_blocked=False,
-            is_rich_context=True,
             at_risk_habits=["habit:meditation", "habit:exercise", "habit:reading"],
         )
 
@@ -601,11 +596,10 @@ class TestRecommendationMethods:
 
     def test_get_recommended_next_action_overdue(self):
         """Should recommend catching up on overdue tasks"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
             is_blocked=False,
-            is_rich_context=True,
             at_risk_habits=[],
             overdue_task_uids=["task:1", "task:2", "task:3"],
         )
@@ -618,11 +612,10 @@ class TestRecommendationMethods:
 
     def test_get_recommended_next_action_progress_goal(self):
         """Should recommend goal progress when no urgent issues"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
             is_blocked=False,
-            is_rich_context=True,
             at_risk_habits=[],
             overdue_task_uids=[],
             primary_goal_focus="goal:launch_app",

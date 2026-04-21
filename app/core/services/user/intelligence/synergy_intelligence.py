@@ -21,17 +21,17 @@ from core.models.context_types import CrossDomainSynergy
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 class SynergyIntelligenceMixin:
     """
     Mixin providing cross-domain synergy detection methods.
 
-    Requires self.context (UserContext).
+    Requires self.context (RichUserContext — rich-only fields are needed).
     """
 
-    context: UserContext
+    context: RichUserContext
 
     # =========================================================================
     # METHOD 6: Cross-Domain Synergies
@@ -64,8 +64,7 @@ class SynergyIntelligenceMixin:
         Returns:
             Result[list[CrossDomainSynergy]] sorted by score (highest first)
         """
-        self.context.require_rich_context("get_cross_domain_synergies")
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         synergies: list[CrossDomainSynergy] = []
 
         # Default to all types

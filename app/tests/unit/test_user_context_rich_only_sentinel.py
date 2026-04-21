@@ -34,7 +34,7 @@ from __future__ import annotations
 import pytest
 
 from core.errors import RichContextRequiredError
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext, UserContext
 
 # =============================================================================
 # Registry integrity
@@ -208,12 +208,11 @@ def test_recent_principle_aligned_choices_or_empty_at_standard_depth(
 
 
 @pytest.fixture
-def rich_context() -> UserContext:
+def rich_context() -> RichUserContext:
     """Rich-depth context with rich-only fields populated."""
-    return UserContext(
+    return RichUserContext(
         user_uid="user:test",
         username="testuser",
-        is_rich_context=True,
         tasks_by_goal={
             "goal:a": ["task:1", "task:2"],
             "goal:b": ["task:3"],
@@ -230,48 +229,48 @@ def rich_context() -> UserContext:
     )
 
 
-def test_rich_context_is_rich(rich_context: UserContext) -> None:
+def test_rich_context_is_rich(rich_context: RichUserContext) -> None:
     assert rich_context.is_rich_context is True
 
 
-def test_get_tasks_for_goal_at_rich_depth(rich_context: UserContext) -> None:
+def test_get_tasks_for_goal_at_rich_depth(rich_context: RichUserContext) -> None:
     assert rich_context.get_tasks_for_goal("goal:a") == ["task:1", "task:2"]
     assert rich_context.get_tasks_for_goal("goal:missing") == []
 
 
-def test_get_habits_for_goal_at_rich_depth(rich_context: UserContext) -> None:
+def test_get_habits_for_goal_at_rich_depth(rich_context: RichUserContext) -> None:
     assert rich_context.get_habits_for_goal("goal:c") == ["habit:y", "habit:z"]
     assert rich_context.get_habits_for_goal("goal:missing") == []
 
 
-def test_get_blocked_tasks_at_rich_depth(rich_context: UserContext) -> None:
+def test_get_blocked_tasks_at_rich_depth(rich_context: RichUserContext) -> None:
     assert rich_context.get_blocked_tasks() == {"task:blocked_1", "task:blocked_2"}
 
 
 def test_get_habits_needing_reinforcement_at_rich_depth(
-    rich_context: UserContext,
+    rich_context: RichUserContext,
 ) -> None:
     assert rich_context.get_habits_needing_reinforcement() == ["habit:x", "habit:y"]
 
 
 def test_get_principle_guided_choice_counts_at_rich_depth(
-    rich_context: UserContext,
+    rich_context: RichUserContext,
 ) -> None:
     assert rich_context.get_principle_guided_choice_counts() == {"principle:minimalism": 3}
 
 
 def test_get_recent_principle_aligned_choices_at_rich_depth(
-    rich_context: UserContext,
+    rich_context: RichUserContext,
 ) -> None:
     assert rich_context.get_recent_principle_aligned_choices() == ["choice:1", "choice:2"]
 
 
-def test_get_principle_integration_score_at_rich_depth(rich_context: UserContext) -> None:
+def test_get_principle_integration_score_at_rich_depth(rich_context: RichUserContext) -> None:
     assert rich_context.get_principle_integration_score() == 0.75
 
 
 def test_graceful_accessors_return_populated_data_at_rich_depth(
-    rich_context: UserContext,
+    rich_context: RichUserContext,
 ) -> None:
     """Graceful accessors must return the populated container at rich depth."""
     assert rich_context.tasks_by_goal_or_empty() == {
@@ -289,7 +288,7 @@ def test_graceful_accessors_return_populated_data_at_rich_depth(
 
 
 def test_require_rich_context_passes_at_rich_depth(
-    rich_context: UserContext,
+    rich_context: RichUserContext,
 ) -> None:
     rich_context.require_rich_context("custom_op")
 

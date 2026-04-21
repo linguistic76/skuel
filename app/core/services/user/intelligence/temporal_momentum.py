@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import EntityStatus
 
 if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 _ACTIVITY_DOMAINS = ("tasks", "goals", "habits", "events", "choices", "principles")
 
@@ -26,11 +26,11 @@ class TemporalMomentumMixin:
     """
     Mixin providing temporal momentum analysis for daily planning.
 
-    Requires self.context (UserContext) with entities_rich populated.
+    Requires self.context (RichUserContext — entities_rich is rich-only).
     compute_momentum_signals() is synchronous — no await needed.
     """
 
-    context: "UserContext"
+    context: "RichUserContext"
 
     def compute_momentum_signals(self) -> dict[str, Any]:
         """

@@ -30,7 +30,7 @@ from core.models.enums import (
     Personality,
     ResponseTone,
 )
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext, UserContext
 
 
 class TestUnifiedUserContextBasics:
@@ -383,10 +383,9 @@ class TestCrossDomainRelationships:
 
     def test_tasks_by_goal_relationship(self):
         """Should maintain task-goal relationships"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
-            is_rich_context=True,
             tasks_by_goal={
                 "goal:1": ["task:1", "task:2"],
                 "goal:2": ["task:3"],
@@ -400,10 +399,9 @@ class TestCrossDomainRelationships:
 
     def test_habits_by_goal_relationship(self):
         """Should maintain habit-goal relationships"""
-        context = UserContext(
+        context = RichUserContext(
             user_uid="user:test",
             username="testuser",
-            is_rich_context=True,
             habits_by_goal={
                 "goal:fitness": ["habit:run", "habit:yoga"],
                 "goal:learning": ["habit:read"],

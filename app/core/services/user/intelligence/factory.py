@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
     from core.services.user_entry import UserEntryRelationshipService
 
 
@@ -198,12 +198,14 @@ class UserContextIntelligenceFactory:
         # Optional: FilteredContextProvider dict for on-demand domain queries
         self._filtered_providers = filtered_providers or {}
 
-    def create(self, context: UserContext) -> UserContextIntelligence:
+    def create(self, context: RichUserContext) -> UserContextIntelligence:
         """
         Create a UserContextIntelligence instance for the given context.
 
         Args:
-            context: UserContext snapshot for a specific user
+            context: RichUserContext snapshot for a specific user. Must be rich —
+                the intelligence mixins consume rich-only fields that the standard
+                UserContext does not expose.
 
         Returns:
             UserContextIntelligence instance bound to the context

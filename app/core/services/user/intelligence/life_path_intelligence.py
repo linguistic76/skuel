@@ -20,17 +20,17 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_dict_score_getter
 
 if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 class LifePathIntelligenceMixin:
     """
     Mixin providing life path alignment methods.
 
-    Requires self.context (UserContext).
+    Requires self.context (RichUserContext — rich-only fields are needed).
     """
 
-    context: UserContext
+    context: RichUserContext
 
     # =========================================================================
     # METHOD 7: Life Path Alignment
@@ -57,8 +57,7 @@ class LifePathIntelligenceMixin:
         Returns:
             Result containing LifePathAlignment with overall score, dimension scores, and insights
         """
-        self.context.require_rich_context("calculate_life_path_alignment")
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         # Check if user has a life path defined
         if not self.context.life_path_uid:
             return Result.ok(
