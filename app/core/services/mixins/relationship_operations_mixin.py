@@ -61,7 +61,9 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     Required attributes from composing class:
         backend: B - Backend implementation
         logger: Logger - For debug logging
-        entity_label: str - Neo4j node label
+        entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
+        config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep"),
+            used for domain-specific error messages and entity_type metadata.
         _prerequisite_relationships: list[str] - Relationship types for prerequisites
         _records_to_domain_models: Method for DTO conversion
         _validate_prerequisites: Validation hook
@@ -75,7 +77,13 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     @property
     @abstractmethod
     def entity_label(self) -> str:
-        """Entity label - must be provided by composing class."""
+        """Neo4j base-label (e.g., ``"Entity"``, ``"Ku"``) - provided by composing class."""
+        ...
+
+    @property
+    @abstractmethod
+    def config_lookup_label(self) -> str:
+        """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
         ...
 
     @abstractmethod
@@ -319,7 +327,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(
                 Errors.business(
                     rule="prerequisites_not_supported",
-                    message=f"{self.entity_label} domain does not support prerequisites",
+                    message=f"{self.config_lookup_label} domain does not support prerequisites",
                 )
             )
 
@@ -371,7 +379,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         record = records[0]
         hierarchy = {
             "uid": uid,
-            "entity_type": self.entity_label,
+            "entity_type": self.config_lookup_label,
             "parents": [p for p in record.get("parents", []) if p.get("uid")],
             "children": [c for c in record.get("children", []) if c.get("uid")],
         }

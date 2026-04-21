@@ -48,7 +48,9 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
     Required attributes from composing class:
         backend: B - Backend implementation
         logger: Logger - For logging
-        entity_label: str - Neo4j node label
+        entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
+        config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep"),
+            used for domain-specific error messages and logs.
         _supports_user_progress: bool - Enable progress tracking
         _mastery_threshold: float - Threshold for mastery (0.0-1.0)
         _records_to_domain_models: Conversion method
@@ -63,7 +65,13 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
     @property
     @abstractmethod
     def entity_label(self) -> str:
-        """Entity label - must be provided by composing class."""
+        """Neo4j base-label (e.g., ``"Entity"``, ``"Ku"``) - provided by composing class."""
+        ...
+
+    @property
+    @abstractmethod
+    def config_lookup_label(self) -> str:
+        """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
         ...
 
     @abstractmethod
@@ -99,7 +107,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(
                 Errors.business(
                     rule="user_progress_not_supported",
-                    message=f"{self.entity_label} domain does not support user progress tracking",
+                    message=f"{self.config_lookup_label} domain does not support user progress tracking",
                 )
             )
 
@@ -161,7 +169,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(
                 Errors.business(
                     rule="user_progress_not_supported",
-                    message=f"{self.entity_label} domain does not support user progress tracking",
+                    message=f"{self.config_lookup_label} domain does not support user progress tracking",
                 )
             )
 
@@ -221,7 +229,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(
                 Errors.business(
                     rule="user_progress_not_supported",
-                    message=f"{self.entity_label} domain does not support user progress tracking",
+                    message=f"{self.config_lookup_label} domain does not support user progress tracking",
                 )
             )
 
@@ -236,7 +244,9 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(result)
 
         entities = self._records_to_domain_models(result.value)
-        self.logger.debug(f"Found {len(entities)} {self.entity_label} entities for user {user_uid}")
+        self.logger.debug(
+            f"Found {len(entities)} {self.config_lookup_label} entities for user {user_uid}"
+        )
         return Result.ok(entities)
 
 

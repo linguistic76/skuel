@@ -28,7 +28,7 @@ logger = get_logger("skuel.utils.connection_fetcher")
 class ConnectionConfig:
     """Per-domain configuration for connection fetching."""
 
-    entity_label: str
+    config_lookup_label: str
     relationship_types: tuple[str, ...]
     direction: str = "outgoing"  # "outgoing" or "incoming"
 
@@ -36,7 +36,7 @@ class ConnectionConfig:
 # -- Per-domain configs -------------------------------------------------------
 
 TASK_CONNECTION_CONFIG = ConnectionConfig(
-    entity_label="Task",
+    config_lookup_label="Task",
     relationship_types=(
         "FULFILLS_GOAL",
         "REINFORCES_HABIT",
@@ -49,7 +49,7 @@ TASK_CONNECTION_CONFIG = ConnectionConfig(
 )
 
 GOAL_CONNECTION_CONFIG = ConnectionConfig(
-    entity_label="Goal",
+    config_lookup_label="Goal",
     direction="incoming",
     relationship_types=(
         "FULFILLS_GOAL",
@@ -63,7 +63,7 @@ GOAL_CONNECTION_CONFIG = ConnectionConfig(
 )
 
 HABIT_CONNECTION_CONFIG = ConnectionConfig(
-    entity_label="Habit",
+    config_lookup_label="Habit",
     relationship_types=(
         "REINFORCES_GOAL",
         "APPLIES_KNOWLEDGE",
@@ -75,7 +75,7 @@ HABIT_CONNECTION_CONFIG = ConnectionConfig(
 )
 
 EVENT_CONNECTION_CONFIG = ConnectionConfig(
-    entity_label="Event",
+    config_lookup_label="Event",
     relationship_types=(
         "REINFORCES_HABIT",
         "MILESTONE_CELEBRATION_FOR_GOAL",
@@ -88,7 +88,7 @@ EVENT_CONNECTION_CONFIG = ConnectionConfig(
 )
 
 CHOICE_CONNECTION_CONFIG = ConnectionConfig(
-    entity_label="Choice",
+    config_lookup_label="Choice",
     relationship_types=(
         "INFORMS_GOAL_STRATEGY",
         "ENABLES_HABIT",
@@ -99,7 +99,7 @@ CHOICE_CONNECTION_CONFIG = ConnectionConfig(
 )
 
 PRINCIPLE_CONNECTION_CONFIG = ConnectionConfig(
-    entity_label="Principle",
+    config_lookup_label="Principle",
     direction="incoming",
     relationship_types=(
         "EXPRESSES_PRINCIPLE",
@@ -134,7 +134,7 @@ async def fetch_entity_connections(
 
     if config.direction == "outgoing":
         query = f"""
-        MATCH (n:Entity:{config.entity_label})
+        MATCH (n:Entity:{config.config_lookup_label})
         WHERE n.uid IN $uids
         OPTIONAL MATCH (n)-[r]->(other:Entity)
         WHERE type(r) IN $rel_types
@@ -146,7 +146,7 @@ async def fetch_entity_connections(
         """
     else:
         query = f"""
-        MATCH (n:Entity:{config.entity_label})
+        MATCH (n:Entity:{config.config_lookup_label})
         WHERE n.uid IN $uids
         OPTIONAL MATCH (other:Entity)-[r]->(n)
         WHERE type(r) IN $rel_types
@@ -160,7 +160,7 @@ async def fetch_entity_connections(
     try:
         result = await backend.execute_query(query, {"uids": entity_uids, "rel_types": rel_list})
     except Exception:  # safety-net: Neo4j query failure shouldn't break the page
-        logger.warning("Failed to fetch %s connections", config.entity_label, exc_info=True)
+        logger.warning("Failed to fetch %s connections", config.config_lookup_label, exc_info=True)
         return {}
 
     if result.is_error:

@@ -76,7 +76,12 @@ class DomainConfig:
         model_class: The domain model class (e.g., Task)
 
     Optional Fields (with sensible defaults):
-        entity_label: Neo4j label (auto-inferred from model_class if None)
+        entity_label: Neo4j base-label for Cypher matching (e.g., "Entity", "Ku").
+            Auto-inferred from ``model_class.__name__`` as a last resort.
+        config_lookup_label: LABEL_CONFIGS registry key (e.g., "Task", "PathStep").
+            Defaults to ``model_class.__name__``. Distinct from ``entity_label``:
+            the registry key identifies the domain, the Neo4j label identifies
+            how to match in Cypher.
         service_name: Logger name prefix (e.g., "tasks.search")
         date_field: Field for date range queries (default: "created_at")
         completed_statuses: Status values indicating completion
@@ -229,12 +234,20 @@ class DomainConfig:
 
         Returns:
             Config lookup label (e.g., "Task", "Goal", "PathStep")
+
+        Raises:
+            ValueError: If no ``config_lookup_label`` is set and no ``model_class``
+                is available to infer one from. The factories fail-fast at
+                construction time; this guards services that bypass the factories.
         """
         if self.config_lookup_label:
             return self.config_lookup_label
         if self.model_class:
             return self.model_class.__name__
-        return "Entity"
+        raise ValueError(
+            "DomainConfig.config_lookup_label is unresolvable: "
+            "pass config_lookup_label explicitly or set model_class."
+        )
 
     def get_service_name(self) -> str:
         """

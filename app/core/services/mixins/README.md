@@ -273,7 +273,8 @@ class MockService(SearchOperationsMixin):
     def __init__(self, backend):
         self.backend = backend
         self.logger = get_logger("test")
-        self.entity_label = "TestEntity"
+        self.entity_label = "Entity"  # Neo4j base-label for Cypher matching
+        self.config_lookup_label = "TestEntity"  # LABEL_CONFIGS registry key
         self._dto_class = TestDTO
         self._model_class = TestModel
         self._search_fields = ["title", "description"]

@@ -444,7 +444,7 @@ def _build_scoring_weights(
 # -----------------------------------------------------------------------------
 TASKS_CONFIG = DomainRelationshipConfig(
     domain=Domain.TASKS,
-    entity_label="Task",
+    entity_label="Entity",
     dto_class=TaskDTO,
     model_class=Task,
     backend_get_method="get_task",
@@ -653,7 +653,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 GOAPS_CONFIG = DomainRelationshipConfig(
     domain=Domain.GOALS,
-    entity_label="Goal",
+    entity_label="Entity",
     dto_class=GoalDTO,
     model_class=Goal,
     backend_get_method="get",
@@ -1002,7 +1002,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 EVENTS_CONFIG = DomainRelationshipConfig(
     domain=Domain.EVENTS,
-    entity_label="Event",
+    entity_label="Entity",
     dto_class=EventDTO,
     model_class=Entity,
     backend_get_method="get_event",

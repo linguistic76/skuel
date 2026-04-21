@@ -42,7 +42,9 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
     Required attributes from composing class:
         backend: B - Backend implementation
         logger: Logger - For debug logging
-        entity_label: str - Neo4j node label
+        entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
+        config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep"),
+            used for domain-specific logs.
         service_name: str - For error messages
         _date_field: str - Date field for range queries
         _completed_statuses: list[str] - Statuses to exclude
@@ -64,7 +66,13 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
     @property
     @abstractmethod
     def entity_label(self) -> str:
-        """Entity label - must be provided by composing class."""
+        """Neo4j base-label (e.g., ``"Entity"``, ``"Ku"``) - provided by composing class."""
+        ...
+
+    @property
+    @abstractmethod
+    def config_lookup_label(self) -> str:
+        """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
         ...
 
     @abstractmethod
@@ -133,7 +141,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         items = self._to_domain_models(results.value, dto_class, model_class)
 
         self.logger.debug(
-            f"Found {len(items)} {self.entity_label}(s) for user {user_uid} "
+            f"Found {len(items)} {self.config_lookup_label}(s) for user {user_uid} "
             f"in range {start_date} to {end_date}"
         )
 
@@ -244,7 +252,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
         self.logger.debug(
-            f"Found {len(items)} {self.entity_label}(s) upcoming within {days_ahead} days"
+            f"Found {len(items)} {self.config_lookup_label}(s) upcoming within {days_ahead} days"
         )
 
         return Result.ok(items)
@@ -295,7 +303,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
-        self.logger.debug(f"Found {len(items)} overdue {self.entity_label}(s)")
+        self.logger.debug(f"Found {len(items)} overdue {self.config_lookup_label}(s)")
 
         return Result.ok(items)
 
@@ -341,7 +349,9 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
-        self.logger.debug(f"Found {len(items)} active {self.entity_label}(s) for user {user_uid}")
+        self.logger.debug(
+            f"Found {len(items)} active {self.config_lookup_label}(s) for user {user_uid}"
+        )
 
         return Result.ok(items)
 

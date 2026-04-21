@@ -51,7 +51,8 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     Required attributes from composing class:
         backend: B - Backend implementation
         logger: Logger - For logging
-        entity_label: str - Neo4j node label
+        entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
+        config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep")
         _content_field: str - Field containing content
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
@@ -111,7 +112,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         entity = entity_result.value
         if entity is None:
-            return Result.fail(Errors.not_found(resource=self.entity_label, identifier=uid))
+            return Result.fail(Errors.not_found(resource=self.config_lookup_label, identifier=uid))
 
         # Check if content is already populated in entity
         content: str | None = getattr(entity, self._content_field, None)
@@ -176,7 +177,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         records = result.value
         if not records or len(records) == 0:
-            return Result.fail(Errors.not_found(resource=self.entity_label, identifier=uid))
+            return Result.fail(Errors.not_found(resource=self.config_lookup_label, identifier=uid))
 
         record = records[0]
         return self._parse_context_result(record, LABEL_CONFIGS.get(self.config_lookup_label))
@@ -209,7 +210,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         records = result.value
         if not records or len(records) == 0:
-            return Result.fail(Errors.not_found(resource=self.entity_label, identifier=uid))
+            return Result.fail(Errors.not_found(resource=self.config_lookup_label, identifier=uid))
 
         record = records[0]
         node_data = record.get(self.config_lookup_label.lower(), record.get("n", {}))
@@ -218,7 +219,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not self._dto_class or not self._model_class:
             return Result.fail(
                 Errors.system(
-                    message=f"{self.entity_label} service must configure _dto_class and _model_class",
+                    message=f"{self.config_lookup_label} service must configure _dto_class and _model_class",
                     operation="_basic_get_with_context",
                 )
             )
