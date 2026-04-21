@@ -125,13 +125,9 @@ tasks_result = await search.get_tasks_for_goal(goal_uid)
 
 **Example:**
 ```python
-from core.services.tasks import TasksLearningMetricsService
-
-learning_metrics = TasksLearningMetricsService(
-    backend=backend,
-    relationship_service=rels,
-)
-metrics_result = await learning_metrics.analyze_task_learning_metrics(user_uid)
+# analyze_task_learning_metrics lives on TasksIntelligenceService (April 2026:
+# TasksLearningMetricsService retired, methods folded into _productivity_mixin).
+metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 ```
 
 ---
@@ -664,7 +660,7 @@ config includes a learning class; singleton is passed in).
 
 | Domain | Sub-services | Facade Mixins | Common (factory) | Domain-Specific |
 |--------|-------------|---------------|-----------------|-----------------|
-| Tasks | 9 | 2 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | learning_metrics, progress, scheduling, planning |
+| Tasks | 8 | 2 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | progress, scheduling, planning |
 | Goals | 10 | 2 | 7 (+ learning) | progress, scheduling, planning |
 | Habits | 12 | 3 | 7 (+ learning) | progress, scheduling, planning, completions, patterns |
 | Events | 10 | 0 | 7 (+ learning) | progress, scheduling, habit_integration |
@@ -780,8 +776,9 @@ result = await tasks.scheduling.create_task_with_context(
 ### Pattern: Graph Analytics
 
 ```python
-# TasksLearningMetricsService
-metrics_result = await tasks.learning_metrics.analyze_task_learning_metrics(user_uid)
+# TasksIntelligenceService — learning-metrics methods are on the intelligence
+# service since the April 2026 symmetry refactor.
+metrics_result = await tasks.intelligence.analyze_task_learning_metrics(user_uid)
 ```
 
 **Pure Cypher analytics:**

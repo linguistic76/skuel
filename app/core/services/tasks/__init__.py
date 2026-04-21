@@ -16,8 +16,7 @@ Sub-Services:
 - TasksProgressService: Progress tracking, completion with cascade
 - TasksSchedulingService: Scheduling, capacity management
 - TasksPlanningService: Context-aware planning and recommendations
-- TasksIntelligenceService: Pure Cypher analytics (NO AI dependencies)
-- TasksLearningMetricsService: Task-level learning metrics via Task model
+- TasksIntelligenceService: Pure Cypher analytics, learning metrics (NO AI dependencies)
 - TaskEventHandlerService: Event-driven reactive handlers
 - TasksAIService: SHELVED (2026-03-28)
 - TasksProductivityService: SHELVED (2026-03-28)
@@ -46,7 +45,6 @@ Architecture Notes:
 from core.services.tasks.task_event_handler_service import TaskEventHandlerService
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
-from core.services.tasks.tasks_learning_metrics_service import TasksLearningMetricsService
 from core.services.tasks.tasks_planning_service import TasksPlanningService
 from core.services.tasks.tasks_progress_service import TasksProgressService
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
@@ -58,7 +56,6 @@ __all__ = [
     "TaskEventHandlerService",
     "TasksCoreService",
     "TasksIntelligenceService",
-    "TasksLearningMetricsService",
     "TasksPlanningService",
     "TasksProgressService",
     "TasksSchedulingService",

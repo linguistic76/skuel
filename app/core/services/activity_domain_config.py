@@ -65,7 +65,7 @@ class ActivityDomainConfig:
     event_handler_module: str
     event_handler_class: str
 
-    # Learning service (None for Tasks, which uses learning_metrics instead)
+    # Learning service (None for Tasks — no LP-integration feature yet)
     learning_module: str | None
     learning_class: str | None
 

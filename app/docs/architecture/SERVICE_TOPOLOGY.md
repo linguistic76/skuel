@@ -49,7 +49,6 @@ Services with **both** a root-level facade AND a subfolder of sub-services.
     tasks_planning_service.py
     tasks_ai_service.py
     tasks_productivity_service.py
-    tasks_learning_metrics_service.py
     task_relationships.py   # Relationship config (not a service)
 ```
 
@@ -265,11 +264,6 @@ TasksService (Facade)
     │   ├─ Responsibility: Dual-track productivity assessment (ADR-030)
     │   └─ Methods: assess_productivity_dual_track()
     │
-    ├─ self.learning_metrics: TasksLearningMetricsService
-    │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
-    │   ├─ Responsibility: Task-level learning metrics via Task model
-    │   └─ Methods: analyze_task_learning_metrics(), generate_task_knowledge_insights()
-    │
     └─ self.event_handler: TaskEventHandlerService
         ├─ Extends: N/A (standalone service)
         ├─ Responsibility: Event-driven reactive handlers (fire-and-forget)
@@ -281,9 +275,9 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService     (9 sub-services + 2 facade mixins)
+├─ TasksService     (8 sub-services + 2 facade mixins)
 │   └─ core, search, progress, scheduling, planning, intelligence,
-│      learning_metrics, event_handler, knowledge_intelligence
+│      event_handler, knowledge_intelligence
 │   └─ mixins: _OrchestrationMixin, _RelationshipMixin
 │
 ├─ GoalsService      (10 sub-services + 2 facade mixins)

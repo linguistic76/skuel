@@ -8,16 +8,21 @@ Architecture: Shell delegates to 3 focused mixins in this directory:
   _core_intelligence_mixin.py    — get_task_with_context, categorize_cross_domain_context
   _analytics_mixin.py            — get_behavioral_insights, performance helpers
   _productivity_mixin.py         — analyze_learning_patterns, calculate_knowledge_aware_priorities,
-                                   generate_task_insights, track_knowledge_mastery_progression
+                                   generate_task_insights, track_knowledge_mastery_progression,
+                                   analyze_task_learning_metrics, generate_task_knowledge_insights
 
 Created: Original November 2025
 Updated: January 2026 - Migrated to BaseAnalyticsService (ADR-030)
 Updated: April 2026 - Decomposed into focused mixins
+Updated: April 2026 - Absorbed TasksLearningMetricsService (symmetry refactor):
+  its two methods were task-level analytics mis-labeled as a "learning" service;
+  folded back into _productivity_mixin alongside sibling analytics methods.
 
 Provides:
 - Behavioral insights and patterns (task-specific)
 - Performance analytics and optimization (task-specific)
 - Cross-domain context categorization (task-specific)
+- Task-level learning metrics (knowledge complexity, bridge detection, mastery)
 
 Domain-agnostic knowledge intelligence (knowledge suggestions, prerequisites,
 learning opportunities) was extracted to ActivityKnowledgeIntelligenceService
@@ -25,7 +30,6 @@ learning opportunities) was extracted to ActivityKnowledgeIntelligenceService
 
 Related sub-services (extracted March 2026):
 - TasksProductivityService: Dual-track productivity assessment (ADR-030)
-- TasksLearningMetricsService: Task-level learning metrics via Task model
 - ActivityKnowledgeIntelligenceService: Knowledge intelligence (all domains)
 
 NOTE: This service does NOT use AI (LLM/embeddings).

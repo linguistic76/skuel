@@ -50,7 +50,6 @@ from core.services.tasks import (
     TaskEventHandlerService,
     TasksCoreService,
     TasksIntelligenceService,
-    TasksLearningMetricsService,
     TasksPlanningService,
     TasksProgressService,
     TasksSchedulingService,
@@ -275,10 +274,6 @@ class TasksService(
     intelligence: TasksIntelligenceService
     ai: TasksAIService | None
     # TasksProductivityService shelved (2026-03-28)
-    # NOTE: Named 'learning_metrics' intentionally — provides task-level analytics (completion
-    # patterns, knowledge mastery). Other domains' 'learning' services link entities to
-    # curriculum paths; Tasks has no such service. This asymmetry is architectural, not an oversight.
-    learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService
 
     def __init__(
@@ -347,13 +342,6 @@ class TasksService(
 
         # TasksProductivityService shelved (2026-03-28)
 
-        # Task-level learning metrics (uses Task model + TaskRelationships)
-        self.learning_metrics: TasksLearningMetricsService = TasksLearningMetricsService(
-            backend=backend,
-            relationship_service=self.relationships,
-            event_bus=event_bus,
-        )
-
         # Domain-specific sub-services
         self.progress = TasksProgressService(backend=backend, event_bus=event_bus)
         self.scheduling = TasksSchedulingService(backend=backend)
@@ -378,9 +366,9 @@ class TasksService(
         self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
-            "TasksService facade initialized with 9 sub-services: "
+            "TasksService facade initialized with 8 sub-services: "
             "core, search, progress, scheduling, planning, relationships, "
-            "intelligence, learning_metrics, event_handler"
+            "intelligence, event_handler"
         )
 
     # ========================================================================
@@ -590,12 +578,12 @@ class TasksService(
     async def analyze_task_learning_metrics(
         self, _filters: dict[str, Any] | None = None
     ) -> Result[list[dict[str, Any]]]:
-        return await self.learning_metrics.analyze_task_learning_metrics(_filters)
+        return await self.intelligence.analyze_task_learning_metrics(_filters)
 
     async def generate_task_knowledge_insights(
         self, _domain_filter: str | None = None
     ) -> Result[dict[str, Any]]:
-        return await self.learning_metrics.generate_task_knowledge_insights(_domain_filter)
+        return await self.intelligence.generate_task_knowledge_insights(_domain_filter)
 
     # ========================================================================
     # EXPLICIT CORE METHODS (custom logic)
