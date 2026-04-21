@@ -514,7 +514,7 @@ def from_dto(cls, dto: TaskDTO, rels: TaskRelationships | None = None) -> TaskRe
         urgency_score=task.urgency_score(),
         is_learning_task=task.is_learning_task(),
         progress_percentage=task.progress_percentage(),
-        impact_score=task.impact_score(),
+        learning_alignment_score=task.learning_alignment_score(),
     )
 ```
 
@@ -538,7 +538,7 @@ response: TaskResponse = TaskResponse(
     urgency_score=6,
     is_learning_task=True,
     progress_percentage=0.0,
-    impact_score=0.45,
+    learning_alignment_score=0.45,
 )
 ```
 
@@ -566,7 +566,7 @@ return Result.ok(response)
   "urgency_score": 6,
   "is_learning_task": true,
   "progress_percentage": 0.0,
-  "impact_score": 0.45
+  "learning_alignment_score": 0.45
 }
 ```
 

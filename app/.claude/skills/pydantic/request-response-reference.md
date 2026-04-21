@@ -178,7 +178,7 @@ class TaskResponse(ResponseBase):
     uid: str
     title: str
     is_overdue: bool  # Computed
-    impact_score: float  # Computed
+    learning_alignment_score: float  # Computed
 
     @classmethod
     def from_dto(
@@ -201,7 +201,7 @@ class TaskResponse(ResponseBase):
             updated_at=dto.updated_at,
             # Computed from domain model
             is_overdue=task.is_overdue(),
-            impact_score=task.calculate_impact_score(),
+            learning_alignment_score=task.learning_alignment_score(),
             days_until_due=task.days_until_due(),
             # From graph relationships
             subtask_uids=list(relationships.subtask_uids) if relationships else [],

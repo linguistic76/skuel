@@ -189,7 +189,6 @@ class TaskResponse(ResponseBase):
     days_until_due: int | None
     progress_percentage: float
     learning_alignment_score: float
-    impact_score: float
 
 
 class TaskFilterRequest(FilterRequestBase):

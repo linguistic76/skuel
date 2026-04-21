@@ -115,7 +115,7 @@ class BiDirectionalDemo:
         task = Task.from_dto(dto)
 
         print(f"   ✓ Domain: {task.uid} (Immutable, with business logic)")
-        print(f"      - Impact Score: {task.impact_score():.2f}")
+        print(f"      - Learning Alignment: {task.learning_alignment_score():.2f}")
         print(f"      - Learning Task: {task.applies_knowledge_uids}")
         print(f"      - Updates Goal: {task.completion_updates_goal}")
 
@@ -131,7 +131,9 @@ class BiDirectionalDemo:
         assert task.priority == task_restored.priority
         assert task.fulfills_goal_uid == task_restored.fulfills_goal_uid
         assert task.applies_knowledge_uids == task_restored.applies_knowledge_uids
-        assert abs(task.impact_score() - task_restored.impact_score()) < 0.01
+        assert (
+            abs(task.learning_alignment_score() - task_restored.learning_alignment_score()) < 0.01
+        )
 
         print("   ✅ Bidirectional integrity verified!")
 
@@ -333,12 +335,12 @@ class BiDirectionalDemo:
         )
 
         task = Task.from_dto(dto)
-        impact_score = task.impact_score()
+        alignment = task.learning_alignment_score()
 
-        print(f"   ✓ Task impact calculated: {impact_score:.2f}")
-        print("      - Based on goal contribution")
-        print("      - Knowledge application")
-        print("      - Priority level")
+        print(f"   ✓ Task learning alignment: {alignment:.2f}")
+        print("      - Path step linkage")
+        print("      - Learning path linkage")
+        print("      - Knowledge mastery check")
 
         return context
 
@@ -367,12 +369,12 @@ class BiDirectionalDemo:
         print("   ✓ Domain model created with business logic")
 
         # Test business logic methods
-        impact = task.impact_score()
+        alignment = task.learning_alignment_score()
         has_prereqs = task.has_prerequisites()
         will_update_goal = task.completion_updates_goal
         applies_knowledge = len(task.applies_knowledge_uids)
 
-        print(f"      - Impact score: {impact:.2f}")
+        print(f"      - Learning alignment: {alignment:.2f}")
         print(f"      - Has prerequisites: {has_prereqs}")
         print(f"      - Updates goal: {will_update_goal}")
         print(f"      - Knowledge units: {applies_knowledge}")
@@ -406,11 +408,11 @@ class BiDirectionalDemo:
         print("4. Service integration with business logic")
 
         # Show how services use business logic
-        priority_score = task.impact_score()
+        alignment_score = task.learning_alignment_score()
 
-        if priority_score > 0.7:
+        if alignment_score > 0.7:
             scheduling_priority = "HIGH"
-        elif priority_score > 0.4:
+        elif alignment_score > 0.4:
             scheduling_priority = "MEDIUM"
         else:
             scheduling_priority = "LOW"

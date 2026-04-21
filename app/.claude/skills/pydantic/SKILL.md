@@ -401,7 +401,7 @@ class TaskResponse(ResponseBase):
     # Computed fields (from domain model business logic)
     is_overdue: bool
     is_recurring: bool
-    impact_score: float
+    learning_alignment_score: float
 
     @classmethod
     def from_dto(
@@ -424,7 +424,7 @@ class TaskResponse(ResponseBase):
             # Computed from domain model
             is_overdue=task.is_overdue(),
             is_recurring=task.is_recurring(),
-            impact_score=task.impact_score(),
+            learning_alignment_score=task.learning_alignment_score(),
             # From graph relationships
             subtask_uids=list(rels.subtask_uids) if rels else [],
         )

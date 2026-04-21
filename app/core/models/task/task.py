@@ -11,7 +11,7 @@ Inherits common fields from UserOwnedEntity. Adds 25 task-specific fields:
 - Progress impact (6): goal contribution, knowledge mastery, habit streak
 - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
 
-Task-specific methods: impact_score, learning_alignment_score, is_overdue,
+Task-specific methods: learning_alignment_score, is_overdue,
 days_remaining, get_summary, category, parent_goal_uid.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
@@ -114,20 +114,6 @@ class Task(UserOwnedEntity):
     # =========================================================================
     # TASK-SPECIFIC METHODS
     # =========================================================================
-
-    def impact_score(self) -> float:
-        """Calculate task impact score based on priority and knowledge connections."""
-        from contextlib import suppress
-
-        from core.models.enums.activity_enums import Priority
-
-        base = 0.5
-        if self.priority:
-            with suppress(ValueError, KeyError):
-                base = Priority(self.priority).to_numeric() / 4.0
-        if self.fulfills_goal_uid:
-            base = min(1.0, base + 0.2)
-        return base
 
     def learning_alignment_score(self) -> float:
         """Score for how well a task aligns with learning paths."""
