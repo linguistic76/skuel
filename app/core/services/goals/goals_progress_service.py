@@ -320,8 +320,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 f"Context-first: Goal {goal_uid} progress calculation used rich context (saved queries)"
             )
 
-        # Get goal tasks from context
-        goal_tasks = list(user_context.tasks_by_goal.get(goal_uid, []))
+        # Get goal tasks from context (tasks_by_goal is rich-context only)
+        goal_tasks = (
+            list(user_context.get_tasks_for_goal(goal_uid)) if user_context.is_rich_context else []
+        )
 
         # Get supporting habit UIDs from relationships
         supporting_habit_uids = list(rels.supporting_habit_uids) if rels else []

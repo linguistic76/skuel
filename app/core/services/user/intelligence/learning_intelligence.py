@@ -566,7 +566,7 @@ class LearningIntelligenceMixin:
         for habit_uid in self.context.active_habit_uids:
             for goal_uid in opportunities["goals"]:
                 if (
-                    habit_uid in self.context.habits_by_goal.get(goal_uid, [])
+                    habit_uid in self.context.get_habits_for_goal(goal_uid)
                     and habit_uid not in opportunities["habits"]
                 ):
                     opportunities["habits"].append(habit_uid)

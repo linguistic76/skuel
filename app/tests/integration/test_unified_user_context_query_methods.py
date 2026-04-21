@@ -47,6 +47,7 @@ class TestTaskQueryMethods:
         context = UserContext(
             user_uid="user:test",
             username="testuser",
+            is_rich_context=True,
             tasks_by_goal={
                 "goal:launch_app": ["task:1", "task:2", "task:3"],
                 "goal:learn_python": ["task:4"],
@@ -68,6 +69,7 @@ class TestTaskQueryMethods:
         context = UserContext(
             user_uid="user:test",
             username="testuser",
+            is_rich_context=True,
             blocked_task_uids={"task:blocked_1", "task:blocked_2"},
         )
 
@@ -213,6 +215,7 @@ class TestHabitQueryMethods:
         context = UserContext(
             user_uid="user:test",
             username="testuser",
+            is_rich_context=True,
             at_risk_habits=["habit:meditation", "habit:exercise"],
         )
 
@@ -227,6 +230,7 @@ class TestHabitQueryMethods:
         context = UserContext(
             user_uid="user:test",
             username="testuser",
+            is_rich_context=True,
             habits_by_goal={
                 "goal:fitness": ["habit:run", "habit:yoga", "habit:diet"],
                 "goal:mindfulness": ["habit:meditation"],
@@ -585,6 +589,7 @@ class TestRecommendationMethods:
             user_uid="user:test",
             username="testuser",
             is_blocked=False,
+            is_rich_context=True,
             at_risk_habits=["habit:meditation", "habit:exercise", "habit:reading"],
         )
 
@@ -600,6 +605,7 @@ class TestRecommendationMethods:
             user_uid="user:test",
             username="testuser",
             is_blocked=False,
+            is_rich_context=True,
             at_risk_habits=[],
             overdue_task_uids=["task:1", "task:2", "task:3"],
         )
@@ -616,6 +622,7 @@ class TestRecommendationMethods:
             user_uid="user:test",
             username="testuser",
             is_blocked=False,
+            is_rich_context=True,
             at_risk_habits=[],
             overdue_task_uids=[],
             primary_goal_focus="goal:launch_app",

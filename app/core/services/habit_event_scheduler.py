@@ -256,7 +256,13 @@ class HabitEventScheduler:
         """
         maintenance_events = []
 
-        for habit_uid in user_context.at_risk_habits:
+        # at_risk_habits is rich-context only; no maintenance to schedule at standard depth
+        at_risk = (
+            user_context.at_risk_habits
+            if user_context.is_rich_context and user_context.at_risk_habits
+            else []
+        )
+        for habit_uid in at_risk:
             # Get habit details
             habit_result = await self.habits_backend.get_habit(habit_uid)
             if habit_result.is_error:
@@ -452,8 +458,13 @@ class HabitEventScheduler:
                     # Store all goals in metadata
                     event.metadata["supports_goals"] = list(rels.linked_goal_uids)
 
-                # Set priority based on habit importance
-                if habit.is_keystone or habit.uid in user_context.at_risk_habits:
+                # Set priority based on habit importance (at_risk_habits is rich-context only)
+                at_risk_habits = (
+                    user_context.at_risk_habits
+                    if user_context.is_rich_context and user_context.at_risk_habits
+                    else []
+                )
+                if habit.is_keystone or habit.uid in at_risk_habits:
                     event.priority = Priority.HIGH
                 else:
                     event.priority = habit.priority or Priority.MEDIUM

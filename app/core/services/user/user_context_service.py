@@ -150,7 +150,7 @@ class UserContextService:
                 "overdue_count": len(context.overdue_task_uids),
                 "today_count": len(context.today_task_uids),
                 "current_focus": context.current_task_focus,
-                "blocked_count": len(context.blocked_task_uids),
+                "blocked_count": len(context.blocked_task_uids) if context.blocked_task_uids else 0,
             },
             # Goal overview
             "goals": {
@@ -163,7 +163,7 @@ class UserContextService:
             # Habit overview
             "habits": {
                 "active_count": len(context.active_habit_uids),
-                "at_risk_count": len(context.at_risk_habits),
+                "at_risk_count": len(context.at_risk_habits) if context.at_risk_habits else 0,
                 "keystone_count": len(context.keystone_habits),
                 "daily_count": len(context.daily_habits),
                 "weekly_count": len(context.weekly_habits),
@@ -250,7 +250,7 @@ class UserContextService:
                 "task_focus": context.current_task_focus,
                 "goal_focus": context.primary_goal_focus,
                 "overdue_tasks": context.overdue_task_uids[:3],  # Top 3
-                "at_risk_habits": context.at_risk_habits[:3],  # Top 3
+                "at_risk_habits": context.at_risk_habits[:3] if context.at_risk_habits else [],
             },
             # Key metrics
             "key_metrics": {
@@ -278,7 +278,9 @@ class UserContextService:
 
             summary["insights"] = {
                 "ready_to_learn_count": len(ready_to_learn),
-                "blocked_items_count": len(context.blocked_task_uids),
+                "blocked_items_count": len(context.blocked_task_uids)
+                if context.blocked_task_uids
+                else 0,
                 "capacity_utilization": context.current_workload_score,  # Already 0-1 score
             }
 
@@ -349,20 +351,20 @@ class UserContextService:
 
         context = context_result.value
 
+        # at_risk_habits is rich-context only; empty at standard build depth
+        at_risk = (
+            context.at_risk_habits if context.is_rich_context and context.at_risk_habits else []
+        )
         at_risk_data = {
             "user_uid": user_uid,
-            "at_risk_habits": context.at_risk_habits,
+            "at_risk_habits": at_risk,
             "habit_streaks": {
-                uid: streak
-                for uid, streak in context.habit_streaks.items()
-                if uid in context.at_risk_habits
+                uid: streak for uid, streak in context.habit_streaks.items() if uid in at_risk
             },
             "completion_rates": {
-                uid: rate
-                for uid, rate in context.habit_completion_rates.items()
-                if uid in context.at_risk_habits
+                uid: rate for uid, rate in context.habit_completion_rates.items() if uid in at_risk
             },
-            "count": len(context.at_risk_habits),
+            "count": len(at_risk),
         }
 
         return Result.ok(at_risk_data)
@@ -843,25 +845,31 @@ class UserContextService:
                 }
             )
 
-        # At-risk habits alert
-        if len(context.at_risk_habits) > 0:
+        # At-risk habits alert (rich-context only; no alert at standard depth)
+        if context.is_rich_context and context.at_risk_habits:
+            at_risk_count = len(context.at_risk_habits)
             alerts.append(
                 {
                     "type": "at_risk_habits",
                     "severity": "medium",
-                    "message": f"{len(context.at_risk_habits)} habits need attention",
-                    "item_count": len(context.at_risk_habits),
+                    "message": f"{at_risk_count} habits need attention",
+                    "item_count": at_risk_count,
                 }
             )
 
-        # Blocked tasks alert
-        if len(context.blocked_task_uids) > 3:
+        # Blocked tasks alert (rich-context only)
+        if (
+            context.is_rich_context
+            and context.blocked_task_uids
+            and len(context.blocked_task_uids) > 3
+        ):
+            blocked_count = len(context.blocked_task_uids)
             alerts.append(
                 {
                     "type": "blocked_tasks",
                     "severity": "medium",
-                    "message": f"{len(context.blocked_task_uids)} tasks are blocked",
-                    "item_count": len(context.blocked_task_uids),
+                    "message": f"{blocked_count} tasks are blocked",
+                    "item_count": blocked_count,
                 }
             )
 

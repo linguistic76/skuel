@@ -377,7 +377,8 @@ class ResponseGenerator:
         parts.append(f"Active Tasks: {len(ctx.active_task_uids)}")
         if ctx.overdue_task_uids:
             parts.append(f"Overdue: {len(ctx.overdue_task_uids)} tasks")
-        if ctx.blocked_task_uids:
+        # blocked_task_uids is rich-context only; omit section at standard depth
+        if ctx.is_rich_context and ctx.blocked_task_uids:
             parts.append(f"Blocked: {len(ctx.blocked_task_uids)} tasks")
         if ctx.today_task_uids:
             parts.append(f"Due Today: {len(ctx.today_task_uids)} tasks")
@@ -413,7 +414,8 @@ class ResponseGenerator:
             avg_streak = sum(ctx.habit_streaks.values()) / len(ctx.habit_streaks)
             parts.append(f"Longest Streak: {max_streak} days")
             parts.append(f"Average Streak: {avg_streak:.1f} days")
-        if ctx.at_risk_habits:
+        # at_risk_habits is rich-context only; omit at standard depth
+        if ctx.is_rich_context and ctx.at_risk_habits:
             parts.append(f"At Risk: {len(ctx.at_risk_habits)} habits need attention")
 
     @staticmethod
@@ -475,15 +477,16 @@ class ResponseGenerator:
         """
         actions = []
 
-        # Critical actions first (at-risk habits, overdue tasks)
-        if user_context.at_risk_habits:
+        # Critical actions first (at_risk_habits is rich-context only)
+        if user_context.is_rich_context and user_context.at_risk_habits:
+            at_risk = user_context.at_risk_habits
             actions.append(
                 {
                     "priority": "critical",
                     "action": "reinforce_habits",
-                    "description": f"Maintain {len(user_context.at_risk_habits)} at-risk habits",
+                    "description": f"Maintain {len(at_risk)} at-risk habits",
                     "entity_type": "habits",
-                    "entity_count": len(user_context.at_risk_habits),
+                    "entity_count": len(at_risk),
                 }
             )
 

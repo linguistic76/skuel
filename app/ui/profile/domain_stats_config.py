@@ -71,8 +71,12 @@ def tasks_active(ctx: UserContext) -> int:
 
 
 def tasks_status_args(ctx: UserContext) -> tuple[int, int]:
-    """Extract status args for tasks (overdue_count, blocked_count)."""
-    return (len(ctx.overdue_task_uids), len(ctx.blocked_task_uids))
+    """Extract status args for tasks (overdue_count, blocked_count).
+
+    blocked_task_uids is rich-context only; treated as 0 at standard depth.
+    """
+    blocked_count = len(ctx.blocked_task_uids) if ctx.blocked_task_uids else 0
+    return (len(ctx.overdue_task_uids), blocked_count)
 
 
 # Events domain extractors
@@ -119,8 +123,12 @@ def habits_active(ctx: UserContext) -> int:
 
 
 def habits_status_args(ctx: UserContext) -> tuple[int]:
-    """Extract status args for habits (at_risk_count)."""
-    return (len(ctx.at_risk_habits),)
+    """Extract status args for habits (at_risk_count).
+
+    at_risk_habits is rich-context only; treated as 0 at standard depth.
+    """
+    at_risk_count = len(ctx.at_risk_habits) if ctx.at_risk_habits else 0
+    return (at_risk_count,)
 
 
 # Principles domain extractors

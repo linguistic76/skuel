@@ -386,12 +386,14 @@ class TestCrossDomainRelationships:
         context = UserContext(
             user_uid="user:test",
             username="testuser",
+            is_rich_context=True,
             tasks_by_goal={
                 "goal:1": ["task:1", "task:2"],
                 "goal:2": ["task:3"],
             },
         )
 
+        assert context.tasks_by_goal is not None
         assert len(context.tasks_by_goal["goal:1"]) == 2
         assert "task:1" in context.tasks_by_goal["goal:1"]
         assert len(context.tasks_by_goal["goal:2"]) == 1
@@ -401,12 +403,14 @@ class TestCrossDomainRelationships:
         context = UserContext(
             user_uid="user:test",
             username="testuser",
+            is_rich_context=True,
             habits_by_goal={
                 "goal:fitness": ["habit:run", "habit:yoga"],
                 "goal:learning": ["habit:read"],
             },
         )
 
+        assert context.habits_by_goal is not None
         assert len(context.habits_by_goal["goal:fitness"]) == 2
         assert "habit:run" in context.habits_by_goal["goal:fitness"]
 

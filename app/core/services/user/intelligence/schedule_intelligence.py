@@ -175,6 +175,8 @@ class ScheduleIntelligenceMixin:
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware task recommendations."""
+        self.context.require_rich_context("_get_task_schedule_recommendations")
+        assert self.context.blocked_task_uids is not None
         recommendations = []
 
         # Prioritize overdue tasks
@@ -245,6 +247,8 @@ class ScheduleIntelligenceMixin:
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware habit recommendations."""
+        self.context.require_rich_context("_get_habit_schedule_recommendations")
+        assert self.context.at_risk_habits is not None
         recommendations = []
 
         # Prioritize at-risk habits (streak protection)

@@ -52,7 +52,8 @@ def mock_context() -> UserContext:
     context.active_task_uids = ["task_1", "task_2", "task_3"]
     context.completed_task_uids = ["task_4", "task_5"]
     context.overdue_task_uids = ["task_1"]
-    context.blocked_task_uids = ["task_2"]
+    context.blocked_task_uids = {"task_2"}  # rich-only; set[str]
+    context.is_rich_context = True  # rich-only fields require the flag
 
     # Events
     context.upcoming_event_uids = ["event_1", "event_2"]

@@ -144,9 +144,10 @@ class TestProtocolUsagePatterns:
         """Functions can accept TaskAwareness and receive UserContext."""
 
         def get_blocked_count(ctx: TaskAwareness) -> int:
-            return len(ctx.blocked_task_uids)
+            return len(ctx.blocked_task_uids) if ctx.blocked_task_uids is not None else 0
 
         context = UserContext(user_uid="test", username="test")
+        context.is_rich_context = True
         context.blocked_task_uids = {"task1", "task2", "task3"}
 
         # UserContext satisfies TaskAwareness
@@ -171,9 +172,10 @@ class TestProtocolUsagePatterns:
         """Functions can accept HabitAwareness and receive UserContext."""
 
         def get_at_risk_count(ctx: HabitAwareness) -> int:
-            return len(ctx.at_risk_habits)
+            return len(ctx.at_risk_habits) if ctx.at_risk_habits is not None else 0
 
         context = UserContext(user_uid="test", username="test")
+        context.is_rich_context = True
         context.at_risk_habits = ["habit1", "habit2"]
 
         result = get_at_risk_count(context)

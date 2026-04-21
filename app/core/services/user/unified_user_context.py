@@ -84,7 +84,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.enums import (
     Domain,
@@ -171,6 +171,21 @@ class UserContext:
     # Standard (build) = UIDs only, Rich (build_rich) = UIDs + full entities + graph neighborhoods
     is_rich_context: bool = False  # Set to True by build_rich() path
 
+    # Rich-only derived fields. None at standard depth — populated only by
+    # build_rich() via populate_derived_fields() / populate_principle_choice_integration().
+    # Reading these at standard depth should raise RichContextRequiredError; the
+    # public accessor methods enforce that.
+    RICH_ONLY_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "tasks_by_goal",
+            "habits_by_goal",
+            "at_risk_habits",
+            "blocked_task_uids",
+            "principle_guided_choice_counts",
+            "recent_principle_aligned_choices",
+        }
+    )
+
     # =========================================================================
     # TASK AWARENESS - Complete task state understanding
     # =========================================================================
@@ -178,11 +193,11 @@ class UserContext:
     current_task_focus: str | None = None
     task_priorities: dict[str, float] = field(default_factory=dict)  # uid -> priority (0-1)
     completed_task_uids: set[str] = field(default_factory=set)
-    blocked_task_uids: set[str] = field(default_factory=set)
+    blocked_task_uids: set[str] | None = field(default=None)  # RICH-ONLY (see RICH_ONLY_FIELDS)
     task_progress: dict[str, float] = field(default_factory=dict)  # uid -> completion %
 
-    # Task-Goal relationships
-    tasks_by_goal: dict[str, list[str]] = field(default_factory=dict)  # goal_uid -> task_uids
+    # Task-Goal relationships (RICH-ONLY — see RICH_ONLY_FIELDS)
+    tasks_by_goal: dict[str, list[str]] | None = field(default=None)  # goal_uid -> task_uids
     milestone_tasks: list[str] = field(default_factory=list)
 
     # Task scheduling
@@ -232,15 +247,15 @@ class UserContext:
     active_habit_uids: list[str] = field(default_factory=list)
     habit_streaks: dict[str, int] = field(default_factory=dict)  # uid -> current streak
     habit_completion_rates: dict[str, float] = field(default_factory=dict)  # uid -> rate
-    at_risk_habits: list[str] = field(default_factory=list)  # Need attention
+    at_risk_habits: list[str] | None = field(default=None)  # RICH-ONLY (see RICH_ONLY_FIELDS)
 
     # Habit categorization
     keystone_habits: list[str] = field(default_factory=list)
     daily_habits: list[str] = field(default_factory=list)
     weekly_habits: list[str] = field(default_factory=list)
 
-    # Habit-Goal relationships
-    habits_by_goal: dict[str, list[str]] = field(default_factory=dict)  # goal_uid -> habit_uids
+    # Habit-Goal relationships (RICH-ONLY — see RICH_ONLY_FIELDS)
+    habits_by_goal: dict[str, list[str]] | None = field(default=None)  # goal_uid -> habit_uids
 
     # =========================================================================
     # KNOWLEDGE & LEARNING PATH AWARENESS
@@ -349,15 +364,17 @@ class UserContext:
     decisions_against_principles: int = 0
 
     # Principle-choice integration tracking (January 2026)
-    principle_guided_choice_counts: dict[str, int] = field(
-        default_factory=dict
+    # RICH-ONLY — see RICH_ONLY_FIELDS
+    principle_guided_choice_counts: dict[str, int] | None = field(
+        default=None
     )  # principle_uid -> count of guided choices
     principle_choice_satisfaction_avg: dict[str, float] = field(
         default_factory=dict
     )  # principle_uid -> avg satisfaction (0.0-1.0)
     principle_integration_score: float = 0.0  # Overall principle-choice integration (0.0-1.0)
-    recent_principle_aligned_choices: list[str] = field(
-        default_factory=list
+    # RICH-ONLY — see RICH_ONLY_FIELDS
+    recent_principle_aligned_choices: list[str] | None = field(
+        default=None
     )  # Last 10 principle-aligned choice UIDs
 
     # =========================================================================
@@ -666,12 +683,16 @@ class UserContext:
         return self.today_task_uids
 
     def get_tasks_for_goal(self, goal_uid: str) -> list[str]:
-        """Get all tasks contributing to a specific goal"""
+        """Get all tasks contributing to a specific goal. Requires rich context."""
+        self.require_rich_context("get_tasks_for_goal")
+        assert self.tasks_by_goal is not None
         return self.tasks_by_goal.get(goal_uid, [])
 
-    def get_blocked_tasks(self) -> list[str]:
-        """Get tasks blocked by prerequisites"""
-        return list(self.blocked_task_uids)
+    def get_blocked_tasks(self) -> set[str]:
+        """Get tasks blocked by prerequisites. Requires rich context."""
+        self.require_rich_context("get_blocked_tasks")
+        assert self.blocked_task_uids is not None
+        return self.blocked_task_uids
 
     def get_high_impact_tasks(self, threshold: float = 0.7) -> list[str]:
         """Get tasks with high goal contribution"""
@@ -726,11 +747,15 @@ class UserContext:
     # =========================================================================
 
     def get_habits_needing_reinforcement(self) -> list[str]:
-        """Get habits that need attention to maintain streaks"""
+        """Get habits that need attention to maintain streaks. Requires rich context."""
+        self.require_rich_context("get_habits_needing_reinforcement")
+        assert self.at_risk_habits is not None
         return self.at_risk_habits
 
     def get_habits_for_goal(self, goal_uid: str) -> list[str]:
-        """Get habits supporting a specific goal"""
+        """Get habits supporting a specific goal. Requires rich context."""
+        self.require_rich_context("get_habits_for_goal")
+        assert self.habits_by_goal is not None
         return self.habits_by_goal.get(goal_uid, [])
 
     def get_high_impact_habits(self) -> list[str]:
@@ -1055,8 +1080,8 @@ class UserContext:
                 "action": "complete_prerequisites",
                 "items": list(self.prerequisites_needed.keys())[:3],
             }
-        elif self.at_risk_habits:
-            # Maintain streaks
+        elif self.is_rich_context and self.at_risk_habits:
+            # Maintain streaks (at_risk_habits is rich-context only)
             return {
                 "type": "maintain",
                 "action": "reinforce_habits",

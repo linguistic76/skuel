@@ -58,6 +58,8 @@ def create_mock_user_context(
     """
     context = Mock()
     context.user_uid = "test_user"
+    # Rich-only fields (at_risk_habits, blocked_task_uids) require rich context
+    context.is_rich_context = True
 
     # Task UIDs (sets/lists)
     context.completed_task_uids = {f"task_{i}" for i in range(completed_tasks)}

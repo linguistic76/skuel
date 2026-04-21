@@ -175,14 +175,14 @@ class LifePathIntelligenceMixin:
         # Count tasks aligned with learning goals (life path proxy)
         for task_uid in self.context.active_task_uids:
             for goal_uid in self.context.learning_goals:
-                if task_uid in self.context.tasks_by_goal.get(goal_uid, []):
+                if task_uid in self.context.get_tasks_for_goal(goal_uid):
                     aligned_activities += 1
                     break
 
         # Count habits aligned with learning goals
         for habit_uid in self.context.active_habit_uids:
             for goal_uid in self.context.learning_goals:
-                if habit_uid in self.context.habits_by_goal.get(goal_uid, []):
+                if habit_uid in self.context.get_habits_for_goal(goal_uid):
                     aligned_activities += 1
                     break
 
@@ -284,8 +284,9 @@ class LifePathIntelligenceMixin:
             momentum_factors.append(learning_momentum)
 
         # Factor 4: At-risk habits (negative indicator)
-        if self.context.at_risk_habits:
-            at_risk_penalty = max(0.0, 1.0 - len(self.context.at_risk_habits) * 0.2)
+        at_risk_habits = self.context.get_habits_needing_reinforcement()
+        if at_risk_habits:
+            at_risk_penalty = max(0.0, 1.0 - len(at_risk_habits) * 0.2)
             momentum_factors.append(at_risk_penalty)
 
         return sum(momentum_factors) / len(momentum_factors) if momentum_factors else 0.5
@@ -400,8 +401,9 @@ class LifePathIntelligenceMixin:
         # Momentum recommendations
         if momentum < 0.5:
             recommendations.append("Build consistent habits to maintain momentum")
-            if self.context.at_risk_habits:
-                recommendations.append(f"Address {len(self.context.at_risk_habits)} at-risk habits")
+            at_risk_habits = self.context.get_habits_needing_reinforcement()
+            if at_risk_habits:
+                recommendations.append(f"Address {len(at_risk_habits)} at-risk habits")
 
         # If doing well, encourage continuation
         if not recommendations:
@@ -423,7 +425,7 @@ class LifePathIntelligenceMixin:
         supporting = []
         for habit_uid in self.context.active_habit_uids:
             for goal_uid in self.context.learning_goals:
-                if habit_uid in self.context.habits_by_goal.get(goal_uid, []):
+                if habit_uid in self.context.get_habits_for_goal(goal_uid):
                     supporting.append(habit_uid)
                     break
         return supporting

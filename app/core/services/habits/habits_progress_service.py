@@ -404,7 +404,13 @@ class HabitsProgressService:
         context_hits = 0
         context_misses = 0
 
-        for habit_uid in user_context.at_risk_habits:
+        # at_risk_habits is rich-context only; empty at standard depth
+        at_risk_uids = (
+            user_context.at_risk_habits
+            if user_context.is_rich_context and user_context.at_risk_habits
+            else []
+        )
+        for habit_uid in at_risk_uids:
             # CONTEXT-FIRST: Try rich context first
             habit = self._get_habit_from_rich_context(habit_uid, user_context)
 
@@ -496,7 +502,10 @@ class HabitsProgressService:
             "total_completions": habit.total_completions,
             "average_quality": recent_quality,
             "is_keystone": habit.is_keystone,
-            "streak_risk": habit.current_streak > 0 and habit_uid in user_context.at_risk_habits,
+            "streak_risk": habit.current_streak > 0
+            and user_context.is_rich_context
+            and user_context.at_risk_habits is not None
+            and habit_uid in user_context.at_risk_habits,
             "supports_goals": len(rels.linked_goal_uids),
             "reinforces_knowledge": len(rels.knowledge_reinforcement_uids),
         }

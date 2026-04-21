@@ -212,10 +212,15 @@ class ContextRetriever:
                 "recently_viewed": user_context.recently_viewed_moc_uids[:3],
             }
 
-        # Always include immediate recommendations
-        if user_context.at_risk_habits or user_context.overdue_task_uids:
+        # Always include immediate recommendations (at_risk_habits is rich-context only)
+        at_risk = (
+            user_context.at_risk_habits
+            if user_context.is_rich_context and user_context.at_risk_habits
+            else []
+        )
+        if at_risk or user_context.overdue_task_uids:
             context["immediate_attention"] = {
-                "at_risk_habits": len(user_context.at_risk_habits),
+                "at_risk_habits": len(at_risk),
                 "overdue_tasks": len(user_context.overdue_task_uids),
             }
 

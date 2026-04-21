@@ -334,11 +334,16 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
             if readiness < 0.7:
                 continue
 
-            # Get goal associations from context
-            goal_uids = context.tasks_by_goal.get(task_uid, [])
+            # Get goal associations from context (tasks_by_goal is rich-context only)
+            tasks_by_goal = (
+                context.tasks_by_goal
+                if context.is_rich_context and context.tasks_by_goal is not None
+                else {}
+            )
+            goal_uids = tasks_by_goal.get(task_uid, [])
             if not goal_uids:
                 # Reverse lookup: find goals that contain this task
-                for g_uid, t_uids in context.tasks_by_goal.items():
+                for g_uid, t_uids in tasks_by_goal.items():
                     if task_uid in t_uids:
                         goal_uids.append(g_uid)
 

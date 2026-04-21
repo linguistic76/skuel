@@ -102,9 +102,9 @@ class TaskAwareness(Protocol):
     # Core identity (inherited conceptually)
     user_uid: UserUID
 
-    # Active task state
+    # Active task state (blocked_task_uids is rich-context only)
     active_task_uids: list[str]
-    blocked_task_uids: set[str]
+    blocked_task_uids: set[str] | None
     completed_task_uids: set[str]
 
     # Task scheduling
@@ -112,9 +112,9 @@ class TaskAwareness(Protocol):
     today_task_uids: list[str]
     this_week_task_uids: list[str]
 
-    # Task relationships
+    # Task relationships (tasks_by_goal is rich-context only)
     task_priorities: dict[str, float]
-    tasks_by_goal: dict[str, list[str]]
+    tasks_by_goal: dict[str, list[str]] | None
 
     # Knowledge (needed for prerequisite checks in task planning)
     knowledge_mastery: dict[str, float]
@@ -184,13 +184,13 @@ class HabitAwareness(Protocol):
     # Core identity
     user_uid: UserUID
 
-    # Habit state
+    # Habit state (at_risk_habits is rich-context only)
     active_habit_uids: set[str]
     habit_streaks: dict[str, int]  # uid -> streak count
-    at_risk_habits: list[str]  # habits at risk of breaking
+    at_risk_habits: list[str] | None  # habits at risk of breaking
 
-    # Habit relationships
-    habits_by_goal: dict[str, list[str]]  # goal_uid -> habit_uids
+    # Habit relationships (habits_by_goal is rich-context only)
+    habits_by_goal: dict[str, list[str]] | None  # goal_uid -> habit_uids
     keystone_habits: list[str]  # keystone habits (high-impact habits)
 
     # Rich context (required for domain planning methods)
@@ -406,20 +406,20 @@ class CrossDomainAwareness(Protocol):
     # Core identity
     user_uid: UserUID
 
-    # Task awareness
+    # Task awareness (blocked_task_uids / tasks_by_goal are rich-context only)
     active_task_uids: list[str]
-    blocked_task_uids: set[str]
+    blocked_task_uids: set[str] | None
     overdue_task_uids: list[str]
-    tasks_by_goal: dict[str, list[str]]
+    tasks_by_goal: dict[str, list[str]] | None
 
     # Goal awareness
     active_goal_uids: set[str]
     goal_progress: dict[str, float]
 
-    # Habit awareness
+    # Habit awareness (at_risk_habits is rich-context only)
     active_habit_uids: set[str]
     habit_streaks: dict[str, int]
-    at_risk_habits: list[str]
+    at_risk_habits: list[str] | None
 
     # Knowledge awareness
     knowledge_mastery: dict[str, float]
@@ -452,26 +452,26 @@ class FullAwareness(Protocol):
     user_uid: UserUID
     username: str
 
-    # Task awareness
+    # Task awareness (blocked_task_uids / tasks_by_goal are rich-context only)
     active_task_uids: list[str]
-    blocked_task_uids: set[str]
+    blocked_task_uids: set[str] | None
     completed_task_uids: set[str]
     overdue_task_uids: list[str]
     today_task_uids: list[str]
     this_week_task_uids: list[str]
     task_priorities: dict[str, float]
-    tasks_by_goal: dict[str, list[str]]
+    tasks_by_goal: dict[str, list[str]] | None
 
     # Goal awareness
     active_goal_uids: set[str]
     completed_goal_uids: set[str]
     goal_progress: dict[str, float]
 
-    # Habit awareness
+    # Habit awareness (at_risk_habits / habits_by_goal are rich-context only)
     active_habit_uids: set[str]
     habit_streaks: dict[str, int]
-    at_risk_habits: list[str]
-    habits_by_goal: dict[str, list[str]]
+    at_risk_habits: list[str] | None
+    habits_by_goal: dict[str, list[str]] | None
 
     # Knowledge awareness
     knowledge_mastery: dict[str, float]

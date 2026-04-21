@@ -818,7 +818,7 @@ class ContextualHabit(ContextualEntity):
             if completion_rate is not None
             else context.habit_completion_rates.get(uid, 0.0)
         )
-        at_risk = uid in context.at_risk_habits
+        at_risk = uid in context.get_habits_needing_reinforcement()
         keystone = is_keystone if is_keystone is not None else uid in context.keystone_habits
 
         readiness = readiness_override if readiness_override is not None else 1.0

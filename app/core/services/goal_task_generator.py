@@ -190,9 +190,15 @@ class GoalTaskGenerator:
         """
         all_generated = {}
 
+        # tasks_by_goal is rich-context only; without it we cannot de-duplicate
+        tasks_by_goal = (
+            user_context.tasks_by_goal
+            if user_context.is_rich_context and user_context.tasks_by_goal is not None
+            else {}
+        )
         for goal_uid in user_context.active_goal_uids:
             # Skip goals that already have sufficient tasks
-            existing_tasks = user_context.tasks_by_goal.get(goal_uid, [])
+            existing_tasks = tasks_by_goal.get(goal_uid, [])
             if len(existing_tasks) >= self.config.max_tasks_per_goal:
                 continue
 

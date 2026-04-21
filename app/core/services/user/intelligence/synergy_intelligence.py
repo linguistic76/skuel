@@ -126,6 +126,9 @@ class SynergyIntelligenceMixin:
         **High Leverage:** A habit supporting 3+ goals is extremely valuable.
         Example: "Daily exercise" -> Health goal, Energy goal, Stress reduction goal
         """
+        self.context.require_rich_context("_detect_habit_goal_synergies")
+        assert self.context.habits_by_goal is not None
+        assert self.context.at_risk_habits is not None
         synergies: list[CrossDomainSynergy] = []
 
         # Build reverse mapping: habit_uid -> [goal_uids]
@@ -180,6 +183,8 @@ class SynergyIntelligenceMixin:
 
         Example: "Write morning pages" task -> "Daily journaling" habit
         """
+        self.context.require_rich_context("_detect_task_habit_synergies")
+        assert self.context.habits_by_goal is not None
         synergies: list[CrossDomainSynergy] = []
 
         # Find tasks that contribute to habit-supporting goals
@@ -190,7 +195,7 @@ class SynergyIntelligenceMixin:
             for goal_uid, habit_uids in self.context.habits_by_goal.items():
                 if habit_uid in habit_uids:
                     # Find tasks for this goal
-                    tasks = self.context.tasks_by_goal.get(goal_uid, [])
+                    tasks = self.context.get_tasks_for_goal(goal_uid)
                     for task_uid in tasks:
                         if task_uid not in supporting_tasks:
                             supporting_tasks.append(task_uid)
@@ -241,7 +246,7 @@ class SynergyIntelligenceMixin:
             # (tasks associated with goals that require this knowledge)
             aligned_goals = self._find_aligned_goals_for_ku(ku_uid)
             for goal_uid in aligned_goals:
-                for task_uid in self.context.tasks_by_goal.get(goal_uid, []):
+                for task_uid in self.context.get_tasks_for_goal(goal_uid):
                     if task_uid not in enabled_tasks:
                         enabled_tasks.append(task_uid)
 

@@ -192,8 +192,8 @@ def _overview_insights(context: UserContext) -> Div:
             )
         )
 
-    # Check for at-risk habits
-    if context.at_risk_habits:
+    # Check for at-risk habits (rich-context only; silent at standard depth)
+    if context.is_rich_context and context.at_risk_habits:
         insights.append(
             _insight_item(
                 "warning",

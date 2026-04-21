@@ -108,8 +108,8 @@ class ActionRecommendationEngine:
         # Analyze current state using pure function
         score_current_state(user_context)
 
-        # Critical: Prevent habit streak loss
-        if user_context.at_risk_habits:
+        # Critical: Prevent habit streak loss (at_risk_habits is rich-context only)
+        if user_context.is_rich_context and user_context.at_risk_habits:
             habit_uid = next(iter(user_context.at_risk_habits))
             streak = user_context.habit_streaks.get(habit_uid, 0)
 
@@ -360,9 +360,14 @@ class ActionRecommendationEngine:
             "recommendations": [],
         }
 
-        # Predict habit maintenance
+        # Predict habit maintenance (at_risk_habits is rich-context only)
+        at_risk_habits = (
+            user_context.at_risk_habits
+            if user_context.is_rich_context and user_context.at_risk_habits
+            else []
+        )
         for habit_uid, streak in user_context.habit_streaks.items():
-            if habit_uid in user_context.at_risk_habits:
+            if habit_uid in at_risk_habits:
                 risk_days = self._calculate_habit_risk_days(streak, user_context)
                 if risk_days <= days_ahead:
                     predictions["habits_at_risk"].append(
