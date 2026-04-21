@@ -94,12 +94,3 @@ class PrinciplesIntelligenceService(
             domain=Domain.PRINCIPLES,
             model_name="Principle",
         )
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Principle entities."""
-        return "Principle"

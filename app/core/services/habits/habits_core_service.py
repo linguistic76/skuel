@@ -61,15 +61,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         self.event_bus = event_bus
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Habit"
-
-    # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 

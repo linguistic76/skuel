@@ -100,15 +100,6 @@ class ChoicesIntelligenceService(
         self.path_helper = PathAwareAnalyzer()
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Choice entities (filters by entity_type)."""
-        return "Entity"
-
-    # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.

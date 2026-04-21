@@ -28,16 +28,19 @@ The 6 Activity Domains share one shape — seven common sub-services produced by
 
 **Never** promote a capability only one domain uses into a common sub-service. **Never** push a genuinely domain-specific concern into a shared sub-service to save a file. The seven common services earn their universality by actually being universal; the domain-specific services earn their specialness by actually being specific.
 
-### Known overload — `entity_label`
+### Two labels, two jobs — `entity_label` + `config_lookup_label`
 
-The `entity_label` attribute on each service carries two semantically different jobs:
+Each service surfaces **two** label attributes via `DomainConfig`, with distinct responsibilities:
 
-1. **Neo4j base-label for multi-label Cypher matching** — where `"Entity"` is correct (matches `:Entity:Task` generically across the unified entity model).
-2. **Key for `LABEL_CONFIGS` registry lookup** — where the domain name (`"Task"`, `"Habit"`, …) is correct, because `LABEL_CONFIGS["Entity"]` is a backward-compat alias that resolves to `PS_CONFIG` (PathStep).
+1. **`entity_label`** — Neo4j base-label for multi-label Cypher matching. All 6 Activity Domains set this to `"Entity"` (matches `:Entity:Task`, `:Entity:Habit`, … via the unified `:Entity` base label). Curriculum domains similarly use `"Entity"` (PathStep, LearningPath, Exercise, RevisedExercise) or `"Ku"`.
+2. **`config_lookup_label`** — key for `LABEL_CONFIGS` registry lookup. Defaults to `model_class.__name__` (`"Task"`, `"Goal"`, `"Habit"`, …) and is used by `context_operations_mixin.get_with_context()` to fetch the domain-specific `DomainRelationshipConfig`. Also used by factory functions (`create_activity_domain_config`, `create_curriculum_domain_config`) to generate `graph_enrichment_patterns`, `prerequisite_relationships`, and `enables_relationships`.
 
-The post-migration convention sets `config.entity_label="Entity"` for the unified `:Entity` scheme. The cost is that 4 of 6 Activity Domains (Tasks, Goals, Events, Choices) fall back to curriculum-generic context via `LABEL_CONFIGS["Entity"] → PS_CONFIG` in `context_operations_mixin.py`. Habits overrides `entity_label` at the property level to return `"Habit"`; Principles omits `entity_label` on its config and falls through to `model_class.__name__ == "Principle"`. Both escape hatches are legitimate, and both give those two domains domain-specific context config.
+The split replaced an earlier overload where both jobs rode on `entity_label`, with a `LABEL_CONFIGS["Entity"] → PS_CONFIG` backward-compat alias papering over the ambiguity. That alias was removed: Activity Domains now get their own registry config (not PathStep's curriculum patterns), and the factories raise `ValueError` if a `config_lookup_label` is missing from `LABEL_CONFIGS`.
 
-Tests in `tests/integration/test_rich_context_pattern.py:182-186` and `:238-242` explicitly document the curriculum-generic tradeoff for Tasks and Goals; `tests/test_relationship_registry.py:87-89` accepts `(label, "Entity")` as equally valid. **This is documented behavior, not drift.** Do not "normalize" it in a one-line edit — the clean fix requires splitting the two jobs across two attributes (e.g., `entity_label` + `config_lookup_label`) and touching base service, context mixin, and at least three integration tests. If future work needs per-domain context for the 4 conforming domains, that refactor is the right path; a property override or config drop is not.
+**When building a new domain:**
+- Set `entity_label="Entity"` (or `"Ku"`) — the Neo4j base label.
+- Let `config_lookup_label` default to `model_class.__name__`, or pass it explicitly if your model name diverges from the registry key.
+- Ensure `LABEL_CONFIGS` has an entry keyed by your `config_lookup_label` before calling the factory.
 
 ## The 6 Activity Domains
 

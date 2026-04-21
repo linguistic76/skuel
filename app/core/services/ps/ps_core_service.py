@@ -85,11 +85,6 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         content_field="description",  # PS stores content in description field
     )
 
-    @property
-    def entity_label(self) -> str:
-        """Entity label for Neo4j queries."""
-        return "Entity"
-
     def __init__(self, backend: PsOperations, event_bus: Any = None) -> None:
         """
         Initialize core step service.

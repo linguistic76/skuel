@@ -77,11 +77,6 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         super().__init__(backend, "events.progress")
         self.event_bus = event_bus
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Entity nodes."""
-        return "Entity"
-
     # ========================================================================
     # CONTEXT-FIRST HELPERS
     # ========================================================================

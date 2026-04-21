@@ -230,11 +230,6 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
             entity_name="goal",
         )
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Entity nodes."""
-        return "Entity"
-
     # ========================================================================
     # CAPACITY MANAGEMENT
     # ========================================================================

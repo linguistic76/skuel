@@ -80,15 +80,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         self.event_bus = event_bus
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Event entities."""
-        return "Entity"
-
-    # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 

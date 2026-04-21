@@ -105,15 +105,6 @@ class HabitsIntelligenceService(
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Habit"
-
-    # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.

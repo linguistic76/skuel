@@ -61,11 +61,6 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
         super().__init__(backend, "events.scheduling")
         self.event_bus = event_bus
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Entity nodes."""
-        return "Entity"
-
     # ========================================================================
     # RECURRING EVENT OPTIMIZATION
     # ========================================================================

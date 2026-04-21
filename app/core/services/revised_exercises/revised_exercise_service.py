@@ -96,11 +96,6 @@ class RevisedExerciseService(BaseService):
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("RevisedExerciseService initialized")
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for RevisedExercise entities."""
-        return "Entity"
-
     # ========================================================================
     # CRUD OVERRIDES (authority checks, relationships, events)
     # ========================================================================

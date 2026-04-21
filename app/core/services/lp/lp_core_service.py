@@ -82,11 +82,6 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         content_field="description",  # LP goal mapped to Entity description
     )
 
-    @property
-    def entity_label(self) -> str:
-        """Entity label for Neo4j queries."""
-        return "Entity"
-
     def __init__(
         self,
         backend: BackendOperations[LearningPath],

@@ -203,15 +203,6 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
 
         return Result.ok(enhanced_guidance)
 
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Choice entities."""
-        return "Entity"
-
     def _analyze_option_learning_impact(
         self, option: str, learning_position: LpPosition
     ) -> dict[str, Any]:

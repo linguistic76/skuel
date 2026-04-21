@@ -73,19 +73,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         self.logger = get_logger("skuel.services.choices.core")  # type: ignore[assignment]  # structlog BoundLogger
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Choice entities (filters by entity_type)."""
-        return "Entity"
-
-    # ========================================================================
-    # EMBEDDING HELPERS (Async Background Generation - January 2026)
-    # ========================================================================
-
-    # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
     # ========================================================================
 

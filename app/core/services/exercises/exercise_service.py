@@ -136,11 +136,6 @@ class ExerciseService(BaseService):
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("ExerciseService initialized")
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Exercise entities."""
-        return "Entity"
-
     # ========================================================================
     # CREATE
     # ========================================================================

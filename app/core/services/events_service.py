@@ -551,15 +551,6 @@ class EventsService(
             "event_handler, intelligence, knowledge_intelligence"
         )
 
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Event entities."""
-        return "Entity"
-
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
 

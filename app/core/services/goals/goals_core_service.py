@@ -80,15 +80,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         self.event_bus = event_bus
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Goal entities."""
-        return "Entity"
-
-    # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
     # ========================================================================
 

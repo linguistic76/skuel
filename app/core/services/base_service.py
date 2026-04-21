@@ -293,20 +293,22 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     # Optional: Override entity label if different from model class name
     # Set to a string like "Expense" if the Neo4j label differs from _model_class.__name__
     _entity_label: ClassVar[str | None] = None
+    _config_lookup_label: ClassVar[str | None] = None
 
     @cached_property
     def entity_label(self) -> str:
         """
-        Return the graph label for this entity type.
+        Return the Neo4j base-label for multi-label Cypher matching.
 
-        **AUTO-INFERENCE (January 2026):** By default, infers from _model_class.__name__.
-        Services only need to override via _entity_label class attribute when the
-        Neo4j label differs from the model class name.
+        For the unified :Entity scheme, this is ``"Entity"`` for all domain entities
+        (Tasks, Goals, Habits, …, PathSteps). Standalone entities like Ku and Finance
+        override this to their own Neo4j label.
 
-        **OPTIMIZATION (2026-01-31):** Cached property for 50-100x faster access.
+        For the **registry-lookup key** (domain-specific: ``"Task"``, ``"Goal"``, …),
+        use :attr:`config_lookup_label` instead.
 
         Priority:
-            1. _config.entity_label (from DomainConfig, )
+            1. _config.entity_label (from DomainConfig)
             2. _entity_label class attribute (explicit override)
             3. _config.model_class.__name__ (from DomainConfig)
             4. _model_class.__name__ (auto-inferred)
@@ -336,6 +338,37 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
             if class_name.endswith(suffix):
                 return class_name[: -len(suffix)]
         return class_name
+
+    @cached_property
+    def config_lookup_label(self) -> str:
+        """
+        Return the LABEL_CONFIGS registry key for this service.
+
+        Distinct from :attr:`entity_label` (the Neo4j base-label). The lookup label is
+        the domain-specific key (``"Task"``, ``"Goal"``, ``"PathStep"``, …) used by
+        ``context_operations_mixin`` to fetch the ``DomainRelationshipConfig``.
+
+        Priority:
+            1. _config.config_lookup_label (from DomainConfig)
+            2. _config_lookup_label class attribute (explicit override)
+            3. _config.model_class.__name__
+            4. _model_class.__name__
+            5. entity_label (last-resort fallback)
+        """
+        config = self._get_config_cls()
+        if config and config.config_lookup_label:
+            return config.config_lookup_label
+
+        if self._config_lookup_label:
+            return self._config_lookup_label
+
+        if config and config.model_class:
+            return config.model_class.__name__
+
+        if self._model_class is not None:
+            return self._model_class.__name__
+
+        return self.entity_label
 
     def _get_config_value(self, attr_name: str, default: Any = None) -> Any:
         """

@@ -471,15 +471,6 @@ class PrinciplesService(
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Principle entities."""
-        return "Principle"
-
-    # ========================================================================
     # CORE CRUD OPERATIONS - Delegate to PrinciplesCoreService
     # ========================================================================
 

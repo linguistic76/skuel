@@ -145,11 +145,6 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             entity_name="habit",
         )
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Habit"
-
     # ========================================================================
     # CAPACITY MANAGEMENT
     # ========================================================================

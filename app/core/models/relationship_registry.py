@@ -2152,7 +2152,6 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # User-authored content (ADR-054)
     "UserEntry": USER_ENTRY_CONFIG,
     # Backward-compat aliases (old label keys used by DomainConfig files)
-    "Entity": PS_CONFIG,  # PathStep is THE curriculum content entity
     "Lesson": PS_CONFIG,  # backward-compat alias (Lesson merged into PathStep)
     "Ls": PS_CONFIG,
     "Lp": LP_CONFIG,

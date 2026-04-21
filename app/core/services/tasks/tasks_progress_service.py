@@ -82,15 +82,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         self.event_bus = event_bus
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Task entities."""
-        return "Entity"
-
-    # ========================================================================
     # CONTEXT-FIRST PATTERN HELPERS (November 26, 2025)
     # ========================================================================
     #

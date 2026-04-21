@@ -85,15 +85,6 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Habit"
-
-    # ========================================================================
     # LEARNING-AWARE HABIT OPERATIONS
     # ========================================================================
 

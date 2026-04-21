@@ -69,11 +69,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # Service name for hierarchical logging
     _service_name = "goals.progress"
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Entity nodes."""
-        return "Entity"
-
     def __init__(
         self,
         backend: GoalsOperations,

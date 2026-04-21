@@ -73,19 +73,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         self.event_bus = event_bus
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Principle entities."""
-        return "Principle"
-
-    # ========================================================================
-    # EMBEDDING HELPERS (Async Background Generation - January 2026)
-    # ========================================================================
-
-    # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 

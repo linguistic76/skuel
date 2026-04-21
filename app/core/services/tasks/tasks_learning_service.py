@@ -66,10 +66,6 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
             entity_name="task",
         )
 
-    @property
-    def entity_label(self) -> str:
-        return "Entity"
-
     @with_error_handling("get_learning_relevant_tasks", error_type="database", uid_param="user_uid")
     async def get_learning_relevant_tasks(
         self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10

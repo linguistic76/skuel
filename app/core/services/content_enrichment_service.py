@@ -99,15 +99,6 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         self.logger = get_logger("skuel.services.content_enrichment")  # type: ignore[assignment]  # structlog BoundLogger
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Entity nodes."""
-        return "Entity"
-
-    # ========================================================================
     # CORE PURPOSE: TRANSCRIPT PROCESSING
     # ========================================================================
 

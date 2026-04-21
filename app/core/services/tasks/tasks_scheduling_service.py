@@ -113,15 +113,6 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Task entities."""
-        return "Entity"
-
-    # ========================================================================
     # CONTEXT-AWARE CREATION
     # ========================================================================
 

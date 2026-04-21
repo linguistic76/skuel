@@ -89,15 +89,6 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Entity nodes."""
-        return "Entity"
-
-    # ========================================================================
     # LEARNING-RELATED EVENT QUERIES
     # ========================================================================
 

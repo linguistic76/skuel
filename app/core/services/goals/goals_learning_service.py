@@ -92,15 +92,6 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Goal entities."""
-        return "Entity"
-
-    # ========================================================================
     # LEARNING-AWARE GOAL CREATION
     # ========================================================================
 
