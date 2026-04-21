@@ -26,6 +26,7 @@ WARNING (reported, doesn't block):
   SKUEL015: print() in production code - use logger instead
   SKUEL016: Stale Poetry references - SKUEL uses uv
   SKUEL017: Bare except Exception - use specific exception types
+  SKUEL018: Direct access to UserContext RICH_ONLY_FIELDS - use accessors
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -354,6 +355,42 @@ except NEO4J_EXCEPTIONS as e:
 except Exception as e:  # Too broad — masks non-database bugs
     return Result.fail(Errors.database(operation="get", message=str(e)))""",
     },
+    "SKUEL018": {
+        "title": "No Direct Access to UserContext RICH_ONLY_FIELDS",
+        "severity": "WARNING",
+        "description": """UserContext.RICH_ONLY_FIELDS default to None at standard depth and
+are populated only by build_rich(). Direct attribute reads silently leak None
+into call sites and defeat the accessor contract.
+
+Use accessors from UserContext:
+  Strict (raises at standard depth):   get_X() / get_tasks_by_goal() / get_blocked_tasks()
+  Graceful (empty fallback):           X_or_empty() / tasks_by_goal_or_empty() /
+                                       blocked_task_uids_or_empty()
+
+Rich-only fields:
+  tasks_by_goal, habits_by_goal, at_risk_habits, blocked_task_uids,
+  principle_guided_choice_counts, recent_principle_aligned_choices
+
+Whitelisted files (direct access allowed):
+  core/services/user/unified_user_context.py   — accessor definitions
+  core/services/user/user_context_populator.py — rich-build writes
+  tests/**                                     — fixtures and assertions""",
+        "good": """# Strict: crash if not rich (intelligence services)
+habits = self.context.get_habits_by_goal()
+
+# Graceful: empty fallback (UI, stats)
+at_risk = context.at_risk_habits_or_empty()
+if at_risk := context.at_risk_habits_or_empty():
+    ...""",
+        "bad": """# Silent None leak at standard depth
+if user_context.at_risk_habits:
+    ...
+
+# Asserts only fire in debug builds
+assert self.context.habits_by_goal is not None
+for goal_uid in self.context.habits_by_goal:
+    ...""",
+    },
 }
 
 
@@ -446,6 +483,46 @@ class SkuelLinter:
     CURRICULUM_BACKENDS: ClassVar[list[str]] = [
         "neo4j/backends/",  # All 27 domain backends live in the backends/ cluster package
     ]
+
+    # SKUEL018: Six UserContext fields that default to None at standard depth
+    # and are populated only by build_rich(). Direct reads must route through
+    # accessors (get_X() strict / X_or_empty() graceful).
+    RICH_ONLY_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "tasks_by_goal",
+            "habits_by_goal",
+            "at_risk_habits",
+            "blocked_task_uids",
+            "principle_guided_choice_counts",
+            "recent_principle_aligned_choices",
+        }
+    )
+
+    RICH_ONLY_WHITELIST: ClassVar[tuple[str, ...]] = (
+        "core/services/user/unified_user_context.py",
+        "core/services/user/user_context_populator.py",
+    )
+
+    # Field → (strict_accessor, graceful_accessor). Strict raises at standard depth;
+    # graceful returns an empty container. Fields with per-key accessors (e.g.
+    # get_tasks_for_goal(uid)) also have dict-level strict accessors listed here.
+    RICH_ONLY_ACCESSORS: ClassVar[dict[str, tuple[str, str]]] = {
+        "tasks_by_goal": ("get_tasks_by_goal()", "tasks_by_goal_or_empty()"),
+        "habits_by_goal": ("get_habits_by_goal()", "habits_by_goal_or_empty()"),
+        "at_risk_habits": (
+            "get_habits_needing_reinforcement()",
+            "at_risk_habits_or_empty()",
+        ),
+        "blocked_task_uids": ("get_blocked_tasks()", "blocked_task_uids_or_empty()"),
+        "principle_guided_choice_counts": (
+            "get_principle_guided_choice_counts()",
+            "principle_guided_choice_counts_or_empty()",
+        ),
+        "recent_principle_aligned_choices": (
+            "get_recent_principle_aligned_choices()",
+            "recent_principle_aligned_choices_or_empty()",
+        ),
+    }
 
     def __init__(
         self,
@@ -568,6 +645,8 @@ class SkuelLinter:
                 self._check_poetry_references(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL017") and not is_test:
                 self._check_broad_exception_catches(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL018") and not is_test:
+                self._check_rich_only_field_access(file_path, rel_path, content, lines)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -1452,6 +1531,88 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    def _check_rich_only_field_access(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL018 [WARNING]: Direct access to UserContext RICH_ONLY_FIELDS.
+
+        Flags `.<rich_field>` attribute reads outside whitelisted files. Writes
+        (assignment targets) and the accessor methods (`.get_X()`, `.X_or_empty()`)
+        are not flagged. The word boundary `\\b` anchors rejection of
+        `.at_risk_habits_or_empty` (underscore is a word character).
+
+        Whitelist: unified_user_context.py (accessor bodies),
+        user_context_populator.py (rich-build writes), and all test files.
+        """
+        if self._is_file_suppressed(content, "SKUEL018"):
+            return
+
+        rel_str = str(rel_path).replace("\\", "/")
+        if any(rel_str.endswith(w) for w in self.RICH_ONLY_WHITELIST):
+            return
+
+        field_alternatives = "|".join(sorted(self.RICH_ONLY_FIELDS))
+        pattern = re.compile(rf"\.({field_alternatives})\b")
+
+        in_docstring = False
+        docstring_delim: str | None = None
+
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+
+            # Track docstring boundaries (skip doc examples)
+            for delim in ('"""', "'''"):
+                count = stripped.count(delim)
+                if count >= 2:
+                    pass
+                elif count == 1:
+                    if not in_docstring:
+                        in_docstring = True
+                        docstring_delim = delim
+                    elif docstring_delim == delim:
+                        in_docstring = False
+                        docstring_delim = None
+
+            if in_docstring:
+                continue
+            if stripped.startswith("#"):
+                continue
+
+            for match in pattern.finditer(line):
+                field_name = match.group(1)
+                col = match.start()
+
+                # Skip writes: `.field =` (but not `==`). Look forward past whitespace.
+                rest = line[match.end() :]
+                rest_stripped = rest.lstrip()
+                if rest_stripped.startswith("=") and not rest_stripped.startswith("=="):
+                    continue
+
+                if self._is_line_suppressed(line, "SKUEL018"):
+                    continue
+
+                strict, graceful = self.RICH_ONLY_ACCESSORS[field_name]
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=line_num,
+                        column=col,
+                        severity=Severity.WARNING,
+                        rule_id="SKUEL018",
+                        message=(
+                            f"Direct read of UserContext rich-only field "
+                            f"`.{field_name}` — use accessor"
+                        ),
+                        suggestion=(
+                            f"Use `{strict}` (strict, raises at standard depth) "
+                            f"or `{graceful}` (graceful fallback). "
+                            f"See UserContext.RICH_ONLY_FIELDS."
+                        ),
+                        line_content=line.strip(),
+                    )
+                )
 
     # =========================================================================
     # INFO RULES (visibility only)

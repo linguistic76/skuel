@@ -177,7 +177,7 @@ class ScheduleIntelligenceMixin:
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware task recommendations."""
-        assert self.context.blocked_task_uids is not None
+        blocked_task_uids = self.context.get_blocked_tasks()
         recommendations = []
 
         # Prioritize overdue tasks
@@ -205,7 +205,7 @@ class ScheduleIntelligenceMixin:
                     priority_score=score["priority"],
                     overall_score=score["overall"],
                     deadline="overdue",
-                    blocks_other_work=task_uid in self.context.blocked_task_uids,
+                    blocks_other_work=task_uid in blocked_task_uids,
                 )
             )
 
@@ -248,11 +248,11 @@ class ScheduleIntelligenceMixin:
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware habit recommendations."""
-        assert self.context.at_risk_habits is not None
+        at_risk_habits = self.context.get_habits_needing_reinforcement()
         recommendations = []
 
         # Prioritize at-risk habits (streak protection)
-        for habit_uid in self.context.at_risk_habits[:3]:
+        for habit_uid in at_risk_habits[:3]:
             streak = self.context.habit_streaks.get(habit_uid, 0)
             # Higher streak = higher priority to maintain
             priority = min(1.0, 0.5 + (streak * 0.05))
@@ -285,7 +285,7 @@ class ScheduleIntelligenceMixin:
 
         # Add daily habits
         for habit_uid in self.context.daily_habits[:3]:
-            if habit_uid not in self.context.at_risk_habits:
+            if habit_uid not in at_risk_habits:
                 streak = self.context.habit_streaks.get(habit_uid, 0)
                 priority = min(1.0, 0.3 + (streak * 0.03))
 

@@ -128,13 +128,13 @@ class SynergyIntelligenceMixin:
         **High Leverage:** A habit supporting 3+ goals is extremely valuable.
         Example: "Daily exercise" -> Health goal, Energy goal, Stress reduction goal
         """
-        assert self.context.habits_by_goal is not None
-        assert self.context.at_risk_habits is not None
+        habits_by_goal = self.context.get_habits_by_goal()
+        at_risk_habits = self.context.get_habits_needing_reinforcement()
         synergies: list[CrossDomainSynergy] = []
 
         # Build reverse mapping: habit_uid -> [goal_uids]
         habit_to_goals: dict[str, list[str]] = {}
-        for goal_uid, habit_uids in self.context.habits_by_goal.items():
+        for goal_uid, habit_uids in habits_by_goal.items():
             for habit_uid in habit_uids:
                 if habit_uid not in habit_to_goals:
                     habit_to_goals[habit_uid] = []
@@ -161,7 +161,7 @@ class SynergyIntelligenceMixin:
                 recommendations.append(f"Build consistency - current streak: {streak} days")
             if len(goal_uids) >= 3:
                 recommendations.append("High-leverage habit! Prioritize maintaining this.")
-            if habit_uid in self.context.at_risk_habits:
+            if habit_uid in at_risk_habits:
                 recommendations.append("At-risk! Don't break this streak.")
 
             synergy = CrossDomainSynergy(
@@ -184,7 +184,7 @@ class SynergyIntelligenceMixin:
 
         Example: "Write morning pages" task -> "Daily journaling" habit
         """
-        assert self.context.habits_by_goal is not None
+        habits_by_goal = self.context.get_habits_by_goal()
         synergies: list[CrossDomainSynergy] = []
 
         # Find tasks that contribute to habit-supporting goals
@@ -192,7 +192,7 @@ class SynergyIntelligenceMixin:
             supporting_tasks: list[str] = []
 
             # Find goals this habit supports
-            for goal_uid, habit_uids in self.context.habits_by_goal.items():
+            for goal_uid, habit_uids in habits_by_goal.items():
                 if habit_uid in habit_uids:
                     # Find tasks for this goal
                     tasks = self.context.get_tasks_for_goal(goal_uid)

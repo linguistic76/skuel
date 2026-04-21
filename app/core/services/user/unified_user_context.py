@@ -688,11 +688,25 @@ class UserContext:
         assert self.tasks_by_goal is not None
         return self.tasks_by_goal.get(goal_uid, [])
 
+    def get_tasks_by_goal(self) -> dict[str, list[str]]:
+        """Full goal_uid -> task_uids mapping. Requires rich context."""
+        self.require_rich_context("get_tasks_by_goal")
+        assert self.tasks_by_goal is not None
+        return self.tasks_by_goal
+
+    def tasks_by_goal_or_empty(self) -> dict[str, list[str]]:
+        """tasks_by_goal with graceful fallback — empty dict at standard depth."""
+        return self.tasks_by_goal if self.tasks_by_goal is not None else {}
+
     def get_blocked_tasks(self) -> set[str]:
         """Get tasks blocked by prerequisites. Requires rich context."""
         self.require_rich_context("get_blocked_tasks")
         assert self.blocked_task_uids is not None
         return self.blocked_task_uids
+
+    def blocked_task_uids_or_empty(self) -> set[str]:
+        """blocked_task_uids with graceful fallback — empty set at standard depth."""
+        return self.blocked_task_uids if self.blocked_task_uids is not None else set()
 
     def get_high_impact_tasks(self, threshold: float = 0.7) -> list[str]:
         """Get tasks with high goal contribution"""
@@ -752,11 +766,25 @@ class UserContext:
         assert self.at_risk_habits is not None
         return self.at_risk_habits
 
+    def at_risk_habits_or_empty(self) -> list[str]:
+        """at_risk_habits with graceful fallback — empty list at standard depth."""
+        return self.at_risk_habits if self.at_risk_habits is not None else []
+
     def get_habits_for_goal(self, goal_uid: str) -> list[str]:
         """Get habits supporting a specific goal. Requires rich context."""
         self.require_rich_context("get_habits_for_goal")
         assert self.habits_by_goal is not None
         return self.habits_by_goal.get(goal_uid, [])
+
+    def get_habits_by_goal(self) -> dict[str, list[str]]:
+        """Full goal_uid -> habit_uids mapping. Requires rich context."""
+        self.require_rich_context("get_habits_by_goal")
+        assert self.habits_by_goal is not None
+        return self.habits_by_goal
+
+    def habits_by_goal_or_empty(self) -> dict[str, list[str]]:
+        """habits_by_goal with graceful fallback — empty dict at standard depth."""
+        return self.habits_by_goal if self.habits_by_goal is not None else {}
 
     def get_high_impact_habits(self) -> list[str]:
         """Get keystone habits that affect multiple goals"""
@@ -1026,6 +1054,34 @@ class UserContext:
         alignment = self.principle_alignment_by_domain.get(action_domain, 1.0)
         return alignment < 0.5
 
+    def get_principle_guided_choice_counts(self) -> dict[str, int]:
+        """Counts of principle-guided choices by principle uid. Requires rich context."""
+        self.require_rich_context("get_principle_guided_choice_counts")
+        assert self.principle_guided_choice_counts is not None
+        return self.principle_guided_choice_counts
+
+    def principle_guided_choice_counts_or_empty(self) -> dict[str, int]:
+        """principle_guided_choice_counts with graceful fallback — empty dict at standard depth."""
+        return (
+            self.principle_guided_choice_counts
+            if self.principle_guided_choice_counts is not None
+            else {}
+        )
+
+    def get_recent_principle_aligned_choices(self) -> list[str]:
+        """Up to 10 recently principle-aligned choice uids. Requires rich context."""
+        self.require_rich_context("get_recent_principle_aligned_choices")
+        assert self.recent_principle_aligned_choices is not None
+        return self.recent_principle_aligned_choices
+
+    def recent_principle_aligned_choices_or_empty(self) -> list[str]:
+        """recent_principle_aligned_choices with graceful fallback — empty list at standard depth."""
+        return (
+            self.recent_principle_aligned_choices
+            if self.recent_principle_aligned_choices is not None
+            else []
+        )
+
     # =========================================================================
     # WORKLOAD QUERY METHODS
     # =========================================================================
@@ -1080,12 +1136,12 @@ class UserContext:
                 "action": "complete_prerequisites",
                 "items": list(self.prerequisites_needed.keys())[:3],
             }
-        elif self.is_rich_context and self.at_risk_habits:
-            # Maintain streaks (at_risk_habits is rich-context only)
+        elif at_risk := self.at_risk_habits_or_empty():
+            # Maintain streaks (empty at standard depth — accessor handles the gate)
             return {
                 "type": "maintain",
                 "action": "reinforce_habits",
-                "items": self.at_risk_habits[:2],
+                "items": at_risk[:2],
             }
         elif self.overdue_task_uids:
             # Catch up on overdue

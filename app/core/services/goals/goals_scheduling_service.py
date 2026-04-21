@@ -782,11 +782,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
             risk_factors.append("Flagged as at-risk in user context")
 
         # Check supporting system (habits_by_goal is rich-context only)
-        habits_by_goal = (
-            user_context.habits_by_goal
-            if user_context.is_rich_context and user_context.habits_by_goal is not None
-            else {}
-        )
+        habits_by_goal = user_context.habits_by_goal_or_empty()
         if goal_uid in habits_by_goal:
             supporting_habits = habits_by_goal.get(goal_uid, [])
             if not supporting_habits:

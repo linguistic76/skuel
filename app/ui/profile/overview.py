@@ -193,11 +193,11 @@ def _overview_insights(context: UserContext) -> Div:
         )
 
     # Check for at-risk habits (rich-context only; silent at standard depth)
-    if context.is_rich_context and context.at_risk_habits:
+    if at_risk := context.at_risk_habits_or_empty():
         insights.append(
             _insight_item(
                 "warning",
-                f"{len(context.at_risk_habits)} habits at risk of breaking streak",
+                f"{len(at_risk)} habits at risk of breaking streak",
                 "/habits",
             )
         )

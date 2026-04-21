@@ -213,11 +213,7 @@ class ContextRetriever:
             }
 
         # Always include immediate recommendations (at_risk_habits is rich-context only)
-        at_risk = (
-            user_context.at_risk_habits
-            if user_context.is_rich_context and user_context.at_risk_habits
-            else []
-        )
+        at_risk = user_context.at_risk_habits_or_empty()
         if at_risk or user_context.overdue_task_uids:
             context["immediate_attention"] = {
                 "at_risk_habits": len(at_risk),

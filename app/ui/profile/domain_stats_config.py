@@ -75,7 +75,7 @@ def tasks_status_args(ctx: UserContext) -> tuple[int, int]:
 
     blocked_task_uids is rich-context only; treated as 0 at standard depth.
     """
-    blocked_count = len(ctx.blocked_task_uids) if ctx.blocked_task_uids else 0
+    blocked_count = len(ctx.blocked_task_uids_or_empty())
     return (len(ctx.overdue_task_uids), blocked_count)
 
 
@@ -127,7 +127,7 @@ def habits_status_args(ctx: UserContext) -> tuple[int]:
 
     at_risk_habits is rich-context only; treated as 0 at standard depth.
     """
-    at_risk_count = len(ctx.at_risk_habits) if ctx.at_risk_habits else 0
+    at_risk_count = len(ctx.at_risk_habits_or_empty())
     return (at_risk_count,)
 
 

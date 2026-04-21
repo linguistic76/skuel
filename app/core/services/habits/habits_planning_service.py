@@ -232,9 +232,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         # Sort by priority (highest first)
         prioritized.sort(key=get_priority_score, reverse=True)
 
-        at_risk_count = (
-            len(context.at_risk_habits) if context.is_rich_context and context.at_risk_habits else 0
-        )
+        at_risk_count = len(context.at_risk_habits_or_empty())
         self.logger.info(
             f"Found {len(prioritized)} prioritized habits for user "
             f"(at_risk={at_risk_count}, keystone={len(context.keystone_habits)})"
@@ -304,11 +302,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
             # Compute urgency + relevance for custom weighting
             # at_risk_habits is rich-context only; treat as not-at-risk at standard depth
-            is_at_risk = (
-                context.is_rich_context
-                and context.at_risk_habits is not None
-                and habit_uid in context.at_risk_habits
-            )
+            is_at_risk = habit_uid in context.at_risk_habits_or_empty()
             urgency = self._calculate_urgency_score(habit, is_at_risk)
             relevance = self._calculate_relevance_score(
                 goal_uids, habit.is_identity_habit, is_keystone, context

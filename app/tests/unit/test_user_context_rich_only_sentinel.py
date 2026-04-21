@@ -125,12 +125,69 @@ def test_get_habits_needing_reinforcement_raises_at_standard_depth(
     assert exc_info.value.operation == "get_habits_needing_reinforcement"
 
 
+def test_get_principle_guided_choice_counts_raises_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    with pytest.raises(RichContextRequiredError) as exc_info:
+        standard_context.get_principle_guided_choice_counts()
+    assert exc_info.value.operation == "get_principle_guided_choice_counts"
+
+
+def test_get_recent_principle_aligned_choices_raises_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    with pytest.raises(RichContextRequiredError) as exc_info:
+        standard_context.get_recent_principle_aligned_choices()
+    assert exc_info.value.operation == "get_recent_principle_aligned_choices"
+
+
 def test_require_rich_context_raises_at_standard_depth(
     standard_context: UserContext,
 ) -> None:
     with pytest.raises(RichContextRequiredError) as exc_info:
         standard_context.require_rich_context("custom_op")
     assert exc_info.value.operation == "custom_op"
+
+
+# =============================================================================
+# Standard depth: graceful accessors return empty containers
+# =============================================================================
+
+
+def test_tasks_by_goal_or_empty_returns_empty_dict_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    assert standard_context.tasks_by_goal_or_empty() == {}
+
+
+def test_habits_by_goal_or_empty_returns_empty_dict_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    assert standard_context.habits_by_goal_or_empty() == {}
+
+
+def test_at_risk_habits_or_empty_returns_empty_list_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    assert standard_context.at_risk_habits_or_empty() == []
+
+
+def test_blocked_task_uids_or_empty_returns_empty_set_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    assert standard_context.blocked_task_uids_or_empty() == set()
+
+
+def test_principle_guided_choice_counts_or_empty_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    assert standard_context.principle_guided_choice_counts_or_empty() == {}
+
+
+def test_recent_principle_aligned_choices_or_empty_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    assert standard_context.recent_principle_aligned_choices_or_empty() == []
 
 
 # =============================================================================
@@ -182,6 +239,36 @@ def test_get_habits_needing_reinforcement_at_rich_depth(
     rich_context: UserContext,
 ) -> None:
     assert rich_context.get_habits_needing_reinforcement() == ["habit:x", "habit:y"]
+
+
+def test_get_principle_guided_choice_counts_at_rich_depth(
+    rich_context: UserContext,
+) -> None:
+    assert rich_context.get_principle_guided_choice_counts() == {"principle:minimalism": 3}
+
+
+def test_get_recent_principle_aligned_choices_at_rich_depth(
+    rich_context: UserContext,
+) -> None:
+    assert rich_context.get_recent_principle_aligned_choices() == ["choice:1", "choice:2"]
+
+
+def test_graceful_accessors_return_populated_data_at_rich_depth(
+    rich_context: UserContext,
+) -> None:
+    """Graceful accessors must return the populated container at rich depth."""
+    assert rich_context.tasks_by_goal_or_empty() == {
+        "goal:a": ["task:1", "task:2"],
+        "goal:b": ["task:3"],
+    }
+    assert rich_context.habits_by_goal_or_empty() == {
+        "goal:a": ["habit:x"],
+        "goal:c": ["habit:y", "habit:z"],
+    }
+    assert rich_context.at_risk_habits_or_empty() == ["habit:x", "habit:y"]
+    assert rich_context.blocked_task_uids_or_empty() == {"task:blocked_1", "task:blocked_2"}
+    assert rich_context.principle_guided_choice_counts_or_empty() == {"principle:minimalism": 3}
+    assert rich_context.recent_principle_aligned_choices_or_empty() == ["choice:1", "choice:2"]
 
 
 def test_require_rich_context_passes_at_rich_depth(

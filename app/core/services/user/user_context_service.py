@@ -150,7 +150,7 @@ class UserContextService:
                 "overdue_count": len(context.overdue_task_uids),
                 "today_count": len(context.today_task_uids),
                 "current_focus": context.current_task_focus,
-                "blocked_count": len(context.blocked_task_uids) if context.blocked_task_uids else 0,
+                "blocked_count": len(context.blocked_task_uids_or_empty()),
             },
             # Goal overview
             "goals": {
@@ -163,7 +163,7 @@ class UserContextService:
             # Habit overview
             "habits": {
                 "active_count": len(context.active_habit_uids),
-                "at_risk_count": len(context.at_risk_habits) if context.at_risk_habits else 0,
+                "at_risk_count": len(context.at_risk_habits_or_empty()),
                 "keystone_count": len(context.keystone_habits),
                 "daily_count": len(context.daily_habits),
                 "weekly_count": len(context.weekly_habits),
@@ -250,7 +250,7 @@ class UserContextService:
                 "task_focus": context.current_task_focus,
                 "goal_focus": context.primary_goal_focus,
                 "overdue_tasks": context.overdue_task_uids[:3],  # Top 3
-                "at_risk_habits": context.at_risk_habits[:3] if context.at_risk_habits else [],
+                "at_risk_habits": context.at_risk_habits_or_empty()[:3],
             },
             # Key metrics
             "key_metrics": {
@@ -278,9 +278,7 @@ class UserContextService:
 
             summary["insights"] = {
                 "ready_to_learn_count": len(ready_to_learn),
-                "blocked_items_count": len(context.blocked_task_uids)
-                if context.blocked_task_uids
-                else 0,
+                "blocked_items_count": len(context.blocked_task_uids_or_empty()),
                 "capacity_utilization": context.current_workload_score,  # Already 0-1 score
             }
 
@@ -352,9 +350,7 @@ class UserContextService:
         context = context_result.value
 
         # at_risk_habits is rich-context only; empty at standard build depth
-        at_risk = (
-            context.at_risk_habits if context.is_rich_context and context.at_risk_habits else []
-        )
+        at_risk = context.at_risk_habits_or_empty()
         at_risk_data = {
             "user_uid": user_uid,
             "at_risk_habits": at_risk,
@@ -846,8 +842,8 @@ class UserContextService:
             )
 
         # At-risk habits alert (rich-context only; no alert at standard depth)
-        if context.is_rich_context and context.at_risk_habits:
-            at_risk_count = len(context.at_risk_habits)
+        if at_risk := context.at_risk_habits_or_empty():
+            at_risk_count = len(at_risk)
             alerts.append(
                 {
                     "type": "at_risk_habits",
@@ -858,12 +854,9 @@ class UserContextService:
             )
 
         # Blocked tasks alert (rich-context only)
-        if (
-            context.is_rich_context
-            and context.blocked_task_uids
-            and len(context.blocked_task_uids) > 3
-        ):
-            blocked_count = len(context.blocked_task_uids)
+        blocked = context.blocked_task_uids_or_empty()
+        if len(blocked) > 3:
+            blocked_count = len(blocked)
             alerts.append(
                 {
                     "type": "blocked_tasks",

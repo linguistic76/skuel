@@ -358,8 +358,7 @@ class UserStateAnalyzer:
         insights = []
 
         # Always check for critical issues (at_risk_habits is rich-context only)
-        if user_context.is_rich_context and user_context.at_risk_habits:
-            at_risk = user_context.at_risk_habits
+        if at_risk := user_context.at_risk_habits_or_empty():
             insights.append(
                 AskesisInsight(
                     type=InsightType.RISK,
@@ -449,11 +448,7 @@ class UserStateAnalyzer:
             Risk assessment dict with risk scores (0.0 to 1.0)
         """
         # at_risk_habits is rich-context only; treat as 0 at standard depth
-        at_risk_count = (
-            len(user_context.at_risk_habits)
-            if user_context.is_rich_context and user_context.at_risk_habits
-            else 0
-        )
+        at_risk_count = len(user_context.at_risk_habits_or_empty())
         risks = {
             "habit_risk": at_risk_count / max(len(user_context.active_habit_uids), 1),
             "goal_risk": 0.0,

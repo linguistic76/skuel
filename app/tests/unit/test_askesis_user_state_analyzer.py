@@ -92,6 +92,8 @@ def create_mock_user_context(
     # Rich-only accessors — return containers matching the rich fields above
     context.get_blocked_tasks = Mock(return_value=set(context.blocked_task_uids))
     context.get_habits_needing_reinforcement = Mock(return_value=list(context.at_risk_habits))
+    context.blocked_task_uids_or_empty = Mock(return_value=set(context.blocked_task_uids))
+    context.at_risk_habits_or_empty = Mock(return_value=list(context.at_risk_habits))
 
     # Workload
     context.current_workload_score = current_workload_score

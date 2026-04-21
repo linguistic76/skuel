@@ -2,7 +2,7 @@
 Tests for SKUEL Unified Linter
 ===============================
 
-Tests all 17 lint rules, LintResult dataclass, and suppression logic.
+Tests all 18 lint rules, LintResult dataclass, and suppression logic.
 Uses synthetic string content — no filesystem access needed.
 """
 
@@ -57,6 +57,8 @@ def lint_content(
         linter._check_poetry_references(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL017") and not is_test:
         linter._check_broad_exception_catches(fp, rel, content, lines)
+    if linter._should_run_rule("SKUEL018") and not is_test:
+        linter._check_rich_only_field_access(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -919,3 +921,125 @@ class TestSKUEL017:
         content = '"""\nexcept Exception as e:\n"""'
         violations = lint_content(linter, content)
         assert len(violations) == 0
+
+
+# ============================================================================
+# SKUEL018: Direct access to UserContext RICH_ONLY_FIELDS
+# ============================================================================
+
+
+class TestSKUEL018:
+    def test_detects_direct_read(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(linter, "    if ctx.at_risk_habits:")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL018"
+        assert "at_risk_habits" in violations[0].message
+
+    def test_detects_all_six_fields(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        content = "\n".join(
+            [
+                "x = ctx.tasks_by_goal",
+                "y = ctx.habits_by_goal",
+                "z = ctx.at_risk_habits",
+                "w = ctx.blocked_task_uids",
+                "v = ctx.principle_guided_choice_counts",
+                "u = ctx.recent_principle_aligned_choices",
+            ]
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 6
+        flagged = {v.message.split("`.")[1].split("`")[0] for v in violations}
+        assert flagged == {
+            "tasks_by_goal",
+            "habits_by_goal",
+            "at_risk_habits",
+            "blocked_task_uids",
+            "principle_guided_choice_counts",
+            "recent_principle_aligned_choices",
+        }
+
+    def test_does_not_flag_or_empty_accessor(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(linter, "    x = ctx.at_risk_habits_or_empty()")
+        assert len(violations) == 0
+
+    def test_does_not_flag_get_accessor(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(linter, "    x = ctx.get_blocked_tasks()")
+        assert len(violations) == 0
+
+    def test_does_not_flag_assignment(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(linter, "    ctx.at_risk_habits = []")
+        assert len(violations) == 0
+
+    def test_flags_equality_comparison(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(linter, "    if ctx.at_risk_habits == ['x']:")
+        assert len(violations) == 1
+
+    def test_whitelist_unified_user_context(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(
+            linter,
+            "    return self.at_risk_habits",
+            file_path="core/services/user/unified_user_context.py",
+        )
+        assert len(violations) == 0
+
+    def test_whitelist_populator(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(
+            linter,
+            "    context.at_risk_habits = at_risk",
+            file_path="core/services/user/user_context_populator.py",
+        )
+        assert len(violations) == 0
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(
+            linter,
+            "    x = ctx.at_risk_habits  # skuel-lint: disable=SKUEL018 -- legitimate direct read",
+        )
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL018 -- migration script\nx = ctx.at_risk_habits\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_test_files(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(
+            linter,
+            "    context.at_risk_habits = ['x']",
+            file_path="tests/unit/test_something.py",
+        )
+        assert len(violations) == 0
+
+    def test_skips_docstrings(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        content = '"""\nAvoid ctx.at_risk_habits\n"""'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_suggestion_references_real_accessor(self) -> None:
+        """Suggestion text must cite the actual accessor names (e.g. get_blocked_tasks,
+        not get_blocked_task_uids)."""
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(linter, "    x = ctx.blocked_task_uids")
+        assert len(violations) == 1
+        assert "get_blocked_tasks()" in violations[0].suggestion
+        assert "blocked_task_uids_or_empty()" in violations[0].suggestion
+
+    def test_at_risk_habits_cites_reinforcement_accessor(self) -> None:
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(linter, "    x = ctx.at_risk_habits")
+        assert len(violations) == 1
+        assert "get_habits_needing_reinforcement()" in violations[0].suggestion

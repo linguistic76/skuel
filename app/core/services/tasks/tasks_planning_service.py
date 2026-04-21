@@ -319,11 +319,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
                 continue
 
             # Get goal associations from context (tasks_by_goal is rich-context only)
-            tasks_by_goal = (
-                context.tasks_by_goal
-                if context.is_rich_context and context.tasks_by_goal is not None
-                else {}
-            )
+            tasks_by_goal = context.tasks_by_goal_or_empty()
             goal_uids = tasks_by_goal.get(task_uid, [])
             if not goal_uids:
                 # Reverse lookup: find goals that contain this task

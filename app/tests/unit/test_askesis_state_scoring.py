@@ -75,6 +75,10 @@ def create_mock_user_context(
     context.at_risk_habits = [f"habit_{i}" for i in range(at_risk_habits)]
     context.habit_streaks = habit_streaks or {"habit_1": 7, "habit_2": 14}
 
+    # Rich-only graceful accessors — return the populated list/set at rich depth
+    context.at_risk_habits_or_empty = Mock(return_value=list(context.at_risk_habits))
+    context.blocked_task_uids_or_empty = Mock(return_value=set(context.blocked_task_uids))
+
     # Learning velocity method
     context.calculate_learning_velocity = Mock(return_value=learning_velocity)
 
