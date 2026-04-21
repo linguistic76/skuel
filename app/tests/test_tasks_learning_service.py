@@ -187,7 +187,7 @@ async def test_get_next_learning_task(learning_service, user_context):
 
 @pytest.mark.asyncio
 async def test_suggest_learning_aligned_tasks(learning_service, learning_position):
-    """Generates learning-aligned task suggestions."""
+    """Generates learning-aligned task suggestions via LearningAlignmentBridge."""
     result = await learning_service.suggest_learning_aligned_tasks(learning_position)
 
     assert result.is_ok
@@ -197,15 +197,14 @@ async def test_suggest_learning_aligned_tasks(learning_service, learning_positio
 
     for suggestion in suggestions:
         assert "title" in suggestion
-        assert "learning_path" in suggestion
-        assert "knowledge_uid" in suggestion
-        assert "learning_relevance_score" in suggestion
+        assert "supporting_path" in suggestion
+        assert "learning_alignment_score" in suggestion
         assert "suggestion_reason" in suggestion
 
 
 @pytest.mark.asyncio
-async def test_suggest_tasks_sorted_by_relevance(learning_service, learning_position):
-    """Suggestions are sorted descending by learning relevance score."""
+async def test_suggest_tasks_sorted_by_alignment(learning_service, learning_position):
+    """Suggestions are sorted descending by learning alignment score."""
     result = await learning_service.suggest_learning_aligned_tasks(learning_position, limit=10)
 
     assert result.is_ok
@@ -213,23 +212,20 @@ async def test_suggest_tasks_sorted_by_relevance(learning_service, learning_posi
     if len(suggestions) > 1:
         for i in range(len(suggestions) - 1):
             assert (
-                suggestions[i]["learning_relevance_score"]
-                >= suggestions[i + 1]["learning_relevance_score"]
+                suggestions[i]["learning_alignment_score"]
+                >= suggestions[i + 1]["learning_alignment_score"]
             )
 
 
 @pytest.mark.asyncio
-async def test_suggest_tasks_includes_current_and_next_steps(learning_service, learning_position):
-    """Suggestions cover both current and next path steps."""
+async def test_suggest_tasks_covers_active_path(learning_service, learning_position):
+    """Suggestions reference the user's active learning path."""
     result = await learning_service.suggest_learning_aligned_tasks(learning_position)
 
     assert result.is_ok
     suggestions = result.value
-
-    current_step_suggestions = [s for s in suggestions if s["knowledge_uid"] == "ku.python.basics"]
-    next_step_suggestions = [s for s in suggestions if s["knowledge_uid"] == "ku.python.advanced"]
-    assert len(current_step_suggestions) > 0
-    assert len(next_step_suggestions) > 0
+    path_names = {s["supporting_path"] for s in suggestions}
+    assert "Python Mastery" in path_names
 
 
 @pytest.mark.asyncio
@@ -279,9 +275,9 @@ async def test_multiple_active_paths_suggestions(learning_service):
 
     assert result.is_ok
     suggestions = result.value
-    python_suggestions = [s for s in suggestions if "python" in s["knowledge_uid"].lower()]
-    html_suggestions = [s for s in suggestions if "html" in s["knowledge_uid"].lower()]
-    assert len(python_suggestions) > 0 or len(html_suggestions) > 0
+    supporting_paths = {s["supporting_path"] for s in suggestions}
+    assert "Python" in supporting_paths
+    assert "Web Development" in supporting_paths
 
 
 # ============================================================================

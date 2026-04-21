@@ -16,14 +16,16 @@ from __future__ import annotations
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import EntityStatus, Priority
+from core.models.enums import Domain, EntityStatus
 from core.models.pathways.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.task.task_request import TaskCreateRequest
 from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.infrastructure import LearningAlignmentBridge
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
@@ -51,15 +53,18 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
         event_bus: Any = None,
         relationship_service: UnifiedRelationshipService | None = None,
     ) -> None:
-        """
-        Args:
-            backend: TasksOperations backend (required)
-            event_bus: Event bus (accepted for factory uniformity, not used)
-            relationship_service: Relationship service (accepted for factory uniformity, not used)
-        """
         super().__init__(backend=backend, service_name="tasks.learning")
         self.event_bus = event_bus
         self.relationships = relationship_service
+
+        self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](
+            service=self,
+            backend_get=self.backend.get_task,
+            backend_get_user=self.backend.get_user_tasks,
+            backend_create=self.backend.create_task,
+            domain=Domain.TASKS,
+            entity_name="task",
+        )
 
     @property
     def entity_label(self) -> str:
@@ -69,7 +74,11 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
     async def get_learning_relevant_tasks(
         self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
     ) -> Result[list[Task]]:
-        """Get tasks most relevant to the user's current learning path position."""
+        # Stays hand-rolled (not delegated to LearningAlignmentBridge): Task knowledge
+        # lives on APPLIES_KNOWLEDGE edges, not on the model, so scoring requires an
+        # async fetch per task. The Bridge's sync scorer cannot express that, and
+        # LpPosition.assess_task_relevance has current+next-step semantics distinct
+        # from the Bridge's default sum-based scorer.
         tasks_result = await self.backend.get_user_entities(user_uid)
         if tasks_result.is_error:
             return Result.fail(tasks_result)
@@ -118,69 +127,13 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
         )
         return Result.ok(None)
 
-    @with_error_handling("suggest_learning_aligned_tasks", error_type="database")
     async def suggest_learning_aligned_tasks(
         self, learning_position: LpPosition, _task_domain: str | None = None, limit: int = 10
     ) -> Result[list[dict[str, Any]]]:
         """Suggest new tasks aligned with learning path progression."""
-        suggestions: list[dict[str, Any]] = []
-
-        for path in learning_position.active_paths:
-            current_step = learning_position.current_steps.get(path.uid)
-            if not current_step:
-                continue
-
-            ku_uid = (
-                current_step.knowledge_uids[0]
-                if current_step.knowledge_uids
-                else current_step.title
-            )
-
-            suggestions.append(
-                {
-                    "title": f"Practice {ku_uid}",
-                    "description": f"Apply {ku_uid} knowledge from {path.title}",
-                    "learning_path": path.title,
-                    "knowledge_uid": ku_uid,
-                    "estimated_minutes": int((current_step.estimated_hours or 0) * 60 / 3),
-                    "priority": Priority.MEDIUM.value,
-                    "learning_relevance_score": 0.9,
-                    "suggestion_reason": f"Aligns with current step in {path.title}",
-                }
-            )
-
-            path_steps = path.metadata.get("steps", []) if path.metadata else []
-            try:
-                current_index = path_steps.index(current_step)
-                if current_index + 1 < len(path_steps):
-                    next_step = path_steps[current_index + 1]
-                    next_ku_uid = (
-                        next_step.knowledge_uids[0] if next_step.knowledge_uids else next_step.title
-                    )
-                    suggestions.append(
-                        {
-                            "title": f"Prepare for {next_ku_uid}",
-                            "description": f"Research and prepare for upcoming {next_ku_uid} in {path.title}",
-                            "learning_path": path.title,
-                            "knowledge_uid": next_ku_uid,
-                            "estimated_minutes": 30,
-                            "priority": Priority.LOW.value,
-                            "learning_relevance_score": 0.7,
-                            "suggestion_reason": f"Preparation for next step in {path.title}",
-                        }
-                    )
-            except ValueError:
-                pass
-
-        suggestions.sort(key=itemgetter("learning_relevance_score"), reverse=True)
-
-        self.logger.info(
-            "Generated %d learning-aligned task suggestions from %d active paths",
-            len(suggestions),
-            len(learning_position.active_paths),
+        return await self.learning_helper.suggest_learning_aligned_entities(
+            learning_position=learning_position, max_suggestions=limit
         )
-
-        return Result.ok(suggestions[:limit])
 
     async def create_tasks_from_learning_path(
         self, learning_path_uid: str, _user_context: UserContext
