@@ -434,15 +434,18 @@ class GoalsService(
     ) -> Result[list[Goal]]:
         return await self.search.search(query, limit, user_uid)
 
-    async def get_goals_due_soon(
+    async def get_upcoming_goals(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
     async def get_overdue_goals(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
         return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active_goals(self, user_uid: UserUID, limit: int = 100) -> Result[list[Goal]]:
+        return await self.search.get_active(user_uid, limit)
 
     async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
         return await self.search.get_by_domain(domain, limit)

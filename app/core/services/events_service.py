@@ -354,15 +354,18 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.search.get_history(user_uid, days_back, limit)
 
-    async def get_events_due_soon(
+    async def get_upcoming_events(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
     async def get_overdue_events(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
         return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active_events(self, user_uid: UserUID, limit: int = 100) -> Result[list[Event]]:
+        return await self.search.get_active(user_uid, limit)
 
     async def get_events_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
@@ -575,7 +578,7 @@ class EventsService(
     # get_next_habit_events
     # - Learning: get_learning_events, get_events_for_learning_path,
     # create_study_session, suggest_spaced_repetition_events, create_learning_path_schedule
-    # - Search: search_events, get_calendar_events, get_event_history, get_events_due_soon,
+    # - Search: search_events, get_calendar_events, get_event_history, get_upcoming_events,
     # get_overdue_events, get_events_by_status, get_events_in_range, get_prioritized_events
     # - Relationships: get_event_cross_domain_context, get_event_with_semantic_context, analyze_event_impact
     # - Intelligence: get_event_with_context, analyze_event_performance, analyze_upcoming_events

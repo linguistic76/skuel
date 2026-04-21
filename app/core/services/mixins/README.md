@@ -144,8 +144,9 @@ Service Layer (Depends on Foundation):
 
 **Key Methods:**
 - `get_user_items_in_range(user_uid, start_date, end_date)` - Date range query
-- `get_due_soon(user_uid, days)` - Items due within N days
+- `get_upcoming(days_ahead, user_uid)` - Items upcoming within N days
 - `get_overdue(user_uid)` - Items past due date
+- `get_active(user_uid)` - Non-terminal items for user
 
 **Configuration:**
 - Uses `DomainConfig.date_field` to determine which date field to query

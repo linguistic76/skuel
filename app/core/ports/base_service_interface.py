@@ -699,14 +699,14 @@ class TimeQueryOperations(Protocol[T]):
         """
         ...
 
-    async def get_due_soon(
+    async def get_upcoming(
         self,
         days_ahead: int = 7,
         user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[T]]:
         """
-        Get entities due within specified number of days.
+        Get entities upcoming within specified number of days.
 
         Args:
             days_ahead: Number of days ahead to check
@@ -714,7 +714,7 @@ class TimeQueryOperations(Protocol[T]):
             limit: Maximum results to return
 
         Returns:
-            Result[list[T]]: Entities due soon
+            Result[list[T]]: Upcoming entities
         """
         ...
 
@@ -732,6 +732,23 @@ class TimeQueryOperations(Protocol[T]):
 
         Returns:
             Result[list[T]]: Overdue entities
+        """
+        ...
+
+    async def get_active(
+        self,
+        user_uid: UserUID,
+        limit: int = 100,
+    ) -> Result[list[T]]:
+        """
+        Get active (non-terminal) entities for a user.
+
+        Args:
+            user_uid: User UID
+            limit: Maximum results to return
+
+        Returns:
+            Result[list[T]]: Active entities
         """
         ...
 

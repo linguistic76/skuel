@@ -317,15 +317,18 @@ class ChoicesService(
     ) -> Result[list[Choice]]:
         return await self.search.get_pending(user_uid, limit)
 
-    async def get_choices_due_soon(
+    async def get_upcoming_choices(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
     async def get_overdue_choices(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active_choices(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
+        return await self.search.get_active(user_uid, limit)
 
     async def get_choices_by_urgency(
         self, urgency: str, user_uid: UserUID | None = None, limit: int = 100

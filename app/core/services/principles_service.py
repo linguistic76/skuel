@@ -336,9 +336,27 @@ class PrinciplesService(
         return await self.search.get_by_category(category, user_uid, limit)
 
     async def get_principles_needing_review(
-        self, days_threshold: int = 90, limit: int = 20
+        self,
+        user_uid: UserUID | None = None,
+        days_threshold: int = 90,
+        limit: int = 20,
     ) -> Result[list[Principle]]:
-        return await self.search.get_needing_review(days_threshold, limit)
+        return await self.search.get_needing_review(user_uid, days_threshold, limit)
+
+    async def get_upcoming_principles(
+        self, days_ahead: int = 30, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Principle]]:
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
+
+    async def get_overdue_principles(
+        self, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Principle]]:
+        return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active_principles(
+        self, user_uid: UserUID, limit: int = 100
+    ) -> Result[list[Principle]]:
+        return await self.search.get_active(user_uid, limit)
 
     async def get_principles_for_goal(
         self, goal_uid: str, limit: int = 10

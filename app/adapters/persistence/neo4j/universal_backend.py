@@ -73,7 +73,7 @@ _search_raw_mixin.py:
     faceted_search_raw
 
 _temporal_mixin.py:
-    user_activity_range_raw, due_soon_raw, overdue_raw
+    user_activity_range_raw, upcoming_raw, overdue_raw, active_raw
 
 _prereq_progress_mixin.py:
     prerequisite_traversal_raw, hierarchy_query_raw, user_progress_raw,

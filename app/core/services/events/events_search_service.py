@@ -56,7 +56,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
-    - get_due_soon() - Events within N days
+    - get_upcoming() - Events within N days
     - get_overdue() - Past events not completed
 
     Event-Specific Methods:
@@ -157,7 +157,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         return Result.ok(prioritized)
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
-    # get_due_soon() and get_overdue() - inherited from TimeQueryMixin via DomainConfig
+    # get_upcoming(), get_overdue(), get_active() - inherited from TimeQueryMixin via DomainConfig
 
     # ========================================================================
     # EVENT-SPECIFIC SEARCH METHODS
@@ -340,30 +340,8 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         self.logger.debug(f"Found {len(events)} events of type '{event_type}'")
         return Result.ok(events)
 
-    @with_error_handling("get_upcoming", error_type="database", uid_param="user_uid")
-    async def get_upcoming(
-        self, user_uid: UserUID, days_ahead: int = 30, limit: int = 100
-    ) -> Result[list[Event]]:
-        """
-        Get upcoming events for a user.
-
-        Args:
-            user_uid: User identifier
-            days_ahead: Number of days to look ahead
-            limit: Maximum results
-
-        Returns:
-            Result containing upcoming events sorted by date
-        """
-        today = date.today()
-        end_date = today + timedelta(days=days_ahead)
-
-        return await self.get_in_range(
-            start_date=today,
-            end_date=end_date,
-            user_uid=user_uid,
-            limit=limit,
-        )
+    # get_upcoming() inherited from TimeQueryMixin — uses event_date field via DomainConfig.
+    # Default signature: get_upcoming(days_ahead=7, user_uid=None, limit=100).
 
     @with_error_handling("get_history", error_type="database", uid_param="user_uid")
     async def get_history(

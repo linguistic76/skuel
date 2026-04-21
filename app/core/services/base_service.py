@@ -73,7 +73,7 @@ RelationshipOperationsMixin:
 
 TimeQueryMixin:
     get_user_items_in_range_base, get_user_items_in_range,
-    get_due_soon, get_overdue
+    get_upcoming, get_overdue, get_active
 
 UserProgressMixin:
     get_user_progress, update_user_mastery, get_user_curriculum

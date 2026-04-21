@@ -659,7 +659,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         """Query user entities within a date range."""
         ...
 
-    async def due_soon_raw(
+    async def upcoming_raw(
         self,
         date_field: str,
         days_ahead: int = 7,
@@ -669,7 +669,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         limit: int = 100,
         secondary_sort_field: str | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Query entities due within N days."""
+        """Query entities upcoming within N days."""
         ...
 
     async def overdue_raw(
@@ -682,6 +682,16 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         secondary_sort_field: str | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Query entities past their due date."""
+        ...
+
+    async def active_raw(
+        self,
+        user_uid: UserUID,
+        *,
+        exclude_statuses: builtins.list[str] | None = None,
+        limit: int = 100,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Query user's active (non-terminal) entities."""
         ...
 
     async def prerequisite_traversal_raw(

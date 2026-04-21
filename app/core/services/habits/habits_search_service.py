@@ -50,7 +50,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
-    - get_due_soon() - Habits due within N days (based on frequency)
+    - get_upcoming() - Habits due within N days (based on frequency)
     - get_overdue() - Overdue habits
 
     Habit-Specific Methods:
@@ -159,17 +159,17 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
 
-    @with_error_handling("get_due_soon", error_type="database")
-    async def get_due_soon(
+    @with_error_handling("get_upcoming", error_type="database")
+    async def get_upcoming(
         self,
         days_ahead: int = 7,
         user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[Habit]]:
         """
-        Get habits due within specified number of days based on frequency.
+        Get habits upcoming within specified number of days based on frequency.
 
-        For habits, "due soon" means habits that need completion based on their
+        For habits, "upcoming" means habits that need completion based on their
         frequency pattern within the time window.
 
         Args:
@@ -178,7 +178,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
             limit: Maximum results to return
 
         Returns:
-            Result containing habits due soon
+            Result containing habits upcoming
         """
         today = date.today()
         end_date = today + timedelta(days=days_ahead)
@@ -191,8 +191,8 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
 
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
-        # Filter to active habits due within window
-        due_soon = []
+        # Filter to active habits upcoming within window
+        upcoming = []
         for habit in habits:
             # Skip inactive (including paused)
             if not self._is_active(habit):
@@ -201,13 +201,13 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
             # Check if due based on frequency
             is_due = self._is_habit_due_in_window(habit, today, end_date)
             if is_due:
-                due_soon.append(habit)
+                upcoming.append(habit)
 
-            if len(due_soon) >= limit:
+            if len(upcoming) >= limit:
                 break
 
-        self.logger.debug(f"Found {len(due_soon)} habits due within {days_ahead} days")
-        return Result.ok(due_soon)
+        self.logger.debug(f"Found {len(upcoming)} habits upcoming within {days_ahead} days")
+        return Result.ok(upcoming)
 
     def _is_habit_due_in_window(self, habit: Habit, start_date: date, _end_date: date) -> bool:
         """Check if habit is due within the date window based on frequency."""
@@ -493,13 +493,17 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
 
     # get_by_category() and list_categories() - inherited from BaseService
 
-    @with_error_handling("get_active_habits", error_type="database", uid_param="user_uid")
-    async def get_active_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
+    @with_error_handling("get_active", error_type="database", uid_param="user_uid")
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
         """
         Get active (non-archived, non-completed) habits for a user.
 
+        Override of TimeQueryMixin.get_active — habits include paused entries
+        (paused habits are still "alive", just temporarily suspended).
+
         Args:
             user_uid: User identifier
+            limit: Maximum results to return
 
         Returns:
             Result with list of active habits
@@ -512,7 +516,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         # Filter to active habits (exclude archived, completed, cancelled but include paused)
-        active_habits = [h for h in habits if self._is_active(h, include_paused=True)]
+        active_habits = [h for h in habits if self._is_active(h, include_paused=True)][:limit]
 
         self.logger.debug(f"Found {len(active_habits)} active habits for user {user_uid}")
         return Result.ok(active_habits)

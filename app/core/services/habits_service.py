@@ -253,8 +253,18 @@ class HabitsService(
         return await self.progress.identify_potential_keystone_habits(user_context)
 
     # Search delegations
-    async def get_active_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
-        return await self.search.get_active_habits(user_uid)
+    async def get_active_habits(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
+        return await self.search.get_active(user_uid, limit)
+
+    async def get_upcoming_habits(
+        self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Habit]]:
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
+
+    async def get_overdue_habits(
+        self, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Habit]]:
+        return await self.search.get_overdue(user_uid, limit)
 
     async def search_habits(
         self, query: str, limit: int = 50, user_uid: UserUID | None = None
@@ -277,11 +287,6 @@ class HabitsService(
 
     async def get_all_habits_due_today(self) -> Result[list[Habit]]:
         return await self.search.get_all_due_today()
-
-    async def get_overdue_habits(
-        self, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Habit]]:
-        return await self.search.get_overdue(user_uid, limit)
 
     async def get_habits_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None

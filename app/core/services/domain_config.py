@@ -137,7 +137,7 @@ class DomainConfig:
     graph_enrichment_patterns: tuple[tuple[str, str, str, str], ...] = ()
     user_ownership_relationship: str | None = RelationshipName.OWNS  # None for shared content (KU)
 
-    # Temporal queries (get_due_soon / get_overdue)
+    # Temporal queries (get_upcoming / get_overdue / get_active)
     temporal_exclude_statuses: tuple[str, ...] = (
         "completed",
         "failed",
@@ -269,7 +269,7 @@ def create_activity_domain_config(
         entity_label: Neo4j node label override (default: model_class.__name__).
             Use when model_class is a domain subclass (e.g., Task) but the
             Neo4j label remains the base type (e.g., "Entity").
-        temporal_secondary_sort: Secondary sort field for get_due_soon/get_overdue
+        temporal_secondary_sort: Secondary sort field for get_upcoming/get_overdue
             (e.g., "start_time" for Events)
 
     Returns:

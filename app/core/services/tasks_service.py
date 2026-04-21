@@ -455,6 +455,19 @@ class TasksService(
     async def get_tasks_for_path_step(self, step_uid: str) -> Result[list[Task]]:
         return await self.search.get_tasks_for_path_step(step_uid)
 
+    async def get_upcoming_tasks(
+        self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Task]]:
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
+
+    async def get_overdue_tasks(
+        self, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Task]]:
+        return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active_tasks(self, user_uid: UserUID, limit: int = 100) -> Result[list[Task]]:
+        return await self.search.get_active(user_uid, limit)
+
     # Progress delegations
     async def check_prerequisites(
         self, task_uid: str, user_context: UserContext

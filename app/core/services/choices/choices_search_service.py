@@ -55,8 +55,9 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
-    - get_due_soon() - Choices with upcoming deadlines
+    - get_upcoming() - Choices with upcoming deadlines
     - get_overdue() - Choices past deadline
+    - get_active() - Non-terminal choices for a user
 
     Choice-Specific Methods:
     - get_pending() - Pending/undecided choices
@@ -149,7 +150,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         return Result.ok(prioritized)
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
-    # get_due_soon() and get_overdue() - inherited from TimeQueryMixin via DomainConfig
+    # get_upcoming(), get_overdue(), get_active() - inherited from TimeQueryMixin via DomainConfig
 
     # ========================================================================
     # CHOICE-SPECIFIC SEARCH METHODS

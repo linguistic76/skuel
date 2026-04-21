@@ -21,7 +21,7 @@ mixins composed alongside this one on ``UniversalNeo4jBackend``:
         array_any_match_raw, array_contains_raw, distinct_values_raw,
         faceted_search_raw
     D: _temporal_mixin.py        (_TemporalMixin)
-        user_activity_range_raw, due_soon_raw, overdue_raw
+        user_activity_range_raw, upcoming_raw, overdue_raw, active_raw
     E + F: _prereq_progress_mixin.py (_PrereqProgressMixin)
         prerequisite_traversal_raw, hierarchy_query_raw, user_progress_raw,
         update_user_mastery_rel, user_curriculum_raw

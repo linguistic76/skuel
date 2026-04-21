@@ -1502,7 +1502,7 @@ def build_due_soon_query(
     """
     Build query for entities due within N days.
 
-    Used by BaseService.get_due_soon() for all Activity Domains.
+    Used by TimeQueryMixin.get_upcoming() for all Activity Domains.
 
     Args:
         node_label: Neo4j node label (e.g., "Task", "Goal", "Event")
@@ -1653,5 +1653,55 @@ def build_overdue_query(
         params["exclude_statuses"] = exclude_statuses  # type: ignore[assignment]  # list[str] is subtype at runtime; Neo4jValue uses list[str | int | float]
     if user_uid:
         params["user_uid"] = user_uid
+
+    return cypher.strip(), params
+
+
+def build_active_query(
+    node_label: str,
+    user_uid: UserUID,
+    exclude_statuses: list[str] | None = None,
+    limit: int = 100,
+) -> tuple[str, dict[str, Neo4jValue]]:
+    """
+    Build query for active (non-terminal) entities owned by a user.
+
+    Used by TimeQueryMixin.get_active() for all Activity Domains. Active means the
+    entity's status is NOT in exclude_statuses (terminal states). Entities without
+    a status are included (null-safe).
+
+    Args:
+        node_label: Neo4j node label (e.g., "Task", "Goal", "Event")
+        user_uid: Owner UID — traversed via (u:User)-[:OWNS]->(n)
+        exclude_statuses: Terminal statuses to exclude (e.g., ["completed", "cancelled"])
+        limit: Maximum results
+
+    Returns:
+        Tuple of (cypher_query, parameters)
+    """
+    validate_label(node_label)
+
+    where_clauses: list[str] = []
+
+    if exclude_statuses:
+        where_clauses.append("(n.status IS NULL OR NOT n.status IN $exclude_statuses)")
+
+    where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    cypher = f"""
+    MATCH (u:User {{uid: $user_uid}})-[:OWNS]->(n:{node_label})
+    {where_clause}
+    RETURN n
+    ORDER BY n.created_at DESC
+    LIMIT $limit
+    """
+
+    params: dict[str, Neo4jValue] = {
+        "user_uid": user_uid,
+        "limit": limit,
+    }
+
+    if exclude_statuses:
+        params["exclude_statuses"] = exclude_statuses  # type: ignore[assignment]  # list[str] is subtype at runtime; Neo4jValue uses list[str | int | float]
 
     return cypher.strip(), params

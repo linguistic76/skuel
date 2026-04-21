@@ -48,8 +48,9 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
-    - get_due_soon() - Goals due within N days
+    - get_upcoming() - Goals upcoming within N days
     - get_overdue() - Past-due goals
+    - get_active() - Non-terminal goals for a user
 
     Goal-Specific Methods:
     - get_by_timeframe() - Filter by GoalTimeframe (weekly, monthly, quarterly, yearly)
@@ -125,7 +126,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         return Result.ok(prioritized)
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
-    # get_due_soon() and get_overdue() - inherited from TimeQueryMixin via DomainConfig
+    # get_upcoming(), get_overdue(), get_active() - inherited from TimeQueryMixin via DomainConfig
 
     # ========================================================================
     # GOAL-SPECIFIC SEARCH METHODS

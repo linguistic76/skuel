@@ -50,7 +50,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     - get_by_domain() - Filter by PrincipleCategory (mapped to Domain concept)
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
-    - get_due_soon() - Principles needing review soon
+    - get_upcoming() - Principles needing review soon (approaching threshold)
     - get_overdue() - Principles past review date
 
     Principle-Specific Methods:
@@ -59,7 +59,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     - get_guiding_goals() - Principles guiding specific goals
     - get_inspiring_habits() - Principles inspiring specific habits
     - get_for_choice() - Principles relevant to a decision
-    - get_active_principles() - Get all active principles for user
+    - get_active() - Get all active principles for user (overrides base — uses is_active flag)
+    - get_upcoming() - Principles approaching review threshold (overrides base)
+    - get_overdue() - Principles past review threshold (delegates to get_needing_review)
     - get_needing_review() - Principles past review threshold
 
     Semantic Types Used:
@@ -205,7 +207,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
 
-    async def get_due_soon(
+    async def get_upcoming(
         self,
         days_ahead: int = 30,
         user_uid: UserUID | None = None,
@@ -214,8 +216,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         """
         Get principles needing review within specified number of days.
 
-        Principles "due" means they need alignment review based on
-        last_review_date and a configurable review threshold.
+        Override of TimeQueryMixin.get_upcoming — principles don't have a
+        due_date field. "Upcoming" means the principle is approaching the
+        90-day review threshold (last_review_date within days_ahead of cutoff).
 
         Args:
             days_ahead: Number of days to look ahead (default 30)
@@ -251,31 +254,20 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         limit: int = 100,
     ) -> Result[list[Principle]]:
         """
-        Get principles past their review date (default 90-day threshold).
+        Get principles past their 90-day review threshold.
+
+        Thin delegation to get_needing_review(days_threshold=90) — "overdue"
+        and "needing review at the default threshold" are the same concept
+        for principles.
 
         Args:
-            user_uid: Optional user UID to filter by ownership
+            user_uid: Optional user UID to filter by ownership (forwarded)
             limit: Maximum results to return
 
         Returns:
-            Result containing overdue principles, sorted by how overdue
+            Result containing overdue principles
         """
-        # Default review threshold is 90 days
-        review_threshold_days = 90
-        review_cutoff = date.today() - timedelta(days=review_threshold_days)
-
-        result = await self.backend.get_principles_needing_review(
-            cutoff_date=review_cutoff.isoformat(),
-            user_uid=user_uid,
-            limit=limit,
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
-
-        self.logger.debug(f"Found {len(principles)} overdue principles")
-        return Result.ok(principles)
+        return await self.get_needing_review(user_uid=user_uid, days_threshold=90, limit=limit)
 
     # ========================================================================
     # PRINCIPLE-SPECIFIC SEARCH METHODS
@@ -441,12 +433,13 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             direction="outgoing",
         )
 
-    @with_error_handling("get_active_principles", error_type="database")
-    async def get_active_principles(
-        self, user_uid: UserUID, limit: int = 100
-    ) -> Result[list[Principle]]:
+    @with_error_handling("get_active", error_type="database")
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Principle]]:
         """
         Get all active principles for a user.
+
+        Override of TimeQueryMixin.get_active — principles use an explicit
+        is_active: bool flag rather than EntityStatus terminal states.
 
         Args:
             user_uid: User UID
@@ -471,12 +464,16 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
     @with_error_handling("get_needing_review", error_type="database")
     async def get_needing_review(
-        self, days_threshold: int = 90, limit: int = 20
+        self,
+        user_uid: UserUID | None = None,
+        days_threshold: int = 90,
+        limit: int = 20,
     ) -> Result[list[Principle]]:
         """
         Get principles that need alignment review.
 
         Args:
+            user_uid: Optional user UID to filter by ownership
             days_threshold: Days since last review to trigger need (default 90)
             limit: Maximum results to return
 
@@ -487,6 +484,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
         result = await self.backend.get_principles_needing_review(
             cutoff_date=review_cutoff.isoformat(),
+            user_uid=user_uid,
             limit=limit,
             prioritize_never_reviewed=True,
         )
