@@ -2,7 +2,7 @@
 Sentinel Tests for UserContext Rich-Only Fields
 ================================================
 
-Guards the six fields that are populated exclusively by ``build_rich()``
+Guards the rich-only fields that are populated exclusively by ``build_rich()``
 and silently absent at standard ``build()`` depth:
 
     - tasks_by_goal
@@ -11,6 +11,7 @@ and silently absent at standard ``build()`` depth:
     - blocked_task_uids
     - principle_guided_choice_counts
     - recent_principle_aligned_choices
+    - principle_integration_score  (scalar; no graceful accessor)
 
 Contract enforced here:
 
@@ -50,6 +51,7 @@ def test_rich_only_fields_registry_matches_expected_set() -> None:
             "blocked_task_uids",
             "principle_guided_choice_counts",
             "recent_principle_aligned_choices",
+            "principle_integration_score",
         }
     )
     assert expected == UserContext.RICH_ONLY_FIELDS
@@ -79,12 +81,13 @@ def test_standard_depth_is_not_rich(standard_context: UserContext) -> None:
         "blocked_task_uids",
         "principle_guided_choice_counts",
         "recent_principle_aligned_choices",
+        "principle_integration_score",
     ],
 )
 def test_rich_only_field_defaults_to_none_at_standard_depth(
     standard_context: UserContext, field_name: str
 ) -> None:
-    """Every rich-only field must be None — not an empty container."""
+    """Every rich-only field must be None — not an empty container or a scalar zero."""
     assert getattr(standard_context, field_name) is None
 
 
@@ -139,6 +142,15 @@ def test_get_recent_principle_aligned_choices_raises_at_standard_depth(
     with pytest.raises(RichContextRequiredError) as exc_info:
         standard_context.get_recent_principle_aligned_choices()
     assert exc_info.value.operation == "get_recent_principle_aligned_choices"
+
+
+def test_get_principle_integration_score_raises_at_standard_depth(
+    standard_context: UserContext,
+) -> None:
+    """Scalar rich-only accessor: strict-only, no graceful _or_zero variant."""
+    with pytest.raises(RichContextRequiredError) as exc_info:
+        standard_context.get_principle_integration_score()
+    assert exc_info.value.operation == "get_principle_integration_score"
 
 
 def test_require_rich_context_raises_at_standard_depth(
@@ -214,6 +226,7 @@ def rich_context() -> UserContext:
         blocked_task_uids={"task:blocked_1", "task:blocked_2"},
         principle_guided_choice_counts={"principle:minimalism": 3},
         recent_principle_aligned_choices=["choice:1", "choice:2"],
+        principle_integration_score=0.75,
     )
 
 
@@ -251,6 +264,10 @@ def test_get_recent_principle_aligned_choices_at_rich_depth(
     rich_context: UserContext,
 ) -> None:
     assert rich_context.get_recent_principle_aligned_choices() == ["choice:1", "choice:2"]
+
+
+def test_get_principle_integration_score_at_rich_depth(rich_context: UserContext) -> None:
+    assert rich_context.get_principle_integration_score() == 0.75
 
 
 def test_graceful_accessors_return_populated_data_at_rich_depth(

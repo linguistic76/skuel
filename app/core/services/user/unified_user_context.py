@@ -183,6 +183,7 @@ class UserContext:
             "blocked_task_uids",
             "principle_guided_choice_counts",
             "recent_principle_aligned_choices",
+            "principle_integration_score",
         }
     )
 
@@ -371,7 +372,9 @@ class UserContext:
     principle_choice_satisfaction_avg: dict[str, float] = field(
         default_factory=dict
     )  # principle_uid -> avg satisfaction (0.0-1.0)
-    principle_integration_score: float = 0.0  # Overall principle-choice integration (0.0-1.0)
+    # RICH-ONLY — see RICH_ONLY_FIELDS. None at standard depth distinguishes
+    # "not computed" from a legitimate rich-depth 0.0 ("no alignment").
+    principle_integration_score: float | None = field(default=None)  # 0.0-1.0 at rich depth
     # RICH-ONLY — see RICH_ONLY_FIELDS
     recent_principle_aligned_choices: list[str] | None = field(
         default=None
@@ -1081,6 +1084,17 @@ class UserContext:
             if self.recent_principle_aligned_choices is not None
             else []
         )
+
+    def get_principle_integration_score(self) -> float:
+        """Overall principle-choice integration score (0.0-1.0). Requires rich context.
+
+        No graceful accessor: a standard-depth read is a bug, not a degraded path —
+        0.0 at rich depth is a legitimate "no alignment" signal and must not be
+        conflated with "not computed" at standard depth.
+        """
+        self.require_rich_context("get_principle_integration_score")
+        assert self.principle_integration_score is not None
+        return self.principle_integration_score
 
     # =========================================================================
     # WORKLOAD QUERY METHODS

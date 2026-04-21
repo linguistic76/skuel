@@ -250,8 +250,7 @@ class LifePathIntelligenceMixin:
             scores.append(0.15)  # Neutral contribution when no domain data
 
         # Component 3: Principle integration score (30% weight)
-        # Uses the new principle_integration_score from UserContext
-        scores.append(self.context.principle_integration_score * 0.30)
+        scores.append(self.context.get_principle_integration_score() * 0.30)
 
         return sum(scores)
 

@@ -1043,3 +1043,15 @@ class TestSKUEL018:
         violations = lint_content(linter, "    x = ctx.at_risk_habits")
         assert len(violations) == 1
         assert "get_habits_needing_reinforcement()" in violations[0].suggestion
+
+    def test_scalar_field_suggestion_omits_graceful(self) -> None:
+        """principle_integration_score has no graceful accessor — suggestion
+        must name only the strict accessor and flag standard-depth reads as bugs."""
+        linter = make_linter(["SKUEL018"])
+        violations = lint_content(linter, "    x = ctx.principle_integration_score")
+        assert len(violations) == 1
+        suggestion = violations[0].suggestion
+        assert "get_principle_integration_score()" in suggestion
+        assert "No graceful accessor" in suggestion
+        assert "_or_empty" not in suggestion
+        assert "_or_zero" not in suggestion

@@ -484,9 +484,10 @@ class SkuelLinter:
         "neo4j/backends/",  # All 27 domain backends live in the backends/ cluster package
     ]
 
-    # SKUEL018: Six UserContext fields that default to None at standard depth
-    # and are populated only by build_rich(). Direct reads must route through
-    # accessors (get_X() strict / X_or_empty() graceful).
+    # SKUEL018: UserContext fields that default to None at standard depth and are
+    # populated only by build_rich(). Direct reads must route through accessors
+    # (get_X() strict / X_or_empty() graceful). Scalar rich-only fields have no
+    # graceful accessor — a standard-depth read is a bug, not a degraded path.
     RICH_ONLY_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {
             "tasks_by_goal",
@@ -495,6 +496,7 @@ class SkuelLinter:
             "blocked_task_uids",
             "principle_guided_choice_counts",
             "recent_principle_aligned_choices",
+            "principle_integration_score",
         }
     )
 
@@ -506,7 +508,8 @@ class SkuelLinter:
     # Field → (strict_accessor, graceful_accessor). Strict raises at standard depth;
     # graceful returns an empty container. Fields with per-key accessors (e.g.
     # get_tasks_for_goal(uid)) also have dict-level strict accessors listed here.
-    RICH_ONLY_ACCESSORS: ClassVar[dict[str, tuple[str, str]]] = {
+    # graceful=None for scalar fields where a standard-depth read is a bug.
+    RICH_ONLY_ACCESSORS: ClassVar[dict[str, tuple[str, str | None]]] = {
         "tasks_by_goal": ("get_tasks_by_goal()", "tasks_by_goal_or_empty()"),
         "habits_by_goal": ("get_habits_by_goal()", "habits_by_goal_or_empty()"),
         "at_risk_habits": (
@@ -522,6 +525,7 @@ class SkuelLinter:
             "get_recent_principle_aligned_choices()",
             "recent_principle_aligned_choices_or_empty()",
         ),
+        "principle_integration_score": ("get_principle_integration_score()", None),
     }
 
     def __init__(
@@ -1594,6 +1598,18 @@ class SkuelLinter:
                     continue
 
                 strict, graceful = self.RICH_ONLY_ACCESSORS[field_name]
+                if graceful is None:
+                    suggestion = (
+                        f"Use `{strict}` (strict, raises at standard depth). "
+                        f"No graceful accessor — standard-depth read is a bug. "
+                        f"See UserContext.RICH_ONLY_FIELDS."
+                    )
+                else:
+                    suggestion = (
+                        f"Use `{strict}` (strict, raises at standard depth) "
+                        f"or `{graceful}` (graceful fallback). "
+                        f"See UserContext.RICH_ONLY_FIELDS."
+                    )
                 self.result.violations.append(
                     Violation(
                         file_path=rel_path,
@@ -1605,11 +1621,7 @@ class SkuelLinter:
                             f"Direct read of UserContext rich-only field "
                             f"`.{field_name}` — use accessor"
                         ),
-                        suggestion=(
-                            f"Use `{strict}` (strict, raises at standard depth) "
-                            f"or `{graceful}` (graceful fallback). "
-                            f"See UserContext.RICH_ONLY_FIELDS."
-                        ),
+                        suggestion=suggestion,
                         line_content=line.strip(),
                     )
                 )
