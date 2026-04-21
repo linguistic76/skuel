@@ -187,6 +187,43 @@ context.is_rich_context      # bool — False for standard, True for rich
 context.require_rich_context("operation_name")  # raises RichContextRequiredError if standard
 ```
 
+### Rich-Only Fields — Two Mechanisms, Different Jobs
+
+Seven fields on `UserContext` default to `None` at standard depth and are populated only by `build_rich()`:
+
+```
+tasks_by_goal, habits_by_goal, at_risk_habits, blocked_task_uids,
+principle_guided_choice_counts, recent_principle_aligned_choices,
+principle_integration_score
+```
+
+These are listed on `UserContext.RICH_ONLY_FIELDS`. Reading them at standard depth is a bug, not a degraded path — so the codebase applies **two independent mechanisms**:
+
+| Mechanism | What it is | What it protects against |
+|-----------|------------|--------------------------|
+| **Compile-time guard** | `RichUserContext(UserContext)` — subclass that narrows the seven fields from `X \| None` to `X` and pins `is_rich_context=True`. Consumers that require rich data type their `context: RichUserContext`. | Calling rich-requiring methods with a standard context. mypy rejects it before runtime. |
+| **Uniform read path** | `get_X()` / `X_or_empty()` accessors on `UserContext`. `get_X()` raises `RichContextRequiredError` at standard depth; `X_or_empty()` returns an empty container. SKUEL018 (lint) forbids direct `.<rich_only_field>` reads outside accessor-definition files. | Runtime None-leaks and inconsistent read shapes across consumers. |
+
+**They stack; they do not substitute.** Narrowing to `RichUserContext` does not license inlining `self.context.habits_by_goal` in place of `self.context.get_habits_by_goal()`. The reason is consistency: not every consumer is typed against `RichUserContext` (some take plain `UserContext` and branch on `is_rich()`), and SKUEL018 is name-based by design so the read path stays uniform across both. The accessor call is the single audit chokepoint if the rich/standard contract ever changes; the type is the static safety net.
+
+```python
+# Intelligence / planning service — rich is required
+class SynergyIntelligenceMixin:
+    context: RichUserContext  # compile-time guard: mypy rejects a standard context
+
+    def _detect_habit_goal_synergies(self):
+        habits_by_goal = self.context.get_habits_by_goal()  # uniform read path
+        ...
+
+# Consumer that tolerates either depth — branch, then accessor
+if is_rich(context):
+    habits_by_goal = context.get_habits_by_goal()
+else:
+    habits_by_goal = context.habits_by_goal_or_empty()
+```
+
+`require_rich_context("operation_name")` is the runtime backstop inside strict accessors — it only fires for a mistyped `UserContext` that slipped through. With `RichUserContext`-typed code, it never raises in practice.
+
 ### When to Use UserContext vs Domain Services
 
 ```

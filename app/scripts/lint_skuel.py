@@ -371,10 +371,20 @@ Rich-only fields:
   tasks_by_goal, habits_by_goal, at_risk_habits, blocked_task_uids,
   principle_guided_choice_counts, recent_principle_aligned_choices
 
+Relationship to RichUserContext (design note):
+  RichUserContext narrows these fields to non-None at the type level. That
+  guard is about static None-safety, not about bypassing this rule. This
+  check is intentionally name-based (not type-aware) so every consumer uses
+  the same read path — accessors — regardless of whether its local context
+  is typed as UserContext or RichUserContext. The two mechanisms stack:
+  narrow the type for compile-time safety, call the accessor at the read site.
+
 Whitelisted files (direct access allowed):
   core/services/user/unified_user_context.py   — accessor definitions
   core/services/user/user_context_populator.py — rich-build writes
-  tests/**                                     — fixtures and assertions""",
+  tests/**                                     — fixtures and assertions
+  (RichUserContext-typed consumers are NOT whitelisted — they still go
+  through accessors.)""",
         "good": """# Strict: crash if not rich (intelligence services)
 habits = self.context.get_habits_by_goal()
 

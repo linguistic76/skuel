@@ -1243,6 +1243,29 @@ class RichUserContext(UserContext):
     - Intelligence services that require rich data declare `context: RichUserContext`.
     - Planning methods that need rich-only fields take `context: RichUserContext`.
 
+    **Relationship to rich-only accessors (important):**
+
+    `RichUserContext` is the *compile-time* guard. The `get_X()` /
+    `X_or_empty()` accessors on `UserContext` are the *read path*. They serve
+    different jobs and both stay in use:
+
+    - The type prevents None-unsafety — mypy sees the narrowed field and
+      every method on a `RichUserContext`-typed consumer is provably called
+      with rich data.
+    - The accessors are the uniform read path for ALL consumers, including
+      ones typed against plain `UserContext` that branch on `is_rich()`.
+      They also act as the single audit chokepoint if the rich/standard
+      contract ever changes.
+
+    Narrowing the parameter type does **not** license inlining
+    `self.context.habits_by_goal` in place of `self.context.get_habits_by_goal()`.
+    SKUEL018 is name-based by design — it flags direct rich-only field reads
+    regardless of receiver type so the read path stays uniform across
+    consumers with different static context types. Files typed against
+    `RichUserContext` are still expected to go through the accessors; the
+    lint whitelist exists only for the accessor definitions themselves and
+    for the populator.
+
     **mypy note:** narrowing a dataclass field in a subclass needs
     `type: ignore[assignment]` — this is a well-known mypy limitation
     (python/mypy#9254), not a design flaw. Six ignores total.
