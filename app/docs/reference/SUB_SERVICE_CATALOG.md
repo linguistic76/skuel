@@ -291,7 +291,7 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 ### EventHandlerService
 
 **Domains:** Tasks, Goals, Habits, Events, Choices, Principles + Learning Loop
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`, `learning_loop_event_handler_service.py`
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `event_event_handler_service.py`, `choice_event_handler_service.py`, `principle_event_handler_service.py`, `learning_loop_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive logic (fire-and-forget handlers) with insight persistence to InsightStore
 
@@ -483,7 +483,7 @@ result = await service.list_reports_by_date_range(
 ### EventHandlerService
 
 **Domains:** Tasks, Goals, Habits, Events, Choices, Principles
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `event_event_handler_service.py`, `choice_event_handler_service.py`, `principle_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive handlers (fire-and-forget)
 

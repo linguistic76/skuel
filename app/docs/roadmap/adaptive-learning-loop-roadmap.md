@@ -70,7 +70,7 @@ Each item follows the proven pattern: add method to `*EventHandlerService`, subs
 
 1. **Goals duration calibration** — `GoalEventHandlerService` subscribed to `GoalAchieved`. Same EMA pattern as Tasks. Store `goal_duration_ratio`, `goal_completion_count` on User node. High-volume domain, direct parallel to Task learning.
 
-2. **Events scheduling calibration** — ✅ `EventsEventHandlerService` subscribed to `CalendarEventCompleted`, `CalendarEventRescheduled`, `CalendarEventCreated` (March 2026). Handles attendance tracking, rescheduling pattern detection, and scheduling density monitoring. Duration ratio learning (store `event_duration_ratio` on User node) is a future enhancement.
+2. **Events scheduling calibration** — ✅ `EventEventHandlerService` subscribed to `CalendarEventCompleted`, `CalendarEventRescheduled`, `CalendarEventCreated` (March 2026). Handles attendance tracking, rescheduling pattern detection, and scheduling density monitoring. Duration ratio learning (store `event_duration_ratio` on User node) is a future enhancement.
 
 3. **Habits streak/break learning** — ✅ Handlers implemented in `HabitEventHandlerService` (`handle_habit_streak_broken`, `handle_habit_missed` persist data). Missing: feeding `learned_recovery_difficulty` and `learned_difficulty_level` back into scheduling recommendations.
 

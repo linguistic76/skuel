@@ -80,7 +80,7 @@ def _assess_scheduling_density(events_in_week: int) -> str:
         return "overcommitted"
 
 
-class EventsEventHandlerService:
+class EventEventHandlerService:
     """Event-driven handlers for calendar event domain events.
 
     Fire-and-forget handlers that analyze attendance patterns, detect

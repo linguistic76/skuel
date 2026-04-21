@@ -677,7 +677,6 @@ fixable = ["ALL"]
 "core/services/*_service.py" = ["ARG002", "PERF401"]  # Service method signatures implement protocols
 "core/services/unified_ingestion_service.py" = ["E402", "F402"]  # Imports after constants + loop var shadowing
 "core/services/*/[!_]*.py" = ["ARG002", "ARG004", "RUF012", "PERF401", "SIM102", "SIM108", "SIM116"]  # Nested service modules + class config
-"core/services/context_first_mixin.py" = ["ARG002"]  # Mixin methods match various signatures
 "core/services/infrastructure/*.py" = ["ARG002"]  # Infrastructure helpers
 "core/infrastructure/**/*.py" = ["ARG001", "ARG002", "PERF401", "SIM116", "RUF002", "B021"]  # Route factories + batch helpers
 "core/services/relationships/*.py" = ["ARG002", "PERF401", "SIM108"]  # Relationship services + patterns

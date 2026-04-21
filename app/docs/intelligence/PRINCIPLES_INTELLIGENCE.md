@@ -13,7 +13,7 @@
 | `_AlignmentIntelligenceMixin` | `_alignment_intelligence_mixin.py` | `assess_principle_alignment`, `assess_alignment_dual_track`, `get_principle_adherence_trends`, alignment helpers |
 | `_InfluenceMixin` | `_influence_mixin.py` | `get_principle_conflict_analysis`, `get_quick_principle_impact`, `batch_analyze_principle_adoption`, `get_choice_guidance_effectiveness` |
 
-**Note:** Event handlers (strength changes, reflections, conflicts) were extracted to `PrincipleEventHandlerService` in `/core/services/principles/principles_event_handler_service.py` (~670 lines) in March 2026.
+**Note:** Event handlers (strength changes, reflections, conflicts) were extracted to `PrincipleEventHandlerService` in `/core/services/principles/principle_event_handler_service.py` (~670 lines) in March 2026.
 
 ---
 

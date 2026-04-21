@@ -25,11 +25,11 @@ from core.events import publish_event
 from core.models.enums import RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.services.context_first_mixin import parse_date_field
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import parse_date_field
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations

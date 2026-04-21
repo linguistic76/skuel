@@ -432,7 +432,7 @@ def _wire_event_subscribers(
     )
     event_bus.subscribe(CalendarEventCreated, events_service.event_handler.handle_event_created)
     logger.info(
-        "✅ EventsEventHandlerService subscribed to "
+        "✅ EventEventHandlerService subscribed to "
         "CalendarEventCompleted, CalendarEventRescheduled, CalendarEventCreated"
     )
 

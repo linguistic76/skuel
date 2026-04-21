@@ -50,7 +50,7 @@ class PrinciplesIntelligenceService(
     It uses pure graph queries and Python calculations - no LLM or embeddings.
 
     Event-driven handlers (strength changes, reflections, conflicts) are in
-    PrincipleEventHandlerService — see principles_event_handler_service.py.
+    PrincipleEventHandlerService — see principle_event_handler_service.py.
 
     Responsibilities:
     - Get principle with graph context

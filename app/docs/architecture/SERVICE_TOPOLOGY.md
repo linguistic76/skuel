@@ -105,7 +105,7 @@ Standalone services without subfolders.
 | **User Secondary** | `user_progress_service.py`, `user_relationship_service.py` |
 | **System** | `system_service.py`, `schema_service.py`, `performance_optimization_service.py` |
 | **Visualization** | `core/services/visualization_service.py` (pure formatter — no domain deps) + `core/services/analytics/visualization_aggregation_service.py` (data fetching + aggregation — delegates formatting to VisualizationService) |
-| **Config/Helpers** | `domain_config.py`, `query_builder.py`, `entity_timestamp_mixin.py`, `context_first_mixin.py` |
+| **Config/Helpers** | `domain_config.py`, `query_builder.py`, `entity_timestamp_mixin.py` |
 
 ---
 
@@ -683,7 +683,7 @@ ACTIVITY_DOMAIN_CONFIGS["events"]  ← Registry lookup
     ├─ core_class: "EventsCoreService"
     ├─ search_class: "EventsSearchService"
     ├─ intelligence_class: "EventsIntelligenceService"
-    ├─ event_handler_class: "EventsEventHandlerService"
+    ├─ event_handler_class: "EventEventHandlerService"
     ├─ learning_class: "EventsLearningService"
     └─ relationship_config: EVENTS_CONFIG
     │
@@ -694,7 +694,7 @@ Dynamic imports + instantiation (skipping names in skip set)
     ├─ search = EventsSearchService(backend=backend, ...)
     ├─ intel = None  (skipped)
     ├─ rels = UnifiedRelationshipService(backend=backend, config=EVENTS_CONFIG)
-    ├─ event_handler = EventsEventHandlerService(...)  (always built)
+    ├─ event_handler = EventEventHandlerService(...)  (always built)
     ├─ learning = EventsLearningService(...)           (always built when class configured)
     └─ knowledge_intelligence = <passed-in singleton>  (always set)
     │
@@ -704,7 +704,7 @@ CommonSubServices[EventsIntelligenceService]
     ├─ search: EventsSearchService
     ├─ relationships: UnifiedRelationshipService
     ├─ intelligence: None
-    ├─ event_handler: EventsEventHandlerService
+    ├─ event_handler: EventEventHandlerService
     ├─ learning: EventsLearningService
     └─ knowledge_intelligence: ActivityKnowledgeIntelligenceService
 ```

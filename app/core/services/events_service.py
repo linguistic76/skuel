@@ -10,7 +10,7 @@ Sub-Services:
 - EventsHabitIntegrationService: Cross-domain habits integration
 - EventsLearningService: Learning path integration
 - UnifiedRelationshipService (EVENTS_CONFIG): Graph relationships and semantic connections
-- EventsEventHandlerService: Event-driven reactive logic (attendance patterns, rescheduling, density)
+- EventEventHandlerService: Event-driven reactive logic (attendance patterns, rescheduling, density)
 - EventsIntelligenceService: Pure Cypher analytics
 
 Facade Mixins (extracted April 2026):
@@ -38,8 +38,8 @@ from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services
 from core.services.events import (
+    EventEventHandlerService,
     EventsCoreService,
-    EventsEventHandlerService,
     EventsHabitIntegrationService,
     EventsIntelligenceService,
     EventsLearningService,
@@ -194,7 +194,7 @@ class EventsService(
     progress: EventsProgressService
     scheduling: EventsSchedulingService
     relationships: UnifiedRelationshipService
-    event_handler: EventsEventHandlerService
+    event_handler: EventEventHandlerService
     intelligence: EventsIntelligenceService
 
     # ========================================================================
@@ -542,7 +542,7 @@ class EventsService(
         self.scheduling = EventsSchedulingService(backend=backend, event_bus=event_bus)
 
         # Event-driven handler from factory
-        self.event_handler: EventsEventHandlerService = common.event_handler
+        self.event_handler: EventEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
         self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
