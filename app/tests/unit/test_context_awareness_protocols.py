@@ -143,15 +143,17 @@ class TestProtocolUsagePatterns:
     def test_function_accepting_task_awareness(self):
         """Functions can accept TaskAwareness and receive UserContext."""
 
-        def get_blocked_count(ctx: TaskAwareness) -> int:
-            return len(ctx.blocked_task_uids) if ctx.blocked_task_uids is not None else 0
+        # Use non-rich fields for demo; rich-only fields (blocked_task_uids,
+        # tasks_by_goal) must be read via UserContext accessors, not directly
+        # through a protocol-typed reference — see UserContext.RICH_ONLY_FIELDS.
+        def get_overdue_count(ctx: TaskAwareness) -> int:
+            return len(ctx.overdue_task_uids)
 
         context = UserContext(user_uid="test", username="test")
-        context.is_rich_context = True
-        context.blocked_task_uids = {"task1", "task2", "task3"}
+        context.overdue_task_uids = ["task1", "task2", "task3"]
 
         # UserContext satisfies TaskAwareness
-        result = get_blocked_count(context)
+        result = get_overdue_count(context)
         assert result == 3
 
     def test_function_accepting_knowledge_awareness(self):
@@ -171,14 +173,16 @@ class TestProtocolUsagePatterns:
     def test_function_accepting_habit_awareness(self):
         """Functions can accept HabitAwareness and receive UserContext."""
 
-        def get_at_risk_count(ctx: HabitAwareness) -> int:
-            return len(ctx.at_risk_habits) if ctx.at_risk_habits is not None else 0
+        # Use non-rich fields for demo; rich-only fields (at_risk_habits,
+        # habits_by_goal) must be read via UserContext accessors, not directly
+        # through a protocol-typed reference — see UserContext.RICH_ONLY_FIELDS.
+        def get_active_habit_count(ctx: HabitAwareness) -> int:
+            return len(ctx.active_habit_uids)
 
         context = UserContext(user_uid="test", username="test")
-        context.is_rich_context = True
-        context.at_risk_habits = ["habit1", "habit2"]
+        context.active_habit_uids = {"habit1", "habit2"}
 
-        result = get_at_risk_count(context)
+        result = get_active_habit_count(context)
         assert result == 2
 
     def test_function_accepting_cross_domain_awareness(self):

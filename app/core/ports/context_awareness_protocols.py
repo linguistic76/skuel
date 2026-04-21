@@ -227,9 +227,9 @@ class GoalAwareness(Protocol):
     completed_goal_uids: set[str]
     goal_progress: dict[str, float]  # uid -> progress (0.0-1.0)
 
-    # Goal relationships
-    tasks_by_goal: dict[str, list[str]]
-    habits_by_goal: dict[str, list[str]]
+    # Goal relationships (tasks_by_goal / habits_by_goal are rich-context only)
+    tasks_by_goal: dict[str, list[str]] | None
+    habits_by_goal: dict[str, list[str]] | None
 
     # Milestone tracking
     goal_milestones_completed: dict[str, list[str]]  # goal_uid -> milestone UIDs completed
