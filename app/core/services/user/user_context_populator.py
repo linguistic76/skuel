@@ -367,6 +367,14 @@ class UserContextPopulator:
         context.upcoming_event_uids = events_data.get("upcoming_uids", [])
         context.today_event_uids = events_data.get("today_uids", [])
 
+        # Principles (active) — drive daily alignment decisions
+        principles_data = data.get("principles", {})
+        context.core_principle_uids = [uid for uid in principles_data.get("core_uids", []) if uid]
+
+        # Choices (pending) — block forward motion until resolved
+        choices_data = data.get("choices", {})
+        context.pending_choice_uids = [uid for uid in choices_data.get("pending_uids", []) if uid]
+
         # MOCs (Maps of Content)
         mocs_data = data.get("mocs", {})
         context.active_moc_uids = mocs_data.get("active_uids", [])

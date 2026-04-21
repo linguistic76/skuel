@@ -1172,6 +1172,33 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(event.uid) as upcoming_event_uids,
      collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids
 
+// Principles - active principles guide daily decisions
+OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
+WHERE principle.status = 'active'
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     enrolled_path_uids,
+     active_moc_uids, moc_data,
+     upcoming_event_uids, today_event_uids,
+     collect(principle.uid) as core_principle_uids
+
+// Choices - pending decisions block forward motion
+OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
+WHERE choice.status IN ['draft', 'active']
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     enrolled_path_uids,
+     active_moc_uids, moc_data,
+     upcoming_event_uids, today_event_uids,
+     core_principle_uids,
+     collect(choice.uid) as pending_choice_uids
+
 // ACTIVITY REPORT - Latest report for standard context
 OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
 WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
@@ -1182,6 +1209,7 @@ WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      enrolled_path_uids,
      active_moc_uids, moc_data,
      upcoming_event_uids, today_event_uids,
+     core_principle_uids, pending_choice_uids,
      ar
 ORDER BY ar.period_end DESC
 WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
@@ -1192,6 +1220,7 @@ WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      enrolled_path_uids,
      active_moc_uids, moc_data,
      upcoming_event_uids, today_event_uids,
+     core_principle_uids, pending_choice_uids,
      collect(ar)[0] AS latest_ar
 
 // Final aggregation - return all domain data
@@ -1214,6 +1243,8 @@ RETURN
     moc_data,
     upcoming_event_uids,
     today_event_uids,
+    core_principle_uids,
+    pending_choice_uids,
     CASE WHEN latest_ar IS NOT NULL THEN {
         uid: latest_ar.uid,
         period: latest_ar.time_period,
@@ -1249,6 +1280,8 @@ def empty_context_data() -> dict[str, Any]:
             "ku_marked_as_read_uids": set(),
         },
         "events": {"upcoming_uids": [], "today_uids": []},
+        "principles": {"core_uids": []},
+        "choices": {"pending_uids": []},
         "mocs": {"active_uids": [], "view_counts": {}, "recently_viewed_uids": []},
         "submission_stats": {
             "total_submission_count": 0,
@@ -1574,6 +1607,12 @@ class UserContextQueryExecutor:
                 "events": {
                     "upcoming_uids": record["upcoming_event_uids"] or [],
                     "today_uids": [uid for uid in (record["today_event_uids"] or []) if uid],
+                },
+                "principles": {
+                    "core_uids": [uid for uid in (record["core_principle_uids"] or []) if uid],
+                },
+                "choices": {
+                    "pending_uids": [uid for uid in (record["pending_choice_uids"] or []) if uid],
                 },
                 "mocs": {
                     "active_uids": [uid for uid in (record["active_moc_uids"] or []) if uid],

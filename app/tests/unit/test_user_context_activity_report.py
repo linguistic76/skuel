@@ -188,6 +188,68 @@ def test_populate_from_consolidated_data_no_activity_report() -> None:
 
 
 # =============================================================================
+# populate_from_consolidated_data — principles + choices wiring (ADR-056)
+# =============================================================================
+
+
+def test_populate_from_consolidated_data_wires_principles_and_choices() -> None:
+    """CONSOLIDATED_QUERY principles/choices keys reach UserContext at standard depth."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    data = {
+        "tasks": {},
+        "habits": {},
+        "goals": {},
+        "knowledge": {},
+        "events": {},
+        "principles": {"core_uids": ["principle:honesty", "principle:craftsmanship"]},
+        "choices": {"pending_uids": ["choice:framework", "choice:role"]},
+        "mocs": {},
+    }
+
+    populator.populate_from_consolidated_data(ctx, data)
+
+    assert ctx.core_principle_uids == ["principle:honesty", "principle:craftsmanship"]
+    assert ctx.pending_choice_uids == ["choice:framework", "choice:role"]
+
+
+def test_populate_from_consolidated_data_principles_choices_absent() -> None:
+    """Missing principles/choices keys leave UserContext fields at defaults."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    data = {"tasks": {}, "habits": {}, "goals": {}, "knowledge": {}, "events": {}, "mocs": {}}
+
+    populator.populate_from_consolidated_data(ctx, data)
+
+    assert ctx.core_principle_uids == []
+    assert ctx.pending_choice_uids == []
+
+
+def test_populate_from_consolidated_data_filters_null_principle_choice_uids() -> None:
+    """None entries in core_uids/pending_uids are filtered out."""
+    populator = UserContextPopulator()
+    ctx = UserContext(user_uid="user_test")
+
+    data = {
+        "tasks": {},
+        "habits": {},
+        "goals": {},
+        "knowledge": {},
+        "events": {},
+        "principles": {"core_uids": [None, "principle:one", None]},
+        "choices": {"pending_uids": ["choice:one", None]},
+        "mocs": {},
+    }
+
+    populator.populate_from_consolidated_data(ctx, data)
+
+    assert ctx.core_principle_uids == ["principle:one"]
+    assert ctx.pending_choice_uids == ["choice:one"]
+
+
+# =============================================================================
 # populate_cross_domain_insights TESTS
 # =============================================================================
 
