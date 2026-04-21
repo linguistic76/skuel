@@ -8,6 +8,8 @@ related:
   - ADR-047-entity-types-replace-domain-categories
   - ADR-055-architectural-lenses
   - ADR-043-intelligence-tier-toggle
+  - SIBLING_SIGNAL_PATTERN
+  - SHARED_SIGNAL_PATTERN
 ---
 
 # ADR-057: Activity-Domain Sibling Signals
@@ -50,13 +52,19 @@ The edges exist. The intelligence plumbing does not.
 
 Introduce a **Sibling Signal** pattern: narrow, ISP-shaped protocols in `core/ports/` that expose a *single corrective signal* from one Activity Domain's intelligence, consumed by a sibling domain's intelligence method at the point of judgment.
 
+### Related pattern: Shared Signal
+
+Not every cross-domain consultation is peer-to-peer. Some corrective signals are produced by **infrastructure serving all 6 Activity Domains** — `ActivityKnowledgeIntelligenceService` is the first productionized example, already delegated from every facade via `KnowledgeIntelligenceDelegationMixin`. The same shape applies to future Calendar- and user-capacity-sourced signals.
+
+That shape is a distinct pattern — *Shared Signal* — covered separately in [`docs/patterns/SHARED_SIGNAL_PATTERN.md`](../patterns/SHARED_SIGNAL_PATTERN.md). Sibling Signal is sibling-to-sibling (Habits → Goals, Principles → Choices, …); Shared Signal is infrastructure → every-peer. The two are complementary, not competing: the 9-gap appendix below identifies which gaps fit each pattern.
+
 The pattern has three commitments:
 
 1. **Protocols, not service-to-service calls.** Each signal is a `Protocol` in `core/ports/sibling_signals.py`. Consumers depend on the narrow protocol, not the producing facade. This avoids circular imports, preserves ISP, and makes testing straightforward.
 2. **Consulted at judgment time, not ingestion time.** When `predict_goal_success()` runs, it consults the habit consistency signal right then — not when habits are created or updated. This keeps per-entity latency honest and avoids a combinatorial enrichment layer.
 3. **Not a new service tier.** Siblings remain the same intelligence services. No new facade, no new sub-service. The protocol is the thin contract between existing services.
 
-The 6 domains organize into **3 primary axes** (mutual sharpening — A↔B) plus **4 diagonals** (directed — A→B):
+The 6 domains organize into **3 primary axes** (mutual sharpening — A↔B) plus **7 diagonals** (directed — A→B):
 
 ### Primary axes (mutual)
 
@@ -74,6 +82,9 @@ The 6 domains organize into **3 primary axes** (mutual sharpening — A↔B) plu
 | Behavior expresses value | Habits | Principles | `EMBODIES_PRINCIPLE` |
 | Moments force decisions | Events | Choices | `TRIGGERS_CHOICE` |
 | Work advances aspiration | Tasks | Goals | `CONTRIBUTES_TO_GOAL` |
+| Aspiration directs work | Goals | Tasks | reverse of `CONTRIBUTES_TO_GOAL` |
+| Values anchor execution | Principles | Tasks | `GUIDED_BY_PRINCIPLE` |
+| Aspiration flags time commitment | Goals | Events | reverse of `ADVANCES_GOAL` |
 
 ### Vocabulary
 
@@ -120,18 +131,31 @@ No new protocols, services, or enums are introduced by this ADR. Nothing ships.
 
 ## Appendix — The 9 Concrete Gaps
 
-Discovered during the Phase 1 audit. Each is a place where implementation would begin:
+Discovered during the Phase 1 audit. On review, the 9 gaps split across two patterns: 6 are peer-to-peer sibling signals (this ADR), 3 are cross-cutting signals produced by infrastructure serving all 6 domains ([Shared Signal pattern](../patterns/SHARED_SIGNAL_PATTERN.md)). Original row numbering is preserved so existing references still resolve.
+
+### 9a. Sibling Gaps (6)
+
+Peer-to-peer consultation at judgment time. Each rides a single cross-domain graph edge.
 
 | # | Source domain | Target method | Signal |
 |---|---------------|---------------|--------|
 | 1 | Principles | `ChoicesIntelligenceService.analyze_choice_impact()` | alignment |
 | 2 | Goals | `TasksIntelligenceService.calculate_knowledge_aware_priorities()` | goal feasibility |
 | 3 | Habits | `GoalsIntelligenceService.predict_goal_success()` | consistency trend |
-| 4 | Tasks | `HabitsIntelligenceService.analyze_habit_performance()` | throughput / capacity |
-| 5 | Events | `HabitsIntelligenceService.analyze_habit_performance()` | calendar collision |
 | 6 | Principles | `TasksIntelligenceService.generate_task_insights()` | alignment gap |
 | 7 | Goals | `EventsIntelligenceService.analyze_event_performance()` | goal risk |
-| 8 | Tasks (knowledge currency) | `ChoicesIntelligenceService.get_decision_intelligence()` | mastery score |
 | 9 | Habits | `PrinciplesIntelligenceService.assess_principle_alignment()` | embodiment evidence |
 
-See `docs/patterns/SIBLING_SIGNAL_PATTERN.md` for the protocol and consumption shapes these gaps would be implemented with.
+See [`docs/patterns/SIBLING_SIGNAL_PATTERN.md`](../patterns/SIBLING_SIGNAL_PATTERN.md) for the protocol and consumption shapes these gaps would be implemented with.
+
+### 9b. Cross-Cutting Gaps (3)
+
+The producer is infrastructure — not a peer domain — and the signal is typically user-scoped rather than entity-scoped. Same consumption shape as sibling signals (narrow ISP protocol, delegation mixin, constructor injection), but the producer is a shared service every facade mounts. The [`ActivityKnowledgeIntelligenceService`](../../core/services/knowledge/activity_knowledge_intelligence_service.py) + [`KnowledgeIntelligenceDelegationMixin`](../../core/services/mixins/knowledge_intelligence_mixin.py) is the first realization.
+
+| # | Source (infrastructure) | Target method | Signal |
+|---|-------------------------|---------------|--------|
+| 4 | User-capacity / throughput service (new) | `HabitsIntelligenceService.analyze_habit_performance()` | throughput / capacity |
+| 5 | Calendar (cross-cutting system) | `HabitsIntelligenceService.analyze_habit_performance()` | calendar collision |
+| 8 | Knowledge mastery (existing `ActivityKnowledgeIntelligenceService`) | `ChoicesIntelligenceService.get_decision_intelligence()` | mastery score |
+
+See [`docs/patterns/SHARED_SIGNAL_PATTERN.md`](../patterns/SHARED_SIGNAL_PATTERN.md) for the shape these gaps would be implemented with.

@@ -306,6 +306,8 @@ intelligence (skippable via `skip={}`) + event_handler, learning, knowledge_inte
 (always auto-wired). The shape is uniform — no domain opts out. `KnowledgeIntelligenceDelegationMixin` remains for the 4
 delegation method shortcuts but is no longer the wiring path for `knowledge_intelligence`. Cross-domain reads spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), injected as a constructor dependency into facades that need it (Goals, Habits, Choices, Principles). Activity domain stat computation centralized in `core/utils/activity_stats.py` (April 2026).
 
+The shared `knowledge_intelligence` wiring is the first production realization of the [Shared Signal pattern](../patterns/SHARED_SIGNAL_PATTERN.md) — one singleton producer, narrow protocol, delegation mixin on every Activity Domain facade.
+
 **Shared Knowledge Intelligence (singleton):**
 ```
 ActivityKnowledgeIntelligenceService (core/services/knowledge/)

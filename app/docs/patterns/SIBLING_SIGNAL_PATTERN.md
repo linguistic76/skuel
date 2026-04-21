@@ -6,6 +6,7 @@ category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, design]
 related:
   - ADR-057-activity-domain-sibling-signals
+  - patterns/SHARED_SIGNAL_PATTERN
   - patterns/BACKEND_OPERATIONS_ISP
   - patterns/protocol_architecture
 ---
@@ -58,9 +59,9 @@ Each axis pairs two domains that address the same phenomenon from complementary 
 - **Events → Tasks**: Calendar collision corrects task capacity assumption. Priority means nothing if the calendar has already sold the block.
 - **Tasks → Events**: Task throughput corrects event scheduling realism. An event in a window with 8 overdue tasks is a lie to yourself.
 
-## The Four Diagonals (Directed)
+## The Seven Diagonals (Directed)
 
-Not every useful signal flows both ways. These four are asymmetric — one domain meaningfully sharpens another without a strong return channel today.
+Not every useful signal flows both ways. These seven are asymmetric — one domain meaningfully sharpens another without a strong return channel today.
 
 | Signal | From | To | Graph edge |
 |--------|------|-----|------------|
@@ -68,6 +69,9 @@ Not every useful signal flows both ways. These four are asymmetric — one domai
 | Behavior expresses value | Habits | Principles | `EMBODIES_PRINCIPLE` |
 | Moments force decisions | Events | Choices | `TRIGGERS_CHOICE` |
 | Work advances aspiration | Tasks | Goals | `CONTRIBUTES_TO_GOAL` |
+| Aspiration directs work | Goals | Tasks | reverse of `CONTRIBUTES_TO_GOAL` |
+| Values anchor execution | Principles | Tasks | `GUIDED_BY_PRINCIPLE` |
+| Aspiration flags time commitment | Goals | Events | reverse of `ADVANCES_GOAL` |
 
 ## Protocol Shape
 
@@ -115,7 +119,7 @@ class GoalFeasibilitySignal(Protocol):
     ) -> FeasibilityScore: ...
 
 
-# … one protocol per signal in the 3 axes + 4 diagonals.
+# … one protocol per signal in the 3 axes + 7 diagonals.
 ```
 
 **Naming rule:** `{SourceConcept}{Signal}` — `HabitConsistencySignal`, not `HabitsSiblingSignal`. The name identifies the *carried information*, not the producing service.
@@ -154,9 +158,11 @@ class _PredictiveMixin:
 
 ## Placement Rule
 
-All sibling-signal protocols live in **one file**: `core/ports/sibling_signals.py`. This mirrors how `core/ports/domain_protocols.py` groups ISP slices. Single file keeps the edge↔signal mapping table (below) colocated with the contracts themselves.
+All **peer-to-peer** sibling-signal protocols live in **one file**: `core/ports/sibling_signals.py`. This mirrors how `core/ports/domain_protocols.py` groups ISP slices. Single file keeps the edge↔signal mapping table (below) colocated with the contracts themselves.
 
 Implementations live on the *existing* intelligence services — no new sub-service is created. `HabitsIntelligenceService` implements `HabitConsistencySignal` by having a `get_consistency_trend()` method; structural typing does the rest.
+
+Cross-cutting signals (where the producer is infrastructure serving all 6 domains — Knowledge, Calendar, user-capacity) do **not** live here. Those belong in `core/ports/intelligence_protocols.py` alongside `KnowledgeIntelligenceOperations`. See [Shared Signal Pattern](SHARED_SIGNAL_PATTERN.md) for that placement.
 
 ## Edge ↔ Signal Mapping
 
@@ -167,21 +173,22 @@ Each sibling signal rides on a Neo4j relationship that already exists. Keep this
 | `HabitConsistencySignal` | `(Habit)-[:SUPPORTS_GOAL]->(Goal)` | Habits are located by goal |
 | `PrincipleAlignmentSignal` | `(Choice)-[:INFORMED_BY_PRINCIPLE]->(Principle)`, `(Task)-[:GUIDED_BY_PRINCIPLE]->(Principle)` | Principles are located by consumer entity |
 | `GoalFeasibilitySignal` | `(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)`, `(Event)-[:ADVANCES_GOAL]->(Goal)` | Goals are located by supporting activity |
-| `TaskThroughputSignal` | N/A (user-scoped, not entity-scoped — aggregate from `(User)<-[:OWNED_BY]-(Task)`) | User-wide throughput, not per-entity |
 | `EventCollisionSignal` | `(Event)-[:OCCURS_AT]->(TimeSlot)` or direct `event_date` property | Events are located by calendar window |
 | `ChoiceAdherenceSignal` | `(Choice)-[:INFORMED_BY_PRINCIPLE]->(Principle)` | Historical adherence count per principle |
 | `HabitEmbodimentSignal` | `(Habit)-[:EMBODIES_PRINCIPLE]->(Principle)` | Habits embodying a principle |
 | `EventDecisionTriggerSignal` | `(Event)-[:TRIGGERS_CHOICE]->(Choice)` | Upcoming events triggering choices |
-| `KnowledgeMasterySignal` | `(User)-[:MASTERED_AT]->(Ku)` | User-to-KU mastery edges |
 
-Protocols without a 1:1 edge (like `TaskThroughputSignal`) consult multiple edges or compute user-scoped aggregates. That is allowed — what matters is that the protocol is narrow and the data path is documented here.
+Every row maps to exactly one graph edge (or a small set of semantically-equivalent edges). If you find yourself wanting to add a user-scoped aggregate row (e.g. task throughput, user capacity, knowledge mastery), the producer is infrastructure, not a peer domain — that belongs in the [Shared Signal Pattern](SHARED_SIGNAL_PATTERN.md) mapping instead.
 
 ## Precedent to Imitate
 
-The shared [ActivityKnowledgeIntelligenceService](../../core/services/knowledge/activity_knowledge_intelligence_service.py) + [KnowledgeIntelligenceMixin](../../core/services/mixins/knowledge_intelligence_mixin.py) already solve the sibling sub-pattern: one cross-cutting concern, every Activity Domain facade mounts it, delegation is explicit. The Sibling Signal pattern extends this model from *one shared concern* (knowledge) to *many narrow concerns* (consistency, alignment, feasibility, …), each typed as its own protocol rather than a full service.
+The consumption shape — narrow protocol + delegation mixin + constructor injection — is borrowed from the shared [ActivityKnowledgeIntelligenceService](../../core/services/knowledge/activity_knowledge_intelligence_service.py) + [KnowledgeIntelligenceMixin](../../core/services/mixins/knowledge_intelligence_mixin.py), already in production.
+
+**Important:** that service is the first realization of the sibling [Shared Signal](SHARED_SIGNAL_PATTERN.md), not this Sibling Signal pattern. Shared Signal is the right home for cross-cutting infrastructure → every-peer consultation. Sibling Signal takes the same delegation machinery and applies it *peer-to-peer* — many narrow concerns (consistency, alignment, feasibility, …), each typed as its own protocol, each implemented on the producing Activity Domain's intelligence service rather than a shared singleton.
 
 ## What This Pattern Is *Not*
 
+- **Not a cross-cutting infrastructure service.** Those live in [Shared Signal Pattern](SHARED_SIGNAL_PATTERN.md). If the producer is infrastructure serving all 6 domains (Knowledge, Calendar, user-capacity), use Shared Signal instead. Rule of thumb: if the signal is user-scoped (aggregate across all of a user's entities) rather than entity-scoped (a single peer entity's metric), the producer is infrastructure, not a peer.
 - **Not a replacement for `UserContextIntelligence`.** Aggregate life-path scoring, synergy detection, and daily-planning synthesis stay where they are. Sibling signals are for *per-entity* judgment, not whole-user aggregation.
 - **Not an event-bus mechanism.** Signals are consulted synchronously at query time. If you need to *react* to a state change (e.g. send a notification when a habit streak breaks), use the existing event bus (`core/events/`).
 - **Not a cross-domain facade.** Each domain's facade stays the way it is. No `CrossDomainIntelligenceService` appears. The sibling signal is injected directly into the mixin or method that needs it.
@@ -220,6 +227,7 @@ async def test_goal_success_downgrades_on_habit_consistency_drop():
 ## Related Documentation
 
 - **Architecture:** [ADR-057](../decisions/ADR-057-activity-domain-sibling-signals.md) — the decision record
+- **Companion pattern:** [Shared Signal Pattern](SHARED_SIGNAL_PATTERN.md) — for cross-cutting infrastructure → every-peer consultation
 - **Philosophy:** [@activity-domains](../../.claude/skills/activity-domains/SKILL.md) — shared-shape-with-unique-verbs
 - **Protocol shape:** [Protocol Architecture](protocol_architecture.md) — how protocols are defined and consumed in SKUEL
 - **ISP pattern:** [BackendOperations ISP](BACKEND_OPERATIONS_ISP.md) — precedent for narrow Protocol slices

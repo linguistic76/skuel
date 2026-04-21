@@ -52,6 +52,8 @@ Never promote a capability only one domain uses into a common sub-service. Never
 
 **See:** `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization" for the canonical statement with examples.
 
+**Structural contract vs. consultation contract.** Service Consolidation describes the *structural contract* — which 7 sub-services every facade owns and how they are composed. The [Shared Signal Pattern](SHARED_SIGNAL_PATTERN.md) describes the orthogonal *consultation contract* — how a cross-cutting concern (Knowledge today; Calendar and user-capacity next) is injected into each facade as a narrow protocol + delegation mixin. Together, they answer two different questions: "what does a facade own?" and "what does a facade consult?" The `knowledge_intelligence` sub-service sits at the intersection — structurally a common sub-service, functionally the first realization of Shared Signal.
+
 ---
 
 ## 1. DomainConfig Dataclass

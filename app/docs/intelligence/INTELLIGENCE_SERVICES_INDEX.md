@@ -450,6 +450,8 @@ Extracted from TasksIntelligenceService (March 2026). These methods are domain-a
 
 **Backend:** Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries across ALL entity types. Since only user-owned activity entities have `user_uid`, shared entities (PathStep, Ku, etc.) naturally filter out from `find_by(user_uid=...)` calls. Uses `EntityStatus.COMPLETED` (not `CompletionStatus.DONE`) for completed entity queries.
 
+**Pattern:** This service is the first production realization of the [Shared Signal pattern](../patterns/SHARED_SIGNAL_PATTERN.md) — cross-cutting infrastructure consulted by every Activity Domain facade via a narrow protocol + delegation mixin.
+
 ---
 
 ### Curriculum (4)
