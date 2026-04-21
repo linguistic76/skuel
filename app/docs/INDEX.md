@@ -192,6 +192,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[UI Component Patterns](patterns/UI_COMPONENT_PATTERNS.md)** | **2026-02-03** | **1395** |
 | **[Shell-First Page Loading Pattern](patterns/SHELL_FIRST_PAGE_PATTERN.md)** | **2026-04-07** | **—** |
 | **[FormGenerator Guide](patterns/FORM_GENERATOR_GUIDE.md)** | **2026-03-08** | **—** |
+| **[Sibling Signal Pattern](patterns/SIBLING_SIGNAL_PATTERN.md)** | **2026-04-21** | **Cross-domain intelligence consultation between the 6 Activity Domains (companion to ADR-057; proposed shape, no code yet)** |
 
 ## Dsl
 
@@ -261,6 +262,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-054: UserEntry — Unified User-Authored Content](decisions/ADR-054-user-entry-unified-submissions.md)** | **2026-04-14** | **—** |
 | **[ADR-055: Architectural Lenses — Subsystems + 3-Layer Lens](decisions/ADR-055-architectural-lenses.md)** | **2026-04-19** | **Model A (7 Subsystems / 20 EntityTypes) + Model B (3-Layer Lens); adopts "Subsystems" vocabulary** |
 | **[ADR-056: Service-Layer Label Split — entity_label + config_lookup_label](decisions/ADR-056-service-layer-label-split.md)** | **2026-04-21** | **DomainConfig.entity_label split into Neo4j base-label + LABEL_CONFIGS registry key; LABEL_CONFIGS["Entity"] → PS_CONFIG alias deleted; factories fail-fast on missing keys** |
+| **[ADR-057: Activity-Domain Sibling Signals](decisions/ADR-057-activity-domain-sibling-signals.md)** | **2026-04-21** | **Design-only (Proposed): narrow ISP protocols in core/ports/ for cross-domain intelligence consultation at judgment time; 6 ways-of-acting, 3 mutual axes + 4 diagonals** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Tools
