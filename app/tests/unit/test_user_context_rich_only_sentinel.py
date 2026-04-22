@@ -161,6 +161,21 @@ def test_require_rich_context_raises_at_standard_depth(
     assert exc_info.value.operation == "custom_op"
 
 
+def test_as_rich_raises_on_standard_context(
+    standard_context: UserContext,
+) -> None:
+    """Internal chokepoint: _as_rich() raises on standard-depth reads."""
+    with pytest.raises(RichContextRequiredError) as exc_info:
+        standard_context._as_rich("op")
+    assert exc_info.value.operation == "op"
+
+
+def test_as_rich_returns_self_on_rich_context() -> None:
+    """_as_rich() is a guard + cast — runtime identity, not a copy."""
+    context = RichUserContext(user_uid="user:test", username="testuser")
+    assert context._as_rich("op") is context
+
+
 # =============================================================================
 # Standard depth: graceful accessors return empty containers
 # =============================================================================

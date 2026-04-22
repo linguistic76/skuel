@@ -65,7 +65,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard
+from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard, cast
 
 from core.models.enums import (
     Domain,
@@ -631,6 +631,20 @@ class UserContext:
 
             raise RichContextRequiredError(operation)
 
+    def _as_rich(self, operation: str) -> RichUserContext:
+        """Guard + cast chokepoint for strict rich-only accessors.
+
+        Raises ``RichContextRequiredError`` on a standard-depth context,
+        otherwise returns ``self`` narrowed to ``RichUserContext`` so callers
+        read the ``RICH_ONLY_FIELDS`` as non-Optional without a separate
+        ``assert``. ``cast()`` is a runtime no-op — identity, not a copy.
+        """
+        if not self.is_rich_context:
+            from core.errors import RichContextRequiredError
+
+            raise RichContextRequiredError(operation)
+        return cast("RichUserContext", self)
+
     def get_rich_entities(
         self,
         domain: str,
@@ -663,15 +677,11 @@ class UserContext:
 
     def get_tasks_for_goal(self, goal_uid: str) -> list[str]:
         """Get all tasks contributing to a specific goal. Requires rich context."""
-        self.require_rich_context("get_tasks_for_goal")
-        assert self.tasks_by_goal is not None
-        return self.tasks_by_goal.get(goal_uid, [])
+        return self._as_rich("get_tasks_for_goal").tasks_by_goal.get(goal_uid, [])
 
     def get_tasks_by_goal(self) -> dict[str, list[str]]:
         """Full goal_uid -> task_uids mapping. Requires rich context."""
-        self.require_rich_context("get_tasks_by_goal")
-        assert self.tasks_by_goal is not None
-        return self.tasks_by_goal
+        return self._as_rich("get_tasks_by_goal").tasks_by_goal
 
     def tasks_by_goal_or_empty(self) -> dict[str, list[str]]:
         """tasks_by_goal with graceful fallback — empty dict at standard depth."""
@@ -679,9 +689,7 @@ class UserContext:
 
     def get_blocked_tasks(self) -> set[str]:
         """Get tasks blocked by prerequisites. Requires rich context."""
-        self.require_rich_context("get_blocked_tasks")
-        assert self.blocked_task_uids is not None
-        return self.blocked_task_uids
+        return self._as_rich("get_blocked_tasks").blocked_task_uids
 
     def blocked_task_uids_or_empty(self) -> set[str]:
         """blocked_task_uids with graceful fallback — empty set at standard depth."""
@@ -741,9 +749,7 @@ class UserContext:
 
     def get_habits_needing_reinforcement(self) -> list[str]:
         """Get habits that need attention to maintain streaks. Requires rich context."""
-        self.require_rich_context("get_habits_needing_reinforcement")
-        assert self.at_risk_habits is not None
-        return self.at_risk_habits
+        return self._as_rich("get_habits_needing_reinforcement").at_risk_habits
 
     def at_risk_habits_or_empty(self) -> list[str]:
         """at_risk_habits with graceful fallback — empty list at standard depth."""
@@ -751,15 +757,11 @@ class UserContext:
 
     def get_habits_for_goal(self, goal_uid: str) -> list[str]:
         """Get habits supporting a specific goal. Requires rich context."""
-        self.require_rich_context("get_habits_for_goal")
-        assert self.habits_by_goal is not None
-        return self.habits_by_goal.get(goal_uid, [])
+        return self._as_rich("get_habits_for_goal").habits_by_goal.get(goal_uid, [])
 
     def get_habits_by_goal(self) -> dict[str, list[str]]:
         """Full goal_uid -> habit_uids mapping. Requires rich context."""
-        self.require_rich_context("get_habits_by_goal")
-        assert self.habits_by_goal is not None
-        return self.habits_by_goal
+        return self._as_rich("get_habits_by_goal").habits_by_goal
 
     def habits_by_goal_or_empty(self) -> dict[str, list[str]]:
         """habits_by_goal with graceful fallback — empty dict at standard depth."""
@@ -1035,9 +1037,7 @@ class UserContext:
 
     def get_principle_guided_choice_counts(self) -> dict[str, int]:
         """Counts of principle-guided choices by principle uid. Requires rich context."""
-        self.require_rich_context("get_principle_guided_choice_counts")
-        assert self.principle_guided_choice_counts is not None
-        return self.principle_guided_choice_counts
+        return self._as_rich("get_principle_guided_choice_counts").principle_guided_choice_counts
 
     def principle_guided_choice_counts_or_empty(self) -> dict[str, int]:
         """principle_guided_choice_counts with graceful fallback — empty dict at standard depth."""
@@ -1049,9 +1049,9 @@ class UserContext:
 
     def get_recent_principle_aligned_choices(self) -> list[str]:
         """Up to 10 recently principle-aligned choice uids. Requires rich context."""
-        self.require_rich_context("get_recent_principle_aligned_choices")
-        assert self.recent_principle_aligned_choices is not None
-        return self.recent_principle_aligned_choices
+        return self._as_rich(
+            "get_recent_principle_aligned_choices"
+        ).recent_principle_aligned_choices
 
     def recent_principle_aligned_choices_or_empty(self) -> list[str]:
         """recent_principle_aligned_choices with graceful fallback — empty list at standard depth."""
@@ -1068,9 +1068,7 @@ class UserContext:
         0.0 at rich depth is a legitimate "no alignment" signal and must not be
         conflated with "not computed" at standard depth.
         """
-        self.require_rich_context("get_principle_integration_score")
-        assert self.principle_integration_score is not None
-        return self.principle_integration_score
+        return self._as_rich("get_principle_integration_score").principle_integration_score
 
     # =========================================================================
     # WORKLOAD QUERY METHODS
@@ -1241,9 +1239,13 @@ class RichUserContext(UserContext):
     lint whitelist exists only for the accessor definitions themselves and
     for the populator.
 
-    **mypy note:** narrowing a dataclass field in a subclass needs
-    `type: ignore[assignment]` — this is a well-known mypy limitation
-    (python/mypy#9254), not a design flaw. Six ignores total.
+    **Internal chokepoint:** strict accessors on ``UserContext`` delegate to
+    ``_as_rich(operation)``, which raises ``RichContextRequiredError`` on a
+    standard-depth context and otherwise returns ``self`` typed as
+    ``RichUserContext``. This collapses the former guard + ``assert`` pair
+    into a single expression whose return type carries the invariant.
+    ``require_rich_context()`` remains public for tests and ad-hoc external
+    checks; ``is_rich()`` remains the external ``TypeGuard``.
     """
 
     # Narrow rich-only containers from `X | None` to `X`.

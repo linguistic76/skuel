@@ -222,7 +222,7 @@ else:
     habits_by_goal = context.habits_by_goal_or_empty()
 ```
 
-`require_rich_context("operation_name")` is the runtime backstop inside strict accessors — it only fires for a mistyped `UserContext` that slipped through. With `RichUserContext`-typed code, it never raises in practice.
+The strict accessors delegate through `_as_rich("operation_name")`, a private helper on `UserContext` that guards with `RichContextRequiredError` on standard-depth contexts and returns `self` narrowed to `RichUserContext`. `require_rich_context()` remains the public form, kept for tests and ad-hoc external checks. Either is a runtime backstop — with `RichUserContext`-typed code, neither raises in practice.
 
 ### When to Use UserContext vs Domain Services
 
