@@ -18,7 +18,7 @@ See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
 from core.events.learning_loop_events import (
@@ -29,6 +29,7 @@ from core.events.learning_loop_events import (
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.enums.pipeline import ReportSource
+from core.models.type_hints import UserUID
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     GroupMemberProgress,
@@ -199,7 +200,7 @@ class TeacherReviewService:
                 )
             )
 
-        student_uid = records[0]["student_uid"] or ""
+        student_uid = str(records[0]["student_uid"] or "")
         logger.info(
             f"Teacher {teacher_uid} submitted report {report_entity_uid} for submission {report_uid}"
         )
@@ -284,7 +285,7 @@ class TeacherReviewService:
                 )
             )
 
-        student_uid = records[0]["student_uid"] or ""
+        student_uid = str(records[0]["student_uid"] or "")
         logger.info(
             f"Teacher {teacher_uid} requested revision {report_entity_uid} for submission {report_uid}"
         )
@@ -361,7 +362,7 @@ class TeacherReviewService:
             uid=re_uid,
             entity_type=EntityType.REVISED_EXERCISE,
             title="",  # Overridden in Cypher
-            user_uid=teacher_uid,
+            user_uid=UserUID(teacher_uid),
             original_exercise_uid=original_exercise_uid,
             report_uid=report_entity_uid,
             instructions=notes,
@@ -410,7 +411,7 @@ class TeacherReviewService:
             )
 
         record = records[0]
-        student_uid = record["student_uid"] or ""
+        student_uid = str(record["student_uid"] or "")
         revision_number = coerce_int(record["revision_number"])
 
         logger.info(
@@ -456,7 +457,7 @@ class TeacherReviewService:
                     entity_uid=re_uid,
                     entity_type="revised_exercise",
                     embedding_text=embedding_text,
-                    user_uid=teacher_uid,
+                    user_uid=UserUID(teacher_uid),
                     requested_at=datetime.now(),
                 ),
                 logger,
@@ -515,7 +516,7 @@ class TeacherReviewService:
             )
 
         record = records[0]
-        student_uid = record["student_uid"] or ""
+        student_uid = UserUID(str(record["student_uid"] or ""))
         raw_ku_uids = record["linked_ku_uids"]
         linked_ku_uids: list[str] = (
             [str(uid) for uid in raw_ku_uids if uid] if isinstance(raw_ku_uids, list) else []
@@ -524,7 +525,7 @@ class TeacherReviewService:
         # Resolve MasteryImpact from the linked Exercise (default MODERATE for backward compat)
         raw_impact = record.get("mastery_impact")
         try:
-            impact = MasteryImpact(raw_impact) if raw_impact else MasteryImpact.MODERATE
+            impact = MasteryImpact(str(raw_impact)) if raw_impact else MasteryImpact.MODERATE
         except ValueError:
             impact = MasteryImpact.MODERATE
 
@@ -591,7 +592,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[ExerciseWithSubmissionCounts]", items))
 
     async def get_submissions_for_exercise(
         self,
@@ -625,7 +626,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[SubmissionForExercise]", items))
 
     async def get_students_summary(
         self,
@@ -656,7 +657,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[StudentSummaryItem]", items))
 
     async def get_student_submissions(
         self,
@@ -698,7 +699,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[StudentSubmissionItem]", items))
 
     async def get_submission_detail(
         self,
@@ -823,7 +824,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[TeacherGroupStats]", items))
 
     async def get_group_detail(
         self,
@@ -859,7 +860,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[GroupMemberProgress]", items))
 
     # ========================================================================
     # PRIVATE HELPERS
