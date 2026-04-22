@@ -135,6 +135,11 @@ class Interaction(UserOwnedEntity):
         This method is available for explicit InteractionDTO → Interaction conversion
         in the interaction service layer.
         """
+        if dto.user_uid is None:
+            raise ValueError(
+                f"Interaction.from_interaction_dto: dto.user_uid is None — "
+                f"user-owned entities require an owner (uid={dto.uid!r})"
+            )
         return cls(
             uid=EntityUID(dto.uid or ""),
             entity_type=EntityType.INTERACTION,

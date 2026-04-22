@@ -737,7 +737,6 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 "step_difficulty": get_enum_value(step.step_difficulty),
                 "status": get_enum_value(step.status),
                 "domain": get_enum_value(step.domain),
-                "priority": get_enum_value(step.priority),
             }
             for step in steps
         ]

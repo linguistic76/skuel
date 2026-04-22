@@ -65,7 +65,7 @@ DOMAIN_IDS = [d[0] for d in ACTIVITY_DOMAINS]
 
 def _make_entity(model_cls: type, domain: str) -> object:
     """Construct a minimal domain entity for rendering."""
-    return model_cls(uid=f"{domain}_test_1", title=f"Test {domain.title()}")
+    return model_cls(uid=f"{domain}_test_1", title=f"Test {domain.title()}", user_uid="user_test")
 
 
 class TestImportConsistency:

@@ -305,7 +305,12 @@ class TestKuTypeDispatch:
 
     def test_task_dispatches_to_task_ku(self):
         """EntityType.TASK dispatches to Task, not Curriculum."""
-        dto = TaskDTO(uid="task_test_abc", title="Test Task", entity_type=EntityType.TASK)
+        dto = TaskDTO(
+            uid="task_test_abc",
+            title="Test Task",
+            entity_type=EntityType.TASK,
+            user_uid="user_test",
+        )
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Task)
         assert not isinstance(ku, Curriculum)
@@ -379,7 +384,7 @@ class TestCurriculumFieldSeparation:
 
     def test_kubase_stubs_return_defaults(self):
         """Entity stubs return 0.0 and False for non-curriculum types."""
-        task = Task(uid="task_test", title="Test Task")
+        task = Task(uid="task_test", title="Test Task", user_uid="user_test")
         assert task.substance_score() == 0.0
         assert task.needs_review() is False
 
@@ -406,6 +411,7 @@ class TestCurriculumFieldSeparation:
             uid="task_test_rt",
             title="Task RT",
             entity_type=EntityType.TASK,
+            user_uid="user_test",
         )
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Task)

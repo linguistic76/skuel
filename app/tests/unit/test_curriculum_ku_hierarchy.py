@@ -94,8 +94,8 @@ class TestCurriculumKuCreation:
             content="Some content",
             tags=("python", "testing"),
         )
-        # Curriculum is a shared type — user_uid property returns None
-        assert cu.user_uid is None
+        # Curriculum is a shared type — user_uid only exists on UserOwnedEntity subclasses
+        assert not hasattr(cu, "user_uid")
         assert cu.domain == Domain.TECH
         assert cu.content == "Some content"
         assert cu.tags == ("python", "testing")

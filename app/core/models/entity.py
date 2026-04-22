@@ -123,20 +123,10 @@ class Entity:
             object.__setattr__(self, "metadata", MappingProxyType(self.metadata))
 
     # =========================================================================
-    # USER OWNERSHIP COMPATIBILITY
-    # Properties for backward compatibility with code accessing user_uid/priority
-    # on any Entity subclass. UserOwnedEntity overrides with real fields.
+    # USER OWNERSHIP
+    # user_uid / priority live on UserOwnedEntity as real fields. Callers
+    # accessing them on a bare Entity should gate with isinstance(e, UserOwnedEntity).
     # =========================================================================
-
-    @property
-    def user_uid(self) -> str | None:
-        """Shared types have no owner. UserOwnedEntity overrides with a field."""
-        return None
-
-    @property
-    def priority(self) -> str | None:
-        """Shared types have no priority. UserOwnedEntity overrides with a field."""
-        return None
 
     @property
     def is_user_owned(self) -> bool:
@@ -288,6 +278,17 @@ class Entity:
         ensuring each subclass only gets its own fields + inherited Entity fields.
         Converts lists to tuples for frozen dataclass compatibility.
         """
+        from core.models.user_owned_entity import UserOwnedEntity
+
+        # Fail-fast at the DTO→Entity boundary: a user-owned entity cannot exist
+        # without an owner. Every create path (services, ingestion, bulk upload)
+        # sets user_uid; a None here means a caller built the DTO partially.
+        if issubclass(cls, UserOwnedEntity) and getattr(dto, "user_uid", None) is None:
+            raise ValueError(
+                f"{cls.__name__}._from_dto: dto.user_uid is None — user-owned "
+                f"entities require an owner (uid={getattr(dto, 'uid', '?')})"
+            )
+
         field_names = {f.name for f in dataclasses.fields(cls) if not f.name.startswith("_")}
         kwargs: dict[str, Any] = {}
         for name in field_names:

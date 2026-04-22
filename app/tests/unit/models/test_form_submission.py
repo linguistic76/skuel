@@ -31,13 +31,14 @@ class TestFormSubmissionConstruction:
         fs = FormSubmission(
             uid="fs_force",
             title="Test",
+            user_uid="user_1",
             entity_type=EntityType.TASK,
         )
         assert fs.entity_type == EntityType.FORM_SUBMISSION
 
     def test_default_status_completed(self):
         """FormSubmissions default to COMPLETED status."""
-        fs = FormSubmission(uid="fs_status", title="Test")
+        fs = FormSubmission(uid="fs_status", title="Test", user_uid="user_1")
         assert fs.status == EntityStatus.COMPLETED
 
     def test_default_visibility_private(self):
@@ -49,16 +50,17 @@ class TestFormSubmissionConstruction:
         fs = FormSubmission(
             uid="fs_data",
             title="Test",
+            user_uid="user_1",
             form_data={"q1": "answer"},
         )
         assert fs.has_data() is True
 
     def test_has_data_empty(self):
-        fs = FormSubmission(uid="fs_empty", title="Test", form_data={})
+        fs = FormSubmission(uid="fs_empty", title="Test", user_uid="user_1", form_data={})
         assert fs.has_data() is False
 
     def test_has_data_none(self):
-        fs = FormSubmission(uid="fs_none", title="Test")
+        fs = FormSubmission(uid="fs_none", title="Test", user_uid="user_1")
         assert fs.has_data() is False
 
 
@@ -142,7 +144,7 @@ class TestFormSubmissionSchemaHash:
         assert restored.template_schema_hash == "a" * 64
 
     def test_schema_hash_default_none(self):
-        fs = FormSubmission(uid="fs_no_hash", title="Test")
+        fs = FormSubmission(uid="fs_no_hash", title="Test", user_uid="user_1")
         assert fs.template_schema_hash is None
 
     def test_schema_hash_in_dto_to_dict(self):

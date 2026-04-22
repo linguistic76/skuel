@@ -413,7 +413,6 @@ class _LpStepMixin:
             step_difficulty: $step_difficulty,
             status: $status,
             domain: $domain,
-            priority: $priority,
             created_at: datetime(),
             updated_at: datetime()
         })
