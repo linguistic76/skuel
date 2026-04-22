@@ -24,59 +24,40 @@ See: `/docs/decisions/ADR-030-usercontext-file-consolidation.md`
 
 UserContext Layers (Mental Map)
 -------------------------------
-Navigation guide for this ~240-field read model:
+Navigation guide for this ~250-field read model. Each entry points at the
+section banner ("# CORE IDENTITY", etc.) used in the class body below —
+grep for the banner to jump. Line numbers are deliberately omitted; they
+drift as fields are added.
 
-1. **Identity & Session** (lines ~55-72)
-   - user_uid, username, email, display_name
-   - session_id, session_start, last_activity
-   - context_version, cache_ttl, is_rich_context
+Field blocks (data):
 
-2. **Activity Domain Awareness** (lines ~74-240)
-   - Tasks: active, priorities, blocked, today/week scheduling
-   - Events: upcoming, recurring, attendance, streaks
-   - Goals: active, progress, deadlines, categorization
-   - Habits: active, streaks, completion rates, keystone
+ 1. Identity & session        → CORE IDENTITY
+ 2. Activity domains          → TASK / EVENT / GOAL / HABIT AWARENESS
+ 3. Curriculum & learning     → KNOWLEDGE & LEARNING PATH AWARENESS
+ 4. Graph-sourced metadata    → GRAPH-SOURCED RELATIONSHIP METADATA
+ 5. Principles & choices      → PRINCIPLE AWARENESS, CHOICE AWARENESS
+ 6. Latest activity report    → FEEDBACK DOMAIN
+ 7. ZPD capstone              → ZPD AWARENESS
+                                (rich-only; computed last, reads all prior
+                                 fields; None at standard depth or when
+                                 INTELLIGENCE_TIER=core)
+ 8. Learning-loop engagement  → SUBMISSION & FEEDBACK AWARENESS
+ 9. Progress & capacity       → PROGRESS AWARENESS, WORKLOAD & CAPACITY
+10. Facets & preferences      → FACET AWARENESS, USER PREFERENCES & STATE
+11. Groups                    → GROUP AWARENESS
+12. Rich entity data          → RICH GRAPH CONTEXT
+                                (entities_rich; rich-only via build_rich())
+13. MOCs                      → MOC (MAP OF CONTENT) AWARENESS
 
-3. **Curriculum Domain Awareness** (lines ~145-175)
-   - Learning paths, enrolled/completed paths
-   - Life path, alignment score, milestones
-   - Knowledge mastery, prerequisites, recommendations
+Method blocks (read API):
 
-4. **Graph-Sourced Metadata** (lines ~177-207)
-   - Relationship data extracted from Neo4j edges
-   - Task dependencies/blockers, goal-knowledge mappings
-   - Habit reinforcement patterns
-
-5. **Principles & Choices** (lines ~209-240)
-   - Core principles, priorities, conflicts
-   - Principle-choice integration tracking
-   - Pending/resolved choices
-
-5.5. **ZPD Awareness** (after submissions, before progress)
-   - zpd_assessment: ZPDAssessment — capstone of build_rich()
-   - Computed last, reads all prior fields
-   - None in standard build() or INTELLIGENCE_TIER=core
-
-6. **Progress & Capacity** (lines ~242-301)
-   - Overall progress, domain progress
-   - Velocity, acceleration, consistency
-   - Workload score, capacity by domain
-
-7. **Rich Entity Data** (lines ~303-420) - Optional
-   - Full entity objects with graph neighborhoods
-   - Only populated via build_rich() path
-
-8. **Query Helpers** (lines ~480-730)
-   - Read-only, deterministic query methods
-   - Facet evaluation and recommendations
-
-9. **Derived/Cache-Local Mutations** (lines ~737-786)
-   - Facet tracking (acceptable mutations)
-   - See MUTATION GOVERNANCE in class docstring
-
-10. **Convenience Properties** (lines ~976-1021)
-    - Derived properties with multiple call sites
-    - Per "One Path Forward": properties with 0-1 usages removed
+14. Validation                → CONTEXT VALIDATION METHODS
+                                (require_rich_context, get_rich_entities)
+15. Per-domain queries        → TASK / EVENT / GOAL / HABIT / KNOWLEDGE /
+                                PRINCIPLE / WORKLOAD / MOC / FACET QUERY METHODS
+16. Cache-local mutations     → DERIVED / CACHE-LOCAL MUTATIONS (SAFE)
+                                (see MUTATION GOVERNANCE in class docstring)
+17. Convenience properties    → CONVENIENCE PROPERTIES
 """
 
 from __future__ import annotations
