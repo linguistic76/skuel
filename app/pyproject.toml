@@ -143,9 +143,6 @@ warn_redundant_casts = true
 strict_equality = true
 
 # Lenient global defaults (overridden per-module)
-# PRAGMATIC APPROACH: Warn don't fail on type issues
-# Technical debt: ~2200 known type errors as of 2025-10-20
-# Strategy: Fix new code, gradually improve old code
 disallow_untyped_defs = false  # Only enforce in critical modules
 disallow_incomplete_defs = false
 check_untyped_defs = true

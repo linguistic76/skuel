@@ -130,8 +130,7 @@ def main():
             "MyPy Type Checking",
             check=False,
         ):
-            print("⚠️  MyPy found type issues (not blocking)")
-            # Don't fail on MyPy - we have ~2200 known issues
+            all_passed = False
 
     # Summary
     print(f"\n{'=' * 80}")
