@@ -73,39 +73,14 @@ class UserEntryDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including user-entry-specific fields."""
-        from core.models.dto_helpers import convert_datetimes_to_iso
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                # File
-                "original_filename": self.original_filename,
-                "file_path": self.file_path,
-                "file_size": self.file_size,
-                "file_type": self.file_type,
-                # Processing
-                "pipeline": get_enum_value(self.pipeline),
-                "processing_started_at": self.processing_started_at,
-                "processing_completed_at": self.processing_completed_at,
-                "processing_error": self.processing_error,
-                "processed_content": self.processed_content,
-                "processed_file_path": self.processed_file_path,
-                "instructions": self.instructions,
-                "max_retention": self.max_retention,
-                # Modality
-                "modality": get_enum_value(self.modality),
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility", "pipeline", "modality"],
+            datetime_fields=["created_at", "updated_at", "processing_started_at", "processing_completed_at"],
         )
-
-        convert_datetimes_to_iso(data, ["processing_started_at", "processing_completed_at"])
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> UserEntryDTO:

@@ -148,66 +148,15 @@ class HabitDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including habit-specific fields."""
-        from core.models.dto_helpers import convert_dates_to_iso, convert_datetimes_to_iso
-        from core.ports import get_enum_value
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                # Classification
-                "polarity": get_enum_value(self.polarity),
-                "habit_category": get_enum_value(self.habit_category),
-                "habit_difficulty": get_enum_value(self.habit_difficulty),
-                # Streak
-                "current_streak": self.current_streak,
-                "best_streak": self.best_streak,
-                "total_completions": self.total_completions,
-                "total_attempts": self.total_attempts,
-                "success_rate": self.success_rate,
-                "last_completed": self.last_completed,
-                # Atomic
-                "cue": self.cue,
-                "routine": self.routine,
-                "reward": self.reward,
-                # Identity
-                "reinforces_identity": self.reinforces_identity,
-                "identity_votes_cast": self.identity_votes_cast,
-                "is_identity_habit": self.is_identity_habit,
-                "target_identity": self.target_identity,
-                "identity_evidence_required": self.identity_evidence_required,
-                # Lifecycle
-                "started_at": self.started_at,
-                "completed_at": self.completed_at,
-                # Scheduling
-                "duration_minutes": self.duration_minutes,
-                "recurrence_pattern": self.recurrence_pattern,
-                "recurrence_end_date": self.recurrence_end_date,
-                "recurrence_parent_uid": self.recurrence_parent_uid,
-                "target_days_per_week": self.target_days_per_week,
-                "preferred_time": self.preferred_time,
-                # Reminders
-                "reminder_time": self.reminder_time,
-                "reminder_days": list(self.reminder_days) if self.reminder_days else [],
-                "reminder_enabled": self.reminder_enabled,
-                # Cross-domain links
-                "source_path_step_uid": self.source_path_step_uid,
-                "source_learning_path_uid": self.source_learning_path_uid,
-                # Flags
-                "curriculum_driven": self.curriculum_driven,
-                "curriculum_practice_type": self.curriculum_practice_type,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility", "polarity", "habit_category", "habit_difficulty"],
+            date_fields=["recurrence_end_date"],
+            datetime_fields=["created_at", "updated_at", "last_completed", "started_at", "completed_at"],
         )
-
-        convert_dates_to_iso(data, ["recurrence_end_date"])
-        convert_datetimes_to_iso(data, ["last_completed", "started_at", "completed_at"])
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> HabitDTO:

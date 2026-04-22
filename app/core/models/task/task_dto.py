@@ -130,66 +130,15 @@ class TaskDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including task-specific fields."""
-        from core.models.dto_helpers import convert_dates_to_iso
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        # Task-specific fields
-        data.update(
-            {
-                # Scheduling
-                "due_date": self.due_date,
-                "scheduled_date": self.scheduled_date,
-                "completion_date": self.completion_date,
-                "duration_minutes": self.duration_minutes,
-                "actual_minutes": self.actual_minutes,
-                "recurrence_pattern": self.recurrence_pattern,
-                "recurrence_end_date": self.recurrence_end_date,
-                "recurrence_parent_uid": self.recurrence_parent_uid,
-                "scheduled_event_uid": self.scheduled_event_uid,
-                # Hierarchy
-                "parent_uid": self.parent_uid,
-                "project": self.project,
-                "assignee": self.assignee,
-                # Cross-domain links
-                "fulfills_goal_uid": self.fulfills_goal_uid,
-                "reinforces_habit_uid": self.reinforces_habit_uid,
-                "source_path_step_uid": self.source_path_step_uid,
-                "source_learning_path_uid": self.source_learning_path_uid,
-                # Progress impact
-                "goal_progress_contribution": self.goal_progress_contribution,
-                "knowledge_mastery_check": self.knowledge_mastery_check,
-                "habit_streak_maintainer": self.habit_streak_maintainer,
-                "completion_updates_goal": self.completion_updates_goal,
-                "curriculum_driven": self.curriculum_driven,
-                "curriculum_practice_type": self.curriculum_practice_type,
-                # Knowledge intelligence
-                "knowledge_confidence_scores": dict(self.knowledge_confidence_scores)
-                if self.knowledge_confidence_scores
-                else None,
-                "knowledge_inference_metadata": dict(self.knowledge_inference_metadata)
-                if self.knowledge_inference_metadata
-                else None,
-                "learning_opportunities_count": self.learning_opportunities_count,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility"],
+            date_fields=["due_date", "scheduled_date", "completion_date", "recurrence_end_date"],
+            datetime_fields=["created_at", "updated_at"],
         )
-
-        convert_dates_to_iso(
-            data,
-            [
-                "due_date",
-                "scheduled_date",
-                "completion_date",
-                "recurrence_end_date",
-            ],
-        )
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TaskDTO:

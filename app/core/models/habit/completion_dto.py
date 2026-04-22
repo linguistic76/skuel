@@ -72,17 +72,13 @@ class HabitCompletionDTO:
             raise ValueError("Quality must be between 1 and 5")
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for database operations."""
-        from dataclasses import asdict
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        from core.models.dto_helpers import convert_datetimes_to_iso
-
-        data = asdict(self)
-
-        # Convert datetimes to ISO format
-        convert_datetimes_to_iso(data, ["completed_at", "created_at", "updated_at"])
-
-        return data
+        return dto_to_dict(
+            self,
+            enum_fields=[],
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "HabitCompletionDTO":

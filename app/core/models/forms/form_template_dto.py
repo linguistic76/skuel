@@ -32,16 +32,17 @@ class FormTemplateDTO(EntityDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for database operations."""
-        data = super().to_dict()
-        # Store form_schema as JSON string in Neo4j
-        data["form_schema"] = json.dumps(self.form_schema) if self.form_schema else None
-        data["instructions"] = self.instructions
-        return data
+        """Convert to dictionary using generic helper."""
+        import json
+        from core.models.dto_helpers import dto_to_dict
 
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
+        data = dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain"],
+            datetime_fields=["created_at", "updated_at"],
+        )
+        data["form_schema"] = json.dumps(self.form_schema) if self.form_schema else None
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FormTemplateDTO:

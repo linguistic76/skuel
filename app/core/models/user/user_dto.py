@@ -213,60 +213,13 @@ class UserDTO:
         self.team_uids.discard(team_uid)
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for database operations"""
-        from core.ports import get_enum_value
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        def serialize_value(v) -> Any:
-            if isinstance(v, datetime):
-                return v.isoformat()
-            elif isinstance(v, set):
-                return list(v)
-            elif isinstance(v, UserPreferencesDTO):
-                return {
-                    "learning_level": v.learning_level.value,
-                    "preferred_modalities": v.preferred_modalities,
-                    "preferred_subjects": v.preferred_subjects,
-                    "preferred_time_of_day": v.preferred_time_of_day.value,
-                    "available_minutes_daily": v.available_minutes_daily,
-                    "energy_pattern": {k.value: v.value for k, v in v.energy_pattern.items()},
-                    "enable_reminders": v.enable_reminders,
-                    "reminder_minutes_before": v.reminder_minutes_before,
-                    "daily_summary_time": v.daily_summary_time,
-                    "theme": v.theme,
-                    "language": v.language,
-                    "timezone": v.timezone,
-                    "weekly_task_goal": v.weekly_task_goal,
-                    "daily_habit_goal": v.daily_habit_goal,
-                    "monthly_learning_hours": v.monthly_learning_hours,
-                }
-            else:
-                # Try enum extraction for any other type
-                return get_enum_value(v)
-
-        return {
-            "uid": self.uid,
-            "username": self.username,
-            "email": self.email,
-            "display_name": self.display_name,
-            "preferences": serialize_value(self.preferences),
-            "active_entity_uids": serialize_value(self.active_entity_uids),
-            "pinned_entity_uids": self.pinned_entity_uids,
-            "archived_entity_uids": serialize_value(self.archived_entity_uids),
-            "interests": self.interests,
-            "current_goals": self.current_goals,
-            "achievements": self.achievements,
-            "following_uids": serialize_value(self.following_uids),
-            "follower_uids": serialize_value(self.follower_uids),
-            "team_uids": serialize_value(self.team_uids),
-            "created_at": serialize_value(self.created_at),
-            "last_active_at": serialize_value(self.last_active_at),
-            "last_login_at": serialize_value(self.last_login_at),
-            "is_active": self.is_active,
-            "is_verified": self.is_verified,
-            "is_premium": self.is_premium,
-            "settings": self.settings,
-            "metadata": self.metadata,
-        }
+        return dto_to_dict(
+            self,
+            enum_fields=[],
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "UserDTO":

@@ -67,27 +67,14 @@ class PathStepDTO(CurriculumDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including path-step-specific fields."""
-        data = super().to_dict()
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data.update(
-            {
-                "intent": self.intent,
-                "knowledge_uids": list(self.knowledge_uids) if self.knowledge_uids else [],
-                "learning_path_uid": self.learning_path_uid,
-                "sequence": self.sequence,
-                "mastery_threshold": self.mastery_threshold,
-                "current_mastery": self.current_mastery,
-                "estimated_hours": self.estimated_hours,
-                "step_difficulty": get_enum_value(self.step_difficulty),
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "complexity", "learning_level", "sel_category", "step_difficulty"],
+            datetime_fields=["created_at", "updated_at", "last_applied_date", "last_practiced_date", "last_built_into_habit_date", "last_reflected_date", "last_choice_informed_date"],
         )
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PathStepDTO:

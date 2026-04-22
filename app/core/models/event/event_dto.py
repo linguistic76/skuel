@@ -136,59 +136,16 @@ class EventDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including event-specific fields."""
-        from core.models.dto_helpers import convert_dates_to_iso, serialize_time
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                # Scheduling
-                "event_date": self.event_date,
-                "start_time": self.start_time,
-                "end_time": self.end_time,
-                "duration_minutes": self.duration_minutes,
-                # Logistics
-                "event_type": self.event_type,
-                "location": self.location,
-                "is_online": self.is_online,
-                "meeting_url": self.meeting_url,
-                # Recurrence
-                "recurrence_pattern": self.recurrence_pattern,
-                "recurrence_end_date": self.recurrence_end_date,
-                "recurrence_parent_uid": self.recurrence_parent_uid,
-                # Reminders
-                "reminder_minutes": self.reminder_minutes,
-                "reminder_sent": self.reminder_sent,
-                # Attendees
-                "attendee_emails": list(self.attendee_emails) if self.attendee_emails else [],
-                "max_attendees": self.max_attendees,
-                # Cross-domain links
-                "reinforces_habit_uid": self.reinforces_habit_uid,
-                "source_path_step_uid": self.source_path_step_uid,
-                "source_learning_path_uid": self.source_learning_path_uid,
-                # Milestones
-                "milestone_celebration_for_goal": self.milestone_celebration_for_goal,
-                "is_milestone_event": self.is_milestone_event,
-                "milestone_type": self.milestone_type,
-                "curriculum_week": self.curriculum_week,
-                # Quality
-                "habit_completion_quality": self.habit_completion_quality,
-                "knowledge_retention_check": self.knowledge_retention_check,
-                "recurrence_maintains_habit": self.recurrence_maintains_habit,
-                "skip_breaks_habit_streak": self.skip_breaks_habit_streak,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility"],
+            date_fields=["event_date", "recurrence_end_date"],
+            datetime_fields=["created_at", "updated_at"],
+            time_fields=["start_time", "end_time"],
         )
-
-        convert_dates_to_iso(data, ["event_date", "recurrence_end_date"])
-        data["start_time"] = serialize_time(data.get("start_time"))
-        data["end_time"] = serialize_time(data.get("end_time"))
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EventDTO:

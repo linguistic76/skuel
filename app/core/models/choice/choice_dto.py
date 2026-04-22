@@ -105,42 +105,14 @@ class ChoiceDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including choice-specific fields."""
-        from core.models.dto_helpers import convert_datetimes_to_iso
-        from core.ports import get_enum_value
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                # Decision
-                "choice_type": get_enum_value(self.choice_type),
-                "options": list(self.options) if self.options else [],
-                "selected_option_uid": self.selected_option_uid,
-                "decision_rationale": self.decision_rationale,
-                "decision_criteria": list(self.decision_criteria) if self.decision_criteria else [],
-                "constraints": list(self.constraints) if self.constraints else [],
-                "stakeholders": list(self.stakeholders) if self.stakeholders else [],
-                # Timing
-                "decision_deadline": self.decision_deadline,
-                "decided_at": self.decided_at,
-                # Outcome
-                "satisfaction_score": self.satisfaction_score,
-                "actual_outcome": self.actual_outcome,
-                "lessons_learned": list(self.lessons_learned) if self.lessons_learned else [],
-                # Curriculum
-                "inspiration_type": self.inspiration_type,
-                "expands_possibilities": self.expands_possibilities,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility", "choice_type"],
+            datetime_fields=["created_at", "updated_at", "decision_deadline", "decided_at"],
         )
-
-        convert_datetimes_to_iso(data, ["decision_deadline", "decided_at"])
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ChoiceDTO:

@@ -62,30 +62,14 @@ class ExerciseReportDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including report-specific fields."""
-        from core.models.dto_helpers import convert_datetimes_to_iso
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                "report_generated_at": self.report_generated_at,
-                "subject_uid": self.subject_uid,
-                "processor_type": get_enum_value(self.processor_type),
-                "assessment_outcome": get_enum_value(self.assessment_outcome),
-                "report_file_path": self.report_file_path,
-                "assessment_score": self.assessment_score,
-                "author_uid": self.author_uid,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility", "processor_type", "assessment_outcome"],
+            datetime_fields=["created_at", "updated_at", "report_generated_at"],
         )
-
-        convert_datetimes_to_iso(data, ["report_generated_at"])
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExerciseReportDTO:

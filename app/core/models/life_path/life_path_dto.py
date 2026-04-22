@@ -76,40 +76,14 @@ class LifePathDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including life-path-specific fields."""
-        from core.models.dto_helpers import convert_datetimes_to_iso
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                # Designation
-                "life_path_uid": self.life_path_uid,
-                "designated_at": self.designated_at,
-                # Alignment
-                "alignment_score": self.alignment_score,
-                "word_action_gap": self.word_action_gap,
-                "alignment_level": get_enum_value(self.alignment_level),
-                # Dimensions
-                "knowledge_alignment": self.knowledge_alignment,
-                "activity_alignment": self.activity_alignment,
-                "goal_alignment": self.goal_alignment,
-                "principle_alignment": self.principle_alignment,
-                "momentum": self.momentum,
-                # Vision
-                "vision_statement": self.vision_statement,
-                "vision_themes": list(self.vision_themes) if self.vision_themes else [],
-                "vision_captured_at": self.vision_captured_at,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility", "alignment_level"],
+            datetime_fields=["created_at", "updated_at", "designated_at", "vision_captured_at"],
         )
-
-        convert_datetimes_to_iso(data, ["designated_at", "vision_captured_at"])
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LifePathDTO:

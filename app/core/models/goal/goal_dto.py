@@ -136,60 +136,15 @@ class GoalDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including goal-specific fields."""
-        from core.models.dto_helpers import convert_dates_to_iso, convert_datetimes_to_iso
-        from core.ports import get_enum_value
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                # Classification
-                "goal_type": get_enum_value(self.goal_type),
-                "timeframe": get_enum_value(self.timeframe),
-                "measurement_type": get_enum_value(self.measurement_type),
-                # Measurement
-                "target_value": self.target_value,
-                "current_value": self.current_value,
-                "unit_of_measurement": self.unit_of_measurement,
-                # Timeline
-                "start_date": self.start_date,
-                "target_date": self.target_date,
-                "achieved_date": self.achieved_date,
-                # Progress
-                "milestones": list(self.milestones) if self.milestones else [],
-                "progress_percentage": self.progress_percentage,
-                "last_progress_update": self.last_progress_update,
-                "progress_history": list(self.progress_history) if self.progress_history else [],
-                # Motivation
-                "vision_statement": self.vision_statement,
-                "why_important": self.why_important,
-                "success_criteria": self.success_criteria,
-                "potential_obstacles": list(self.potential_obstacles)
-                if self.potential_obstacles
-                else [],
-                "strategies": list(self.strategies) if self.strategies else [],
-                # Cross-domain links
-                "fulfills_goal_uid": self.fulfills_goal_uid,
-                "source_learning_path_uid": self.source_learning_path_uid,
-                "inspired_by_choice_uid": self.inspired_by_choice_uid,
-                "selected_choice_option_uid": self.selected_choice_option_uid,
-                # Identity
-                "target_identity": self.target_identity,
-                "identity_evidence_required": self.identity_evidence_required,
-                # Flags
-                "curriculum_driven": self.curriculum_driven,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility", "goal_type", "timeframe", "measurement_type"],
+            date_fields=["start_date", "target_date", "achieved_date"],
+            datetime_fields=["created_at", "updated_at", "last_progress_update"],
         )
-
-        convert_dates_to_iso(data, ["start_date", "target_date", "achieved_date"])
-        convert_datetimes_to_iso(data, ["last_progress_update"])
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GoalDTO:
