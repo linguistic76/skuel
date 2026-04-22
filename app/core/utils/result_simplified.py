@@ -25,7 +25,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
 
 def _utcnow() -> datetime:
@@ -373,7 +373,7 @@ class Result[T]:
                 )
         return self  # type: ignore[return-value]
 
-    async def aflat_map(self, func: Callable[[T], Result[U]]) -> Result[U]:
+    async def aflat_map(self, func: Callable[[T], Result[U] | Awaitable[Result[U]]]) -> Result[U]:
         """
         Async version of and_then for chaining async Result-returning operations.
 
@@ -450,12 +450,6 @@ class Result[T]:
         if self.is_error and self._error:
             try:
                 new_error = func(self._error)
-                if not isinstance(new_error, ErrorContext):
-                    logger.warning(
-                        f"map_error function must return ErrorContext, "
-                        f"got {type(new_error).__name__}. Preserving original error."
-                    )
-                    return self
                 return Result.fail(new_error)
             except Exception as e:  # intentional-broad: side-effect must not propagate
                 # If transformation fails, preserve original error

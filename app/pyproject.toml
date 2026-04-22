@@ -208,10 +208,11 @@ disallow_any_decorated = false  # Too strict for FastHTML
 
 [[tool.mypy.overrides]]
 # Result pattern infrastructure - CRITICAL for type safety
-module = ["core.utils.result", "core.utils.result_simplified", "core.utils.error_boundary"]
+module = ["core.utils.result_simplified", "core.utils.error_boundary"]
 disallow_any_generics = true
 disallow_untyped_defs = true
 warn_return_any = true
+warn_unreachable = true
 disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
