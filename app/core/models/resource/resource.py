@@ -104,7 +104,7 @@ class Resource(Entity):
         """Create Resource from an EntityDTO or ResourceDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ResourceDTO":  # type: ignore[override]
+    def to_dto(self) -> "ResourceDTO":
         """Convert Resource to domain-specific ResourceDTO."""
 
         from core.models.dto_helpers import domain_to_dto

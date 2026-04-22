@@ -81,7 +81,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     """
 
     _config = DomainConfig(
-        dto_class=UserEntry,  # type: ignore[arg-type]  # UserEntry has from_dto/to_dto
+        dto_class=UserEntry,  # UserEntry has from_dto/to_dto
         model_class=UserEntry,
         entity_label="Entity",
         search_fields=("title", "content", "processed_content", "original_filename"),
@@ -101,7 +101,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         group_service: GroupService | None = None,
         user_service: UserService | None = None,
     ) -> None:
-        super().__init__(backend, "UserEntryService")  # type: ignore[arg-type]  # protocol type
+        super().__init__(backend, "UserEntryService")  # protocol type
         self.sharing_service = sharing_service
         self.interaction_service = interaction_service
         self.event_bus = event_bus
@@ -362,7 +362,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.ok(None)
         if getattr(entity, "user_uid", None) != user_uid:
             return Result.ok(None)
-        return Result.ok(entity)  # type: ignore[return-value]
+        return Result.ok(entity)
 
     @with_error_handling("list_user_entries")
     async def list_for_user(
@@ -392,7 +392,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         )
         if result.is_error:
             return Result.fail(result)
-        return Result.ok(result.value or [])  # type: ignore[return-value]
+        return Result.ok(result.value or [])
 
     @with_error_handling("list_entries_for_exercise")
     async def list_for_exercise(
@@ -441,7 +441,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         }
         if processed_file_path:
             updates["processed_file_path"] = processed_file_path
-        return await self.backend.update(uid, updates)  # type: ignore[return-value]
+        return await self.backend.update(uid, updates)
 
     @with_error_handling("update_user_entry")
     async def update_entry(
@@ -469,7 +469,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if not updates:
             return Result.fail(Errors.validation("No updatable fields provided", field="request"))
         updates["updated_at"] = datetime.now()
-        return await self.backend.update(uid, updates)  # type: ignore[return-value]
+        return await self.backend.update(uid, updates)
 
     # =========================================================================
     # DELETE

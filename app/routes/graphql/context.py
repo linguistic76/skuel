@@ -99,10 +99,10 @@ def create_graphql_context(
     context = GraphQLContext(
         services=services,
         search_router=search_router,
-        knowledge_loader=None,  # type: ignore[arg-type]  # Set below
-        task_loader=None,  # type: ignore[arg-type]  # Set below
-        learning_path_loader=None,  # type: ignore[arg-type]  # Set below
-        path_step_loader=None,  # type: ignore[arg-type]  # Set below
+        knowledge_loader=None,  # Set below
+        task_loader=None,  # Set below
+        learning_path_loader=None,  # Set below
+        path_step_loader=None,  # Set below
         user_uid=user_uid,
     )
 

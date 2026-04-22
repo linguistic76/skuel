@@ -422,7 +422,7 @@ class GoalsService(
     async def get_goals_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[call-arg, return-value]
+        return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[call-arg]
 
     async def get_goals_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
@@ -540,7 +540,7 @@ class GoalsService(
 
         self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
-        self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.goals")  # structlog BoundLogger
 
         # Initialize core, search, relationships, event_handler, learning, and
         # knowledge_intelligence via factory. intelligence is skipped because it
@@ -595,7 +595,7 @@ class GoalsService(
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "GoalsService facade initialized with 9 sub-services: "

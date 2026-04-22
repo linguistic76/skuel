@@ -451,7 +451,7 @@ class Result[T]:
             try:
                 new_error = func(self._error)
                 if not isinstance(new_error, ErrorContext):
-                    logger.warning(  # type: ignore[unreachable]
+                    logger.warning(
                         f"map_error function must return ErrorContext, "
                         f"got {type(new_error).__name__}. Preserving original error."
                     )

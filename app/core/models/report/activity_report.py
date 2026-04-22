@@ -162,11 +162,11 @@ class ActivityReport(UserOwnedEntity):
         )
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | ActivityReportDTO") -> "ActivityReport":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | ActivityReportDTO") -> "ActivityReport":
         """Create ActivityReport from an EntityDTO or ActivityReportDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ActivityReportDTO":  # type: ignore[override]
+    def to_dto(self) -> "ActivityReportDTO":
         """Convert ActivityReport to domain-specific ActivityReportDTO."""
 
         from core.models.dto_helpers import domain_to_dto

@@ -291,7 +291,7 @@ class HabitEventHandlerService:
             hours_hist[hour_key] = hours_hist.get(hour_key, 0) + 1
 
             # 3. Calculate preferred hour (mode of histogram)
-            preferred_hour = int(max(hours_hist, key=hours_hist.get))  # type: ignore[arg-type]
+            preferred_hour = int(max(hours_hist, key=hours_hist.get))
 
             # 4. EMA on-time rate
             old_on_time_rate = getattr(habit, "learned_on_time_rate", None)

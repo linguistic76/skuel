@@ -256,7 +256,7 @@ class BaseAnalyticsService(Generic[B, T]):
         if isinstance(dto_or_dict, dict):
             dto = dto_class(**dto_or_dict)
             return model_class.from_dto(dto)  # type: ignore[attr-defined]
-        return dto_or_dict  # type: ignore[return-value]
+        return dto_or_dict
 
     def _init_context_loader[M: SuggestsQueryIntent](
         self,

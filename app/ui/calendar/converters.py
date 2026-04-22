@@ -388,7 +388,7 @@ def trackable_to_calendar_items(trackable: CalendarTrackable) -> list[CalendarIt
                 description=description,
                 color=color,
                 icon=icon,
-                priority=get_enum_value(priority),  # type: ignore[arg-type]
+                priority=get_enum_value(priority),
                 tags=tags,
                 related_uids=related_uids,
                 metadata=metadata,

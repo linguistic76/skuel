@@ -183,12 +183,12 @@ class ReportRelationshipService:
             return Result.fail(Errors.not_found(resource="Exercise", identifier=exercise_uid))
 
         record = records[0]
-        submissions = list(record.get("submissions") or [])  # type: ignore[arg-type]
-        feedback = list(record.get("feedback") or [])  # type: ignore[arg-type]
-        revised = list(record.get("revised_exercises") or [])  # type: ignore[arg-type]
+        submissions = list(record.get("submissions") or [])
+        feedback = list(record.get("feedback") or [])
+        revised = list(record.get("revised_exercises") or [])
         return Result.ok(
             {
-                "exercise": dict(record["exercise"]) if record["exercise"] else {},  # type: ignore[arg-type]
+                "exercise": dict(record["exercise"]) if record["exercise"] else {},
                 "submissions": [dict(s) for s in submissions if s.get("uid")],  # type: ignore[union-attr]
                 "feedback": [dict(f) for f in feedback if f.get("uid")],  # type: ignore[union-attr]
                 "revised_exercises": [dict(r) for r in revised if r.get("uid")],  # type: ignore[union-attr]
@@ -221,12 +221,12 @@ class ReportRelationshipService:
             return Result.fail(Errors.not_found(resource="Submission", identifier=submission_uid))
 
         record = records[0]
-        feedback = list(record.get("feedback") or [])  # type: ignore[arg-type]
-        revised = list(record.get("revised_exercises") or [])  # type: ignore[arg-type]
+        feedback = list(record.get("feedback") or [])
+        revised = list(record.get("revised_exercises") or [])
         return Result.ok(
             {
-                "submission": dict(record["submission"]) if record["submission"] else {},  # type: ignore[arg-type]
-                "exercise": dict(record["exercise"]) if record.get("exercise") else None,  # type: ignore[arg-type]
+                "submission": dict(record["submission"]) if record["submission"] else {},
+                "exercise": dict(record["exercise"]) if record.get("exercise") else None,
                 "feedback": [dict(f) for f in feedback if f.get("uid")],  # type: ignore[union-attr]
                 "revised_exercises": [dict(r) for r in revised if r.get("uid")],  # type: ignore[union-attr]
             }

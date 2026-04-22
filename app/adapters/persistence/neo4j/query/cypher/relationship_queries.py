@@ -275,7 +275,7 @@ def build_batch_relationship_exists(
     result = BatchCypherBuilder.build_relationship_exists_query(
         node_label=node_label,
         relationship_types=relationship_types,
-        direction=direction,  # type: ignore[arg-type]
+        direction=direction,
     )
 
     return result.query, result.params
@@ -322,7 +322,7 @@ def build_batch_relationship_count(
     result = BatchCypherBuilder.build_relationship_count_query(
         node_label=node_label,
         relationship_types=relationship_types,
-        direction=direction,  # type: ignore[arg-type]
+        direction=direction,
     )
 
     return result.query, result.params
@@ -373,7 +373,7 @@ def build_batch_relationship_exists_with_filters(
     result = BatchCypherBuilder.build_relationship_exists_with_filters_query(
         node_label=node_label,
         relationship_types=relationship_types,
-        direction=direction,  # type: ignore[arg-type]
+        direction=direction,
         property_filters=property_filters,
     )
 
@@ -426,7 +426,7 @@ def build_batch_get_related_with_filters(
     result = BatchCypherBuilder.build_get_related_with_filters_query(
         node_label=node_label,
         relationship_types=relationship_types,
-        direction=direction,  # type: ignore[arg-type]
+        direction=direction,
         property_filters=property_filters,
         limit_per_node=limit_per_node,
     )

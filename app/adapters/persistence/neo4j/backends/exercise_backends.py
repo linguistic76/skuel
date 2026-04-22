@@ -142,7 +142,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
         if result.is_error:
             return Result.fail(result)
-        items: list[RequiredKnowledgeResult] = [dict(record) for record in (result.value or [])]  # type: ignore[misc]
+        items: list[RequiredKnowledgeResult] = [dict(record) for record in (result.value or [])]
         return Result.ok(items)
 
     async def create_owns_relationship(
@@ -350,10 +350,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
         if result.is_error:
             return Result.fail(result)
-        items: list[CurriculumExerciseResult] = [
-            dict(record)
-            for record in (result.value or [])  # type: ignore[misc]
-        ]
+        items: list[CurriculumExerciseResult] = [dict(record) for record in (result.value or [])]
         return Result.ok(items)
 
     async def get_exercise_for_submission(
@@ -652,10 +649,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         )
         if result.is_error:
             return Result.fail(result)
-        items: list[RevisionChainResult] = [
-            dict(record)
-            for record in (result.value or [])  # type: ignore[misc]
-        ]
+        items: list[RevisionChainResult] = [dict(record) for record in (result.value or [])]
         return Result.ok(items)
 
     async def get_for_teacher(

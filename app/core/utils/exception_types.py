@@ -21,7 +21,7 @@ See: /docs/patterns/ERROR_HANDLING.md
 
 import json
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from neo4j.exceptions import (
     AuthError,
     DriverError,

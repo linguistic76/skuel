@@ -413,4 +413,4 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import CrudOperations
 
-    _protocol_check: type[CrudOperations[Any]] = CrudOperationsMixin  # type: ignore[type-arg]
+    _protocol_check: type[CrudOperations[Any]] = CrudOperationsMixin

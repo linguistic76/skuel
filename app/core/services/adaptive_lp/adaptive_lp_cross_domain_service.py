@@ -329,7 +329,7 @@ class AdaptiveLpCrossDomainService:
                     description=str(pattern["description"]),
                     source_domain=self._string_to_domain(str(pattern["domains"][0])),
                     target_domain=self._string_to_domain(str(pattern["domains"][1])),
-                    bridging_knowledge=pattern["bridging_concepts"],  # type: ignore[arg-type]
+                    bridging_knowledge=pattern["bridging_concepts"],
                     application_type="Multi-Domain Innovation",
                     practical_projects=[
                         f"Prototype a {pattern_title_lower} solution",

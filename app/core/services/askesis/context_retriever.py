@@ -391,7 +391,7 @@ class ContextRetriever:
             return Result.fail(Errors.not_found("path_step", "no_active_ps"))
 
         step_data: dict[str, Any] = dict(ps_rich.get("step") or ps_rich.get("entity", {}))  # type: ignore[call-overload]
-        graph_context: dict[str, Any] = dict(ps_rich.get("graph_context", {}))  # type: ignore[call-overload]
+        graph_context: dict[str, Any] = dict(ps_rich.get("graph_context", {}))
 
         # Step 2: Build the PathStep domain model
         path_step = self._build_path_step(step_data)

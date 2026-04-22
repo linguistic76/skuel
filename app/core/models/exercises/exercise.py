@@ -219,11 +219,11 @@ class Exercise(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | ExerciseDTO") -> "Exercise":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | ExerciseDTO") -> "Exercise":
         """Create Exercise from an EntityDTO or ExerciseDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ExerciseDTO":  # type: ignore[override]
+    def to_dto(self) -> "ExerciseDTO":
         """Convert Exercise to domain-specific ExerciseDTO."""
 
         from core.models.dto_helpers import domain_to_dto

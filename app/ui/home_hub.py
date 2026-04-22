@@ -1,7 +1,7 @@
 """Home hub page — post-login landing with Submissions, GradeBook, and Library tabs."""
 
 from fasthtml.common import Button, Div
-from monsterui.franken import UkIcon  # type: ignore[import-untyped]
+from monsterui.franken import UkIcon
 
 from ui.buttons import ButtonLink, ButtonT
 from ui.gradebook.hub import GRADEBOOK_BLOCKS

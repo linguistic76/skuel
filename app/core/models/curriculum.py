@@ -497,7 +497,7 @@ class Curriculum(Entity):
         """Create Curriculum from an EntityDTO or CurriculumDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "CurriculumDTO":  # type: ignore[override]
+    def to_dto(self) -> "CurriculumDTO":
         """Convert Curriculum to domain-specific CurriculumDTO."""
 
         from core.models.curriculum_dto import CurriculumDTO

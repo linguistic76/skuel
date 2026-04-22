@@ -111,7 +111,7 @@ class _UserEntryLifecycleMixin:
         create_result = await self.create(entry)
         if create_result.is_error:
             return Result.fail(create_result)
-        created: UserEntry = create_result.value  # type: ignore[assignment]
+        created: UserEntry = create_result.value
 
         link_query = f"""
         MATCH (entry:Entity {{uid: $entry_uid, entity_type: $entry_type}})

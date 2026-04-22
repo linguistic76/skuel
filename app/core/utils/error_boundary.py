@@ -54,7 +54,7 @@ def exception_to_result[R, **P](
             logger.error(f"Exception in {func.__name__}: {e}")
             return Result.fail(Errors.system(message=f"Exception in {func.__name__}", exception=e))  # type: ignore[return-value]
 
-    return wrapper  # type: ignore[return-value]
+    return wrapper
 
 
 def chain_results(*operations: Callable[..., Awaitable[Result[Any]]]) -> Callable:
@@ -78,7 +78,7 @@ def chain_results(*operations: Callable[..., Awaitable[Result[Any]]]) -> Callabl
             for operation in operations:
                 result = await operation(*args, **kwargs)
                 if result.is_error:
-                    return result  # type: ignore[no-any-return]
+                    return result
 
             # All operations succeeded, run the main function
             return await func(*args, **kwargs)  # type: ignore[no-any-return]
@@ -130,7 +130,7 @@ def safe_backend_operation[R, **P](
                 error = Errors.system(message=f"Unexpected error in {operation_name}", exception=e)
                 return Result.fail(error)  # type: ignore[return-value]
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 

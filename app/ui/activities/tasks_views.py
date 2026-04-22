@@ -16,7 +16,7 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import UkIcon  # type: ignore[import-untyped]
+from monsterui.franken import UkIcon
 
 from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id

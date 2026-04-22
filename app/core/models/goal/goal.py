@@ -290,7 +290,7 @@ class Goal(UserOwnedEntity):
         """Create Goal from an EntityDTO or GoalDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "GoalDTO":  # type: ignore[override]
+    def to_dto(self) -> "GoalDTO":
         """Convert Goal to domain-specific GoalDTO."""
 
         from core.models.dto_helpers import domain_to_dto

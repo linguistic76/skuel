@@ -127,4 +127,4 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Principle, GraphContext]]:
         """Domain-named alias for get_with_context(). See shared base."""
-        return await self.get_with_context(uid, depth)  # type: ignore[return-value]
+        return await self.get_with_context(uid, depth)

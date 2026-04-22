@@ -423,7 +423,7 @@ class ChoicesService(
         self.event_handler: ChoiceEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "ChoicesService facade initialized with 7 sub-services: "

@@ -79,7 +79,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         )
 
         if context_result.is_error:
-            return context_result  # type: ignore[return-value]
+            return context_result
 
         context = context_result.value
         event = context.primary_entity

@@ -76,7 +76,7 @@ class LibraryOrchestrator:
             limit=limit,
         )
         if result.is_error:
-            return result  # type: ignore[return-value]
+            return result
         return Result.ok(list(result.value or []))
 
     # ------------------------------------------------------------------

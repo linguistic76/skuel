@@ -228,7 +228,7 @@ class Principle(UserOwnedEntity):
         """Create Principle from an EntityDTO or PrincipleDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "PrincipleDTO":  # type: ignore[override]
+    def to_dto(self) -> "PrincipleDTO":
         """Convert Principle to domain-specific PrincipleDTO."""
 
         from core.models.dto_helpers import domain_to_dto

@@ -637,4 +637,4 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import SearchOperations
 
-    _protocol_check: type[SearchOperations[Any]] = SearchOperationsMixin  # type: ignore[type-arg, type-abstract, assignment]
+    _protocol_check: type[SearchOperations[Any]] = SearchOperationsMixin  # type: ignore[type-abstract, assignment]

@@ -255,4 +255,4 @@ if TYPE_CHECKING:
 
     # Structural subtyping check - verifies method signatures match
     # If this line fails type-checking, the mixin and protocol are out of sync
-    _protocol_check: type[ConversionOperations[Any]] = ConversionHelpersMixin  # type: ignore[type-arg]
+    _protocol_check: type[ConversionOperations[Any]] = ConversionHelpersMixin

@@ -419,7 +419,7 @@ class UserEntryContentOperations(Protocol):
 
 
 @runtime_checkable
-class UserEntryOperations(  # type: ignore[misc]  # Protocol MRO — intentional
+class UserEntryOperations(  # Protocol MRO — intentional
     BackendOperations["UserEntry"],
     UserEntryCrudOperations,
     UserEntryLifecycleOperations,

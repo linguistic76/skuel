@@ -166,7 +166,7 @@ class UserEntry(UserOwnedEntity):
         """Create UserEntry from an EntityDTO or UserEntryDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "UserEntryDTO":  # type: ignore[override]
+    def to_dto(self) -> "UserEntryDTO":
         """Convert UserEntry to domain-specific UserEntryDTO."""
 
         from core.models.dto_helpers import domain_to_dto

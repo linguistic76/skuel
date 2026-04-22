@@ -85,11 +85,11 @@ class LearningPath(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | LearningPathDTO") -> "LearningPath":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | LearningPathDTO") -> "LearningPath":
         """Create LearningPath from an EntityDTO or LearningPathDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "LearningPathDTO":  # type: ignore[override]
+    def to_dto(self) -> "LearningPathDTO":
         """Convert LearningPath to domain-specific LearningPathDTO."""
 
         from core.models.dto_helpers import domain_to_dto

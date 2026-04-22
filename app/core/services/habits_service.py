@@ -530,7 +530,7 @@ class HabitsService(
         self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.habits")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.habits")  # structlog BoundLogger
 
         # Initialize core/search/relationships/event_handler/learning/
         # knowledge_intelligence via factory. Intelligence is built manually
@@ -567,7 +567,7 @@ class HabitsService(
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         # Completion tracking service (REQUIRED - fail-fast) - create before progress
         self.completions = HabitsCompletionService(

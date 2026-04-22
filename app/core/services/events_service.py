@@ -508,7 +508,7 @@ class EventsService(
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: EventsAIService | None = ai_service
-        self.logger = get_logger("skuel.services.events")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.events")  # structlog BoundLogger
 
         # Initialize core, search, relationships, event_handler, learning, and
         # knowledge_intelligence via factory; intelligence is created manually
@@ -533,7 +533,7 @@ class EventsService(
         self.intelligence: EventsIntelligenceService = EventsIntelligenceService(
             backend=backend,
             graph_intel=graph_intel,
-            relationship_service=self.relationships,  # type: ignore[arg-type]  # UnifiedRelationshipService satisfies protocol
+            relationship_service=self.relationships,  # UnifiedRelationshipService satisfies protocol
             cross_domain_query=cross_domain_query,
             insight_store=insight_store,
         )
@@ -548,7 +548,7 @@ class EventsService(
         self.event_handler: EventEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "EventsService facade initialized with 10 sub-services: "

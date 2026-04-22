@@ -1249,13 +1249,13 @@ class RichUserContext(UserContext):
     # Narrow rich-only containers from `X | None` to `X`.
     # mypy flags the override as incompatible because `default_factory=...`
     # changes the effective default from None → empty container.
-    tasks_by_goal: dict[str, list[str]] = field(default_factory=dict)  # type: ignore[assignment]
-    habits_by_goal: dict[str, list[str]] = field(default_factory=dict)  # type: ignore[assignment]
-    at_risk_habits: list[str] = field(default_factory=list)  # type: ignore[assignment]
-    blocked_task_uids: set[str] = field(default_factory=set)  # type: ignore[assignment]
-    principle_guided_choice_counts: dict[str, int] = field(default_factory=dict)  # type: ignore[assignment]
-    recent_principle_aligned_choices: list[str] = field(default_factory=list)  # type: ignore[assignment]
-    principle_integration_score: float = 0.0  # type: ignore[assignment]
+    tasks_by_goal: dict[str, list[str]] = field(default_factory=dict)
+    habits_by_goal: dict[str, list[str]] = field(default_factory=dict)
+    at_risk_habits: list[str] = field(default_factory=list)
+    blocked_task_uids: set[str] = field(default_factory=set)
+    principle_guided_choice_counts: dict[str, int] = field(default_factory=dict)
+    recent_principle_aligned_choices: list[str] = field(default_factory=list)
+    principle_integration_score: float = 0.0
 
     # Pinned: every RichUserContext is — by construction — a rich context.
     is_rich_context: bool = True

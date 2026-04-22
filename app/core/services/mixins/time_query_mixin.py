@@ -362,4 +362,4 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import TimeQueryOperations
 
-    _protocol_check: type[TimeQueryOperations[Any]] = TimeQueryMixin  # type: ignore[type-arg, type-abstract]
+    _protocol_check: type[TimeQueryOperations[Any]] = TimeQueryMixin  # type: ignore[type-abstract]

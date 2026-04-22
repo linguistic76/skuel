@@ -6,7 +6,7 @@ GradeBook, Library).
 """
 
 from fasthtml.common import A, Div
-from monsterui.franken import UkIcon  # type: ignore[import-untyped]
+from monsterui.franken import UkIcon
 
 from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader

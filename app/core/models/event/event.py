@@ -194,7 +194,7 @@ class Event(UserOwnedEntity):
         """Create Event from an EntityDTO or EventDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "EventDTO":  # type: ignore[override]
+    def to_dto(self) -> "EventDTO":
         """Convert Event to domain-specific EventDTO."""
 
         from core.models.dto_helpers import domain_to_dto

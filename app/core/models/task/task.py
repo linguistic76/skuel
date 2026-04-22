@@ -249,7 +249,7 @@ class Task(UserOwnedEntity):
         """Create Task from an EntityDTO or TaskDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "TaskDTO":  # type: ignore[override]
+    def to_dto(self) -> "TaskDTO":
         """Convert Task to domain-specific TaskDTO."""
 
         from core.models.dto_helpers import domain_to_dto

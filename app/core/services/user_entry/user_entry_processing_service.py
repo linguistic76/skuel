@@ -71,7 +71,7 @@ class UserEntryProcessingService:
         self.llm_caller = llm_caller
         self.instruction_resolver = instruction_resolver
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.user_entry.processing")  # type: ignore[assignment]
+        self.logger = get_logger("skuel.services.user_entry.processing")
 
     # =========================================================================
     # DISPATCH

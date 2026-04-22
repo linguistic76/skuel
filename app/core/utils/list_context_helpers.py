@@ -27,7 +27,7 @@ from core.ports.query_types import ListContext
 
 def get_entities[T](ctx: ListContext, _entity_type: type[T]) -> list[T]:
     """Return entities from *ctx*, narrowed to *_entity_type* for MyPy."""
-    return ctx.get("entities", [])  # type: ignore[return-value]
+    return ctx.get("entities", [])
 
 
 def get_stats(ctx: ListContext) -> dict[str, int | float]:

@@ -102,11 +102,11 @@ class ExerciseReport(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | ExerciseReportDTO") -> "ExerciseReport":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | ExerciseReportDTO") -> "ExerciseReport":
         """Create ExerciseReport from an EntityDTO or ExerciseReportDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ExerciseReportDTO":  # type: ignore[override]
+    def to_dto(self) -> "ExerciseReportDTO":
         """Convert to ExerciseReportDTO."""
 
         from core.models.dto_helpers import domain_to_dto

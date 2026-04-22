@@ -137,7 +137,7 @@ class ProgressScheduleService:
 
             schedules = []
             for record in result.value or []:
-                node: dict[str, Any] = dict(record["s"])  # type: ignore[arg-type]  # boundary: Neo4j node → dict
+                node: dict[str, Any] = dict(record["s"])  # boundary: Neo4j node → dict
                 dto = ReportScheduleDTO(
                     uid=str(node["uid"]),
                     user_uid=str(node.get("user_uid", "")),

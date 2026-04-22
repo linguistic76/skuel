@@ -425,7 +425,7 @@ class PrinciplesService(
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: PrinciplesAIService | None = ai_service
-        self.logger = get_logger("skuel.services.principles")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.principles")  # structlog BoundLogger
         self.alignment_cache: dict[str, AlignmentAssessment] = {}
 
         # Initialize all common sub-services via factory, including event_handler,
@@ -469,7 +469,7 @@ class PrinciplesService(
         self.event_handler: PrincipleEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "PrinciplesService facade initialized with 8 sub-services: "

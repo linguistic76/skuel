@@ -311,7 +311,7 @@ class TasksService(
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: TasksAIService | None = ai_service
 
-        self.logger = get_logger("skuel.services.tasks")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.tasks")  # structlog BoundLogger
 
         # Use factory for search, relationships, event_handler, learning, and
         # knowledge_intelligence. core and intelligence need domain-specific
@@ -372,7 +372,7 @@ class TasksService(
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "TasksService facade initialized with 9 sub-services: "

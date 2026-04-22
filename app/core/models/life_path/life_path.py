@@ -108,7 +108,7 @@ class LifePath(UserOwnedEntity):
             "principle": self.principle_alignment,
             "momentum": self.momentum,
         }
-        return min(dimensions, key=dimensions.get)  # type: ignore[arg-type]
+        return min(dimensions, key=dimensions.get)
 
     # =========================================================================
     # OVERRIDES
@@ -130,7 +130,7 @@ class LifePath(UserOwnedEntity):
         """Create LifePath from an EntityDTO or LifePathDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "LifePathDTO":  # type: ignore[override]
+    def to_dto(self) -> "LifePathDTO":
         """Convert LifePath to domain-specific LifePathDTO."""
 
         from core.models.dto_helpers import domain_to_dto

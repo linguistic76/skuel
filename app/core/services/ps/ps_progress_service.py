@@ -65,7 +65,7 @@ class PsProgressService:
                 return
 
             # Find PathSteps that contain this KU
-            result = await self.backend.find_path_steps_for_ku(event.ku_uid)  # type: ignore[attr-defined]
+            result = await self.backend.find_path_steps_for_ku(event.ku_uid)
             if result.is_error:
                 self.logger.error(f"Failed to query path steps for KU: {result.error}")
                 return

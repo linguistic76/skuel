@@ -320,7 +320,7 @@ class OwnershipRouteFactory:
                 )
                 result = await parse_json_body(request, config.request_schema, extra=extra)
                 if result.is_error:
-                    return result  # type: ignore[return-value]
+                    return result
 
                 if config.include_user_uid:
                     return cast(

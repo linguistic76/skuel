@@ -77,7 +77,7 @@ class Ku(Entity):
         """Create Ku from an EntityDTO or KuDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> KuDTO:  # type: ignore[override]
+    def to_dto(self) -> KuDTO:
         """Convert Ku to domain-specific KuDTO."""
         from core.models.dto_helpers import domain_to_dto
         from core.models.ku.ku_dto import KuDTO

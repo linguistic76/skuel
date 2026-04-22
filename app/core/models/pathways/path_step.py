@@ -123,11 +123,11 @@ class PathStep(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | PathStepDTO") -> "PathStep":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | PathStepDTO") -> "PathStep":
         """Create PathStep from an EntityDTO or PathStepDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "PathStepDTO":  # type: ignore[override]
+    def to_dto(self) -> "PathStepDTO":
         """Convert PathStep to domain-specific PathStepDTO."""
 
         from core.models.dto_helpers import domain_to_dto
