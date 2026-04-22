@@ -42,11 +42,12 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jProperties
+from core.models.type_hints import EntityUID, Neo4jProperties
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.ports.query_types import BlockingChainResult, RelationshipGraphData
     from core.ports.service_protocols import (
         LateralRelationshipOperations,
         OwnershipVerifier,
@@ -152,7 +153,7 @@ class LateralRouteFactory:
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_lateral_relationships(
-                entity_uid=uid,
+                entity_uid=EntityUID(uid),
                 relationship_types=[RelationshipName.BLOCKS],
                 direction="incoming",
                 user_uid=user_uid,
@@ -179,7 +180,7 @@ class LateralRouteFactory:
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_lateral_relationships(
-                entity_uid=uid,
+                entity_uid=EntityUID(uid),
                 relationship_types=[RelationshipName.BLOCKS],
                 direction="outgoing",
                 user_uid=user_uid,
@@ -267,7 +268,7 @@ class LateralRouteFactory:
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_lateral_relationships(
-                entity_uid=uid,
+                entity_uid=EntityUID(uid),
                 relationship_types=[
                     RelationshipName.PREREQUISITE_FOR,
                     RelationshipName.REQUIRES_PREREQUISITE,
@@ -360,7 +361,7 @@ class LateralRouteFactory:
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_lateral_relationships(
-                entity_uid=uid,
+                entity_uid=EntityUID(uid),
                 relationship_types=[RelationshipName.ALTERNATIVE_TO],
                 direction="both",
                 user_uid=user_uid,
@@ -448,7 +449,7 @@ class LateralRouteFactory:
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_lateral_relationships(
-                entity_uid=uid,
+                entity_uid=EntityUID(uid),
                 relationship_types=[RelationshipName.COMPLEMENTARY_TO],
                 direction="both",
                 user_uid=user_uid,
@@ -480,7 +481,7 @@ class LateralRouteFactory:
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_siblings(
-                entity_uid=uid,
+                entity_uid=EntityUID(uid),
                 user_uid=user_uid,
                 domain_service=self.domain_service,
             )
@@ -572,7 +573,7 @@ class LateralRouteFactory:
             request: Request,
             uid: str,
             max_depth: int = 10,
-        ) -> Result[dict[str, Any]]:
+        ) -> "Result[BlockingChainResult]":
             """
             Get transitive blocking chain organized by depth.
 
@@ -585,10 +586,10 @@ class LateralRouteFactory:
             """
             require_authenticated_user(request)
 
-            result = await self.lateral_service.get_blocking_chain(uid, max_depth)
+            result = await self.lateral_service.get_blocking_chain(EntityUID(uid), max_depth)
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return result
 
             return Result.ok(result.value)
 
@@ -623,7 +624,7 @@ class LateralRouteFactory:
             comparison_fields = fields.split(",") if fields else None
 
             result = await self.lateral_service.get_alternatives_with_comparison(
-                uid, comparison_fields
+                EntityUID(uid), comparison_fields
             )
 
             if result.is_error:
@@ -649,7 +650,7 @@ class LateralRouteFactory:
             uid: str,
             depth: int = 2,
             types: str | None = None,
-        ) -> Result[dict[str, Any]]:
+        ) -> "Result[RelationshipGraphData]":
             """
             Get relationship graph in Vis.js Network format.
 
@@ -672,11 +673,11 @@ class LateralRouteFactory:
                     return Result.fail(Errors.validation(f"Invalid relationship type: {e!s}"))
 
             result = await self.lateral_service.get_relationship_graph(
-                uid, depth, relationship_types
+                EntityUID(uid), depth, relationship_types
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return result
 
             # Return Vis.js format directly (includes nodes and edges)
             return Result.ok(result.value)
