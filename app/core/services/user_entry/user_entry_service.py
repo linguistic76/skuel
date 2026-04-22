@@ -46,6 +46,7 @@ from core.models.interaction.interaction import Interaction
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry_dto import UserEntryDTO
 from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryUpdateRequest,
@@ -81,7 +82,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     """
 
     _config = DomainConfig(
-        dto_class=UserEntry,  # UserEntry has from_dto/to_dto
+        dto_class=UserEntryDTO,
         model_class=UserEntry,
         entity_label="Entity",
         search_fields=("title", "content", "processed_content", "original_filename"),

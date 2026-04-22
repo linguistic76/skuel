@@ -167,7 +167,8 @@ class DTOProtocol(Protocol):
     DTOs are mutable dataclasses for data transfer between layers.
 
     Required Attributes:
-        metadata: Optional dict for graph context and enrichment data
+        metadata: Dict for graph context and enrichment data (non-None;
+            concrete DTOs default it via ``field(default_factory=dict)``).
 
     Required Class Methods:
         from_dict: Creates DTO from dictionary (database/API data)
@@ -182,7 +183,7 @@ class DTOProtocol(Protocol):
         DTOConvertible in conversion_protocols.py (same contract)
     """
 
-    metadata: dict[str, Any] | None
+    metadata: dict[str, Any]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:

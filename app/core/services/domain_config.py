@@ -56,6 +56,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from core.models.protocols.domain_model_protocol import (
+    DomainModelProtocol,
+    DTOProtocol,
+)
 from core.models.relationship_names import RelationshipName
 
 
@@ -122,8 +126,8 @@ class DomainConfig:
     """
 
     # Required: DTO and Model classes
-    dto_class: type[Any]  # type[DTOProtocol] - relaxed for compatibility
-    model_class: type[Any]  # type[DomainModelProtocol] - relaxed for compatibility
+    dto_class: type[DTOProtocol]
+    model_class: type[DomainModelProtocol]
 
     # Entity Identity
     entity_label: str | None = (
