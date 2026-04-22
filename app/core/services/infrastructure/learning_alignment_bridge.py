@@ -31,6 +31,7 @@ from core.models.pathways.lp_position import LpPosition
 from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 # Generic type variables
@@ -477,7 +478,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
                     "priority": Priority.HIGH,
                     "learning_alignment_score": 0.95,
                     "supporting_path": path.name,
-                    "suggested_timeline": f"{int(current_step.estimated_hours)} hours",
+                    "suggested_timeline": f"{coerce_int(current_step.estimated_hours)} hours",
                     "suggestion_reason": f"Current step in {path.name} learning path",
                 }
                 suggestions.append(mastery_suggestion)

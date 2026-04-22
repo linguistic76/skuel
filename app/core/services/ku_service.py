@@ -19,6 +19,7 @@ from core.models.type_hints import UserUID
 from core.services.filtered_context import build_filtered_context
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
@@ -202,7 +203,7 @@ class KuService:
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
-        return Result.ok(int(records[0]["cnt"]) if records else 0)
+        return Result.ok(coerce_int(records[0]["cnt"]) if records else 0)
 
     async def get_studying_ku_uids(self, user_uid: UserUID) -> Result[list[str]]:
         """Get UIDs of Kus the user is studying (IN_PROGRESS or MARKED_AS_READ), ordered by title."""

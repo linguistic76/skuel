@@ -18,12 +18,13 @@ Graph relationships queried:
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 from core.ports.query_types import LearningLoopChain, ReportSummary, SubmissionChain
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -145,10 +146,10 @@ class ReportRelationshipService:
         record = records[0]
         return Result.ok(
             {
-                "total_submissions": int(record["total_submissions"] or 0),
-                "with_report": int(record["with_report"] or 0),
-                "without_report": int(record["without_report"] or 0),
-                "total_reports": int(record["total_reports"] or 0),
+                "total_submissions": coerce_int(record["total_submissions"]),
+                "with_report": coerce_int(record["with_report"]),
+                "without_report": coerce_int(record["without_report"]),
+                "total_reports": coerce_int(record["total_reports"]),
             }
         )
 
@@ -182,16 +183,16 @@ class ReportRelationshipService:
         if not records or records[0].get("exercise") is None:
             return Result.fail(Errors.not_found(resource="Exercise", identifier=exercise_uid))
 
-        record = records[0]
-        submissions = list(record.get("submissions") or [])
-        feedback = list(record.get("feedback") or [])
-        revised = list(record.get("revised_exercises") or [])
+        record = cast("dict[str, Any]", records[0])
+        submissions: list[dict[str, Any]] = list(record.get("submissions") or [])
+        feedback: list[dict[str, Any]] = list(record.get("feedback") or [])
+        revised: list[dict[str, Any]] = list(record.get("revised_exercises") or [])
         return Result.ok(
             {
                 "exercise": dict(record["exercise"]) if record["exercise"] else {},
-                "submissions": [dict(s) for s in submissions if s.get("uid")],  # type: ignore[union-attr]
-                "feedback": [dict(f) for f in feedback if f.get("uid")],  # type: ignore[union-attr]
-                "revised_exercises": [dict(r) for r in revised if r.get("uid")],  # type: ignore[union-attr]
+                "submissions": [dict(s) for s in submissions if s.get("uid")],
+                "feedback": [dict(f) for f in feedback if f.get("uid")],
+                "revised_exercises": [dict(r) for r in revised if r.get("uid")],
             }
         )
 
@@ -220,15 +221,15 @@ class ReportRelationshipService:
         if not records or records[0].get("submission") is None:
             return Result.fail(Errors.not_found(resource="Submission", identifier=submission_uid))
 
-        record = records[0]
-        feedback = list(record.get("feedback") or [])
-        revised = list(record.get("revised_exercises") or [])
+        record = cast("dict[str, Any]", records[0])
+        feedback: list[dict[str, Any]] = list(record.get("feedback") or [])
+        revised: list[dict[str, Any]] = list(record.get("revised_exercises") or [])
         return Result.ok(
             {
                 "submission": dict(record["submission"]) if record["submission"] else {},
                 "exercise": dict(record["exercise"]) if record.get("exercise") else None,
-                "feedback": [dict(f) for f in feedback if f.get("uid")],  # type: ignore[union-attr]
-                "revised_exercises": [dict(r) for r in revised if r.get("uid")],  # type: ignore[union-attr]
+                "feedback": [dict(f) for f in feedback if f.get("uid")],
+                "revised_exercises": [dict(r) for r in revised if r.get("uid")],
             }
         )
 

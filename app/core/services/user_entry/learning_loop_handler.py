@@ -22,6 +22,7 @@ from core.models.insight.persisted_insight import InsightImpact, InsightType, Pe
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_float, coerce_int
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
@@ -186,10 +187,10 @@ class LearningLoopEventHandlerService:
                 return
 
             state = state_result.value
-            ema_hours = float(
+            ema_hours = coerce_float(
                 state.get("feedback_ema_hours") or LearningLoop.DEFAULT_FEEDBACK_HOURS
             )
-            sample_count = int(state.get("feedback_sample_count") or 0)
+            sample_count = coerce_int(state.get("feedback_sample_count"))
 
             alpha = LearningLoop.EMA_ALPHA_FEEDBACK
             new_ema = alpha * turnaround_hours + (1 - alpha) * ema_hours

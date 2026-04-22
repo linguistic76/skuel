@@ -43,6 +43,7 @@ from core.ports.query_types import (
 )
 from core.ports.report_protocols import ExerciseReportBackendOperations
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -410,7 +411,7 @@ class TeacherReviewService:
 
         record = records[0]
         student_uid = record["student_uid"] or ""
-        revision_number = int(record["revision_number"])
+        revision_number = coerce_int(record["revision_number"])
 
         logger.info(
             f"Teacher {teacher_uid} atomically created report {report_entity_uid} "

@@ -33,6 +33,7 @@ from core.services.calendar_optimization_types import (
 # Use TaskRelationships.fetch() for relationship data
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_float
 from core.utils.result_simplified import Errors, Result
 
 # Type alias for clarity
@@ -814,7 +815,7 @@ class CalendarOptimizationService:
 
         avg_match: float = 0.0
         if schedule:
-            scores = [float(s["match_score"]) for s in schedule.values()]
+            scores = [coerce_float(s["match_score"]) for s in schedule.values()]
             avg_match = sum(scores) / len(schedule)
         return {
             "strategy": "cognitive_balanced",
@@ -902,7 +903,7 @@ class CalendarOptimizationService:
 
         learning_opt: float = 0.0
         if schedule:
-            effectiveness = [float(s["learning_effectiveness"]) for s in schedule.values()]
+            effectiveness = [coerce_float(s["learning_effectiveness"]) for s in schedule.values()]
             learning_opt = sum(effectiveness) / len(schedule)
         return {
             "strategy": "knowledge_focused",

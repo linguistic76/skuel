@@ -18,6 +18,7 @@ from core.models.user_entry.user_entry import UserEntry
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 
@@ -90,7 +91,7 @@ class UserEntryRelationshipService:
         if result.is_error:
             return 0
         records = result.value or []
-        return int(records[0]["count"]) if records else 0
+        return coerce_int(records[0]["count"]) if records else 0
 
     async def _create_thematic_relationships(
         self,
@@ -107,7 +108,7 @@ class UserEntryRelationshipService:
         if result.is_error:
             return 0
         records = result.value or []
-        return int(records[0]["count"]) if records else 0
+        return coerce_int(records[0]["count"]) if records else 0
 
     async def _create_goal_relationships(
         self,
@@ -170,8 +171,8 @@ class UserEntryRelationshipService:
         record = records[0]
         return Result.ok(
             {
-                "related_ku_count": int(record["related_count"] or 0),
-                "supported_goal_count": int(record["goal_count"] or 0),
-                "follows_count": int(record["follows_count"] or 0),
+                "related_ku_count": coerce_int(record["related_count"]),
+                "supported_goal_count": coerce_int(record["goal_count"]),
+                "follows_count": coerce_int(record["follows_count"]),
             }
         )

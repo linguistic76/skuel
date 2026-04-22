@@ -33,6 +33,7 @@ from core.models.insight.persisted_insight import InsightImpact, InsightType, Pe
 from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_float, coerce_int
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -334,8 +335,10 @@ class TaskEventHandlerService:
             return
 
         state = state_result.value
-        old_ratio = float(state.get("task_duration_ratio") or LearningLoop.DEFAULT_DURATION_RATIO)
-        old_count = int(state.get("task_completion_count") or 0)
+        old_ratio = coerce_float(
+            state.get("task_duration_ratio") or LearningLoop.DEFAULT_DURATION_RATIO
+        )
+        old_count = coerce_int(state.get("task_completion_count"))
 
         # 4. EMA update
         alpha = LearningLoop.EMA_ALPHA_TASK_DURATION

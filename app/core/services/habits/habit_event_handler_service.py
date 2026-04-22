@@ -37,7 +37,7 @@ from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import parse_neo4j_json
+from core.utils.neo4j_mapper import coerce_int, parse_neo4j_json
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -770,7 +770,7 @@ class HabitEventHandlerService:
 
         # 2. Check each aggregate badge threshold
         for badge_id, name, description, tier, stat_key, threshold in self.AGGREGATE_BADGES:
-            current_value = int(stats.get(stat_key, 0) or 0)
+            current_value = coerce_int(stats.get(stat_key))
             if current_value < threshold:
                 continue
 

@@ -46,6 +46,7 @@ from core.ports.infrastructure_protocols import EventBusOperations
 from core.prompts import PROMPT_REGISTRY
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.report.progress_generator")
@@ -1103,7 +1104,7 @@ class ProgressReportGenerator:
         if result.is_error or not result.value:
             return Result.ok(None)  # fail-safe: allow generation if check errors
 
-        recent_count = int(result.value[0].get("recent_count", 0))
+        recent_count = coerce_int(result.value[0].get("recent_count"))
         if recent_count > 0:
             return Result.fail(
                 Errors.business(
