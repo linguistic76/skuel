@@ -791,6 +791,34 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 
 ---
 
+## Why `RevisedExercise` Is Object-Language (Not a Naming Drift)
+
+`RevisedExercise` occasionally raises the question "is this process-language?" — it isn't.
+"Revised" here is a past-participle acting as an adjective, and the name reads as "a revised
+exercise" (a kind of thing), parallel to `FrozenDataclass`, `CompiledQuery`,
+`DerivedAttribute`. The process verb would be `RevisingExercise` or `ExerciseRevision(act of)`
+— neither of which is what SKUEL means.
+
+RevisedExercise stays a distinct EntityType (not collapsed into `Exercise` with a kind field)
+because it differs from `Exercise` on five structural axes:
+
+- **Hierarchy:** `Entity → UserOwnedEntity → RevisedExercise` vs. `Entity → Curriculum → Exercise`
+- **Ownership:** `user_uid = teacher_uid` vs. `user_uid = None` (shared curriculum)
+- **Targeting:** individual `student_uid` vs. group (`group_uid`) or personal curriculum (`path_step_uid`)
+- **ContentOrigin:** `USER_CREATED` vs. `CURRICULUM`
+- **Feedback typing:** `tuple[FeedbackPoint, ...]` with `FeedbackCategory` enum vs. plain `instructions` text
+
+The verb lives on the edge: `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`. Type name =
+noun; edge name = verb; variant = enum field. Applied throughout the loop: `UserEntry` uses
+`pipeline: Pipeline` to distinguish what would once have been three separate types (ADR-054),
+and `ExerciseReport` uses `report_source: ReportSource` + `assessment_outcome:
+AssessmentOutcome` to cover both initial and revision cycles without spawning a
+`RevisedExerciseReport` type.
+
+**See:** [`/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md § Naming Convention`](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md#naming-convention) for the rule, the two-part test, and additional worked examples. ADR-054 is the reference for the `UserEntry` collapse rationale.
+
+---
+
 ## The Binding Graph Relationships
 
 | Relationship | Connects | Purpose |

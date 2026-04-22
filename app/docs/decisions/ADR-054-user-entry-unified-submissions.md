@@ -98,7 +98,14 @@ ADR-053-era) stays as a separate entity type. It is teacher-authored
 curriculum targeting a specific student's revision cycle — not user content
 authored at submit time. Its relationships (`REVISES_EXERCISE`,
 `RESPONDS_TO_REPORT`) continue to point at `UserEntry` nodes downstream,
-just as they point at `ExerciseSubmission` nodes today.
+just as they point at `ExerciseSubmission` nodes today. This ADR's collapse
+and RevisedExercise's continued independence are the same principle applied
+twice: **entity names are nouns, edges are verbs, variants are enums**; a new
+EntityType is justified only when the name reads as a distinct kind-of-thing
+*and* the hierarchy / ownership / `ContentOrigin` tier genuinely differs.
+`UserEntry` failed the second test for the three collapsed types (same
+hierarchy, same ownership) — hence the collapse. `RevisedExercise` passes
+both tests. **See:** [`/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md § Naming Convention`](../architecture/ENTITY_TYPE_ARCHITECTURE.md#naming-convention).
 
 **Scope note on `Interaction`:** `UserEntryService` inherits the current
 behavior of `SubmissionsService`: an `Interaction` node is auto-created at

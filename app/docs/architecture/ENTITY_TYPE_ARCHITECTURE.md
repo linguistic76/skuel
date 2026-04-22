@@ -171,6 +171,39 @@ CREATE (n:Entity:Goal {uid: $uid, ...})
 
 ---
 
+## Naming Convention
+
+Naming discipline is load-bearing in a graph — it determines the readability of every Cypher query and the mental model of the ontology. Three constructs carry the weight, each with its own linguistic form.
+
+| Construct | Linguistic form | Examples |
+|-----------|-----------------|----------|
+| **EntityType** | Noun, or adjective / past-participle + noun — a compound noun denoting a *kind of thing* | `Exercise`, `UserEntry`, `ExerciseReport`, `RevisedExercise`, `LearningPath`, `PathStep` |
+| **Relationship (edge)** | Active verb phrase | `FULFILLS_EXERCISE`, `REVISES_EXERCISE`, `RESPONDS_TO_REPORT`, `ORGANIZES`, `USES_KU` |
+| **Variant within an entity** | Enum field on that entity | `Pipeline` (on `UserEntry`), `ReportSource` + `AssessmentOutcome` (on `ExerciseReport`), `ExerciseScope` (on `Exercise`), `FeedbackCategory` (on `RevisedExercise.feedback_points`) |
+
+### Two-part test for "does this justify a new EntityType?"
+
+1. **Does the proposed name read as a noun / kind-of-thing?** If not, it belongs on an edge (verb) or an enum (variant) — not as a type.
+2. **Does the semantic difference change the class hierarchy?** A new base class (`Curriculum` vs. `UserOwnedEntity`), a different ownership model (shared vs. teacher-owned vs. user-owned), or a different `ContentOrigin` tier. If the hierarchy is unchanged, prefer an enum field on the existing type.
+
+Both conditions must hold to justify a new EntityType. Passing only test 1 means the name is fine but the concept collapses into an existing type with a new enum variant. Passing only test 2 cannot happen — a genuinely different hierarchy always has a distinct kind-of-thing name.
+
+### Worked examples
+
+**`UserEntry` — correctly a unified type (ADR-054).** The former `ExerciseSubmission` / `JeInput` / `JeOutput` types all passed test 1 (each was a noun compound) but *failed* test 2: same hierarchy (`UserOwnedEntity`), same ownership, same file/processing field set. The three collapsed into one `UserEntry` discriminated by `pipeline: Pipeline`. The variants (exercise submission, journal raw input, journal processed output) now live on an enum field, not on separate types.
+
+**`ExerciseReport` — correctly one type with two enums.** There is no `RevisedExerciseReport` class. Whether a report came from a teacher, an LLM, a hybrid workflow, or an automatic process is recorded on `report_source: ReportSource`; whether the outcome is approval, a revision request, or AI-evaluated is recorded on `assessment_outcome: AssessmentOutcome`. Each variant has a different *history* but the same *shape* — an enum, not a type.
+
+**`RevisedExercise` — correctly a distinct type.** Passes both tests. *Test 1:* the name is a past-participle + noun — "a revised exercise" denoting a kind of thing, parallel to `FrozenDataclass`, `CompiledQuery`, `DerivedAttribute`. It is not the verb phrase "revising an exercise" (which would be process-language). *Test 2:* different base class (`UserOwnedEntity` vs. `Exercise`'s `Curriculum`), different ownership (teacher-owned vs. shared), different `ContentOrigin` tier (`USER_CREATED` vs. `CURRICULUM`), different targeting (individual `student_uid` vs. group or curriculum), and typed `FeedbackPoint[]` feedback instead of plain `instructions` text. The verb lives on the edge `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`, not in the type name.
+
+**`FormSubmission` — a structural split despite similarity.** Superficially like a `UserEntry`, but `FormSubmission` carries structured JSON (`form_data`) instead of files and responds to a `FormTemplate` rather than an `Exercise`. Both passed test 1 (distinct noun compound) AND test 2 (different field set — no file/processing fields, different `RESPONDS_TO_FORM` edge topology). Separate types were correct.
+
+### Applying the rule
+
+Before proposing to rename, collapse, or split an EntityType, run both tests. Name drift suspicions (e.g., "this name looks like process-language") are answered by test 1 — if the name reads as a kind-of-thing, it is object-language, regardless of whether it contains a past participle. `RevisedExercise` is object-language and will not be renamed; this conversation has been had and settled.
+
+---
+
 ## Entity Types and Behavioral Traits
 
 Each entity type is a peer — no hierarchy of categories. Behavioral traits (not category membership) determine how an entity is handled.
