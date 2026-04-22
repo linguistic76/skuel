@@ -157,7 +157,6 @@ warn_unreachable = false  # Too noisy during development
 disable_error_code = [
     "arg-type",          # Argument type mismatches (often false positives)
     "var-annotated",     # Variable annotation issues
-    "type-arg",          # Type argument issues (generics inference)
     "type-var",          # Type variable bound issues (MyPy limitation with frozen dataclass + Protocol pattern)
 ]
 

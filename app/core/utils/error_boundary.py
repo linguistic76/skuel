@@ -57,7 +57,9 @@ def exception_to_result[R, **P](
     return wrapper
 
 
-def chain_results(*operations: Callable[..., Awaitable[Result[Any]]]) -> Callable:
+def chain_results(
+    *operations: Callable[..., Awaitable[Result[Any]]],
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Chain multiple Result-returning operations.
     Stops at first error and returns it.
@@ -71,7 +73,7 @@ def chain_results(*operations: Callable[..., Awaitable[Result[Any]]]) -> Callabl
     The wrapper preserves the return type of the decorated function.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Result[Any]:
             # Run each operation in sequence
@@ -140,7 +142,9 @@ def safe_backend_operation[R, **P](
 # ============================================================================
 
 
-def safe_event_handler(event_name: str) -> Callable[[Callable], Callable]:
+def safe_event_handler(
+    event_name: str,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator for event handlers - logs errors with structured context but doesn't propagate.
 
@@ -160,7 +164,7 @@ def safe_event_handler(event_name: str) -> Callable[[Callable], Callable]:
     - Consistent error handling across all event handlers
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> None:
             try:
@@ -197,7 +201,7 @@ def safe_event_handler(event_name: str) -> Callable[[Callable], Callable]:
 # ============================================================================
 
 
-def migrate_to_result(value: Any, error_msg: str = "Operation failed") -> Result:
+def migrate_to_result(value: Any, error_msg: str = "Operation failed") -> Result[Any]:
     """
     Helper to migrate existing code that returns None on failure.
 
