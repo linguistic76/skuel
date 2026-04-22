@@ -608,8 +608,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             goal = result.value
 
             # Calculate duration metrics
-            actual_days = None
-            planned_days = None
+            actual_days: int | None = None
+            planned_days: int | None = None
             ahead_of_schedule = False
 
             if current_goal.created_at:

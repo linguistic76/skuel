@@ -391,7 +391,7 @@ def _extract_property_references(query_text: str) -> list[PropertyReference]:
     Returns:
         List of PropertyReference objects with label, property, and usage
     """
-    property_refs = []
+    property_refs: list[PropertyReference] = []
 
     # Pattern: variable.property (e.g., "n.due_date", "task.priority")
     # Captures: variable name and property name

@@ -622,7 +622,7 @@ async def ingest_directory(
     # DRY-RUN MODE: Preview changes without writing to Neo4j
     if dry_run and driver is not None:
         # Collect all UIDs to check existence
-        all_uids = []
+        all_uids: list[str] = []
         for entities in entities_by_type.values():
             all_uids.extend(entity.get("uid", "") for entity in entities if entity.get("uid"))
 

@@ -280,7 +280,7 @@ class AdaptiveLpCrossDomainService:
         self, domain_knowledge: dict[str, list[str]], _user_uid: UserUID
     ) -> list[CrossDomainOpportunity]:
         """Discover innovation opportunities combining 3+ domains."""
-        opportunities = []
+        opportunities: list[CrossDomainOpportunity] = []
 
         if len(domain_knowledge) < 3:
             return opportunities

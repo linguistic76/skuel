@@ -276,7 +276,7 @@ class PsAdaptiveService:
         try:
             all_ps_result = await self.backend.find_by(sel_category=category.value)
             if all_ps_result.is_error:
-                all_ps = []
+                all_ps: list[PathStep] = []
             else:
                 all_ps = all_ps_result.value or []
 

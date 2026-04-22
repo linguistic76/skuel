@@ -76,7 +76,7 @@ def create_finance_api_routes(
     # EXPENSE CRUD ROUTES (Factory-Generated, Admin-Only)
     # ========================================================================
 
-    expense_factory = CRUDRouteFactory(
+    expense_factory: CRUDRouteFactory[Any] = CRUDRouteFactory(
         service=finance_service,
         domain_name="expenses",
         create_schema=ExpenseCreateSchema,
@@ -214,7 +214,7 @@ def create_finance_api_routes(
     # BUDGET CRUD ROUTES (Factory-Generated, Admin-Only)
     # ========================================================================
 
-    budget_factory = CRUDRouteFactory(
+    budget_factory: CRUDRouteFactory[Any] = CRUDRouteFactory(
         service=finance_service,
         domain_name="budgets",
         create_schema=BudgetCreateSchema,

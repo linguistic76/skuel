@@ -947,7 +947,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
         for uid, goal in goals_dict.items():
             # Determine blocking relationships
-            blocking = []
+            blocking: list[str] = []
             enabled_by = []
 
             # Parent goals block sub-goals (must complete parent first? No, usually opposite)

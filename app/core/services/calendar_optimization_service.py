@@ -466,8 +466,8 @@ class CalendarOptimizationService:
         """
         try:
             # Analyze cognitive load for each task
-            task_loads = {}
-            domain_loads = {}
+            task_loads: dict[str, Any] = {}
+            domain_loads: dict[Domain, list[Any]] = {}
 
             for task in tasks:
                 load_analysis = await self._analyze_task_cognitive_load(task, [])
@@ -1017,7 +1017,7 @@ class CalendarOptimizationService:
 
         if learning_slots and knowledge_units:
             # Group knowledge units by domain
-            domain_groups = {}
+            domain_groups: dict[Domain, list[Any]] = {}
             for ku in knowledge_units[:6]:  # Limit for demo
                 domain = getattr(ku, "domain", Domain.KNOWLEDGE)
                 if domain not in domain_groups:
@@ -1205,7 +1205,7 @@ class CalendarOptimizationService:
         self, knowledge_units: list[dict[str, Any]]
     ) -> dict[Domain, list[dict[str, Any]]]:
         """Group knowledge units by domain."""
-        groups = {}
+        groups: dict[Domain, list[dict[str, Any]]] = {}
         for unit in knowledge_units:
             domain = unit.get("domain", Domain.KNOWLEDGE)
             if domain not in groups:

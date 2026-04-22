@@ -110,7 +110,7 @@ class Neo4jSchemaManager:
             )
 
         label = label or entity_class.__name__
-        results = {"created": [], "existing": [], "failed": []}
+        results: dict[str, list[str]] = {"created": [], "existing": [], "failed": []}
 
         try:
             for field_info in fields(entity_class):
@@ -440,7 +440,7 @@ class Neo4jSchemaManager:
         Returns:
             Result with summary of created indexes
         """
-        results = {"created": [], "failed": []}
+        results: dict[str, list[str]] = {"created": [], "failed": []}
 
         # Rate limiting index: AuthEvent(email, event_type, timestamp)
         # Used by count_recent_failed_attempts() query
@@ -502,7 +502,7 @@ class Neo4jSchemaManager:
                 similarity="cosine"
             )
         """
-        results = {"created": [], "failed": []}
+        results: dict[str, list[str]] = {"created": [], "failed": []}
 
         for label in entity_labels:
             result = await self.create_vector_index(

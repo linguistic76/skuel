@@ -288,7 +288,7 @@ def create_common_sub_services(
         search_class = getattr(search_module, config.search_class)
         search = search_class(backend=backend)
 
-    relationships = None
+    relationships: UnifiedRelationshipService[Any, Any, Any] | None = None
     if "relationships" not in skip:
         relationships = UnifiedRelationshipService(
             backend=backend,

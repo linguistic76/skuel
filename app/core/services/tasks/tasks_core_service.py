@@ -257,7 +257,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Create knowledge relationships from request using batch operation for performance
-        relationships = []
+        relationships: list[tuple[str, str, str, None]] = []
 
         if task_request.applies_knowledge_uids:
             relationships.extend(

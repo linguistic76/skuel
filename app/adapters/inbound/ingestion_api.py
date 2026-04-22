@@ -127,7 +127,7 @@ def create_ingestion_api_routes(
     Returns:
         List of created routes
     """
-    routes = []
+    routes: list[Any] = []
 
     if not unified_ingestion:
         logger.error("UnifiedIngestionService not provided to ingestion API routes")

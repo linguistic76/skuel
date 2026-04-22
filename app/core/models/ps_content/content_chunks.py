@@ -380,8 +380,8 @@ class ContentChunkingStrategy:
     def _split_large_text(cls, text: str) -> list[str]:
         """Split large text into smaller chunks at sentence boundaries"""
         sentences = re.split(r"(?<=[.!?])\s+", text)
-        chunks = []
-        current_chunk = []
+        chunks: list[str] = []
+        current_chunk: list[str] = []
         current_size = 0
 
         for sentence in sentences:

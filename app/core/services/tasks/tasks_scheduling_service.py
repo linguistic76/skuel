@@ -188,7 +188,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
 
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Collect all relationships for batch creation (10x faster)
-        relationships = []
+        relationships: list[tuple[str, str, str, None]] = []
 
         # Knowledge application relationships
         if task_data.applies_knowledge_uids:

@@ -518,7 +518,7 @@ class ActionRecommendationEngine:
             List of top 3 prerequisite UIDs by unlock count
         """
         # Count how many items each prerequisite unlocks
-        unlock_counts = {}
+        unlock_counts: dict[str, int] = {}
         for prereqs in user_context.prerequisites_needed.values():
             for prereq in prereqs:
                 unlock_counts[prereq] = unlock_counts.get(prereq, 0) + 1

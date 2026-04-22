@@ -321,7 +321,7 @@ class AdaptiveLpCoreService:
 
         # Calculate learning velocity from recently mastered knowledge
         # UserContext has recently_mastered_uids (last 30 days)
-        recently_mastered = getattr(context, "recently_mastered_uids", set())
+        recently_mastered: set[str] = getattr(context, "recently_mastered_uids", set())
         velocity_score = len(recently_mastered) / 4.0  # KUs per week (30 days / 7 days)
 
         # Build immutable result using frozen dataclass
@@ -685,7 +685,7 @@ class AdaptiveLpCoreService:
         self, main_sequence: list[str], _learning_style: str
     ) -> list[str]:
         """Generate alternative learning sequences for flexibility."""
-        alternatives = []
+        alternatives: list[str] = []
 
         if len(main_sequence) <= 2:
             return alternatives

@@ -220,7 +220,7 @@ class LpPosition:
         Returns:
             Learning-contextual principle practice framework
         """
-        practice_frame = {
+        practice_frame: dict[str, list[Any]] = {
             "learning_applications": [],
             "current_step_relevance": [],
             "practice_opportunities": [],

@@ -865,7 +865,7 @@ class Neo4jVectorSearchService:
         final_results = results[:limit]
 
         # Log summary
-        state_counts = {}
+        state_counts: dict[str, int] = {}
         for r in final_results:
             state = r.get("learning_state", "none")
             state_counts[state] = state_counts.get(state, 0) + 1

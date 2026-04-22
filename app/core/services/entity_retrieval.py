@@ -256,7 +256,7 @@ class EntityRetrieval:
                 return []
 
             # Group chunks by knowledge unit and build enhanced results
-            ku_chunks = {}
+            ku_chunks: dict[str, list[Any]] = {}
             for chunk_match in chunk_results.value:
                 uid = chunk_match["knowledge_uid"]
                 if uid not in ku_chunks:

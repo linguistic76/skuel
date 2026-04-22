@@ -866,7 +866,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         context: TaskAwareness,
     ) -> list[str]:
         """Identify what's blocking this entity."""
-        reasons = []
+        reasons: list[str] = []
         entity_uid = getattr(entity, "uid", None)
         if not entity_uid:
             return reasons

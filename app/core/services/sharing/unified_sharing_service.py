@@ -376,7 +376,7 @@ class UnifiedSharingService:
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
-        entities = [
+        entities: list[dict[str, Any]] = [
             {
                 "entity": dict(r["entity"]),
                 "group_uid": r["group_uid"],

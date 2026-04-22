@@ -978,7 +978,7 @@ class InsightGenerationService:
         if auto_publish_threshold is None:
             auto_publish_threshold = self.auto_publish_threshold
 
-        categorized = {
+        categorized: dict[str, list[Any]] = {
             "auto_publish": [],
             "review_recommended": [],
             "needs_improvement": [],

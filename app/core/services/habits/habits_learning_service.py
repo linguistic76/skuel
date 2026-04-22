@@ -174,7 +174,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         }
 
         # Check if user has related goals
-        related_goals = []
+        related_goals: list[str] = []
         for _goal_uid in user_context.active_goal_uids:
             # Would check if goal requires this knowledge
             pass

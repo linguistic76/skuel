@@ -202,8 +202,8 @@ class AdvancedCache:
         self.default_ttl = default_ttl
         self.strategy = strategy
         self.cache: dict[str, CacheEntry] = {}
-        self.access_order = OrderedDict()  # For LRU
-        self.frequency_heap = []  # For LFU
+        self.access_order: OrderedDict[str, bool] = OrderedDict()  # For LRU
+        self.frequency_heap: list[tuple[int, str]] = []  # For LFU
         self.stats = {"hits": 0, "misses": 0, "evictions": 0, "size_bytes": 0}
         self.logger = get_logger(__name__)
 
@@ -351,8 +351,8 @@ class FastInferenceEngine:
 
     def __init__(self) -> None:
         self.cache = AdvancedCache(max_size=50000, strategy=CacheStrategy.ADAPTIVE)
-        self.precomputed_patterns = {}
-        self.inference_rules = {}
+        self.precomputed_patterns: dict[str, dict[str, Any]] = {}
+        self.inference_rules: dict[str, Any] = {}
         self.logger = get_logger(__name__)
 
     async def infer(self, request: InferenceRequest) -> InferenceResult:
@@ -543,7 +543,7 @@ class BackgroundProcessingEngine:
     """High-performance background task processing."""
 
     def __init__(self, max_workers: int = 4) -> None:
-        self.task_queue = []
+        self.task_queue: list[BackgroundTask] = []
         self.completed_tasks: set[str] = set()
         self.running_tasks: dict[str, BackgroundTask] = {}
         self.max_workers = max_workers

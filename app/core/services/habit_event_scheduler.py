@@ -324,7 +324,7 @@ class HabitEventScheduler:
         Returns:
             List of scheduled routine events
         """
-        routine_events = []
+        routine_events: list[EventDTO] = []
 
         # Auto-select habits if not specified
         if not habit_uids:

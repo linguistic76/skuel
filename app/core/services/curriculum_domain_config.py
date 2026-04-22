@@ -165,7 +165,7 @@ def create_curriculum_sub_services(
     config = CURRICULUM_DOMAIN_CONFIGS[domain]
 
     # Create relationships service FIRST (needed by intelligence)
-    relationships = UnifiedRelationshipService(
+    relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=backend,
         config=config.relationship_config,
         graph_intel=graph_intel,
@@ -247,7 +247,7 @@ def create_ps_sub_services(
     from core.services.ps.ps_semantic_service import PsSemanticService
 
     # Step 1: Create relationship service (needed by intelligence)
-    relationships = UnifiedRelationshipService(
+    relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=backend,
         config=PS_CONFIG,
         graph_intel=graph_intel,
@@ -376,7 +376,7 @@ def create_lp_sub_services(
     search = LpSearchService(backend=backend)
 
     # Step 2: Create relationships
-    relationships = UnifiedRelationshipService(
+    relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=backend,
         config=LP_CONFIG,
         graph_intel=graph_intel,
