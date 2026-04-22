@@ -213,13 +213,13 @@ provides the standard 30-day window.
 
 **Submission & feedback stats (March 2026):** `build_rich()` now populates 11 fields via `populate_submission_stats()`: submission counts, feedback tracking, `unsubmitted_exercises`, and `pending_revised_exercises`. `DailyPlanningMixin` reads `context.pending_revised_exercises` at Priority 2.3 (teacher revision feedback) and `context.unsubmitted_exercises` at Priority 2.5 (assigned exercises).
 
-**The rule:** Always pass `build_rich()` context to intelligence. `require_rich_context()` will catch mistakes:
+**The rule:** Always pass `build_rich()` context to intelligence. The strict rich-only accessors (and the `_as_rich()` chokepoint they delegate through) will catch mistakes at runtime:
 
 ```python
-# ❌ WRONG — build() context will fail at require_rich_context()
+# ❌ WRONG — build() context will raise RichContextRequiredError on first strict accessor
 context = await builder.build(user_uid)
 intelligence = factory.create(context)
-plan = await intelligence.get_ready_to_work_on_today()  # Raises ValueError
+plan = await intelligence.get_ready_to_work_on_today()  # RichContextRequiredError
 
 # ✅ CORRECT — build_rich() for intelligence (no time_period needed)
 context = await builder.build_rich(user_uid)

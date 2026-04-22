@@ -52,7 +52,7 @@ Field blocks (data):
 Method blocks (read API):
 
 14. Validation                → CONTEXT VALIDATION METHODS
-                                (require_rich_context, get_rich_entities)
+                                (_as_rich, get_rich_entities)
 15. Per-domain queries        → TASK / EVENT / GOAL / HABIT / KNOWLEDGE /
                                 PRINCIPLE / WORKLOAD / MOC / FACET QUERY METHODS
 16. Cache-local mutations     → DERIVED / CACHE-LOCAL MUTATIONS (SAFE)
@@ -606,30 +606,6 @@ class UserContext:
     # =========================================================================
     # CONTEXT VALIDATION METHODS
     # =========================================================================
-
-    def require_rich_context(self, operation: str) -> None:
-        """
-        Validate this context was built with rich data (build_rich path).
-
-        Defensive runtime guard used inside the strict rich-only accessors
-        (``get_tasks_for_goal``, ``get_blocked_tasks``, etc.) so a
-        ``UserContext``-typed value that slipped through static typing still
-        fails loudly.
-
-        Prefer the compile-time guard: type the parameter as
-        ``RichUserContext`` and the subclass's narrowed fields + pinned
-        ``is_rich_context=True`` remove the need for a runtime check.
-
-        Args:
-            operation: Name of the operation requiring rich context
-
-        Raises:
-            RichContextRequiredError: If context is not rich (built via build() not build_rich())
-        """
-        if not self.is_rich_context:
-            from core.errors import RichContextRequiredError
-
-            raise RichContextRequiredError(operation)
 
     def _as_rich(self, operation: str) -> RichUserContext:
         """Guard + cast chokepoint for strict rich-only accessors.
@@ -1207,8 +1183,8 @@ class RichUserContext(UserContext):
     UserContext subclass whose type narrows the seven RICH_ONLY_FIELDS
     to their populated container types (no `| None`).
 
-    `is_rich_context` is pinned `True`, so the runtime `require_rich_context()`
-    guard is effectively compile-time enforced for any code typed against
+    `is_rich_context` is pinned `True`, so the runtime `_as_rich()` guard
+    is effectively compile-time enforced for any code typed against
     `RichUserContext`.
 
     **When to use:**
@@ -1244,8 +1220,7 @@ class RichUserContext(UserContext):
     standard-depth context and otherwise returns ``self`` typed as
     ``RichUserContext``. This collapses the former guard + ``assert`` pair
     into a single expression whose return type carries the invariant.
-    ``require_rich_context()`` remains public for tests and ad-hoc external
-    checks; ``is_rich()`` remains the external ``TypeGuard``.
+    ``is_rich()`` remains the external ``TypeGuard``.
     """
 
     # Narrow rich-only containers from `X | None` to `X`.

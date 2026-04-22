@@ -117,7 +117,7 @@ Run: `uv run ruff check core/ adapters/ ui/`
 - **Password reset email implemented** — Resend integration via `EmailOperations` protocol + `ResendEmailService` adapter (March 2026)
 - **Learning progress routes implemented** — `POST /api/learning/progress` and `GET /api/learning/progress/summary` connected to `UserProgressService` (March 2026)
 - **`is_this_week` calculation fixed** — 6 hardcoded `False` values replaced with real week-boundary logic
-- **`RichContextRequiredError` added** — replaces generic `ValueError` in `require_rich_context()`
+- **`RichContextRequiredError` added** — replaces generic `ValueError` in the rich-context guard (now `_as_rich()`)
 - **`BudgetDTO.user_uid` added** — eliminates `user_uid=""` workaround in converters
 
 ---

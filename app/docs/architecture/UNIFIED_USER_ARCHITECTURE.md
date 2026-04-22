@@ -184,7 +184,6 @@ Graph (Neo4j) → MEGA-QUERY → UserContext → UserContextIntelligence → Rec
 
 ```python
 context.is_rich_context      # bool — False for standard, True for rich
-context.require_rich_context("operation_name")  # raises RichContextRequiredError if standard
 ```
 
 ### Rich-Only Fields — Two Mechanisms, Different Jobs
@@ -222,7 +221,7 @@ else:
     habits_by_goal = context.habits_by_goal_or_empty()
 ```
 
-The strict accessors delegate through `_as_rich("operation_name")`, a private helper on `UserContext` that guards with `RichContextRequiredError` on standard-depth contexts and returns `self` narrowed to `RichUserContext`. `require_rich_context()` remains the public form, kept for tests and ad-hoc external checks. Either is a runtime backstop — with `RichUserContext`-typed code, neither raises in practice.
+The strict accessors delegate through `_as_rich("operation_name")`, a private helper on `UserContext` that guards with `RichContextRequiredError` on standard-depth contexts and returns `self` narrowed to `RichUserContext`. This is a runtime backstop — with `RichUserContext`-typed code, it never raises in practice.
 
 ### When to Use UserContext vs Domain Services
 
@@ -379,8 +378,7 @@ These fields are separate from `entities_rich` — they are scalar/list fields o
 
 ```python
 # ✅ CORRECT
-async def get_advancing_goals(self, context: UserContext) -> Result[list[ContextualGoal]]:
-    context.require_rich_context("get_advancing_goals")
+async def get_advancing_goals(self, context: RichUserContext) -> Result[list[ContextualGoal]]:
     goals_data = context.entities_rich["goals"]
     ...
 

@@ -221,28 +221,34 @@ UserContext has two depth levels:
 
 ### Validation at Runtime
 
-UserContextIntelligence validates context depth on creation:
+Intelligence methods rely on two mechanisms to fail fast when handed a
+standard-depth context:
+
+1. **Compile-time:** type the parameter as `RichUserContext` — the subclass
+   narrows the seven `RICH_ONLY_FIELDS` to non-Optional and pins
+   `is_rich_context=True`.
+2. **Runtime backstop:** strict accessors (`get_tasks_for_goal`,
+   `get_blocked_tasks`, etc.) delegate through `_as_rich(operation)` on
+   `UserContext`, which raises `RichContextRequiredError` on a standard-depth
+   context.
 
 ```python
 # File: /core/services/user/unified_user_context.py
 
 class UserContext:
-    def require_rich_context(self, operation: str) -> None:
-        """
-        Validate that context has rich data for intelligence operations.
-
-        Raises:
-            RichContextRequiredError: If context is standard (UIDs only)
-        """
+    def _as_rich(self, operation: str) -> RichUserContext:
+        """Guard + cast chokepoint for strict rich-only accessors."""
         if not self.is_rich_context:
             from core.errors import RichContextRequiredError
 
             raise RichContextRequiredError(operation)
+        return cast("RichUserContext", self)
 
-# Usage in intelligence methods:
+# Usage in intelligence methods — type against RichUserContext:
 async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:
     """THE FLAGSHIP - requires rich context."""
-    self.context.require_rich_context("get_ready_to_work_on_today")
+    # self.context typed as RichUserContext; strict accessors raise on standard
+    blocked = self.context.get_blocked_tasks()
     # Proceed with full entities available
 ```
 

@@ -153,14 +153,6 @@ def test_get_principle_integration_score_raises_at_standard_depth(
     assert exc_info.value.operation == "get_principle_integration_score"
 
 
-def test_require_rich_context_raises_at_standard_depth(
-    standard_context: UserContext,
-) -> None:
-    with pytest.raises(RichContextRequiredError) as exc_info:
-        standard_context.require_rich_context("custom_op")
-    assert exc_info.value.operation == "custom_op"
-
-
 def test_as_rich_raises_on_standard_context(
     standard_context: UserContext,
 ) -> None:
@@ -324,12 +316,6 @@ def test_recent_principle_aligned_choices_or_empty_at_rich_depth(
     rich_context: RichUserContext,
 ) -> None:
     assert rich_context.recent_principle_aligned_choices_or_empty() == ["choice:1", "choice:2"]
-
-
-def test_require_rich_context_passes_at_rich_depth(
-    rich_context: RichUserContext,
-) -> None:
-    rich_context.require_rich_context("custom_op")
 
 
 # =============================================================================

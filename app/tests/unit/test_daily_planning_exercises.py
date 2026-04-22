@@ -43,9 +43,6 @@ def make_context(
     class _Context:
         is_rich_context = True
 
-        def require_rich_context(self, operation: str) -> None:
-            return None
-
     ctx = _Context()
     ctx.user_uid = user_uid
     ctx.available_minutes_daily = available_minutes
