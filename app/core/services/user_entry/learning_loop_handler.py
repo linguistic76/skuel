@@ -19,6 +19,7 @@ from core.constants import LearningLoop
 from core.events.learning_loop_events import ReportSubmitted, UserEntryApproved
 from core.events.user_entry_events import UserEntryCreated
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -116,7 +117,7 @@ class LearningLoopEventHandlerService:
                 )
                 insight = PersistedInsight(
                     uid=PersistedInsight.generate_uid(
-                        InsightType.LEARNING_PROGRESS, event.entity_uid
+                        InsightType.LEARNING_PROGRESS, EntityUID(event.entity_uid)
                     ),
                     user_uid=event.user_uid,
                     insight_type=InsightType.LEARNING_PROGRESS,
@@ -128,7 +129,7 @@ class LearningLoopEventHandlerService:
                     ),
                     confidence=0.9,
                     impact=impact,
-                    entity_uid=event.entity_uid,
+                    entity_uid=EntityUID(event.entity_uid),
                     supporting_data={
                         "exercise_uid": event.fulfills_exercise_uid,
                         "iteration_count": count,
@@ -210,9 +211,9 @@ class LearningLoopEventHandlerService:
                 if is_anomaly:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.COMPLETION_PATTERN, event.report_uid
+                            InsightType.COMPLETION_PATTERN, EntityUID(event.report_uid)
                         ),
-                        user_uid=event.teacher_uid,
+                        user_uid=UserUID(event.teacher_uid),
                         insight_type=InsightType.COMPLETION_PATTERN,
                         domain="user_entry",
                         title=f"Feedback Turnaround Anomaly ({anomaly_type})",
@@ -222,7 +223,7 @@ class LearningLoopEventHandlerService:
                         ),
                         confidence=0.8,
                         impact=InsightImpact.MEDIUM,
-                        entity_uid=event.report_uid,
+                        entity_uid=EntityUID(event.report_uid),
                         supporting_data={
                             "turnaround_hours": turnaround_hours,
                             "ema_hours": new_ema,
@@ -263,14 +264,14 @@ class LearningLoopEventHandlerService:
             exercise_uid = exercise_result.value
 
             count_result = await self.backend.count_entries_for_exercise(
-                event.student_uid, exercise_uid
+                UserUID(event.student_uid), exercise_uid
             )
             if count_result.is_error:
                 return
             iterations = count_result.value
 
             first_result = await self.backend.get_first_entry_for_exercise(
-                event.student_uid, exercise_uid
+                UserUID(event.student_uid), exercise_uid
             )
             if first_result.is_error or not first_result.value:
                 return
@@ -327,15 +328,15 @@ class LearningLoopEventHandlerService:
                     )
 
                 insight = PersistedInsight(
-                    uid=PersistedInsight.generate_uid(insight_type, event.entity_uid),
-                    user_uid=event.student_uid,
+                    uid=PersistedInsight.generate_uid(insight_type, EntityUID(event.entity_uid)),
+                    user_uid=UserUID(event.student_uid),
                     insight_type=insight_type,
                     domain="user_entry",
                     title=title,
                     description=description,
                     confidence=0.85,
                     impact=impact,
-                    entity_uid=event.entity_uid,
+                    entity_uid=EntityUID(event.entity_uid),
                     supporting_data={
                         "exercise_uid": exercise_uid,
                         "iterations": iterations,
