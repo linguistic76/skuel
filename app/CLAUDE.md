@@ -25,24 +25,18 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **Core Principle:** "Entity is the universal base. Ku is one type of Entity."
 
-`Entity` is the base frozen dataclass for all 20 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
+`Entity` is the base frozen dataclass for all 19 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
 
 - **PathStep** (`EntityType.PATH_STEP`, extends `Curriculum`) — THE curriculum content entity. Composes Kus into learning content and sits within LearningPaths. Services in `core/services/ps/`. Facade: `PsService` in `core/services/ps_service.py`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
 - **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
 - **Learning loop (4 phases):** Exercise -> UserEntry -> ExerciseReport -> RevisedExercise -> UserEntry -> ... PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)` (denormalized as `Exercise.path_step_uid` for PERSONAL scope). The PathStep detail page (`/explore/ps/{uid}`) surfaces the loop — HTMX-loads exercises (with status), entries, and feedback via `/learning-loop/ps/{ps_uid}/*` fragments.
-- **Lesson merged into PathStep** (2026-04): The former `Lesson` entity type was merged into `PathStep`.
 
 ## Naming Conventions
 
-**File Naming:** File names must reflect function. When Claude Code provides a randomly-generated plan file name, immediately rename it to a descriptive name.
-
-**Parameter Naming:** Underscore prefix indicates placeholder for future implementation:
-```python
-async def get_learning_opportunities(
-    self, _filters: dict[str, Any] | None = None  # Placeholder - not yet implemented
-) -> Result[list[dict[str, Any]]]:
-```
+- **Files:** Names must reflect function. Rename randomly-generated plan file names immediately.
+- **Parameters:** Underscore prefix (`_filters`, `_ctx`) marks a placeholder for future implementation.
+- **Entities / edges / variants:** EntityType = noun, Relationship = verb, Variant = enum field. **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md § Naming Convention`.
 
 ## Neo4j Infrastructure
 
@@ -66,21 +60,17 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 
 **Key skill categories:** Foundation (python, pydantic, ui-css, chartjs), Web Framework (fasthtml, domain-route-config, ui-browser), UX (accessibility-guide, skuel-ui, ui-error-handling), Database (neo4j-cypher-patterns), Infrastructure (docker, prometheus-grafana), Architecture (result-pattern, base-analytics-service, base-ai-service, prompt-templates, learning-loop, skuel-search-architecture, user-context-intelligence), Security (security), Testing (pytest), Meta (docs-skills-evolution).
 
-**Total:** 26 skills with comprehensive documentation mappings.
-
 ## Documentation Architecture
 
 **Single Source of Truth:** `/home/mike/skuel/app/docs/`
-- `docs/decisions/` - Architecture Decision Records (ADRs, 43 total)
-- `docs/patterns/` - Implementation patterns
-- `docs/architecture/` - System architecture
-- `docs/INDEX.md` - Complete documentation index
+- `docs/decisions/` — Architecture Decision Records
+- `docs/patterns/` — Implementation patterns
+- `docs/architecture/` — System architecture
+- `docs/INDEX.md` — Complete documentation index
 
-**CLAUDE.md Purpose:** Quick-reference with pointers to detailed docs. Sections should be 10-20 lines max with `**See:**` pointers.
+**CLAUDE.md Purpose:** Quick-reference with pointers to detailed docs. Sections should be 10-20 lines max with `**See:**` pointers. Prose and examples belong in the linked docs, not here.
 
-**Content Location (different purpose):** `/home/mike/0bsidian/0vault/` is the Obsidian vault for content authoring (KU YAMLs, PathStep YAMLs, edge YAMLs). NOT technical documentation.
-
-**Default Ingestion Vault:** `/home/mike/0bsidian/0vault/` is the default folder for content ingestion — Ku YAMLs, PathStep YAMLs, edge YAMLs, and markdown files. Configurable via `INGESTION_PATH` env var. This is the Obsidian vault authoring source.
+**Content Vault:** `/home/mike/0bsidian/0vault/` — Obsidian vault for content authoring (Ku / PathStep / edge YAMLs, markdown). Default ingestion source; override with `INGESTION_PATH` env var. NOT technical documentation.
 
 ## Docstring Philosophy
 
@@ -110,44 +100,19 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **See:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`, `/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md`
 
-## SKUEL's 20 Entity Types + 5 Cross-Cutting Systems
+## SKUEL's 19 EntityTypes + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
 
-**Two lenses (ADR-055):** *Model A — Subsystems* groups the 20 EntityTypes into **7 subsystems** (Ku, Curriculum Domains, Activity Domains, Learning Loop, User, Groups, Askesis) across **3 sections** (Object / Context / Meta) — see `/docs/architecture/SEVEN_SUBSYSTEMS.md`. *Model B — 3-Layer Lens* reads the flow as **Curriculum → Action → Feedback** — see `/docs/architecture/THREE_LAYER_LENS.md`. The **5 Cross-Cutting Systems** below are infrastructure (UserContext, Search, Calendar, Askesis, Messaging), orthogonal to both lenses.
+**Two lenses (ADR-055):** Subsystems (7 subsystems × 3 sections) vs. 3-Layer (Curriculum → Action → Feedback). The **5 Cross-Cutting Systems** (UserContext, Search, Calendar, Askesis, Messaging) are infrastructure orthogonal to both lenses.
 
-### The 20 Entity Types (group summary)
+**The 19 EntityType values** cluster as: Activity (6: Task, Goal, Habit, Event, Choice, Principle), Curriculum (4: Ku, PathStep, LearningPath, Exercise), Forms (2: FormTemplate, FormSubmission), Learning loop (4: UserEntry, ExerciseReport, ActivityReport, Interaction), Other (3: RevisedExercise, LifePath, Resource).
 
-- **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — user-owned; share facade pattern with `.core`/`.search`/`.intelligence`/`.ai` sub-services via `create_common_sub_services()`
-- **Curriculum (4):** Ku, PathStep, LearningPath, Exercise — admin-created, `ContentScope.SHARED`; PathStep composes Kus into learning content
-- **Forms (2):** FormTemplate (admin), FormSubmission (user-owned response)
-- **Learning loop (4):** UserEntry (ADR-054 — collapses former ExerciseSubmission/JeInput/JeOutput; pipeline-discriminated), ExerciseReport, ActivityReport, Interaction
-- **Other (4):** RevisedExercise (teacher-owned), LifePath, Groups (ADR-053), MOC (emergent via ORGANIZES)
-- **Admin-only:** Finance (Firefly III sidecar + local invoicing, ADR-052)
+**Not EntityTypes:** MOC is emergent (any Entity with ORGANIZES edges). Group lives in `NonKuDomain` (ADR-053). Finance is a Firefly III sidecar (ADR-052), admin-only.
 
-Full table with UID formats + behavioral traits (`requires_user_uid()`, `content_origin()`, `is_activity()`, `is_processable()`, `is_derived()`): see `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`.
+**Service architecture:** `UniversalNeo4jBackend[T]` → `{Domain}Service` facade → `.core` / `.search` / `.intelligence` / `.ai` sub-services.
 
-### The 5 Cross-Cutting Systems
-
-| System | Purpose |
-|--------|---------|
-| UserContext | ~250 fields of cross-domain state |
-| Search | Unified search across all domains |
-| Calendar | Aggregates Tasks, Events, Habits, Goals |
-| Askesis | Pedagogical guide — ZPD-aware Socratic companion anchored to curriculum |
-| Messaging | Notifications (planned) |
-
-### Service Architecture Pattern
-
-```
-UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
-        |
-    {Domain}Service       <- Facade orchestrates sub-services
-        |
-    Sub-services          <- .core, .search, .intelligence
-```
-
-**See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`, `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md`
+**See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` (full table, traits, UID formats), `/docs/architecture/SEVEN_SUBSYSTEMS.md`, `/docs/architecture/THREE_LAYER_LENS.md`, `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
 
 ## Type Safety Architecture
 
@@ -196,7 +161,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 
 **DTOs** mirror the hierarchy: `EntityDTO -> UserOwnedDTO, KuDTO, CurriculumDTO -> PathStepDTO, ResourceDTO`
 
-**Key enums:** `EntityType` (20 values), `EntityStatus` (14 values) — both in `entity_enums.py`.
+**Key enums:** `EntityType` (19 values), `EntityStatus` (14 values) — both in `entity_enums.py`.
 
 **Neo4j Multi-Label:** `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`.
 
@@ -256,30 +221,13 @@ Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONL
 
 **Core Principle:** "Enums define behavior, services consume it"
 
-Presentation logic lives inside enum methods. Magic numbers live in `/core/constants.py`.
-
-```python
-Priority.get_color()                           # "#F59E0B"
-EntityStatus.is_terminal()                     # Terminal state check
-EntityStatus.from_search_text("in progress")   # [EntityStatus.ACTIVE]
-ContextHealthScore.get_numeric()               # 0.0-1.0 scoring
-```
-
-**Consolidated Enums:** `/core/models/enums/` — one file per domain. Core discriminators in `entity_enums.py`.
+Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `EntityStatus.is_terminal()`, `ContextHealthScore.get_numeric()`). Magic numbers live in `/core/constants.py`. Consolidated enums in `/core/models/enums/` — one file per domain; core discriminators in `entity_enums.py`.
 
 **See:** `/docs/architecture/ENUM_ARCHITECTURE.md`, `/docs/architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md`
 
 ## Activity DSL & Domain Enums
 
-```python
-# EntityType -- 18 domain types (multi-label :Entity nodes in Neo4j)
-EntityType.from_string("task")       # -> EntityType.TASK or None
-EntityType.from_string("knowledge")  # -> EntityType.KU (alias support)
-
-# NonKuDomain -- 4 non-Entity domains
-class NonKuDomain(str, Enum):
-    FINANCE, GROUP, CALENDAR, LEARNING = ...
-```
+`EntityType` (19 values) covers multi-label `:Entity` Neo4j nodes. `NonKuDomain` (FINANCE, GROUP, CALENDAR, LEARNING) covers the 4 non-Entity domains. Both expose `from_string()` with alias support (e.g. `"knowledge"` → `EntityType.KU`).
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`, `/docs/dsl/DSL_USAGE_GUIDE.md`
 
@@ -327,7 +275,7 @@ HTTP -> FastHTML Route -> Pydantic -> Service -> Domain -> Repository -> Neo4j
 
 **Core Principle:** "Applied knowledge, not pure theory"
 
-SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, max 0.30), Journals (0.07, max 0.20), Choices (0.07, max 0.15), Principles (0.07, max 0.15), Events (0.05, max 0.25), Tasks (0.05, max 0.25). Total capped at 1.0.
+SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activity across Habits, UserEntry (journal pipeline, ADR-054), Choices, Principles, Events, and Tasks — each with a per-contribution weight and a per-domain cap. Total capped at 1.0.
 
 **See:** `/docs/architecture/knowledge_substance_philosophy.md`
 
@@ -388,7 +336,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 
 **Core Principle:** "Three-level visibility with relationship-based access control"
 
-**Visibility:** PRIVATE (default) -> SHARED (SHARES_WITH relationship) -> PUBLIC (portfolio)
+**Visibility:** PRIVATE (default) -> SHARED (SHARES_WITH relationship) -> TEAM (group-scoped) -> PUBLIC (portfolio)
 
 **Three Sharing Modes:** Manual sharing, Assignment auto-sharing (ADR-040), Group sharing (SHARED_WITH_GROUP)
 
@@ -402,7 +350,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 
 ## Generic Programming Patterns
 
-**Core Principle:** "One generic backend serves all 20 entity types"
+**Core Principle:** "One generic backend serves all 19 entity types"
 
 ```python
 # Generic backend -- T constrained by DomainModelProtocol
@@ -512,25 +460,15 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 
 **Core Principle:** "The plant grows on the lattice"
 
-**4-Layer Architecture:** `*Operations protocol -> *Backend subclass -> *Service facade -> sub-services`
+**4 layers:** `*Operations` protocol → `*Backend` subclass → `{Domain}Service` facade → sub-services.
 
-**Domain Backends** (24 classes across 8 cluster files under `backends/`):
-- `backends/activity_backends.py` — HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
-- `backends/curriculum_backends.py` — KuBackend, PsBackend, LpBackend
-- `backends/exercise_backends.py` — ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
-- `backends/user_entry_backend.py` — UserEntryBackend (shell over 5 user_entry mixins)
-- `backends/sharing_backend.py` — SharingBackend
-- `backends/forms_backends.py` — FormTemplateBackend, FormSubmissionBackend
-- `backends/collab_backends.py` — GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend
-- `backends/misc_backends.py` — ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend
+Domain backends live in clustered files under `adapters/persistence/neo4j/backends/` (activity, curriculum, exercise, user_entry, sharing, forms, collab, misc) and standalone files for cross-cutting backends. Import from the cluster file directly.
 
-Import directly from the cluster file, e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`. **Standalone backends** (13 in separate files): CrossDomainBackend, UserBackend, UserProgressBackend, SessionBackend, InsightBackend, LifePathBackend, ZpdBackend, ZpdSnapshotBackend, VectorSearchBackend, IngestionBackend, JupyterSyncBackend, EmbeddingsBackend, KnowledgeDomainBackend.
+**Rules:** Domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services; services call `self.backend.method_name()` (never inline `execute_query()`). `cascade=True` for Activity Domains.
 
-Domain-specific relationship Cypher belongs on the domain backend. Cross-domain aggregation stays in services. Services call `self.backend.method_name()` — never inline Cypher via `execute_query()`. Use `cascade=True` for Activity Domains.
+**`UniversalNeo4jBackend` is the hexagonal boundary** — Neo4j is a committed architectural choice (ADR-044), not a swappable adapter.
 
-**`UniversalNeo4jBackend` is the hexagonal boundary** — Neo4j-specific code stops here. Neo4j is a committed architectural choice (ADR-044), not a swappable adapter.
-
-**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md` (full mixin file layout: `universal_backend.py` shell + 11 mixins; PsBackend's 5 mixins; LpBackend's 3 mixins; UserEntryBackend's 5 mixins)
+**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md` (full backend inventory + mixin layout)
 
 ## Search & Query Architecture
 
@@ -564,7 +502,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. 13 of 20 entity types are file-ingestible. `/upload` (user) and `/submit` (exercise) share the same `UserEntryService.create_entry()` path via `core/services/ingestion/user_entry_ingestion.py` (ADR-054).
+One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/upload` (user) and `/submit` (exercise) share the same `UserEntryService.create_entry()` path via `core/services/ingestion/user_entry_ingestion.py` (ADR-054).
 
 **Default Vault:** `/home/mike/0bsidian/0vault/` — configurable via `INGESTION_PATH` env var.
 
@@ -630,7 +568,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 
 47 metrics across 9 categories, 13 production alerts, 4 Grafana dashboards. AI/LLM cost tracking included.
 
-**See:** `@prometheus-grafana` skill, `monitoring/README.md`, `OBSERVABILITY_PHASE1_COMPLETE.md`
+**See:** `@prometheus-grafana` skill, `monitoring/README.md`
 
 ## Logging Patterns
 
@@ -671,30 +609,9 @@ All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (
 
 **Core Principle:** "Configuration over code for route registration"
 
-DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `create_activity_domain_route_config()` for config-driven registration with CRUD, Query, and Intelligence factories.
+DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `create_activity_domain_route_config()` for config-driven CRUD / Query / Intelligence registration. Three wiring patterns exist — **A) DomainRouteConfig** (default), **B) Orchestrator** (explore/lateral/library), **C) Manual `@rt()`** (home, settings, submissions_hub, graphql). `ai_routes.py` uses its own `AIRouteSpec`.
 
-```python
-TASKS_CONFIG = create_activity_domain_route_config(
-    domain_name="tasks",
-    primary_service_attr="tasks",
-    api_factory=create_tasks_api_routes,
-    ui_factory=create_tasks_ui_routes,
-    create_schema=TaskCreateRequest,
-    update_schema=TaskUpdateRequest,
-    uid_prefix="task",
-    supports_goal_filter=True,
-    supports_habit_filter=True,
-    api_related_services={"goals_service": "goals", "habits_service": "habits"},
-    prometheus_metrics_attr="prometheus_metrics",
-)
-
-def create_tasks_routes(app, rt, services, _sync_service=None) -> None:
-    register_domain_routes(app, rt, services, TASKS_CONFIG)
-```
-
-**Adoption:** Majority of `*_routes.py` files. All 6 Activity Domains use `create_activity_domain_route_config()`. Three wiring patterns exist — see `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` § "Route Wiring Patterns" for the decision guide: **A — DomainRouteConfig** (default, entity domains), **B — Orchestrator** (`explore_routes.py`, `lateral_routes.py`, `library_routes.py`), **C — Manual `@rt()`** (`home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`, `graphql_routes.py`). `ai_routes.py` uses its own config-driven pattern (AIRouteSpec).
-
-**See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
+**See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` (full config fields, wiring decision guide, worked example)
 
 ## FastHTML Best Practices
 
@@ -729,7 +646,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
 ```
 
-**Supported:** All 12 content-bearing entity types — PathStep, Ku, Exercise, LearningPath, Resource, RevisedExercise, Task, Goal, Habit, Event, Choice, Principle. Field mappings in `EMBEDDING_FIELD_MAPS`.
+**Supported:** 16 content-bearing entity types (all six Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + ExerciseReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`.
 
 ## Quick Reference: Key Files
 
