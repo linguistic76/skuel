@@ -241,8 +241,8 @@ class InvoicePure:
     notes: str | None = None
 
     # Timestamps
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
 
     def __post_init__(self) -> None:
         """Handle mutable defaults for frozen dataclass."""
@@ -315,6 +315,7 @@ class InvoicePure:
 
         status = InvoiceStatus(dto.status) if isinstance(dto.status, str) else dto.status
 
+        now = datetime.now()
         return cls(
             uid=dto.uid,
             user_uid=dto.user_uid,
@@ -325,8 +326,8 @@ class InvoicePure:
             status=status,
             due_date=dto.due_date,
             notes=dto.notes,
-            created_at=dto.created_at,
-            updated_at=dto.updated_at,
+            created_at=dto.created_at or now,
+            updated_at=dto.updated_at or now,
         )
 
     def to_dto(self) -> InvoiceDTO:

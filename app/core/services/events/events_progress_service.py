@@ -287,8 +287,13 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
                 }
             )
 
-        # Calculate average and trend
-        scores = [e.habit_completion_quality for e in quality_events]
+        # Calculate average and trend — narrow inside the comprehension so
+        # MyPy sees `scores` as list[int] rather than list[int | None].
+        scores = [
+            e.habit_completion_quality
+            for e in quality_events
+            if e.habit_completion_quality is not None
+        ]
         avg_quality = sum(scores) / len(scores)
 
         # Simple trend: compare first half vs second half

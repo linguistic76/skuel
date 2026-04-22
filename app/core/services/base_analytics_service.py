@@ -30,6 +30,7 @@ Usage:
 """
 
 from collections.abc import Awaitable, Callable
+from enum import Enum
 from functools import partial
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -47,7 +48,7 @@ from core.utils.result_simplified import Result
 # Generic type vars
 B = TypeVar("B")  # Backend operations protocol
 T = TypeVar("T")  # Domain model type
-L = TypeVar("L")  # Level enum type for dual-track assessment
+L = TypeVar("L", bound=Enum)  # Level enum type for dual-track assessment
 
 
 class BaseAnalyticsService(Generic[B, T]):

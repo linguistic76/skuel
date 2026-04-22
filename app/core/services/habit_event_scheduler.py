@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.habit_enums import HabitCategory
+from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.habit.habit import Habit as Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -177,8 +178,8 @@ class HabitEventScheduler:
             for event_template in scheduled_events:
                 create_result = await self.events_backend.create_event(event_template.to_dict())
                 if create_result.is_ok:
-                    created_dto = to_domain_model(create_result.value, EventDTO, EventDTO)
-                    created_events.append(created_dto)
+                    created_event = to_domain_model(create_result.value, EventDTO, Event)
+                    created_events.append(created_event.to_dto())
                 else:
                     self.logger.warning(f"Failed to create event: {create_result.error}")
 
@@ -299,7 +300,7 @@ class HabitEventScheduler:
             for event in maintenance_events:
                 create_result = await self.events_backend.create_event(event.to_dict())
                 if create_result.is_ok:
-                    created.append(to_domain_model(create_result.value, EventDTO, EventDTO))
+                    created.append(to_domain_model(create_result.value, EventDTO, Event).to_dto())
 
             # Context invalidation happens via domain events (event-driven architecture)
 

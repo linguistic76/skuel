@@ -95,6 +95,19 @@ class Transcription:
         return self.status == TranscriptionStatus.FAILED
 
     # ========================================================================
+    # DTO PROTOCOL (Transcription has no dedicated DTO — serialize as dict)
+    # ========================================================================
+
+    @classmethod
+    def from_dto(cls, dto: dict[str, Any]) -> "Transcription":
+        """Create Transcription from dict — delegates to from_dict."""
+        return cls.from_dict(dto)
+
+    def to_dto(self) -> dict[str, Any]:
+        """Convert Transcription to dict — delegates to to_dict."""
+        return self.to_dict()
+
+    # ========================================================================
     # SERIALIZATION
     # ========================================================================
 

@@ -102,6 +102,15 @@ class ReportSchedule:
         status = "active" if self.is_active else "inactive"
         return f"{self.schedule_type.get_display_name()} ({status})"
 
+    @classmethod
+    def from_dto(cls, dto: "ReportScheduleDTO") -> "ReportSchedule":
+        """Create ReportSchedule from ReportScheduleDTO."""
+        return report_schedule_dto_to_domain(dto)
+
+    def to_dto(self) -> "ReportScheduleDTO":
+        """Convert ReportSchedule to ReportScheduleDTO."""
+        return report_schedule_domain_to_dto(self)
+
 
 # ============================================================================
 # CONVERSION FUNCTIONS

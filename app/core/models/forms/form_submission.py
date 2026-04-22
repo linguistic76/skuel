@@ -20,6 +20,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 if TYPE_CHECKING:
+    from core.models.entity_dto import EntityDTO
     from core.models.forms.form_submission_dto import FormSubmissionDTO
 
 
@@ -62,6 +63,11 @@ class FormSubmission(UserOwnedEntity):
     # =========================================================================
     # CONVERSION
     # =========================================================================
+
+    @classmethod
+    def from_dto(cls, dto: "EntityDTO | FormSubmissionDTO") -> "FormSubmission":
+        """Create FormSubmission from an EntityDTO or FormSubmissionDTO."""
+        return cls._from_dto(dto)
 
     def to_dto(self) -> "FormSubmissionDTO":
         """Convert to FormSubmissionDTO."""

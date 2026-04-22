@@ -59,8 +59,8 @@ class DomainModelProtocol(Protocol):
 
     Required Attributes:
         uid: Unique identifier (e.g., "task.123", "ku.python.basics")
-        created_at: Entity creation timestamp (Optional statically, guaranteed non-None at runtime)
-        updated_at: Last modification timestamp (Optional statically, guaranteed non-None at runtime)
+        created_at: Entity creation timestamp (non-optional; defaulted via field factory)
+        updated_at: Last modification timestamp (non-optional; defaulted via field factory)
 
     Required Class Methods:
         from_dto: Creates domain model from DTO
@@ -82,36 +82,40 @@ class DomainModelProtocol(Protocol):
 
     Frozen Dataclass Pattern (from CLAUDE.md):
         SKUEL uses frozen dataclasses with kw_only=True to avoid MRO
-        field-ordering issues and type: ignore suppressions:
+        field-ordering issues. Timestamps are defaulted via field factory,
+        so the fields are non-optional at both static and runtime layers:
 
         @dataclass(frozen=True, kw_only=True)
-        class Task:
+        class Entity:
             uid: str
-            created_at: datetime | None = None
-            updated_at: datetime | None = None
+            created_at: datetime = field(default_factory=datetime.now)
+            updated_at: datetime = field(default_factory=datetime.now)
 
-        The kw_only=True allows Optional fields with None defaults
-        without conflicting with non-default fields in parent classes.
-
-        This protocol accepts Optional types statically while
-        documenting the runtime guarantee of non-None values
-        (set by __post_init__ or service layer).
+        kw_only=True keeps defaulted fields out of the positional-arg order
+        across the Entity → UserOwnedEntity/Curriculum hierarchy.
 
     Example:
         # Type-safe generic backend operation
         def process_entity[T: DomainModelProtocol](entity: T) -> str:
-            # All these are guaranteed at RUNTIME (not statically):
-            uid = entity.uid                    # ✅ Always present
-            timestamp = entity.created_at       # ✅ Non-None at runtime
-            dto = entity.to_dto()               # ✅ Type-safe
+            uid = entity.uid              # ✅ Always present
+            timestamp = entity.created_at  # ✅ datetime, never None
+            dto = entity.to_dto()          # ✅ Type-safe
             return uid
     """
 
-    # Required attributes (all domain models have these)
-    uid: str
-    # Optional statically (due to None default), but guaranteed non-None at runtime via __post_init__
-    created_at: datetime | None
-    updated_at: datetime | None
+    # Required attributes (all domain models have these).
+    # Declared as read-only properties so frozen dataclasses (which have
+    # read-only attributes) qualify as structural subtypes. A bare
+    # `uid: str` on a Protocol implies a settable variable, which frozen
+    # dataclasses cannot satisfy.
+    @property
+    def uid(self) -> str: ...
+
+    @property
+    def created_at(self) -> datetime: ...
+
+    @property
+    def updated_at(self) -> datetime: ...
 
     # Optional but common attributes
     # Note: Not all models have user_uid (e.g., User itself doesn't)

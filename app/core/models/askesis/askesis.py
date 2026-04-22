@@ -97,6 +97,7 @@ class Askesis:
 
     # Metadata
     created_at: datetime = field(default_factory=_utcnow)  # Fixed: field, not tuple-wrapped
+    updated_at: datetime = field(default_factory=_utcnow)
     last_interaction: datetime | None = None
     last_intelligence_update: datetime | None = None
 

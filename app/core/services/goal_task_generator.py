@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.services.goals.goal_relationships import GoalRelationships
 
@@ -149,12 +150,12 @@ class GoalTaskGenerator:
             for task_template in generated_tasks:
                 create_result = await self.tasks_backend.create_task(task_template.to_dict())
                 if create_result.is_ok:
-                    created_dto = to_domain_model(create_result.value, TaskDTO, TaskDTO)
-                    created_tasks.append(created_dto)
+                    created_task = to_domain_model(create_result.value, TaskDTO, Task)
+                    created_tasks.append(created_task.to_dto())
 
                     # Create graph relationships for knowledge requirements
                     if self.tasks_relationships:
-                        await self._create_task_knowledge_relationships(created_dto)
+                        await self._create_task_knowledge_relationships(created_task)
                 else:
                     self.logger.warning(f"Failed to create task: {create_result.error}")
 
@@ -466,7 +467,7 @@ class GoalTaskGenerator:
     # GRAPH RELATIONSHIP CREATION
     # ========================================================================
 
-    async def _create_task_knowledge_relationships(self, task: TaskDTO) -> None:
+    async def _create_task_knowledge_relationships(self, task: Task) -> None:
         """
         Create graph relationships for task-knowledge connections.
 
@@ -476,7 +477,7 @@ class GoalTaskGenerator:
         - prerequisite_knowledge_uids: REQUIRES_PREREQUISITE for each
 
         Args:
-            task: Created task DTO with metadata
+            task: Created Task domain model with metadata
         """
         # Handle single required knowledge UID (from knowledge tasks)
         if "required_knowledge_uid" in task.metadata:

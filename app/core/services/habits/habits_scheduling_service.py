@@ -882,7 +882,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                     load_by_day[day] += effort
             elif habit.recurrence_pattern == RecurrencePattern.WEEKLY:
                 # Add to target_days_per_week days (assume first N days)
-                for i in range(min(habit.target_days_per_week, 7)):
+                for i in range(min(habit.target_days_per_week or 7, 7)):
                     load_by_day[days[i]] += effort
 
         # Find peak and light days

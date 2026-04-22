@@ -46,6 +46,7 @@ from core.models.enums.interaction_enums import InteractionResult, InteractionTy
 from core.models.user_owned_entity import UserOwnedEntity
 
 if TYPE_CHECKING:
+    from core.models.entity_dto import EntityDTO
     from core.models.interaction.interaction_dto import InteractionDTO
 
 
@@ -119,6 +120,11 @@ class Interaction(UserOwnedEntity):
         from core.models.interaction.interaction_dto import InteractionDTO
 
         return domain_to_dto(self, InteractionDTO)
+
+    @classmethod
+    def from_dto(cls, dto: EntityDTO | InteractionDTO) -> Interaction:
+        """Create Interaction from an EntityDTO or InteractionDTO."""
+        return cls._from_dto(dto)
 
     @classmethod
     def from_interaction_dto(cls, dto: InteractionDTO) -> Interaction:

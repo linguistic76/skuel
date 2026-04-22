@@ -110,6 +110,7 @@ if TYPE_CHECKING:
     from core.models.ku.ku import Ku  # noqa: F401 — used in BackendOperations["Ku"]
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
+    from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
     from core.services.ps.ps_organization_service import StepOrganizationView
     from core.utils.result_simplified import Result
@@ -121,7 +122,9 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations, Protocol):
+class CurriculumOperations[T: "DomainModelProtocol"](
+    BackendOperations[T], GraphRelationshipOperations, Protocol
+):
     """
     Base protocol for all curriculum domain backends (KU, PS, LP).
 

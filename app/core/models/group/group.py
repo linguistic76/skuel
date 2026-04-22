@@ -92,6 +92,15 @@ class Group:
         status = "active" if self.is_active else "inactive"
         return f"{self.name} ({status})"
 
+    @classmethod
+    def from_dto(cls, dto: "GroupDTO") -> "Group":
+        """Create Group from GroupDTO — delegates to group_dto_to_pure."""
+        return group_dto_to_pure(dto)
+
+    def to_dto(self) -> "GroupDTO":
+        """Convert Group to GroupDTO — delegates to group_pure_to_dto."""
+        return group_pure_to_dto(self)
+
 
 # ============================================================================
 # CONVERSION FUNCTIONS
