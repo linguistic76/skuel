@@ -16,6 +16,7 @@ NOTE: LP is a Curriculum domain - content is SHARED (no user_uid ownership).
 from typing import TYPE_CHECKING, Any
 
 from core.models.pathways.learning_path import LearningPath
+from core.models.type_hints import EntityUID
 from core.ports import LpOperations
 from core.ports.query_types import LpCompletionStrategy, LpPathOverview
 from core.services.base_ai_service import BaseAIService
@@ -58,7 +59,7 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
 
     async def find_similar_paths(
         self, lp_uid: str, limit: int = 5
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """Find semantically similar learning paths using embeddings."""
         lp_result = await self.backend.get(lp_uid)
         if lp_result.is_error:

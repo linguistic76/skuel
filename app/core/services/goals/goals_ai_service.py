@@ -24,6 +24,7 @@ The app works WITHOUT this service. It's an enhancement layer.
 from typing import TYPE_CHECKING, Any
 
 from core.models.goal.goal import Goal
+from core.models.type_hints import EntityUID
 from core.ports import GoalsOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
@@ -85,7 +86,7 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
 
     async def find_similar_goals(
         self, goal_uid: str, limit: int = 5
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """
         Find semantically similar goals using embeddings.
 

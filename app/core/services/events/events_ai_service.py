@@ -14,6 +14,7 @@ They enhance the user experience but are not required for core functionality.
 from typing import TYPE_CHECKING, Any
 
 from core.models.event.event import Event
+from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -55,7 +56,7 @@ class EventsAIService(BaseAIService["EventsOperations", Event]):
 
     async def find_similar_events(
         self, event_uid: str, limit: int = 5
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """Find semantically similar events using embeddings."""
         event_result = await self.backend.get(event_uid)
         if event_result.is_error:

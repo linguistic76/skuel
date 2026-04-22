@@ -33,7 +33,7 @@ from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.pathways.path_step import PathStep
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports import HasUID, get_enum_value
 from core.ports.query_types import LpPathHierarchy
 from core.services.base_service import BaseService
@@ -146,13 +146,13 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         description: str | None = None,
     ) -> Result[LearningPath]:
         """Create a learning path from a list of knowledge units."""
-        path_uid = f"path_{user_uid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        path_uid = EntityUID(f"path_{user_uid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
 
         steps = []
         total_estimated_hours = 0
 
         for i, unit in enumerate(knowledge_units):
-            step_uid = f"{path_uid}_step_{i + 1}"
+            step_uid = EntityUID(f"{path_uid}_step_{i + 1}")
             estimated_hours = 2
 
             step = PathStep(
@@ -209,7 +209,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
         This is THE method for creating paths programmatically.
         """
-        path_uid = f"path_{user_uid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        path_uid = EntityUID(f"path_{user_uid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
 
         path = LearningPath(
             uid=path_uid,
@@ -343,7 +343,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 if step_info.get("uid"):
                     steps.append(
                         PathStep(
-                            uid=step_info["uid"],
+                            uid=EntityUID(str(step_info["uid"])),
                             title=step_info.get("title", "Learning Step"),
                             intent=step_info.get("intent", "Complete this path step"),
                             sequence=step_info.get("sequence"),

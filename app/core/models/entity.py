@@ -61,7 +61,7 @@ class Entity:
     # =========================================================================
     # IDENTITY
     # =========================================================================
-    uid: str
+    uid: EntityUID
     title: str
     entity_type: EntityType = EntityType.KU
     parent_entity_uid: EntityUID | None = None  # Derivation chain — what Entity this was based on
@@ -295,6 +295,9 @@ class Entity:
             if isinstance(value, list):
                 value = tuple(value)
             kwargs[name] = value
+        # Wrap uid as EntityUID at the DTO→Entity boundary (DTOs store uid as str).
+        if "uid" in kwargs and kwargs["uid"] is not None:
+            kwargs["uid"] = EntityUID(str(kwargs["uid"]))
         return cls(**kwargs)
 
     def to_dto(self) -> "EntityDTO":

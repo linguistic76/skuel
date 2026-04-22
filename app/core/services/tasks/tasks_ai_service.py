@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
 from core.models.task.task import Task
+from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
@@ -92,7 +93,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
 
     async def find_similar_tasks(
         self, task_uid: str, limit: int = 5
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """
         Find semantically similar tasks using embeddings.
 

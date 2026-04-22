@@ -35,7 +35,7 @@ from core.events.curriculum_events import (
 )
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_value
 from core.ports.query_types import PsKnowledgeItemResult, PsKnowledgeSummaryResult
 from core.services.base_service import BaseService
@@ -191,7 +191,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
         step = PathStep(
-            uid=step_data["uid"],
+            uid=EntityUID(str(step_data["uid"])),
             title=step_data.get("title", "Path Step"),
             intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
@@ -262,7 +262,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
 
         # Build PathStep with knowledge UIDs
         step = PathStep(
-            uid=step_data["uid"],
+            uid=EntityUID(str(step_data["uid"])),
             title=step_data.get("title", "Path Step"),
             intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
@@ -402,7 +402,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
         updated_step = PathStep(
-            uid=step_data["uid"],
+            uid=EntityUID(str(step_data["uid"])),
             title=step_data.get("title", "Path Step"),
             intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
@@ -530,7 +530,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
 
             steps.append(
                 PathStep(
-                    uid=step_data["uid"],
+                    uid=EntityUID(str(step_data["uid"])),
                     title=step_data.get("title", "Path Step"),
                     intent=step_data.get("intent", "Complete this path step"),
                     description=step_data.get("description"),

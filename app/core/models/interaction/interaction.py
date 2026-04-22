@@ -43,6 +43,7 @@ from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.interaction_enums import InteractionResult, InteractionType
+from core.models.type_hints import EntityUID
 from core.models.user_owned_entity import UserOwnedEntity
 
 if TYPE_CHECKING:
@@ -135,7 +136,7 @@ class Interaction(UserOwnedEntity):
         in the interaction service layer.
         """
         return cls(
-            uid=dto.uid or "",
+            uid=EntityUID(dto.uid or ""),
             entity_type=EntityType.INTERACTION,
             title=dto.title or "",
             description=dto.description,
@@ -143,7 +144,7 @@ class Interaction(UserOwnedEntity):
             status=dto.status,
             tags=tuple(dto.tags) if dto.tags else (),
             metadata=dict(dto.metadata) if dto.metadata else {},
-            user_uid=dto.user_uid or "",
+            user_uid=dto.user_uid,
             priority=dto.priority,
             created_at=dto.created_at,
             updated_at=dto.updated_at,

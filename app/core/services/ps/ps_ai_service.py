@@ -16,6 +16,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from core.models.pathways.path_step import PathStep
+from core.models.type_hints import EntityUID
 from core.ports import PsOperations
 from core.ports.query_types import StepApplicationsResult, StepLearningSequenceResult
 from core.services.base_ai_service import BaseAIService
@@ -59,7 +60,7 @@ class PsAIService(BaseAIService[PsOperations, PathStep]):
 
     async def find_similar_steps(
         self, ps_uid: str, limit: int = 5
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """Find semantically similar path steps using embeddings."""
         ps_result = await self.backend.get(ps_uid)
         if ps_result.is_error:

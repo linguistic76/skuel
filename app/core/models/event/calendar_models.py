@@ -16,6 +16,7 @@ from enum import StrEnum
 from typing import Any
 
 from core.models.enums.habit_enums import CompletionStatus
+from core.models.type_hints import EntityUID
 
 
 def _default_all_item_types() -> Any:
@@ -137,7 +138,7 @@ class CalendarData:
     """Container for calendar view data."""
 
     items: list[CalendarItem]
-    occurrences: dict[str, list[CalendarOccurrence]]
+    occurrences: dict[EntityUID, list[CalendarOccurrence]]
     view: CalendarView
     start_date: date
     end_date: date

@@ -25,6 +25,8 @@ __version__ = "1.0"
 import re
 import uuid
 
+from core.models.type_hints import EntityUID
+
 
 class UIDGenerator:
     """
@@ -66,7 +68,7 @@ class UIDGenerator:
         return text.strip("-")
 
     @classmethod
-    def generate_knowledge_uid(cls, title: str) -> str:
+    def generate_knowledge_uid(cls, title: str) -> EntityUID:
         """
         Generate a flat knowledge unit UID.
 
@@ -92,10 +94,10 @@ class UIDGenerator:
         """
         slug = cls.slugify(title)
         random_suffix = uuid.uuid4().hex[:8]
-        return f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}"
+        return EntityUID(f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}")
 
     @classmethod
-    def generate_domain_uid(cls, name: str, parent_domain_uid: str | None = None) -> str:
+    def generate_domain_uid(cls, name: str, parent_domain_uid: str | None = None) -> EntityUID:
         """
         Generate a domain UID.
 
@@ -114,13 +116,13 @@ class UIDGenerator:
 
         if parent_domain_uid:
             # Append to parent hierarchy
-            return f"{parent_domain_uid}.{slug}"
+            return EntityUID(f"{parent_domain_uid}.{slug}")
         else:
             # Root domain
-            return f"{cls.DOMAIN_PREFIX}.{slug}"
+            return EntityUID(f"{cls.DOMAIN_PREFIX}.{slug}")
 
     @classmethod
-    def generate_content_uid(cls, unit_uid: str) -> str:
+    def generate_content_uid(cls, unit_uid: str) -> EntityUID:
         """
         Generate a content UID for a knowledge unit.
 
@@ -132,11 +134,11 @@ class UIDGenerator:
         """
         # Replace ku. prefix with content.
         if unit_uid.startswith(cls.KNOWLEDGE_PREFIX + "."):
-            return unit_uid.replace(cls.KNOWLEDGE_PREFIX + ".", cls.CONTENT_PREFIX + ".")
-        return f"{cls.CONTENT_PREFIX}.{unit_uid}"
+            return EntityUID(unit_uid.replace(cls.KNOWLEDGE_PREFIX + ".", cls.CONTENT_PREFIX + "."))
+        return EntityUID(f"{cls.CONTENT_PREFIX}.{unit_uid}")
 
     @classmethod
-    def generate_path_uid(cls, name: str, level: str | None = None) -> str:
+    def generate_path_uid(cls, name: str, level: str | None = None) -> EntityUID:
         """
         Generate a learning path UID.
 
@@ -154,11 +156,11 @@ class UIDGenerator:
         slug = cls.slugify(name)
 
         if level:
-            return f"{cls.PATH_PREFIX}.{level}.{slug}"
-        return f"{cls.PATH_PREFIX}.{slug}"
+            return EntityUID(f"{cls.PATH_PREFIX}.{level}.{slug}")
+        return EntityUID(f"{cls.PATH_PREFIX}.{slug}")
 
     @classmethod
-    def generate_random_uid(cls, prefix: str = "ku") -> str:
+    def generate_random_uid(cls, prefix: str = "ku") -> EntityUID:
         """
         Generate a random UID for non-hierarchical entities.
 
@@ -183,7 +185,7 @@ class UIDGenerator:
             See: /docs/migrations/UID_STANDARDIZATION_MIGRATION_2026-01-30.md
         """
         random_part = uuid.uuid4().hex[:8]
-        return f"{prefix}_{random_part}"
+        return EntityUID(f"{prefix}_{random_part}")
 
     # REMOVED (2026-01-30 Universal Hierarchical Pattern):
     # - extract_parts() - No longer needed (UIDs are flat, not hierarchical)
@@ -198,7 +200,7 @@ class UIDGenerator:
     # See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
 
     @classmethod
-    def generate_uid(cls, prefix: str, name: str | None = None) -> str:
+    def generate_uid(cls, prefix: str, name: str | None = None) -> EntityUID:
         """
         General UID generation for any entity type.
 
@@ -219,7 +221,7 @@ class UIDGenerator:
         if name:
             # Create semantic UID with slugified name
             slug = cls.slugify(name)
-            return f"{prefix}_{slug}_{random_suffix}"
+            return EntityUID(f"{prefix}_{slug}_{random_suffix}")
         else:
             # Simple random UID
-            return f"{prefix}_{random_suffix}"
+            return EntityUID(f"{prefix}_{random_suffix}")
