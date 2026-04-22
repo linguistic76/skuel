@@ -513,7 +513,9 @@ class EventsService(
         # Initialize core, search, relationships, event_handler, learning, and
         # knowledge_intelligence via factory; intelligence is created manually
         # to pass cross_domain_query.
-        common: CommonSubServices[EventsIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            EventsCoreService, EventsSearchOperations, EventsIntelligenceService
+        ] = create_common_sub_services(
             domain="events",
             backend=backend,
             graph_intel=graph_intel,
@@ -522,9 +524,12 @@ class EventsService(
             skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
-        self.search: EventsSearchOperations = common.search
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.search: EventsSearchOperations = common.search  # type: ignore[assignment]  # class-level attr declared as concrete EventsSearchService, local var matches protocol
+        self.relationships: UnifiedRelationshipService = common.relationships
         self.intelligence: EventsIntelligenceService = EventsIntelligenceService(
             backend=backend,
             graph_intel=graph_intel,

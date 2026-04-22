@@ -68,6 +68,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_ai_service import ChoicesAIService
+    from core.services.choices.choices_core_service import ChoicesCoreService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
     from core.services.cross_domain import CrossDomainQueryService
@@ -387,7 +388,9 @@ class ChoicesService(
         # knowledge_intelligence via factory. Intelligence is built manually
         # because ChoicesIntelligenceService takes cross_domain_query for the
         # ZPD behavioral-signals bridge.
-        common: CommonSubServices[ChoicesIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            ChoicesCoreService, ChoicesSearchOperations, ChoicesIntelligenceService
+        ] = create_common_sub_services(
             domain="choices",
             backend=backend,
             graph_intel=graph_intel,
@@ -396,9 +399,12 @@ class ChoicesService(
             skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
-        self.search: ChoicesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.search: ChoicesSearchOperations = common.search  # type: ignore[assignment]  # base SearchOperationsMixin declares search as callable; we shadow with domain service
+        self.relationships: UnifiedRelationshipService = common.relationships
 
         from core.services.choices.choices_intelligence_service import (
             ChoicesIntelligenceService as _ChoicesIntelligenceService,

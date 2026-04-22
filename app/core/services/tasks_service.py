@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.services.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 
 # Base service
 from core.services.base_service import BaseService
@@ -316,7 +316,9 @@ class TasksService(
         # Use factory for search, relationships, event_handler, learning, and
         # knowledge_intelligence. core and intelligence need domain-specific
         # parameters — created manually below.
-        common = create_common_sub_services(
+        common: CommonSubServices[
+            TasksCoreService, TasksSearchOperations, TasksIntelligenceService
+        ] = create_common_sub_services(
             domain="tasks",
             backend=backend,
             graph_intel=graph_intel,
@@ -325,11 +327,13 @@ class TasksService(
             skip={"core", "intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
 
         # NOTE: Named 'search' for consistency with other domain facades
         # This shadows BaseService.search(), intentionally - we delegate via self.search.search()
         self.search: TasksSearchOperations = common.search
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.relationships: UnifiedRelationshipService = common.relationships
         self.core = TasksCoreService(
             backend=backend, ku_inference_service=ku_inference_service, event_bus=event_bus
         )

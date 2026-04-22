@@ -94,6 +94,7 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import HabitsSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.habits.habits_ai_service import HabitsAIService
+    from core.services.habits.habits_core_service import HabitsCoreService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user import UserContext
 
@@ -535,7 +536,9 @@ class HabitsService(
         # knowledge_intelligence via factory. Intelligence is built manually
         # because HabitsIntelligenceService takes cross_domain_query for the
         # ZPD knowledge-signals bridge.
-        common: CommonSubServices[HabitsIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            HabitsCoreService, HabitsSearchOperations, HabitsIntelligenceService
+        ] = create_common_sub_services(
             domain="habits",
             backend=backend,
             graph_intel=graph_intel,
@@ -544,9 +547,12 @@ class HabitsService(
             skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
-        self.search: HabitsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.search: HabitsSearchOperations = common.search  # type: ignore[assignment]  # base SearchOperationsMixin declares search as callable; we shadow with domain service
+        self.relationships: UnifiedRelationshipService = common.relationships
 
         from core.services.habits.habits_intelligence_service import (
             HabitsIntelligenceService as _HabitsIntelligenceService,

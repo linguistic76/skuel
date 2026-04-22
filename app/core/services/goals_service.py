@@ -34,7 +34,7 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import GoalsOperations
-from core.services.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
@@ -547,7 +547,9 @@ class GoalsService(
         # needs progress_service, which is created below.
         from core.services.goals.goals_core_service import GoalsCoreService
 
-        common = create_common_sub_services(
+        common: CommonSubServices[
+            GoalsCoreService, GoalsSearchOperations, GoalsIntelligenceService
+        ] = create_common_sub_services(
             domain="goals",
             backend=backend,
             graph_intel=graph_intel,
@@ -556,9 +558,12 @@ class GoalsService(
             skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
         self.core: GoalsCoreService = common.core
-        self.search: GoalsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.search: GoalsSearchOperations = common.search  # type: ignore[assignment]  # base SearchOperationsMixin declares search as callable; we shadow with domain service
+        self.relationships: UnifiedRelationshipService = common.relationships
 
         # Domain-specific sub-services that need relationships
         self.progress = GoalsProgressService(

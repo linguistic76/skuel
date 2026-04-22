@@ -75,6 +75,7 @@ if TYPE_CHECKING:
         AlignmentAssessment,
         MotivationalProfile,
     )
+    from core.services.principles.principles_core_service import PrinciplesCoreService
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
@@ -429,7 +430,9 @@ class PrinciplesService(
 
         # Initialize all common sub-services via factory, including event_handler,
         # learning, and knowledge_intelligence.
-        common: CommonSubServices[PrinciplesIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            PrinciplesCoreService, PrinciplesSearchOperations, PrinciplesIntelligenceService
+        ] = create_common_sub_services(
             domain="principles",
             backend=backend,
             graph_intel=graph_intel,
@@ -437,10 +440,14 @@ class PrinciplesService(
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
+        assert common.intelligence is not None  # 'intelligence' not in skip
         self.core = common.core
-        self.search: PrinciplesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
-        self.intelligence: PrinciplesIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
+        self.search: PrinciplesSearchOperations = common.search  # type: ignore[assignment]  # base SearchOperationsMixin declares search as callable; we shadow with domain service
+        self.relationships: UnifiedRelationshipService = common.relationships
+        self.intelligence: PrinciplesIntelligenceService = common.intelligence
 
         # Domain-specific sub-services (not common to all facades)
         self.alignment = PrinciplesAlignmentService(
