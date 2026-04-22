@@ -26,7 +26,7 @@ WARNING (reported, doesn't block):
   SKUEL015: print() in production code - use logger instead
   SKUEL016: Stale Poetry references - SKUEL uses uv
   SKUEL017: Bare except Exception - use specific exception types
-  SKUEL018: Direct access to UserContext RICH_ONLY_FIELDS - use accessors
+  SKUEL018: Direct access to RichUserContext RICH_ONLY_FIELDS - use accessors
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -356,9 +356,9 @@ except Exception as e:  # Too broad — masks non-database bugs
     return Result.fail(Errors.database(operation="get", message=str(e)))""",
     },
     "SKUEL018": {
-        "title": "No Direct Access to UserContext RICH_ONLY_FIELDS",
+        "title": "No Direct Access to RichUserContext RICH_ONLY_FIELDS",
         "severity": "WARNING",
-        "description": """UserContext.RICH_ONLY_FIELDS default to None at standard depth and
+        "description": """RichUserContext.RICH_ONLY_FIELDS default to None at standard depth and
 are populated only by build_rich(). Direct attribute reads silently leak None
 into call sites and defeat the accessor contract.
 
@@ -498,6 +498,11 @@ class SkuelLinter:
     # populated only by build_rich(). Direct reads must route through accessors
     # (get_X() strict / X_or_empty() graceful). Scalar rich-only fields have no
     # graceful accessor — a standard-depth read is a bug, not a degraded path.
+    #
+    # Canonical source of truth: `RichUserContext.RICH_ONLY_FIELDS` in
+    # `core/services/user/unified_user_context.py`. Mirrored here because the
+    # linter deliberately has no runtime dependency on `core/`. Keep both in
+    # sync — `test_user_context_rich_only_drift.py` pins the contract.
     RICH_ONLY_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {
             "tasks_by_goal",
@@ -1550,7 +1555,7 @@ class SkuelLinter:
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
     ) -> None:
         """
-        SKUEL018 [WARNING]: Direct access to UserContext RICH_ONLY_FIELDS.
+        SKUEL018 [WARNING]: Direct access to RichUserContext RICH_ONLY_FIELDS.
 
         Flags `.<rich_field>` attribute reads outside whitelisted files. Writes
         (assignment targets) and the accessor methods (`.get_X()`, `.X_or_empty()`)
@@ -1612,13 +1617,13 @@ class SkuelLinter:
                     suggestion = (
                         f"Use `{strict}` (strict, raises at standard depth). "
                         f"No graceful accessor — standard-depth read is a bug. "
-                        f"See UserContext.RICH_ONLY_FIELDS."
+                        f"See RichUserContext.RICH_ONLY_FIELDS."
                     )
                 else:
                     suggestion = (
                         f"Use `{strict}` (strict, raises at standard depth) "
                         f"or `{graceful}` (graceful fallback). "
-                        f"See UserContext.RICH_ONLY_FIELDS."
+                        f"See RichUserContext.RICH_ONLY_FIELDS."
                     )
                 self.result.violations.append(
                     Violation(

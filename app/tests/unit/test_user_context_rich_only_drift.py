@@ -2,14 +2,14 @@
 Drift Test — RICH_ONLY_FIELDS stays in sync with the populator.
 
 The sentinel in ``test_user_context_rich_only_sentinel.py`` pins the *current*
-six rich-only fields. This file catches *drift*: a seventh field quietly added
+seven rich-only fields. This file catches *drift*: a new field quietly added
 to a rich-only populator without being registered in
-``UserContext.RICH_ONLY_FIELDS`` or given a ``None`` default.
+``RichUserContext.RICH_ONLY_FIELDS`` or given a ``None`` default.
 
 The risk surface:
 
 ``UserContextPopulator.populate_from_consolidated_data`` (standard-depth) does
-NOT touch the six rich-only fields. ``populate_derived_fields`` and
+NOT touch the seven rich-only fields. ``populate_derived_fields`` and
 ``populate_principle_choice_integration`` (rich-only) do. If a new container
 field is added to a rich-only populator but forgotten in the registry, it
 silently defaults to an empty container at standard depth — exactly the
@@ -37,7 +37,7 @@ from functools import cache
 import pytest
 
 from core.services.user import user_context_populator
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext, UserContext
 
 # =============================================================================
 # Populator AST — extract `context.<field>` assignment targets per method
@@ -122,7 +122,7 @@ def test_every_rich_only_field_is_written_by_a_rich_only_populator() -> None:
     for method in RICH_ONLY_POPULATORS:
         written_by_rich |= _assigned_context_fields(method)
 
-    unwritten = UserContext.RICH_ONLY_FIELDS - written_by_rich
+    unwritten = RichUserContext.RICH_ONLY_FIELDS - written_by_rich
     assert not unwritten, (
         f"Fields in RICH_ONLY_FIELDS with no rich-only populator writing them: "
         f"{sorted(unwritten)}. Either add a populator assignment or remove the "
@@ -137,7 +137,7 @@ def test_rich_only_fields_are_absent_from_standard_populator() -> None:
     the registry or remove the write from the standard populator.
     """
     written_by_standard = _assigned_context_fields(STANDARD_POPULATOR)
-    leaked = UserContext.RICH_ONLY_FIELDS & written_by_standard
+    leaked = RichUserContext.RICH_ONLY_FIELDS & written_by_standard
     assert not leaked, (
         f"RICH_ONLY_FIELDS written by {STANDARD_POPULATOR}: {sorted(leaked)}. "
         f"A field cannot be both rich-only and populated at standard depth. "
@@ -158,7 +158,7 @@ def test_every_rich_only_field_defaults_to_none_on_the_dataclass() -> None:
     legitimate zero state. Enforce None at the field declaration.
     """
     none_defaults = _none_default_fields()
-    missing_none = UserContext.RICH_ONLY_FIELDS - none_defaults
+    missing_none = RichUserContext.RICH_ONLY_FIELDS - none_defaults
     assert not missing_none, (
         f"RICH_ONLY_FIELDS not declared with default=None: {sorted(missing_none)}. "
         f"Change the field declaration to `<Type> | None = field(default=None)`."
@@ -191,7 +191,7 @@ def test_no_rich_only_container_field_is_unregistered() -> None:
     standard_writes = _assigned_context_fields(STANDARD_POPULATOR)
     containers = _container_fields()
 
-    unregistered = rich_only_writes - standard_writes - UserContext.RICH_ONLY_FIELDS
+    unregistered = rich_only_writes - standard_writes - RichUserContext.RICH_ONLY_FIELDS
     drift = unregistered & containers
     assert not drift, (
         f"Container field(s) written only by rich-only populators but not "

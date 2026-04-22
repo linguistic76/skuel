@@ -153,13 +153,9 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             if progress < min_progress:
                 continue
 
-            # Get contributing entities from context (by-goal maps are rich-context only)
-            contributing_tasks = (
-                context.get_tasks_for_goal(goal_uid) if context.is_rich_context else []
-            )
-            contributing_habits = (
-                context.get_habits_for_goal(goal_uid) if context.is_rich_context else []
-            )
+            # Get contributing entities from context
+            contributing_tasks = context.tasks_by_goal_or_empty().get(goal_uid, [])
+            contributing_habits = context.habits_by_goal_or_empty().get(goal_uid, [])
 
             contextual = ContextualGoal.from_entity_and_context(
                 uid=goal_uid,
@@ -254,13 +250,9 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                     knowledge_gaps.append(ku_uid)
                     blocking_reasons.append(f"Missing knowledge: {ku_uid} ({mastery:.0%})")
 
-            # Check for supporting system (by-goal maps are rich-context only)
-            contributing_tasks = (
-                context.get_tasks_for_goal(goal_uid) if context.is_rich_context else []
-            )
-            contributing_habits = (
-                context.get_habits_for_goal(goal_uid) if context.is_rich_context else []
-            )
+            # Check for supporting system
+            contributing_tasks = context.tasks_by_goal_or_empty().get(goal_uid, [])
+            contributing_habits = context.habits_by_goal_or_empty().get(goal_uid, [])
 
             if not contributing_tasks:
                 blocking_reasons.append("No active tasks contributing to this goal")
@@ -342,13 +334,8 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                 )
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
 
-            # by-goal maps are rich-context only
-            contributing_tasks = (
-                context.get_tasks_for_goal(goal_uid) if context.is_rich_context else []
-            )
-            contributing_habits = (
-                context.get_habits_for_goal(goal_uid) if context.is_rich_context else []
-            )
+            contributing_tasks = context.tasks_by_goal_or_empty().get(goal_uid, [])
+            contributing_habits = context.habits_by_goal_or_empty().get(goal_uid, [])
 
             # Get title safely
             title = getattr(goal, "title", str(goal_uid))

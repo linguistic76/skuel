@@ -22,9 +22,9 @@ Contract enforced here:
    ``get_habits_for_goal``, ``get_blocked_tasks``,
    ``get_habits_needing_reinforcement``) raise
    ``RichContextRequiredError`` when called on a standard-depth context.
-3. The ``RICH_ONLY_FIELDS`` ClassVar matches the fields we actually
-   store as ``| None``. Drift between the registry and the dataclass
-   is a silent-failure hazard.
+3. The ``RichUserContext.RICH_ONLY_FIELDS`` ClassVar matches the fields
+   we actually store as ``| None``. Drift between the registry and the
+   dataclass is a silent-failure hazard.
 4. With ``is_rich_context=True`` + populated containers, accessors
    return the expected data.
 """
@@ -42,7 +42,7 @@ from core.services.user.unified_user_context import RichUserContext, UserContext
 
 
 def test_rich_only_fields_registry_matches_expected_set() -> None:
-    """The RICH_ONLY_FIELDS ClassVar is the contract — pin it explicitly."""
+    """The RichUserContext.RICH_ONLY_FIELDS ClassVar is the contract — pin it explicitly."""
     expected = frozenset(
         {
             "tasks_by_goal",
@@ -54,7 +54,7 @@ def test_rich_only_fields_registry_matches_expected_set() -> None:
             "principle_integration_score",
         }
     )
-    assert expected == UserContext.RICH_ONLY_FIELDS
+    assert expected == RichUserContext.RICH_ONLY_FIELDS
 
 
 # =============================================================================

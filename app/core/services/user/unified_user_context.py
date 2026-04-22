@@ -174,18 +174,8 @@ class UserContext:
     # Rich-only derived fields. None at standard depth — populated only by
     # build_rich() via populate_derived_fields() / populate_principle_choice_integration().
     # Reading these at standard depth should raise RichContextRequiredError; the
-    # public accessor methods enforce that.
-    RICH_ONLY_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {
-            "tasks_by_goal",
-            "habits_by_goal",
-            "at_risk_habits",
-            "blocked_task_uids",
-            "principle_guided_choice_counts",
-            "recent_principle_aligned_choices",
-            "principle_integration_score",
-        }
-    )
+    # public accessor methods enforce that. The canonical set lives on
+    # `RichUserContext.RICH_ONLY_FIELDS`.
 
     # =========================================================================
     # TASK AWARENESS - Complete task state understanding
@@ -194,10 +184,12 @@ class UserContext:
     current_task_focus: str | None = None
     task_priorities: dict[str, float] = field(default_factory=dict)  # uid -> priority (0-1)
     completed_task_uids: set[str] = field(default_factory=set)
-    blocked_task_uids: set[str] | None = field(default=None)  # RICH-ONLY (see RICH_ONLY_FIELDS)
+    blocked_task_uids: set[str] | None = field(
+        default=None
+    )  # RICH-ONLY (see RichUserContext.RICH_ONLY_FIELDS)
     task_progress: dict[str, float] = field(default_factory=dict)  # uid -> completion %
 
-    # Task-Goal relationships (RICH-ONLY — see RICH_ONLY_FIELDS)
+    # Task-Goal relationships (RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS)
     tasks_by_goal: dict[str, list[str]] | None = field(default=None)  # goal_uid -> task_uids
     milestone_tasks: list[str] = field(default_factory=list)
 
@@ -248,14 +240,16 @@ class UserContext:
     active_habit_uids: list[str] = field(default_factory=list)
     habit_streaks: dict[str, int] = field(default_factory=dict)  # uid -> current streak
     habit_completion_rates: dict[str, float] = field(default_factory=dict)  # uid -> rate
-    at_risk_habits: list[str] | None = field(default=None)  # RICH-ONLY (see RICH_ONLY_FIELDS)
+    at_risk_habits: list[str] | None = field(
+        default=None
+    )  # RICH-ONLY (see RichUserContext.RICH_ONLY_FIELDS)
 
     # Habit categorization
     keystone_habits: list[str] = field(default_factory=list)
     daily_habits: list[str] = field(default_factory=list)
     weekly_habits: list[str] = field(default_factory=list)
 
-    # Habit-Goal relationships (RICH-ONLY — see RICH_ONLY_FIELDS)
+    # Habit-Goal relationships (RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS)
     habits_by_goal: dict[str, list[str]] | None = field(default=None)  # goal_uid -> habit_uids
 
     # =========================================================================
@@ -365,17 +359,17 @@ class UserContext:
     decisions_against_principles: int = 0
 
     # Principle-choice integration tracking (January 2026)
-    # RICH-ONLY — see RICH_ONLY_FIELDS
+    # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS
     principle_guided_choice_counts: dict[str, int] | None = field(
         default=None
     )  # principle_uid -> count of guided choices
     principle_choice_satisfaction_avg: dict[str, float] = field(
         default_factory=dict
     )  # principle_uid -> avg satisfaction (0.0-1.0)
-    # RICH-ONLY — see RICH_ONLY_FIELDS. None at standard depth distinguishes
+    # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS. None at standard depth distinguishes
     # "not computed" from a legitimate rich-depth 0.0 ("no alignment").
     principle_integration_score: float | None = field(default=None)  # 0.0-1.0 at rich depth
-    # RICH-ONLY — see RICH_ONLY_FIELDS
+    # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS
     recent_principle_aligned_choices: list[str] | None = field(
         default=None
     )  # Last 10 principle-aligned choice UIDs
@@ -1284,6 +1278,24 @@ class RichUserContext(UserContext):
 
     # Pinned: every RichUserContext is — by construction — a rich context.
     is_rich_context: bool = True
+
+    # Canonical set of fields this subclass narrows. Populated only by the
+    # rich build path; every entry has a matching `get_X()` strict accessor
+    # and (except `principle_integration_score`) a matching `X_or_empty()`
+    # graceful accessor on `UserContext`. SKUEL018 references this set by
+    # name for its direct-access lint. Living on the subclass matches its
+    # role as metadata about what `RichUserContext` itself narrows.
+    RICH_ONLY_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "tasks_by_goal",
+            "habits_by_goal",
+            "at_risk_habits",
+            "blocked_task_uids",
+            "principle_guided_choice_counts",
+            "recent_principle_aligned_choices",
+            "principle_integration_score",
+        }
+    )
 
 
 def is_rich(ctx: UserContext) -> TypeGuard[RichUserContext]:

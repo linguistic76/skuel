@@ -197,7 +197,7 @@ principle_guided_choice_counts, recent_principle_aligned_choices,
 principle_integration_score
 ```
 
-These are listed on `UserContext.RICH_ONLY_FIELDS`. Reading them at standard depth is a bug, not a degraded path — so the codebase applies **two independent mechanisms**:
+These are listed on `RichUserContext.RICH_ONLY_FIELDS` — metadata about what the subclass narrows. Reading them at standard depth is a bug, not a degraded path — so the codebase applies **two independent mechanisms**:
 
 | Mechanism | What it is | What it protects against |
 |-----------|------------|--------------------------|

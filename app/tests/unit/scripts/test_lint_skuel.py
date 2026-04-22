@@ -924,7 +924,7 @@ class TestSKUEL017:
 
 
 # ============================================================================
-# SKUEL018: Direct access to UserContext RICH_ONLY_FIELDS
+# SKUEL018: Direct access to RichUserContext RICH_ONLY_FIELDS
 # ============================================================================
 
 

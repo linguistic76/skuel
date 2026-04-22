@@ -132,7 +132,7 @@ class UserContextBuilder:
 
         return Result.ok(user)
 
-    def _finalize_context(self, context: UserContext, *, is_rich: bool = False) -> None:
+    def _finalize_context(self, context: UserContext) -> None:
         """
         Apply final derived calculations to context.
 
@@ -143,10 +143,13 @@ class UserContextBuilder:
         single authority for workload calculation. This method delegates to it
         rather than duplicating the logic. If workload calculation needs to change,
         modify UserContext.calculate_current_workload(), not here.
+
+        `is_rich_context` is pinned by class default — `UserContext` defaults
+        it to `False`, `RichUserContext` pins it to `True`. No runtime
+        assignment needed.
         """
         # Delegate workload calculation to UserContext (single authority)
         context.current_workload_score = context.calculate_current_workload()
-        context.is_rich_context = is_rich
 
     # ========================================================================
     # SIMPLIFIED API - Builder Owns User Resolution (Preferred)
@@ -455,8 +458,8 @@ class UserContextBuilder:
             context, entities_data.get("principles", []), entities_data.get("choices", [])
         )
 
-        # Calculate derived fields and mark as rich context
-        self._finalize_context(context, is_rich=True)
+        # Calculate derived fields — `is_rich_context` is pinned by RichUserContext default
+        self._finalize_context(context)
 
         # ── ZPD capstone — reads all prior fields ────────────────────────
         if self.zpd_service is not None:

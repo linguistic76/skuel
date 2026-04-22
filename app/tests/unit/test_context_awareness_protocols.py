@@ -145,7 +145,7 @@ class TestProtocolUsagePatterns:
 
         # Use non-rich fields for demo; rich-only fields (blocked_task_uids,
         # tasks_by_goal) must be read via UserContext accessors, not directly
-        # through a protocol-typed reference — see UserContext.RICH_ONLY_FIELDS.
+        # through a protocol-typed reference — see RichUserContext.RICH_ONLY_FIELDS.
         def get_overdue_count(ctx: TaskAwareness) -> int:
             return len(ctx.overdue_task_uids)
 
@@ -175,7 +175,7 @@ class TestProtocolUsagePatterns:
 
         # Use non-rich fields for demo; rich-only fields (at_risk_habits,
         # habits_by_goal) must be read via UserContext accessors, not directly
-        # through a protocol-typed reference — see UserContext.RICH_ONLY_FIELDS.
+        # through a protocol-typed reference — see RichUserContext.RICH_ONLY_FIELDS.
         def get_active_habit_count(ctx: HabitAwareness) -> int:
             return len(ctx.active_habit_uids)
 
