@@ -12,6 +12,7 @@ require them return Result.fail when unavailable.
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -50,7 +51,7 @@ class ActivityReviewOrchestrator:
 
     # --- Review Queue ---
 
-    async def get_pending_reviews(self, admin_uid: str, limit: int = 20) -> "Result[list[Any]]":
+    async def get_pending_reviews(self, admin_uid: UserUID, limit: int = 20) -> "Result[list[Any]]":
         """Return pending review requests. Empty list when queue service unavailable."""
         if self._review_queue is None:
             return Result.ok([])
@@ -59,7 +60,7 @@ class ActivityReviewOrchestrator:
     # --- Context ---
 
     async def build_rich_context(
-        self, subject_uid: str, window: str = "7d"
+        self, subject_uid: UserUID, window: str = "7d"
     ) -> "Result[RichUserContext]":
         """Build rich UserContext for a subject user. Fails when builder unavailable."""
         if self._context_builder is None:
@@ -88,8 +89,8 @@ class ActivityReviewOrchestrator:
 
     async def submit_report(
         self,
-        admin_uid: str,
-        subject_uid: str,
+        admin_uid: UserUID,
+        subject_uid: UserUID,
         feedback_text: str,
         time_period: str = "7d",
         domains: list[str] | None = None,

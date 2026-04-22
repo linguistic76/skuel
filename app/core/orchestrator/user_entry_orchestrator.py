@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -141,16 +141,16 @@ class UserEntryOrchestrator:
     # Exercises (dropdowns, assignment reads)
     # ------------------------------------------------------------------
 
-    async def get_student_exercises(self, user_uid: str) -> Result[list[Exercise]]:
+    async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """Get assigned exercises for dropdowns in the submit form."""
         return await self._exercises.get_student_exercises(user_uid)
 
-    async def list_user_exercises(self, user_uid: str) -> Result[list[Exercise]]:
+    async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """List saved instruction-template exercises owned by the user."""
         return await self._exercises.list_user_exercises(user_uid)
 
     async def create_exercise(
-        self, user_uid: str, name: str, instructions: str
+        self, user_uid: UserUID, name: str, instructions: str
     ) -> Result[Exercise]:
         """Save a new instruction file as an Exercise entity."""
         return await self._exercises.create_exercise(
@@ -167,12 +167,12 @@ class UserEntryOrchestrator:
         """Fetch an ExerciseReport by UID."""
         return await self._exercise_report.get_by_uid(uid)
 
-    async def check_report_access(self, report_uid: str, user_uid: str) -> Result[bool]:
+    async def check_report_access(self, report_uid: EntityUID, user_uid: UserUID) -> Result[bool]:
         """Canonical access check for a report — owner, PUBLIC, or shared."""
         return await self._sharing.check_access(report_uid, user_uid)
 
     async def get_exercise_report_view(
-        self, report_uid: str, user_uid: str
+        self, report_uid: str, user_uid: UserUID
     ) -> Result[ExerciseReportView]:
         """Fetch a report with access check + optional linked revision.
 
@@ -196,7 +196,7 @@ class UserEntryOrchestrator:
         return Result.ok({"report": report, "revised_exercise": revision})
 
     async def get_assessments_for_student(
-        self, user_uid: str, limit: int = 50
+        self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[SubmissionEntity]]:
         """Assessments (EXERCISE_REPORT entities) received by a student."""
         return await self._assessment.get_assessments_for_student(user_uid, limit)
@@ -205,12 +205,12 @@ class UserEntryOrchestrator:
     # Activity Reports
     # ------------------------------------------------------------------
 
-    async def get_activity_report(self, uid: str, user_uid: str) -> Result[ActivityReport]:
+    async def get_activity_report(self, uid: str, user_uid: UserUID) -> Result[ActivityReport]:
         """Fetch a single ActivityReport by UID, scoped to the owning user."""
         return await self._activity_report.get_by_uid(uid, user_uid)
 
     async def get_activity_report_history(
-        self, user_uid: str, limit: int = 50
+        self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[ActivityReport]]:
         """Fetch history of activity-based feedback."""
         return await self._activity_report.get_history(subject_uid=user_uid, limit=limit)
@@ -227,7 +227,7 @@ class UserEntryOrchestrator:
         """Find a revision generated starting from a given report."""
         return await self._revised_exercise.get_by_report_uid(report_uid)
 
-    async def list_revised_exercises(self, user_uid: str) -> Result[list[RevisedExercise]]:
+    async def list_revised_exercises(self, user_uid: UserUID) -> Result[list[RevisedExercise]]:
         """List all revisions created by the student."""
         return await self._revised_exercise.list_for_student(user_uid)
 
@@ -236,7 +236,7 @@ class UserEntryOrchestrator:
     # ------------------------------------------------------------------
 
     async def get_review_queue(
-        self, teacher_uid: str, status_filter: list[str] | None = None
+        self, teacher_uid: UserUID, status_filter: list[str] | None = None
     ) -> Result[list[dict[str, Any]]]:
         """Teacher review queue — entries shared to the teacher's groups."""
         return await self._entries.get_review_queue(teacher_uid, status_filter=status_filter)

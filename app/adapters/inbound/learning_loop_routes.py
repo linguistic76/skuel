@@ -83,7 +83,7 @@ def create_learning_loop_detail_routes(
     @rt("/explore/ku/{uid}/content")
     async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
         """HTMX fragment: Ku detail content with learning state and exercises."""
-        user_uid: str | None = get_current_user(request)
+        user_uid = get_current_user(request)
 
         ku_result = await orchestrator.get_ku(uid)
 
@@ -142,7 +142,7 @@ def create_learning_loop_detail_routes(
     @rt("/explore/ps/{uid}/content")
     async def explore_ps_content_fragment(request: Request, uid: str) -> Any:
         """HTMX fragment: PathStep detail content with learning state and learning loop."""
-        user_uid: str | None = get_current_user(request)
+        user_uid = get_current_user(request)
 
         result = await orchestrator.get_ps_with_content(uid)
         if result.is_error:

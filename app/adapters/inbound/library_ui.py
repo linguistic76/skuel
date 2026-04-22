@@ -21,6 +21,7 @@ from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -313,7 +314,7 @@ def create_library_ui_routes(
             content=Div(fragment), active="ku", request=request
         )
 
-    async def _build_ku_fragment(user: str) -> Any:
+    async def _build_ku_fragment(user: UserUID) -> Any:
         """Build the Ku bookmarks fragment content."""
         result = await orchestrator.get_bookmarked_kus(user)
         if result.is_error:
@@ -385,7 +386,7 @@ def create_library_ui_routes(
             )
         return await _build_path_steps_fragment(user)
 
-    async def _build_path_steps_fragment(user: str) -> Any:
+    async def _build_path_steps_fragment(user: UserUID) -> Any:
         """Build the enrolled Path Steps fragment content."""
         result = await orchestrator.get_enrolled_path_steps(user)
         if result.is_error:

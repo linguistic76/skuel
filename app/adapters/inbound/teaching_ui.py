@@ -25,6 +25,7 @@ from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Size
@@ -98,7 +99,7 @@ def create_teaching_ui_routes(
     get_user_service = make_service_getter(user_service)
 
     async def _get_bucketed_submissions(
-        user_uid: str, student_uid: str
+        user_uid: UserUID, student_uid: str
     ) -> tuple[list[SubmissionRow], list[SubmissionRow], list[SubmissionRow], str]:
         """Fetch bucketed submissions from orchestrator and convert to view models."""
         result = await orchestrator.get_bucketed_student_submissions(

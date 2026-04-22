@@ -11,6 +11,7 @@ All service dependencies are required — bootstrap raises if any are missing
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -50,7 +51,7 @@ class LibraryOrchestrator:
     # Exercises
     # ------------------------------------------------------------------
 
-    async def get_student_exercises_with_status(self, user_uid: str) -> Result[list[Any]]:
+    async def get_student_exercises_with_status(self, user_uid: UserUID) -> Result[list[Any]]:
         """Get exercises assigned to the student with submission/feedback status."""
         return await self._exercises.get_student_exercises_with_status(user_uid)
 
@@ -66,7 +67,9 @@ class LibraryOrchestrator:
     # UserEntry — teacher-review pipeline (ADR-054)
     # ------------------------------------------------------------------
 
-    async def list_exercise_submissions(self, user_uid: str, limit: int = 50) -> Result[list[Any]]:
+    async def list_exercise_submissions(
+        self, user_uid: UserUID, limit: int = 50
+    ) -> Result[list[Any]]:
         """List the user's exercise submissions (pipeline=TEACHER_REVIEW entries)."""
         from core.models.enums.pipeline import Pipeline
 
@@ -84,7 +87,7 @@ class LibraryOrchestrator:
     # ------------------------------------------------------------------
 
     async def get_bookmarked_kus(
-        self, user_uid: str, limit: int | None = None
+        self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[Any]]:
         """Get the KU entities that the user has pinned/bookmarked.
 
@@ -113,7 +116,7 @@ class LibraryOrchestrator:
     # ------------------------------------------------------------------
 
     async def get_enrolled_path_steps(
-        self, user_uid: str, limit: int | None = None
+        self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[Any]]:
         """Get PathStep entities the user is currently enrolled in (IN_PROGRESS).
 
@@ -141,6 +144,6 @@ class LibraryOrchestrator:
     # Pinned entity UIDs (pass-through for sidebar / other consumers)
     # ------------------------------------------------------------------
 
-    async def get_pinned_entities(self, user_uid: str) -> Result[Any]:
+    async def get_pinned_entities(self, user_uid: UserUID) -> Result[Any]:
         """Get UIDs of entities pinned by the user."""
         return await self._user_relationships.get_pinned_entities(user_uid)

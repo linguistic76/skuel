@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.type_hints import UserUID
 
 
 # ============================================================================
@@ -71,7 +72,7 @@ class ActivityUIConfig:
     domain_singular: str
     page_title: str
     filter_params: tuple[tuple[str, str], ...]
-    get_all: Callable[[str], Awaitable[Any]]
+    get_all: Callable[[UserUID], Awaitable[Any]]
     get_one: Callable[[str], Awaitable[Any]]
     backend: Any
     filter_fn: Callable[..., list[Any]]
