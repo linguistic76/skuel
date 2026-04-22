@@ -26,7 +26,6 @@ from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import UserUID
-from core.ports import get_enum_value
 
 
 @dataclass

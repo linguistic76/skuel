@@ -24,7 +24,6 @@ from typing import Any
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import EntityUID
-from core.ports import get_enum_value
 
 
 @dataclass

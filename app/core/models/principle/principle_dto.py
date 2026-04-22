@@ -140,7 +140,16 @@ class PrincipleDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility", "principle_category", "principle_source", "strength", "current_alignment"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "principle_category",
+                "principle_source",
+                "strength",
+                "current_alignment",
+            ],
             date_fields=["last_review_date", "adopted_date"],
             datetime_fields=["created_at", "updated_at"],
         )

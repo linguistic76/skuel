@@ -34,6 +34,7 @@ class FormTemplateDTO(EntityDTO):
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary using generic helper."""
         import json
+
         from core.models.dto_helpers import dto_to_dict
 
         data = dto_to_dict(

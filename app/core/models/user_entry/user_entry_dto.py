@@ -28,7 +28,6 @@ from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.user_owned_dto import UserOwnedDTO
-from core.ports import get_enum_value
 
 
 @dataclass
@@ -79,7 +78,12 @@ class UserEntryDTO(UserOwnedDTO):
         return dto_to_dict(
             self,
             enum_fields=["entity_type", "status", "domain", "visibility", "pipeline", "modality"],
-            datetime_fields=["created_at", "updated_at", "processing_started_at", "processing_completed_at"],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "processing_started_at",
+                "processing_completed_at",
+            ],
         )
 
     @classmethod

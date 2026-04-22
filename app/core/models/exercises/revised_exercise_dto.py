@@ -15,7 +15,6 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Any
 

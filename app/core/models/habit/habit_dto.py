@@ -153,9 +153,23 @@ class HabitDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility", "polarity", "habit_category", "habit_difficulty"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "polarity",
+                "habit_category",
+                "habit_difficulty",
+            ],
             date_fields=["recurrence_end_date"],
-            datetime_fields=["created_at", "updated_at", "last_completed", "started_at", "completed_at"],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "last_completed",
+                "started_at",
+                "completed_at",
+            ],
         )
 
     @classmethod

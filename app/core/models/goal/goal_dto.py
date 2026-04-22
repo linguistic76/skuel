@@ -141,7 +141,15 @@ class GoalDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility", "goal_type", "timeframe", "measurement_type"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "goal_type",
+                "timeframe",
+                "measurement_type",
+            ],
             date_fields=["start_date", "target_date", "achieved_date"],
             datetime_fields=["created_at", "updated_at", "last_progress_update"],
         )

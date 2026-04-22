@@ -26,7 +26,6 @@ from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, MasteryImpact, SELCategory
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.user_entry_enums import ExerciseScope, SubmissionModality
-from core.ports import get_enum_value
 
 
 @dataclass
@@ -75,9 +74,27 @@ class ExerciseDTO(CurriculumDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "complexity", "learning_level", "sel_category", "scope", "expected_modality", "mastery_impact"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "scope",
+                "expected_modality",
+                "mastery_impact",
+            ],
             date_fields=["due_date"],
-            datetime_fields=["created_at", "updated_at", "last_applied_date", "last_practiced_date", "last_built_into_habit_date", "last_reflected_date", "last_choice_informed_date"],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "last_applied_date",
+                "last_practiced_date",
+                "last_built_into_habit_date",
+                "last_reflected_date",
+                "last_choice_informed_date",
+            ],
         )
 
     @classmethod

@@ -22,7 +22,6 @@ from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.curriculum_enums import LpType
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.ports import get_enum_value
 
 
 @dataclass
@@ -52,8 +51,24 @@ class LearningPathDTO(CurriculumDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "complexity", "learning_level", "sel_category", "path_type"],
-            datetime_fields=["created_at", "updated_at", "last_applied_date", "last_practiced_date", "last_built_into_habit_date", "last_reflected_date", "last_choice_informed_date"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "path_type",
+            ],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "last_applied_date",
+                "last_practiced_date",
+                "last_built_into_habit_date",
+                "last_reflected_date",
+                "last_choice_informed_date",
+            ],
         )
 
     @classmethod

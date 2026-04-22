@@ -94,7 +94,13 @@ class ActivityReportDTO(UserOwnedDTO):
         return dto_to_dict(
             self,
             enum_fields=["entity_type", "status", "domain", "visibility", "processor_type"],
-            datetime_fields=["created_at", "updated_at", "period_start", "period_end", "annotation_updated_at"],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "period_start",
+                "period_end",
+                "annotation_updated_at",
+            ],
         )
 
     @classmethod

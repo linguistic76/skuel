@@ -22,7 +22,6 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.interaction_enums import InteractionResult, InteractionType
 from core.models.enums.metadata_enums import Visibility
 from core.models.user_owned_dto import UserOwnedDTO
-from core.ports import get_enum_value
 
 
 @dataclass
@@ -64,7 +63,13 @@ class InteractionDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "visibility", "interaction_type", "result_status"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "visibility",
+                "interaction_type",
+                "result_status",
+            ],
             datetime_fields=["created_at", "updated_at"],
         )
 
