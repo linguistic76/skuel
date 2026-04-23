@@ -19,6 +19,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
+from fasthtml.common import FT
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -28,8 +29,6 @@ from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from services_bootstrap._container import Services
 
