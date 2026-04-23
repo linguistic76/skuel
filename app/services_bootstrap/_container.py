@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
+    from core.orchestrator.today_orchestrator import TodayOrchestrator
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
@@ -297,6 +298,7 @@ class Services:
     pathways_orchestrator: "PathwaysOrchestrator | None" = None
     lateral_orchestrator: "LateralRelationshipsOrchestrator | None" = None
     calendar_optimization_orchestrator: "CalendarOptimizationOrchestrator | None" = None
+    today_orchestrator: "TodayOrchestrator | None" = None
 
     # Advanced services
     jupyter_sync: "JupyterNeo4jSync | None" = None

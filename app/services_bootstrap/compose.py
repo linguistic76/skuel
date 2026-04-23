@@ -1167,6 +1167,18 @@ async def compose_services(
         )
         logger.info("✅ Calendar Optimization Orchestrator created")
 
+        from core.orchestrator.today_orchestrator import TodayOrchestrator
+
+        today_orchestrator = TodayOrchestrator(
+            tasks_service=activity_services["tasks"],
+            goals_service=activity_services["goals"],
+            habits_service=activity_services["habits"],
+            events_service=activity_services["events"],
+            principles_service=activity_services["principles"],
+            lifepath_service=lifepath_service,
+        )
+        logger.info("✅ Today Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1304,6 +1316,7 @@ async def compose_services(
             pathways_orchestrator=pathways_orchestrator,
             lateral_orchestrator=lateral_orchestrator,
             calendar_optimization_orchestrator=calendar_optimization_orchestrator,
+            today_orchestrator=today_orchestrator,
             # Advanced
             jupyter_sync=advanced["jupyter_sync"],
             performance_optimization=advanced["performance_optimization"],

@@ -611,6 +611,10 @@ async def _wire_all_routes(
 
     create_home_routes(app, rt, services)
 
+    from adapters.inbound.today_routes import create_today_routes
+
+    create_today_routes(app, rt, services)
+
     from adapters.inbound.settings_routes import create_settings_routes
 
     create_settings_routes(app, rt, services)

@@ -40,7 +40,6 @@ if TYPE_CHECKING:
     from core.services.lifepath.lifepath_service import LifePathService
     from core.services.principles_service import PrinciplesService
     from core.services.tasks_service import TasksService
-    from core.services.user.user_context_service import UserContextService
 
 
 logger = get_logger("skuel.orchestrators.today")
@@ -134,7 +133,6 @@ class TodayOrchestrator:
         events_service: EventsService,
         principles_service: PrinciplesService,
         lifepath_service: LifePathService,
-        user_context_service: UserContextService,
     ) -> None:
         self._tasks = tasks_service
         self._goals = goals_service
@@ -142,7 +140,6 @@ class TodayOrchestrator:
         self._events = events_service
         self._principles = principles_service
         self._lifepath = lifepath_service
-        self._user_context = user_context_service
 
     async def build_context(self, user_uid: UserUID) -> Result[TodayPageContext]:
         """Assemble the full Today page context for this user."""

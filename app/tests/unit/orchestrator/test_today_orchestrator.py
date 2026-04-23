@@ -131,7 +131,6 @@ def _build() -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
         "events_service": MagicMock(),
         "principles_service": MagicMock(),
         "lifepath_service": MagicMock(),
-        "user_context_service": MagicMock(),
     }
     services["tasks_service"].get_user_tasks = AsyncMock(return_value=_ok([]))
     services["goals_service"].get_user_goals = AsyncMock(return_value=_ok([]))
@@ -147,7 +146,6 @@ def _build() -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
         events_service=services["events_service"],
         principles_service=services["principles_service"],
         lifepath_service=services["lifepath_service"],
-        user_context_service=services["user_context_service"],
     )
     return orch, services
 
