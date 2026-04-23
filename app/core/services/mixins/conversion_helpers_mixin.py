@@ -157,6 +157,12 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
         """
         from core.utils.neo4j_mapper import from_neo4j_node
 
+        if self._model_class is None:
+            raise RuntimeError(
+                f"{type(self).__name__} requires _model_class to convert Neo4j records. "
+                "Set it via DomainConfig or as a class attribute."
+            )
+
         return [from_neo4j_node(record[node_key], self._model_class) for record in records]
 
     # ========================================================================

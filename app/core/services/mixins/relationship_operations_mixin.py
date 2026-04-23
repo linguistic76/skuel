@@ -42,6 +42,7 @@ from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID
 from core.ports import BackendOperations
+from core.ports.base_protocols import Direction
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -163,8 +164,8 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     async def get_relationships(
         self,
         uid: str,
-        rel_type: str | None = None,
-        direction: str = "both",  # 'in', 'out', 'both'
+        rel_type: RelationshipName | None = None,
+        direction: Direction = "both",
     ) -> Result[builtins.list[Relationship]]:
         """
         Get all relationships for an entity.
@@ -172,19 +173,11 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Args:
             uid: Entity UID
             rel_type: Optional filter by relationship type
-            direction: Direction of relationships to retrieve
+            direction: "incoming", "outgoing", or "both" (enforced statically)
         """
         if not uid:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
 
-        if direction not in ["in", "out", "both"]:
-            return Result.fail(
-                Errors.validation(
-                    message="Direction must be 'in', 'out', or 'both'", field="direction"
-                )
-            )
-
-        # Backend must support relationships - enforced at initialization
         return await self.backend.get_relationships(uid, rel_type, direction)
 
     async def traverse(
