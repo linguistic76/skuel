@@ -5,10 +5,9 @@
  * on the page root (``ui/today/page.py``). Seed comes from
  * ``window.SEED`` emitted by the server in the same document.
  *
- * Row rendering uses a hand-written template literal (vs. Alpine's
- * <template x-for>) so drag handlers, dynamic classes, and optimistic
- * state can all live in one render path — see today.md §7 and the plan's
- * "Row rendering decision" note.
+ * Row rendering is structural: ``ui/today/page.py::_task_row`` emits the
+ * markup, Alpine's ``x-text`` / ``:class`` handle escaping. The factory
+ * here owns behavior only (drag, keyboard, optimistic state).
  *
  * Icons: we use <uk-icon icon="..."> (FrankenUI's Lit custom element,
  * Lucide-backed) so no client-side icon-replacer pass is needed — the
@@ -30,11 +29,6 @@
       deferred: {},          // id -> '1d' | '1w' (optimistic hidden until confirm)
       completed: new Set(),  // ids
       _lastAction: null,     // for undo
-
-      init() {
-        // Expose for innerHTML-rendered row handlers that can't see Alpine's `this`.
-        window._today = this;
-      },
 
       // ---- Derived ---------------------------------------------------------
       get fTasks()  { return this.seed.tasks.filter(t =>
@@ -100,66 +94,6 @@
         return tri || null;
       },
 
-      // ---- Row renderer -----------------------------------------------------
-      renderRow(t, opts = {}) {
-        const k = this.seed.kinds[t.kind] || this.seed.kinds['submission'] || {icon: 'file-text'};
-        const priClass = t.priority === 'high' ? 'bg-priority-high'
-                       : t.priority === 'medium' ? 'bg-priority-medium' : 'bg-priority-low';
-        const selected = this.selectedId === t.id;
-        const rightLabel = opts.isTriage ? t.reason : t.due_label;
-        const label = (t.label || '').replace(/"/g, '&quot;');
-        return `
-          <div class="relative" data-task-row="${t.id}">
-            <div class="defer-backdrop absolute inset-0 rounded-md flex items-center justify-end
-                        px-4 text-xs font-semibold tracking-wide pointer-events-none"
-                 data-defer-backdrop>
-              <span data-defer-hint class="opacity-50">drag to defer</span>
-            </div>
-            <div class="task-row relative flex items-center gap-3 px-3.5 py-2.5 bg-card
-                        ${opts.isTriage ? 'border border-border' : ''}
-                        ${selected ? 'ring-2 ring-primary/40 shadow-focus' : ''}
-                        rounded-md cursor-grab select-none"
-                 role="button" tabindex="0"
-                 aria-label="${label} · ${rightLabel || ''} · ${t.est_min}m"
-                 onmousedown="window._today.rowDown(event, '${t.id}')"
-                 onclick="window._today.rowClick(event, '${t.id}')"
-                 onkeydown="window._today.rowKey(event, '${t.id}')">
-
-              <div class="w-[30px] h-[30px] rounded flex-none flex items-center justify-center
-                          bg-muted text-muted-foreground">
-                <uk-icon icon="${k.icon}" height="14" width="14"></uk-icon>
-              </div>
-
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="text-[13.5px] font-semibold text-foreground leading-snug truncate">
-                    ${t.label}
-                  </span>
-                  <span class="w-1.5 h-1.5 rounded-full ${priClass} flex-none"
-                        title="${t.priority}"></span>
-                </div>
-                <div class="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">
-                  ${t.meta || ''}
-                </div>
-              </div>
-
-              <div class="flex flex-col items-end gap-0.5 flex-none">
-                <span class="text-[11px] font-semibold text-foreground">${rightLabel || ''}</span>
-                <span class="text-[10px] text-muted-foreground font-mono">${t.est_min}m</span>
-              </div>
-
-              <button type="button"
-                      class="w-7 h-7 rounded flex-none flex items-center justify-center
-                             ${selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
-                      aria-label="Open ${label}"
-                      onclick="event.stopPropagation(); window._today.openDrawer('${t.id}')">
-                <uk-icon icon="play" height="12" width="12"></uk-icon>
-              </button>
-            </div>
-          </div>
-        `;
-      },
-
       // ---- Interaction: keyboard, drag, click -------------------------------
       flatOrder() {
         return [
@@ -197,7 +131,7 @@
         }
       },
 
-      // Row handlers — innerHTML-rendered rows call these via window._today.
+      // Row handlers — bound via @click / @mousedown / @keydown in page.py.
       rowClick(e, id) {
         if (e.target.closest('button')) return;
         this.openDrawer(id);

@@ -66,7 +66,6 @@ def TodayPage(ctx: TodayPageContext) -> FT:
         cls=_CONTAINER_CLS,
         **{
             "x-data": "today",
-            "x-init": "init()",
             "@keydown.window": "onKey($event)",
         },
     )
@@ -78,8 +77,19 @@ def TodayPage(ctx: TodayPageContext) -> FT:
 
 
 def _seed_script(seed_json: str) -> FT:
-    # NotStr so FastHTML doesn't escape the JSON braces/quotes.
-    return Script(NotStr(f"window.SEED = {seed_json};"))
+    # NotStr so FastHTML doesn't escape the JSON braces/quotes — but then
+    # we owe the JS-context escape ourselves: `</`, `<!`, U+2028, U+2029
+    # can break out of a <script> tag or act as JS line terminators
+    # inside a string literal. json.dumps doesn't handle this; the five
+    # replacements below do, without affecting JSON validity.
+    safe = (
+        seed_json.replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+        .replace(" ", "\\u2028")
+        .replace(" ", "\\u2029")
+    )
+    return Script(NotStr(f"window.SEED = {safe};"))
 
 
 # ============================================================================
@@ -182,6 +192,128 @@ def _empty_state() -> FT:
     )
 
 
+# ---- Task row (shared by triage bar + LifePath ribbons) -------------------
+#
+# Rendered inside an Alpine ``<template x-for="t in ...">``. Alpine binds
+# ``t`` to the current task and handles HTML escaping of every ``x-text`` /
+# attribute binding — task titles containing ``<script>`` render as text,
+# never as markup. The previous innerHTML / template-literal renderer
+# required two hand-maintained escape contexts (HTML and JS-string); this
+# structural swap eliminates both.
+
+
+def _task_row(*, is_triage: bool) -> FT:
+    right_label_expr = "t.reason || ''" if is_triage else "t.due_label || ''"
+    row_classes = (
+        "task-row relative flex items-center gap-3 px-3.5 py-2.5 bg-card "
+        "rounded-md cursor-grab select-none"
+    )
+    if is_triage:
+        row_classes += " border border-border"
+
+    kind_icon = Div(
+        NotStr(
+            "<uk-icon "
+            ":icon=\"(seed.kinds[t.kind] || seed.kinds.submission || "
+            "{icon: 'file-text'}).icon\" "
+            'height="14" width="14"></uk-icon>'
+        ),
+        cls=(
+            "w-[30px] h-[30px] rounded flex-none flex items-center justify-center "
+            "bg-muted text-muted-foreground"
+        ),
+    )
+
+    title_block = Div(
+        Div(
+            Span(
+                cls="text-[13.5px] font-semibold text-foreground leading-snug truncate",
+                **{"x-text": "t.label"},
+            ),
+            Span(
+                cls="w-1.5 h-1.5 rounded-full flex-none",
+                **{
+                    ":class": (
+                        "t.priority === 'high' ? 'bg-priority-high' "
+                        ": t.priority === 'medium' ? 'bg-priority-medium' "
+                        ": 'bg-priority-low'"
+                    ),
+                    ":title": "t.priority",
+                },
+            ),
+            cls="flex items-center gap-2",
+        ),
+        Div(
+            cls="text-[11px] text-muted-foreground font-mono mt-0.5 truncate",
+            **{"x-text": "t.meta || ''"},
+        ),
+        cls="flex-1 min-w-0",
+    )
+
+    right_block = Div(
+        Span(
+            cls="text-[11px] font-semibold text-foreground",
+            **{"x-text": right_label_expr},
+        ),
+        Span(
+            Span(**{"x-text": "t.est_min"}),
+            "m",
+            cls="text-[10px] text-muted-foreground font-mono",
+        ),
+        cls="flex flex-col items-end gap-0.5 flex-none",
+    )
+
+    open_btn = Button(
+        UkIcon("play", height=12, width=12),
+        type="button",
+        cls="w-7 h-7 rounded flex-none flex items-center justify-center",
+        **{
+            ":class": (
+                "selectedId === t.id "
+                "? 'bg-primary text-primary-foreground' "
+                ": 'text-muted-foreground hover:bg-muted'"
+            ),
+            ":aria-label": "'Open ' + (t.label || '')",
+            "@click.stop": "openDrawer(t.id)",
+        },
+    )
+
+    inner_row = Div(
+        kind_icon,
+        title_block,
+        right_block,
+        open_btn,
+        cls=row_classes,
+        role="button",
+        tabindex="0",
+        **{
+            ":class": "{ 'ring-2 ring-primary/40 shadow-focus': selectedId === t.id }",
+            ":aria-label": (
+                f"(t.label || '') + ' · ' + ({right_label_expr}) + ' · ' + t.est_min + 'm'"
+            ),
+            "@mousedown": "rowDown($event, t.id)",
+            "@click": "rowClick($event, t.id)",
+            "@keydown": "rowKey($event, t.id)",
+        },
+    )
+
+    backdrop = Div(
+        Span("drag to defer", cls="opacity-50", **{"data-defer-hint": True}),
+        cls=(
+            "defer-backdrop absolute inset-0 rounded-md flex items-center justify-end "
+            "px-4 text-xs font-semibold tracking-wide pointer-events-none"
+        ),
+        **{"data-defer-backdrop": True},
+    )
+
+    return Div(
+        backdrop,
+        inner_row,
+        cls="relative",
+        **{":data-task-row": "t.id"},
+    )
+
+
 # ---- Triage bar -----------------------------------------------------------
 
 
@@ -219,7 +351,7 @@ def _triage_bar() -> FT:
     )
     list_body = Ul(
         Template(
-            Li(Div(**{"x-html": "renderRow(t, {isTriage: true})"})),
+            Li(_task_row(is_triage=True)),
             **{"x-for": "t in fTriage", ":key": "t.id"},
         ),
         cls="flex flex-col gap-2",
@@ -348,7 +480,7 @@ def _active_ribbon() -> FT:
     )
     tasks_list = Ul(
         Template(
-            Li(Div(**{"x-html": "renderRow(t, {isTriage: false})"})),
+            Li(_task_row(is_triage=False)),
             **{"x-for": "t in tasksFor(lp.id)", ":key": "t.id"},
         ),
         Template(
