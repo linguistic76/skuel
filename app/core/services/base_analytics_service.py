@@ -36,7 +36,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
 from core.models.shared.dual_track import DualTrackResult
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.services.intelligence.graph_context_loader import (
     GraphContextLoader,
     SuggestsQueryIntent,
@@ -526,7 +526,7 @@ class BaseAnalyticsService(Generic[B, T]):
 
         # 9. Build and return DualTrackResult
         result = DualTrackResult(
-            entity_uid=uid,
+            entity_uid=EntityUID(uid),
             entity_type=entity_type,
             user_level=user_level,
             user_score=user_score,

@@ -33,6 +33,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.result_helpers import require_found
 from core.models.entity_requests import ChangeUserRoleRequest
 from core.models.enums import UserRole
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -447,7 +448,7 @@ def create_admin_api_routes(
         user_agent = request.headers.get("user-agent", "unknown")
 
         result = await graph_auth.admin_generate_reset_token(
-            user_uid=uid,
+            user_uid=UserUID(uid),
             admin_uid=current_user.uid,
             ip_address=ip_address,
             user_agent=user_agent,

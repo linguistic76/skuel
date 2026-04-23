@@ -26,6 +26,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.report.exercise_report import ExerciseReport
 from core.models.report.exercise_report_dto import ExerciseReportDTO
+from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.decorators import with_error_handling
@@ -111,7 +112,7 @@ class AssessmentService:
             uid=uid,
             title=title,
             entity_type=EntityType.EXERCISE_REPORT,
-            user_uid=subject_uid,
+            user_uid=UserUID(subject_uid),
             author_uid=teacher_uid,
             status=EntityStatus.COMPLETED,
             processor_type=ReportSource.HUMAN,

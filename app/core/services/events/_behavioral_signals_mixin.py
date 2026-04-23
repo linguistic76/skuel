@@ -76,7 +76,9 @@ class _BehavioralSignalsMixin:
         """Create a system calculator for dual-track engagement assessment."""
 
         async def _calculate(_entity: Any, u_uid: str) -> tuple[EngagementLevel, float, list[str]]:
-            return await self._calculate_system_engagement_for_dual_track(u_uid, period_days)
+            return await self._calculate_system_engagement_for_dual_track(
+                UserUID(u_uid), period_days
+            )
 
         return _calculate
 

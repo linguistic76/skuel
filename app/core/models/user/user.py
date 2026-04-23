@@ -307,7 +307,7 @@ class UserServiceContext:
         Use UserRelationshipService.get_current_goals(user_uid) to populate.
         """
         return cls(
-            user_uid=user.uid,
+            user_uid=UserUID(user.uid),
             username=user.title,  # Username stored in title field
             learning_level=user.preferences.learning_level,
             active_entity_uids=user.active_entity_uids,

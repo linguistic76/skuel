@@ -300,7 +300,7 @@ class GoalsService(
         Placing it here (facade) allows it to coordinate across the task and goal
         domains without leaking cross-domain dependencies into GoalsCoreService.
         """
-        count_result = await self.cross_domain_query.count_active_tasks_for_goal(uid)
+        count_result = await self.cross_domain_query.count_active_tasks_for_goal(EntityUID(uid))
         if count_result.is_error:
             self.logger.warning(
                 f"Failed to check active tasks for goal {uid}: {count_result.expect_error()}"

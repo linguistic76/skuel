@@ -142,7 +142,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             # Auto-create user relationship if user_uid exists
             if user_uid:
                 rel_result = await self.create_user_relationship(
-                    user_uid=user_uid, entity_uid=created.uid, relationship_type="OWNS"
+                    user_uid=user_uid, entity_uid=EntityUID(created.uid), relationship_type="OWNS"
                 )
 
                 if rel_result.is_error:

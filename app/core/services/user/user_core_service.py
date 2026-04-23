@@ -143,7 +143,7 @@ class UserCoreService:
             - Database operation fails → DATABASE
         """
         # Note: create_user() generates UID as "user_{username}", so "system" becomes "user_system"
-        system_uid = "user_system"
+        system_uid = UserUID("user_system")
 
         # Check if system user exists
         result = await self.get_user(system_uid)

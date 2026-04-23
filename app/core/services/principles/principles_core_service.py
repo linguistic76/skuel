@@ -21,7 +21,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.ports.query_types import PrincipleStats
 from core.services.base_service import BaseService
@@ -478,7 +478,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             return Result.fail(current_result)
         current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Principle)
 
-        hierarchy_result = await self.backend.get_hierarchy_raw(principle_uid)
+        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(principle_uid))
         if hierarchy_result.is_error:
             return Result.fail(hierarchy_result)
 

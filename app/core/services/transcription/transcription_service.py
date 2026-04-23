@@ -292,7 +292,7 @@ class TranscriptionService(EntityTimestampMixin):
         if result.is_error:
             # Update status to FAILED
             error = result.expect_error()
-            await self._mark_failed(uid, transcription.user_uid or "", error.message)
+            await self._mark_failed(uid, UserUID(transcription.user_uid or ""), error.message)
             return Result.fail(error)
 
         deepgram_result = result.value

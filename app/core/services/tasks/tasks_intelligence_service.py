@@ -46,7 +46,7 @@ from core.constants import GraphDepth, LearningLoop
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -160,7 +160,7 @@ class TasksIntelligenceService(
         from core.utils.intelligence_queries import get_knowledge_prerequisites
 
         prereq_result = await get_knowledge_prerequisites(
-            graph=self.graph_intel, entity_uid=uid, depth=GraphDepth.DEFAULT
+            graph=self.graph_intel, entity_uid=EntityUID(uid), depth=GraphDepth.DEFAULT
         )
         prerequisites = prereq_result.value if prereq_result.is_ok else {}
 

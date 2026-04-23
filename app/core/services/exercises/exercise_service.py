@@ -511,7 +511,7 @@ class ExerciseService(BaseService):
 
         return await self.load_exercise_from_file(
             file_path=path,
-            user_uid="user_system",
+            user_uid=UserUID("user_system"),
             exercise_uid=exercise_uid,
             model=model,
         )

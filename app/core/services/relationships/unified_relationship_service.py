@@ -17,6 +17,7 @@ configuration. One UnifiedRelationshipService + RelationshipConfig objects per d
 **Usage:**
 ```python
 from core.models.relationship_registry import TASKS_CONFIG
+from core.models.type_hints import EntityUID
 from core.services.relationships import UnifiedRelationshipService
 
 tasks_relationship_service = UnifiedRelationshipService(
@@ -48,6 +49,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_registry import DomainRelationshipConfig
+from core.models.type_hints import EntityUID
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.infrastructure import RelationshipCreator, SemanticRelationshipLinker
@@ -59,7 +61,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_result_score
 
 if TYPE_CHECKING:
-    from core.models.type_hints import EntityUID, UserUID
+    from core.models.type_hints import UserUID
     from core.ports.context_awareness_protocols import (
         CoreIdentity,
         CrossDomainAwareness,
@@ -625,8 +627,9 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
                 if in_progress:
                     entity_uid = getattr(entity_model, "uid", "")
                     if entity_uid:
+                        entity_uid_typed = EntityUID(str(entity_uid))
                         for key in ["knowledge", "applied_knowledge", "prerequisite_knowledge"]:
-                            knowledge_result = await self.get_related_uids(key, entity_uid)
+                            knowledge_result = await self.get_related_uids(key, entity_uid_typed)
                             if knowledge_result.is_ok and knowledge_result.value:
                                 overlap = set(knowledge_result.value) & in_progress
                                 if overlap:
