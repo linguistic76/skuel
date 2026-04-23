@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -179,7 +179,7 @@ class AudienceResolver:
 
         if fulfills_exercise_uid:
             allowed = await backend.query_user_can_use_exercise(
-                exercise_uid=fulfills_exercise_uid,
+                exercise_uid=EntityUID(fulfills_exercise_uid),
                 user_uid=user_uid,
             )
             if allowed.is_error:
@@ -196,7 +196,7 @@ class AudienceResolver:
                 )
 
         if transforms_of_uid:
-            owner = await backend.query_entity_owner(entity_uid=transforms_of_uid)
+            owner = await backend.query_entity_owner(entity_uid=EntityUID(transforms_of_uid))
             if owner.is_error:
                 return Result.fail(owner)
             if owner.value is None:
@@ -247,7 +247,7 @@ class AudienceResolver:
 
         for group_uid in request.share_with_groups:
             result = await self.sharing_service.share_with_group(
-                entity_uid=entry_uid,
+                entity_uid=EntityUID(entry_uid),
                 owner_uid=user_uid,
                 group_uid=group_uid,
             )
@@ -262,7 +262,7 @@ class AudienceResolver:
 
         for recipient_uid in request.share_with_users:
             result = await self.sharing_service.share(
-                entity_uid=entry_uid,
+                entity_uid=EntityUID(entry_uid),
                 owner_uid=user_uid,
                 recipient_uid=recipient_uid,
             )
@@ -303,7 +303,7 @@ class AudienceResolver:
                         continue
                     group_uid_str = str(raw)
                     share_result = await self.sharing_service.share_with_group(
-                        entity_uid=entry_uid,
+                        entity_uid=EntityUID(entry_uid),
                         owner_uid=user_uid,
                         group_uid=group_uid_str,
                     )

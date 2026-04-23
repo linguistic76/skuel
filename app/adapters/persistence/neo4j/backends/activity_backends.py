@@ -14,7 +14,7 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import (
     ChoiceStats,
     EventStats,
@@ -92,7 +92,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         return Result.ok(True)
 
     async def create_user_habit_relationship(
-        self, user_uid: UserUID, habit_uid: str
+        self, user_uid: UserUID, habit_uid: EntityUID
     ) -> Result[bool]:
         """Create User→Habit OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, habit_uid)
@@ -456,7 +456,9 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         goals, _ = page_result.value
         return Result.ok(goals)
 
-    async def create_user_goal_relationship(self, user_uid: UserUID, goal_uid: str) -> Result[bool]:
+    async def create_user_goal_relationship(
+        self, user_uid: UserUID, goal_uid: EntityUID
+    ) -> Result[bool]:
         """Create User→Goal OWNS relationship in the graph."""
         rel_result: Result[bool] = await self.create_user_relationship(user_uid, goal_uid)
         return rel_result
@@ -1208,7 +1210,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         return Result.ok([record["c"] for record in result.value])
 
     async def create_user_choice_relationship(
-        self, user_uid: UserUID, choice_uid: str
+        self, user_uid: UserUID, choice_uid: EntityUID
     ) -> Result[bool]:
         """Create User→Choice OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, choice_uid)
@@ -1473,7 +1475,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         return Result.ok([record["p"] for record in result.value])
 
     async def create_user_principle_relationship(
-        self, user_uid: UserUID, principle_uid: str
+        self, user_uid: UserUID, principle_uid: EntityUID
     ) -> Result[bool]:
         """Create User→Principle OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, principle_uid)

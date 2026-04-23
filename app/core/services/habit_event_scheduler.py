@@ -19,6 +19,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.habit.habit import Habit as Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.models.type_hints import UserUID
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model
@@ -609,7 +610,7 @@ class HabitEventScheduler:
         Note: These are template events with placeholder values.
         Real usage should copy and customize with actual user_uid and dates.
         """
-        placeholder_user = "template_user"
+        placeholder_user = UserUID("template_user")
         today = date.today()
 
         from core.models.enums.entity_enums import EntityType
