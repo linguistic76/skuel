@@ -258,6 +258,11 @@ class PrinciplesService(
     async def get_motivational_profile(self, user_uid: UserUID) -> Result[MotivationalProfile]:
         return await self.alignment.get_motivational_profile(user_uid)
 
+    async def get_embodiment_rates_7d(
+        self, principle_uids: list[EntityUID], user_uid: UserUID
+    ) -> Result[dict[str, float]]:
+        return await self.alignment.get_embodiment_rates_7d(principle_uids, user_uid)
+
     async def make_principle_based_decision(
         self, user_uid: UserUID, decision_description: str, options: list[str], context: str = ""
     ) -> Result[PrincipleDecision]:

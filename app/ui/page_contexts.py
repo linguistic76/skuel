@@ -188,7 +188,7 @@ class PrincipleView(TypedDict):
     lifepath_id: str
     label: str
     strength: str  # "core" | "strong" | "developing" | "moderate" | "exploring"
-    streak: int  # days
+    embodiment_rate: float  # rolling 7d habit-completion rate, 0..1
 
 
 class GoalView(TypedDict):

@@ -144,6 +144,7 @@ def _build() -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
     services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([]))
     services["events_service"].get_user_events = AsyncMock(return_value=_ok([]))
     services["principles_service"].get_user_principles = AsyncMock(return_value=_ok([]))
+    services["principles_service"].get_embodiment_rates_7d = AsyncMock(return_value=_ok({}))
 
     # Graph-enrichment surfaces consumed by _first_principle_map.
     services["goals_service"].relationships = MagicMock()
@@ -372,3 +373,64 @@ async def test_graph_lookup_failure_degrades_to_empty_principle() -> None:
     result = await orch.build_context("u-mike")
     assert not result.is_error
     assert result.value["goals"][0]["principle_id"] == ""
+
+
+# ---------------------------------------------------------------------------
+# Principle embodiment rate — rolling 7d habit-completion aggregate
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_principle_embodiment_rate_flows_from_principles_service() -> None:
+    orch, services = _build()
+    active = SimpleNamespace(
+        uid="p-depth",
+        title="Depth over breadth",
+        status=EntityStatus.ACTIVE,
+        strength=SimpleNamespace(value="core"),
+    )
+    archived = SimpleNamespace(
+        uid="p-old",
+        title="Old",
+        status=EntityStatus.ARCHIVED,
+        strength=SimpleNamespace(value="developing"),
+    )
+    services["principles_service"].get_user_principles = AsyncMock(
+        return_value=_ok([active, archived])
+    )
+    services["principles_service"].get_embodiment_rates_7d = AsyncMock(
+        return_value=_ok({"p-depth": 0.42})
+    )
+
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    principles = result.value["principles"]
+    # Archived principles are filtered out.
+    assert [p["id"] for p in principles] == ["p-depth"]
+    assert principles[0]["embodiment_rate"] == 0.42
+    # The batch call was made with only the active principle's UID.
+    called = services["principles_service"].get_embodiment_rates_7d.await_args
+    assert list(called.args[0]) == ["p-depth"]
+
+
+@pytest.mark.asyncio
+async def test_principle_embodiment_rate_degrades_to_zero_on_failure() -> None:
+    from core.utils.result_simplified import Errors
+
+    orch, services = _build()
+    principle = SimpleNamespace(
+        uid="p-depth",
+        title="Depth over breadth",
+        status=EntityStatus.ACTIVE,
+        strength=SimpleNamespace(value="strong"),
+    )
+    services["principles_service"].get_user_principles = AsyncMock(return_value=_ok([principle]))
+    services["principles_service"].get_embodiment_rates_7d = AsyncMock(
+        return_value=Result.fail(Errors.database("get_embodiment_rates_7d", "boom"))
+    )
+
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    principles = result.value["principles"]
+    assert len(principles) == 1
+    assert principles[0]["embodiment_rate"] == 0.0

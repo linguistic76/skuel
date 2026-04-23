@@ -23,6 +23,7 @@ Rules for additions
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j.cross_domain_backend import FULL_ALIGNMENT_CONNECTION_COUNT
@@ -48,6 +49,11 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
+
+
+# Rolling-embodiment window length, in days. If this changes, the
+# denominator below changes with it; keep them coupled.
+_EMBODIMENT_WINDOW_DAYS = 7
 
 
 class CrossDomainQueryService:
@@ -118,6 +124,50 @@ class CrossDomainQueryService:
                 alignment_level=level,
             )
         )
+
+    async def get_embodiment_rates_7d(
+        self, principle_uids: list[EntityUID], user_uid: UserUID
+    ) -> Result[dict[str, float]]:
+        """Rolling 7-day embodiment rate per principle.
+
+        For each principle, the rate is
+
+            completions_last_7d_across_embodying_habits
+            --------------------------------------------
+            7 * number_of_embodying_habits
+
+        clamped to ``[0, 1]``. Treats every embodying habit as if daily —
+        simple, matches the "rolling 7-day completion rate" spec. When
+        habit frequency metadata is richer we can weight by expected
+        occurrences instead.
+
+        Principles with no embodying habits and principles whose habits
+        had no completions in the window are absent from the returned
+        map; callers default to ``0.0``.
+        """
+        if not principle_uids:
+            return Result.ok({})
+
+        cutoff = datetime.now() - timedelta(days=_EMBODIMENT_WINDOW_DAYS)
+        result = await self.backend.get_embodiment_rates_7d(
+            principle_uids=[str(uid) for uid in principle_uids],
+            user_uid=str(user_uid),
+            cutoff=cutoff,
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        rates: dict[str, float] = {}
+        for row in result.value or []:
+            pid = row.get("principle_uid")
+            habit_count = row.get("habit_count") or 0
+            completion_count = row.get("completion_count") or 0
+            if not pid or habit_count <= 0:
+                continue
+            raw = completion_count / (_EMBODIMENT_WINDOW_DAYS * habit_count)
+            rates[pid] = min(1.0, max(0.0, raw))
+
+        return Result.ok(rates)
 
     async def get_tasks_applying_knowledge(
         self,

@@ -461,7 +461,11 @@ def _active_ribbon() -> FT:
                         Span(**{"x-text": "p.label"}),
                         Span(
                             cls="font-mono opacity-60",
-                            **{"x-text": "p.streak > 0 ? ('· ' + p.streak + 'd') : ''"},
+                            **{
+                                "x-text": "p.embodiment_rate > 0 "
+                                "? ('· ' + Math.round(p.embodiment_rate * 100) + '%') "
+                                ": ''"
+                            },
                         ),
                         cls="inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-full",
                         **{":class": "strengthClass(p.strength)"},

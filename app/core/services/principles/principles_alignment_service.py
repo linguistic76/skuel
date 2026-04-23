@@ -157,6 +157,17 @@ class PrinciplesAlignmentService:
             user_uid=user_uid,
         )
 
+    async def get_embodiment_rates_7d(
+        self, principle_uids: list[EntityUID], user_uid: UserUID
+    ) -> Result[dict[str, float]]:
+        """Rolling 7-day embodiment rate per principle (0..1).
+
+        Thin pass-through to ``CrossDomainQueryService.get_embodiment_rates_7d``
+        — owned by alignment because EMBODIES_PRINCIPLE is an alignment edge.
+        See the cross-domain method for the rate formula.
+        """
+        return await self.cross_domain_query.get_embodiment_rates_7d(principle_uids, user_uid)
+
     # ========================================================================
     # GRAPH-BASED ALIGNMENT (shared implementation)
     # ========================================================================

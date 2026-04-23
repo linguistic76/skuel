@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus, Priority
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.page_contexts import (
@@ -211,16 +211,23 @@ class TodayOrchestrator:
 
         active_goals = [g for g in all_goals if g.status == EntityStatus.ACTIVE]
         rituable_habits = [h for h in all_habits if _parse_hhmm(h.preferred_time) is not None]
+        active_principles = [p for p in all_principles if p.status != EntityStatus.ARCHIVED]
 
         # GRAPH-NATIVE: Goal→Principle (GUIDED_BY_PRINCIPLE) and Habit→Principle
         # (EMBODIES_PRINCIPLE) live as Neo4j edges, not scalar fields. Fetch once
         # per build, concurrently, and index into maps the mappers consume.
-        goal_principle_map = await _first_principle_map(self._goals, [g.uid for g in active_goals])
-        habit_principle_map = await _first_principle_map(
-            self._habits, [h.uid for h in rituable_habits]
+        # Embodiment rates join Principle→Habit→HabitCompletion in one round-trip.
+        (
+            goal_principle_map,
+            habit_principle_map,
+            lp_title,
+            embodiment_rates,
+        ) = await asyncio.gather(
+            _first_principle_map(self._goals, [g.uid for g in active_goals]),
+            _first_principle_map(self._habits, [h.uid for h in rituable_habits]),
+            _fetch_lp_title(self._lifepath, designation),
+            _fetch_embodiment_rates(self._principles, active_principles, user_uid),
         )
-
-        lp_title = await _fetch_lp_title(self._lifepath, designation)
 
         task_views: list[TaskView] = [
             _task_to_view(t, lifepath_id=lifepath_id, today=today) for t in today_tasks_full
@@ -229,19 +236,15 @@ class TodayOrchestrator:
             _task_to_triage(t, lifepath_id=lifepath_id, today=today) for t in triage_tasks_full
         ]
 
-        # TODO(principle-streak): Principle "streak" in the Today view is an
-        # aggregate over habits that EMBODY the principle, not a Principle field.
-        # Derive from habit completions once a streak-aggregation service lands.
         principle_views: list[PrincipleView] = [
             {
                 "id": p.uid,
                 "lifepath_id": lifepath_id,
                 "label": p.title,
                 "strength": _principle_strength(p),
-                "streak": 0,
+                "embodiment_rate": embodiment_rates.get(p.uid, 0.0),
             }
-            for p in all_principles
-            if p.status != EntityStatus.ARCHIVED
+            for p in active_principles
         ]
 
         goal_views: list[GoalView] = [
@@ -356,6 +359,27 @@ async def _first_principle_map(service: object, entity_uids: list[str]) -> dict[
         if uids:
             mapping[uid] = uids[0]
     return mapping
+
+
+async def _fetch_embodiment_rates(
+    principles_service: PrinciplesService,
+    principles: list[Principle],
+    user_uid: UserUID,
+) -> dict[str, float]:
+    """Rolling 7-day embodiment rate per principle.
+
+    Degrades to an empty map (all rates default to 0.0) on failure rather
+    than aborting the whole page — the ribbon still renders, just without
+    the embodiment badge.
+    """
+    if not principles:
+        return {}
+    principle_uids = [EntityUID(p.uid) for p in principles]
+    r = await principles_service.get_embodiment_rates_7d(principle_uids, user_uid)
+    if r.is_error:
+        logger.warning("today.embodiment_rates failed: %s", r.expect_error().message)
+        return {}
+    return r.value
 
 
 async def _fetch_lp_title(
