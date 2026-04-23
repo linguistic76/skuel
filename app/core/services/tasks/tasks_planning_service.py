@@ -31,7 +31,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.task.task import Task
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.services.base_planning_service import BasePlanningService
 from core.services.cross_domain import KnowledgeApplyingTask
 from core.services.infrastructure import PrerequisiteChecker
@@ -103,7 +103,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         two fields — reconstructing a full ``Task`` would be waste.
         """
         result = await self.cross_domain_query.get_tasks_applying_knowledge(
-            knowledge_uid, user_uid, limit
+            EntityUID(knowledge_uid), user_uid, limit
         )
         if result.is_error:
             return Result.fail(result)
@@ -178,7 +178,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         if include_transitive:
             dep_uids = await self._get_transitive_dependency_uids(task_uid, max_depth)
         else:
-            dep_uids = await self._get_related_uids("prerequisite_tasks", task_uid)
+            dep_uids = await self._get_related_uids("prerequisite_tasks", EntityUID(task_uid))
         deps = await self._get_tasks_by_uids(dep_uids)
 
         # Batch-fetch goals for all deps in one Cypher round-trip.
@@ -225,7 +225,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
 
         return Result.ok(
             ContextualDependencies(
-                entity_uid=task_uid,
+                entity_uid=EntityUID(task_uid),
                 entity_type="Task",
                 ready_dependencies=tuple(ready),
                 blocked_dependencies=tuple(blocked),

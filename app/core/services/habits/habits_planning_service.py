@@ -565,7 +565,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
         # Get prerequisite habit UIDs
-        prereq_uids = await self._get_related_uids("prerequisite_habits", habit_uid)
+        prereq_uids = await self._get_related_uids("prerequisite_habits", EntityUID(habit_uid))
 
         # Check prerequisite habits
         ready_deps = []
@@ -623,7 +623,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
         return Result.ok(
             ContextualDependencies(
-                entity_uid=habit_uid,
+                entity_uid=EntityUID(habit_uid),
                 entity_type="Habit",
                 ready_dependencies=tuple(ready_deps),
                 blocked_dependencies=tuple(blocked_deps),

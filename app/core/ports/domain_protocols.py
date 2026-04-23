@@ -948,7 +948,7 @@ class ChoicesOperations(
         """Find choices with filters and limit."""
         ...
 
-    async def get_user_choices(self, user_id: str) -> Result[list[Choice]]:
+    async def get_user_choices(self, user_id: UserUID) -> Result[list[Choice]]:
         """Get all choices for a user."""
         ...
 

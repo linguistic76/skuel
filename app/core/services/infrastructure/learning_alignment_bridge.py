@@ -90,8 +90,8 @@ class LearningAlignmentBridge[T, DTO, Request]:
     def __init__(
         self,
         service: BaseService,
-        backend_get: Callable[[str], Awaitable[Result[Any]]],
-        backend_get_user: Callable[[str], Awaitable[Result[Any]]],
+        backend_get: Callable[[EntityUID], Awaitable[Result[Any]]],
+        backend_get_user: Callable[[UserUID], Awaitable[Result[Any]]],
         backend_create: Callable[[dict[str, Any]], Awaitable[Result[Any]]],
         domain: Domain,
         entity_name: str,  # "goal", "habit", "event", "choice"
@@ -228,12 +228,12 @@ class LearningAlignmentBridge[T, DTO, Request]:
         # Step 3: Apply learning position alignment if provided
         if learning_position:
             # Get entity description for alignment assessment
-            entity_desc = (
+            entity_desc = str(
                 getattr(entity, "description", None)
                 or getattr(entity, "title", "")
                 or getattr(entity, "name", "")
             )
-            entity_title = getattr(entity, "title", "") or getattr(entity, "name", "")
+            entity_title = str(getattr(entity, "title", "") or getattr(entity, "name", ""))
 
             # Assess alignment using appropriate learning position method
             try:

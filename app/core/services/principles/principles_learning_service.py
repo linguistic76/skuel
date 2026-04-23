@@ -23,6 +23,7 @@ from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
+from core.models.type_hints import EntityUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -156,7 +157,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
             service=self,
             backend_get=self.backend.get,
             backend_get_user=self.backend.get_user_principles,
-            backend_create=self.backend.create,
+            backend_create=self.backend.create_principle,
             domain=Domain.PRINCIPLES,
             entity_name="principle",
             alignment_scorer=_calculate_virtue_embodiment_score,
@@ -256,7 +257,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         """
         # Use LearningAlignmentBridge with custom scorers (consolidation)
         return await self.learning_helper.assess_learning_alignment(
-            entity_uid=principle_uid, learning_position=learning_position
+            entity_uid=EntityUID(principle_uid), learning_position=learning_position
         )
 
     async def suggest_learning_supported_principles(

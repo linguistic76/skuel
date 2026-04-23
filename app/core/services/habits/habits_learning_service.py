@@ -22,7 +22,7 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.pathways.lp_position import LpPosition
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -302,5 +302,5 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         """
         # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.assess_learning_alignment(
-            entity_uid=habit_uid, learning_position=learning_position
+            entity_uid=EntityUID(habit_uid), learning_position=learning_position
         )

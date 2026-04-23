@@ -34,6 +34,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.models.goal.goal import Goal
+from core.models.type_hints import EntityUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling
@@ -231,10 +232,10 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             habit_uids = []
             if self._relationship_service:
                 knowledge_result = await self._relationship_service.get_related_uids(
-                    "knowledge", goal_uid
+                    "knowledge", EntityUID(goal_uid)
                 )
                 habits_result = await self._relationship_service.get_related_uids(
-                    "habits", goal_uid
+                    "habits", EntityUID(goal_uid)
                 )
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
                 habit_uids = habits_result.value if habits_result.is_ok else []
@@ -330,7 +331,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             knowledge_uids = []
             if self._relationship_service:
                 knowledge_result = await self._relationship_service.get_related_uids(
-                    "knowledge", goal_uid
+                    "knowledge", EntityUID(goal_uid)
                 )
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
 
