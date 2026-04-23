@@ -29,7 +29,7 @@ from core.events.calendar_event_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -214,7 +214,7 @@ class EventEventHandlerService:
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.IMBALANCE_DETECTED, event.event_uid
+                            InsightType.IMBALANCE_DETECTED, EntityUID(event.event_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.IMBALANCE_DETECTED,
@@ -223,7 +223,7 @@ class EventEventHandlerService:
                         description=f"{reschedule_count} events rescheduled recently. Consider reviewing your scheduling approach.",
                         confidence=0.85,
                         impact=InsightImpact.HIGH,
-                        entity_uid=event.event_uid,
+                        entity_uid=EntityUID(event.event_uid),
                         recommended_actions=[
                             {
                                 "action": "Add buffer time between events",
@@ -298,7 +298,7 @@ class EventEventHandlerService:
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.IMBALANCE_DETECTED, event.event_uid
+                            InsightType.IMBALANCE_DETECTED, EntityUID(event.event_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.IMBALANCE_DETECTED,
@@ -307,7 +307,7 @@ class EventEventHandlerService:
                         description=f"{events_in_week} events in the week of {event.event_date}. Consider reducing commitments.",
                         confidence=0.9,
                         impact=InsightImpact.HIGH,
-                        entity_uid=event.event_uid,
+                        entity_uid=EntityUID(event.event_uid),
                         recommended_actions=[
                             {
                                 "action": "Decline or reschedule non-essential events",
@@ -350,7 +350,7 @@ class EventEventHandlerService:
             return
 
         aligned_result = await self.relationships.get_related_uids(
-            RelationshipName.SUPPORTS_GOAL.value, event.event_uid
+            RelationshipName.SUPPORTS_GOAL.value, EntityUID(event.event_uid)
         )
         if aligned_result.is_ok and aligned_result.value:
             goal_uids = aligned_result.value

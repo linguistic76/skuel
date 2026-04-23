@@ -29,6 +29,7 @@ from core.events.principle_events import (
 from core.models.enums.principle_enums import TriggerType
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.principle.principle import Principle
+from core.models.type_hints import EntityUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -149,7 +150,7 @@ class PrincipleEventHandlerService:
             habit_uids: list[str] = []
             if self.relationships:
                 habit_result = await self.relationships.get_related_uids(
-                    "habits", event.principle_uid
+                    "habits", EntityUID(event.principle_uid)
                 )
                 if habit_result.is_ok:
                     habit_uids = habit_result.value
@@ -481,7 +482,7 @@ class PrincipleEventHandlerService:
                 impact = InsightImpact.CRITICAL if severity == "high" else InsightImpact.HIGH
                 insight = PersistedInsight(
                     uid=PersistedInsight.generate_uid(
-                        InsightType.PRINCIPLE_CONFLICT, event.principle_uid
+                        InsightType.PRINCIPLE_CONFLICT, EntityUID(event.principle_uid)
                     ),
                     user_uid=event.user_uid,
                     insight_type=InsightType.PRINCIPLE_CONFLICT,
@@ -493,7 +494,7 @@ class PrincipleEventHandlerService:
                     ),
                     confidence=0.9,
                     impact=impact,
-                    entity_uid=event.principle_uid,
+                    entity_uid=EntityUID(event.principle_uid),
                     related_entities={"principles": [event.conflicting_principle_uid]},
                     recommended_actions=resolution_guidance,
                     supporting_data={

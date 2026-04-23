@@ -33,7 +33,7 @@ from core.events.habit_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -373,7 +373,7 @@ class HabitEventHandlerService:
             if self.relationships is not None:
                 rel_result = await self.relationships.get_related_uids(
                     RelationshipName.REINFORCES_KNOWLEDGE.value,
-                    event.habit_uid,
+                    EntityUID(event.habit_uid),
                 )
                 if rel_result.is_ok:
                     knowledge_uids = rel_result.value
@@ -527,7 +527,7 @@ class HabitEventHandlerService:
                     impact = InsightImpact.HIGH if is_very_difficult else InsightImpact.MEDIUM
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.DIFFICULTY_PATTERN, event.habit_uid
+                            InsightType.DIFFICULTY_PATTERN, EntityUID(event.habit_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.DIFFICULTY_PATTERN,
@@ -536,7 +536,7 @@ class HabitEventHandlerService:
                         description=f"You've missed this habit {consecutive_misses} times in a row.",
                         confidence=0.85,
                         impact=impact,
-                        entity_uid=event.habit_uid,
+                        entity_uid=EntityUID(event.habit_uid),
                         recommended_actions=[
                             {"action": "Adjust frequency", "rationale": suggestion}
                         ]

@@ -31,6 +31,7 @@ from core.events.task_events import (
 from core.models.enums import Priority
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import coerce_float, coerce_int
@@ -165,7 +166,7 @@ class TaskEventHandlerService:
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.COMPLETION_PATTERN, event.task_uid
+                            InsightType.COMPLETION_PATTERN, EntityUID(event.task_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.COMPLETION_PATTERN,
@@ -174,7 +175,7 @@ class TaskEventHandlerService:
                         description="A task was completed past its due date. Consider adjusting time estimates.",
                         confidence=0.85,
                         impact=InsightImpact.MEDIUM,
-                        entity_uid=event.task_uid,
+                        entity_uid=EntityUID(event.task_uid),
                         supporting_data={
                             "was_overdue": True,
                         },
@@ -237,7 +238,7 @@ class TaskEventHandlerService:
             # 2. Cascade impact — find tasks that depend on this one
             if self.relationships and change_type in ("escalation", "de-escalation"):
                 depends_result = await self.relationships.get_related_uids(
-                    RelationshipName.DEPENDS_ON.value, event.task_uid
+                    RelationshipName.DEPENDS_ON.value, EntityUID(event.task_uid)
                 )
                 if depends_result.is_ok and depends_result.value:
                     affected_uids = depends_result.value
@@ -381,7 +382,7 @@ class TaskEventHandlerService:
             return
 
         aligned_result = await self.relationships.get_related_uids(
-            RelationshipName.ALIGNED_WITH_PRINCIPLE.value, event.task_uid
+            RelationshipName.ALIGNED_WITH_PRINCIPLE.value, EntityUID(event.task_uid)
         )
         if aligned_result.is_ok and aligned_result.value:
             principle_uids = aligned_result.value
@@ -399,7 +400,7 @@ class TaskEventHandlerService:
             if self.insight_store:
                 insight = PersistedInsight(
                     uid=PersistedInsight.generate_uid(
-                        InsightType.PRINCIPLE_ALIGNMENT, event.task_uid
+                        InsightType.PRINCIPLE_ALIGNMENT, EntityUID(event.task_uid)
                     ),
                     user_uid=event.user_uid,
                     insight_type=InsightType.PRINCIPLE_ALIGNMENT,
@@ -408,7 +409,7 @@ class TaskEventHandlerService:
                     description=f"Completed task contributes to {len(principle_uids)} principle(s).",
                     confidence=0.8,
                     impact=InsightImpact.LOW,
-                    entity_uid=event.task_uid,
+                    entity_uid=EntityUID(event.task_uid),
                     related_entities={"principles": principle_uids[:5]},
                     supporting_data={
                         "principle_count": len(principle_uids),
@@ -452,7 +453,7 @@ class TaskEventHandlerService:
             if self.insight_store:
                 insight = PersistedInsight(
                     uid=PersistedInsight.generate_uid(
-                        InsightType.IMBALANCE_DETECTED, event.task_uid
+                        InsightType.IMBALANCE_DETECTED, EntityUID(event.task_uid)
                     ),
                     user_uid=event.user_uid,
                     insight_type=InsightType.IMBALANCE_DETECTED,
@@ -461,7 +462,7 @@ class TaskEventHandlerService:
                     description=f"{inflation_ratio:.0%} of your tasks are high or critical priority. Consider re-evaluating priorities.",
                     confidence=0.9,
                     impact=InsightImpact.HIGH,
-                    entity_uid=event.task_uid,
+                    entity_uid=EntityUID(event.task_uid),
                     recommended_actions=[
                         {
                             "action": "Review and re-prioritize tasks",
@@ -480,7 +481,7 @@ class TaskEventHandlerService:
                         f"Failed to persist inflation insight: {create_result.error}"
                     )
 
-    async def _trigger_knowledge_generation(self, user_uid: str) -> None:
+    async def _trigger_knowledge_generation(self, user_uid: UserUID) -> None:
         """Extract and auto-publish knowledge from the user's recent completed tasks.
 
         Fire-and-forget — errors are logged, never propagated. Runs as part of
