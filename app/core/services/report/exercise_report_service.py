@@ -286,8 +286,8 @@ class ExerciseReportService:
 
             self.logger.info(f"EXERCISE_REPORT entity created: {report_entity_uid}")
 
-            student_uid = (
-                (query_result.value[0].get("student_uid") or user_uid)
+            student_uid: UserUID = (
+                UserUID(str(query_result.value[0].get("student_uid") or user_uid))
                 if query_result.value
                 else user_uid
             )
@@ -340,8 +340,14 @@ class ExerciseReportService:
         if result.is_error or not result.value:
             return
 
-        linked_uids = [record.get("ku_uid") for record in result.value if record.get("ku_uid")]
-        student_uid = result.value[0].get("student_uid") if result.value else user_uid
+        linked_uids: list[str] = [
+            str(record.get("ku_uid")) for record in result.value if record.get("ku_uid")
+        ]
+        student_uid: UserUID = (
+            UserUID(str(result.value[0].get("student_uid") or user_uid))
+            if result.value
+            else user_uid
+        )
 
         if linked_uids and self.report_mastery_service:
             await self.report_mastery_service.propagate_mastery(
@@ -385,10 +391,11 @@ class ExerciseReportService:
             return
 
         for record in result.value:
-            ku_uid = record.get("ku_uid")
-            student_uid = record.get("student_uid") or user_uid
-            if not ku_uid:
+            ku_uid_raw = record.get("ku_uid")
+            if not ku_uid_raw:
                 continue
+            ku_uid = str(ku_uid_raw)
+            student_uid = UserUID(str(record.get("student_uid") or user_uid))
 
             ai_score = mastery_impact.get_ai_score()
             mastery_result = await self.ku_interaction_service.mark_mastered(

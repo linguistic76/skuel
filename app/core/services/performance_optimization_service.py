@@ -527,7 +527,7 @@ class FastInferenceEngine:
             # Create mock request for precomputation
             mock_request = InferenceRequest(
                 request_id="precompute",
-                user_uid="system",
+                user_uid=UserUID("system"),
                 query=query,
                 context={},
                 requested_at=datetime.now(),
@@ -1019,7 +1019,7 @@ class PerformanceOptimizationService:
                     query_index = user_id * requests_per_user + req_id
                     request = InferenceRequest(
                         request_id=f"test_{user_id}_{req_id}",
-                        user_uid=f"test_user_{user_id}",
+                        user_uid=UserUID(f"test_user_{user_id}"),
                         query=test_queries[query_index],
                         context={"test_mode": True},
                         requested_at=datetime.now(),

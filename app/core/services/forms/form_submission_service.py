@@ -17,7 +17,7 @@ from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_submission_dto import FormSubmissionDTO
 from core.models.forms.form_template import FormTemplate
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.form_protocols import FormSubmissionBackendOperations, FormTemplateOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.ports.sharing_protocols import SharingOperations
@@ -177,7 +177,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
 
         if group_uid:
             result = await self.sharing_service.share_with_group(
-                entity_uid=submission_uid,
+                entity_uid=EntityUID(submission_uid),
                 owner_uid=user_uid,
                 group_uid=group_uid,
             )
@@ -187,7 +187,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         if recipient_uids:
             for recipient_uid in recipient_uids:
                 result = await self.sharing_service.share(
-                    entity_uid=submission_uid,
+                    entity_uid=EntityUID(submission_uid),
                     owner_uid=user_uid,
                     recipient_uid=recipient_uid,
                 )
@@ -207,7 +207,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         if admin_result.is_ok and admin_result.value:
             admin_uid = admin_result.value
             result = await self.sharing_service.share(
-                entity_uid=submission_uid,
+                entity_uid=EntityUID(submission_uid),
                 owner_uid=user_uid,
                 recipient_uid=admin_uid,
             )

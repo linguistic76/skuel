@@ -345,7 +345,7 @@ class PrinciplesService(
     async def get_principles_by_strength(
         self, strength: PrincipleStrength, limit: int = 100
     ) -> Result[list[Principle]]:
-        return await self.search.get_by_strength(strength, limit)
+        return await self.search.get_by_strength(strength, limit=limit)
 
     async def get_principles_by_category(
         self, category: PrincipleCategory | str, user_uid: UserUID | None = None, limit: int = 100

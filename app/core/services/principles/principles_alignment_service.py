@@ -129,7 +129,7 @@ class PrinciplesAlignmentService:
             Complete alignment assessment.
         """
         return await self._assess_entity_alignment_via_graph(
-            entity_uid=goal_uid,
+            entity_uid=EntityUID(goal_uid),
             entity_type=EntityType.GOAL,
             user_uid=user_uid,
         )
@@ -152,7 +152,7 @@ class PrinciplesAlignmentService:
             Complete alignment assessment.
         """
         return await self._assess_entity_alignment_via_graph(
-            entity_uid=habit_uid,
+            entity_uid=EntityUID(habit_uid),
             entity_type=EntityType.HABIT,
             user_uid=user_uid,
         )
@@ -375,7 +375,7 @@ class PrinciplesAlignmentService:
 
         event = PrincipleAlignmentAssessed(
             principle_uid=principle_uid,
-            entity_uid=principle_uid,
+            entity_uid=EntityUID(principle_uid),
             entity_type="principle",
             user_uid=user_uid,
             alignment_score=system_score,

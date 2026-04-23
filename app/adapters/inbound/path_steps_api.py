@@ -27,6 +27,7 @@ from core.models.pathways.pathways_request import (
     StepRelationshipCreateRequest,
     StepReorderRequest,
 )
+from core.models.type_hints import EntityUID
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
@@ -91,11 +92,12 @@ def create_path_steps_api_routes(
         request: Request, step_uid: str
     ) -> Result[dict[str, Any]]:
         """Get prerequisites for a path step."""
+        step_uid_typed = EntityUID(step_uid)
         prereq_steps_result = await ps_service.relationships.get_related_uids(
-            "prerequisite_steps", step_uid
+            "prerequisite_steps", step_uid_typed
         )
         prereq_knowledge_result = await ps_service.relationships.get_related_uids(
-            "prerequisite_knowledge", step_uid
+            "prerequisite_knowledge", step_uid_typed
         )
 
         prereq_steps = prereq_steps_result.value if prereq_steps_result.is_ok else []

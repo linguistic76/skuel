@@ -111,7 +111,7 @@ def expense_dto_to_pure(dto: ExpenseDTO) -> ExpensePure:
     """Convert ExpenseDTO to ExpensePure"""
     return ExpensePure(
         uid=dto.uid,
-        user_uid=dto.created_by or "",  # ExpenseDTO has created_by, not user_uid
+        user_uid=UserUID(dto.created_by or ""),  # ExpenseDTO has created_by, not user_uid
         amount=dto.amount,
         currency=dto.currency,
         description=dto.description,
@@ -266,7 +266,7 @@ def budget_dto_to_pure(dto: BudgetDTO) -> BudgetPure:
     """Convert BudgetDTO to BudgetPure."""
     return BudgetPure(
         uid=dto.uid,
-        user_uid=dto.user_uid or "",
+        user_uid=UserUID(dto.user_uid or ""),
         name=dto.name,
         period=dto.period,
         amount_limit=dto.amount_limit,
