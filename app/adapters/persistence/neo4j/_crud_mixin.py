@@ -218,7 +218,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             return Result.ok(entity)
 
     @safe_backend_operation("get_many")
-    async def get_many(self, uids: builtins.list[str]) -> Result[builtins.list[T]]:
+    async def get_many(self, uids: builtins.list[str]) -> Result[builtins.list[T | None]]:
         """
         Get multiple entities by UIDs in a single batched query.
 

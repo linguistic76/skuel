@@ -699,9 +699,7 @@ class UnifiedQueryBuilder:
         qb = self._ensure_query_builder()
         return await qb.validate_and_optimize(cypher)
 
-    async def validate_query(
-        self, cypher: str, context: dict[str, Any] | None = None
-    ) -> Result[Any]:
+    async def validate_query(self, cypher: str, strict_mode: bool = True) -> Result[Any]:
         """
         Validate a Cypher query without executing it.
 
@@ -710,7 +708,7 @@ class UnifiedQueryBuilder:
 
         Args:
             cypher: Cypher query to validate
-            context: Optional context for validation
+            strict_mode: If True, treat warnings as errors
 
         Returns:
             Result containing ValidationResult with issues and warnings
@@ -728,7 +726,7 @@ class UnifiedQueryBuilder:
                         print(f"{issue.severity}: {issue.message}")
         """
         qb = self._ensure_query_builder()
-        return await qb.validate_only(cypher, context)
+        return await qb.validate_only(cypher, strict_mode)
 
     def explain_query(self, cypher: str) -> str:
         """

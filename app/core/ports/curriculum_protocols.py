@@ -104,6 +104,9 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 if TYPE_CHECKING:
     from datetime import date
 
+    from core.infrastructure.relationships.semantic_relationships import (
+        SemanticRelationshipType,
+    )
     from core.models.enums.neo_labels import NeoLabel
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
@@ -849,7 +852,11 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     async def query_semantic_neighborhood(
-        self, uid: str, semantic_types: list[Any] | None, depth: int, min_confidence: float
+        self,
+        uid: str,
+        semantic_types: list[SemanticRelationshipType],
+        depth: int,
+        min_confidence: float,
     ) -> Result[list[dict[str, Any]]]:  # boundary: variable-depth graph traversal
         """Query semantic neighborhood."""
         ...

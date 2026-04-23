@@ -158,9 +158,14 @@ class PsSemanticService:
         if not source_result.is_ok or not source_result.value:
             return Result.fail(Errors.not_found(f"Path step {uid} not found"))
 
+        # None means "include all semantic relationship types"
+        resolved_types = (
+            semantic_types if semantic_types is not None else list(SemanticRelationshipType)
+        )
+
         # Execute query via backend
         results = await self.repo.query_semantic_neighborhood(
-            uid, semantic_types, depth, min_confidence
+            uid, resolved_types, depth, min_confidence
         )
 
         # Check for query errors

@@ -98,7 +98,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         self,
         uid: str,
         relationship_type: RelationshipName | str,
-        direction: str = "outgoing",
+        direction: Direction = "outgoing",
         limit: int = 100,
     ) -> Result[builtins.list[T]]:
         """
@@ -538,8 +538,8 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         if props_result.value is None:
             return Result.ok(None)
 
-        # Convert dict to EdgeMetadata
-        metadata = EdgeMetadata.from_neo4j_properties(props_result.value)
+        # Convert dict to EdgeMetadata (RelationshipMetadata TypedDict is dict-shaped at runtime)
+        metadata = EdgeMetadata.from_neo4j_properties(dict(props_result.value))
         return Result.ok(metadata)
 
     @safe_backend_operation("update_edge_metadata")

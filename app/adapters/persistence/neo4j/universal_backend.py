@@ -135,20 +135,13 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
-from core.models.query_types import QueryIntent
 from core.models.type_hints import FilterParams
-from core.utils.error_boundary import safe_backend_operation
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
-    from collections.abc import Callable
 
     from neo4j import AsyncDriver
-
-    from core.models.graph_context import GraphContext
 
 from adapters.persistence.neo4j._context_query_mixin import _ContextQueryMixin
 from adapters.persistence.neo4j._crud_mixin import _CrudMixin
@@ -424,116 +417,6 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         for k, v in self.default_filters.items():
             where_clauses.append(f"{node_var}.{k} = $_df_{k}")
             params[f"_df_{k}"] = v
-
-    # ============================================================================
-    # -4 GRAPH INTELLIGENCE INTEGRATION
-    # ============================================================================
-
-    @safe_backend_operation("get_with_graph_context")
-    async def get_with_graph_context(
-        self, uid: str, intent: QueryIntent | None = None, depth: int = 2
-    ) -> Result[tuple[T | None, GraphContext | None]]:
-        """
-        Get entity with graph context in single call using -4.
-
-        This method combines entity retrieval with graph intelligence,
-        leveraging the entity's own query building methods if available.
-
-        Args:
-            uid: Entity UID,
-            intent: Query intent (uses entity's suggested intent if not provided),
-            depth: Graph traversal depth (default 2)
-
-        Returns:
-            Tuple of (entity, graph_context) or (None, None) if not found
-
-        Example:
-            ```python
-            # Get task with graph context
-            result = await backend.get_with_graph_context(
-                "task_123", intent=QueryIntent.PREREQUISITE, GraphDepth.DEFAULT
-            )
-
-            if result.is_ok:
-                task, context = result.value
-                print(f"Task: {task.title}")
-                print(f"Connected domains: {context.domains_involved}")
-                print(f"Total relationships: {context.total_relationships}")
-            ```
-        """
-        if not self.graph_intel:
-            return Result.fail(
-                Errors.system(
-                    "Graph intelligence service is required for context queries",
-                    service="UniversalBackend",
-                    user_message="Please configure GraphIntelligenceService to use graph context features",
-                )
-            )
-
-        # Get entity first
-        entity_result = await self.get(uid)
-        if entity_result.is_error:
-            return Result.fail(entity_result)
-
-        entity = entity_result.value
-        if not entity:
-            return Result.ok((None, None))
-
-        # Determine query intent
-        query_intent = intent
-
-        # Use entity's domain logic to suggest intent if not provided
-        if not query_intent:
-            suggest_fn: Callable[[], QueryIntent] | None = getattr(
-                entity, "get_suggested_query_intent", None
-            )
-            if suggest_fn is not None:
-                try:
-                    query_intent = suggest_fn()
-                except (
-                    Exception
-                ) as e:  # skuel-lint: disable=SKUEL017 -- entity method may raise arbitrary errors
-                    self.logger.warning(f"Failed to get suggested intent: {e}")
-
-        if not query_intent:
-            query_intent = QueryIntent.SPECIFIC
-
-        # Build query via infrastructure (not entity — entities express intent, not Cypher)
-        from adapters.persistence.neo4j.query.graph_traversal import build_graph_context_query
-
-        cypher_query = build_graph_context_query(node_uid=uid, intent=query_intent, depth=depth)
-
-        # Execute graph context query
-        try:
-            context_result = await self.execute_query(cypher_query, {"uid": uid, "depth": depth})
-
-            if context_result.is_error:
-                self.logger.error(f"Graph context query failed: {context_result.error}")
-                return Result.fail(
-                    Errors.database(
-                        operation="get_graph_context",
-                        message=f"Failed to retrieve graph context for {self.label} {uid}: {context_result.error}",
-                        entity=self.label,
-                    )
-                )
-
-            graph_records = context_result.value or []
-
-            self.logger.info(
-                f"Retrieved {self.label} {uid} with graph context: {len(graph_records)} records"
-            )
-
-            return Result.ok((entity, graph_records))
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to get graph context: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="get_graph_context",
-                    message=f"Exception while retrieving graph context for {self.label} {uid}: {e!s}",
-                    entity=self.label,
-                )
-            )
 
     def _is_driver_closed(self) -> bool:
         """

@@ -8,12 +8,9 @@ import re
 from dataclasses import fields, is_dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any
 
 from core.models.enums.neo_labels import NeoLabel
-
-T = TypeVar("T")
-
 
 # =============================================================================
 # Cypher Injection Guards
@@ -101,47 +98,11 @@ def get_supported_operators() -> list[str]:
     return ["eq", "gt", "lt", "gte", "lte", "contains", "in"]
 
 
-def validate_dataclass[T](entity_class: type[T], operation: str = "operation") -> None:
-    """
-    Guard clause: verify entity_class is a dataclass before field introspection.
-
-    CypherGenerator uses ``dataclasses.fields()`` to auto-generate Cypher from model
-    structure. Passing a non-dataclass (e.g., a Pydantic model or plain class) would
-    produce a cryptic TypeError deep in field introspection. This check fails fast
-    with a clear message instead. It is NOT schema validation — it's a precondition
-    for the code that follows.
-
-    Args:
-        entity_class: Class to validate
-        operation: Name of operation for error message
-
-    Raises:
-        ValueError: If entity_class is not a dataclass
-    """
-    if not is_dataclass(entity_class):
-        raise ValueError(f"Entity class must be a dataclass for {operation}, got {entity_class}")
-
-
-def get_field_names[T](entity_class: type[T]) -> set[str]:
-    """
-    Get set of field names from a dataclass.
-
-    Args:
-        entity_class: Dataclass to get fields from
-
-    Returns:
-        Set of field names
-    """
-    return {f.name for f in fields(entity_class)}
-
-
 # Re-export for convenience
 __all__ = [
     "convert_value_for_neo4j",
-    "get_field_names",
     "get_filterable_fields",
     "get_supported_operators",
-    "validate_dataclass",
     "validate_identifier",
     "validate_label",
 ]

@@ -224,7 +224,7 @@ class _UserEntryContentMixin:
         """Batch-create SUPPORTS_GOAL relationships from an entry to goals."""
         if not goal_uids:
             return Result.ok(0)
-        relationships = [
+        relationships: list[tuple[str, str, str, dict[str, Any] | None]] = [
             (entry_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
             for goal_uid in goal_uids
         ]

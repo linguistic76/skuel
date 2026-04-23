@@ -45,7 +45,6 @@ These are consumed by the query builders above, not alternative query paths:
 |---------|---------|--------------------------|
 | `confidence_filter.py` | Cypher clause fragments for confidence filtering | Standardizes `coalesce()` patterns across all builders |
 | `convert_value_for_neo4j()` | Python→Neo4j type conversion (enums, datetimes) | Neo4j driver doesn't auto-serialize; complements Pydantic (HTTP boundary) |
-| `validate_dataclass()` | Guard clause (12 lines) before field introspection | Prevents cryptic errors when CypherGenerator receives non-dataclass types |
 | `QueryConstraint.to_cypher()` | WHERE clause fragment generation | Adapter-layer model in `adapters/persistence/` — persistence models doing persistence work |
 
 ## Query Infrastructure (October 3, 2025)
@@ -62,7 +61,7 @@ These are consumed by the query builders above, not alternative query paths:
 ├── confidence_filter.py   # Cypher clause helpers for confidence-based filtering
 ├── cypher_template.py     # Query optimization strategies
 ├── cypher/                # Cypher query generators (crud, semantic, domain, relationship, intelligence)
-│   └── _helpers.py        # Shared utilities (validate_label, validate_identifier, convert_value_for_neo4j, validate_dataclass)
+│   └── _helpers.py        # Shared utilities (validate_label, validate_identifier, convert_value_for_neo4j)
 ├── unified_query_builder.py  # UnifiedQueryBuilder — THE single entry point
 ├── __init__.py            # Clean public API
 └── README.md              # Usage documentation
