@@ -9,13 +9,14 @@ See ``docs/design-handoff/today/today.md`` for the design spec and
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus, Priority
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.page_contexts import (
     GoalView,
     KindMeta,
@@ -92,6 +93,27 @@ def _due_label(d: date | None, today: date) -> str:
     if delta == 1:
         return "Tomorrow"
     return f"In {delta}d"
+
+
+def _parse_hhmm(value: str | None) -> str | None:
+    """Parse a ``"HH:MM"`` / ``"H:MM"`` / ``"HH:MM:SS"`` string into ``"HH:MM"``.
+
+    Habit/event models store time-of-day as a free-form string (``preferred_time``,
+    ``reminder_time``) rather than a typed ``datetime.time``. Day-spine positioning
+    needs a canonical ``HH:MM``; anything unparseable drops off the spine.
+    """
+    if not value:
+        return None
+    parts = value.strip().split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        hh, mm = int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+    if not (0 <= hh < 24 and 0 <= mm < 60):
+        return None
+    return f"{hh:02d}:{mm:02d}"
 
 
 def _date_label(today: date) -> str:
@@ -183,6 +205,19 @@ class TodayOrchestrator:
             if t.due_date is not None and t.due_date < today and t.status != EntityStatus.COMPLETED
         ]
 
+        active_goals = [g for g in all_goals if g.status == EntityStatus.ACTIVE]
+        rituable_habits = [h for h in all_habits if _parse_hhmm(h.preferred_time) is not None]
+
+        # GRAPH-NATIVE: Goal→Principle (GUIDED_BY_PRINCIPLE) and Habit→Principle
+        # (EMBODIES_PRINCIPLE) live as Neo4j edges, not scalar fields. Fetch once
+        # per build, concurrently, and index into maps the mappers consume.
+        goal_principle_map = await _first_principle_map(self._goals, [g.uid for g in active_goals])
+        habit_principle_map = await _first_principle_map(
+            self._habits, [h.uid for h in rituable_habits]
+        )
+
+        lp_title = await _fetch_lp_title(self._lifepath, designation)
+
         task_views: list[TaskView] = [
             _task_to_view(t, lifepath_id=lifepath_id, today=today) for t in today_tasks_full
         ]
@@ -190,13 +225,16 @@ class TodayOrchestrator:
             _task_to_triage(t, lifepath_id=lifepath_id, today=today) for t in triage_tasks_full
         ]
 
+        # TODO(principle-streak): Principle "streak" in the Today view is an
+        # aggregate over habits that EMBODY the principle, not a Principle field.
+        # Derive from habit completions once a streak-aggregation service lands.
         principle_views: list[PrincipleView] = [
             {
                 "id": p.uid,
                 "lifepath_id": lifepath_id,
                 "label": p.title,
                 "strength": _principle_strength(p),
-                "streak": getattr(p, "streak_days", 0) or 0,
+                "streak": 0,
             }
             for p in all_principles
             if p.status != EntityStatus.ARCHIVED
@@ -205,23 +243,26 @@ class TodayOrchestrator:
         goal_views: list[GoalView] = [
             {
                 "id": g.uid,
-                "principle_id": _first_principle_for_goal(g, all_principles),
+                "principle_id": goal_principle_map.get(g.uid, ""),
                 "label": g.title,
-                "progress": _goal_progress(g),
+                "progress": g.calculate_progress(),
             }
-            for g in all_goals
-            if g.status == EntityStatus.ACTIVE
+            for g in active_goals
         ]
 
         ribbon = _build_ribbon(
             lifepath_id=lifepath_id,
             designation=designation,
+            lp_title=lp_title,
             all_tasks=all_tasks,
         )
         lifepaths: list[LifePathRibbonView] = [ribbon]
 
         rituals: list[RitualView] = _build_rituals(
-            habits=all_habits, events=all_events, today=today
+            habits=all_habits,
+            events=all_events,
+            today=today,
+            habit_principle_map=habit_principle_map,
         )
 
         stats: TodayStats = {
@@ -259,12 +300,12 @@ def _task_to_view(task: Task, *, lifepath_id: str, today: date) -> TaskView:
     return {
         "id": task.uid,
         "lifepath_id": lifepath_id,
-        "goal_id": getattr(task, "goal_uid", None),
+        "goal_id": task.fulfills_goal_uid,
         "kind": "submission",
         "label": task.title,
         "meta": task.description[:80] if task.description else "",
         "priority": _priority_label(task.priority),
-        "est_min": int(getattr(task, "estimated_minutes", 0) or 0),
+        "est_min": int(task.duration_minutes or 0),
         "due_label": _due_label(task.due_date, today),
     }
 
@@ -281,39 +322,65 @@ def _task_to_triage(task: Task, *, lifepath_id: str, today: date) -> TriageItemV
 
 
 def _principle_strength(principle: Principle) -> str:
-    raw = getattr(principle, "strength", None)
-    if raw is None:
+    """Render ``Principle.strength`` (StrEnum) as the view-layer string."""
+    if principle.strength is None:
         return "developing"
-    s = str(raw).lower()
-    if s in ("core", "strong", "moderate", "developing", "exploring"):
-        return s
-    return "developing"
+    return str(principle.strength.value)
 
 
-def _first_principle_for_goal(_goal: Goal, principles: list[Principle]) -> str:
-    # The Goal↔Principle edge is graph-native; until the orchestrator
-    # pulls enriched graph context, fall back to the first active
-    # principle so the progress bar still groups sensibly.
-    for p in principles:
-        if p.status == EntityStatus.ACTIVE:
-            return p.uid
-    return ""
+async def _first_principle_map(service: object, entity_uids: list[str]) -> dict[str, str]:
+    """Return ``{entity_uid: first_principle_uid}`` for the given entities.
+
+    Uses the ``"principles"`` relationship key, which both ``HABITS_CONFIG``
+    (EMBODIES_PRINCIPLE) and ``GOAPS_CONFIG`` (GUIDED_BY_PRINCIPLE) expose.
+    Failures degrade to "no principle linked" rather than aborting the page.
+    """
+    if not entity_uids:
+        return {}
+    relationships = service.relationships  # type: ignore[attr-defined]
+    results = await asyncio.gather(
+        *(relationships.get_related_uids("principles", uid) for uid in entity_uids),
+        return_exceptions=True,
+    )
+    mapping: dict[str, str] = {}
+    for uid, r in zip(entity_uids, results, strict=True):
+        if isinstance(r, BaseException):
+            continue
+        if r.is_error:
+            continue
+        uids: list[str] = r.value
+        if uids:
+            mapping[uid] = uids[0]
+    return mapping
 
 
-def _goal_progress(goal: Goal) -> float:
-    raw = getattr(goal, "progress", None)
-    if raw is None:
-        return 0.0
-    try:
-        return max(0.0, min(1.0, float(raw)))
-    except (TypeError, ValueError):
-        return 0.0
+async def _fetch_lp_title(lifepath_service: object, designation: object) -> str | None:
+    """Look up the designated LifePath's title via the LP service.
+
+    The title lives on the LP entity itself; ``LifePathDesignation`` only
+    carries the UID. Returns ``None`` when unavailable (no designation, no
+    wired lp_service, or fetch error) — the ribbon falls back to "Your path".
+    """
+    if designation is None:
+        return None
+    life_path_uid = getattr(designation, "life_path_uid", None)
+    if not life_path_uid:
+        return None
+    lp_service = getattr(getattr(lifepath_service, "core", None), "lp_service", None)
+    if lp_service is None:
+        return None
+    r = await lp_service.get(life_path_uid)
+    if r.is_error or r.value is None:
+        return None
+    title = getattr(r.value, "title", None)
+    return str(title) if title else None
 
 
 def _build_ribbon(
     *,
     lifepath_id: str,
     designation: object,
+    lp_title: str | None,
     all_tasks: list[Task],
 ) -> LifePathRibbonView:
     """Produce the single LifePath ribbon for the current user.
@@ -325,7 +392,7 @@ def _build_ribbon(
     now = datetime.now()
     touched_ats: list[datetime] = []
     for t in all_tasks:
-        touched = getattr(t, "updated_at", None) or getattr(t, "created_at", None)
+        touched = t.updated_at or t.created_at
         if isinstance(touched, datetime):
             touched_ats.append(touched)
     last_touched_at: datetime | None = max(touched_ats) if touched_ats else None
@@ -340,68 +407,74 @@ def _build_ribbon(
             dormant = True
             last_touched_label = f"{delta.days} days ago"
 
-    label = getattr(designation, "life_path_title", None) if designation else None
-    blurb = getattr(designation, "vision", None) if designation else None
+    vision = getattr(designation, "vision_statement", None) if designation else None
+    blurb: str | None
+    if not vision:
+        blurb = None
+    elif len(vision) < 120:
+        blurb = vision
+    else:
+        blurb = vision[:117] + "…"
 
     return {
         "id": lifepath_id,
-        "label": label or "Your path",
-        "blurb": (blurb or None)
-        if blurb is None or len(str(blurb)) < 120
-        else str(blurb)[:117] + "…",
+        "label": lp_title or "Your path",
+        "blurb": blurb,
         "color": "oklch(0.55 0.20 255)",  # token-mirrored strength.strong
         "dormant": dormant,
         "last_touched": last_touched_label,
     }
 
 
-def _build_rituals(*, habits: list[Habit], events: list[Event], today: date) -> list[RitualView]:
+def _build_rituals(
+    *,
+    habits: list[Habit],
+    events: list[Event],
+    today: date,
+    habit_principle_map: dict[str, str] | None = None,
+) -> list[RitualView]:
     """Time-anchored items for the Day spine.
 
-    Today's rituals = habits with a scheduled_time + events scheduled for
-    today with a start_time. Everything sorted chronologically.
+    Habits contribute when their ``preferred_time`` parses as ``HH:MM``;
+    events contribute when they occur today and carry a ``start_time``.
+    Everything is sorted chronologically.
     """
+    pmap = habit_principle_map or {}
     rituals: list[RitualView] = []
 
     for h in habits:
-        t = getattr(h, "scheduled_time", None)
-        if t is None:
+        parsed = _parse_hhmm(h.preferred_time)
+        if parsed is None:
             continue
         rituals.append(
             {
                 "id": h.uid,
-                "time": t.strftime("%H:%M") if hasattr(t, "strftime") else str(t),
+                "time": parsed,
                 "label": h.title,
-                "est_min": int(getattr(h, "estimated_minutes", 0) or 0),
-                "principle_id": getattr(h, "principle_uid", None),
+                "est_min": int(h.duration_minutes or 0),
+                "principle_id": pmap.get(h.uid),
             }
         )
 
     for e in events:
-        event_date = getattr(e, "event_date", None)
-        if event_date != today:
-            continue
-        start = getattr(e, "start_time", None)
-        if start is None:
+        if e.event_date != today or e.start_time is None:
             continue
         rituals.append(
             {
                 "id": e.uid,
-                "time": start.strftime("%H:%M") if hasattr(start, "strftime") else str(start),
+                "time": e.start_time.strftime("%H:%M"),
                 "label": e.title,
-                "est_min": int(getattr(e, "duration_minutes", 0) or 0),
+                "est_min": int(e.duration_minutes or 0),
                 "principle_id": None,
             }
         )
 
-    rituals.sort(key=lambda r: r["time"])
+    rituals.sort(key=_ritual_sort_key)
     return rituals
 
 
+def _ritual_sort_key(ritual: RitualView) -> str:
+    return ritual["time"]
+
+
 __all__ = ["TodayOrchestrator"]
-
-
-# Silence the "imported but unused" warning for Errors — reserved for when
-# per-domain failures become their own Result-level errors instead of
-# empty fallbacks.
-_ = Errors

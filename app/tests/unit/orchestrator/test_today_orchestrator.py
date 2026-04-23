@@ -5,7 +5,7 @@ TodayPageContext and that mapper helpers produce the right view shapes.
 Full wiring across all 7 services is exercised in integration tests.
 """
 
-from datetime import date, time, timedelta
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -16,6 +16,7 @@ from core.orchestrator.today_orchestrator import (
     TodayOrchestrator,
     _date_label,
     _due_label,
+    _parse_hhmm,
     _priority_label,
     _task_to_triage,
     _task_to_view,
@@ -64,8 +65,11 @@ def _fake_task(
     due_date: date | None = None,
     status: EntityStatus = EntityStatus.ACTIVE,
     priority: Priority = Priority.MEDIUM,
-    estimated_minutes: int = 30,
-    goal_uid: str | None = None,
+    duration_minutes: int = 30,
+    fulfills_goal_uid: str | None = None,
+    updated_at: datetime | None = None,
+    created_at: datetime | None = None,
+    completion_date: date | None = None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         uid=uid,
@@ -74,8 +78,11 @@ def _fake_task(
         due_date=due_date,
         status=status,
         priority=priority,
-        estimated_minutes=estimated_minutes,
-        goal_uid=goal_uid,
+        duration_minutes=duration_minutes,
+        fulfills_goal_uid=fulfills_goal_uid,
+        updated_at=updated_at,
+        created_at=created_at,
+        completion_date=completion_date,
     )
 
 
@@ -87,8 +94,8 @@ def test_task_to_view_produces_flat_shape() -> None:
         description="draft awaiting decision",
         due_date=today,
         priority=Priority.HIGH,
-        estimated_minutes=45,
-        goal_uid="g-ship",
+        duration_minutes=45,
+        fulfills_goal_uid="g-ship",
     )
     view = _task_to_view(t, lifepath_id="lp-mike", today=today)
     assert view["id"] == "t-adr"
@@ -137,8 +144,17 @@ def _build() -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
     services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([]))
     services["events_service"].get_user_events = AsyncMock(return_value=_ok([]))
     services["principles_service"].get_user_principles = AsyncMock(return_value=_ok([]))
+
+    # Graph-enrichment surfaces consumed by _first_principle_map.
+    services["goals_service"].relationships = MagicMock()
+    services["goals_service"].relationships.get_related_uids = AsyncMock(return_value=_ok([]))
+    services["habits_service"].relationships = MagicMock()
+    services["habits_service"].relationships.get_related_uids = AsyncMock(return_value=_ok([]))
+
     services["lifepath_service"].core = MagicMock()
     services["lifepath_service"].core.get_designation = AsyncMock(return_value=_ok(None))
+    services["lifepath_service"].core.lp_service = None  # no LP fetch in default harness
+
     orch = TodayOrchestrator(
         tasks_service=services["tasks_service"],
         goals_service=services["goals_service"],
@@ -227,21 +243,19 @@ async def test_build_context_propagates_tasks_service_failure() -> None:
 
 
 @pytest.mark.asyncio
-async def test_build_context_ritual_sorts_by_time() -> None:
+async def test_build_context_ritual_sorts_by_time_parses_preferred_time() -> None:
     orch, services = _build()
     evening_habit = SimpleNamespace(
         uid="h-evening",
         title="Evening reflect",
-        scheduled_time=time(21, 0),
-        estimated_minutes=10,
-        principle_uid="p-reflect",
+        preferred_time="21:00",
+        duration_minutes=10,
     )
     morning_habit = SimpleNamespace(
         uid="h-morning",
         title="Morning sit",
-        scheduled_time=time(7, 30),
-        estimated_minutes=20,
-        principle_uid="p-reflect",
+        preferred_time="7:30",  # short form — should still parse
+        duration_minutes=20,
     )
     services["habits_service"].get_user_habits = AsyncMock(
         return_value=_ok([evening_habit, morning_habit])
@@ -252,3 +266,111 @@ async def test_build_context_ritual_sorts_by_time() -> None:
     assert [r["id"] for r in rituals] == ["h-morning", "h-evening"]
     assert rituals[0]["time"] == "07:30"
     assert rituals[1]["time"] == "21:00"
+
+
+@pytest.mark.asyncio
+async def test_build_context_skips_habits_without_parseable_preferred_time() -> None:
+    orch, services = _build()
+    no_time = SimpleNamespace(
+        uid="h-untimed", title="Deep work", preferred_time=None, duration_minutes=45
+    )
+    bad_time = SimpleNamespace(
+        uid="h-garbled", title="Evening walk", preferred_time="whenever", duration_minutes=20
+    )
+    services["habits_service"].get_user_habits = AsyncMock(
+        return_value=_ok([no_time, bad_time])
+    )
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    assert result.value["rituals"] == []
+
+
+# ---------------------------------------------------------------------------
+# Graph enrichment — Goal → Principle, Habit → Principle
+# ---------------------------------------------------------------------------
+
+
+def test_parse_hhmm_variants() -> None:
+    assert _parse_hhmm("07:30") == "07:30"
+    assert _parse_hhmm("7:30") == "07:30"
+    assert _parse_hhmm("21:00:00") == "21:00"
+    assert _parse_hhmm("") is None
+    assert _parse_hhmm(None) is None
+    assert _parse_hhmm("morning") is None
+    assert _parse_hhmm("25:00") is None
+    assert _parse_hhmm("12:61") is None
+
+
+@pytest.mark.asyncio
+async def test_goal_principle_id_comes_from_graph_lookup() -> None:
+    orch, services = _build()
+    goal = SimpleNamespace(
+        uid="g-1",
+        title="Ship Today",
+        status=EntityStatus.ACTIVE,
+        calculate_progress=lambda: 0.4,
+    )
+    services["goals_service"].get_user_goals = AsyncMock(return_value=_ok([goal]))
+    services["goals_service"].relationships.get_related_uids = AsyncMock(
+        return_value=_ok(["p-craftsmanship", "p-depth"])
+    )
+
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    goal_views = result.value["goals"]
+    assert len(goal_views) == 1
+    assert goal_views[0]["id"] == "g-1"
+    assert goal_views[0]["principle_id"] == "p-craftsmanship"
+    assert goal_views[0]["progress"] == 0.4
+    # The graph call used the "principles" key (GUIDED_BY_PRINCIPLE under the hood).
+    services["goals_service"].relationships.get_related_uids.assert_awaited_with(
+        "principles", "g-1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_habit_ritual_principle_id_comes_from_graph_lookup() -> None:
+    orch, services = _build()
+    habit = SimpleNamespace(
+        uid="h-sit",
+        title="Morning sit",
+        preferred_time="07:00",
+        duration_minutes=20,
+    )
+    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([habit]))
+    services["habits_service"].relationships.get_related_uids = AsyncMock(
+        return_value=_ok(["p-reflect"])
+    )
+
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    rituals = result.value["rituals"]
+    assert len(rituals) == 1
+    assert rituals[0]["id"] == "h-sit"
+    assert rituals[0]["principle_id"] == "p-reflect"
+    services["habits_service"].relationships.get_related_uids.assert_awaited_with(
+        "principles", "h-sit"
+    )
+
+
+@pytest.mark.asyncio
+async def test_graph_lookup_failure_degrades_to_empty_principle() -> None:
+    """A failed principle-edge fetch should not abort the page — we just
+    render that goal/habit without a principle binding."""
+    from core.utils.result_simplified import Errors
+
+    orch, services = _build()
+    goal = SimpleNamespace(
+        uid="g-1",
+        title="Ship Today",
+        status=EntityStatus.ACTIVE,
+        calculate_progress=lambda: 0.0,
+    )
+    services["goals_service"].get_user_goals = AsyncMock(return_value=_ok([goal]))
+    services["goals_service"].relationships.get_related_uids = AsyncMock(
+        return_value=Result.fail(Errors.database("get_related_uids", "boom"))
+    )
+
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    assert result.value["goals"][0]["principle_id"] == ""
