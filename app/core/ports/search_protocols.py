@@ -686,7 +686,7 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
         ...
 
     async def get_needing_review(
-        self, user_uid: UserUID, days_since_review: int = 30, limit: int = 20
+        self, user_uid: UserUID | None = None, days_since_review: int = 30, limit: int = 20
     ) -> Result[list["Principle"]]:
         """Get principles needing review."""
         ...
