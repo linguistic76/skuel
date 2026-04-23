@@ -11,6 +11,7 @@ from typing import Any
 from fasthtml.common import H3, Div, Li, NotStr, P, Ul
 
 from adapters.inbound.path_steps_ui import _start_step_button
+from core.models.type_hints import EntityUID
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
@@ -191,7 +192,7 @@ def render_ps_detail_content(
         feedback_section,
         action_area,
         Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),
-        EntityRelationshipsSection(entity_uid=uid, entity_type="ps"),
+        EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ps"),
         cls="flex-1 min-w-0 max-w-4xl",
     )
 

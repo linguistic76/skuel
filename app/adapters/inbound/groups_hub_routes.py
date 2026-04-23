@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+from core.models.type_hints import EntityUID
 from core.services.groups.group_service import MAX_STUDENT_GROUPS
 
 if TYPE_CHECKING:
@@ -122,7 +123,7 @@ def create_groups_hub_routes(
         payload: dict[str, Any] | None = None
         if services.sharing is not None:
             result = await services.sharing.get_user_entry_shared_with_group(
-                user_uid=user_uid, group_uid=group_uid, entry_uid=entry_uid
+                user_uid=user_uid, group_uid=group_uid, entry_uid=EntityUID(entry_uid)
             )
             if not result.is_error:
                 payload = result.value
