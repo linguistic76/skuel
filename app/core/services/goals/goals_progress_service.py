@@ -209,20 +209,33 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
 
         # Parse datetime fields
-        created_at = goal_dict.get("created_at")
-        if created_at and isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at)
+        created_at_raw = goal_dict.get("created_at")
+        if isinstance(created_at_raw, str):
+            created_at: datetime = datetime.fromisoformat(created_at_raw)
+        elif isinstance(created_at_raw, datetime):
+            created_at = created_at_raw
+        else:
+            created_at = datetime.now()
 
-        updated_at = goal_dict.get("updated_at")
-        if updated_at and isinstance(updated_at, str):
-            updated_at = datetime.fromisoformat(updated_at)
+        updated_at_raw = goal_dict.get("updated_at")
+        if isinstance(updated_at_raw, str):
+            updated_at: datetime = datetime.fromisoformat(updated_at_raw)
+        elif isinstance(updated_at_raw, datetime):
+            updated_at = updated_at_raw
+        else:
+            updated_at = datetime.now()
 
         # Parse enums
         status_val = goal_dict.get("status", "active")
         status = EntityStatus(status_val) if isinstance(status_val, str) else status_val
 
         domain_val = goal_dict.get("domain")
-        domain = Domain(domain_val) if domain_val and isinstance(domain_val, str) else domain_val
+        if isinstance(domain_val, str):
+            domain: Domain = Domain(domain_val)
+        elif isinstance(domain_val, Domain):
+            domain = domain_val
+        else:
+            domain = Domain.KNOWLEDGE
 
         measurement_val = goal_dict.get("measurement_type", "milestone")
         measurement_type = (
@@ -338,7 +351,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             required_knowledge_uids=required_knowledge_uids,
             mastered_knowledge_uids=user_context.mastered_knowledge_uids,
             current_value=goal.current_value,
-            target_value=goal.target_value,
+            target_value=goal.target_value if goal.target_value is not None else 100.0,
             measurement_type=goal.measurement_type or "mixed",
             expected_progress=goal.expected_progress_percentage(),
         )
@@ -413,7 +426,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             updates["status"] = EntityStatus.COMPLETED
             updates["completion_date"] = date.today()
 
-        update_result = await self.backend.update_goal(goal_uid, updates)
+        update_result = await self.backend.update_goal(goal_uid, dict(updates))
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -442,7 +455,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 actual_duration_days=(date.today() - goal.created_at.date()).days
                 if goal.created_at
                 else None,
-                completed_ahead_of_schedule=goal.target_date and date.today() < goal.target_date
+                completed_ahead_of_schedule=date.today() < goal.target_date
                 if goal.target_date
                 else False,
             )
@@ -513,7 +526,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 updates["status"] = EntityStatus.COMPLETED
                 updates["completion_date"] = date.today()
 
-            update_result = await self.backend.update_goal(goal_uid, updates)
+            update_result = await self.backend.update_goal(goal_uid, dict(updates))
             if update_result.is_error:
                 return Result.fail(update_result)
 
@@ -540,7 +553,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                     actual_duration_days=(date.today() - goal.created_at.date()).days
                     if goal.created_at
                     else None,
-                    completed_ahead_of_schedule=goal.target_date and date.today() < goal.target_date
+                    completed_ahead_of_schedule=date.today() < goal.target_date
                     if goal.target_date
                     else False,
                 )
@@ -805,7 +818,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             metadata["progress_notes"] = progress_notes
             updates["metadata"] = metadata
 
-        update_result = await self.backend.update_goal(uid, updates)
+        update_result = await self.backend.update_goal(uid, dict(updates))
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -929,7 +942,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Update goal
         updates: GoalUpdatePayload = {"milestones": milestones}
-        update_result = await self.backend.update_goal(uid, updates)
+        update_result = await self.backend.update_goal(uid, dict(updates))
 
         if update_result.is_error:
             return Result.fail(update_result)

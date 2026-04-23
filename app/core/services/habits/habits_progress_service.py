@@ -186,8 +186,8 @@ class HabitsProgressService:
             cue=habit_dict.get("cue"),
             routine=habit_dict.get("routine"),
             reward=habit_dict.get("reward"),
-            created_at=habit_dict.get("created_at"),
-            updated_at=habit_dict.get("updated_at"),
+            created_at=habit_dict.get("created_at") or datetime.now(),
+            updated_at=habit_dict.get("updated_at") or datetime.now(),
         )
         return to_domain_model(dto, HabitDTO, Habit)
 
@@ -300,7 +300,7 @@ class HabitsProgressService:
         )
         updates["consistency_30d"] = consistency
 
-        update_result = await self.backend.update_habit(habit_uid, updates)
+        update_result = await self.backend.update_habit(habit_uid, dict(updates))
         if update_result.is_error:
             return Result.fail(update_result)
 

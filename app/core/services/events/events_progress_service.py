@@ -164,7 +164,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         domain_event = CalendarEventCompleted(
             event_uid=event_uid,
             user_uid=user_context.user_uid,
-            completion_date=event.event_date,
+            completion_date=event.event_date or date.today(),
             quality_score=quality_score,
         )
         await publish_event(self.event_bus, domain_event, self.logger)

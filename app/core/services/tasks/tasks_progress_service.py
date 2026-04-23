@@ -22,7 +22,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -188,13 +188,21 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             )
 
         # Parse datetime fields
-        created_at = task_dict.get("created_at")
-        if created_at and isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at)
+        created_at_raw = task_dict.get("created_at")
+        if isinstance(created_at_raw, str):
+            created_at: datetime = datetime.fromisoformat(created_at_raw)
+        elif isinstance(created_at_raw, datetime):
+            created_at = created_at_raw
+        else:
+            created_at = datetime.now()
 
-        updated_at = task_dict.get("updated_at")
-        if updated_at and isinstance(updated_at, str):
-            updated_at = datetime.fromisoformat(updated_at)
+        updated_at_raw = task_dict.get("updated_at")
+        if isinstance(updated_at_raw, str):
+            updated_at: datetime = datetime.fromisoformat(updated_at_raw)
+        elif isinstance(updated_at_raw, datetime):
+            updated_at = updated_at_raw
+        else:
+            updated_at = datetime.now()
 
         # Parse enums
         status_val = task_dict.get("status", "pending")
@@ -380,9 +388,9 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             )
 
         # Update task to completed
-        updates = {
+        updates: Neo4jProperties = {
             "status": EntityStatus.COMPLETED.value,
-            "completion_date": date.today(),
+            "completion_date": date.today().isoformat(),
             "actual_minutes": actual_minutes,
         }
 
@@ -436,7 +444,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             task_uid=task_uid,
             user_uid=user_context.user_uid,
             completion_time_seconds=actual_minutes * 60 if actual_minutes else None,
-            was_overdue=task.due_date and task.due_date < date.today() if task.due_date else False,
+            was_overdue=task.due_date < date.today() if task.due_date else False,
         )
         await publish_event(self.event_bus, event, self.logger)
 
