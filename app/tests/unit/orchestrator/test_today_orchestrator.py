@@ -138,6 +138,7 @@ def _build() -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
         "events_service": MagicMock(),
         "principles_service": MagicMock(),
         "lifepath_service": MagicMock(),
+        "user_relationship_service": MagicMock(),
     }
     services["tasks_service"].get_user_tasks = AsyncMock(return_value=_ok([]))
     services["goals_service"].get_user_goals = AsyncMock(return_value=_ok([]))
@@ -145,6 +146,7 @@ def _build() -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
     services["events_service"].get_user_events = AsyncMock(return_value=_ok([]))
     services["principles_service"].get_user_principles = AsyncMock(return_value=_ok([]))
     services["principles_service"].get_embodiment_rates_7d = AsyncMock(return_value=_ok({}))
+    services["user_relationship_service"].get_today_pinned = AsyncMock(return_value=_ok(set()))
 
     # Graph-enrichment surfaces consumed by _first_principle_map.
     services["goals_service"].relationships = MagicMock()
@@ -163,6 +165,7 @@ def _build() -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
         events_service=services["events_service"],
         principles_service=services["principles_service"],
         lifepath_service=services["lifepath_service"],
+        user_relationship_service=services["user_relationship_service"],
     )
     return orch, services
 
@@ -434,3 +437,88 @@ async def test_principle_embodiment_rate_degrades_to_zero_on_failure() -> None:
     principles = result.value["principles"]
     assert len(principles) == 1
     assert principles[0]["embodiment_rate"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Today-scoped pins — :PINNED_TODAY edge
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ribbon_tasks_sort_pinned_first_with_stable_order() -> None:
+    orch, services = _build()
+    today = date.today()
+    services["tasks_service"].get_user_tasks = AsyncMock(
+        return_value=_ok(
+            [
+                _fake_task(uid="t-a", due_date=today),
+                _fake_task(uid="t-b-pinned", due_date=today),
+                _fake_task(uid="t-c", due_date=today),
+                _fake_task(uid="t-d-pinned", due_date=today),
+            ]
+        )
+    )
+    services["user_relationship_service"].get_today_pinned = AsyncMock(
+        return_value=_ok({"t-b-pinned", "t-d-pinned"})
+    )
+
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    ordered = [t["id"] for t in result.value["tasks"]]
+    # Pinned first (source-order within each group), then unpinned (source-order).
+    assert ordered == ["t-b-pinned", "t-d-pinned", "t-a", "t-c"]
+    pinned_flags = {t["id"]: t["pinned"] for t in result.value["tasks"]}
+    assert pinned_flags == {
+        "t-a": False,
+        "t-b-pinned": True,
+        "t-c": False,
+        "t-d-pinned": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_triage_carries_pinned_flag_but_stays_severity_ordered() -> None:
+    orch, services = _build()
+    today = date.today()
+    # Two overdue tasks: the more-overdue one is unpinned; the less-overdue is pinned.
+    # Ribbon would sort pinned-first, triage must NOT — keep severity order.
+    services["tasks_service"].get_user_tasks = AsyncMock(
+        return_value=_ok(
+            [
+                _fake_task(uid="t-late-7d", due_date=today - timedelta(days=7)),
+                _fake_task(uid="t-late-2d-pinned", due_date=today - timedelta(days=2)),
+            ]
+        )
+    )
+    services["user_relationship_service"].get_today_pinned = AsyncMock(
+        return_value=_ok({"t-late-2d-pinned"})
+    )
+
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    triage = result.value["triage"]
+    assert [t["id"] for t in triage] == ["t-late-7d", "t-late-2d-pinned"]
+    assert triage[0]["pinned"] is False
+    assert triage[1]["pinned"] is True
+
+
+@pytest.mark.asyncio
+async def test_today_pinned_failure_degrades_to_unpinned() -> None:
+    """A failed pin fetch should not abort the page — tasks render with
+    ``pinned=False`` in source order."""
+    from core.utils.result_simplified import Errors
+
+    orch, services = _build()
+    today = date.today()
+    services["tasks_service"].get_user_tasks = AsyncMock(
+        return_value=_ok([_fake_task(uid="t-a", due_date=today)])
+    )
+    services["user_relationship_service"].get_today_pinned = AsyncMock(
+        return_value=Result.fail(Errors.database("get_today_pinned", "boom"))
+    )
+
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    tasks = result.value["tasks"]
+    assert len(tasks) == 1
+    assert tasks[0]["pinned"] is False

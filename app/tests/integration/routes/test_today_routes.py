@@ -69,9 +69,9 @@ def mock_services() -> Any:
     services.tasks.complete_task = AsyncMock(return_value=Result.ok(_make_task()))
 
     services.user_relationships = MagicMock()
-    services.user_relationships.get_pinned_entities = AsyncMock(return_value=Result.ok([]))
-    services.user_relationships.pin_entity = AsyncMock(return_value=Result.ok(True))
-    services.user_relationships.unpin_entity = AsyncMock(return_value=Result.ok(True))
+    services.user_relationships.get_today_pinned = AsyncMock(return_value=Result.ok(set()))
+    services.user_relationships.pin_for_today = AsyncMock(return_value=Result.ok(True))
+    services.user_relationships.unpin_for_today = AsyncMock(return_value=Result.ok(True))
 
     services.today_orchestrator = MagicMock()
     services.today_orchestrator.build_context = AsyncMock(
@@ -295,24 +295,26 @@ class TestTaskStar:
     async def test_unpinned_task_gets_pinned(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        mock_services.user_relationships.get_pinned_entities = AsyncMock(return_value=Result.ok([]))
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/star"](request=request, uid="task_001")
-        assert response.status_code == 204
-        mock_services.user_relationships.pin_entity.assert_awaited_once()
-        mock_services.user_relationships.unpin_entity.assert_not_called()
-
-    async def test_pinned_task_gets_unpinned(
-        self, handlers: dict[str, Any], mock_services: Any
-    ) -> None:
-        mock_services.user_relationships.get_pinned_entities = AsyncMock(
-            return_value=Result.ok(["task_001"])
+        mock_services.user_relationships.get_today_pinned = AsyncMock(
+            return_value=Result.ok(set())
         )
         request = _make_request()
         response = await handlers["/today/tasks/{uid}/star"](request=request, uid="task_001")
         assert response.status_code == 204
-        mock_services.user_relationships.unpin_entity.assert_awaited_once()
-        mock_services.user_relationships.pin_entity.assert_not_called()
+        mock_services.user_relationships.pin_for_today.assert_awaited_once()
+        mock_services.user_relationships.unpin_for_today.assert_not_called()
+
+    async def test_pinned_task_gets_unpinned(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        mock_services.user_relationships.get_today_pinned = AsyncMock(
+            return_value=Result.ok({"task_001"})
+        )
+        request = _make_request()
+        response = await handlers["/today/tasks/{uid}/star"](request=request, uid="task_001")
+        assert response.status_code == 204
+        mock_services.user_relationships.unpin_for_today.assert_awaited_once()
+        mock_services.user_relationships.pin_for_today.assert_not_called()
 
     async def test_non_owner_returns_404(
         self, handlers: dict[str, Any], mock_services: Any

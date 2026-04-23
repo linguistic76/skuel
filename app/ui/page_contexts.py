@@ -206,6 +206,10 @@ class TaskView(TypedDict):
     ``kind`` drives icon + kind-chip label; the mock defines six canonical
     kinds (submission, path-step, askesis, journal, ku, resource).
     ``due_label`` is the right-side label shown on each row.
+
+    ``pinned`` is the Today-scoped pin (see ``:PINNED_TODAY`` edge). Ribbon
+    tasks are rendered pinned-first; triage stays severity-ordered, so
+    ``pinned`` is carried through but does not reorder triage.
     """
 
     id: str
@@ -217,6 +221,7 @@ class TaskView(TypedDict):
     priority: str  # "high" | "medium" | "low"
     est_min: int
     due_label: str  # "Today", "Tonight", "Overdue · 2d"
+    pinned: bool
 
 
 class TriageItemView(TaskView):

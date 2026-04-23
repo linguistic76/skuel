@@ -154,22 +154,27 @@ def create_today_routes(
 
     @rt("/today/tasks/{uid}/star", methods=["POST"])
     async def today_task_star(request: Request, uid: str) -> Response:
-        """Toggle pin-state on a task. 204 on success."""
+        """Toggle Today-scope pin-state on a task. 204 on success.
+
+        Uses the :PINNED_TODAY edge, not the global :PINNED edge — starring
+        a task in Today must not leak into other surfaces that list the
+        user's global pins.
+        """
         user_uid = require_authenticated_user(request)
 
         ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
         if ownership_error is not None:
             return Response("Task not found", status_code=404)
 
-        pinned_result = await rels.get_pinned_entities(user_uid)
+        pinned_result = await rels.get_today_pinned(user_uid)
         already_pinned = not pinned_result.is_error and uid in pinned_result.value
 
         entity_uid = EntityUID(uid)
         user_uid_typed = UserUID(user_uid)
         toggle = (
-            await rels.unpin_entity(user_uid_typed, entity_uid)
+            await rels.unpin_for_today(user_uid_typed, entity_uid)
             if already_pinned
-            else await rels.pin_entity(user_uid_typed, entity_uid)
+            else await rels.pin_for_today(user_uid_typed, entity_uid)
         )
         if toggle.is_error:
             logger.warning(

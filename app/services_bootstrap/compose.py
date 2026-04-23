@@ -1176,6 +1176,7 @@ async def compose_services(
             events_service=activity_services["events"],
             principles_service=activity_services["principles"],
             lifepath_service=lifepath_service,
+            user_relationship_service=user_relationships,
         )
         logger.info("✅ Today Orchestrator created")
 

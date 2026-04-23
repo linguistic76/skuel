@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from core.services.lifepath.lifepath_types import LifePathDesignation
     from core.services.principles_service import PrinciplesService
     from core.services.tasks_service import TasksService
+    from core.services.user_relationship_service import UserRelationshipService
 
 
 logger = get_logger("skuel.orchestrators.today")
@@ -154,6 +155,7 @@ class TodayOrchestrator:
         events_service: EventsService,
         principles_service: PrinciplesService,
         lifepath_service: LifePathService,
+        user_relationship_service: UserRelationshipService,
     ) -> None:
         self._tasks = tasks_service
         self._goals = goals_service
@@ -161,6 +163,7 @@ class TodayOrchestrator:
         self._events = events_service
         self._principles = principles_service
         self._lifepath = lifepath_service
+        self._rels = user_relationship_service
 
     async def build_context(self, user_uid: UserUID) -> Result[TodayPageContext]:
         """Assemble the full Today page context for this user."""
@@ -168,9 +171,12 @@ class TodayOrchestrator:
         now = datetime.now()
         today = now.date()
 
-        # Six facade fetches with no data dependency between them — gather
-        # in parallel so Today's TTFB is bounded by the slowest call, not
-        # the sum of all six.
+        # Seven concurrent facade fetches with no data dependency between
+        # them. The pin fetch is launched as a background task so the main
+        # six-way gather stays inside asyncio.gather's typed-overload limit
+        # (six); both complete concurrently — TTFB is the slowest of the
+        # seven, not the sum.
+        pinned_task = asyncio.create_task(self._rels.get_today_pinned(user_uid))
         tasks_r, goals_r, principles_r, habits_r, events_r, designation_r = await asyncio.gather(
             self._tasks.get_user_tasks(user_uid),
             self._goals.get_user_goals(user_uid),
@@ -179,6 +185,7 @@ class TodayOrchestrator:
             self._events.get_user_events(user_uid),
             self._lifepath.core.get_designation(user_uid),
         )
+        pinned_r = await pinned_task
 
         if tasks_r.is_error:
             return Result.fail(tasks_r)
@@ -193,6 +200,9 @@ class TodayOrchestrator:
         all_habits: list[Habit] = habits_r.value if not habits_r.is_error else []
         all_events: list[Event] = events_r.value if not events_r.is_error else []
         designation = None if designation_r.is_error else designation_r.value
+        # Degrade pins to empty rather than aborting — a star failure is
+        # cosmetic, not a page-blocker.
+        today_pinned: set[str] = set() if pinned_r.is_error else pinned_r.value
 
         lifepath_id = (
             f"lp-{user_uid}"
@@ -230,10 +240,16 @@ class TodayOrchestrator:
         )
 
         task_views: list[TaskView] = [
-            _task_to_view(t, lifepath_id=lifepath_id, today=today) for t in today_tasks_full
+            _task_to_view(t, lifepath_id=lifepath_id, today=today, pinned=t.uid in today_pinned)
+            for t in today_tasks_full
         ]
+        # Ribbon: pinned-first, stable within each group. Triage below stays in
+        # its severity order — carrying ``pinned`` through for display without
+        # letting a user-pin jump an overdue-3d item above an overdue-7d one.
+        task_views.sort(key=lambda v: not v["pinned"])
         triage_views: list[TriageItemView] = [
-            _task_to_triage(t, lifepath_id=lifepath_id, today=today) for t in triage_tasks_full
+            _task_to_triage(t, lifepath_id=lifepath_id, today=today, pinned=t.uid in today_pinned)
+            for t in triage_tasks_full
         ]
 
         principle_views: list[PrincipleView] = [
@@ -303,7 +319,9 @@ class TodayOrchestrator:
 # ============================================================================
 
 
-def _task_to_view(task: Task, *, lifepath_id: str, today: date) -> TaskView:
+def _task_to_view(
+    task: Task, *, lifepath_id: str, today: date, pinned: bool = False
+) -> TaskView:
     return {
         "id": task.uid,
         "lifepath_id": lifepath_id,
@@ -314,11 +332,14 @@ def _task_to_view(task: Task, *, lifepath_id: str, today: date) -> TaskView:
         "priority": _priority_label(task.priority),
         "est_min": int(task.duration_minutes or 0),
         "due_label": _due_label(task.due_date, today),
+        "pinned": pinned,
     }
 
 
-def _task_to_triage(task: Task, *, lifepath_id: str, today: date) -> TriageItemView:
-    base = _task_to_view(task, lifepath_id=lifepath_id, today=today)
+def _task_to_triage(
+    task: Task, *, lifepath_id: str, today: date, pinned: bool = False
+) -> TriageItemView:
+    base = _task_to_view(task, lifepath_id=lifepath_id, today=today, pinned=pinned)
     delta = (today - task.due_date).days if task.due_date else 0
     reason = f"Overdue · {delta}d" if delta > 0 else "Blocked"
     return {
