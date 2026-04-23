@@ -19,12 +19,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
 from core.models.enums import RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.type_hints import FilterParams, Neo4jProperties
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger
@@ -295,11 +296,11 @@ class EventsHabitIntegrationService:
 
         # Fallback: Query Neo4j
         self.logger.debug(f"No rich context, querying Neo4j for habit {habit_uid} events")
-        filters = {
+        filters: FilterParams = {
             "reinforces_habit_uid": habit_uid,
             "user_uid": user_context.user_uid,
-            "event_date__gte": start_date,
-            "event_date__lte": end_date,
+            "event_date__gte": start_date.isoformat(),
+            "event_date__lte": end_date.isoformat(),
         }
 
         result = await self.backend.list(filters=filters)
@@ -341,14 +342,15 @@ class EventsHabitIntegrationService:
                 f"Context-first: Found events for {len(events_by_habit)} habits "
                 f"from rich context (no Neo4j query)"
             )
-            return Result.ok(events_by_habit)
+            # criteria.group_by_habit=True -> dict[str, list[Event]] variant
+            return Result.ok(cast("dict[str, list[Event]]", events_by_habit))
 
         # Fallback: Query Neo4j
         self.logger.debug("No rich context, querying Neo4j for habit reinforcement events")
-        filters = {
+        filters: FilterParams = {
             "user_uid": user_context.user_uid,
-            "event_date__gte": start_date,
-            "event_date__lte": end_date,
+            "event_date__gte": start_date.isoformat(),
+            "event_date__lte": end_date.isoformat(),
         }
 
         result = await self.backend.list(filters=filters)
@@ -401,10 +403,10 @@ class EventsHabitIntegrationService:
 
         # Fallback: Query Neo4j
         self.logger.debug("No rich context, querying Neo4j for at-risk habit events")
-        filters = {
+        filters: FilterParams = {
             "user_uid": user_context.user_uid,
-            "event_date__gte": start_date,
-            "event_date__lte": end_date,
+            "event_date__gte": start_date.isoformat(),
+            "event_date__lte": end_date.isoformat(),
             "status": "scheduled",
         }
 
@@ -454,9 +456,9 @@ class EventsHabitIntegrationService:
         event = to_domain_model(result.value, EventDTO, Event)
 
         # Update event
-        updates = {
+        updates: Neo4jProperties = {
             "status": "completed",
-            "completed_at": completion_date or date.today(),
+            "completed_at": (completion_date or date.today()).isoformat(),
             "quality_score": quality_score,
         }
 
@@ -505,7 +507,10 @@ class EventsHabitIntegrationService:
         Returns:
             Result containing updated event
         """
-        updates = {"status": "cancelled", "notes": f"Missed: {reason}" if reason else "Missed"}
+        updates: Neo4jProperties = {
+            "status": "cancelled",
+            "notes": f"Missed: {reason}" if reason else "Missed",
+        }
 
         result = await self.backend.update(event_uid, updates)
         if result.is_error:
@@ -582,7 +587,7 @@ class EventsHabitIntegrationService:
                 "recurrence_pattern": pattern.value,
             }
 
-            result = await self.backend.create(event_data)
+            result = await self.backend.create(Event.from_dto(EventDTO.from_dict(event_data)))
             if result.is_error:
                 self.logger.error(f"Failed to create recurring event: {result.error}")
                 continue
@@ -598,7 +603,7 @@ class EventsHabitIntegrationService:
                 event_uid=event.uid,
                 user_uid=user_context.user_uid,
                 title=event.title,
-                event_date=event.event_date,
+                event_date=event.event_date or date.today(),
                 calendar_event_type=get_enum_value(event.event_type),
             )
             await publish_event(self.event_bus, event_obj, self.logger)
@@ -637,13 +642,15 @@ class EventsHabitIntegrationService:
                 f"Context-first: Found next events for {len(next_events)} habits "
                 f"from rich context (no Neo4j query)"
             )
-            return Result.ok(next_events)
+            # criteria.find_earliest_per_habit=True -> dict[str, Event] variant;
+            # widen to Event | None for the public contract.
+            return Result.ok(cast("dict[str, Event | None]", next_events))
 
         # Fallback: Query Neo4j
         self.logger.debug("No rich context, querying Neo4j for next habit events")
-        filters = {
+        filters: FilterParams = {
             "user_uid": user_context.user_uid,
-            "event_date__gte": today,
+            "event_date__gte": today.isoformat(),
             "status": "scheduled",
         }
 
@@ -673,4 +680,6 @@ class EventsHabitIntegrationService:
             ):
                 next_events_fallback[habit_uid] = event
 
-        return Result.ok(next_events_fallback)
+        # Widen to match the Result[dict[str, Event | None]] public contract
+        # (our local dict only ever contains Event values, never None).
+        return Result.ok(cast("dict[str, Event | None]", next_events_fallback))
