@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.lifepath.lifepath_service import LifePathService
+    from core.services.lifepath.lifepath_types import LifePathDesignation
     from core.services.principles_service import PrinciplesService
     from core.services.tasks_service import TasksService
 
@@ -354,32 +355,31 @@ async def _first_principle_map(service: object, entity_uids: list[str]) -> dict[
     return mapping
 
 
-async def _fetch_lp_title(lifepath_service: object, designation: object) -> str | None:
+async def _fetch_lp_title(
+    lifepath_service: LifePathService, designation: LifePathDesignation | None
+) -> str | None:
     """Look up the designated LifePath's title via the LP service.
 
     The title lives on the LP entity itself; ``LifePathDesignation`` only
     carries the UID. Returns ``None`` when unavailable (no designation, no
     wired lp_service, or fetch error) — the ribbon falls back to "Your path".
     """
-    if designation is None:
+    if designation is None or not designation.life_path_uid:
         return None
-    life_path_uid = getattr(designation, "life_path_uid", None)
-    if not life_path_uid:
-        return None
-    lp_service = getattr(getattr(lifepath_service, "core", None), "lp_service", None)
+    lp_service = lifepath_service.core.lp_service
     if lp_service is None:
         return None
-    r = await lp_service.get(life_path_uid)
+    r = await lp_service.get(designation.life_path_uid)
     if r.is_error or r.value is None:
         return None
-    title = getattr(r.value, "title", None)
+    title = r.value.title
     return str(title) if title else None
 
 
 def _build_ribbon(
     *,
     lifepath_id: str,
-    designation: object,
+    designation: LifePathDesignation | None,
     lp_title: str | None,
     all_tasks: list[Task],
 ) -> LifePathRibbonView:
@@ -407,7 +407,7 @@ def _build_ribbon(
             dormant = True
             last_touched_label = f"{delta.days} days ago"
 
-    vision = getattr(designation, "vision_statement", None) if designation else None
+    vision = designation.vision_statement if designation else None
     blurb: str | None
     if not vision:
         blurb = None
