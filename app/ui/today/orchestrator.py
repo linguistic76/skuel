@@ -172,12 +172,19 @@ class TodayOrchestrator:
         now = datetime.now()
         today = now.date()
 
-        tasks_r = await self._tasks.get_user_tasks(user_uid)
-        goals_r = await self._goals.get_user_goals(user_uid)
-        principles_r = await self._principles.get_user_principles(user_uid)
-        habits_r = await self._habits.get_user_habits(user_uid)
-        events_r = await self._events.get_user_events(user_uid)
-        designation_r = await self._lifepath.core.get_designation(user_uid)
+        # Six facade fetches with no data dependency between them — gather
+        # in parallel so Today's TTFB is bounded by the slowest call, not
+        # the sum of all six.
+        tasks_r, goals_r, principles_r, habits_r, events_r, designation_r = (
+            await asyncio.gather(
+                self._tasks.get_user_tasks(user_uid),
+                self._goals.get_user_goals(user_uid),
+                self._principles.get_user_principles(user_uid),
+                self._habits.get_user_habits(user_uid),
+                self._events.get_user_events(user_uid),
+                self._lifepath.core.get_designation(user_uid),
+            )
+        )
 
         if tasks_r.is_error:
             return Result.fail(tasks_r)

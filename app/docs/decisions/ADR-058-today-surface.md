@@ -119,7 +119,7 @@ usage data shows `/home` traffic has fallen off.
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | Users disoriented by landing change | Low | Low | Brand link and icon nav both advertise `/today`; `/home` still resolves for muscle memory |
-| `build_today_context` latency on MEGA-QUERY miss | Medium | Medium | Reuses `build_rich()` which is already the hot path; no new round-trips |
+| Today assembly latency across 6 facade fetches | Medium | Medium | Orchestrator wraps the six independent reads (tasks / goals / principles / habits / events / LifePath designation) in a single `asyncio.gather`, so TTFB is bounded by the slowest facade, not the sum. Principle-edge fan-out is also gathered inside `_first_principle_map`. If p95 regresses once production traffic lands, the remaining optimization is folding Today's reads into `build_rich()` / MEGA-QUERY. |
 | Drag-to-defer accidentally triggered on touch | Low | Low | Handoff spec defines a 70px threshold; `prefers-reduced-motion` disables drag entirely |
 
 ---
@@ -131,11 +131,11 @@ usage data shows `/home` traffic has fallen off.
 - `adapters/inbound/auth_ui.py` — redirect targets `/today` for non-admins
 - `adapters/inbound/home_routes.py` — `/home` retained as regression guard
 - `ui/today/page.py`, `ui/today/drawer.py` — FastHTML translation of the handoff
+- `ui/today/orchestrator.py` — `TodayOrchestrator.build_context()` assembles the view shape. Lives under `ui/` (not `core/services/`) because the output is a page context, not a service-layer contract; putting it in `core/` would invert the `core → ui` import direction.
 - `ui/layouts/navbar.py`, `ui/layouts/nav_config.py` — brand + icon nav point at Today
 - `static/js/today.js` — Alpine `today` factory, shipped verbatim from the mock
 - `static/css/today.css`, `static/css/input.css` — task-row / defer-backdrop styles + strength tokens
-- `core/services/user/user_context_intelligence.py` — `build_today_context()` resolver
-- `core/ports/query_types.py` — `TodayContext`, `TodayStats`, `LifePathRibbonView`, `TriageItem`, `RitualView`, `KindMeta` TypedDicts
+- `ui/page_contexts.py` — `TodayPageContext`, `TodayStats`, `LifePathRibbonView`, `TriageItemView`, `RitualView`, `KindMeta`, `TaskView`, `GoalView`, `PrincipleView` TypedDicts (page contexts are UI concerns; not in `core/ports/`)
 
 ### Endpoints (see `today.md` §5 for full signatures)
 - `GET  /today` — full page via `BasePage(active_page="today")`
@@ -145,7 +145,10 @@ usage data shows `/home` traffic has fallen off.
 - `POST /today/tasks/{id}/star` — toggle priority pin, 204
 - `POST /today/lifepaths/{id}/wake` — clear dormant flag, returns ribbon fragment
 
-Every task-scoped route enforces ownership via `require_owned_entity`.
+Every task-scoped route enforces ownership via `verify_entity_ownership`
+(the API-style helper from `route_factories.route_helpers` — returns an
+error `Result` for HTMX fragments/204s; the UI-style `require_owned_entity`
+would be wrong here since these endpoints return fragments, not full pages).
 
 ---
 
