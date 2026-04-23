@@ -163,7 +163,10 @@ class TodayStats(TypedDict):
 
 
 class LifePathRibbonView(TypedDict):
-    """One row per LifePath on the Today page.
+    """The user's LifePath ribbon on the Today page.
+
+    One LifePath per user is a design invariant, so the ``lifepaths`` list
+    on ``TodayPageContext`` is always length-1.
 
     ``dormant=True`` renders the collapsed nudge variant (wake button, no
     ribbon body); the orchestrator sets it when the LifePath has had no
@@ -251,7 +254,9 @@ class TodayPageContext(TypedDict):
     it client-side. This keeps SSR output and the Day spine's ``NOW`` marker
     consistent.
 
-    ``lifepaths`` MUST be sorted active-first, dormant-last.
+    ``lifepaths`` is length-1 (one LifePath per user). The list shape is
+    retained so the renderer iterates uniformly; dormancy is a per-ribbon
+    flag on ``LifePathRibbonView``, not a sort order.
     """
 
     date_label: str  # "Saturday · March 22"

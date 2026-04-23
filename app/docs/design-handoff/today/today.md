@@ -10,10 +10,11 @@
 The Today surface is the user's daily anchor.  It answers one question:
 **"Given my life commitments, what am I doing in the next 16 hours?"**
 
-It presents one ribbon per LifePath, with a *Triage* bar above for overdue /
-blocked items and a *Day spine* on the right for time-anchored rituals.
-Dormant LifePaths collapse to a single-line nudge.  An empty day intentionally
-encourages the user to stop — SKUEL does not manufacture work.
+It presents the user's LifePath as a single ribbon (one LifePath per user is
+a design invariant), with a *Triage* bar above for overdue / blocked items
+and a *Day spine* on the right for time-anchored rituals. A dormant LifePath
+collapses to a single-line nudge.  An empty day intentionally encourages the
+user to stop — SKUEL does not manufacture work.
 
 This surface is **read-dominant** but supports a small number of mutations
 (complete, defer, wake) inline.  Deeper edits happen in their own surfaces

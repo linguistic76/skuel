@@ -137,18 +137,14 @@ class TodayOrchestrator:
     - ``build_context()`` issues several independent reads. Failure in one
       domain degrades that section rather than failing the whole page (the
       user's day is still useful without habit rituals).
-    - ``lifepaths`` is always a single ribbon keyed off the user's
-      ``life_path_uid``. The design mock groups principles under multiple
-      lifepaths, but SKUEL's current model is one-lifepath-per-user; a
-      real multi-lifepath grouping is a future refactor (see TODO below).
+    - ``lifepaths`` is always a length-1 list keyed off the user's
+      ``life_path_uid``. One LifePath per user is a design invariant
+      (LearningPaths are the multi-per-user concept) — the list shape is
+      retained so ribbon rendering can iterate uniformly.
     - ``now_hhmm`` is server-clock. Client-side drift would misplace the
       NOW line on the Day spine relative to server-computed ritual
       positions — stay consistent.
     """
-
-    # TODO(multi-lifepath): when the model supports multiple LifePaths per
-    # user, group principles by their :BELONGS_TO LifePath edge and emit
-    # one ``LifePathRibbonView`` per lifepath, sorted active-first.
 
     def __init__(
         self,
@@ -390,11 +386,11 @@ def _build_ribbon(
     lp_title: str | None,
     all_tasks: list[Task],
 ) -> LifePathRibbonView:
-    """Produce the single LifePath ribbon for the current user.
+    """Produce the LifePath ribbon for the current user.
 
     ``dormant`` fires when no task has been touched in the last
-    ``_DORMANCY_DAYS``. When the model grows multi-lifepath support
-    this logic will move into a per-lifepath loop (see TODO on class).
+    ``_DORMANCY_DAYS``. One LifePath per user is a design invariant, so
+    this produces exactly one ribbon (callers wrap it in a length-1 list).
     """
     now = datetime.now()
     touched_ats: list[datetime] = []
