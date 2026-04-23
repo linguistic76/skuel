@@ -1167,7 +1167,7 @@ async def compose_services(
         )
         logger.info("✅ Calendar Optimization Orchestrator created")
 
-        from core.orchestrator.today_orchestrator import TodayOrchestrator
+        from ui.today.orchestrator import TodayOrchestrator
 
         today_orchestrator = TodayOrchestrator(
             tasks_service=activity_services["tasks"],

@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
-    from core.orchestrator.today_orchestrator import TodayOrchestrator
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
@@ -75,6 +74,7 @@ if TYPE_CHECKING:
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
     from core.services.user_service import UserService
+    from ui.today.orchestrator import TodayOrchestrator
 
 from core.ports import (
     AskesisCoreOperations,

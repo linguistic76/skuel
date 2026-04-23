@@ -12,7 +12,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums import EntityStatus, Priority
-from core.orchestrator.today_orchestrator import (
+from core.utils.result_simplified import Result
+from ui.today.orchestrator import (
     TodayOrchestrator,
     _date_label,
     _due_label,
@@ -21,7 +22,6 @@ from core.orchestrator.today_orchestrator import (
     _task_to_triage,
     _task_to_view,
 )
-from core.utils.result_simplified import Result
 
 # ---------------------------------------------------------------------------
 # Mapper helpers
@@ -277,9 +277,7 @@ async def test_build_context_skips_habits_without_parseable_preferred_time() -> 
     bad_time = SimpleNamespace(
         uid="h-garbled", title="Evening walk", preferred_time="whenever", duration_minutes=20
     )
-    services["habits_service"].get_user_habits = AsyncMock(
-        return_value=_ok([no_time, bad_time])
-    )
+    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([no_time, bad_time]))
     result = await orch.build_context("u-mike")
     assert not result.is_error
     assert result.value["rituals"] == []

@@ -148,8 +148,8 @@ class KuIndexContext(TypedDict, total=False):
 # Today Surface Context
 # ============================================================================
 # Flat UI-shape views used by the Today page (ui/today/). The orchestrator
-# (core/orchestrator/today_orchestrator.py) produces these; the UI consumes
-# them without ever touching the underlying domain models.
+# (ui/today/orchestrator.py) produces these; the UI consumes them without
+# ever touching the underlying domain models.
 #
 # See docs/design-handoff/today/today.md (paired spec) for field semantics.
 

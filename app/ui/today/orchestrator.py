@@ -1,10 +1,12 @@
 """Today Orchestrator.
 
 Produces the ``TodayPageContext`` consumed by ``ui/today/page.py``. One
-method, one shape, no UI concerns leaking into the service layer.
+method, one shape. Lives in ``ui/today/`` — alongside its sole consumer
+and the ``TodayPageContext`` TypedDict in ``ui/page_contexts.py`` —
+because the output is a view shape, not a service-layer contract.
 
 See ``docs/design-handoff/today/today.md`` for the design spec and
-``ui/page_contexts.py`` for the TypedDicts defined here.
+``ui/page_contexts.py`` for the TypedDicts produced here.
 """
 
 from __future__ import annotations
