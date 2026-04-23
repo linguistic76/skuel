@@ -43,11 +43,11 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties
+from core.ports.query_types import BlockingChainResult, RelationshipGraphData
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports.query_types import BlockingChainResult, RelationshipGraphData
     from core.ports.service_protocols import (
         LateralRelationshipOperations,
         OwnershipVerifier,
