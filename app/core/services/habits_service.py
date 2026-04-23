@@ -185,11 +185,26 @@ class HabitsService(
     _config = create_activity_domain_config(
         dto_class=HabitDTO,
         model_class=Habit,
-        entity_label="Entity",
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(EntityStatus.ARCHIVED.value,),
     )
+
+    # ========================================================================
+    # CLASS-LEVEL TYPE ANNOTATIONS
+    # ========================================================================
+    core: HabitsCoreService
+    search: HabitsSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
+    completions: HabitsCompletionService
+    progress: HabitsProgressService
+    scheduling: HabitsSchedulingService
+    planning: HabitsPlanningService
+    learning: HabitsLearningService
+    relationships: UnifiedRelationshipService
+    intelligence: HabitsIntelligenceService
+    event_handler: HabitEventHandlerService
+    patterns: HabitsPatternService
+    ai: HabitsAIService | None
 
     # ========================================================================
     # DELEGATION METHODS
@@ -551,8 +566,8 @@ class HabitsService(
         assert common.search is not None  # 'search' not in skip
         assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
-        self.search: HabitsSearchOperations = common.search  # type: ignore[assignment]  # base SearchOperationsMixin declares search as callable; we shadow with domain service
-        self.relationships: UnifiedRelationshipService = common.relationships
+        self.search = common.search
+        self.relationships = common.relationships
 
         from core.services.habits.habits_intelligence_service import (
             HabitsIntelligenceService as _HabitsIntelligenceService,

@@ -187,6 +187,17 @@ class ChoicesService(
     )
 
     # ========================================================================
+    # CLASS-LEVEL TYPE ANNOTATIONS
+    # ========================================================================
+    core: ChoicesCoreService
+    search: ChoicesSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
+    learning: ChoicesLearningService
+    relationships: UnifiedRelationshipService
+    intelligence: ChoicesIntelligenceService
+    event_handler: ChoiceEventHandlerService
+    ai: ChoicesAIService | None
+
+    # ========================================================================
     # DELEGATION METHODS
     # ========================================================================
 
@@ -403,8 +414,8 @@ class ChoicesService(
         assert common.search is not None  # 'search' not in skip
         assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
-        self.search: ChoicesSearchOperations = common.search  # type: ignore[assignment]  # base SearchOperationsMixin declares search as callable; we shadow with domain service
-        self.relationships: UnifiedRelationshipService = common.relationships
+        self.search = common.search
+        self.relationships = common.relationships
 
         from core.services.choices.choices_intelligence_service import (
             ChoicesIntelligenceService as _ChoicesIntelligenceService,

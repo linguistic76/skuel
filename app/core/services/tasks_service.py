@@ -22,6 +22,7 @@ from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
@@ -263,7 +264,6 @@ class TasksService(
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Entity",
     )
 
     # ========================================================================
@@ -277,17 +277,16 @@ class TasksService(
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
     ai: TasksAIService | None
-    # TasksProductivityService shelved (2026-03-28)
     event_handler: TaskEventHandlerService
 
     def __init__(
         self,
         backend: TasksOperations,
         cross_domain_query: CrossDomainQueryService,
-        graph_intel: GraphIntelligenceService | None = None,
+        graph_intel: GraphIntelligenceService,
         ku_inference_service: EntityInferenceService | None = None,
         ku_generation_service: InsightGenerationService | None = None,
-        event_bus=None,
+        event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: TasksAIService | None = None,
@@ -297,14 +296,18 @@ class TasksService(
 
         Args:
             backend: Protocol-based backend for task operations
-            cross_domain_query: Cross-domain query service (required)
-            graph_intel: GraphIntelligenceService for pure Cypher analytics (required)
-            ku_inference_service: Service for automatic knowledge inference (required)
-            ku_generation_service: InsightGenerationService for automatic knowledge generation (required)
+            cross_domain_query: Cross-domain query service (REQUIRED)
+            graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            ku_inference_service: Service for automatic knowledge inference (optional)
+            ku_generation_service: InsightGenerationService for knowledge generation (optional)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: For persisting event-driven insights (optional)
             activity_knowledge_intelligence: Shared knowledge intelligence singleton (optional)
             ai_service: Optional AI service — None when INTELLIGENCE_TIER=core (optional)
+
+        Migration Note (2026-04-22):
+            Made graph_intel REQUIRED — TasksIntelligenceService construction needs it.
+            Fail-fast at construction, not at method call. Matches Goals v3.2.0.
         """
         super().__init__(backend, "tasks")
 
@@ -347,8 +350,6 @@ class TasksService(
             event_bus=event_bus,
             insight_store=insight_store,
         )
-
-        # TasksProductivityService shelved (2026-03-28)
 
         # Domain-specific sub-services
         self.learning: TasksLearningService = common.learning

@@ -78,6 +78,7 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import GoalsSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.goals.goals_ai_service import GoalsAIService
+    from core.services.goals.goals_core_service import GoalsCoreService
     from core.services.goals.goals_scheduling_service import (
         AchievabilityResult,
         GoalCapacityResult,
@@ -209,11 +210,23 @@ class GoalsService(
         dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
-        entity_label="Entity",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value),
         category_field="domain",  # Goals use 'domain' field for categorization
     )
+
+    # ========================================================================
+    # CLASS-LEVEL TYPE ANNOTATIONS
+    # ========================================================================
+    core: GoalsCoreService
+    search: GoalsSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
+    progress: GoalsProgressService
+    scheduling: GoalsSchedulingService
+    learning: GoalsLearningService
+    relationships: UnifiedRelationshipService
+    intelligence: GoalsIntelligenceService
+    event_handler: GoalEventHandlerService
+    ai: GoalsAIService | None
 
     # ========================================================================
     # DELEGATION METHODS
@@ -545,8 +558,6 @@ class GoalsService(
         # Initialize core, search, relationships, event_handler, learning, and
         # knowledge_intelligence via factory. intelligence is skipped because it
         # needs progress_service, which is created below.
-        from core.services.goals.goals_core_service import GoalsCoreService
-
         common: CommonSubServices[
             GoalsCoreService, GoalsSearchOperations, GoalsIntelligenceService
         ] = create_common_sub_services(
@@ -561,9 +572,9 @@ class GoalsService(
         assert common.core is not None  # 'core' not in skip
         assert common.search is not None  # 'search' not in skip
         assert common.relationships is not None  # 'relationships' not in skip
-        self.core: GoalsCoreService = common.core
-        self.search: GoalsSearchOperations = common.search  # type: ignore[assignment]  # base SearchOperationsMixin declares search as callable; we shadow with domain service
-        self.relationships: UnifiedRelationshipService = common.relationships
+        self.core = common.core
+        self.search = common.search
+        self.relationships = common.relationships
 
         # Domain-specific sub-services that need relationships
         self.progress = GoalsProgressService(

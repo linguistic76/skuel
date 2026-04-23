@@ -178,7 +178,6 @@ class EventsService(
     _config = create_activity_domain_config(
         dto_class=EventDTO,
         model_class=Event,
-        entity_label="Entity",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),

@@ -565,10 +565,11 @@ async def services(neo4j_driver):
         graph_intel=mock_graph_intel,
     )
 
-    # Create Tasks service
+    # Create Tasks service (requires graph_intel + cross_domain_query)
     tasks_service = TasksService(
         backend=tasks_backend,
         cross_domain_query=cross_domain_query,
+        graph_intel=mock_graph_intel,
     )
 
     # Create Goals service (requires graph_intel + cross_domain_query)

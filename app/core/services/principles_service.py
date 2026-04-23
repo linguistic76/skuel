@@ -64,9 +64,12 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.models.principle.principle_types import PrincipleDecision
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import PrinciplesSearchOperations
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+    from core.services.insight.insight_store import InsightStore
     from core.services.principles.principle_event_handler_service import (
         PrincipleEventHandlerService,
     )
@@ -209,6 +212,19 @@ class PrinciplesService(
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
     )
+
+    # ========================================================================
+    # CLASS-LEVEL TYPE ANNOTATIONS
+    # ========================================================================
+    core: PrinciplesCoreService
+    search: PrinciplesSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
+    alignment: PrinciplesAlignmentService
+    planning: PrinciplesPlanningService
+    learning: PrinciplesLearningService
+    relationships: UnifiedRelationshipService
+    intelligence: PrinciplesIntelligenceService
+    event_handler: PrincipleEventHandlerService
+    ai: PrinciplesAIService | None
 
     # ========================================================================
     # DELEGATION METHODS
@@ -372,8 +388,6 @@ class PrinciplesService(
     ) -> Result[list[Principle]]:
         return await self.search.get_for_choice(choice_uid, limit)
 
-    # PrinciplesReflectionService shelved (2026-03-28)
-
     # Planning delegations
     async def get_principles_needing_attention_for_user(
         self,
@@ -402,10 +416,10 @@ class PrinciplesService(
     def __init__(
         self,
         backend: PrinciplesOperations,
-        graph_intel: Any,
+        graph_intel: GraphIntelligenceService,
         cross_domain_query: CrossDomainQueryService,
-        event_bus: Any = None,
-        insight_store: Any = None,
+        event_bus: EventBusOperations | None = None,
+        insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: PrinciplesAIService | None = None,
     ) -> None:
@@ -445,9 +459,9 @@ class PrinciplesService(
         assert common.relationships is not None  # 'relationships' not in skip
         assert common.intelligence is not None  # 'intelligence' not in skip
         self.core = common.core
-        self.search: PrinciplesSearchOperations = common.search  # type: ignore[assignment]  # base SearchOperationsMixin declares search as callable; we shadow with domain service
-        self.relationships: UnifiedRelationshipService = common.relationships
-        self.intelligence: PrinciplesIntelligenceService = common.intelligence
+        self.search = common.search
+        self.relationships = common.relationships
+        self.intelligence = common.intelligence
 
         # Domain-specific sub-services (not common to all facades)
         self.alignment = PrinciplesAlignmentService(
@@ -456,8 +470,6 @@ class PrinciplesService(
             event_bus=event_bus,
         )
         self.learning: PrinciplesLearningService = common.learning
-
-        # PrinciplesReflectionService shelved (2026-03-28)
 
         # Planning sub-service (January 2026 - context-aware recommendations)
         self.planning = PrinciplesPlanningService(
