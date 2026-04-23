@@ -32,7 +32,7 @@ from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_value
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
@@ -320,7 +320,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                 event_uid=event.uid,
                 user_uid=event.user_uid,
                 title=event.title,
-                event_date=event.event_date,
+                event_date=event.event_date or date.today(),
                 calendar_event_type=get_enum_value(event.event_type)
                 if event.event_type
                 else "meeting",
@@ -389,7 +389,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                 domain_event = CalendarEventCompleted(
                     event_uid=event.uid,
                     user_uid=event.user_uid,
-                    completion_date=event.event_date,
+                    completion_date=event.event_date or date.today(),
                     quality_score=updates.get("quality_score"),
                 )
                 await publish_event(self.event_bus, domain_event, self.logger)
@@ -485,7 +485,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             return Result.fail(current_result)
         current_event = self._to_domain_model(current_result.value, EventDTO, Event)
 
-        hierarchy_result = await self.backend.get_hierarchy_raw(event_uid)
+        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(event_uid))
         if hierarchy_result.is_error:
             return Result.fail(hierarchy_result)
 

@@ -8,7 +8,7 @@ Handles basic CRUD operations for choices.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
 from core.events.choice_events import (
@@ -23,7 +23,7 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -219,11 +219,11 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         )
 
         # Create choice in backend (use generic create, not domain-specific create_choice)
-        create_result = await self.backend.create(dto)
+        create_result = await self._create_and_convert(dto.to_dict(), ChoiceDTO, Choice)
         if create_result.is_error:
             return create_result
 
-        # Backend returns domain model directly, no conversion needed
+        # _create_and_convert returns domain model
         choice = create_result.value
 
         # Create knowledge relationships if provided
@@ -454,7 +454,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Publish ChoiceDeleted event (event-driven architecture)
         event = ChoiceDeleted(
             choice_uid=choice_uid,
-            user_uid=user_uid,
+            user_uid=UserUID(user_uid),
             choice_description=choice_description or choice_uid,
         )
         await publish_event(self.event_bus, event, self.logger)
@@ -536,7 +536,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             Result containing updated Choice
         """
         # Update choice with selected option directly via backend
-        updates = {
+        updates: Neo4jProperties = {
             "selected_option_uid": selected_option_uid,
             "decision_rationale": decision_rationale,
             "decided_at": datetime.now().isoformat(),
@@ -723,7 +723,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update choice with new options
         dto = existing.to_dto()
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = list(updated_options)
+        dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
@@ -852,7 +852,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update choice with modified options
         dto = existing.to_dto()
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = list(updated_options)
+        dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
@@ -955,7 +955,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update choice with remaining options
         dto = existing.to_dto()
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = list(updated_options)
+        dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
@@ -1006,7 +1006,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             return Result.fail(current_result)
         current_choice = self._to_domain_model(current_result.value, ChoiceDTO, Choice)
 
-        hierarchy_result = await self.backend.get_hierarchy_raw(choice_uid)
+        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(choice_uid))
         if hierarchy_result.is_error:
             return Result.fail(hierarchy_result)
 

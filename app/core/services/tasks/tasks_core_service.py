@@ -19,9 +19,9 @@ Handles basic task lifecycle management.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -257,7 +257,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Create knowledge relationships from request using batch operation for performance
-        relationships: list[tuple[str, str, str, None]] = []
+        relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
 
         if task_request.applies_knowledge_uids:
             relationships.extend(
@@ -497,7 +497,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         completed_count = 0
 
         for task_uid in task_uids:
-            result = await self.backend.update(task_uid, updates)
+            result = await self.backend.update(task_uid, cast("Neo4jProperties", updates))
             if result.is_ok:
                 completed_count += 1
 
@@ -544,7 +544,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         # Publish TaskDeleted event if deletion succeeded
         if result.is_ok:
-            event = TaskDeleted(task_uid=task_uid, user_uid=user_uid)
+            event = TaskDeleted(task_uid=task_uid, user_uid=UserUID(str(user_uid or "")))
             await publish_event(self.event_bus, event, self.logger)
 
         return result
@@ -580,7 +580,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             return Result.fail(current_result)
         current_task = self._to_domain_model(current_result.value, TaskDTO, Task)
 
-        hierarchy_result = await self.backend.get_hierarchy_raw(task_uid)
+        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(task_uid))
         if hierarchy_result.is_error:
             return Result.fail(hierarchy_result)
 
