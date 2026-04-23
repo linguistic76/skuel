@@ -22,7 +22,7 @@ See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.entity_dto import EntityDTO
 from core.models.enums.entity_enums import EntityType
@@ -216,7 +216,7 @@ class UnifiedSharingService:
         record = records[0]
         owner_uid_val = record["owner_uid"]
         visibility = (
-            Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
+            Visibility(str(record["visibility"])) if record["visibility"] else Visibility.PRIVATE
         )
         entity_type = record["entity_type"]
         has_share = record["has_direct_share"] or record["has_group_share"]
@@ -249,8 +249,8 @@ class UnifiedSharingService:
         if not records:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
 
-        status = records[0]["status"]
-        entity_type = records[0]["entity_type"]
+        status = str(records[0]["status"] or "")
+        entity_type = str(records[0]["entity_type"] or "")
         return self._check_shareable(status, entity_type)
 
     # =========================================================================
@@ -276,7 +276,10 @@ class UnifiedSharingService:
         result = await self.backend.query_shared_with_me(user_uid=user_uid, limit=limit)
         if result.is_error:
             return Result.fail(result)
-        entities = [EntityDTO.from_dict(record["ku"]) for record in (result.value or [])]
+        entities = [
+            EntityDTO.from_dict(cast("dict[str, Any]", record["ku"]))
+            for record in (result.value or [])
+        ]
         return Result.ok(entities)
 
     # =========================================================================
@@ -305,7 +308,7 @@ class UnifiedSharingService:
 
         result = await self.backend.create_group_share(
             entity_uid=entity_uid,
-            owner_uid=owner_uid,
+            owner_uid=UserUID(owner_uid),
             group_uid=group_uid,
             share_version=share_version,
             shared_at=datetime.now().isoformat(),
@@ -378,7 +381,7 @@ class UnifiedSharingService:
         records = result.value or []
         entities: list[dict[str, Any]] = [
             {
-                "entity": dict(r["entity"]),
+                "entity": dict(cast("dict[str, Any]", r["entity"])),
                 "group_uid": r["group_uid"],
                 "group_name": r["group_name"],
                 "share_version": r["share_version"],
@@ -408,7 +411,7 @@ class UnifiedSharingService:
         return Result.ok(
             [
                 {
-                    "entity": dict(r["entry"]),
+                    "entity": dict(cast("dict[str, Any]", r["entry"])),
                     "author_name": r["author_name"],
                     "share_version": r["share_version"],
                     "shared_at": r["shared_at"],
@@ -440,7 +443,7 @@ class UnifiedSharingService:
         record = records[0]
         return Result.ok(
             {
-                "entity": dict(record["entry"]),
+                "entity": dict(cast("dict[str, Any]", record["entry"])),
                 "group_name": record["group_name"],
                 "author_name": record["author_name"],
                 "share_version": record["share_version"],
@@ -481,7 +484,7 @@ class UnifiedSharingService:
         if not require_shareable:
             return Result.ok(True)
 
-        return self._check_shareable(record["status"], record["entity_type"])
+        return self._check_shareable(str(record["status"] or ""), str(record["entity_type"] or ""))
 
     @staticmethod
     def _check_shareable(status: str, entity_type: str) -> Result[bool]:
