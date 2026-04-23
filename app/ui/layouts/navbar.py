@@ -33,17 +33,17 @@ def _visible_icon_items(
     is_authenticated: bool,
     is_admin: bool,
     is_teacher: bool,
-    include_home: bool,
+    include_today: bool,
 ) -> list[IconNavItem]:
     """Filter ICON_NAV_ITEMS by the viewer's auth/role flags.
 
     Shared by desktop text links and the mobile bottom nav so both surfaces
-    stay in lockstep with nav_config. Desktop excludes Hub because the brand
-    link already goes to /home; mobile keeps it (include_home=True).
+    stay in lockstep with nav_config. Desktop excludes Today because the brand
+    link already goes to /today; mobile keeps it (include_today=True).
     """
     visible: list[IconNavItem] = []
     for item in ICON_NAV_ITEMS:
-        if item.page_key == "home" and not include_home:
+        if item.page_key == "today" and not include_today:
             continue
         if item.requires_auth and not is_authenticated:
             continue
@@ -260,7 +260,7 @@ def create_navbar(
     # --- Regular user top bar ---
 
     # Desktop center: text links derived from ICON_NAV_ITEMS + teacher link.
-    # Hub is omitted from desktop because the SKUEL brand link already goes to /home.
+    # Today is omitted from desktop because the SKUEL brand link already goes to /today.
     desktop_links = Div(
         *[
             _nav_link(NavItem(item.label, item.href, item.page_key), active_page)
@@ -268,7 +268,7 @@ def create_navbar(
                 is_authenticated=is_authenticated,
                 is_admin=is_admin,
                 is_teacher=is_teacher,
-                include_home=False,
+                include_today=False,
             )
         ],
         *[
@@ -297,7 +297,7 @@ def create_navbar(
             # Left: brand
             A(
                 "SKUEL",
-                href="/home" if is_authenticated else "/",
+                href="/today" if is_authenticated else "/",
                 cls="text-sm font-bold text-primary px-2 py-1 rounded hover:bg-accent",
             ),
             # Center: desktop nav links
@@ -370,7 +370,7 @@ def create_bottom_nav(
             is_authenticated=is_authenticated,
             is_admin=is_admin,
             is_teacher=is_teacher,
-            include_home=True,
+            include_today=True,
         ),
         _SEARCH_TAB,
     ]

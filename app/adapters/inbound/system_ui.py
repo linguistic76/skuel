@@ -50,9 +50,8 @@ def create_system_ui_routes(
             if get_is_admin(request):
                 return await BasePage(
                     content=render_admin_hub_content(),
-                    title="Home",
+                    title="Admin Hub",
                     request=request,
-                    active_page="home",
                 )
             return RedirectResponse("/profile", status_code=303)
 
