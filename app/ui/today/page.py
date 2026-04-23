@@ -214,7 +214,7 @@ def _task_row(*, is_triage: bool) -> FT:
     kind_icon = Div(
         NotStr(
             "<uk-icon "
-            ":icon=\"(seed.kinds[t.kind] || seed.kinds.submission || "
+            ':icon="(seed.kinds[t.kind] || seed.kinds.submission || '
             "{icon: 'file-text'}).icon\" "
             'height="14" width="14"></uk-icon>'
         ),
@@ -427,7 +427,7 @@ def _dormant_ribbon() -> FT:
                 "text-foreground hover:bg-muted focus:outline-none focus:shadow-focus"
             ),
             **{
-                "hx-post": "/today/lifepaths/lp-body/wake",
+                ":hx-post": "`/today/lifepaths/${lp.id}/wake`",
                 "hx-target": "closest section",
                 "hx-swap": "outerHTML",
             },

@@ -16,8 +16,8 @@ Today is a cross-cutting view; routes are registered via the
 
 from __future__ import annotations
 
-from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from starlette.responses import Response
 
@@ -28,6 +28,8 @@ from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from fasthtml.common import FT
+
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from services_bootstrap._container import Services
 
@@ -48,18 +50,19 @@ def create_today_routes(
 ) -> None:
     """Register the six Today surface routes."""
 
+    orchestrator = services.today_orchestrator
+    tasks = services.tasks
+    rels = services.user_relationships
+    assert orchestrator is not None, "TodayOrchestrator not wired in Services container"
+    assert tasks is not None, "TasksService not wired in Services container"
+    assert rels is not None, "UserRelationshipService not wired in Services container"
+
     @rt("/today")
-    async def today_page(request: Request) -> Any:
+    async def today_page(request: Request) -> FT | Response:
         """Render the Today landing page."""
         user_uid = require_authenticated_user(request)
         from ui.layouts.base_page import BasePage
         from ui.today import TodayPage
-
-        orchestrator = services.today_orchestrator
-        if orchestrator is None:
-            # Orchestrator missing is a bootstrap bug, not a user-facing error —
-            # fail loud so it surfaces in prod, not silently render an empty day.
-            raise RuntimeError("TodayOrchestrator not wired in Services container")
 
         ctx_result = await orchestrator.build_context(user_uid)
         if ctx_result.is_error:
@@ -79,12 +82,9 @@ def create_today_routes(
         )
 
     @rt("/today/tasks/{uid}/drawer")
-    async def today_task_drawer(request: Request, uid: str) -> Any:
+    async def today_task_drawer(request: Request, uid: str) -> FT | Response:
         """Return the HTMX fragment body for the drawer."""
         user_uid = require_authenticated_user(request)
-        tasks = services.tasks
-        if tasks is None:
-            return Response("Tasks service unavailable", status_code=503)
 
         ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
         if ownership_error is not None:
@@ -102,9 +102,6 @@ def create_today_routes(
     async def today_task_complete(request: Request, uid: str) -> Response:
         """Complete a task. 204 on success, 404 on unknown/unowned."""
         user_uid = require_authenticated_user(request)
-        tasks = services.tasks
-        if tasks is None:
-            return Response("Tasks service unavailable", status_code=503)
 
         ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
         if ownership_error is not None:
@@ -125,12 +122,9 @@ def create_today_routes(
     async def today_task_defer(request: Request, uid: str) -> Response:
         """Shift a task's due_date by ``span`` (``1d`` or ``1w``). 204 on success."""
         user_uid = require_authenticated_user(request)
-        tasks = services.tasks
-        if tasks is None:
-            return Response("Tasks service unavailable", status_code=503)
 
         form = await request.form()
-        span_raw = form.get("span") or request.query_params.get("span") or "1d"
+        span_raw = form.get("span") or "1d"
         span_key = str(span_raw).strip()
         delta = _DEFER_SPANS.get(span_key)
         if delta is None:
@@ -145,9 +139,7 @@ def create_today_routes(
             return Response("Task not found", status_code=404)
 
         task = task_result.value
-        from datetime import date as _date
-
-        base_due = task.due_date if task.due_date is not None else _date.today()
+        base_due = task.due_date if task.due_date is not None else date.today()
         new_due = base_due + delta
 
         update = await tasks.update_task(uid, {"due_date": new_due})
@@ -165,10 +157,6 @@ def create_today_routes(
     async def today_task_star(request: Request, uid: str) -> Response:
         """Toggle pin-state on a task. 204 on success."""
         user_uid = require_authenticated_user(request)
-        tasks = services.tasks
-        rels = services.user_relationships
-        if tasks is None or rels is None:
-            return Response("Tasks/relationships service unavailable", status_code=503)
 
         ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
         if ownership_error is not None:
