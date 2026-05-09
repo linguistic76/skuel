@@ -71,6 +71,14 @@ class NeoLabel(StrEnum):
     CHOICE = "Choice"
     PRINCIPLE = "Principle"
 
+    # Activity Templates (6) — PS-owned, spawn Activity instances on engagement
+    TASK_TEMPLATE = "TaskTemplate"
+    GOAL_TEMPLATE = "GoalTemplate"
+    HABIT_TEMPLATE = "HabitTemplate"
+    EVENT_TEMPLATE = "EventTemplate"
+    CHOICE_TEMPLATE = "ChoiceTemplate"
+    PRINCIPLE_TEMPLATE = "PrincipleTemplate"
+
     # Curriculum Domains (4) — shared content
     KU = "Ku"
     RESOURCE = "Resource"
@@ -266,6 +274,12 @@ def _init_entity_type_mapping() -> None:
             EntityType.INTERACTION: NeoLabel.INTERACTION,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
             EntityType.USER_ENTRY: NeoLabel.USER_ENTRY,  # ADR-054
+            EntityType.TASK_TEMPLATE: NeoLabel.TASK_TEMPLATE,
+            EntityType.GOAL_TEMPLATE: NeoLabel.GOAL_TEMPLATE,
+            EntityType.HABIT_TEMPLATE: NeoLabel.HABIT_TEMPLATE,
+            EntityType.EVENT_TEMPLATE: NeoLabel.EVENT_TEMPLATE,
+            EntityType.CHOICE_TEMPLATE: NeoLabel.CHOICE_TEMPLATE,
+            EntityType.PRINCIPLE_TEMPLATE: NeoLabel.PRINCIPLE_TEMPLATE,
         }
     )
 

@@ -2398,6 +2398,13 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     EntityType.EVENT: "Event",
     EntityType.CHOICE: "Choice",
     EntityType.PRINCIPLE: "Principle",
+    # Activity Templates (6) — PS-owned, spawn Activity instances on engagement
+    EntityType.TASK_TEMPLATE: "TaskTemplate",
+    EntityType.GOAL_TEMPLATE: "GoalTemplate",
+    EntityType.HABIT_TEMPLATE: "HabitTemplate",
+    EntityType.EVENT_TEMPLATE: "EventTemplate",
+    EntityType.CHOICE_TEMPLATE: "ChoiceTemplate",
+    EntityType.PRINCIPLE_TEMPLATE: "PrincipleTemplate",
     # User-authored content + Reports (3)
     EntityType.USER_ENTRY: "UserEntry",
     EntityType.ACTIVITY_REPORT: "ActivityReport",
@@ -2428,6 +2435,13 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     "Event": EntityType.EVENT,
     "Choice": EntityType.CHOICE,
     "Principle": EntityType.PRINCIPLE,
+    # Activity Templates (6)
+    "TaskTemplate": EntityType.TASK_TEMPLATE,
+    "GoalTemplate": EntityType.GOAL_TEMPLATE,
+    "HabitTemplate": EntityType.HABIT_TEMPLATE,
+    "EventTemplate": EntityType.EVENT_TEMPLATE,
+    "ChoiceTemplate": EntityType.CHOICE_TEMPLATE,
+    "PrincipleTemplate": EntityType.PRINCIPLE_TEMPLATE,
     # User-authored content + Reports (3)
     "UserEntry": EntityType.USER_ENTRY,
     "ExerciseSubmission": EntityType.USER_ENTRY,  # legacy alias

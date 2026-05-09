@@ -228,6 +228,23 @@ class RelationshipName(StrEnum):
     HAS_KU = "HAS_KU"  # Unified ownership for Entity-migrated activity domains
 
     # =========================================================================
+    # ACTIVITY TEMPLATE RELATIONSHIPS
+    # PathStep ownership of Activity Templates + per-instance back-pointers +
+    # student engagement edge. See: project_pathstep_lifecycle_contract.md.
+    # =========================================================================
+    # (PathStep)-[:HAS_*_TEMPLATE]->(*Template) — PS owns its 6 template kinds
+    HAS_TASK_TEMPLATE = "HAS_TASK_TEMPLATE"
+    HAS_GOAL_TEMPLATE = "HAS_GOAL_TEMPLATE"
+    HAS_HABIT_TEMPLATE = "HAS_HABIT_TEMPLATE"
+    HAS_EVENT_TEMPLATE = "HAS_EVENT_TEMPLATE"
+    HAS_CHOICE_TEMPLATE = "HAS_CHOICE_TEMPLATE"
+    HAS_PRINCIPLE_TEMPLATE = "HAS_PRINCIPLE_TEMPLATE"
+    # (Activity instance)-[:INSTANCE_OF]->(*Template) — spawned-from pointer
+    INSTANCE_OF = "INSTANCE_OF"
+    # (User)-[:ENGAGED_WITH {since, state, completed_at?, abandoned_at?}]->(PathStep)
+    ENGAGED_WITH = "ENGAGED_WITH"
+
+    # =========================================================================
     # USER LEARNING PROGRESS RELATIONSHIPS
     # Track user interaction with knowledge units (pedagogical tracking)
     # State progression: NONE -> VIEWED -> IN_PROGRESS -> MASTERED

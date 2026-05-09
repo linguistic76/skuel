@@ -2871,14 +2871,14 @@ class Violation(TypedDict):
     ]
     field: str  # offending reference field, e.g. "fulfills_goal_template_uid"
     violation: Literal[
-        "target_missing",   # references a template uid not on this PS
-        "wrong_type",       # references the wrong template type for this field
-        "cycle",            # would form a reference cycle
-        "cross_ps",         # references a template on a different PS
-        "self_reference",   # references its own uid
+        "target_missing",  # references a template uid not on this PS
+        "wrong_type",  # references the wrong template type for this field
+        "cycle",  # would form a reference cycle
+        "cross_ps",  # references a template on a different PS
+        "self_reference",  # references its own uid
     ]
     referenced_uid: str | None  # the bad reference value, if any
-    hint: str | None            # closest fuzzy-matched candidate, if any
+    hint: str | None  # closest fuzzy-matched candidate, if any
 
 
 # ============================================================================

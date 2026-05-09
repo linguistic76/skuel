@@ -1,9 +1,9 @@
 ---
-title: SKUEL Architecture — 20 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-04-17
+title: SKUEL Architecture — 26 Entity Types + 5 Cross-Cutting Systems
+updated: 2026-05-09
 status: current
 category: architecture
-version: 8.0.0
+version: 8.1.0
 tags:
 - architecture
 - entity-types
@@ -22,9 +22,9 @@ related:
 
 SKUEL is a **knowledge-centric productivity platform** where every operation connects to and enriches understanding. **Knowledge is the fertile soil from which all activity grows.**
 
-This doc is **Model A at the fine grain** per ADR-055 — the 20 EntityTypes. For the coarse rollup into 7 subsystems (Object / Context / Meta), see [`SEVEN_SUBSYSTEMS.md`](SEVEN_SUBSYSTEMS.md). For the flow-of-information view (Curriculum → Action → Feedback), see [`THREE_LAYER_LENS.md`](THREE_LAYER_LENS.md). The 5 Cross-Cutting Systems below are infrastructure layers orthogonal to both lenses.
+This doc is **Model A at the fine grain** per ADR-055 — the 26 EntityTypes. For the coarse rollup into 7 subsystems (Object / Context / Meta), see [`SEVEN_SUBSYSTEMS.md`](SEVEN_SUBSYSTEMS.md). For the flow-of-information view (Curriculum → Action → Feedback), see [`THREE_LAYER_LENS.md`](THREE_LAYER_LENS.md). The 5 Cross-Cutting Systems below are infrastructure layers orthogonal to both lenses.
 
-### 20 Entity Types + 5 Cross-Cutting Systems
+### 26 Entity Types + 5 Cross-Cutting Systems
 
 | EntityType | What It Is | UID Format | Ownership |
 |------------|-----------|-----------|-----------|
@@ -34,6 +34,12 @@ This doc is **Model A at the fine grain** per ADR-055 — the 20 EntityTypes. Fo
 | Event | Time commitment to keep | `event_{slug}_{random}` | User-owned |
 | Choice | Decision to make | `choice_{slug}_{random}` | User-owned |
 | Principle | Value to embody | `principle_{slug}_{random}` | User-owned |
+| TaskTemplate | PS-owned template that spawns Task instances on engagement | `tt_{slug}_{random}` | Admin/teacher-created, shared |
+| GoalTemplate | PS-owned template that spawns Goal instances on engagement | `gt_{slug}_{random}` | Admin/teacher-created, shared |
+| HabitTemplate | PS-owned template that spawns Habit instances on engagement | `ht_{slug}_{random}` | Admin/teacher-created, shared |
+| EventTemplate | PS-owned template that spawns Event instances on engagement | `et_{slug}_{random}` | Admin/teacher-created, shared |
+| ChoiceTemplate | PS-owned template that spawns Choice instances on engagement | `ct_{slug}_{random}` | Admin/teacher-created, shared |
+| PrincipleTemplate | PS-owned template that spawns Principle instances on engagement | `pt_{slug}_{random}` | Admin/teacher-created, shared |
 | FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
 | Finance | Admin-only bookkeeping — Firefly III for expenses/budgets/reports; local for invoices (ADR-052) | `inv_{random}` (invoices) | Admin-only |
@@ -150,6 +156,7 @@ Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task
 |--------|
 | `:Entity` (universal — all entity nodes) |
 | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
+| `:TaskTemplate`, `:GoalTemplate`, `:HabitTemplate`, `:EventTemplate`, `:ChoiceTemplate`, `:PrincipleTemplate` |
 | `:Curriculum`, `:Resource`, `:PathStep`, `:LearningPath` |
 | `:FormTemplate`, `:FormSubmission` |
 | `:UserEntry` |

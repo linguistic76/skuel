@@ -798,7 +798,7 @@ class Errors:
         )
 
     @staticmethod
-    def ps_validation_report(violations: "list[Violation]") -> ErrorContext:
+    def ps_validation_report(violations: list[Violation]) -> ErrorContext:
         """PS-save validation failure with a structured list of violations.
 
         Wraps ``Errors.business`` with rule="ps_template_validation" and packs

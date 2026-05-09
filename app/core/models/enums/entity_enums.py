@@ -24,29 +24,35 @@ from enum import StrEnum
 
 class EntityType(StrEnum):
     """
-    Type of Entity — 19 entity types in SKUEL.
+    Type of Entity — 25 entity types in SKUEL.
 
     Discriminator for the `entity_type` field on Entity.
 
     Entity types (alphabetical):
         ACTIVITY_REPORT      → AI/human feedback about activity patterns
         CHOICE               → Knowledge about decisions you make
+        CHOICE_TEMPLATE      → PS-owned template that spawns Choice instances on engagement
         EVENT                → Knowledge about what you attend
+        EVENT_TEMPLATE       → PS-owned template that spawns Event instances on engagement
         EXERCISE             → Instruction template for practicing curriculum
         EXERCISE_REPORT      → Teacher or AI report on an exercise submission
         FORM_SUBMISSION      → User response to a FormTemplate
         FORM_TEMPLATE        → General-purpose form definition (admin-created)
         GOAL                 → Knowledge about where you're heading
+        GOAL_TEMPLATE        → PS-owned template that spawns Goal instances on engagement
         HABIT                → Knowledge about what you practice
+        HABIT_TEMPLATE       → PS-owned template that spawns Habit instances on engagement
         INTERACTION          → Situated learning-loop event (User Interaction Contract)
         KU                   → Atomic knowledge unit (concept, state, principle)
         LEARNING_PATH        → Ordered sequence of path steps
         PATH_STEP            → THE curriculum content entity (composes Kus, sits in learning paths)
         LIFE_PATH            → Knowledge about your life direction
         PRINCIPLE            → Knowledge about what you believe
+        PRINCIPLE_TEMPLATE   → PS-owned template that spawns Principle instances on engagement
         RESOURCE             → Books, talks, films, music (admin-only)
         REVISED_EXERCISE     → Targeted revision instructions after feedback
         TASK                 → Knowledge about what needs doing
+        TASK_TEMPLATE        → PS-owned template that spawns Task instances on engagement
         USER_ENTRY           → Unified user-authored content (ADR-054)
 
     Any PathStep can organize other PathSteps via ORGANIZES relationships (emergent
@@ -54,13 +60,17 @@ class EntityType(StrEnum):
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
+        B  CURRICULUM   → KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE,
+                          Activity Templates (6: TASK_TEMPLATE, GOAL_TEMPLATE,
+                          HABIT_TEMPLATE, EVENT_TEMPLATE, CHOICE_TEMPLATE,
+                          PRINCIPLE_TEMPLATE)
         C  USER_CREATED → Activities (6), USER_ENTRY, LIFE_PATH,
                           FORM_SUBMISSION, INTERACTION
         D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT
 
     Ownership rules:
-        Curriculum (KU, PS, LP, Exercise) + Resource + FormTemplate: user_uid = None (shared content, admin-created)
+        Curriculum (KU, PS, LP, Exercise) + Activity Templates (6) + Resource +
+            FormTemplate:      user_uid = None (shared content, admin/teacher-created)
         Content processing:    user_uid = student/teacher (user-owned)
         Activity (6):          user_uid = student (user-owned)
         Destination:           user_uid = student (user-owned)
@@ -100,6 +110,14 @@ class EntityType(StrEnum):
     EVENT = "event"
     CHOICE = "choice"
     PRINCIPLE = "principle"
+
+    # Activity Templates (PS-owned, admin/teacher-authored, spawn Activity instances on engagement)
+    TASK_TEMPLATE = "task_template"
+    GOAL_TEMPLATE = "goal_template"
+    HABIT_TEMPLATE = "habit_template"
+    EVENT_TEMPLATE = "event_template"
+    CHOICE_TEMPLATE = "choice_template"
+    PRINCIPLE_TEMPLATE = "principle_template"
 
     # Interaction audit (user-owned, situated learning-loop event)
     INTERACTION = "interaction"
@@ -231,6 +249,12 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.INTERACTION: "Interaction",
     EntityType.LIFE_PATH: "Life Path",
     EntityType.USER_ENTRY: "User Entry",
+    EntityType.TASK_TEMPLATE: "Task Template",
+    EntityType.GOAL_TEMPLATE: "Goal Template",
+    EntityType.HABIT_TEMPLATE: "Habit Template",
+    EntityType.EVENT_TEMPLATE: "Event Template",
+    EntityType.CHOICE_TEMPLATE: "Choice Template",
+    EntityType.PRINCIPLE_TEMPLATE: "Principle Template",
 }
 
 _KNOWLEDGE_TYPES = frozenset({EntityType.PATH_STEP, EntityType.KU})
@@ -260,6 +284,13 @@ _SHARED_TYPES = frozenset(
         EntityType.LEARNING_PATH,
         EntityType.EXERCISE,
         EntityType.FORM_TEMPLATE,
+        # Activity Templates (PS-owned curriculum content; spawn user-owned instances)
+        EntityType.TASK_TEMPLATE,
+        EntityType.GOAL_TEMPLATE,
+        EntityType.HABIT_TEMPLATE,
+        EntityType.EVENT_TEMPLATE,
+        EntityType.CHOICE_TEMPLATE,
+        EntityType.PRINCIPLE_TEMPLATE,
     }
 )
 
@@ -292,6 +323,13 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
     EntityType.EXERCISE: ContentOrigin.CURRICULUM,
     EntityType.REVISED_EXERCISE: ContentOrigin.USER_CREATED,
+    # Activity Templates — PS-owned curriculum content authored by admin/teacher
+    EntityType.TASK_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.GOAL_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.HABIT_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.EVENT_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.CHOICE_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.PRINCIPLE_TEMPLATE: ContentOrigin.CURRICULUM,
     # C — User-generated content
     EntityType.TASK: ContentOrigin.USER_CREATED,
     EntityType.GOAL: ContentOrigin.USER_CREATED,
@@ -345,6 +383,13 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "exercise_submission": EntityType.USER_ENTRY,
     "je_input": EntityType.USER_ENTRY,
     "je_output": EntityType.USER_ENTRY,
+    # Activity Templates
+    "task_template": EntityType.TASK_TEMPLATE,
+    "goal_template": EntityType.GOAL_TEMPLATE,
+    "habit_template": EntityType.HABIT_TEMPLATE,
+    "event_template": EntityType.EVENT_TEMPLATE,
+    "choice_template": EntityType.CHOICE_TEMPLATE,
+    "principle_template": EntityType.PRINCIPLE_TEMPLATE,
 }
 
 
@@ -692,6 +737,15 @@ _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
     EntityStatus.ARCHIVED: set(),
 }
 
+# Activity Templates share the same minimal authoring lifecycle.
+_TEMPLATE_STATUSES: frozenset[EntityStatus] = frozenset(
+    {
+        EntityStatus.DRAFT,
+        EntityStatus.ACTIVE,
+        EntityStatus.ARCHIVED,
+    }
+)
+
 # Valid statuses per EntityType (from plan specification)
 _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
     EntityType.KU: frozenset(
@@ -848,6 +902,14 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
+    # Activity Templates: authoring lifecycle is publish-and-engage.
+    # Templates are not "completed" — instances spawned from them are.
+    EntityType.TASK_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.GOAL_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.HABIT_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.EVENT_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.CHOICE_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.PRINCIPLE_TEMPLATE: _TEMPLATE_STATUSES,
 }
 
 _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
@@ -870,6 +932,12 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.LIFE_PATH: EntityStatus.ACTIVE,
     EntityType.USER_ENTRY: EntityStatus.DRAFT,  # ADR-054
     EntityType.INTERACTION: EntityStatus.ACTIVE,
+    EntityType.TASK_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.GOAL_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.HABIT_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.EVENT_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.CHOICE_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.PRINCIPLE_TEMPLATE: EntityStatus.DRAFT,
 }
 
 
