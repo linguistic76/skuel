@@ -41,7 +41,11 @@ def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: 
     static_path.mkdir(exist_ok=True)
     local_urls: dict[str, str] = {}
     for name, url in HEADER_URLS.items():
-        ext = "js" if "js" in url else "css"
+        # Extension comes from the URL path's actual suffix, not substring match —
+        # CDN hostnames like "cdn.jsdelivr.net" contain "js", which used to misclassify
+        # CSS files as .js and break stylesheet loading (browsers reject CSS served
+        # with a JS-extension URL when MIME enforcement is on).
+        ext = "css" if url.rsplit("?", 1)[0].endswith(".css") else "js"
         fname = static_path / f"{name}.{ext}"
         if not fname.exists():
             fname.write_bytes(httpx.get(url, follow_redirects=True).content)
