@@ -440,9 +440,7 @@ class FormGenerator:
                         ),
                     )
                 )
-            header_children.append(
-                H3(section_title, cls="text-base font-semibold")
-            )
+            header_children.append(H3(section_title, cls="text-base font-semibold"))
 
             section_divs.append(
                 Div(
