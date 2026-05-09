@@ -246,7 +246,7 @@ class TodayOrchestrator:
         # Ribbon: pinned-first, stable within each group. Triage below stays in
         # its severity order — carrying ``pinned`` through for display without
         # letting a user-pin jump an overdue-3d item above an overdue-7d one.
-        task_views.sort(key=lambda v: not v["pinned"])
+        task_views.sort(key=_task_view_pinned_first)
         triage_views: list[TriageItemView] = [
             _task_to_triage(t, lifepath_id=lifepath_id, today=today, pinned=t.uid in today_pinned)
             for t in triage_tasks_full
@@ -317,6 +317,11 @@ class TodayOrchestrator:
 # Mappers — keep them as module-level functions so they can be unit-tested
 # without instantiating the orchestrator.
 # ============================================================================
+
+
+def _task_view_pinned_first(view: TaskView) -> bool:
+    # Sort key: ``False`` sorts before ``True``, so negate to put pinned first.
+    return not view["pinned"]
 
 
 def _task_to_view(
