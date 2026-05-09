@@ -295,9 +295,7 @@ class TestTaskStar:
     async def test_unpinned_task_gets_pinned(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        mock_services.user_relationships.get_today_pinned = AsyncMock(
-            return_value=Result.ok(set())
-        )
+        mock_services.user_relationships.get_today_pinned = AsyncMock(return_value=Result.ok(set()))
         request = _make_request()
         response = await handlers["/today/tasks/{uid}/star"](request=request, uid="task_001")
         assert response.status_code == 204

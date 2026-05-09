@@ -324,9 +324,7 @@ def _task_view_pinned_first(view: TaskView) -> bool:
     return not view["pinned"]
 
 
-def _task_to_view(
-    task: Task, *, lifepath_id: str, today: date, pinned: bool = False
-) -> TaskView:
+def _task_to_view(task: Task, *, lifepath_id: str, today: date, pinned: bool = False) -> TaskView:
     return {
         "id": task.uid,
         "lifepath_id": lifepath_id,

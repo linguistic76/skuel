@@ -193,9 +193,7 @@ class UserRelationshipService:
             operation="get_today_pinned",
         )
 
-    async def pin_for_today(
-        self, user_uid: UserUID, entity_uid: EntityUID
-    ) -> Result[bool]:
+    async def pin_for_today(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
         """Pin ``entity_uid`` on the Today surface.
 
         Idempotent: re-pinning an already-pinned entity leaves the edge
@@ -215,9 +213,7 @@ class UserRelationshipService:
             operation="pin_for_today",
         )
 
-    async def unpin_for_today(
-        self, user_uid: UserUID, entity_uid: EntityUID
-    ) -> Result[bool]:
+    async def unpin_for_today(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
         """Remove the Today-scope pin on ``entity_uid``."""
         return await self.executor.execute(
             query=f"""
