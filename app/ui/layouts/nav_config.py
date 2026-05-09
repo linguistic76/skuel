@@ -73,11 +73,11 @@ class DropdownItem:
 # Activity domain dropdown items — used in mobile menu and avatar dropdown
 ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
     DropdownItem("Tasks", "/tasks", icon="check-square"),
+    DropdownItem("Events", "/events", icon="calendar"),
     DropdownItem("Goals", "/goals", icon="target"),
     DropdownItem("Habits", "/habits", icon="repeat"),
-    DropdownItem("Events", "/events", icon="calendar"),
-    DropdownItem("Choices", "/choices", icon="git-branch"),
     DropdownItem("Principles", "/principles", icon="compass"),
+    DropdownItem("Choices", "/choices", icon="git-branch"),
 )
 
 
