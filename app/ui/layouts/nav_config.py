@@ -122,6 +122,15 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         has_dropdown=False,
         icon="compass",
     ),
+    IconNavItem(
+        "PathSteps",
+        "",
+        "/path-steps",
+        "path-steps",
+        requires_auth=False,
+        has_dropdown=False,
+        icon="map",
+    ),
 )
 
 
