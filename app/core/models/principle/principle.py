@@ -21,9 +21,10 @@ See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
+import dataclasses
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -38,6 +39,33 @@ from core.models.enums.principle_enums import (
 )
 from core.models.principle.principle_types import AlignmentAssessment, PrincipleExpression
 from core.models.user_owned_entity import UserOwnedEntity
+
+
+def _to_alignment_assessment(entry: Any) -> AlignmentAssessment:
+    """Reconstruct an AlignmentAssessment from a dict produced by ``asdict()``.
+
+    The dict form may carry ``assessed_date`` as a real ``date`` (in-memory
+    round-trip) or an ISO string (after JSON serialization), and
+    ``alignment_level`` as either an ``AlignmentLevel`` or its string value.
+    Handle both so callers don't have to.
+    """
+    if isinstance(entry, AlignmentAssessment):
+        return entry
+    data = dict(entry)
+    assessed = data.get("assessed_date")
+    if isinstance(assessed, str):
+        data["assessed_date"] = date.fromisoformat(assessed)
+    level = data.get("alignment_level")
+    if isinstance(level, str):
+        data["alignment_level"] = AlignmentLevel(level)
+    return AlignmentAssessment(**data)
+
+
+def _to_principle_expression(entry: Any) -> PrincipleExpression:
+    """Reconstruct a PrincipleExpression from an asdict()-flattened dict."""
+    if isinstance(entry, PrincipleExpression):
+        return entry
+    return PrincipleExpression(**entry)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -227,6 +255,30 @@ class Principle(UserOwnedEntity):
     def from_dto(cls, dto: "EntityDTO | PrincipleDTO") -> "Principle":
         """Create Principle from an EntityDTO or PrincipleDTO."""
         return cls._from_dto(dto)
+
+    @classmethod
+    def _from_dto(cls, dto: "EntityDTO") -> Self:
+        """Extend the generic extraction to rehydrate typed nested records.
+
+        ``PrincipleDTO`` stores ``alignment_history`` and ``expressions`` as
+        ``list[dict[str, Any]]`` because ``asdict()`` in ``dto_to_dict`` flattens
+        nested dataclasses recursively during JSON serialization. The generic
+        ``Entity._from_dto`` only converts the outer ``list`` to ``tuple`` and
+        leaves the inner dicts untouched — so consumers that expect
+        ``alignment_history[-1].alignment_level`` get an ``AttributeError``.
+
+        Rebuild the typed ``AlignmentAssessment`` and ``PrincipleExpression``
+        records here so the rest of the codebase can rely on the type
+        annotations on ``Principle``.
+        """
+        instance = super()._from_dto(dto)
+        return dataclasses.replace(
+            instance,
+            alignment_history=tuple(
+                _to_alignment_assessment(entry) for entry in instance.alignment_history
+            ),
+            expressions=tuple(_to_principle_expression(entry) for entry in instance.expressions),
+        )
 
     def to_dto(self) -> "PrincipleDTO":
         """Convert Principle to domain-specific PrincipleDTO."""
