@@ -155,6 +155,68 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # SEARCH AND QUERY OPERATIONS
     # ========================================================================
 
+    @with_error_handling("list_recent_for_user", error_type="database")
+    async def list_recent_for_user(
+        self,
+        user_uid: UserUID,
+        limit: int = 10,
+        exclude: builtins.set[str] | None = None,
+    ) -> Result[builtins.list[T]]:
+        """
+        List a user's most-recently-updated entities, with optional exclusions.
+
+        Used by the entity-picker UI to populate the dropdown when no query has
+        been typed yet. Returns up to ``limit`` entries even when ``exclude`` is
+        non-empty — over-fetches to compensate.
+
+        Args:
+            user_uid: Owner of the entities.
+            limit: Maximum entries to return.
+            exclude: UIDs to filter out of the result.
+
+        Returns:
+            Result containing the user's entities sorted by ``updated_at`` desc.
+        """
+        exclude = exclude or set()
+        fetch_limit = limit + len(exclude)
+        result = await self.backend.get_user_entities(
+            user_uid, limit=fetch_limit, sort_by="updated_at", sort_order="desc"
+        )
+        if result.is_error:
+            return Result.fail(result)
+        entities, _ = result.value
+        return Result.ok([e for e in entities if e.uid not in exclude][:limit])
+
+    @with_error_handling("search_for_user", error_type="database")
+    async def search_for_user(
+        self,
+        query: str,
+        user_uid: UserUID,
+        limit: int = 10,
+        exclude: builtins.set[str] | None = None,
+    ) -> Result[builtins.list[T]]:
+        """
+        User-scoped title/description search with optional UID exclusions.
+
+        Wraps ``search()`` (which already respects ``user_uid`` and the
+        configured ``_search_fields``) and post-filters excluded UIDs.
+
+        Args:
+            query: Search string (case-insensitive).
+            user_uid: Owner of the entities.
+            limit: Maximum entries to return.
+            exclude: UIDs to filter out of the result.
+
+        Returns:
+            Result containing matching entities sorted by ``_search_order_by`` desc.
+        """
+        exclude = exclude or set()
+        fetch_limit = limit + len(exclude)
+        result = await self.search(query, limit=fetch_limit, user_uid=user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([e for e in result.value if e.uid not in exclude][:limit])
+
     @with_error_handling("search", error_type="database")
     async def search(
         self, query: str, limit: int = 50, user_uid: UserUID | None = None

@@ -591,6 +591,10 @@ async def _wire_all_routes(
 
     create_search_routes(app, rt, services)
 
+    from adapters.inbound.picker_routes import create_picker_routes
+
+    create_picker_routes(app, rt, services)
+
     from adapters.inbound.analytics_routes import create_analytics_routes
 
     create_analytics_routes(app, rt, services)

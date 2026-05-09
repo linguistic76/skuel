@@ -757,6 +757,110 @@
         // Form Validator Component
         // ---------------------------------------------------------------------
         // Client-side form validation with accessible error display
+        Alpine.data('entityPicker', function() {
+            // Searchable cross-domain UID picker — paired with EntityPicker
+            // (ui/patterns/entity_picker.py) and GET /api/picker/search.
+            // Hidden input ($refs.hidden) carries the form value; visible
+            // input ($refs.search) is for human search and is unnamed so
+            // the parent form never sees it.
+            return {
+                open: false,
+                highlight: -1,
+
+                init: function() {
+                    var self = this;
+                    // Reset highlight whenever HTMX swaps in new results.
+                    this.$el.addEventListener('htmx:afterSwap', function() {
+                        self.highlight = -1;
+                        // If results came back and the input is focused, open.
+                        if (document.activeElement === self.$refs.search) {
+                            self.open = true;
+                        }
+                    });
+                },
+
+                onFocus: function() {
+                    this.open = true;
+                },
+
+                onInput: function() {
+                    this.open = true;
+                    this.highlight = -1;
+                },
+
+                _items: function() {
+                    var ul = this.$el.querySelector('ul[role="listbox"]');
+                    return ul ? ul.querySelectorAll('li[role="option"]') : [];
+                },
+
+                onKeydown: function(event) {
+                    var items = this._items();
+                    if (event.key === 'ArrowDown') {
+                        if (items.length === 0) return;
+                        event.preventDefault();
+                        this.open = true;
+                        this.highlight = (this.highlight + 1) % items.length;
+                        this._applyHighlight(items);
+                    } else if (event.key === 'ArrowUp') {
+                        if (items.length === 0) return;
+                        event.preventDefault();
+                        this.open = true;
+                        this.highlight = (this.highlight - 1 + items.length) % items.length;
+                        this._applyHighlight(items);
+                    } else if (event.key === 'Enter') {
+                        if (this.open && this.highlight >= 0 && items[this.highlight]) {
+                            event.preventDefault();
+                            this._pick(items[this.highlight]);
+                        }
+                    } else if (event.key === 'Escape') {
+                        this.open = false;
+                    }
+                },
+
+                _applyHighlight: function(items) {
+                    var self = this;
+                    items.forEach(function(li, idx) {
+                        if (idx === self.highlight) {
+                            li.setAttribute('aria-selected', 'true');
+                            li.classList.add('bg-accent');
+                            li.scrollIntoView({ block: 'nearest' });
+                        } else {
+                            li.removeAttribute('aria-selected');
+                            li.classList.remove('bg-accent');
+                        }
+                    });
+                },
+
+                select: function(event) {
+                    var li = event.target.closest('li[role="option"]');
+                    if (!li) return;
+                    this._pick(li);
+                },
+
+                _pick: function(li) {
+                    var uid = li.getAttribute('data-uid') || '';
+                    var title = li.getAttribute('data-title') || li.textContent.trim();
+                    this.$refs.hidden.value = uid;
+                    this.$refs.search.value = title;
+                    // Notify FormGenerator's clearError() listener.
+                    this.$refs.hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                    this.open = false;
+                    this.highlight = -1;
+                },
+
+                clear: function() {
+                    this.$refs.hidden.value = '';
+                    this.$refs.search.value = '';
+                    this.$refs.hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                    this.$refs.search.focus();
+                },
+
+                hasValue: function() {
+                    return Boolean(this.$refs.hidden && this.$refs.hidden.value);
+                }
+            };
+        });
+
         Alpine.data('formValidator', function() {
             return {
                 errors: {},

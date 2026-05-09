@@ -1113,6 +1113,10 @@ class HierarchyOperations(Protocol):
         """Check if adding parent→child would create a cycle."""
         ...
 
+    async def get_descendant_uids(self, uid: str) -> ResultType[builtins.set[str]]:
+        """Get all descendant UIDs reachable via the forward relationship."""
+        ...
+
 
 # ============================================================================
 # Capability Check Protocols (for runtime isinstance checks)

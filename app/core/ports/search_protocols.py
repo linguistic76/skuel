@@ -106,6 +106,52 @@ class DomainSearchOperations(Protocol[T]):
         """
         ...
 
+    async def list_recent_for_user(
+        self,
+        user_uid: UserUID,
+        limit: int = 10,
+        exclude: set[str] | None = None,
+    ) -> Result[list[T]]:
+        """
+        List a user's most-recently-updated entities, with optional exclusions.
+
+        Used by the entity-picker UI (``ui/patterns/entity_picker.py``) to populate
+        the dropdown when no query has been typed yet.
+
+        Args:
+            user_uid: Owner of the entities.
+            limit: Maximum entries to return.
+            exclude: UIDs to filter out of the result.
+
+        Returns:
+            Result containing the user's entities sorted by ``updated_at`` desc.
+        """
+        ...
+
+    async def search_for_user(
+        self,
+        query: str,
+        user_uid: UserUID,
+        limit: int = 10,
+        exclude: set[str] | None = None,
+    ) -> Result[list[T]]:
+        """
+        User-scoped title/description search with optional UID exclusions.
+
+        Used by the entity-picker UI for live typeahead. Wraps ``search()`` with
+        a non-optional ``user_uid`` and post-filters excluded UIDs.
+
+        Args:
+            query: Search string (case-insensitive).
+            user_uid: Owner of the entities.
+            limit: Maximum entries to return.
+            exclude: UIDs to filter out of the result.
+
+        Returns:
+            Result containing matching entities sorted by ``_search_order_by`` desc.
+        """
+        ...
+
     async def search_filtered(self, filters: "BaseSearchFilters") -> Result[list[T]]:
         """
         Type-safe filtered search using domain-specific filter dataclass.
