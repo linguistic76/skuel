@@ -16,6 +16,7 @@ from typing import Any, Union, get_args, get_origin
 
 from fasthtml.common import H3, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
+from monsterui.franken import UkIcon
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
@@ -34,6 +35,20 @@ from ui.buttons import Button, ButtonT
 from ui.forms import Checkbox, Input, Label, Select, Textarea
 
 logger = get_logger("skuel.components.form_generator")
+
+# Section accent palette — rotated when callers don't specify an accent.
+# Tailwind tokens used: border-l-{color}-500, text-{color}-600, bg-{color}-500/10.
+# Tailwind here is loaded via Play CDN (no purge), so dynamic class names work.
+_ACCENT_ROTATION: tuple[str, ...] = ("blue", "amber", "emerald", "violet", "rose", "cyan")
+
+
+def _accent_classes(accent: str) -> tuple[str, str, str]:
+    """Return (card_stripe, icon_color, icon_bg) class strings for an accent."""
+    return (
+        f"border-l-4 border-l-{accent}-500",
+        f"text-{accent}-600 dark:text-{accent}-400",
+        f"bg-{accent}-500/10",
+    )
 
 
 def _is_union_type(origin: type | None) -> bool:
@@ -190,9 +205,11 @@ class FormGenerator:
         include_fields: list[str] | None = None,
         exclude_fields: list[str] | None = None,
         field_order: list[str] | None = None,
-        sections: dict[str, list[str]] | None = None,
+        sections: dict[str, list[str]] | dict[str, dict[str, Any]] | None = None,
         custom_widgets: dict[str, Any] | None = None,
         help_texts: dict[str, str] | None = None,
+        labels: dict[str, str] | None = None,
+        placeholders: dict[str, str] | None = None,
         hidden_fields: dict[str, str] | None = None,
         form_attrs: dict[str, Any] | None = None,
         values: dict[str, Any] | None = None,
@@ -209,9 +226,16 @@ class FormGenerator:
             include_fields: Only these fields (ignored when sections is set)
             exclude_fields: Skip these fields (always applied)
             field_order: Custom ordering (ignored when sections is set)
-            sections: Grouped fields: {"Section Title": ["field1", "field2"]}
+            sections: Grouped fields. Either a flat mapping
+                ``{"Section": ["field1", "field2"]}`` (accent auto-rotated, no icon),
+                or a config mapping
+                ``{"Section": {"fields": [...], "icon": "calendar", "accent": "amber"}}``.
+                Accent values are Tailwind color names (blue, amber, emerald, violet,
+                rose, cyan). Icon values are Lucide icon names rendered via UkIcon.
             custom_widgets: Override specific field widgets (still wrapped with label)
             help_texts: Per-field help: {"field": "Helpful text"}
+            labels: Override per-field label text (priority over Pydantic description).
+            placeholders: Override per-field placeholder text.
             hidden_fields: Hidden inputs: {"uid": "task_123"}
             form_attrs: Extra form/wrapper attributes (hx_post, cls, x-data override, etc.)
             values: Pre-fill values: {"field": value}
@@ -223,6 +247,8 @@ class FormGenerator:
         model_fields = model_class.model_fields
         custom_widgets = custom_widgets or {}
         help_texts = help_texts or {}
+        labels = labels or {}
+        placeholders = placeholders or {}
         hidden_fields = hidden_fields or {}
         values = values or {}
         exclude_fields = exclude_fields or []
@@ -236,6 +262,8 @@ class FormGenerator:
                 exclude_fields,
                 custom_widgets,
                 help_texts,
+                labels,
+                placeholders,
                 values,
             )
         else:
@@ -253,6 +281,8 @@ class FormGenerator:
                     values.get(name),
                     custom_widgets.get(name),
                     help_texts.get(name),
+                    labels.get(name),
+                    placeholders.get(name),
                 )
                 for name in field_names
             ]
@@ -275,13 +305,19 @@ class FormGenerator:
                 wrapper_attrs.update(form_attrs)
             return Div(*form_fields, **wrapper_attrs)
 
-        # Full form mode
-        form_fields.append(Button(submit_label, type="submit", variant=ButtonT.primary, cls="mt-4"))
+        # Full form mode — submit button sits in a sticky-feeling footer bar so
+        # it's clearly separated from the section cards above.
+        form_fields.append(
+            Div(
+                Button(submit_label, type="submit", variant=ButtonT.primary),
+                cls="flex justify-end pt-2",
+            )
+        )
 
         attrs: dict[str, Any] = {
             "action": action,
             "method": method.upper(),
-            "cls": "space-y-4",
+            "cls": "space-y-4 max-w-3xl",
             "x-data": "formValidator",
             "@submit": "validate($event)",
         }
@@ -347,18 +383,33 @@ class FormGenerator:
     def _build_sectioned_fields(
         model_class: type[BaseModel],
         model_fields: dict[str, FieldInfo],
-        sections: dict[str, list[str]],
+        sections: dict[str, list[str]] | dict[str, dict[str, Any]],
         exclude_fields: list[str],
         custom_widgets: dict[str, Any],
         help_texts: dict[str, str],
+        labels: dict[str, str],
+        placeholders: dict[str, str],
         values: dict[str, Any],
     ) -> list[Any]:
-        """Build form fields grouped into labeled sections with dividers."""
+        """Build form fields grouped into labeled section cards with icon + accent stripe."""
         section_divs: list[Any] = []
-        section_items = list(sections.items())
-        total_sections = len(section_items)
 
-        for i, (section_title, field_names) in enumerate(section_items):
+        for index, (section_title, raw_config) in enumerate(sections.items()):
+            # Normalize: list[str] -> {"fields": list[str]}
+            icon_name: str | None
+            accent: str | None
+            if isinstance(raw_config, dict):
+                field_names = raw_config.get("fields", [])
+                icon_name = raw_config.get("icon")
+                accent = raw_config.get("accent")
+            else:
+                field_names = list(raw_config)
+                icon_name = None
+                accent = None
+
+            accent = accent or _ACCENT_ROTATION[index % len(_ACCENT_ROTATION)]
+            stripe_cls, icon_text_cls, icon_bg_cls = _accent_classes(accent)
+
             fields: list[Any] = []
             for name in field_names:
                 if name in exclude_fields or name not in model_fields:
@@ -371,18 +422,41 @@ class FormGenerator:
                         values.get(name),
                         custom_widgets.get(name),
                         help_texts.get(name),
+                        labels.get(name),
+                        placeholders.get(name),
                     )
                 )
-            if fields:
-                is_last = i == total_sections - 1
-                section_cls = "mb-6" if is_last else "mb-6 pb-6 border-b border-border"
-                section_divs.append(
+            if not fields:
+                continue
+
+            header_children: list[Any] = []
+            if icon_name:
+                header_children.append(
                     Div(
-                        H3(section_title, cls="text-lg font-semibold mb-3 text-muted-foreground"),
-                        *fields,
-                        cls=section_cls,
+                        UkIcon(icon_name, height=18, width=18, cls=icon_text_cls),
+                        cls=(
+                            f"size-9 rounded-md flex items-center justify-center "
+                            f"shrink-0 {icon_bg_cls}"
+                        ),
                     )
                 )
+            header_children.append(
+                H3(section_title, cls="text-base font-semibold")
+            )
+
+            section_divs.append(
+                Div(
+                    Div(
+                        *header_children,
+                        cls="flex items-center gap-3 mb-4 pb-3 border-b border-border",
+                    ),
+                    Div(*fields, cls="space-y-4"),
+                    cls=(
+                        "rounded-lg border border-border bg-card "
+                        f"text-card-foreground shadow-sm p-6 {stripe_cls}"
+                    ),
+                )
+            )
 
         return section_divs
 
@@ -394,9 +468,11 @@ class FormGenerator:
         value: Any = None,
         custom_widget: Any = None,
         help_text: str | None = None,
+        label_override: str | None = None,
+        placeholder_override: str | None = None,
     ) -> Div:
         """Generate a single form field with label, widget, help text, and error display."""
-        label_text = FieldWidgetMapper.get_field_label(field_name, field_info)
+        label_text = label_override or FieldWidgetMapper.get_field_label(field_name, field_info)
         is_required = field_info.is_required()
 
         # Custom widgets still get wrapped with label and error display
@@ -410,7 +486,9 @@ class FormGenerator:
             )
 
         widget_type = FieldWidgetMapper.get_widget_type(field_name, field_info, annotation)
-        placeholder = FieldWidgetMapper.get_placeholder(field_name, field_info)
+        placeholder = placeholder_override or FieldWidgetMapper.get_placeholder(
+            field_name, field_info
+        )
         constraints = FieldWidgetMapper.extract_constraints(field_info)
 
         widget = FormGenerator._build_widget(

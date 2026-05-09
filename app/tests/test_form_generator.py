@@ -293,7 +293,7 @@ class TestSections:
         assert 'name="title"' in html
         assert 'name="priority"' in html
 
-    def test_sections_have_dividers_except_last(self):
+    def test_sections_render_as_cards(self):
         form = FormGenerator.from_model(
             SampleCreateRequest,
             action="/test",
@@ -304,11 +304,10 @@ class TestSections:
             },
         )
         html = get_form_html(form)
-        # First and second sections should have border-b divider
-        # Last section should not
-        assert "border-b" in html
-        # Count occurrences: 2 sections with border, 1 without
-        assert html.count("border-b border-border") == 2
+        # Each section is a bordered card with a header underline.
+        # 3 sections × (1 outer card border + 1 header underline) = 6 border-b/border tokens.
+        assert html.count("rounded-lg border border-border bg-card") == 3
+        assert html.count("border-b border-border") == 3
 
     def test_sections_with_exclude_fields(self):
         form = FormGenerator.from_model(

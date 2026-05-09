@@ -19,26 +19,75 @@ from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from ui.patterns.entity_picker import EntityPicker
 from ui.patterns.form_generator import FormGenerator
 
-_CREATE_SECTIONS: dict[str, list[str]] = {
-    "Basics": ["title", "description"],
-    "Scheduling": ["due_date", "scheduled_date", "duration_minutes", "priority"],
-    "Organization": ["project", "assignee"],
-    "Connections": ["parent_uid", "fulfills_goal_uid", "reinforces_habit_uid"],
+_CREATE_SECTIONS: dict[str, dict[str, Any]] = {
+    "Basics": {"icon": "info", "accent": "blue", "fields": ["title", "description"]},
+    "Scheduling": {
+        "icon": "calendar",
+        "accent": "amber",
+        "fields": ["due_date", "scheduled_date", "duration_minutes", "priority"],
+    },
+    "Organization": {
+        "icon": "folder",
+        "accent": "emerald",
+        "fields": ["project", "assignee"],
+    },
+    "Connections": {
+        "icon": "link-2",
+        "accent": "violet",
+        "fields": ["parent_uid", "fulfills_goal_uid", "reinforces_habit_uid"],
+    },
 }
 
-_EDIT_SECTIONS: dict[str, list[str]] = {
-    "Basics": ["title", "description"],
-    "Scheduling": [
-        "due_date",
-        "scheduled_date",
-        "duration_minutes",
-        "priority",
-        "status",
-        "completion_date",
-    ],
-    "Organization": ["project", "assignee"],
-    # parent_uid is intentionally absent: TaskUpdateRequest does not accept it.
-    "Connections": ["fulfills_goal_uid", "reinforces_habit_uid"],
+# parent_uid is intentionally absent from edit: TaskUpdateRequest does not accept it.
+_EDIT_SECTIONS: dict[str, dict[str, Any]] = {
+    "Basics": {"icon": "info", "accent": "blue", "fields": ["title", "description"]},
+    "Scheduling": {
+        "icon": "calendar",
+        "accent": "amber",
+        "fields": [
+            "due_date",
+            "scheduled_date",
+            "duration_minutes",
+            "priority",
+            "status",
+            "completion_date",
+        ],
+    },
+    "Organization": {
+        "icon": "folder",
+        "accent": "emerald",
+        "fields": ["project", "assignee"],
+    },
+    "Connections": {
+        "icon": "link-2",
+        "accent": "violet",
+        "fields": ["fulfills_goal_uid", "reinforces_habit_uid"],
+    },
+}
+
+# Friendlier labels override the Pydantic descriptions, which are written for
+# API docs, not UI. Section titles already supply the domain context.
+_FIELD_LABELS: dict[str, str] = {
+    "title": "Title",
+    "description": "Description",
+    "due_date": "Due date",
+    "scheduled_date": "Work date",
+    "duration_minutes": "Duration (minutes)",
+    "priority": "Priority",
+    "status": "Status",
+    "completion_date": "Completed on",
+    "project": "Project",
+    "assignee": "Assignee",
+    "parent_uid": "Parent task",
+    "fulfills_goal_uid": "Goal",
+    "reinforces_habit_uid": "Habit",
+}
+
+_FIELD_HELP: dict[str, str] = {
+    "parent_uid": "Make this a subtask of another task.",
+    "fulfills_goal_uid": "Link this task to a goal it contributes to.",
+    "reinforces_habit_uid": "Link this task to a habit it reinforces.",
+    "duration_minutes": "How long you expect this to take, in minutes.",
 }
 
 
@@ -59,6 +108,8 @@ def TaskCreateForm() -> Any:
             "fulfills_goal_uid": EntityPicker("fulfills_goal_uid", target_type="goal"),
             "reinforces_habit_uid": EntityPicker("reinforces_habit_uid", target_type="habit"),
         },
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
         submit_label="Create Task",
         form_attrs={"id": "task-create-form"},
     )
@@ -101,6 +152,8 @@ def TaskEditForm(
                 display=habit_display,
             ),
         },
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
         submit_label="Save Changes",
         form_attrs={"id": "task-edit-form"},
     )
