@@ -24,7 +24,7 @@ import secrets
 from typing import Any
 from urllib.parse import urlencode
 
-from fasthtml.common import Div, Ul
+from fasthtml.common import Button, Div, Ul
 from fasthtml.common import Input as FTInput
 
 from ui.forms import Input
@@ -141,9 +141,27 @@ def EntityPicker(
         },
     )
 
+    clear_button = Button(
+        "×",
+        type="button",
+        tabindex="-1",
+        **{
+            "aria-label": f"Clear {_TARGET_TYPE_LABELS[target_type]} selection",
+            "x-show": "hasValue()",
+            "x-on:click": "clear()",
+            "x-cloak": "",
+            "style": "display:none;",
+            "cls": (
+                "absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground "
+                "hover:text-foreground text-lg leading-none px-1 cursor-pointer"
+            ),
+        },
+    )
+
     return Div(
         FTInput(**hidden_attrs),
         search_input,
+        clear_button,
         results_panel,
         cls="relative w-full",
         **{

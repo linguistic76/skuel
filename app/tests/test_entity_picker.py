@@ -127,6 +127,21 @@ class TestExclusions:
         assert "exclude_descendants_of=" not in html
 
 
+class TestClearButton:
+    """A clear (×) button is rendered, hidden until the picker holds a value,
+    and wired to the Alpine ``clear()`` handler."""
+
+    def test_clear_button_present(self):
+        html = render(EntityPicker(name="fulfills_goal_uid", target_type="goal"))
+        assert 'x-on:click="clear()"' in html
+        assert 'aria-label="Clear goal selection"' in html
+
+    def test_clear_button_hidden_when_empty(self):
+        html = render(EntityPicker(name="fulfills_goal_uid", target_type="goal"))
+        # x-show binds to hasValue() so Alpine hides it on initial empty state.
+        assert 'x-show="hasValue()"' in html
+
+
 class TestRequired:
     """required=True propagates to the form-submitted hidden input."""
 
