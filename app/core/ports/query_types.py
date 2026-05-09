@@ -2844,6 +2844,44 @@ class KuUserSubstanceResult(TypedDict):
 
 
 # ============================================================================
+# PS TEMPLATE VALIDATION TYPES
+# ============================================================================
+
+
+class Violation(TypedDict):
+    """One referential-integrity violation found during PS-save validation.
+
+    A PathStep author may leave cross-template references unresolved during
+    free-order authoring. On save, each broken reference produces one
+    Violation pinpointing the offending template, field, and reason.
+
+    Collected into a list and packed into ``ErrorContext.details["violations"]``
+    via ``Errors.ps_validation_report()`` — see ``core/utils/result_simplified.py``.
+    """
+
+    template_uid: str
+    template_title: str  # human-readable, for error display (NOT the uid)
+    template_type: Literal[
+        "TaskTemplate",
+        "GoalTemplate",
+        "HabitTemplate",
+        "EventTemplate",
+        "ChoiceTemplate",
+        "PrincipleTemplate",
+    ]
+    field: str  # offending reference field, e.g. "fulfills_goal_template_uid"
+    violation: Literal[
+        "target_missing",   # references a template uid not on this PS
+        "wrong_type",       # references the wrong template type for this field
+        "cycle",            # would form a reference cycle
+        "cross_ps",         # references a template on a different PS
+        "self_reference",   # references its own uid
+    ]
+    referenced_uid: str | None  # the bad reference value, if any
+    hint: str | None            # closest fuzzy-matched candidate, if any
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -3045,4 +3083,6 @@ __all__ = [
     "StepLearningSequenceResult",
     # Ku Intelligence Result Types
     "KuUserSubstanceResult",
+    # PS Template Validation Types
+    "Violation",
 ]

@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Any, TypeVar
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from core.ports.query_types import Violation
+
 
 def _utcnow() -> datetime:
     """Factory function for datetime.now(timezone.utc)"""
@@ -793,6 +795,32 @@ class Errors:
             details=details,
             user_message=message,
             source_location=ErrorContext.capture_current_location(),
+        )
+
+    @staticmethod
+    def ps_validation_report(violations: "list[Violation]") -> ErrorContext:
+        """PS-save validation failure with a structured list of violations.
+
+        Wraps ``Errors.business`` with rule="ps_template_validation" and packs
+        the violations list into ``details["violations"]`` so the route layer
+        can read a typed structure (``list[Violation]``) instead of decoding
+        ``details`` by hand.
+
+        Use when PathStep save validation finds one or more broken
+        cross-template references (free-order authoring, deferred validation).
+
+        Returns:
+            ErrorContext with category=BUSINESS,
+            code="BUSINESS_PS_TEMPLATE_VALIDATION",
+            details["violations"] = the input list.
+        """
+        n = len(violations)
+        verb = "prevent" if n != 1 else "prevents"
+        suffix = "s" if n != 1 else ""
+        return Errors.business(
+            rule="ps_template_validation",
+            message=f"{n} issue{suffix} {verb} saving this PathStep",
+            violations=violations,
         )
 
     @staticmethod
