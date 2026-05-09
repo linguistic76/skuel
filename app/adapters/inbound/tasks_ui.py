@@ -66,6 +66,7 @@ def create_tasks_ui_routes(
         list_component=TaskList,
         stats_component=TaskStatsBar,
         detail_component=TaskDetailView,
+        create_href="/tasks/create",
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 

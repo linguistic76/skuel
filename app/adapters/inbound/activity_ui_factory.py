@@ -27,6 +27,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.utils.connection_fetcher import fetch_entity_connections
 from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
+from ui.buttons import ButtonLink, ButtonT
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
@@ -81,6 +82,8 @@ class ActivityUIConfig:
     list_component: Callable[..., Any]
     stats_component: Callable[..., Any]
     detail_component: Callable[..., Any]
+    create_href: str | None = None
+    create_label: str | None = None
 
 
 # ============================================================================
@@ -140,12 +143,22 @@ def create_activity_ui_routes(
     # 1. Page shell: /{domain}
     # ------------------------------------------------------------------
 
+    header_actions = (
+        ButtonLink(
+            config.create_label or f"+ New {singular.title()}",
+            href=config.create_href,
+            variant=ButtonT.primary,
+        )
+        if config.create_href
+        else None
+    )
+
     @rt(f"/{domain}")
     async def page(request: Request) -> Any:
         """Main page shell — content loads via HTMX."""
         require_authenticated_user(request)
         content = Div(
-            PageHeader(title),
+            PageHeader(title, actions=header_actions),
             content_loading_placeholder(f"/{domain}/content", f"{domain}-content"),
             personal_header_placeholder(),
         )
