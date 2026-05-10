@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.type_hints import UserUID
 
@@ -115,6 +115,12 @@ class HabitDTO(UserOwnedDTO):
     # =========================================================================
     curriculum_driven: bool = False
     curriculum_practice_type: str | None = None
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None
+    engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -259,6 +265,8 @@ class HabitDTO(UserOwnedDTO):
                 "source_learning_path_uid",
                 "curriculum_driven",
                 "curriculum_practice_type",
+                "template_uid",
+                "engagement_state",
             },
             enum_mappings={
                 "entity_type": EntityType,

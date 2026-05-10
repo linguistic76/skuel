@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.type_hints import UserUID
 
@@ -72,6 +72,17 @@ class ChoiceDTO(UserOwnedDTO):
     # =========================================================================
     inspiration_type: str | None = None
     expands_possibilities: bool = False
+
+    # =========================================================================
+    # CROSS-DOMAIN LINKS
+    # =========================================================================
+    source_path_step_uid: str | None = None
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None
+    engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -186,6 +197,9 @@ class ChoiceDTO(UserOwnedDTO):
                 "lessons_learned",
                 "inspiration_type",
                 "expands_possibilities",
+                "source_path_step_uid",
+                "template_uid",
+                "engagement_state",
             },
             enum_mappings={
                 "entity_type": EntityType,

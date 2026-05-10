@@ -28,7 +28,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -124,6 +124,12 @@ class Habit(UserOwnedEntity):
     # =========================================================================
     curriculum_driven: bool = False
     curriculum_practice_type: str | None = None  # Curriculum connection type
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None  # Back-pointer to HabitTemplate that spawned this instance
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # HABIT-SPECIFIC METHODS

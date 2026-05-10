@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.type_hints import UserUID
 
@@ -103,6 +103,12 @@ class EventDTO(UserOwnedDTO):
     knowledge_retention_check: bool = False
     recurrence_maintains_habit: bool = False
     skip_breaks_habit_streak: bool = False
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None
+    engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -220,6 +226,8 @@ class EventDTO(UserOwnedDTO):
                 "knowledge_retention_check",
                 "recurrence_maintains_habit",
                 "skip_breaks_habit_streak",
+                "template_uid",
+                "engagement_state",
             },
             enum_mappings={
                 "entity_type": EntityType,

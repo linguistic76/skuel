@@ -24,7 +24,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 import dataclasses
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -136,6 +136,17 @@ class Principle(UserOwnedEntity):
     # =========================================================================
     is_active: bool = True
     adopted_date: date | None = None
+
+    # =========================================================================
+    # CROSS-DOMAIN LINKS
+    # =========================================================================
+    source_path_step_uid: str | None = None  # PRINCIPLE -> PS
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None  # Back-pointer to PrincipleTemplate that spawned this instance
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # PRINCIPLE-SPECIFIC METHODS

@@ -21,7 +21,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from dataclasses import dataclass
 from datetime import date
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -110,6 +110,12 @@ class Task(UserOwnedEntity):
     knowledge_confidence_scores: dict[str, float] | None = None
     knowledge_inference_metadata: dict[str, Any] | None = None
     learning_opportunities_count: int = 0
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None  # Back-pointer to TaskTemplate that spawned this instance
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # TASK-SPECIFIC METHODS

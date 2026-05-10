@@ -25,7 +25,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from dataclasses import dataclass
 from datetime import date, datetime
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -107,6 +107,7 @@ class Goal(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     fulfills_goal_uid: str | None = None  # SUB-GOAL -> PARENT GOAL
+    source_path_step_uid: str | None = None  # GOAL -> PS
     source_learning_path_uid: str | None = None  # GOAL -> LP
     inspired_by_choice_uid: str | None = None  # GOAL <- CHOICE
     selected_choice_option_uid: str | None = None  # GOAL <- CHOICE option
@@ -121,6 +122,12 @@ class Goal(UserOwnedEntity):
     # FLAGS
     # =========================================================================
     curriculum_driven: bool = False  # Derived from curriculum
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None  # Back-pointer to GoalTemplate that spawned this instance
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # GOAL-SPECIFIC METHODS

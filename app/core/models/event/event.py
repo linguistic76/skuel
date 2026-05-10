@@ -26,7 +26,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -111,6 +111,12 @@ class Event(UserOwnedEntity):
     knowledge_retention_check: bool = False
     recurrence_maintains_habit: bool = False
     skip_breaks_habit_streak: bool = False
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None  # Back-pointer to EventTemplate that spawned this instance
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # EVENT-SPECIFIC METHODS

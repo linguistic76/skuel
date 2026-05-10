@@ -20,7 +20,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from core.models.choice.choice_dto import ChoiceDTO
@@ -79,6 +79,17 @@ class Choice(UserOwnedEntity):
     # =========================================================================
     inspiration_type: str | None = None
     expands_possibilities: bool = False
+
+    # =========================================================================
+    # CROSS-DOMAIN LINKS
+    # =========================================================================
+    source_path_step_uid: str | None = None  # CHOICE -> PS
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None  # Back-pointer to ChoiceTemplate that spawned this instance
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # CHOICE-SPECIFIC METHODS

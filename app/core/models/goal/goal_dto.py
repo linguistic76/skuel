@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.type_hints import UserUID
 
@@ -89,6 +89,7 @@ class GoalDTO(UserOwnedDTO):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     fulfills_goal_uid: str | None = None
+    source_path_step_uid: str | None = None
     source_learning_path_uid: str | None = None
     inspired_by_choice_uid: str | None = None
     selected_choice_option_uid: str | None = None
@@ -103,6 +104,12 @@ class GoalDTO(UserOwnedDTO):
     # FLAGS
     # =========================================================================
     curriculum_driven: bool = False
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None
+    engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -228,12 +235,15 @@ class GoalDTO(UserOwnedDTO):
                 "potential_obstacles",
                 "strategies",
                 "fulfills_goal_uid",
+                "source_path_step_uid",
                 "source_learning_path_uid",
                 "inspired_by_choice_uid",
                 "selected_choice_option_uid",
                 "target_identity",
                 "identity_evidence_required",
                 "curriculum_driven",
+                "template_uid",
+                "engagement_state",
             },
             enum_mappings={
                 "entity_type": EntityType,

@@ -20,7 +20,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.type_hints import UserUID
 
@@ -94,6 +94,12 @@ class TaskDTO(UserOwnedDTO):
     knowledge_confidence_scores: dict[str, float] | None = None
     knowledge_inference_metadata: dict[str, Any] | None = None
     learning_opportunities_count: int = 0
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    template_uid: str | None = None
+    engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -220,6 +226,8 @@ class TaskDTO(UserOwnedDTO):
                 "knowledge_confidence_scores",
                 "knowledge_inference_metadata",
                 "learning_opportunities_count",
+                "template_uid",
+                "engagement_state",
             },
             enum_mappings={
                 "entity_type": EntityType,
