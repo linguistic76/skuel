@@ -7,9 +7,9 @@ Handles transformation between External → Transfer → Core layers.
 """
 
 from datetime import datetime
+from typing import Any
 
 # Direct imports to avoid circular dependency with __init__.py
-from core.models.askesis.askesis import Askesis
 from core.models.askesis.askesis_dto import (
     AskesisCreateDTO,
     AskesisDTO,
@@ -32,10 +32,22 @@ from core.models.enums import GuidanceMode
 from core.models.enums.askesis_enums import QueryComplexity
 from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationSession
+from core.utils.uid_generator import UIDGenerator
 
 # ==========================================================================
 # Request → DTO Conversions
 # ==========================================================================
+
+
+def _enum_value(maybe_enum: Any) -> Any:
+    """Return ``.value`` if given an Enum instance, else pass through.
+
+    AskesisCreate/UpdateRequest use ``model_config = ConfigDict(use_enum_values=True)``,
+    which Pydantic applies inconsistently in V2: explicit enum *inputs* are
+    coerced to their str values, but enum *defaults* keep the enum instance
+    on attribute access. Always normalize at the converter boundary.
+    """
+    return maybe_enum.value if hasattr(maybe_enum, "value") else maybe_enum
 
 
 def askesis_create_request_to_dto(
@@ -46,8 +58,8 @@ def askesis_create_request_to_dto(
         user_uid=user_uid,
         name=request.name,
         version=request.version,
-        preferred_guidance_mode=request.preferred_guidance_mode.value,
-        preferred_complexity_level=request.preferred_complexity_level.value,
+        preferred_guidance_mode=_enum_value(request.preferred_guidance_mode),
+        preferred_complexity_level=_enum_value(request.preferred_complexity_level),
     )
 
 
@@ -59,11 +71,11 @@ def askesis_update_request_to_dto(
         uid=askesis_uid,
         name=request.name,
         version=request.version,
-        preferred_guidance_mode=request.preferred_guidance_mode.value
-        if request.preferred_guidance_mode
+        preferred_guidance_mode=_enum_value(request.preferred_guidance_mode)
+        if request.preferred_guidance_mode is not None
         else None,
-        preferred_complexity_level=request.preferred_complexity_level.value
-        if request.preferred_complexity_level
+        preferred_complexity_level=_enum_value(request.preferred_complexity_level)
+        if request.preferred_complexity_level is not None
         else None,
         last_intelligence_update=datetime.now(),
     )
@@ -122,34 +134,11 @@ def guidance_recommendation_create_request_to_dto(
 # ==========================================================================
 # DTO → Domain Conversions
 # ==========================================================================
-
-
-def askesis_dto_to_domain(dto: AskesisDTO) -> Askesis:
-    """Convert DTO to domain model."""
-    return Askesis(
-        uid=dto.uid,
-        user_uid=dto.user_uid,
-        name=dto.name,
-        version=dto.version,
-        intelligence_confidence=dto.intelligence_confidence,
-        total_conversations=dto.total_conversations,
-        total_domain_integrations=dto.total_domain_integrations,
-        integration_success_rate=dto.integration_success_rate,
-        pattern_recognition_accuracy=dto.pattern_recognition_accuracy,
-        proactive_guidance_success_rate=dto.proactive_guidance_success_rate,
-        preferred_guidance_mode=GuidanceMode(dto.preferred_guidance_mode),
-        preferred_complexity_level=QueryComplexity(dto.preferred_complexity_level),
-        response_preferences=dto.response_preferences,
-        domain_expertise_levels=dto.domain_expertise_levels,
-        domain_usage_patterns=dto.domain_usage_patterns,
-        cross_domain_synergies=dto.cross_domain_synergies,
-        active_learning_areas=tuple(dto.active_learning_areas),
-        knowledge_gaps=tuple(dto.knowledge_gaps),
-        optimization_opportunities=tuple(dto.optimization_opportunities),
-        created_at=dto.created_at,
-        last_interaction=dto.last_interaction,
-        last_intelligence_update=dto.last_intelligence_update,
-    )
+#
+# Note: ``AskesisDTO ↔ Askesis`` conversions live on the domain class
+# (``Askesis.from_dto`` / ``Askesis.to_dto``). The earlier converter copies
+# here were stale (didn't tuple-coerce frozen-dataclass collection fields)
+# and have been removed — call the domain methods directly.
 
 
 def conversation_session_dto_to_domain(dto: ConversationSessionDTO) -> ConversationSession:
@@ -187,34 +176,8 @@ def guidance_recommendation_dto_to_domain(
 # ==========================================================================
 # Domain → DTO Conversions
 # ==========================================================================
-
-
-def askesis_domain_to_dto(domain: Askesis) -> AskesisDTO:
-    """Convert domain model to DTO."""
-    return AskesisDTO(
-        uid=domain.uid,
-        user_uid=domain.user_uid,
-        name=domain.name,
-        version=domain.version,
-        intelligence_confidence=domain.intelligence_confidence,
-        total_conversations=domain.total_conversations,
-        total_domain_integrations=domain.total_domain_integrations,
-        integration_success_rate=domain.integration_success_rate,
-        pattern_recognition_accuracy=domain.pattern_recognition_accuracy,
-        proactive_guidance_success_rate=domain.proactive_guidance_success_rate,
-        preferred_guidance_mode=domain.preferred_guidance_mode.value,
-        preferred_complexity_level=domain.preferred_complexity_level.value,
-        response_preferences=dict(domain.response_preferences),
-        domain_expertise_levels=dict(domain.domain_expertise_levels),
-        domain_usage_patterns=dict(domain.domain_usage_patterns),
-        cross_domain_synergies=dict(domain.cross_domain_synergies),
-        active_learning_areas=list(domain.active_learning_areas),
-        knowledge_gaps=list(domain.knowledge_gaps),
-        optimization_opportunities=list(domain.optimization_opportunities),
-        created_at=domain.created_at,
-        last_interaction=domain.last_interaction,
-        last_intelligence_update=domain.last_intelligence_update,
-    )
+# See note above: ``Askesis ↔ AskesisDTO`` conversions live on the domain
+# class. Use ``askesis.to_dto()`` directly.
 
 
 def conversation_session_domain_to_dto(domain: ConversationSession) -> ConversationSessionDTO:
@@ -395,9 +358,14 @@ def apply_askesis_update_to_dto(dto: AskesisDTO, update_dto: AskesisUpdateDTO) -
 
 
 def create_askesis_dto_from_create_dto(create_dto: AskesisCreateDTO) -> AskesisDTO:
-    """Create a new Askesis DTO from create DTO."""
+    """Expand a CreateDTO into a full AskesisDTO with a fresh UID.
+
+    UID is generated via UIDGenerator for consistency with the rest of SKUEL —
+    the prior timestamp-and-user-uid format was a sketch from the initial
+    commit that never reached the live path.
+    """
     return AskesisDTO(
-        uid=f"askesis_{create_dto.user_uid}_{int(datetime.now().timestamp())}",
+        uid=UIDGenerator.generate_random_uid("askesis"),
         user_uid=create_dto.user_uid,
         name=create_dto.name,
         version=create_dto.version,

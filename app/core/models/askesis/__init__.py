@@ -24,8 +24,6 @@ from .askesis import (
 from .askesis_converters import (
     apply_askesis_update_to_dto,
     askesis_create_request_to_dto,
-    askesis_domain_to_dto,
-    askesis_dto_to_domain,
     askesis_dto_to_response,
     askesis_update_request_to_dto,
     conversation_session_create_request_to_dto,
@@ -118,8 +116,6 @@ __all__ = [
     "apply_askesis_update_to_dto",
     # Converters
     "askesis_create_request_to_dto",
-    "askesis_domain_to_dto",
-    "askesis_dto_to_domain",
     "askesis_dto_to_response",
     "askesis_update_request_to_dto",
     "conversation_session_create_request_to_dto",
