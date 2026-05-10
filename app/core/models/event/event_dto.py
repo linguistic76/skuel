@@ -41,7 +41,7 @@ class EventDTO(UserOwnedDTO):
     - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
     - Reminders (2): reminder_minutes, reminder_sent
     - Attendees (2): attendee_emails, max_attendees
-    - Cross-domain links (3): reinforces_habit_uid, source_path_step_uid, source_learning_path_uid
+    - Cross-domain links (2): reinforces_habit_uid, source_path_step_uid
     - Milestones (4): milestone_celebration_for_goal, is_milestone_event, milestone_type, curriculum_week
     - Quality (4): habit_completion_quality, knowledge_retention_check, recurrence_maintains_habit, skip_breaks_habit_streak
     """
@@ -86,7 +86,6 @@ class EventDTO(UserOwnedDTO):
     # =========================================================================
     reinforces_habit_uid: str | None = None
     source_path_step_uid: str | None = None
-    source_learning_path_uid: str | None = None
 
     # =========================================================================
     # MILESTONE INTEGRATION
@@ -217,7 +216,6 @@ class EventDTO(UserOwnedDTO):
                 "max_attendees",
                 "reinforces_habit_uid",
                 "source_path_step_uid",
-                "source_learning_path_uid",
                 "milestone_celebration_for_goal",
                 "is_milestone_event",
                 "milestone_type",

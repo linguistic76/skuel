@@ -4,11 +4,11 @@ Task - Task Domain Model
 
 Frozen dataclass for task entities (EntityType.TASK).
 
-Inherits common fields from UserOwnedEntity. Adds 25 task-specific fields:
+Inherits common fields from UserOwnedEntity. Adds task-specific fields:
 - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
 - Hierarchy (3): parent_uid, project, assignee
-- Cross-domain links (4): goal, habit, path step/path references
-- Progress impact (6): goal contribution, knowledge mastery, habit streak
+- Cross-domain links (3): goal, habit, path step references
+- Progress impact (5): goal contribution, knowledge mastery, habit streak
 - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
 
 Task-specific methods: learning_alignment_score, is_overdue,
@@ -39,7 +39,7 @@ class Task(UserOwnedEntity):
     Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
-    Adds 25 task-specific fields for scheduling, hierarchy, cross-domain
+    Adds task-specific fields for scheduling, hierarchy, cross-domain
     links, progress impact, and knowledge intelligence.
     """
 
@@ -92,7 +92,6 @@ class Task(UserOwnedEntity):
     fulfills_goal_uid: str | None = None  # TASK -> GOAL
     reinforces_habit_uid: str | None = None  # TASK -> HABIT
     source_path_step_uid: str | None = None  # TASK -> PS
-    source_learning_path_uid: str | None = None  # TASK -> LP
 
     # =========================================================================
     # PROGRESS IMPACT
@@ -101,7 +100,6 @@ class Task(UserOwnedEntity):
     knowledge_mastery_check: bool = False  # Verify knowledge mastery on completion
     habit_streak_maintainer: bool = False  # Maintains habit streak
     completion_updates_goal: bool = False  # Completion updates GOAL progress
-    curriculum_driven: bool = False  # Derived from curriculum
     curriculum_practice_type: str | None = None  # Curriculum connection type
 
     # =========================================================================
@@ -122,14 +120,16 @@ class Task(UserOwnedEntity):
     # =========================================================================
 
     def learning_alignment_score(self) -> float:
-        """Score for how well a task aligns with learning paths."""
+        """Score for how well a task aligns with learning paths.
+
+        PS link is sufficient signal — LP is reachable via PS via
+        (PS)-[:IS_STEP_OF]->(LP), so a separate LP weight is redundant.
+        """
         score = 0.0
         if self.source_path_step_uid:
-            score += 0.5
-        if self.source_learning_path_uid:
-            score += 0.3
+            score += 0.7
         if self.knowledge_mastery_check:
-            score += 0.2
+            score += 0.3
         return min(1.0, score)
 
     def is_overdue(self) -> bool:
@@ -209,21 +209,19 @@ class Task(UserOwnedEntity):
     def calculate_learning_impact(self) -> float:
         """Calculate learning impact score (0.0-1.0).
 
-        Derived from curriculum linkage fields already present on the Task:
-        path step / learning path references, mastery check flag, curriculum
-        origin, and breadth of knowledge confidence scores.
+        Derived from curriculum linkage fields on the Task: path step
+        reference, mastery check flag, template origin (curriculum-spawned),
+        and breadth of knowledge confidence scores.
         """
         score = 0.0
         if self.source_path_step_uid:
-            score += 0.30
-        if self.source_learning_path_uid:
-            score += 0.20
+            score += 0.40
         if self.knowledge_mastery_check:
             score += 0.20
-        if self.curriculum_driven:
-            score += 0.15
+        if self.template_uid:
+            score += 0.20
         if self.knowledge_confidence_scores:
-            score += min(0.15, len(self.knowledge_confidence_scores) * 0.03)
+            score += min(0.20, len(self.knowledge_confidence_scores) * 0.04)
         return min(1.0, score)
 
     @property

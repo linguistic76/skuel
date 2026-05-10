@@ -2,7 +2,7 @@
 TaskDTO - Task-Specific DTO (Tier 2 - Transfer)
 =================================================
 
-Extends UserOwnedDTO with 25 task-specific fields matching the Task
+Extends UserOwnedDTO with task-specific fields matching the Task
 frozen dataclass (Tier 3): scheduling, hierarchy, cross-domain links,
 progress impact, and knowledge intelligence.
 
@@ -12,7 +12,7 @@ of the domain-first architecture migration.
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── TaskDTO(UserOwnedDTO) +25 task-specific fields
+        └── TaskDTO(UserOwnedDTO) +task-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -38,11 +38,11 @@ class TaskDTO(UserOwnedDTO):
     """
     Mutable DTO for tasks (EntityType.TASK).
 
-    Extends UserOwnedDTO with 25 task-specific fields:
+    Extends UserOwnedDTO with task-specific fields:
     - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
     - Hierarchy (3): parent_uid, project, assignee
-    - Cross-domain links (4): goal, habit, path step/path references
-    - Progress impact (6): goal contribution, knowledge mastery, habit streak
+    - Cross-domain links (3): goal, habit, path step references
+    - Progress impact (5): goal contribution, knowledge mastery, habit streak
     - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
     """
 
@@ -76,7 +76,6 @@ class TaskDTO(UserOwnedDTO):
     fulfills_goal_uid: str | None = None
     reinforces_habit_uid: str | None = None
     source_path_step_uid: str | None = None
-    source_learning_path_uid: str | None = None
 
     # =========================================================================
     # PROGRESS IMPACT
@@ -85,7 +84,6 @@ class TaskDTO(UserOwnedDTO):
     knowledge_mastery_check: bool = False
     habit_streak_maintainer: bool = False
     completion_updates_goal: bool = False
-    curriculum_driven: bool = False
     curriculum_practice_type: str | None = None
 
     # =========================================================================
@@ -216,12 +214,10 @@ class TaskDTO(UserOwnedDTO):
                 "fulfills_goal_uid",
                 "reinforces_habit_uid",
                 "source_path_step_uid",
-                "source_learning_path_uid",
                 "goal_progress_contribution",
                 "knowledge_mastery_check",
                 "habit_streak_maintainer",
                 "completion_updates_goal",
-                "curriculum_driven",
                 "curriculum_practice_type",
                 "knowledge_confidence_scores",
                 "knowledge_inference_metadata",

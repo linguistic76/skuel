@@ -15,8 +15,8 @@ Inherits common fields from UserOwnedEntity. Adds 31 habit-specific fields:
 - Scheduling (6): duration_minutes, recurrence_pattern, recurrence_end_date,
   recurrence_parent_uid, target_days_per_week, preferred_time
 - Reminders (3): reminder_time, reminder_days, reminder_enabled
-- Cross-domain links (2): source_path_step_uid, source_learning_path_uid
-- Flags (1): curriculum_driven
+- Cross-domain links (1): source_path_step_uid
+- Flags (1): curriculum_practice_type
 
 Habit-specific methods: calculate_consistency_score, is_keystone, should_do_today,
 get_effort_score, is_identity_based, predict_goal_impact, get_atomic_habits_analysis,
@@ -117,12 +117,10 @@ class Habit(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     source_path_step_uid: str | None = None  # HABIT -> PS
-    source_learning_path_uid: str | None = None  # HABIT -> LP
 
     # =========================================================================
     # FLAGS
     # =========================================================================
-    curriculum_driven: bool = False
     curriculum_practice_type: str | None = None  # Curriculum connection type
 
     # =========================================================================

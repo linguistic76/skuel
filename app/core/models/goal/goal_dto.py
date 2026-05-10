@@ -42,9 +42,8 @@ class GoalDTO(UserOwnedDTO):
     - Timeline (3): start_date, target_date, achieved_date
     - Progress (4): milestones, progress_percentage, last_progress_update, progress_history
     - Motivation (5): vision_statement, why_important, success_criteria, potential_obstacles, strategies
-    - Cross-domain links (4): fulfills_goal_uid, source_learning_path_uid, inspired_by_choice_uid, selected_choice_option_uid
+    - Cross-domain links (4): fulfills_goal_uid, source_path_step_uid, inspired_by_choice_uid, selected_choice_option_uid
     - Identity (2): target_identity, identity_evidence_required
-    - Flags (1): curriculum_driven
     """
 
     # =========================================================================
@@ -90,7 +89,6 @@ class GoalDTO(UserOwnedDTO):
     # =========================================================================
     fulfills_goal_uid: str | None = None
     source_path_step_uid: str | None = None
-    source_learning_path_uid: str | None = None
     inspired_by_choice_uid: str | None = None
     selected_choice_option_uid: str | None = None
 
@@ -99,11 +97,6 @@ class GoalDTO(UserOwnedDTO):
     # =========================================================================
     target_identity: str | None = None
     identity_evidence_required: int = 0
-
-    # =========================================================================
-    # FLAGS
-    # =========================================================================
-    curriculum_driven: bool = False
 
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
@@ -236,12 +229,10 @@ class GoalDTO(UserOwnedDTO):
                 "strategies",
                 "fulfills_goal_uid",
                 "source_path_step_uid",
-                "source_learning_path_uid",
                 "inspired_by_choice_uid",
                 "selected_choice_option_uid",
                 "target_identity",
                 "identity_evidence_required",
-                "curriculum_driven",
                 "template_uid",
                 "engagement_state",
             },

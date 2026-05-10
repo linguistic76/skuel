@@ -10,8 +10,7 @@ Inherits common fields from UserOwnedEntity. Adds 26 event-specific fields:
 - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
 - Reminders (2): reminder_minutes, reminder_sent
 - Attendees (2): attendee_emails, max_attendees
-- Cross-domain links (3): reinforces_habit_uid, source_path_step_uid,
-  source_learning_path_uid
+- Cross-domain links (2): reinforces_habit_uid, source_path_step_uid
 - Curriculum/milestone integration (4): milestone_celebration_for_goal,
   is_milestone_event, milestone_type, curriculum_week
 - Quality tracking (4): habit_completion_quality, knowledge_retention_check,
@@ -94,7 +93,6 @@ class Event(UserOwnedEntity):
     # =========================================================================
     reinforces_habit_uid: str | None = None  # EVENT -> HABIT
     source_path_step_uid: str | None = None  # EVENT -> PS
-    source_learning_path_uid: str | None = None  # EVENT -> LP
 
     # =========================================================================
     # CURRICULUM / MILESTONE INTEGRATION

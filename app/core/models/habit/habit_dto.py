@@ -44,8 +44,8 @@ class HabitDTO(UserOwnedDTO):
     - Lifecycle (2): started_at, completed_at
     - Scheduling (6): duration_minutes, recurrence_pattern, recurrence_end_date, recurrence_parent_uid, target_days_per_week, preferred_time
     - Reminders (3): reminder_time, reminder_days, reminder_enabled
-    - Cross-domain links (2): source_path_step_uid, source_learning_path_uid
-    - Flags (2): curriculum_driven, curriculum_practice_type
+    - Cross-domain links (1): source_path_step_uid
+    - Flags (1): curriculum_practice_type
     """
 
     # =========================================================================
@@ -108,12 +108,10 @@ class HabitDTO(UserOwnedDTO):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     source_path_step_uid: str | None = None
-    source_learning_path_uid: str | None = None
 
     # =========================================================================
     # FLAGS
     # =========================================================================
-    curriculum_driven: bool = False
     curriculum_practice_type: str | None = None
 
     # =========================================================================
@@ -262,8 +260,6 @@ class HabitDTO(UserOwnedDTO):
                 "reminder_days",
                 "reminder_enabled",
                 "source_path_step_uid",
-                "source_learning_path_uid",
-                "curriculum_driven",
                 "curriculum_practice_type",
                 "template_uid",
                 "engagement_state",
