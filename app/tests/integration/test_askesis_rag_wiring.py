@@ -11,10 +11,16 @@ Tests are automatically skipped if credentials are missing.
 """
 
 import os
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from core.config.intelligence_tier import IntelligenceTier
+from core.models.context_types import DailyWorkPlan
+from core.services.askesis_service import AskesisService
+from core.services.ps_engagement.engagement import Engagement
+from core.utils.result_simplified import Errors, Result
 
 # Skip condition: requires OPENAI_API_KEY and FULL tier for Askesis
 _has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
@@ -135,3 +141,151 @@ async def test_askesis_rag_pipeline_end_to_end(skuel_app, populated_test_data):
     assert len(answer_data["answer"]) > 0, "Answer should not be empty"
     assert isinstance(answer_data["suggested_actions"], list), "Suggested actions should be a list"
     assert answer_data["mode"] == "llm_generated", "Mode should be llm_generated"
+
+
+# ============================================================================
+# ADR-059 — Engagement-aware daily plan bucketing
+# ============================================================================
+#
+# These tests exercise AskesisService.get_daily_work_plan's post-processing
+# layer: it takes the flat plan from UserContextIntelligence and folds in
+# engagement state from PsEngagementService. The core bucketing logic is
+# pure, so the tests stub the two collaborators and assert the resulting
+# DailyWorkPlan shape — no Neo4j or LLM dependencies.
+
+
+def _engagement(
+    ps_uid: str,
+    spawned: tuple[str, ...] = (),
+    state: str = "engaged",
+) -> Engagement:
+    return Engagement(
+        student_uid="user_1",
+        ps_uid=ps_uid,
+        state=state,  # type: ignore[arg-type]
+        since=datetime(2026, 5, 3, 10, 0, tzinfo=UTC),
+        spawned_instance_uids=spawned,
+    )
+
+
+def _user_context(ps_uids_in_active: tuple[str, ...] = (), user_uid: str = "user_1") -> MagicMock:
+    ctx = MagicMock()
+    ctx.user_uid = user_uid
+    ctx.active_path_steps_rich = [
+        {"step": {"uid": uid}, "graph_context": {}} for uid in ps_uids_in_active
+    ]
+    return ctx
+
+
+def _askesis_with_stubbed_plan(
+    plan: DailyWorkPlan,
+    engagements: list[Engagement] | None,
+    list_engaged_ok: bool = True,
+) -> AskesisService:
+    """Build an AskesisService with intelligence_factory and ps_engagement_service stubbed."""
+    askesis = AskesisService.__new__(AskesisService)  # bypass __init__ wiring
+
+    intelligence = MagicMock()
+    intelligence.get_ready_to_work_on_today = AsyncMock(return_value=Result.ok(plan))
+    factory = MagicMock()
+    factory.create = MagicMock(return_value=intelligence)
+    askesis.intelligence_factory = factory
+
+    ps_eng = MagicMock()
+    if list_engaged_ok:
+        ps_eng.list_engaged = AsyncMock(return_value=Result.ok(engagements or []))
+    else:
+        ps_eng.list_engaged = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="list_engaged", message="boom"))
+        )
+    askesis.ps_engagement_service = ps_eng
+
+    return askesis
+
+
+@pytest.mark.asyncio
+async def test_daily_plan_buckets_engaged_with_pending_spawned_activities() -> None:
+    """An engaged PS with spawned tasks/habits surfaces those UIDs in the group."""
+    plan = DailyWorkPlan(
+        tasks=("task_a", "task_b", "task_orphan"),
+        habits=("habit_a",),
+        events=(),
+    )
+    eng = _engagement("ps:algebra", spawned=("task_a", "habit_a", "task_completed_yesterday"))
+    askesis = _askesis_with_stubbed_plan(plan, [eng])
+    ctx = _user_context()  # nothing extra in active_path_steps_rich
+
+    result = await askesis.get_daily_work_plan(ctx)
+
+    assert result.is_ok
+    out = result.value
+    assert len(out.engaged_ps_groups) == 1
+    group = out.engaged_ps_groups[0]
+    assert group.ps_uid == "ps:algebra"
+    assert group.engagement is eng
+    # Intersection only — task_orphan stays in flat list, not in group
+    assert group.pending_task_uids == ("task_a",)
+    assert group.pending_habit_uids == ("habit_a",)
+    # Flat lists are preserved (bucketing is additive)
+    assert out.tasks == ("task_a", "task_b", "task_orphan")
+    # Nothing engaged → no available_to_start additions
+    assert out.available_to_start == ()
+
+
+@pytest.mark.asyncio
+async def test_daily_plan_surfaces_available_to_start_when_no_engagements() -> None:
+    """Touched PSes with no active engagement land in available_to_start."""
+    plan = DailyWorkPlan(tasks=("task_x",))
+    askesis = _askesis_with_stubbed_plan(plan, engagements=[])
+    ctx = _user_context(ps_uids_in_active=("ps:touched_a", "ps:touched_b"))
+
+    result = await askesis.get_daily_work_plan(ctx)
+
+    assert result.is_ok
+    out = result.value
+    assert out.engaged_ps_groups == ()
+    assert out.available_to_start == ("ps:touched_a", "ps:touched_b")
+
+
+@pytest.mark.asyncio
+async def test_daily_plan_excludes_abandoned_engagements() -> None:
+    """list_engaged returns only state='engaged' edges; abandoned ones never reach the bucketer.
+
+    This test pins the contract at the AskesisService boundary: even if a PS
+    that was once engaged is now abandoned (and so absent from list_engaged's
+    output), it must not show up as an engaged_ps_group, AND if the user has
+    ``active_path_steps_rich`` membership for it, it correctly falls into
+    ``available_to_start`` (touched, not currently engaged).
+    """
+    plan = DailyWorkPlan(tasks=("task_a",))
+    # Only one ACTIVE engagement; the abandoned PS is omitted by the gateway.
+    active_eng = _engagement("ps:current", spawned=("task_a",))
+    askesis = _askesis_with_stubbed_plan(plan, [active_eng])
+    # User's UserContext still lists the abandoned PS as touched.
+    ctx = _user_context(ps_uids_in_active=("ps:current", "ps:abandoned"))
+
+    result = await askesis.get_daily_work_plan(ctx)
+
+    assert result.is_ok
+    out = result.value
+    engaged_uids = {g.ps_uid for g in out.engaged_ps_groups}
+    assert engaged_uids == {"ps:current"}
+    # Abandoned PS is touched-but-not-engaged → available_to_start.
+    # Active engagement's PS is filtered out of available_to_start.
+    assert out.available_to_start == ("ps:abandoned",)
+
+
+@pytest.mark.asyncio
+async def test_daily_plan_returns_unbucketed_plan_on_engagement_query_failure() -> None:
+    """If list_engaged fails, the flat plan still returns — no engagement degrades the surface."""
+    plan = DailyWorkPlan(tasks=("task_a",))
+    askesis = _askesis_with_stubbed_plan(plan, engagements=None, list_engaged_ok=False)
+    ctx = _user_context(ps_uids_in_active=("ps:touched",))
+
+    result = await askesis.get_daily_work_plan(ctx)
+
+    assert result.is_ok
+    # Buckets are empty (post-processing skipped) but the underlying plan is intact.
+    assert result.value.tasks == ("task_a",)
+    assert result.value.engaged_ps_groups == ()
+    assert result.value.available_to_start == ()

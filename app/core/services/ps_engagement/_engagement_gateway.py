@@ -72,6 +72,34 @@ class _EngagementGateway:
             return Result.ok(None)
         return Result.ok(_record_to_engagement(records[0], student_uid, ps_uid))
 
+    async def list_engaged(self, student_uid: str) -> Result[list[Engagement]]:
+        """Return all active (state='engaged') engagement edges for a student.
+
+        Completed and abandoned edges are filtered out — callers wanting the
+        full audit trail need a different read path. Each returned Engagement
+        carries an empty ``spawned_instance_uids`` tuple; the facade enriches
+        it from the activity instance store.
+        """
+        query = f"""
+        MATCH (u:User {{uid: $student_uid}})-[r:{_ENGAGED_WITH}]->(ps)
+        WHERE r.state = 'engaged'
+        RETURN ps.uid AS ps_uid,
+               r.since AS since,
+               r.state AS state,
+               r.completed_at AS completed_at,
+               r.abandoned_at AS abandoned_at
+        """
+        result: Result[list[dict[str, Any]]] = await self._executor.execute(
+            query=query,
+            params={"student_uid": student_uid},
+            operation="list_engaged",
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [_record_to_engagement(rec, student_uid, rec["ps_uid"]) for rec in result.value]
+        )
+
     async def open_engagement(self, student_uid: str, ps_uid: str) -> Result[Engagement]:
         """Create a new ENGAGED_WITH edge with state='engaged'.
 

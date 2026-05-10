@@ -64,6 +64,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import EntityUID
 
 if TYPE_CHECKING:
+    from core.services.ps_engagement.engagement import Engagement
     from core.services.user.unified_user_context import UserContext
 
 
@@ -1485,6 +1486,30 @@ class ContextualExercise:
 
 
 @dataclass(frozen=True)
+class EngagedPsGroup:
+    """One engaged PathStep plus its still-pending spawned activities.
+
+    Built by ``AskesisService.get_daily_work_plan`` from the intersection of
+    ``Engagement.spawned_instance_uids`` (set at engage time) and the daily
+    plan's per-domain UID lists. ``pending_*`` tuples preserve the plan's
+    ordering — they are filtered slices, not re-ranked sets.
+
+    The ``engagement`` snapshot carries ``state``, ``since``, and the full
+    ``spawned_instance_uids`` tuple — useful when a consumer wants to know
+    "this engagement spawned 5 things originally; 3 are still pending today."
+    """
+
+    ps_uid: str
+    engagement: "Engagement"
+    pending_task_uids: tuple[str, ...] = ()
+    pending_habit_uids: tuple[str, ...] = ()
+    pending_event_uids: tuple[str, ...] = ()
+    pending_goal_uids: tuple[str, ...] = ()
+    pending_choice_uids: tuple[str, ...] = ()
+    pending_principle_uids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class DailyWorkPlan:
     """
     Comprehensive plan for what to work on today.
@@ -1518,6 +1543,11 @@ class DailyWorkPlan:
     contextual_goals: tuple[ContextualGoal, ...] = ()
     contextual_knowledge: tuple[ContextualKnowledge, ...] = ()
     contextual_exercises: tuple[ContextualExercise, ...] = ()
+
+    # PS-engagement bucketing (ADR-059) — populated by AskesisService.get_daily_work_plan,
+    # left empty by UserContextIntelligence (which is engagement-blind by design).
+    engaged_ps_groups: tuple[EngagedPsGroup, ...] = ()  # one per active engagement
+    available_to_start: tuple[str, ...] = ()  # PS UIDs touched but not engaged
 
     # Capacity metrics
     estimated_time_minutes: int = 0
@@ -1607,6 +1637,7 @@ __all__ = [
     "PracticeOpportunity",
     # Intelligence output types
     "DailyWorkPlan",
+    "EngagedPsGroup",
     "LifePathAlignment",
     "CrossDomainSynergy",
     "PathStep",

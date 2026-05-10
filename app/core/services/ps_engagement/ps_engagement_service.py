@@ -364,9 +364,7 @@ class PsEngagementService:
     # Read — engagement edge lookup
     # ========================================================================
 
-    async def find_active(
-        self, student_uid: str, ps_uid: str
-    ) -> Result[Engagement | None]:
+    async def find_active(self, student_uid: str, ps_uid: str) -> Result[Engagement | None]:
         """Read-only access to the active engagement edge, if any.
 
         Returns the Engagement when ``ENGAGED_WITH`` exists for (student, ps),
@@ -374,6 +372,31 @@ class PsEngagementService:
         toward engaged PathSteps without bringing the gateway into a public API.
         """
         return await self._gateway.find_active(student_uid, ps_uid)
+
+    async def list_engaged(self, student_uid: str) -> Result[list[Engagement]]:
+        """Return all active engagements for a student, with spawned instance UIDs.
+
+        For each ``state='engaged'`` edge, fetches the activity instances spawned
+        by that engagement (via ``template_uid`` join against templates attached
+        to the PS) and populates ``Engagement.spawned_instance_uids``.
+
+        Used by ``AskesisService.get_daily_work_plan`` to bucket the daily plan
+        by which PS engagement spawned each pending activity.
+        """
+        from dataclasses import replace
+
+        listed = await self._gateway.list_engaged(student_uid)
+        if listed.is_error:
+            return Result.fail(listed)
+
+        enriched: list[Engagement] = []
+        for engagement in listed.value:
+            instances = await self._fetch_engaged_instances(student_uid, engagement.ps_uid)
+            if instances.is_error:
+                return Result.fail(instances)
+            instance_uids = tuple(uid for _t, uid, _l in instances.value)
+            enriched.append(replace(engagement, spawned_instance_uids=instance_uids))
+        return Result.ok(enriched)
 
     # ========================================================================
     # Internal — instance discovery

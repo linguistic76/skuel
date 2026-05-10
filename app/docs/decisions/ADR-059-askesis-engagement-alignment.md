@@ -1,13 +1,13 @@
 ---
-title: "ADR-059: Aligning Askesis with the Template -> Engaged Lifecycle"
+title: "ADR-059: Engagement-Aware Daily Plan in Askesis"
 updated: 2026-05-10
 status: current
 category: decisions
-tags: [adr, decisions, askesis, engagement, lifecycle, ps-engagement]
+tags: [adr, decisions, askesis, engagement, daily-plan]
 related: [ADR-043, ADR-048, ADR-055]
 ---
 
-# ADR-059: Aligning Askesis with the Template -> Engaged Lifecycle
+# ADR-059: Engagement-Aware Daily Plan in Askesis
 
 **Status:** Proposed
 
@@ -16,160 +16,142 @@ related: [ADR-043, ADR-048, ADR-055]
 **Decision Type:** Pattern/Practice
 
 **Related ADRs:**
-- Related to: ADR-043 (Intelligence Tier Toggle) — Askesis is the FULL-tier conversational surface
-- Related to: ADR-048 (Adaptive Learning Loop) — engagement is the lifecycle the loop runs inside
-- Related to: ADR-055 (Architectural Lenses) — Askesis is a cross-cutting subsystem
+- ADR-043 — Intelligence Tier Toggle (Askesis is FULL-tier)
+- ADR-048 — Adaptive Learning Loop (the lifecycle this ADR rides on)
+- ADR-055 — Architectural Lenses (Askesis is a cross-cutting subsystem)
 
 ---
 
 ## Context
 
-The PS+Activity lifecycle (Template -> Engaged -> Completed/Abandoned) shipped
-between May 1 and May 9, 2026:
+The PS+Activity lifecycle (Template → Engaged → Completed/Abandoned) shipped
+between May 1 and May 9, 2026. The Askesis ↔ engagement wiring at the
+**bundle layer** shipped alongside it. What is already in place:
 
-- `core/services/ps_engagement/ps_engagement_service.py` provides
+- `PsEngagementService` (`core/services/ps_engagement/`) provides
   `publish_pathstep`, `engage_pathstep`, `complete_pathstep`, `abandon_pathstep`.
-- `(User)-[:ENGAGED_WITH {since, state, ...}]->(PS)` carries the lifecycle
-  (`EngagementState = Literal["engaged", "completed", "abandoned"]`,
-  `core/services/ps_engagement/engagement.py:17`).
-- `core/models/templates/relative_offset.py` defines the `RelativeOffset`
-  value type used by Activity Templates to express timing as
-  "N days/weeks after engagement."
-- The 6 Activity Templates (Task / Goal / Habit / Event / Choice / Principle)
-  attach to a published PS, and `_spawn_orchestrator` materializes instances
-  on engagement using a 4-layer topological order.
+- `Engagement` (`core/services/ps_engagement/engagement.py:17-34`) is the
+  frozen projection of the `(User)-[:ENGAGED_WITH {state, since, ...}]->(PS)`
+  edge: `state`, `since`, `completed_at`, `abandoned_at`, `spawned_instance_uids`.
+- `PsBundle.engagement: Engagement | None`
+  (`core/models/askesis/ps_bundle.py:54`) carries the lifecycle snapshot
+  per Socratic turn.
+- `ContextRetriever._find_active_ps`
+  (`core/services/askesis/context_retriever.py:505-571`) prefers engaged
+  candidates over published-but-not-engaged ones and populates the bundle's
+  `engagement` field.
+- `create_askesis_service` (`core/services/askesis_factory.py:20`) takes
+  `ps_engagement_service` and `_intelligence_hub.py:208` wires it.
+- `_spawn_orchestrator` (`core/services/ps_engagement/_spawn_orchestrator.py:278`)
+  resolves every Activity Template's `RelativeOffset` to absolute date/datetime
+  fields **on the spawned instance** at engagement time. Spawned tasks and
+  events carry concrete `due_at` / `scheduled_at` — there is no separate
+  "PS engagement deadline" to compute.
+- `adapters/inbound/askesis_api.py` was pruned to a single route
+  (`/api/askesis/ask`); 16 unreferenced endpoints were deleted under
+  "One Path Forward."
 
-Askesis (`core/services/askesis/`, `core/services/askesis_service.py`,
-`core/models/askesis/`) was not touched in that window and still operates as
-if PathSteps are statically authored content rather than a Template that a
-student engages with. The bundle loader, daily-plan ranker, and recommendation
-surface are all timeline-unaware:
+What is **not** yet in place: `AskesisService.get_daily_work_plan`
+(`core/services/askesis_service.py:417-467`) delegates straight to
+`UserContextIntelligence.get_ready_to_work_on_today()`. That method
+synthesizes a daily plan from UserContext (at-risk habits, today's events,
+overdue tasks, advancing goals, etc.) but is engagement-blind: it does
+not separate "items spawned from a PS the user is currently engaged with"
+from "items that exist independent of any PS engagement," and it cannot
+surface "PS X — engaged May 3, three of its spawned tasks are pending"
+as a coherent unit.
 
-- `PsBundle` (`core/models/askesis/ps_bundle.py:33-65`) carries the PathStep,
-  KUs, Resources, and Activity entities — but no `engaged_at`,
-  `engagement_state`, `template_uid`, or computed deadlines.
-- `ContextRetriever._find_active_ps()` reads `active_path_steps_rich` from
-  UserContext, which knows the user touched the PS but not whether the
-  ENGAGED_WITH edge exists or when it was created.
-- `RelativeOffset` is never resolved to an absolute datetime anywhere in
-  the Askesis pipeline.
-
-The functional consequence is not aesthetic. Recommendations rank
-published-but-not-engaged PathSteps alongside actively engaged ones, deadlines
-are absent from prompt context, and the "what should I do today" surface
-cannot distinguish "available to start" from "in flight, due Friday."
-Askesis is wired (`services_bootstrap/_intelligence_hub.py:172`) and
-callable (`/askesis/api/submit`), but its model of the world predates the
-lifecycle that now governs every PS-derived recommendation.
+The bundle knows about engagement; the plan does not. That is the gap.
 
 ---
 
 ## Decision
 
-**Adopt the engagement lifecycle as a first-class input to the Askesis
-context bundle and ranker.** Specifically:
+**Make `get_daily_work_plan` engagement-aware by bucketing its output, not
+by adding new fields or recomputing dates.** Specifically:
 
-1. **`PsEngagementService` is a required dependency of `ContextRetriever`.**
-   Wire it through `create_askesis_service()` in
-   `core/services/askesis_factory.py`. No `None` default — Askesis already
-   gates on `INTELLIGENCE_TIER=full`, and engagement is a core-tier service,
-   so it is always available wherever Askesis runs.
+1. **`DailyWorkPlan` gains two grouping affordances** (additive — existing
+   per-domain lists stay):
+   - `engaged_ps_groups: tuple[EngagedPsGroup, ...]` — one entry per PS the
+     user is currently engaged with, holding the PS, the engagement snapshot
+     (state + since), and the spawned activities still pending. Built by
+     joining `bundle.engagement.spawned_instance_uids` against the existing
+     domain lists.
+   - `available_to_start: tuple[PathStep, ...]` — published PSes the user
+     has touched but not engaged with. Surfaced only when the engaged set
+     is empty or when the caller explicitly asks "what's next."
 
-2. **`PsBundle` gains four engagement fields** (frozen, optional only because
-   a freshly published PS has no engagement until the student engages):
-   - `engagement_state: EngagementState | None`
-   - `engaged_at: datetime | None`
-   - `engagement_deadline: datetime | None` (computed from PS-level
-     `RelativeOffset` if present, else `None`)
-   - `template_uid: str | None` (the Activity Template the spawned instance
-     was rendered from, for the activities already in the bundle)
+2. **`AskesisService.get_daily_work_plan` reads engagement from the bundle
+   it already has access to**, and queries `PsEngagementService.list_engaged`
+   for the user's full engaged-PS set (a single edge scan keyed on `user_uid`,
+   already indexed). It does not recompute deadlines — spawned activities
+   already carry absolute date fields.
 
-3. **A new `engagement_time_resolver` helper** lives at
-   `core/services/askesis/engagement_time_resolver.py`. Single function:
-   `resolve_deadline(engaged_at: datetime, offset: RelativeOffset) -> datetime`.
-   Called from `_build_path_step` once per bundle build.
+3. **Activities not associated with any engaged PS keep their existing
+   ranking.** This ADR does not re-rank the rest of the daily plan — habits,
+   independent tasks, calendar events, and goal progress flow through the
+   same `UserContextIntelligence` path as today.
 
-4. **`get_daily_work_plan()` ranks by engagement, not publication.** The
-   query becomes "PathSteps the user is currently `engaged` with, ordered
-   by deadline ascending (overdue first), then by ZPD readiness." Published-
-   but-not-engaged PathSteps move to a separate "available to start" bucket
-   that is surfaced only when the engaged set is empty or when the user
-   explicitly asks "what's next."
-
-5. **The 17 routes in `askesis_api.py` are audited and the dead set
-   removed in the same change.** A route that has no caller in
-   `ui/askesis/`, `static/js/`, or another service is deleted, not preserved.
-   This is consistent with "One Path Forward" — Askesis does not maintain
-   aspirational endpoints.
-
-This is the minimum change that lets Askesis answer "what is due, and when"
-truthfully. Deeper integrations (engagement-aware Socratic prompts, ZPD
-gating of new engagements, abandoned-PS recovery dialogues) are deferred
-until this baseline is in place.
+This is the minimum change that lets Askesis answer "what's pending from
+the things you're actively engaged with" without changing data shapes or
+duplicating deadline resolution.
 
 ---
 
 ## Alternatives Considered
 
-### Alternative 1: Leave `PsBundle` alone; compute deadlines at render time in the daily-plan endpoint
+### Alternative 1: Push engagement-awareness into `UserContextIntelligence`
 
-**Why rejected:** The bundle is the contract every downstream Askesis
-consumer reads — IntentClassifier, EntityExtractor, ResponseGenerator, and
-the prompt builders. Putting deadline awareness only in the daily-plan
-endpoint means the Socratic prompt builder still tells the LLM "the user
-is studying X" with no timing context, and recommendations rendered through
-other endpoints stay timeline-blind. The bundle is the right seam.
+**Why rejected:** `UserContextIntelligence.get_ready_to_work_on_today()` is
+consumed by surfaces beyond Askesis (the home dashboard, the schedule
+recommender). Forcing PS-engagement grouping on every consumer pays a cost
+they don't all need. Askesis is the surface that frames work as
+"what's pending from your current learning engagements"; other surfaces
+correctly frame work as "what's due today across all domains."
 
-### Alternative 2: Fold engagement state into UserContext and let Askesis read it from `active_path_steps_rich`
+### Alternative 2: Add `engagement_deadline` to `PsBundle` and resolve `RelativeOffset` in the bundle builder
 
-**Why rejected:** UserContext is already wide (~250 fields under
-`build_rich()`). Adding per-PS engagement metadata to every UserContext
-build pays the cost on every page load, including pages that have nothing
-to do with curriculum. Askesis is the only consumer that needs the full
-lifecycle shape; `PsEngagementService` is cheap to call directly when
-building the bundle. ZPD followed the same reasoning (computed at the end
-of `build_rich()`, not denormalized everywhere).
+**Why rejected:** `RelativeOffset` lives on Activity Templates, not on
+`PathStep`. There is no PS-level offset to resolve, and spawned instances
+already carry the absolute dates the ADR would otherwise recompute. Adding
+a derived field would duplicate `_spawn_orchestrator`'s output and create
+a second source of truth for "when is this due."
 
 ### Alternative 3: Wait for a fuller pedagogical-prompt rewrite
 
-**Why rejected:** The lifecycle is shipping recommendations today.
-Postponing alignment means daily-plan output is wrong now, not later.
-The prompt rewrite and the data-shape alignment are independently valuable;
-sequencing them serially blocks a fix on a larger redesign.
+**Why rejected:** The bundle is engagement-aware today; the daily plan
+isn't. The plan rewrite is independently valuable and cheap. Sequencing
+it behind a larger redesign blocks a small, correct fix.
 
 ---
 
 ## Consequences
 
 ### Positive
-- Daily plan and recommendation surfaces are timeline-correct: overdue
-  engagements lead, available-to-start templates are clearly separated.
-- Socratic prompt context can include "you engaged with this PS on
-  May 3; the practice task is due tomorrow" — concrete grounding the
-  current bundle cannot supply.
-- `RelativeOffset` finally has a consumer in Askesis, closing the loop
-  between Template authoring (teacher) and student-facing reminders.
-- Dead routes in `askesis_api.py` are pruned in the same change, reducing
-  the surface area future contributors have to reason about.
+
+- Askesis's "what should I work on" surface can name the engagement:
+  "From *PS Algebra-Linear-Maps* (engaged May 3): two pending tasks, one
+  scheduled event tomorrow."
+- Published-but-not-engaged PSes become a clearly separated affordance
+  — students see the engage/start step explicitly rather than mixed into
+  a flat list.
+- No new fields on `PsBundle`, no new helper, no second deadline-resolution
+  path. The change is scoped to the daily-plan synthesis.
 
 ### Negative
-- `PsBundle` gains four optional fields; downstream consumers that
-  destructure the bundle by position (none currently — all use named
-  fields) would need updates if any appear.
-- `ContextRetriever` now depends on `PsEngagementService`, adding a
-  per-bundle Cypher round-trip. Mitigation: a single `MATCH (u)-[r:
-  ENGAGED_WITH]->(ps)` keyed on the active PS UID, indexed.
-- The "available to start" bucket is a new UI affordance and may surface
-  the publish/engage gap to users who previously saw a single flat list.
-  This is a feature, not a regression, but it is a visible behavioral change.
+
+- `DailyWorkPlan` gains two optional fields; downstream destructuring by
+  position (none currently) would need updates.
+- One additional `PsEngagementService.list_engaged` call per daily-plan
+  build. Single edge scan, indexed; expected p95 impact <5 ms.
 
 ### Risks & Mitigation
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Engagement query adds noticeable latency to every Askesis turn | Low | Medium | Single edge lookup keyed on user_uid + ps_uid; both indexed. Measure p95 before/after; fold into UserContext if regression > 50ms. |
-| `RelativeOffset` resolution drifts when a PS is republished after engagement | Medium | Low | `engaged_at` is frozen at engagement time. Republishing the PS does not reset deadlines for already-engaged students. Test in `test_engagement_time_resolver`. |
-| Pruning routes in `askesis_api.py` removes one a hidden caller depends on | Low | Medium | Audit all of `ui/`, `static/js/`, `core/services/` for `/api/askesis/` strings before deletion; keep deletions in their own commit so they can be reverted independently. |
+| `list_engaged` adds latency | Low | Low | Single indexed edge scan; measure before/after; cache per UserContext build if regression > 20 ms. |
+| Bucketing surfaces a confusing empty state when nothing is engaged | Medium | Low | Empty `engaged_ps_groups` falls back to `available_to_start`; UI copy explains the distinction. |
+| Spawned activities listed twice (in their domain bucket and in the engaged group) | High | Low | Engaged groups *reference* activity UIDs; UI renders one bucket or the other based on caller intent. Confirm via integration test. |
 
 ---
 
@@ -177,64 +159,41 @@ sequencing them serially blocks a fix on a larger redesign.
 
 ### Files
 
-**New:**
-- `core/services/askesis/engagement_time_resolver.py` — `resolve_deadline(engaged_at, offset) -> datetime`. Pure function, no I/O.
-- `tests/unit/services/askesis/test_engagement_time_resolver.py`
-
 **Modified:**
-- `core/models/askesis/ps_bundle.py` — add `engagement_state`, `engaged_at`, `engagement_deadline`, `template_uid` (all `| None`).
-- `core/services/askesis_factory.py` — accept `ps_engagement_service: PsEngagementService` (required), pass to `ContextRetriever`.
-- `core/services/askesis/context_retriever.py` — `_find_active_ps()` and `_build_path_step()` query the engagement edge; populate the four new bundle fields.
-- `core/services/askesis_service.py` — `get_daily_work_plan()` queries engaged instances first, ranks by `engagement_deadline` ascending, falls back to "available to start" bucket only when engaged set is empty.
-- `services_bootstrap/_intelligence_hub.py` — pass `ps_engagement` into `create_askesis_service()`.
-- `adapters/inbound/askesis_api.py` — audit and prune unreferenced routes (separate commit).
+- `core/models/askesis/daily_work_plan.py` — add `engaged_ps_groups`,
+  `available_to_start` (both default-empty tuples).
+- `core/services/askesis_service.py` — `get_daily_work_plan` post-processes
+  the existing `UserContextIntelligence` output: fetch engaged PSes, group
+  spawned activity UIDs against the per-domain lists, populate the buckets.
+- `tests/integration/test_askesis_rag_wiring.py` — extend to cover (a) a
+  user with one engaged PS and two spawned pending tasks, (b) a user with
+  one available-to-start PS and no engagements, (c) an abandoned engagement
+  that should not appear.
 
-**Tests:**
-- Unit: `test_engagement_time_resolver`, `test_ps_bundle_engagement_fields`, `test_context_retriever_engagement_wiring`.
-- Integration: extend `tests/integration/test_askesis_rag_wiring.py` to cover an engaged PS with a future deadline and an abandoned PS (which should not appear in the daily plan).
+**New:** none. The bundle already carries the engagement; `_spawn_orchestrator`
+already resolves dates; routes are already pruned.
 
-### Wiring
-
-```python
-# core/services/askesis_factory.py
-def create_askesis_service(
-    *,
-    backend,
-    askesis_core_service,
-    askesis_ai,
-    askesis_citation,
-    user_context_intelligence,
-    zpd_service,
-    ps_engagement_service: PsEngagementService,  # new, required
-) -> AskesisService:
-    ...
-```
+### Wiring Sketch
 
 ```python
-# core/services/askesis/context_retriever.py — _build_path_step()
-engagement = await self._ps_engagement.get_engagement(user_uid, ps.uid)
-deadline = (
-    resolve_deadline(engagement.since, ps.engagement_offset)
-    if engagement and ps.engagement_offset
-    else None
-)
-return PsBundle(
-    path_step=ps,
-    engagement_state=engagement.state if engagement else None,
-    engaged_at=engagement.since if engagement else None,
-    engagement_deadline=deadline,
-    template_uid=engagement.template_uid if engagement else None,
-    # ...existing fields
-)
+# core/services/askesis_service.py — get_daily_work_plan
+plan = await intelligence.get_ready_to_work_on_today(...)
+engaged = await self._ps_engagement.list_engaged(user_uid)
+groups = self._group_by_engagement(plan, engaged)
+available = await self._published_but_not_engaged(user_uid, engaged)
+return Result.ok(plan.with_buckets(engaged_ps_groups=groups, available_to_start=available))
 ```
 
 ### Testing Strategy
 
-- [ ] Unit: deadline resolution for `RelativeOffset` in days, weeks, months
-- [ ] Unit: `PsBundle` accepts `None` engagement fields without breaking existing consumers
-- [ ] Unit: `get_daily_work_plan` returns engaged-then-available ordering
-- [ ] Integration: skipped tests in `test_askesis_ask_endpoint.py` re-enabled with engagement fixtures
-- [ ] Manual: hit `/askesis/api/submit` against a test user with one engaged PS due tomorrow and one published-but-not-engaged PS; verify the response distinguishes them
+- [ ] Unit: bucketing logic groups spawned activity UIDs correctly when
+  some are completed, some pending, some abandoned.
+- [ ] Unit: `available_to_start` excludes any PS in the engaged set.
+- [ ] Integration: end-to-end daily-plan response distinguishes engaged
+  from available, and an abandoned engagement is omitted.
+- [ ] Manual: exercise `/askesis/api/submit` with a fixture user holding
+  one engaged PS and one published-but-not-engaged PS; confirm the two
+  surfaces render differently.
 
 ---
 
@@ -242,28 +201,29 @@ return PsBundle(
 
 ### When to Revisit
 
-- If `PsEngagementService.get_engagement` becomes a hot path (>20% of
-  Askesis turn latency), denormalize engagement state into UserContext.
-- If a second consumer outside Askesis needs `resolve_deadline`,
-  promote the helper to `core/services/templates/`.
-- When ZPD gating arrives (don't engage a new PS until current one
-  reaches mastery threshold), the gate sits on top of this bundle, not
-  inside it — separate ADR.
+- If a second consumer (home dashboard, schedule recommender) needs
+  engagement grouping, lift the bucketing into `UserContextIntelligence`
+  rather than duplicating it.
+- When ZPD gating arrives (don't engage a new PS until current one reaches
+  mastery threshold), the gate sits on top of `available_to_start` —
+  separate ADR.
 
 ### Out of Scope
 
-- Engagement-aware Socratic prompt rewriting (separate effort, depends
-  on this).
+- Engagement-aware Socratic prompt rewriting (the bundle already carries
+  `engagement.state` and `engagement.since`; prompt builders can read them
+  whenever a follow-up effort prioritizes that work).
 - Recovery dialogues for abandoned engagements.
-- Teacher-side surfaces showing per-student engagement state (the
-  ADR-040 teacher-review track owns those).
+- Teacher-side surfaces showing per-student engagement state (ADR-040
+  teacher-review track owns those).
 
 ---
 
 ## References
 
-- ADR-043 — Intelligence Tier Toggle (Askesis is FULL-tier)
-- ADR-048 — Adaptive Learning Loop (lifecycle context)
-- `core/services/ps_engagement/` — engagement service and gateway
-- `core/models/templates/relative_offset.py` — value type being consumed
-- `docs/architecture/ASKESIS_ARCHITECTURE.md` — current Askesis design (to be updated alongside this change)
+- ADR-043 — Intelligence Tier Toggle
+- ADR-048 — Adaptive Learning Loop
+- `core/services/ps_engagement/` — engagement service, gateway, spawn orchestrator
+- `core/models/templates/relative_offset.py` — value type already consumed by `_spawn_orchestrator`
+- `core/services/askesis/context_retriever.py:396-571` — engagement-aware bundle building (already shipped)
+- `core/services/askesis_service.py:417-467` — daily-plan entry point (the change site)
