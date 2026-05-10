@@ -83,10 +83,12 @@ class FieldWidgetMapper:
                 if isinstance(meta, dict) and "ui_widget" in meta:
                     return str(meta["ui_widget"])
 
-        # Handle Optional[T] / T | None
+        # Handle Optional[T] / T | None — recompute origin so checks below
+        # see the unwrapped inner type (e.g. Optional[list[str]] -> list).
         origin = get_origin(annotation)
         if origin is not None and _is_union_type(origin):
             annotation = _unwrap_optional(annotation)
+            origin = get_origin(annotation)
 
         # Enum -> select dropdown
         if isinstance(annotation, type) and issubclass(annotation, Enum):
@@ -572,7 +574,12 @@ class FormGenerator:
         # Textarea
         if widget_type == "textarea":
             attrs["rows"] = 4
-            text_value = str(normalized_value) if normalized_value else ""
+            if isinstance(normalized_value, (list, tuple)):
+                text_value = "\n".join(str(item) for item in normalized_value)
+            elif normalized_value:
+                text_value = str(normalized_value)
+            else:
+                text_value = ""
             if text_value:
                 return Textarea(text_value, **attrs)
             return Textarea(**attrs)

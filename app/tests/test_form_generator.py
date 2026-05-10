@@ -8,7 +8,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-from ui.patterns.form_generator import FormGenerator
+from ui.patterns.form_generator import FieldWidgetMapper, FormGenerator
 
 # ============================================================================
 # Test fixtures — minimal Pydantic models
@@ -626,3 +626,35 @@ class TestAlpineIntegration:
         )
         html = get_form_html(result)
         assert "formValidator" not in html
+
+
+# ============================================================================
+# Tests: widget mapping for list / Optional[list] fields
+# ============================================================================
+
+
+class _SchemaWithListFields(BaseModel):
+    tags: list[str] = []
+    aliases: list[str] | None = None
+
+
+class TestListWidgetMapping:
+    """list[T] and Optional[list[T]] both map to textarea (regression: origin
+    was previously not recomputed after unwrapping Optional)."""
+
+    def test_plain_list_maps_to_textarea(self):
+        field = _SchemaWithListFields.model_fields["tags"]
+        widget = FieldWidgetMapper.get_widget_type("tags", field, field.annotation)
+        assert widget == "textarea"
+
+    def test_optional_list_maps_to_textarea(self):
+        field = _SchemaWithListFields.model_fields["aliases"]
+        widget = FieldWidgetMapper.get_widget_type("aliases", field, field.annotation)
+        assert widget == "textarea"
+
+    def test_optional_list_renders_textarea_in_form(self):
+        form = FormGenerator.from_model(
+            _SchemaWithListFields, action="/test", include_fields=["aliases"]
+        )
+        html = get_form_html(form)
+        assert "<textarea" in html and 'name="aliases"' in html
