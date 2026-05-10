@@ -491,19 +491,48 @@ class ActionRecommendationEngine:
         # Simple model: habits need reinforcement every 2-3 days
         return 2 if streak > 7 else 1
 
-    def _find_overlapping_goals(self, _user_context: UserContext) -> list[dict[str, Any]]:
+    def _find_overlapping_goals(self, user_context: UserContext) -> list[dict[str, Any]]:
         """
-        Find goals with overlapping scope.
+        Find goals that share one or more tasks, sorted by overlap size.
 
-        Args:
-            _user_context: User context (unused - would need goal relationship analysis)
+        Returns one entry per goal that overlaps with at least one other goal,
+        so callers can present a flat "goals to consolidate" list. Sourced from
+        UserContext.tasks_by_goal (populated by MEGA-QUERY); empty at standard
+        depth or when fewer than two goals carry tasks.
 
         Returns:
-            List of overlapping goals (currently empty - for future implementation)
+            List of {uid, title, overlaps_with, shared_tasks} dicts.
         """
-        # This would analyze goal relationships
-        # For now, return empty
-        return []
+        tasks_by_goal = user_context.tasks_by_goal_or_empty()
+        if len(tasks_by_goal) < 2:
+            return []
+
+        titles = {
+            item["entity"].get("uid", ""): item["entity"].get("title", "")
+            for item in user_context.entities_rich.get("goals", [])
+        }
+
+        goals = [(uid, set(tasks)) for uid, tasks in tasks_by_goal.items() if tasks]
+        overlaps_by_goal: dict[str, dict[str, set[str]]] = {}
+        for i, (goal_a, tasks_a) in enumerate(goals):
+            for goal_b, tasks_b in goals[i + 1 :]:
+                shared = tasks_a & tasks_b
+                if shared:
+                    overlaps_by_goal.setdefault(goal_a, {})[goal_b] = shared
+                    overlaps_by_goal.setdefault(goal_b, {})[goal_a] = shared
+
+        return sorted(
+            (
+                {
+                    "uid": goal_uid,
+                    "title": titles.get(goal_uid) or goal_uid,
+                    "overlaps_with": sorted(partners.keys()),
+                    "shared_tasks": sorted({t for ts in partners.values() for t in ts}),
+                }
+                for goal_uid, partners in overlaps_by_goal.items()
+            ),
+            key=lambda g: -len(g["shared_tasks"]),
+        )
 
     def _identify_key_prerequisites(self, user_context: UserContext) -> list[str]:
         """

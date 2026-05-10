@@ -333,12 +333,18 @@ class AskesisService:
     async def get_learning_context(
         self, user_uid: UserUID, depth: int = 2
     ) -> Result[dict[str, Any]]:
-        """Get user's learning context. Delegated to context_retriever."""
-        return await self.context_retriever.get_learning_context(user_uid, depth)
+        """Get user's learning context. Fetches rich UserContext, then delegates."""
+        context_result = await self.user_service.get_rich_unified_context(user_uid)
+        if context_result.is_error:
+            return Result.fail(context_result)
+        return await self.context_retriever.get_learning_context(context_result.value, depth)
 
     async def analyze_knowledge_gaps(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Analyze knowledge gaps. Delegated to context_retriever."""
-        return await self.context_retriever.analyze_knowledge_gaps(user_uid)
+        """Analyze knowledge gaps. Fetches rich UserContext, then delegates."""
+        context_result = await self.user_service.get_rich_unified_context(user_uid)
+        if context_result.is_error:
+            return Result.fail(context_result)
+        return await self.context_retriever.analyze_knowledge_gaps(context_result.value)
 
     # ========================================================================
     # EXPLICIT ORCHESTRATION METHODS

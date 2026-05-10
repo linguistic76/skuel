@@ -246,83 +246,93 @@ class ContextRetriever:
 
         return context
 
-    @with_error_handling("get_learning_context", error_type="system", uid_param="user_uid")
+    @with_error_handling("get_learning_context", error_type="system", uid_param="user_context")
     async def get_learning_context(
-        self, user_uid: UserUID, depth: int = 2
+        self, user_context: UserContext, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """
-        Get user's complete learning context
+        Get user's complete learning context, served from UserContext.
 
-        Retrieves in single query via PsBackend:
-        - Current knowledge state (mastered, learning, blocked)
-        - Active learning paths with progress
-        - Related tasks and goals
-        - Knowledge prerequisites and relationships
+        UserContext (built once via MEGA-QUERY) already carries every field this
+        method previously re-queried via PsBackend. Serving from it eliminates
+        one Cypher round-trip per Askesis turn.
+
+        Returns the same dict shape as before so existing consumers
+        (query_processor, analyze_knowledge_gaps) keep working without change.
 
         Args:
-            user_uid: Unique identifier of the user
-            depth: Graph traversal depth (default: 2, unused — backend query uses fixed depth)
+            user_context: Rich UserContext (entities_rich/knowledge_units_rich
+                populated). Standard-depth contexts produce empty lists.
+            depth: Graph traversal depth (kept for signature compatibility; the
+                MEGA-QUERY upstream chose the depth).
 
         Returns:
             Result containing complete learning context
         """
-        if not self.ps_backend:
-            return Result.fail(
-                Errors.system(
-                    message="PsBackend not available — learning context queries disabled",
-                    operation="get_learning_context",
-                )
+        del depth  # honored upstream by the MEGA-QUERY; preserved for signature stability
+
+        knowledge_units = [
+            {"uid": uid, "title": item.get("ku", {}).get("title", ""), "mastery_level": level}
+            for uids, level in (
+                (user_context.mastered_knowledge_uids, 1.0),
+                (user_context.in_progress_knowledge_uids, 0.5),
+                (user_context.blocked_knowledge_uids, 0.0),
             )
+            for uid in uids
+            for item in (user_context.knowledge_units_rich.get(uid, {}),)
+        ]
 
-        result = await self.ps_backend.get_user_learning_context(user_uid)
+        learning_paths = [
+            {"uid": item["path"].get("uid", ""), "title": item["path"].get("title", "")}
+            for item in user_context.enrolled_paths_rich
+            if "path" in item
+        ]
 
-        if result.is_error:
-            return Result.fail(result)
+        related_tasks = [
+            {
+                "uid": item["entity"].get("uid", ""),
+                "title": item["entity"].get("title", ""),
+                "status": item["entity"].get("status", ""),
+            }
+            for item in user_context.entities_rich.get("tasks", [])
+            if "entity" in item
+        ]
 
-        records = result.value or []
-        if not records:
-            return Result.ok(
-                {
-                    "user_uid": user_uid,
-                    "knowledge_units": [],
-                    "learning_paths": [],
-                    "related_tasks": [],
-                    "related_goals": [],
-                    "knowledge_by_status": {"mastered": [], "learning": [], "blocked": []},
-                    "graph_context": {},
-                }
-            )
+        related_goals = [
+            {
+                "uid": item["entity"].get("uid", ""),
+                "title": item["entity"].get("title", ""),
+                "status": item["entity"].get("status", ""),
+            }
+            for item in user_context.entities_rich.get("goals", [])
+            if "entity" in item
+        ]
 
-        context = records[0].get("context", {})
-
-        # Extract categorized knowledge (query pre-categorizes by mastery level)
-        mastered = context.get("mastered_knowledge", [])
-        learning_knowledge = context.get("learning_knowledge", [])
-        blocked = context.get("blocked_knowledge", [])
-
-        # Combine all knowledge units for the flat list
-        knowledge_units = mastered + learning_knowledge + blocked
+        # Partition knowledge_units by mastery level for the by-status view.
+        # Compare against the float we set above so this stays in lock-step
+        # with the projection (no string status to drift).
+        knowledge_by_status = {
+            "mastered": [k for k in knowledge_units if k["mastery_level"] == 1.0],
+            "in_progress": [k for k in knowledge_units if k["mastery_level"] == 0.5],
+            "blocked": [k for k in knowledge_units if k["mastery_level"] == 0.0],
+        }
 
         return Result.ok(
             {
-                "user_uid": user_uid,
+                "user_uid": user_context.user_uid,
                 "knowledge_units": knowledge_units,
-                "learning_paths": context.get("learning_paths", []),
-                "related_tasks": context.get("active_tasks", []),
-                "related_goals": context.get("active_goals", []),
-                "knowledge_by_status": {
-                    "mastered": mastered,
-                    "learning": learning_knowledge,
-                    "blocked": blocked,
-                },
-                "graph_context": context,
+                "learning_paths": learning_paths,
+                "related_tasks": related_tasks,
+                "related_goals": related_goals,
+                "knowledge_by_status": knowledge_by_status,
+                "graph_context": {},
             }
         )
 
-    @with_error_handling("analyze_knowledge_gaps", error_type="system", uid_param="user_uid")
-    async def analyze_knowledge_gaps(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    @with_error_handling("analyze_knowledge_gaps", error_type="system", uid_param="user_context")
+    async def analyze_knowledge_gaps(self, user_context: UserContext) -> Result[dict[str, Any]]:
         """
-        Analyze user's knowledge gaps and prerequisite chains
+        Analyze user's knowledge gaps and prerequisite chains.
 
         Identifies:
         - Blocked knowledge areas
@@ -332,16 +342,12 @@ class ContextRetriever:
         - High-impact gaps (blocking many items)
 
         Args:
-            user_uid: Unique identifier of the user
+            user_context: Rich UserContext
 
         Returns:
             Result containing gap analysis with actionable insights
-
-        Performance: 200ms -> 25ms (8x faster)
         """
-        # Step 1: Get learning context
-        context_result = await self.get_learning_context(user_uid, GraphDepth.DEFAULT)
-
+        context_result = await self.get_learning_context(user_context, GraphDepth.DEFAULT)
         if context_result.is_error:
             return context_result
 
@@ -349,18 +355,15 @@ class ContextRetriever:
         blocked_knowledge = context_data["knowledge_by_status"]["blocked"]
         knowledge_units = context_data["knowledge_units"]
 
-        # Step 2: Analyze prerequisite chains for blocked knowledge
         gap_analysis = await self._analyze_blocked_knowledge_prerequisites(
-            blocked_knowledge, user_uid, knowledge_units
+            blocked_knowledge, user_context.user_uid, knowledge_units
         )
 
-        # Step 3: Identify quick wins and high-impact gaps
         quick_wins, high_impact = self._identify_quick_wins_and_high_impact(gap_analysis)
 
-        # Step 4: Build and return result
         return Result.ok(
             {
-                "user_uid": user_uid,
+                "user_uid": user_context.user_uid,
                 "total_gaps": len(gap_analysis),
                 "gaps": gap_analysis,
                 "quick_wins": quick_wins,

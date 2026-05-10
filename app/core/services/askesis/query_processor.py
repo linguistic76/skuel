@@ -397,8 +397,8 @@ class QueryProcessor:
         if not user_context.enrolled_path_uids:
             return Result.ok(_ENROLLMENT_GATE_RESPONSE)
 
-        # Step 2: Get learning context
-        context_result = await self.context_retriever.get_learning_context(user_uid, depth)
+        # Step 2: Get learning context (served from already-built UserContext, no extra query)
+        context_result = await self.context_retriever.get_learning_context(user_context, depth)
         if context_result.is_error:
             return context_result
         context_data = context_result.value

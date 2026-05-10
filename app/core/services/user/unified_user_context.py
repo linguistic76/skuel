@@ -760,6 +760,18 @@ class UserContext:
                 ready.append(knowledge_uid)
         return ready
 
+    def known_or_engaged_ku_uids(self) -> set[str]:
+        """All KUs the user has any relationship with (mastered, in-progress, or blocked).
+
+        Used by entity extraction to scope fuzzy-matching to KUs the user actually
+        touches, rather than the full graph.
+        """
+        return (
+            self.mastered_knowledge_uids
+            | self.in_progress_knowledge_uids
+            | self.blocked_knowledge_uids
+        )
+
     def get_knowledge_gaps_for_goal(self, _goal_uid: str) -> list[str]:
         """Get missing knowledge for a goal"""
         # Would need goal-knowledge mapping
