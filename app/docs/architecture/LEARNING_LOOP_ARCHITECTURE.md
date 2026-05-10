@@ -387,7 +387,7 @@ via the Exercise's `instructions` field (`LLM`).
 or `AI_EVALUATED` (LLM feedback, mastery 0.6, awaiting teacher review).
 
 **Structural position:** Leaf domain. Reads flow through `ExerciseReportBackend`
-(typed `get_by_uid` + `list_for_submission` — `subject_uid` is projected from the
+(typed `get` + `list_for_submission` — `subject_uid` is projected from the
 `REPORT_FOR` edge, not stored as a node property). Writes flow through
 `UserEntryBackend.create_report_node`. Both are reached via `ExerciseReportService`,
 the single service entry point (`ExerciseReportOperations` / `ExerciseReportBackendOperations`

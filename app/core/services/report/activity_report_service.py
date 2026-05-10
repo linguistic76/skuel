@@ -351,7 +351,7 @@ class ActivityReportService:
             logger.error(f"Unexpected error submitting activity report: {e}")
             return Result.fail(Errors.system(f"Failed to submit activity report: {e}"))
 
-    async def get_by_uid(self, uid: str, user_uid: UserUID) -> Result[ActivityReport]:
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[ActivityReport]:
         """
         Fetch a single ActivityReport by UID, scoped to the owning user.
 
@@ -362,7 +362,7 @@ class ActivityReportService:
         Returns:
             Result[ActivityReport] — the report, or NotFound error
         """
-        query_result = await self.backend.get_by_uid(uid, user_uid)
+        query_result = await self.backend.get_for_user(uid, user_uid)
         if query_result.is_error:
             return Result.fail(query_result)
         records = query_result.value or []

@@ -492,7 +492,7 @@ When `openai_service` is available, the generator:
     created_at, updated_at
 })
 // subject_uid is NOT stored as a node property — it is projected from the
-// REPORT_FOR edge on read by ExerciseReportBackend.get_by_uid / list_for_submission:
+// REPORT_FOR edge on read by ExerciseReportBackend.get / list_for_submission:
 //   OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}
 (:Entity:ExerciseReport)-[:REPORT_FOR]->(:Entity {entity_type: 'exercise_submission'})
 (:Entity:ExerciseReport)-[:SHARES_WITH]->(:User)  // submission owner — makes content visible to the student

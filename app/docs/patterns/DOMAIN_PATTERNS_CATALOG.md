@@ -765,7 +765,7 @@ class FinanceService:
         """Mark expense as paid (simple mutation on DTO)."""
 
         # Get DTO
-        result = await self.backend.get_by_uid(uid)
+        result = await self.backend.get(uid)
         if result.is_error:
             return result
 

@@ -882,13 +882,13 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
         """
         return await self.execute_query(query, params)
 
-    async def get_by_uid(self, uid: str) -> Result[ExerciseReport | None]:
+    async def get(self, uid: str) -> Result[ExerciseReport | None]:
         """Typed single-fetch for ExerciseReport by UID.
 
-        Projects ``subject_uid`` from the REPORT_FOR edge so the hydrated
-        ExerciseReport carries the submission UID it reports on. Returns
-        ``Result.ok(None)`` when no node matches (matches the generic
-        ``UniversalNeo4jBackend.get`` convention).
+        Overrides ``UniversalNeo4jBackend.get`` to project ``subject_uid``
+        from the REPORT_FOR edge so the hydrated ExerciseReport carries the
+        submission UID it reports on. Returns ``Result.ok(None)`` when no
+        node matches (same not-found-is-not-error contract as the parent).
         """
         cypher = f"""
             MATCH (n:ExerciseReport {{uid: $uid}})
@@ -905,7 +905,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             return Result.ok(entity)
         except Exception as e:  # safety-net: neo4j + mapping errors
             return Result.fail(
-                Errors.database("get_by_uid", f"Failed to fetch ExerciseReport: {e!s}")
+                Errors.database("get", f"Failed to fetch ExerciseReport: {e!s}")
             )
 
     async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:

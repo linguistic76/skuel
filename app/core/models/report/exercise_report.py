@@ -84,7 +84,7 @@ class ExerciseReport(UserOwnedEntity):
     processed_content: str | None = None
     report_generated_at: datetime | None = None
     # GRAPH-NATIVE: projected from the REPORT_FOR edge on read by
-    # ExerciseReportBackend.get_by_uid / list_for_submission, not stored as a
+    # ExerciseReportBackend.get / list_for_submission, not stored as a
     # Neo4j node property. create_report_node writes the REPORT_FOR relationship;
     # reads hydrate this field via `RETURN n{.*, subject_uid: sub.uid}`.
     subject_uid: str | None = None  # UID of the submission this report is about

@@ -731,7 +731,7 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
 
-        # ExerciseReportService: always created so typed reads (get_by_uid,
+        # ExerciseReportService: always created so typed reads (get,
         # list_for_submission) work in both CORE and FULL tiers. AI report
         # *generation* still requires llm_caller — returns a system error
         # when llm_caller is None (CORE tier).

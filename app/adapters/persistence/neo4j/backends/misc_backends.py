@@ -29,7 +29,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     get_shares_granted, get_report_schedule.
     """
 
-    async def get_by_uid(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
         """Get a single ActivityReport by UID, scoped to the owning user."""
         return await self.execute_query(
             """

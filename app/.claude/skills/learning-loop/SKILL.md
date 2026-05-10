@@ -551,7 +551,7 @@ logs a warning rather than failing the request.
 processed_content: str | None                         # LLM/teacher-generated feedback (written by create_report_node as processed_content: $feedback)
 report_generated_at: datetime | None
 # GRAPH-NATIVE: projected from the REPORT_FOR edge on read (not a stored node property).
-# ExerciseReportBackend.get_by_uid / list_for_submission hydrate it via
+# ExerciseReportBackend.get / list_for_submission hydrate it via
 # `OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}`.
 subject_uid: str | None                           # UID of the submission being evaluated
 processor_type: ReportSource | None              # HUMAN (teacher) | LLM (AI)
@@ -589,7 +589,7 @@ self-describing — the report records what decision was made, not just feedback
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.
-Reads go through `ExerciseReportBackend` (typed fetches — `get_by_uid`, `list_for_submission`);
+Reads go through `ExerciseReportBackend` (typed fetches — `get`, `list_for_submission`);
 writes (teacher + AI) go through `SubmissionsBackend.create_report_node`. Both are reached via
 `ExerciseReportService`, the single service entry point.
 

@@ -93,10 +93,10 @@ class ExerciseReportService:
 
         logger.info(f"ExerciseReportService initialized with: {', '.join(available)}")
 
-    async def get_by_uid(self, uid: str) -> Result[ExerciseReport]:
+    async def get(self, uid: str) -> Result[ExerciseReport]:
         """Typed single-fetch for ExerciseReport by UID.
 
-        Delegates to ExerciseReportBackend.get_by_uid and narrows a missing
+        Delegates to ``ExerciseReportBackend.get`` and narrows a missing
         row to a not-found error so routes can use the standard
         ``require_found`` pattern.
         """
@@ -104,10 +104,10 @@ class ExerciseReportService:
             return Result.fail(
                 Errors.system(
                     "ExerciseReportBackend not configured",
-                    operation="get_by_uid",
+                    operation="get",
                 )
             )
-        result = await self.backend.get_by_uid(uid)
+        result = await self.backend.get(uid)
         if result.is_error:
             return Result.fail(result)
         if result.value is None:

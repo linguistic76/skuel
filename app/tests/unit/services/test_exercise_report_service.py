@@ -354,12 +354,12 @@ class TestGenerateReportErrorPropagation:
 def _make_exercise_report_backend() -> MagicMock:
     backend = MagicMock()
     backend.list_for_submission = AsyncMock(return_value=Result.ok([]))
-    backend.get_by_uid = AsyncMock(return_value=Result.ok(None))
+    backend.get = AsyncMock(return_value=Result.ok(None))
     return backend
 
 
-class TestGetByUid:
-    """`get_by_uid` narrows a typed single-fetch through the backend."""
+class TestGet:
+    """`get` narrows a typed single-fetch through the backend."""
 
     @pytest.mark.asyncio
     async def test_delegates_to_backend_and_returns_report(self):
@@ -374,22 +374,22 @@ class TestGetByUid:
             subject_uid=SUBMISSION_UID,
         )
         backend = _make_exercise_report_backend()
-        backend.get_by_uid.return_value = Result.ok(report)
+        backend.get.return_value = Result.ok(report)
         service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get_by_uid("sr_teacher_042")
+        result = await service.get("sr_teacher_042")
 
         assert not result.is_error
         assert result.value is report
-        backend.get_by_uid.assert_awaited_once_with("sr_teacher_042")
+        backend.get.assert_awaited_once_with("sr_teacher_042")
 
     @pytest.mark.asyncio
     async def test_missing_report_narrows_to_not_found(self):
         backend = _make_exercise_report_backend()
-        backend.get_by_uid.return_value = Result.ok(None)
+        backend.get.return_value = Result.ok(None)
         service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get_by_uid("sr_missing")
+        result = await service.get("sr_missing")
 
         assert result.is_error
 
@@ -397,17 +397,17 @@ class TestGetByUid:
     async def test_no_backend_fails_fast(self):
         service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=None)
 
-        result = await service.get_by_uid("sr_any")
+        result = await service.get("sr_any")
 
         assert result.is_error
 
     @pytest.mark.asyncio
     async def test_backend_error_propagates(self):
         backend = _make_exercise_report_backend()
-        backend.get_by_uid.return_value = Result.fail(Errors.database("get_by_uid", "query failed"))
+        backend.get.return_value = Result.fail(Errors.database("get", "query failed"))
         service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get_by_uid("sr_any")
+        result = await service.get("sr_any")
 
         assert result.is_error
 

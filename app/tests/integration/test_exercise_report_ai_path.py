@@ -244,9 +244,9 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert record is not None
     assert record["status"] == "active"
 
-    # Typed single-fetch: get_by_uid hydrates subject_uid + all report fields.
+    # Typed single-fetch: get hydrates subject_uid + all report fields.
     report_uid = reports[0].uid
-    fetched = await service.get_by_uid(report_uid)
+    fetched = await service.get(report_uid)
     assert not fetched.is_error, fetched.error if fetched.is_error else None
     report = fetched.value
     assert isinstance(report, ExerciseReport)
@@ -267,6 +267,6 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert record is not None
     assert record["visibility"] == "shared"
 
-    # get_by_uid on a missing UID narrows to a not-found error.
-    missing = await service.get_by_uid("sr_does_not_exist")
+    # get on a missing UID narrows to a not-found error.
+    missing = await service.get("sr_does_not_exist")
     assert missing.is_error

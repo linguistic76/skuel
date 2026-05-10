@@ -351,7 +351,7 @@ When the client requests the task: `GET /api/tasks/get?uid=task.a1b2c3d4...`
 ### 4.1 Neo4j → DTO (Tier 2)
 
 ```python
-async def get_by_uid(self, uid: str) -> Result[TaskDTO]:
+async def get(self, uid: str) -> Result[TaskDTO]:
     """Fetch task from Neo4j."""
 
     # Execute Cypher query
@@ -724,7 +724,7 @@ knowledge_uids = rels.applies_knowledge_uids  # Fetched from graph
 **Example**: Task status update
 ```python
 # Get task from database → DTO (mutable)
-task_dto = await backend.get_by_uid(uid)
+task_dto = await backend.get(uid)
 
 # Update status (requires mutability)
 task_dto.status = EntityStatus.COMPLETED
@@ -759,7 +759,7 @@ If we used frozen domain models directly, we'd have to create a new instance for
 
 ```python
 # Service layer:
-dto = await backend.get_by_uid(uid)  # Scalar fields only
+dto = await backend.get(uid)  # Scalar fields only
 rels = await TaskRelationships.fetch(uid, relationships_service)  # Graph query
 
 # Response combines both:

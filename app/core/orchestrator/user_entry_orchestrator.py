@@ -165,7 +165,7 @@ class UserEntryOrchestrator:
 
     async def get_exercise_report(self, uid: str) -> Result[ExerciseReport]:
         """Fetch an ExerciseReport by UID."""
-        return await self._exercise_report.get_by_uid(uid)
+        return await self._exercise_report.get(uid)
 
     async def check_report_access(self, report_uid: EntityUID, user_uid: UserUID) -> Result[bool]:
         """Canonical access check for a report — owner, PUBLIC, or shared."""
@@ -179,7 +179,7 @@ class UserEntryOrchestrator:
         Access denial surfaces as a not-found error so the route can render
         the standard "Report not found" banner without leaking existence.
         """
-        report_result = await self._exercise_report.get_by_uid(report_uid)
+        report_result = await self._exercise_report.get(report_uid)
         if report_result.is_error:
             return Result.fail(report_result)
         report = report_result.value
@@ -207,7 +207,7 @@ class UserEntryOrchestrator:
 
     async def get_activity_report(self, uid: str, user_uid: UserUID) -> Result[ActivityReport]:
         """Fetch a single ActivityReport by UID, scoped to the owning user."""
-        return await self._activity_report.get_by_uid(uid, user_uid)
+        return await self._activity_report.get_for_user(uid, user_uid)
 
     async def get_activity_report_history(
         self, user_uid: UserUID, limit: int = 50
