@@ -152,7 +152,7 @@ class EventsService(
     Delegations (explicit methods):
     - Core CRUD: get_event, get_user_events, find_events, count_events
     - Habits: get_events_for_habit, get_habit_reinforcement_events, etc.
-    - Learning: get_learning_events, create_study_session, etc.
+    - Learning: get_learning_events, create_study_session, create_learning_path_schedule
     - Search: get_calendar_events, get_event_history, get_upcoming, get_overdue, etc.
     - Intelligence: get_event_with_context, analyze_event_performance, etc.
     - Scheduling: optimize_recurring_schedule, create_recurring_events
@@ -293,11 +293,6 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.learning.get_learning_events(user_uid, days_ahead)
 
-    async def get_events_for_learning_path(
-        self, learning_path_uid: str, user_uid: UserUID
-    ) -> Result[list[Event]]:
-        return await self.learning.get_events_for_learning_path(learning_path_uid, user_uid)
-
     async def create_study_session(
         self,
         user_uid: UserUID,
@@ -305,10 +300,9 @@ class EventsService(
         event_date: date,
         duration_minutes: int = 60,
         title: str | None = None,
-        learning_path_uid: str | None = None,
     ) -> Result[Event]:
         return await self.learning.create_study_session(
-            user_uid, knowledge_uids, event_date, duration_minutes, title, learning_path_uid
+            user_uid, knowledge_uids, event_date, duration_minutes, title
         )
 
     async def suggest_spaced_repetition_events(
@@ -566,8 +560,8 @@ class EventsService(
     # - Habits: get_events_for_habit, get_habit_reinforcement_events, get_at_risk_habit_events,
     # complete_event_with_quality, miss_habit_event, create_recurring_events_for_habit,
     # get_next_habit_events
-    # - Learning: get_learning_events, get_events_for_learning_path,
-    # create_study_session, suggest_spaced_repetition_events, create_learning_path_schedule
+    # - Learning: get_learning_events, create_study_session,
+    # suggest_spaced_repetition_events, create_learning_path_schedule
     # - Search: get_calendar_events, get_event_history, get_upcoming, get_overdue,
     # get_active, get_events_by_status, get_events_in_range, get_prioritized_events
     # - Relationships: get_event_cross_domain_context, get_event_with_semantic_context, analyze_event_impact

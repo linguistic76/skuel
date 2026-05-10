@@ -407,7 +407,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             is_learning_habit = (
                 habit.habit_category == HabitCategory.LEARNING
                 or habit.source_path_step_uid is not None
-                or habit.source_learning_path_uid is not None
                 or any(ku in learning_ku for ku in knowledge_uids)
             )
 

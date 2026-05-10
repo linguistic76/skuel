@@ -286,7 +286,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
             ```python
             # In EventsLearningService:
             requests = [EventCreateRequest(...) for _ in range(12)]
-            custom_fields = [{"source_learning_path_uid": lp_uid} for _ in range(12)]
+            custom_fields = [{"source_path_step_uid": ps_uid} for _ in range(12)]
 
             result = await self.learning_helper.create_batch_with_learning_alignment(
                 requests=requests,

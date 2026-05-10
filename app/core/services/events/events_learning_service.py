@@ -121,39 +121,15 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         events, _ = result.value
 
         # Filter for learning events
-        # GRAPH-NATIVE: Use existing event fields instead of removed relationship fields
-        # - knowledge_retention_check: Boolean flag for knowledge practice events
-        # - source_learning_path_uid: Learning path association
+        # GRAPH-NATIVE: PS link is the curriculum-origin signal
+        # (LP is reachable via (PS)-[:IS_STEP_OF]->(LP) traversal).
         learning_events = [
             event
             for event in events
-            if event.knowledge_retention_check or event.source_learning_path_uid
+            if event.knowledge_retention_check or event.source_path_step_uid
         ]
 
         return Result.ok(learning_events)
-
-    async def get_events_for_learning_path(
-        self, learning_path_uid: str, user_uid: UserUID
-    ) -> Result[list[Event]]:
-        """
-        Get all events associated with a learning path.
-
-        Args:
-            learning_path_uid: UID of the learning path,
-            user_uid: UID of the user
-
-        Returns:
-            Result containing list of events
-        """
-        filters = {"user_uid": user_uid, "learning_path_uid": learning_path_uid}
-
-        result = await self.backend.list(filters=filters)
-        if result.is_error:
-            return Result.fail(result)
-
-        # Unpack tuple: backend.list() returns (events, total_count)
-        events, _ = result.value
-        return Result.ok(events)
 
     # ========================================================================
     # LEARNING-ALIGNED EVENT CREATION
@@ -166,7 +142,6 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         event_date: date,
         duration_minutes: int = 60,
         title: str | None = None,
-        learning_path_uid: str | None = None,
     ) -> Result[Event]:
         """
         Create a study session event for specific knowledge units.
@@ -178,8 +153,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             knowledge_uids: List of knowledge unit UIDs to study,
             event_date: Date of the study session,
             duration_minutes: Duration in minutes,
-            title: Optional custom title,
-            learning_path_uid: Optional learning path UID
+            title: Optional custom title
 
         Returns:
             Result containing created event
@@ -200,8 +174,6 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
         # Custom fields for Events domain (user_uid required for ownership)
         custom_fields: dict[str, Any] = {"user_uid": user_uid}
-        if learning_path_uid:
-            custom_fields["source_learning_path_uid"] = learning_path_uid
 
         # Create via helper (consolidation)
         result = await self.learning_helper.create_with_learning_alignment(
@@ -351,10 +323,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
                     event_type="learning",
                 )
 
-                custom_fields: dict[str, Any] = {
-                    "user_uid": user_uid,
-                    "source_learning_path_uid": learning_path_uid,
-                }
+                custom_fields: dict[str, Any] = {"user_uid": user_uid}
 
                 event_requests.append(request)
                 custom_fields_list.append(custom_fields)
