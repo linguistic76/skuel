@@ -40,6 +40,19 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
+from core.models.templates.choice_template import ChoiceTemplate
+from core.models.templates.choice_template_request import ChoiceTemplateCreateRequest
+from core.models.templates.event_template import EventTemplate
+from core.models.templates.event_template_request import EventTemplateCreateRequest
+from core.models.templates.goal_template import GoalTemplate
+from core.models.templates.goal_template_request import GoalTemplateCreateRequest
+from core.models.templates.habit_template import HabitTemplate
+from core.models.templates.habit_template_request import HabitTemplateCreateRequest
+from core.models.templates.principle_template import PrincipleTemplate
+from core.models.templates.principle_template_request import PrincipleTemplateCreateRequest
+from core.models.templates.relative_offset_dto import RelativeOffsetDTO
+from core.models.templates.task_template import TaskTemplate
+from core.models.templates.task_template_request import TaskTemplateCreateRequest
 from core.ports import PydanticModel
 
 # Type variables for generic methods
@@ -343,6 +356,155 @@ class ConversionServiceV2:
         return cls.create_to_pure(schema, Group, uid, **kwargs)
 
     # ========================================================================
+    # ACTIVITY TEMPLATE CONVERSIONS (Phase 5)
+    # ========================================================================
+    # Activity Templates carry RelativeOffsetDTO fields at the API edge that
+    # convert to RelativeOffset (frozen value) on the core model. They also
+    # carry tuple-typed fields whose schemas accept lists. The helper below
+    # centralizes both transformations; per-template classmethods declare which
+    # fields receive which treatment.
+    #
+    # Templates are PS-owned curriculum (no user_uid). The CRUDRouteFactory
+    # passes user_uid via kwargs as a side effect of authentication; the
+    # generic create_to_pure filters it out (TaskTemplate has no user_uid
+    # field), so no special handling is needed here.
+
+    @classmethod
+    def _template_create_to_pure(
+        cls,
+        schema: PydanticModel,
+        model_class: type[U],
+        uid: str | None,
+        *,
+        offset_fields: tuple[str, ...] = (),
+        str_tuple_fields: tuple[str, ...] = (),
+        complex_tuple_fields: tuple[str, ...] = (),
+        **kwargs: Any,
+    ) -> U:
+        """Generic template-schema → frozen-dataclass converter.
+
+        - ``offset_fields``: schema field names typed RelativeOffsetDTO | None;
+          convert to RelativeOffset via .to_value() before constructing.
+        - ``str_tuple_fields``: schema list[str] fields that map to tuple[str, ...]
+          on the model; coerce list → tuple.
+        - ``complex_tuple_fields``: schema list[dict] fields whose model
+          counterpart is a tuple of frozen dataclasses (Milestone, ChoiceOption,
+          PrincipleExpression). For Phase 5 V1 these default to an empty tuple
+          — full nested authoring lands with the UI plan (Phase 7) once
+          FormGenerator supports nested dataclasses.
+        """
+        extra_fields: dict[str, Any] = {}
+        for fname in offset_fields:
+            value = getattr(schema, fname, None)
+            if isinstance(value, RelativeOffsetDTO):
+                extra_fields[fname] = value.to_value()
+            else:
+                extra_fields[fname] = None
+        for fname in str_tuple_fields:
+            value = getattr(schema, fname, None)
+            if value is not None:
+                extra_fields[fname] = tuple(value)
+        for fname in complex_tuple_fields:
+            extra_fields[fname] = ()
+        extra_fields.update(kwargs)
+        return cls.create_to_pure(schema, model_class, uid, **extra_fields)
+
+    @classmethod
+    def tasktemplate_create_to_pure(
+        cls, schema: TaskTemplateCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> TaskTemplate:
+        """Convert TaskTemplateCreateRequest to TaskTemplate."""
+        return cls._template_create_to_pure(
+            schema,
+            TaskTemplate,
+            uid,
+            offset_fields=("due_offset", "scheduled_offset", "recurrence_end_offset"),
+            str_tuple_fields=("tags",),
+            **kwargs,
+        )
+
+    @classmethod
+    def goaltemplate_create_to_pure(
+        cls, schema: GoalTemplateCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> GoalTemplate:
+        """Convert GoalTemplateCreateRequest to GoalTemplate."""
+        return cls._template_create_to_pure(
+            schema,
+            GoalTemplate,
+            uid,
+            offset_fields=("start_offset", "target_offset"),
+            str_tuple_fields=("tags", "potential_obstacles", "strategies"),
+            complex_tuple_fields=("milestones",),
+            **kwargs,
+        )
+
+    @classmethod
+    def habittemplate_create_to_pure(
+        cls, schema: HabitTemplateCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> HabitTemplate:
+        """Convert HabitTemplateCreateRequest to HabitTemplate."""
+        return cls._template_create_to_pure(
+            schema,
+            HabitTemplate,
+            uid,
+            offset_fields=("recurrence_end_offset",),
+            str_tuple_fields=("tags", "reminder_days"),
+            **kwargs,
+        )
+
+    @classmethod
+    def eventtemplate_create_to_pure(
+        cls, schema: EventTemplateCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> EventTemplate:
+        """Convert EventTemplateCreateRequest to EventTemplate."""
+        return cls._template_create_to_pure(
+            schema,
+            EventTemplate,
+            uid,
+            offset_fields=("event_offset", "recurrence_end_offset"),
+            str_tuple_fields=("tags",),
+            **kwargs,
+        )
+
+    @classmethod
+    def choicetemplate_create_to_pure(
+        cls, schema: ChoiceTemplateCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> ChoiceTemplate:
+        """Convert ChoiceTemplateCreateRequest to ChoiceTemplate."""
+        return cls._template_create_to_pure(
+            schema,
+            ChoiceTemplate,
+            uid,
+            offset_fields=("decision_deadline_offset",),
+            str_tuple_fields=("tags", "decision_criteria", "constraints", "stakeholders"),
+            complex_tuple_fields=("options",),
+            **kwargs,
+        )
+
+    @classmethod
+    def principletemplate_create_to_pure(
+        cls,
+        schema: PrincipleTemplateCreateRequest,
+        uid: str | None = None,
+        **kwargs: Any,
+    ) -> PrincipleTemplate:
+        """Convert PrincipleTemplateCreateRequest to PrincipleTemplate."""
+        return cls._template_create_to_pure(
+            schema,
+            PrincipleTemplate,
+            uid,
+            str_tuple_fields=(
+                "tags",
+                "key_behaviors",
+                "potential_conflicts",
+                "conflicting_principles",
+                "resolution_strategies",
+            ),
+            complex_tuple_fields=("expressions",),
+            **kwargs,
+        )
+
+    # ========================================================================
     # PRINCIPLE EXTENDED FEATURES (Conversion layer complete - service stubs remain)
     # ========================================================================
 
@@ -486,4 +648,11 @@ ConversionServiceV2.CONVERTER_REGISTRY = {
     FormTemplateCreateRequest: ConversionServiceV2.formtemplate_create_to_pure,
     RevisedExerciseCreateRequest: ConversionServiceV2.revisedexercise_create_to_pure,
     GroupCreateRequest: ConversionServiceV2.group_create_to_pure,
+    # Activity Templates (Phase 5 — May 2026)
+    TaskTemplateCreateRequest: ConversionServiceV2.tasktemplate_create_to_pure,
+    GoalTemplateCreateRequest: ConversionServiceV2.goaltemplate_create_to_pure,
+    HabitTemplateCreateRequest: ConversionServiceV2.habittemplate_create_to_pure,
+    EventTemplateCreateRequest: ConversionServiceV2.eventtemplate_create_to_pure,
+    ChoiceTemplateCreateRequest: ConversionServiceV2.choicetemplate_create_to_pure,
+    PrincipleTemplateCreateRequest: ConversionServiceV2.principletemplate_create_to_pure,
 }

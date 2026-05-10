@@ -1312,6 +1312,13 @@ async def compose_services(
             lp=learning_services["learning_paths"],  # ku, ps, lp short-name consistency
             ps=learning_services["ps"],  # ku, ps, lp short-name consistency
             ps_engagement=template_services["ps_engagement"],  # PS+Activity lifecycle (Phase 4)
+            # PS+Activity Template CRUD services (Phase 5 — May 2026)
+            task_templates=template_services["task_templates"],
+            goal_templates=template_services["goal_templates"],
+            habit_templates=template_services["habit_templates"],
+            event_templates=template_services["event_templates"],
+            choice_templates=template_services["choice_templates"],
+            principle_templates=template_services["principle_templates"],
             learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
             askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI

@@ -1,9 +1,10 @@
-"""Template + engagement service builder (Phase 4 of PS+Activity Templates).
+"""Template + engagement service builder (Phases 4-5 of PS+Activity Templates).
 
-Holds the wiring for ``PsEngagementService`` and any future template-side
-services. Kept separate from ``_activity_services.py`` because templates are
-PS-owned curriculum (no per-user state), not activity instances — different
-ownership model, different lifecycle, different consumers.
+Holds the wiring for the 6 Activity Template CRUD services and
+:class:`PsEngagementService`. Kept separate from
+``_activity_services.py`` because templates are PS-owned curriculum (no
+per-user state), not activity instances — different ownership model,
+different lifecycle, different consumers.
 """
 
 from typing import Any
@@ -34,13 +35,32 @@ def _create_template_services(
 ) -> dict[str, Any]:
     """Construct the template + engagement layer.
 
-    Currently builds one service:
-    - ``ps_engagement``: PsEngagementService — 4-transition lifecycle facade.
+    Builds (Phase 5):
+    - 6 ``*TemplateService`` CRUD facades — one per Activity Template kind.
+      Each wraps its UniversalNeo4jBackend and exposes attach/detach/list-for-PS
+      helpers backed by the shared executor.
 
-    Future expansion: per-template authoring CRUD services would slot in here
-    when Phase 5 adds the route layer.
+    Builds (Phase 4):
+    - ``ps_engagement``: PsEngagementService — 4-transition lifecycle facade.
     """
     from core.services.ps_engagement import PsEngagementService
+    from core.services.templates import (
+        ChoiceTemplateService,
+        EventTemplateService,
+        GoalTemplateService,
+        HabitTemplateService,
+        PrincipleTemplateService,
+        TaskTemplateService,
+    )
+
+    task_templates = TaskTemplateService(backend=task_template_backend, executor=executor)
+    goal_templates = GoalTemplateService(backend=goal_template_backend, executor=executor)
+    habit_templates = HabitTemplateService(backend=habit_template_backend, executor=executor)
+    event_templates = EventTemplateService(backend=event_template_backend, executor=executor)
+    choice_templates = ChoiceTemplateService(backend=choice_template_backend, executor=executor)
+    principle_templates = PrincipleTemplateService(
+        backend=principle_template_backend, executor=executor
+    )
 
     ps_engagement = PsEngagementService(
         executor=executor,
@@ -58,6 +78,16 @@ def _create_template_services(
         choices_backend=choices_backend,
         principles_backend=principles_backend,
     )
-    logger.info("✅ Template services created (PsEngagementService — Phase 4)")
+    logger.info(
+        "✅ Template services created: 6 CRUD facades (Phase 5) + PsEngagementService (Phase 4)"
+    )
 
-    return {"ps_engagement": ps_engagement}
+    return {
+        "ps_engagement": ps_engagement,
+        "task_templates": task_templates,
+        "goal_templates": goal_templates,
+        "habit_templates": habit_templates,
+        "event_templates": event_templates,
+        "choice_templates": choice_templates,
+        "principle_templates": principle_templates,
+    }

@@ -561,6 +561,38 @@ async def _wire_all_routes(
 
     create_user_entry_routes(app, rt, services, None)
 
+    # -- PS+Activity Templates (Phase 5) --
+    # 6 template CRUD route files + the engagement lifecycle endpoints. Templates
+    # are SHARED-scope curriculum content, role-gated to TEACHER (admins satisfy
+    # via has_permission). The engagement routes wrap PsEngagementService.
+    from adapters.inbound.pathstep_choice_templates_routes import (
+        create_pathstep_choice_templates_routes,
+    )
+    from adapters.inbound.pathstep_event_templates_routes import (
+        create_pathstep_event_templates_routes,
+    )
+    from adapters.inbound.pathstep_goal_templates_routes import (
+        create_pathstep_goal_templates_routes,
+    )
+    from adapters.inbound.pathstep_habit_templates_routes import (
+        create_pathstep_habit_templates_routes,
+    )
+    from adapters.inbound.pathstep_principle_templates_routes import (
+        create_pathstep_principle_templates_routes,
+    )
+    from adapters.inbound.pathstep_task_templates_routes import (
+        create_pathstep_task_templates_routes,
+    )
+    from adapters.inbound.ps_engagement_routes import create_ps_engagement_routes
+
+    create_pathstep_task_templates_routes(app, rt, services)
+    create_pathstep_goal_templates_routes(app, rt, services)
+    create_pathstep_habit_templates_routes(app, rt, services)
+    create_pathstep_event_templates_routes(app, rt, services)
+    create_pathstep_choice_templates_routes(app, rt, services)
+    create_pathstep_principle_templates_routes(app, rt, services)
+    create_ps_engagement_routes(app, rt, services)
+
     # -- Forms --
     from adapters.inbound.form_templates_routes import create_form_templates_routes
 

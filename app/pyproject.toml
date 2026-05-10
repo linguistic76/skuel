@@ -723,6 +723,7 @@ fixable = ["ALL"]
 
 # API compatibility (API-COMPAT-001)
 "adapters/inbound/response_helpers.py" = ["ARG001"]                # FastHTML - headers param for API consistency
+"adapters/inbound/_pathstep_template_routes_helpers.py" = ["ARG001"]  # FastHTML route handlers — request/current_user injected by decorators
 
 # ============================================================================
 # SKUEL PATTERN EXCEPTIONS (January 2025)

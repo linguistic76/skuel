@@ -62,6 +62,14 @@ if TYPE_CHECKING:
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.resource_service import ResourceService
     from core.services.tasks_service import TasksService
+    from core.services.templates import (
+        ChoiceTemplateService,
+        EventTemplateService,
+        GoalTemplateService,
+        HabitTemplateService,
+        PrincipleTemplateService,
+        TaskTemplateService,
+    )
     from core.services.transcription.batch_transcription_service import BatchTranscriptionService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
@@ -235,6 +243,16 @@ class Services:
     # PS+Activity Templates lifecycle facade (Phase 4 — May 2026)
     # Owns 4 transitions: publish/engage/complete/abandon over PS templates.
     ps_engagement: "PsEngagementService | None" = None
+
+    # PS+Activity Templates CRUD services (Phase 5 — May 2026).
+    # PS-owned curriculum (no per-user state). Routes wire SHARED scope +
+    # TEACHER role gate. Each service exposes attach/detach/list_for_pathstep.
+    task_templates: "TaskTemplateService | None" = None
+    goal_templates: "GoalTemplateService | None" = None
+    habit_templates: "HabitTemplateService | None" = None
+    event_templates: "EventTemplateService | None" = None
+    choice_templates: "ChoiceTemplateService | None" = None
+    principle_templates: "PrincipleTemplateService | None" = None
     learning_intelligence: IntelligenceOperations | None = (
         None  # LpIntelligenceService - analysis and recommendations
     )
