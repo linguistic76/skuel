@@ -30,10 +30,6 @@ ASKESIS_CONFIG = DomainRouteConfig(
     primary_service_attr="askesis",  # services.askesis
     api_factory=create_askesis_api_routes,
     ui_factory=create_askesis_ui_routes,
-    api_related_services={
-        # Format: {kwarg_name: container_attr}
-        "askesis_core_service": "askesis_core",  # askesis_core_service=services.askesis_core
-    },
 )
 
 
