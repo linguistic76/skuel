@@ -166,6 +166,15 @@ async def _create_intelligence_hub(
             backend=learning_services["ps"].core.backend,
         )
 
+        # ps_engagement is core-tier (no AI), so it's always wired by the
+        # template_services bootstrap step before this hub runs. A None here
+        # would mean the lifecycle layer didn't compose — fail fast.
+        if services.ps_engagement is None:
+            raise RuntimeError(
+                "Askesis cannot be created without PsEngagementService — "
+                "bootstrap order is broken (template_services must run first)."
+            )
+
         services.askesis = create_askesis_service(
             intelligence_factory=context_intelligence_factory,
             learning_services=learning_services,
@@ -173,6 +182,7 @@ async def _create_intelligence_hub(
             user_service=user_service,
             askesis_core_service=askesis_core_service,
             zpd_service=zpd_service,
+            ps_engagement_service=services.ps_engagement,
             citation_service=citation_service,
         )
         logger.info(

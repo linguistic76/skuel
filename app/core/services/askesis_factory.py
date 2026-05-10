@@ -25,6 +25,7 @@ def create_askesis_service(
     user_service: Any,
     askesis_core_service: AskesisCoreOperations,
     zpd_service: ZPDOperations,
+    ps_engagement_service: Any,
     citation_service: AskesisCitationService,
 ) -> AskesisService:
     """Build AskesisService from bootstrap-level service dicts.
@@ -42,6 +43,8 @@ def create_askesis_service(
         askesis_core_service: AskesisCoreService — CRUD ops for Askesis instances.
         zpd_service: ZPDService — required for guided pipeline (ZPD readiness assessment).
             LP enrollment gate ensures curriculum data exists.
+        ps_engagement_service: PsEngagementService — required for engagement-aware
+            bundle loading (ADR-059). Always wired in FULL tier.
         citation_service: AskesisCitationService — formats graph citations for responses.
     """
     deps = AskesisDeps(
@@ -57,6 +60,7 @@ def create_askesis_service(
         habits_service=activity_services["habits"],
         events_service=activity_services["events"],
         zpd_service=zpd_service,
+        ps_engagement_service=ps_engagement_service,
         citation_service=citation_service,
         vector_search_service=learning_services.get("vector_search_service"),
         # PS bundle dependencies for ContextRetriever

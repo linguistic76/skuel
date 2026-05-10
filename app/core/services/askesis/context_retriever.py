@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep
     from core.models.resource.resource import Resource
     from core.ports.query_types import RichPathStepItem
+    from core.services.ps_engagement.engagement import Engagement
     from core.services.user import UserContext
 
 
@@ -106,6 +107,10 @@ class ContextRetriever:
         # Backends for graph queries (migrated from inline Cypher)
         ku_backend: Any | None = None,  # boundary: KuBackend
         ps_backend: Any | None = None,  # boundary: PsBackend
+        # Engagement service — None falls back to legacy (unengaged) selection.
+        # Always wired in production (FULL tier); optional only for unit-test
+        # construction without a full engagement-service mock.
+        ps_engagement_service: Any | None = None,  # boundary: PsEngagementService
     ) -> None:
         """
         Initialize context retriever.
@@ -145,6 +150,9 @@ class ContextRetriever:
         # Backends for graph queries
         self.ku_backend = ku_backend
         self.ps_backend = ps_backend
+
+        # Engagement service for lifecycle-aware bundle loading (ADR-059)
+        self.ps_engagement_service = ps_engagement_service
 
         logger.info("ContextRetriever initialized")
 
@@ -385,8 +393,8 @@ class ContextRetriever:
         Returns:
             Result[PsBundle] — the complete bundle, or not_found error
         """
-        # Step 1: Find active PathStep from rich context
-        ps_rich = self._find_active_ps(user_context)
+        # Step 1: Find active PathStep from rich context (engagement-aware)
+        ps_rich, engagement = await self._find_active_ps(user_uid, user_context)
         if ps_rich is None:
             return Result.fail(Errors.not_found("path_step", "no_active_ps"))
 
@@ -468,6 +476,7 @@ class ContextRetriever:
         bundle = PsBundle(
             path_step=path_step,
             learning_path=learning_path,
+            engagement=engagement,
             related_steps=tuple(related_ps),
             kus=tuple(kus),
             resources=tuple(resources),
@@ -490,27 +499,76 @@ class ContextRetriever:
     # PRIVATE - PS BUNDLE HELPERS
     # ========================================================================
 
-    def _find_active_ps(self, user_context: UserContext) -> RichPathStepItem | None:
-        """Find the first active (non-mastered) PathStep from rich context.
+    async def _find_active_ps(
+        self, user_uid: UserUID, user_context: UserContext
+    ) -> tuple[RichPathStepItem | None, Engagement | None]:
+        """Find the active (non-mastered) PathStep, preferring engaged candidates.
 
         UserContext.active_path_steps_rich contains PathStep items with:
         - entity/step: Full PathStep properties
         - graph_context: {prerequisite_steps, practice_habits, practice_tasks,
                           knowledge_relationships, learning_path}
+
+        Selection rule (ADR-059):
+        1. Walk the non-mastered candidates in order.
+        2. If `ps_engagement_service` is available, prefer the first whose
+           ``ENGAGED_WITH`` edge has ``state == "engaged"``.
+        3. Fall back to the first non-mastered candidate without an engagement
+           (published-but-not-engaged) so Askesis still works pre-engagement.
+
+        Returns:
+            (ps_item, engagement) — engagement is None when the chosen PS has
+            no active engagement edge.
         """
+        candidates: list[tuple[RichPathStepItem, dict[str, Any]]] = []
         for ps_item in user_context.active_path_steps_rich:
             step_data: dict[str, Any] = dict(ps_item.get("step") or ps_item.get("entity", {}))  # type: ignore[call-overload]
             if not step_data:
                 continue
-
-            # Check the PathStep is not already mastered
             current_mastery = step_data.get("current_mastery", 0.0) or 0.0
             mastery_threshold = step_data.get("mastery_threshold", 0.7) or 0.7
-            if current_mastery < mastery_threshold:
-                return ps_item
+            if current_mastery >= mastery_threshold:
+                continue
+            candidates.append((ps_item, step_data))
 
-        # All steps mastered or no steps available
-        return None
+        if not candidates:
+            return None, None
+
+        # Legacy path (unit tests construct without engagement service)
+        if self.ps_engagement_service is None:
+            return candidates[0][0], None
+
+        # Look up engagement for each candidate in parallel — single edge
+        # lookup per candidate, indexed on (user_uid, ps_uid).
+        results = await asyncio.gather(
+            *[
+                self.ps_engagement_service.find_active(user_uid, step_data["uid"])
+                for _, step_data in candidates
+            ],
+            return_exceptions=True,
+        )
+
+        engaged_match: tuple[RichPathStepItem, Engagement] | None = None
+        unengaged_match: RichPathStepItem | None = None
+        for (ps_item, step_data), res in zip(candidates, results, strict=True):
+            if isinstance(res, BaseException):
+                logger.warning(
+                    "Engagement lookup failed for ps=%s user=%s: %s",
+                    step_data.get("uid"),
+                    user_uid,
+                    res,
+                )
+                continue
+            engagement = res.value if not res.is_error else None
+            if engagement is not None and engagement.state == "engaged":
+                if engaged_match is None:
+                    engaged_match = (ps_item, engagement)
+            elif engagement is None and unengaged_match is None:
+                unengaged_match = ps_item
+
+        if engaged_match is not None:
+            return engaged_match[0], engaged_match[1]
+        return unengaged_match, None
 
     def _build_path_step(self, step_data: dict[str, Any]) -> PathStep | None:
         """Build a PathStep from MEGA-QUERY properties dict."""

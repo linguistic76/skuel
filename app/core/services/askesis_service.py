@@ -91,6 +91,10 @@ class AskesisDeps:
     # LP enrollment gate ensures curriculum data exists; ZPD assesses readiness.
     # See: core/services/zpd/zpd_service.py
     zpd_service: ZPDOperations
+    # PS engagement service — required for engagement-aware bundle loading.
+    # Askesis is gated on FULL tier; ps_engagement is core-tier (always wired).
+    # See: core/services/ps_engagement/ps_engagement_service.py
+    ps_engagement_service: Any  # boundary: PsEngagementService
     # Citation service — formats graph citations for Askesis responses
     citation_service: Any | None = None
     # Vector search service — Neo4j native vector indexes for semantic search
@@ -200,6 +204,8 @@ class AskesisService:
             # Backends for graph queries (migrated from inline Cypher)
             ku_backend=deps.ku_backend,
             ps_backend=deps.ps_backend,
+            # Engagement service for lifecycle-aware bundle loading
+            ps_engagement_service=deps.ps_engagement_service,
         )
 
         # January 2026: IntentClassifier and ResponseGenerator extracted from QueryProcessor

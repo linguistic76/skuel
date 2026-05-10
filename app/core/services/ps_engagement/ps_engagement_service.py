@@ -361,6 +361,21 @@ class PsEngagementService:
         return await self._gateway.mark_abandoned(student_uid, ps_uid)
 
     # ========================================================================
+    # Read — engagement edge lookup
+    # ========================================================================
+
+    async def find_active(
+        self, student_uid: str, ps_uid: str
+    ) -> Result[Engagement | None]:
+        """Read-only access to the active engagement edge, if any.
+
+        Returns the Engagement when ``ENGAGED_WITH`` exists for (student, ps),
+        otherwise ``Result.ok(None)``. Used by Askesis to bias bundle context
+        toward engaged PathSteps without bringing the gateway into a public API.
+        """
+        return await self._gateway.find_active(student_uid, ps_uid)
+
+    # ========================================================================
     # Internal — instance discovery
     # ========================================================================
 
