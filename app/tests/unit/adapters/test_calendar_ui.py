@@ -212,7 +212,10 @@ class TestQuickCreateHTMX:
         )
         response = await handler(request)
         rendered = _render(response)
-        assert "Task created successfully" in rendered or "task created successfully" in rendered.lower()
+        assert (
+            "Task created successfully" in rendered
+            or "task created successfully" in rendered.lower()
+        )
         service.quick_create.assert_awaited_once()
         kwargs = service.quick_create.await_args.kwargs
         assert kwargs["item_type"] == "task"

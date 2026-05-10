@@ -202,9 +202,7 @@ class TestGetCalendarItem:
     @pytest.mark.asyncio
     async def test_service_error_returns_404(self, routes_and_service) -> None:
         registry, service = routes_and_service
-        service.get_item = AsyncMock(
-            return_value=Result.fail(Errors.database("get_item", "boom"))
-        )
+        service.get_item = AsyncMock(return_value=Result.fail(Errors.database("get_item", "boom")))
 
         handler = registry.get("/api/v2/calendar/items/{item_id}", "GET")
         response = await handler(None, item_id="cal_event_1")

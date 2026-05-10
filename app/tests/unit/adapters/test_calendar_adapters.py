@@ -192,9 +192,7 @@ class TestEventAdapterCompletion:
 
 class TestEventAdapterDuration:
     def test_estimated_from_start_end(self) -> None:
-        adapter = EventAdapter(
-            _make_event(start_time=time(9, 0), end_time=time(10, 30))
-        )
+        adapter = EventAdapter(_make_event(start_time=time(9, 0), end_time=time(10, 30)))
         assert adapter.get_estimated_duration_minutes() == 90
 
     def test_actual_only_when_completed(self) -> None:

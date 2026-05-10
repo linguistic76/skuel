@@ -194,8 +194,7 @@ async def test_user(neo4j_driver):
     """
     async with neo4j_driver.session() as session:
         await session.run(
-            "MERGE (u:User {uid: $uid}) "
-            "ON CREATE SET u.title = $uid, u.created_at = datetime($ts)",
+            "MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid, u.created_at = datetime($ts)",
             uid=STUDENT_UID,
             ts=datetime.now(UTC).isoformat(),
         )
@@ -214,11 +213,7 @@ async def _attach_template(
 ) -> None:
     """MERGE a HAS_*_TEMPLATE edge between an existing PS and template."""
     res = await executor.execute_write(
-        query=(
-            "MATCH (ps {uid: $ps}), (t {uid: $t}) "
-            f"MERGE (ps)-[r:{edge}]->(t) "
-            "RETURN r"
-        ),
+        query=(f"MATCH (ps {{uid: $ps}}), (t {{uid: $t}}) MERGE (ps)-[r:{edge}]->(t) RETURN r"),
         params={"ps": ps_uid, "t": template_uid},
         operation="attach_template",
     )
@@ -445,9 +440,7 @@ class TestEngagePathStep:
     async def test_engage_resolves_cross_template_refs(
         self, engagement_service, ps_backend, template_backends, executor, test_user
     ):
-        uids = await _seed_full_bundle(
-            ps_backend, template_backends, executor, cross_refs=True
-        )
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor, cross_refs=True)
 
         result = await engagement_service.engage_pathstep(test_user, PS_UID)
         assert result.is_ok
@@ -475,9 +468,7 @@ class TestEngagePathStep:
         assert record["goal_ref"] != uids["goal"]  # rewritten away from template uid
         assert record["habit_ref"] is not None
 
-    async def test_engage_fails_for_empty_pathstep(
-        self, engagement_service, ps_backend, test_user
-    ):
+    async def test_engage_fails_for_empty_pathstep(self, engagement_service, ps_backend, test_user):
         # PS exists but has no templates attached.
         await ps_backend.create(PathStep(uid=PS_UID, title="Empty PS"))
 

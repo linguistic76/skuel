@@ -22,7 +22,9 @@ from core.services.ps_engagement.engagement import Engagement
 from core.utils.result_simplified import Result
 
 
-def _ps_item(uid: str, current_mastery: float = 0.0, mastery_threshold: float = 0.7) -> dict[str, Any]:
+def _ps_item(
+    uid: str, current_mastery: float = 0.0, mastery_threshold: float = 0.7
+) -> dict[str, Any]:
     return {
         "entity": {
             "uid": uid,
@@ -92,9 +94,7 @@ async def test_first_engaged_wins_when_multiple_engaged() -> None:
     """List order is the tiebreaker among engaged candidates."""
     items = [_ps_item("ps:a"), _ps_item("ps:b")]
     ctx = _user_context(items)
-    svc = _engagement_service(
-        {"ps:a": _engagement("ps:a"), "ps:b": _engagement("ps:b")}
-    )
+    svc = _engagement_service({"ps:a": _engagement("ps:a"), "ps:b": _engagement("ps:b")})
     retriever = _retriever(svc)
 
     ps_rich, engagement = await retriever._find_active_ps("user_1", ctx)

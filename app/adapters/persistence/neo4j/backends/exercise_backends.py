@@ -904,9 +904,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             entity = from_neo4j_node(records[0]["n"], self.entity_class)
             return Result.ok(entity)
         except Exception as e:  # safety-net: neo4j + mapping errors
-            return Result.fail(
-                Errors.database("get", f"Failed to fetch ExerciseReport: {e!s}")
-            )
+            return Result.fail(Errors.database("get", f"Failed to fetch ExerciseReport: {e!s}"))
 
     async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:
         """Return all reports attached to a submission, as typed ExerciseReport
