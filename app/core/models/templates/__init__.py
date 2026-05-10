@@ -21,10 +21,34 @@ See:
     project_pathstep_lifecycle_contract.md (memory)
 """
 
+from core.models.templates.choice_template import ChoiceTemplate
+from core.models.templates.choice_template_dto import ChoiceTemplateDTO
+from core.models.templates.event_template import EventTemplate
+from core.models.templates.event_template_dto import EventTemplateDTO
+from core.models.templates.goal_template import GoalTemplate
+from core.models.templates.goal_template_dto import GoalTemplateDTO
+from core.models.templates.habit_template import HabitTemplate
+from core.models.templates.habit_template_dto import HabitTemplateDTO
+from core.models.templates.principle_template import PrincipleTemplate
+from core.models.templates.principle_template_dto import PrincipleTemplateDTO
 from core.models.templates.relative_offset import RelativeOffset
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
+from core.models.templates.task_template import TaskTemplate
+from core.models.templates.task_template_dto import TaskTemplateDTO
 
 __all__ = [
+    "ChoiceTemplate",
+    "ChoiceTemplateDTO",
+    "EventTemplate",
+    "EventTemplateDTO",
+    "GoalTemplate",
+    "GoalTemplateDTO",
+    "HabitTemplate",
+    "HabitTemplateDTO",
+    "PrincipleTemplate",
+    "PrincipleTemplateDTO",
     "RelativeOffset",
     "RelativeOffsetDTO",
+    "TaskTemplate",
+    "TaskTemplateDTO",
 ]

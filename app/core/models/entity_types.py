@@ -34,6 +34,12 @@ from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
 from core.models.resource.resource import Resource
 from core.models.task.task import Task
+from core.models.templates.choice_template import ChoiceTemplate
+from core.models.templates.event_template import EventTemplate
+from core.models.templates.goal_template import GoalTemplate
+from core.models.templates.habit_template import HabitTemplate
+from core.models.templates.principle_template import PrincipleTemplate
+from core.models.templates.task_template import TaskTemplate
 from core.models.user_entry.user_entry import UserEntry
 
 # =============================================================================
@@ -87,4 +93,11 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.FORM_SUBMISSION: FormSubmission,
     EntityType.INTERACTION: Interaction,
     EntityType.LIFE_PATH: LifePath,
+    # Activity Templates (Phase 2 — PS-owned, spawn user-owned instances)
+    EntityType.TASK_TEMPLATE: TaskTemplate,
+    EntityType.GOAL_TEMPLATE: GoalTemplate,
+    EntityType.HABIT_TEMPLATE: HabitTemplate,
+    EntityType.EVENT_TEMPLATE: EventTemplate,
+    EntityType.CHOICE_TEMPLATE: ChoiceTemplate,
+    EntityType.PRINCIPLE_TEMPLATE: PrincipleTemplate,
 }
