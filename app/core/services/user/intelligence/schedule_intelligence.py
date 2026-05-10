@@ -16,23 +16,18 @@ Schedule-aware recommendations take into account:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from core.models.context_types import ScheduleAwareRecommendation
 from core.models.enums.entity_enums import EntityType
-
-if TYPE_CHECKING:
-    from core.services.user.unified_user_context import RichUserContext
+from core.services.user.intelligence._base import IntelligenceMixinBase
 
 
-class ScheduleIntelligenceMixin:
+class ScheduleIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing schedule-aware recommendation methods.
 
     Requires self.context (RichUserContext — rich-only fields are needed).
     """
-
-    context: RichUserContext
 
     # =========================================================================
     # METHOD 8: Schedule-Aware Recommendations

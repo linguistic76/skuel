@@ -15,23 +15,17 @@ Method 6 of UserContextIntelligence:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from core.models.context_types import CrossDomainSynergy
+from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
-if TYPE_CHECKING:
-    from core.services.user.unified_user_context import RichUserContext
 
-
-class SynergyIntelligenceMixin:
+class SynergyIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing cross-domain synergy detection methods.
 
     Requires self.context (RichUserContext — rich-only fields are needed).
     """
-
-    context: RichUserContext
 
     # =========================================================================
     # METHOD 6: Cross-Domain Synergies

@@ -25,13 +25,12 @@ async def _create_intelligence_hub(
     tier: "IntelligenceTier",
     context_builder: Any,
     user_service: Any,
-    context_service: Any,
     askesis_core_service: Any,
 ) -> None:
     """Create UserContextIntelligence factory, ZPD service, and Askesis.
 
-    Mutates ``services``, ``context_builder``, ``user_service``, and ``context_service``
-    to wire the intelligence hub into the running application.
+    Mutates ``services``, ``context_builder``, and ``user_service`` to wire the
+    intelligence hub into the running application.
     """
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.report import ReportRelationshipService
@@ -117,28 +116,24 @@ async def _create_intelligence_hub(
         filtered_providers["exercises"] = services.exercises  # type: ignore[assignment]  # ExerciseOperations satisfies FilteredContextProvider protocol
 
     # ── UserContextIntelligence factory (12-domain architecture) ────────────
+    activity_relationships = {
+        name: activity_services[name].relationships
+        for name in ("tasks", "goals", "habits", "events", "choices", "principles")
+    }
     context_intelligence_factory = UserContextIntelligenceFactory(
-        # Activity Domains (6) - All from unified activity_services
-        tasks=activity_services["tasks"].relationships,
-        goals=activity_services["goals"].relationships,
-        habits=activity_services["habits"].relationships,
-        events=activity_services["events"].relationships,
-        choices=activity_services["choices"].relationships,
-        principles=activity_services["principles"].relationships,
+        **activity_relationships,
         # Curriculum Domains (2)
         ps=learning_services["ps"],
-        lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
+        lp=learning_services["learning_paths"].relationships,  # factory param name
         # Processing Domains (3)
-        user_entries=entry_relationship_service,  # UserEntryRelationshipService
-        report=report_relationship_service,  # ReportRelationshipService
-        analytics=analytics_relationship_service,  # AnalyticsRelationshipService
+        user_entries=entry_relationship_service,
+        report=report_relationship_service,
+        analytics=analytics_relationship_service,
         # Temporal Domain (1)
         calendar=calendar_service,
-        # Optional: Vector search for semantic enhancements
+        # Optional services
         vector_search_service=vector_search_service,
-        # Optional: ZPD service for curriculum-graph-aware path step ranking
         zpd_service=zpd_service,
-        # FilteredContextProvider dict for on-demand domain queries
         filtered_providers=filtered_providers,
     )
     services.context_intelligence = context_intelligence_factory
@@ -150,11 +145,6 @@ async def _create_intelligence_hub(
     # Wire intelligence factory to UserService (post-construction wiring)
     user_service.intelligence_factory = context_intelligence_factory
     logger.info("✅ UserService wired with intelligence factory")
-
-    # Wire intelligence factory to UserContextService (post-construction wiring)
-    # This enables get_context_summary() to use factory.create() for intelligence queries
-    context_service.intelligence_factory = context_intelligence_factory
-    logger.info("✅ UserContextService wired with intelligence factory")
 
     # ── Askesis service — FULL tier only (no degraded mode) ─────────────────
     # March 2026: Gated behind tier.ai_enabled — Askesis requires all AI deps

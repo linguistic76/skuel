@@ -148,7 +148,11 @@ class UserContextIntelligenceFactory:
         Raises:
             ValueError: If any required service is None
         """
-        required = {
+        # Single source of truth for the 12 required services. Both validation
+        # and forwarding to UserContextIntelligence read from this dict — adding
+        # a 13th service means one entry here (plus the matching __init__ param
+        # and the matching UserContextIntelligence.__init__ param).
+        self._required_services: dict[str, Any] = {
             # Activity Domains (6)
             "tasks": tasks,
             "goals": goals,
@@ -167,35 +171,16 @@ class UserContextIntelligenceFactory:
             "calendar": calendar,
         }
 
-        missing = [name for name, service in required.items() if service is None]
+        missing = [name for name, service in self._required_services.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligenceFactory requires all 12 domain services. "
+                f"UserContextIntelligenceFactory requires all "
+                f"{len(self._required_services)} domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
-        # Store services for creating intelligence instances
-        # Activity domains (6)
-        self._tasks = tasks
-        self._goals = goals
-        self._habits = habits
-        self._events = events
-        self._choices = choices
-        self._principles = principles
-        # Curriculum domains (2)
-        self._ps = ps
-        self._lp = lp
-        # Processing domains (3)
-        self._user_entries = user_entries
-        self._report = report
-        self._analytics = analytics
-        # Temporal domain (1)
-        self._calendar = calendar
-        # Optional: Vector search for semantic enhancements
         self._vector_search = vector_search_service
-        # Optional: ZPD service for curriculum-graph-aware path step ranking
         self._zpd_service = zpd_service
-        # Optional: FilteredContextProvider dict for on-demand domain queries
         self._filtered_providers = filtered_providers or {}
 
     def create(self, context: RichUserContext) -> UserContextIntelligence:
@@ -212,27 +197,9 @@ class UserContextIntelligenceFactory:
         """
         return UserContextIntelligence(
             context=context,
-            # Activity domains (6)
-            tasks=self._tasks,
-            goals=self._goals,
-            habits=self._habits,
-            events=self._events,
-            choices=self._choices,
-            principles=self._principles,
-            # Curriculum domains (2)
-            ps=self._ps,
-            lp=self._lp,
-            # Processing domains (3)
-            user_entries=self._user_entries,
-            report=self._report,
-            analytics=self._analytics,
-            # Temporal domain (1)
-            calendar=self._calendar,
-            # Optional: Vector search for semantic enhancements
+            **self._required_services,
             vector_search=self._vector_search,
-            # Optional: ZPD service for curriculum-graph-aware path step ranking
             zpd_service=self._zpd_service,
-            # Optional: FilteredContextProvider dict for on-demand domain queries
             filtered_providers=self._filtered_providers,
         )
 

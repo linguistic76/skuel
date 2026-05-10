@@ -389,9 +389,21 @@ class LearningPathAwareness(Protocol):
 
 
 @runtime_checkable
-class CrossDomainAwareness(Protocol):
+class CrossDomainAwareness(
+    TaskAwareness,
+    GoalAwareness,
+    HabitAwareness,
+    KnowledgeAwareness,
+    Protocol,
+):
     """
-    Multi-domain context for services that span domains.
+    Multi-domain context — composition of task/goal/habit/knowledge slices.
+
+    Field surface is inherited from the constituent slice protocols. The
+    composition includes a few extra fields per slice beyond the original
+    hand-rolled list (e.g., `today_task_uids`, `learning_velocity_by_domain`),
+    but since this is a structural Protocol and `UserContext` already provides
+    those fields, the extra surface is satisfied without any caller change.
 
     Use when:
     - Analyzing task-goal-habit relationships
@@ -403,35 +415,28 @@ class CrossDomainAwareness(Protocol):
     - ReportMetricsService
     """
 
-    # Core identity
-    user_uid: UserUID
-
-    # Task awareness (blocked_task_uids / tasks_by_goal are rich-context only)
-    active_task_uids: list[str]
-    blocked_task_uids: set[str] | None
-    overdue_task_uids: list[str]
-    tasks_by_goal: dict[str, list[str]] | None
-
-    # Goal awareness
-    active_goal_uids: set[str]
-    goal_progress: dict[str, float]
-
-    # Habit awareness (at_risk_habits is rich-context only)
-    active_habit_uids: set[str]
-    habit_streaks: dict[str, int]
-    at_risk_habits: list[str] | None
-
-    # Knowledge awareness
-    knowledge_mastery: dict[str, float]
-    mastered_knowledge_uids: set[str]
-    in_progress_knowledge_uids: set[str]
-    current_ps_uids: set[str]
-
 
 @runtime_checkable
-class FullAwareness(Protocol):
+class FullAwareness(
+    CoreIdentity,
+    TaskAwareness,
+    KnowledgeAwareness,
+    HabitAwareness,
+    GoalAwareness,
+    EventAwareness,
+    PrincipleAwareness,
+    ChoiceAwareness,
+    LearningPathAwareness,
+    Protocol,
+):
     """
-    Complete user context - use sparingly.
+    Complete user context — composition of every domain awareness slice.
+
+    Field surface is inherited from the constituent slice protocols
+    (`CoreIdentity`, `TaskAwareness`, `KnowledgeAwareness`, `HabitAwareness`,
+    `GoalAwareness`, `EventAwareness`, `PrincipleAwareness`, `ChoiceAwareness`,
+    `LearningPathAwareness`). Only fields that don't belong to any slice are
+    declared here. Adding a field to a slice automatically widens FullAwareness.
 
     Use ONLY when:
     - Building dashboards (need everything)
@@ -448,66 +453,9 @@ class FullAwareness(Protocol):
     protocol would suffice. Most services don't need 240 fields.
     """
 
-    # Core identity
-    user_uid: UserUID
-    username: str
-
-    # Task awareness (blocked_task_uids / tasks_by_goal are rich-context only)
-    active_task_uids: list[str]
-    blocked_task_uids: set[str] | None
-    completed_task_uids: set[str]
-    overdue_task_uids: list[str]
-    today_task_uids: list[str]
-    this_week_task_uids: list[str]
-    task_priorities: dict[str, float]
-    tasks_by_goal: dict[str, list[str]] | None
-
-    # Goal awareness
-    active_goal_uids: set[str]
-    completed_goal_uids: set[str]
-    goal_progress: dict[str, float]
-
-    # Habit awareness (at_risk_habits / habits_by_goal are rich-context only)
-    active_habit_uids: set[str]
-    habit_streaks: dict[str, int]
-    at_risk_habits: list[str] | None
-    habits_by_goal: dict[str, list[str]] | None
-
-    # Knowledge awareness
-    knowledge_mastery: dict[str, float]
-    mastered_knowledge_uids: set[str]
-    in_progress_knowledge_uids: set[str]
-    current_ps_uids: set[str]
-    prerequisites_needed: dict[str, list[str]]
-
-    # Event awareness
-    upcoming_event_uids: list[str]
-    today_event_uids: list[str]
-    scheduled_event_uids: list[str]
-
-    # Principle awareness
-    core_principle_uids: set[str]
-
-    # Choice awareness
-    pending_choice_uids: list[str]
-
-    # Learning path awareness
-    enrolled_path_uids: list[str]
-    completed_path_uids: set[str]
-    learning_path_step_uids: list[str]
-
-    # User state
+    # User state — not in any slice
     is_overwhelmed: bool
     is_blocked: bool
-
-    # Rich context (all activity domains)
-    is_rich_context: bool
-    entities_rich: dict[str, list["RichEntityItem"]]
-    knowledge_units_rich: dict[str, "RichKnowledgeUnitItem"]
-
-    def get_rich_entities(
-        self, domain: str, filter_uids: set[str] | None = None
-    ) -> list["RichEntityItem"]: ...
 
 
 # =============================================================================

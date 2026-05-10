@@ -43,9 +43,6 @@ from core.ports.query_types import (
     FutureContextStateResult,
     NextActionResult,
 )
-from core.services.user.intelligence import (
-    UserContextIntelligenceFactory,
-)
 from core.services.user.unified_user_context import UserContext
 from core.services.user.user_context_builder import UserContextBuilder
 from core.utils.logging import get_logger
@@ -79,7 +76,6 @@ class UserContextService:
         tasks_service: TasksOperations | None = None,
         goal_task_generator: Any | None = None,  # GoalTaskGenerator
         habits_service: Any | None = None,  # HabitsService
-        intelligence_factory: UserContextIntelligenceFactory | None = None,
     ) -> None:
         """
         Initialize context service with infrastructure dependencies.
@@ -88,18 +84,14 @@ class UserContextService:
             context_builder: Builds UserContext
             user_service: For user operations
             tasks_service: For task operations (optional)
-            driver: Neo4j driver for graph intelligence (optional)
             goal_task_generator: For generating tasks from goals (optional)
             habits_service: For habit operations including completion (optional)
-            intelligence_factory: Factory for creating UserContextIntelligence instances
-                                  (requires all 13 domain services; wired post-construction)
         """
         self.context_builder = context_builder
         self.user_service = user_service
         self.tasks_service = tasks_service
         self.goal_task_generator = goal_task_generator
         self.habits_service = habits_service
-        self.intelligence_factory = intelligence_factory
         self.logger = get_logger(__name__)
 
     # =========================================================================

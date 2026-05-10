@@ -1081,7 +1081,12 @@ async def compose_services(
             sharing_service=unified_sharing_service,
             ps_service=learning_services["ps"],
             exercises_service=exercise_service,
-            context_intelligence=context_service.intelligence_factory,
+            # NOTE: ProfileOrchestrator captures this at construction. The
+            # intelligence factory is created later by `_create_intelligence_hub`,
+            # so the orchestrator always runs in degraded mode (see
+            # ProfileOrchestrator docstring). Pre-existing — separate from the
+            # UserContextService.intelligence_factory dead-wiring cleanup.
+            context_intelligence=None,
         )
         logger.info("✅ Profile Orchestrator created")
 
@@ -1379,7 +1384,6 @@ async def compose_services(
             tier=tier,
             context_builder=context_builder,
             user_service=user_service,
-            context_service=context_service,
             askesis_core_service=askesis_core_service,
         )
 
@@ -1403,7 +1407,6 @@ async def compose_services(
             "context_service.tasks_service": context_service.tasks_service,
             "context_service.goal_task_generator": context_service.goal_task_generator,
             "context_service.habits_service": context_service.habits_service,
-            "context_service.intelligence_factory": context_service.intelligence_factory,
             "user_service.intelligence_factory": user_service.intelligence_factory,
             "services.context_intelligence": services.context_intelligence,
             "services.search_router": services.search_router,

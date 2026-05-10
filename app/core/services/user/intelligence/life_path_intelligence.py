@@ -13,24 +13,18 @@ habits, goals, and principles align with their ultimate life path.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from core.models.context_types import LifePathAlignment
+from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_dict_score_getter
 
-if TYPE_CHECKING:
-    from core.services.user.unified_user_context import RichUserContext
 
-
-class LifePathIntelligenceMixin:
+class LifePathIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing life path alignment methods.
 
     Requires self.context (RichUserContext — rich-only fields are needed).
     """
-
-    context: RichUserContext
 
     # =========================================================================
     # METHOD 7: Life Path Alignment

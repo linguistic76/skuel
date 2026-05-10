@@ -17,14 +17,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.context_types import PathStep
+from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
-    from core.services.user.unified_user_context import RichUserContext
 
 
-class LearningIntelligenceMixin:
+class LearningIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing learning intelligence methods.
 
@@ -32,12 +32,6 @@ class LearningIntelligenceMixin:
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     Optional: self.zpd_service (ZPDOperations) for curriculum-graph-aware step ranking.
     """
-
-    context: RichUserContext
-    tasks: Any  # UnifiedRelationshipService
-    ps: Any  # PsService facade
-    vector_search: Any = None  # Neo4jVectorSearchService (optional)
-    zpd_service: Any = None  # ZPDOperations (optional — see core/ports/zpd_protocols.py)
 
     # =========================================================================
     # METHOD 1: Optimal Next Learning Steps

@@ -21,6 +21,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.context_types import ContextualExercise, DailyWorkPlan
+from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -30,11 +31,9 @@ if TYPE_CHECKING:
         ContextualKnowledge,
         ContextualTask,
     )
-    from core.ports.filtered_context_protocols import FilteredContextProvider
-    from core.services.user.unified_user_context import RichUserContext
 
 
-class DailyPlanningMixin:
+class DailyPlanningMixin(IntelligenceMixinBase):
     """
     Mixin providing daily planning methods.
 
@@ -46,16 +45,10 @@ class DailyPlanningMixin:
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
 
-    context: RichUserContext
-    tasks: Any  # UnifiedRelationshipService
-    habits: Any  # UnifiedRelationshipService
-    goals: Any  # UnifiedRelationshipService
-    events: Any  # UnifiedRelationshipService
-    choices: Any  # UnifiedRelationshipService
-    principles: Any  # UnifiedRelationshipService
-    ps: Any  # PsService facade
-
-    # Stubs for methods provided by TemporalMomentumMixin in the composed class.
+    # Forward declarations of TemporalMomentumMixin methods used here. These
+    # methods live on a sibling mixin; the composed UserContextIntelligence
+    # class brings them in, but mypy needs the surface to type-check call sites
+    # inside this file.
     if TYPE_CHECKING:
 
         def compute_momentum_signals(self) -> dict[str, Any]: ...
@@ -63,10 +56,6 @@ class DailyPlanningMixin:
         def _momentum_warnings(self, signals: dict[str, Any]) -> list[str]: ...
 
         def _momentum_rationale(self, signals: dict[str, Any]) -> str | None: ...
-
-    feedback: Any  # ReportRelationshipService
-    vector_search: Any = None  # Neo4jVectorSearchService (optional)
-    filtered_providers: dict[str, FilteredContextProvider]
 
     # =========================================================================
     # METHOD 5: Ready to Work on Today - THE FLAGSHIP METHOD
