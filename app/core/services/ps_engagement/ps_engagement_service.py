@@ -153,7 +153,7 @@ class PsEngagementService:
             return Result.fail(Errors.not_found("PathStep", ps_uid))
 
         # Hand back the freshly-loaded PathStep model.
-        ps_res = await self._ps_service.core.get_by_uid(ps_uid)
+        ps_res = await self._ps_service.core.get(ps_uid)
         if ps_res.is_error:
             return Result.fail(ps_res)
         return Result.ok(ps_res.value)

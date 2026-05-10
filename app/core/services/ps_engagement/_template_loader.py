@@ -68,7 +68,7 @@ class _TemplateLoader:
 
             instances: list[Any] = []
             for uid in uids_res.value:
-                inst_res = await backend.get_by_uid(uid)
+                inst_res = await backend.get(uid)
                 if inst_res.is_error:
                     return Result.fail(inst_res)
                 if inst_res.value is None:

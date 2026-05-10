@@ -18,6 +18,7 @@ the date component becomes engagement-relative via ``event_offset``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import time
 from typing import TYPE_CHECKING
 
 from core.models.entity import Entity
@@ -25,8 +26,6 @@ from core.models.enums.entity_enums import EntityType
 from core.models.templates.relative_offset import RelativeOffset
 
 if TYPE_CHECKING:
-    from datetime import time
-
     from core.models.entity_dto import EntityDTO
     from core.models.templates.event_template_dto import EventTemplateDTO
 
