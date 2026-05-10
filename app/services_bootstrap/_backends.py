@@ -157,6 +157,66 @@ def create_all_backends(
         driver, NeoLabel.ASKESIS, Askesis, prometheus_metrics=prometheus_metrics
     )
 
+    # ACTIVITY TEMPLATE BACKENDS (Phase 2 of PS+Activity Templates build)
+    # Used by PsEngagementService (Phase 4) to load/manage PS-attached templates.
+    from adapters.persistence.neo4j.backends.templates_backends import (
+        ChoiceTemplateBackend,
+        EventTemplateBackend,
+        GoalTemplateBackend,
+        HabitTemplateBackend,
+        PrincipleTemplateBackend,
+        TaskTemplateBackend,
+    )
+    from core.models.templates.choice_template import ChoiceTemplate
+    from core.models.templates.event_template import EventTemplate
+    from core.models.templates.goal_template import GoalTemplate
+    from core.models.templates.habit_template import HabitTemplate
+    from core.models.templates.principle_template import PrincipleTemplate
+    from core.models.templates.task_template import TaskTemplate
+
+    task_template_backend = TaskTemplateBackend(
+        driver,
+        NeoLabel.TASK_TEMPLATE,
+        TaskTemplate,
+        prometheus_metrics=prometheus_metrics,
+        base_label=NeoLabel.ENTITY,
+    )
+    goal_template_backend = GoalTemplateBackend(
+        driver,
+        NeoLabel.GOAL_TEMPLATE,
+        GoalTemplate,
+        prometheus_metrics=prometheus_metrics,
+        base_label=NeoLabel.ENTITY,
+    )
+    habit_template_backend = HabitTemplateBackend(
+        driver,
+        NeoLabel.HABIT_TEMPLATE,
+        HabitTemplate,
+        prometheus_metrics=prometheus_metrics,
+        base_label=NeoLabel.ENTITY,
+    )
+    event_template_backend = EventTemplateBackend(
+        driver,
+        NeoLabel.EVENT_TEMPLATE,
+        EventTemplate,
+        prometheus_metrics=prometheus_metrics,
+        base_label=NeoLabel.ENTITY,
+    )
+    choice_template_backend = ChoiceTemplateBackend(
+        driver,
+        NeoLabel.CHOICE_TEMPLATE,
+        ChoiceTemplate,
+        prometheus_metrics=prometheus_metrics,
+        base_label=NeoLabel.ENTITY,
+    )
+    principle_template_backend = PrincipleTemplateBackend(
+        driver,
+        NeoLabel.PRINCIPLE_TEMPLATE,
+        PrincipleTemplate,
+        prometheus_metrics=prometheus_metrics,
+        base_label=NeoLabel.ENTITY,
+    )
+
     logger.info("✅ Domain backends created (100% dynamic pattern - direct instantiation)")
 
     return {
@@ -178,4 +238,11 @@ def create_all_backends(
         "user_entry_backend": user_entry_backend,
         "activity_report_backend": activity_report_backend,
         "askesis_backend": askesis_backend,
+        # Activity template backends (Phase 4 — PsEngagementService)
+        "task_template_backend": task_template_backend,
+        "goal_template_backend": goal_template_backend,
+        "habit_template_backend": habit_template_backend,
+        "event_template_backend": event_template_backend,
+        "choice_template_backend": choice_template_backend,
+        "principle_template_backend": principle_template_backend,
     }

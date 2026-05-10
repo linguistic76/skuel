@@ -271,6 +271,13 @@ async def compose_services(
         user_entry_backend = backends["user_entry_backend"]
         activity_report_backend = backends["activity_report_backend"]
         askesis_backend = backends["askesis_backend"]
+        # Activity template backends (Phase 4 — PsEngagementService)
+        task_template_backend = backends["task_template_backend"]
+        goal_template_backend = backends["goal_template_backend"]
+        habit_template_backend = backends["habit_template_backend"]
+        event_template_backend = backends["event_template_backend"]
+        choice_template_backend = backends["choice_template_backend"]
+        principle_template_backend = backends["principle_template_backend"]
 
         # Create user service FIRST (foundation service with no dependencies)
         from core.services.user_service import create_user_service
@@ -537,6 +544,27 @@ async def compose_services(
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         logger.info("✅ Learning services created")
+
+        # Build template + engagement layer (Phase 4 — PS+Activity Templates).
+        # PS service must already exist (it's inside learning_services).
+        from services_bootstrap._template_services import _create_template_services
+
+        template_services = _create_template_services(
+            executor=query_executor,
+            ps_service=learning_services["ps"],
+            task_template_backend=task_template_backend,
+            goal_template_backend=goal_template_backend,
+            habit_template_backend=habit_template_backend,
+            event_template_backend=event_template_backend,
+            choice_template_backend=choice_template_backend,
+            principle_template_backend=principle_template_backend,
+            tasks_backend=tasks_backend,
+            goals_backend=goals_backend,
+            habits_backend=habits_backend,
+            events_backend=events_backend,
+            choices_backend=choices_backend,
+            principles_backend=principles_backend,
+        )
 
         # Extract embeddings and vector search services for use by intelligence services and SearchRouter
         embeddings_service = learning_services["embeddings_service"]
@@ -1283,6 +1311,7 @@ async def compose_services(
             # unified_progress DELETED (January 2026) - use user_progress
             lp=learning_services["learning_paths"],  # ku, ps, lp short-name consistency
             ps=learning_services["ps"],  # ku, ps, lp short-name consistency
+            ps_engagement=template_services["ps_engagement"],  # PS+Activity lifecycle (Phase 4)
             learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
             askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI

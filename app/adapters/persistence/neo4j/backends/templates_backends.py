@@ -18,12 +18,15 @@ from typing import TYPE_CHECKING
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
 if TYPE_CHECKING:
-    from core.models.templates.choice_template import ChoiceTemplate
-    from core.models.templates.event_template import EventTemplate
-    from core.models.templates.goal_template import GoalTemplate
-    from core.models.templates.habit_template import HabitTemplate
-    from core.models.templates.principle_template import PrincipleTemplate
-    from core.models.templates.task_template import TaskTemplate
+    # Imports referenced by the string type parameters in the class definitions
+    # below (e.g. ``UniversalNeo4jBackend["TaskTemplate"]``). MyPy resolves the
+    # strings; ruff can't see the link, hence the F401 silences.
+    from core.models.templates.choice_template import ChoiceTemplate  # noqa: F401
+    from core.models.templates.event_template import EventTemplate  # noqa: F401
+    from core.models.templates.goal_template import GoalTemplate  # noqa: F401
+    from core.models.templates.habit_template import HabitTemplate  # noqa: F401
+    from core.models.templates.principle_template import PrincipleTemplate  # noqa: F401
+    from core.models.templates.task_template import TaskTemplate  # noqa: F401
 
 
 class TaskTemplateBackend(UniversalNeo4jBackend["TaskTemplate"]):
