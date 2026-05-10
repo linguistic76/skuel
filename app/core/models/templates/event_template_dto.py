@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from datetime import (
+    time,  # noqa: TC003 -- runtime import; keeps `time` resolvable for any get_type_hints() consumer
+)
+from typing import Any
 
 from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.templates.relative_offset import RelativeOffset
-
-if TYPE_CHECKING:
-    from datetime import time
 
 _OFFSET_FIELDS: tuple[str, ...] = ("event_offset", "recurrence_end_offset")
 

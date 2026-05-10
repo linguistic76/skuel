@@ -18,7 +18,9 @@ the date component becomes engagement-relative via ``event_offset``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import time
+from datetime import (
+    time,  # noqa: TC003 -- runtime import; keeps `time` resolvable for get_type_hints() in neo4j_mapper.from_node()
+)
 from typing import TYPE_CHECKING
 
 from core.models.entity import Entity

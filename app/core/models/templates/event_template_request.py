@@ -10,16 +10,15 @@ component becomes engagement-relative via ``event_offset``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import (
+    time,  # noqa: TC003 -- runtime import; Pydantic resolves annotations at model-build time
+)
 
 from pydantic import Field
 
 from core.models.enums import EntityStatus
 from core.models.request_base import CreateRequestBase, UpdateRequestBase
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
-
-if TYPE_CHECKING:
-    from datetime import time
 
 
 class EventTemplateCreateRequest(CreateRequestBase):
