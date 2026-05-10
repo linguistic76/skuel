@@ -42,6 +42,7 @@ from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
 from core.models.task.task import Task
 from core.models.templates.relative_offset import RelativeOffset
+from core.ports import CrudOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
@@ -49,7 +50,6 @@ from core.utils.uid_generator import UIDGenerator
 from ._validator import TemplateBundle
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
     from datetime import date, datetime
 
     from core.models.templates.choice_template import ChoiceTemplate
@@ -131,12 +131,12 @@ CHOICE_OFFSET_REWRITES: list[tuple[str, str, OffsetKind]] = [
 class ActivityBackends:
     """Bundle of the 6 activity instance backends — collected once by the facade."""
 
-    tasks: Any
-    goals: Any
-    habits: Any
-    events: Any
-    choices: Any
-    principles: Any
+    tasks: CrudOperations[Task]
+    goals: CrudOperations[Goal]
+    habits: CrudOperations[Habit]
+    events: CrudOperations[Event]
+    choices: CrudOperations[Choice]
+    principles: CrudOperations[Principle]
 
 
 @dataclass
@@ -237,19 +237,21 @@ class _SpawnOrchestrator:
         )
 
     async def _persist(
-        self, backend: Any, instance: Any, created_uids: list[tuple[Any, str]]
+        self,
+        backend: CrudOperations[Any],
+        instance: Any,
+        created_uids: list[tuple[CrudOperations[Any], str]],
     ) -> Result[Any]:
         result: Result[Any] = await backend.create(instance)
         if result.is_ok:
             created_uids.append((backend, str(instance.uid)))
         return result
 
-    async def _rollback(self, created_uids: list[tuple[Any, str]]) -> None:
+    async def _rollback(self, created_uids: list[tuple[CrudOperations[Any], str]]) -> None:
         """Best-effort delete on partial-spawn failure. Logs but doesn't raise."""
         for backend, uid in reversed(created_uids):
             try:
-                deleter: Callable[..., Awaitable[Any]] = backend.delete
-                await deleter(uid, cascade=True)
+                await backend.delete(uid, cascade=True)
             except Exception as e:  # safety-net: rollback must not mask the original error
                 self.logger.error(
                     f"Rollback failed for instance {uid}: {e} — manual cleanup may be required"

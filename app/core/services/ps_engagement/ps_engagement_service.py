@@ -32,7 +32,20 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
+from core.models.choice.choice import Choice
 from core.models.enums import EntityStatus
+from core.models.event.event import Event
+from core.models.goal.goal import Goal
+from core.models.habit.habit import Habit
+from core.models.principle.principle import Principle
+from core.models.task.task import Task
+from core.models.templates.choice_template import ChoiceTemplate
+from core.models.templates.event_template import EventTemplate
+from core.models.templates.goal_template import GoalTemplate
+from core.models.templates.habit_template import HabitTemplate
+from core.models.templates.principle_template import PrincipleTemplate
+from core.models.templates.task_template import TaskTemplate
+from core.ports import CrudOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -64,18 +77,18 @@ class PsEngagementService:
         self,
         executor: Neo4jQueryExecutor,
         ps_service: Any,
-        task_template_backend: Any,
-        goal_template_backend: Any,
-        habit_template_backend: Any,
-        event_template_backend: Any,
-        choice_template_backend: Any,
-        principle_template_backend: Any,
-        tasks_backend: Any,
-        goals_backend: Any,
-        habits_backend: Any,
-        events_backend: Any,
-        choices_backend: Any,
-        principles_backend: Any,
+        task_template_backend: CrudOperations[TaskTemplate],
+        goal_template_backend: CrudOperations[GoalTemplate],
+        habit_template_backend: CrudOperations[HabitTemplate],
+        event_template_backend: CrudOperations[EventTemplate],
+        choice_template_backend: CrudOperations[ChoiceTemplate],
+        principle_template_backend: CrudOperations[PrincipleTemplate],
+        tasks_backend: CrudOperations[Task],
+        goals_backend: CrudOperations[Goal],
+        habits_backend: CrudOperations[Habit],
+        events_backend: CrudOperations[Event],
+        choices_backend: CrudOperations[Choice],
+        principles_backend: CrudOperations[Principle],
     ) -> None:
         if executor is None or ps_service is None:
             raise ValueError(

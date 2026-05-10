@@ -7,31 +7,49 @@ per-user state), not activity instances — different ownership model,
 different lifecycle, different consumers.
 """
 
-from typing import Any
+from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+from core.models.choice.choice import Choice
+from core.models.event.event import Event
+from core.models.goal.goal import Goal
+from core.models.habit.habit import Habit
+from core.models.principle.principle import Principle
+from core.models.task.task import Task
+from core.models.templates.choice_template import ChoiceTemplate
+from core.models.templates.event_template import EventTemplate
+from core.models.templates.goal_template import GoalTemplate
+from core.models.templates.habit_template import HabitTemplate
+from core.models.templates.principle_template import PrincipleTemplate
+from core.models.templates.task_template import TaskTemplate
+from core.ports import CrudOperations
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 logger = get_logger("skuel.bootstrap")
 
 
 def _create_template_services(
     *,
-    executor: Any,
+    executor: Neo4jQueryExecutor,
     ps_service: Any,
     # Template backends (one per Activity Template entity type)
-    task_template_backend: Any,
-    goal_template_backend: Any,
-    habit_template_backend: Any,
-    event_template_backend: Any,
-    choice_template_backend: Any,
-    principle_template_backend: Any,
+    task_template_backend: CrudOperations[TaskTemplate],
+    goal_template_backend: CrudOperations[GoalTemplate],
+    habit_template_backend: CrudOperations[HabitTemplate],
+    event_template_backend: CrudOperations[EventTemplate],
+    choice_template_backend: CrudOperations[ChoiceTemplate],
+    principle_template_backend: CrudOperations[PrincipleTemplate],
     # Activity instance backends (spawn destinations)
-    tasks_backend: Any,
-    goals_backend: Any,
-    habits_backend: Any,
-    events_backend: Any,
-    choices_backend: Any,
-    principles_backend: Any,
+    tasks_backend: CrudOperations[Task],
+    goals_backend: CrudOperations[Goal],
+    habits_backend: CrudOperations[Habit],
+    events_backend: CrudOperations[Event],
+    choices_backend: CrudOperations[Choice],
+    principles_backend: CrudOperations[Principle],
 ) -> dict[str, Any]:
     """Construct the template + engagement layer.
 

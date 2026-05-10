@@ -10,13 +10,23 @@ validator and orchestrator share one bundle per call so we don't double-query.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
+from core.models.templates.choice_template import ChoiceTemplate
+from core.models.templates.event_template import EventTemplate
+from core.models.templates.goal_template import GoalTemplate
+from core.models.templates.habit_template import HabitTemplate
+from core.models.templates.principle_template import PrincipleTemplate
+from core.models.templates.task_template import TaskTemplate
+from core.ports import CrudOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from ._validator import TemplateBundle
+
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 logger = get_logger(__name__)
 
@@ -26,13 +36,13 @@ class _TemplateLoader:
 
     def __init__(
         self,
-        executor: Any,
-        task_template_backend: Any,
-        goal_template_backend: Any,
-        habit_template_backend: Any,
-        event_template_backend: Any,
-        choice_template_backend: Any,
-        principle_template_backend: Any,
+        executor: Neo4jQueryExecutor,
+        task_template_backend: CrudOperations[TaskTemplate],
+        goal_template_backend: CrudOperations[GoalTemplate],
+        habit_template_backend: CrudOperations[HabitTemplate],
+        event_template_backend: CrudOperations[EventTemplate],
+        choice_template_backend: CrudOperations[ChoiceTemplate],
+        principle_template_backend: CrudOperations[PrincipleTemplate],
     ) -> None:
         self._executor = executor
         self._tasks = task_template_backend
@@ -104,7 +114,7 @@ class _TemplateLoader:
         RETURN t.uid AS uid
         ORDER BY t.uid
         """
-        result = await self._executor.execute(
+        result: Result[list[dict[str, Any]]] = await self._executor.execute(
             query=query,
             params={"ps_uid": ps_uid},
             operation=f"fetch_{rel.value.lower()}_uids",
