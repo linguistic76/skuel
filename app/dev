@@ -185,6 +185,17 @@ case "$1" in
     docker compose down "$@"
     ;;
 
+  install-hooks)
+    echo -e "${GREEN}Installing git hooks...${NC}"
+    repo_root=$(git rev-parse --show-toplevel)
+    if [[ -z "$repo_root" ]]; then
+      echo "Not inside a git repo." >&2
+      exit 1
+    fi
+    ln -sfv "../../app/scripts/git-hooks/pre-commit" "$repo_root/.git/hooks/pre-commit"
+    echo "Hooks installed. Bypass once with: SKUEL_ALLOW_SECRETS=1 git commit ..."
+    ;;
+
   help|*)
     echo "SKUEL Development Commands"
     echo "=========================="
@@ -225,6 +236,9 @@ case "$1" in
     echo "  ./dev up-monitoring  - Start Neo4j + App + Prometheus + Grafana"
     echo "  ./dev up-neo4j       - Start Neo4j only (then: uv run python main.py)"
     echo "  ./dev down           - Stop all Docker services"
+    echo ""
+    echo "Setup:"
+    echo "  ./dev install-hooks  - Install git pre-commit hook (secret-leak guard)"
     echo ""
     echo "Development:"
     echo "  ./dev serve          - Start development server (requires Neo4j running)"
