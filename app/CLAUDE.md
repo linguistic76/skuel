@@ -25,7 +25,7 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **Core Principle:** "Entity is the universal base. Ku is one type of Entity."
 
-`Entity` is the base frozen dataclass for all 19 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
+`Entity` is the base frozen dataclass for all 25 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
 
 - **PathStep** (`EntityType.PATH_STEP`, extends `Curriculum`) — THE curriculum content entity. Composes Kus into learning content and sits within LearningPaths. Services in `core/services/ps/`. Facade: `PsService` in `core/services/ps_service.py`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
@@ -100,13 +100,13 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **See:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`, `/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md`
 
-## SKUEL's 19 EntityTypes + 5 Cross-Cutting Systems
+## SKUEL's 25 EntityTypes + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
 
 **Two lenses (ADR-055):** Subsystems (7 subsystems × 3 sections) vs. 3-Layer (Curriculum → Action → Feedback). The **5 Cross-Cutting Systems** (UserContext, Search, Calendar, Askesis, Messaging) are infrastructure orthogonal to both lenses.
 
-**The 19 EntityType values** cluster as: Activity (6: Task, Goal, Habit, Event, Choice, Principle), Curriculum (4: Ku, PathStep, LearningPath, Exercise), Forms (2: FormTemplate, FormSubmission), Learning loop (4: UserEntry, ExerciseReport, ActivityReport, Interaction), Other (3: RevisedExercise, LifePath, Resource).
+**The 25 EntityType values** cluster as: Activity (6: Task, Goal, Habit, Event, Choice, Principle), Activity Templates (6: TaskTemplate, GoalTemplate, HabitTemplate, EventTemplate, ChoiceTemplate, PrincipleTemplate — PS-owned, spawn instances on engagement), Curriculum (4: Ku, PathStep, LearningPath, Exercise), Forms (2: FormTemplate, FormSubmission), Learning loop (4: UserEntry, ExerciseReport, ActivityReport, Interaction), Other (3: RevisedExercise, LifePath, Resource).
 
 **Not EntityTypes:** MOC is emergent (any Entity with ORGANIZES edges). Group lives in `NonKuDomain` (ADR-053). Finance is a Firefly III sidecar (ADR-052), admin-only.
 
@@ -161,7 +161,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 
 **DTOs** mirror the hierarchy: `EntityDTO -> UserOwnedDTO, KuDTO, CurriculumDTO -> PathStepDTO, ResourceDTO`
 
-**Key enums:** `EntityType` (19 values), `EntityStatus` (14 values) — both in `entity_enums.py`.
+**Key enums:** `EntityType` (25 values), `EntityStatus` (16 values) — both in `entity_enums.py`.
 
 **Neo4j Multi-Label:** `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`.
 
@@ -227,7 +227,7 @@ Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `Enti
 
 ## Activity DSL & Domain Enums
 
-`EntityType` (19 values) covers multi-label `:Entity` Neo4j nodes. `NonKuDomain` (FINANCE, GROUP, CALENDAR, LEARNING) covers the 4 non-Entity domains. Both expose `from_string()` with alias support (e.g. `"knowledge"` → `EntityType.KU`).
+`EntityType` (25 values) covers multi-label `:Entity` Neo4j nodes. `NonKuDomain` (FINANCE, GROUP, CALENDAR, LEARNING) covers the 4 non-Entity domains. Both expose `from_string()` with alias support (e.g. `"knowledge"` → `EntityType.KU`).
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`, `/docs/dsl/DSL_USAGE_GUIDE.md`
 
@@ -350,7 +350,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 ## Generic Programming Patterns
 
-**Core Principle:** "One generic backend serves all 19 entity types"
+**Core Principle:** "One generic backend serves all 25 entity types"
 
 ```python
 # Generic backend -- T constrained by DomainModelProtocol

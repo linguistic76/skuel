@@ -72,7 +72,7 @@ EntityType.HABIT:      ("name", "title", "description", "cue", "reward")
 EntityType.EXERCISE:   ("title", "instructions", "description")
 ```
 
-Curriculum types use `"\n\n"` between fields; activity types use `"\n"`. All 19 content-bearing entity types are supported.
+Curriculum types use `"\n\n"` between fields; activity types use `"\n"`. All 16 content-bearing entity types in `EMBEDDING_FIELD_MAPS` are supported.
 
 ### Embedding Storage
 

@@ -1,5 +1,5 @@
 ---
-title: SKUEL Architecture — 26 Entity Types + 5 Cross-Cutting Systems
+title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
 updated: 2026-05-09
 status: current
 category: architecture
@@ -22,9 +22,9 @@ related:
 
 SKUEL is a **knowledge-centric productivity platform** where every operation connects to and enriches understanding. **Knowledge is the fertile soil from which all activity grows.**
 
-This doc is **Model A at the fine grain** per ADR-055 — the 26 EntityTypes. For the coarse rollup into 7 subsystems (Object / Context / Meta), see [`SEVEN_SUBSYSTEMS.md`](SEVEN_SUBSYSTEMS.md). For the flow-of-information view (Curriculum → Action → Feedback), see [`THREE_LAYER_LENS.md`](THREE_LAYER_LENS.md). The 5 Cross-Cutting Systems below are infrastructure layers orthogonal to both lenses.
+This doc is **Model A at the fine grain** per ADR-055 — the 25 EntityTypes. For the coarse rollup into 7 subsystems (Object / Context / Meta), see [`SEVEN_SUBSYSTEMS.md`](SEVEN_SUBSYSTEMS.md). For the flow-of-information view (Curriculum → Action → Feedback), see [`THREE_LAYER_LENS.md`](THREE_LAYER_LENS.md). The 5 Cross-Cutting Systems below are infrastructure layers orthogonal to both lenses.
 
-### 26 Entity Types + 5 Cross-Cutting Systems
+### 25 Entity Types + 5 Cross-Cutting Systems
 
 | EntityType | What It Is | UID Format | Ownership |
 |------------|-----------|-----------|-----------|
@@ -42,7 +42,6 @@ This doc is **Model A at the fine grain** per ADR-055 — the 26 EntityTypes. Fo
 | PrincipleTemplate | PS-owned template that spawns Principle instances on engagement | `pt_{slug}_{random}` | Admin/teacher-created, shared |
 | FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
-| Finance | Admin-only bookkeeping — Firefly III for expenses/budgets/reports; local for invoices (ADR-052) | `inv_{random}` (invoices) | Admin-only |
 | Ku | Atomic knowledge unit (concept, principle, substance) | `ku_{slug}_{random}` | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | N/A | Admin-created, shared |
 | PathStep | THE curriculum content entity (composes Kus into learning content) | `ps:{namespace}:{slug}` | Admin-created, shared |
@@ -54,8 +53,8 @@ This doc is **Model A at the fine grain** per ADR-055 — the 26 EntityTypes. Fo
 | ActivityReport | Feedback about activity patterns over time | `ar_{random}` | User-owned |
 | ExerciseReport | Assessment tied to a specific UserEntry fulfilling an exercise | `sr_{random}` | User-owned |
 | LifePath | The user's life direction | `lp_{random}` | User-owned |
-| Groups | Teacher-student class management | `group_{slug}_{random}` | Teacher-owned |
-| MOC | Non-linear KU navigation | N/A (emergent — any Entity with ORGANIZES) | Emergent |
+
+**Not EntityTypes** (listed separately): Groups (`NonKuDomain.GROUP`, ADR-053 — teacher-student class management, `:Group` nodes). Finance (`NonKuDomain.FINANCE`, ADR-052 — Firefly III sidecar). MOC is emergent (any Entity with ORGANIZES edges, no dedicated EntityType).
 
 **Cross-Cutting Systems (5)**: UserContext, Search, Calendar, Askesis, Messaging (planned)
 
@@ -123,6 +122,8 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- ExerciseReport(UserOwnedEntity) +6 report fields              EXERCISE_REPORT
 |   +-- RevisedExercise(UserOwnedEntity)                              REVISED_EXERCISE
 +-- FormTemplate(Entity) — reusable form definition (shared, embeddable)
++-- {Activity}Template(Entity) — PS-owned spawn blueprints (Entity-direct, not UserOwned)
+|   +-- TaskTemplate, GoalTemplate, HabitTemplate, EventTemplate, ChoiceTemplate, PrincipleTemplate
 +-- Curriculum(Entity) +21 fields (base class only)
 |   +-- PathStep(Curriculum), LearningPath, Exercise
 +-- Ku(Entity) — atomic knowledge unit
@@ -139,6 +140,7 @@ EntityDTO (~18 fields)
 +-- UserOwnedDTO -> UserEntryDTO                   (file + processing + pipeline)
 +-- UserOwnedDTO -> ExerciseReportDTO
 +-- EntityDTO -> FormTemplateDTO                   (form_schema, instructions)
++-- EntityDTO -> TaskTemplateDTO, GoalTemplateDTO, HabitTemplateDTO, EventTemplateDTO, ChoiceTemplateDTO, PrincipleTemplateDTO   (PS-owned spawn blueprints, RelativeOffset timing)
 +-- CurriculumDTO(EntityDTO) -> PathStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
 +-- ResourceDTO(EntityDTO)

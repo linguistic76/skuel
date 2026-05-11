@@ -145,7 +145,7 @@ class TaskDTO(UserOwnedDTO):
 # Tier 3: Domain Model (Core) — per-domain frozen dataclass hierarchy
 @dataclass(frozen=True)
 class Entity:
-    """~19 common fields. Base for all 15 EntityType domains."""
+    """~19 common fields. Base for all 25 EntityType domains."""
     uid: str
     title: str
     ...

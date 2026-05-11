@@ -437,7 +437,7 @@ async def create_with_learning_alignment(
 - `request` - Entity creation request (Pydantic model)
 - `learning_position` - User's learning path position (for alignment assessment)
 - `context` - Additional context for validators (e.g., UserContext)
-- `custom_fields` - Domain-specific fields to merge (e.g., `source_learning_path_uid`)
+- `custom_fields` - Domain-specific fields to merge (e.g., `source_path_step_uid`)
 
 **Returns:** `Result[T]` containing created domain model
 
@@ -478,7 +478,8 @@ async def create_batch_with_learning_alignment(
 ```python
 # Create 20 study sessions (4 weeks × 5 sessions)
 requests = [EventCreateRequest(...) for _ in range(20)]
-custom_fields = [{"source_learning_path_uid": lp_uid} for _ in range(20)]
+# LP is derivable via (Event)→PS-[:IS_STEP_OF]→LP — anchor on PS, not LP
+custom_fields = [{"source_path_step_uid": ps_uid} for _ in range(20)]
 
 result = await self.learning_helper.create_batch_with_learning_alignment(
     requests=requests,
@@ -919,7 +920,7 @@ async def create_study_session(
     user_uid: UserUID,
     knowledge_uids: list[str],
     event_date: date,
-    learning_path_uid: str | None = None,
+    path_step_uid: str | None = None,
 ) -> Result[Event]:
     request = EventCreateRequest(
         user_uid=user_uid,
@@ -929,10 +930,10 @@ async def create_study_session(
         event_type="learning",
     )
 
-    # Custom fields for Events domain
+    # Custom fields for Events domain — anchor on PS, LP is derivable via PS→LP
     custom_fields = {}
-    if learning_path_uid:
-        custom_fields["source_learning_path_uid"] = learning_path_uid
+    if path_step_uid:
+        custom_fields["source_path_step_uid"] = path_step_uid
 
     result = await self.learning_helper.create_with_learning_alignment(
         request=request,

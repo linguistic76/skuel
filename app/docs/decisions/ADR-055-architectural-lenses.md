@@ -17,6 +17,8 @@ related:
 [ADR-047 Entity Types Replace Domain Categories](ADR-047-entity-types-replace-domain-categories.md),
 [ADR-054 UserEntry Unified Submissions](ADR-054-user-entry-unified-submissions.md)
 
+> **Note (2026-05-11):** This ADR refers to "20 EntityTypes" — the count at decision time. The `EntityType` enum has since grown to 25 (added the 6 Activity Templates, retired others). See [`architecture/ENTITY_TYPE_ARCHITECTURE.md`](../architecture/ENTITY_TYPE_ARCHITECTURE.md) for the current count. The reasoning in this ADR (two lenses, coarse rollup vs. fine grain) is unchanged by the count drift.
+
 ## Context
 
 ADR-047 retired the "domains in categories" framing and replaced it with "20 EntityTypes with behavioral traits." That is the right fine-grained ontology for code — services, backends, and protocols key off EntityType and its traits, not category membership.
