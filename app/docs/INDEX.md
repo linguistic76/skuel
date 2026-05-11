@@ -264,6 +264,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-055: Architectural Lenses — Subsystems + 3-Layer Lens](decisions/ADR-055-architectural-lenses.md)** | **2026-04-19** | **Model A (7 Subsystems / 20 EntityTypes) + Model B (3-Layer Lens); adopts "Subsystems" vocabulary** |
 | **[ADR-056: Service-Layer Label Split — entity_label + config_lookup_label](decisions/ADR-056-service-layer-label-split.md)** | **2026-04-21** | **DomainConfig.entity_label split into Neo4j base-label + LABEL_CONFIGS registry key; LABEL_CONFIGS["Entity"] → PS_CONFIG alias deleted; factories fail-fast on missing keys** |
 | **[ADR-057: Activity-Domain Sibling Signals](decisions/ADR-057-activity-domain-sibling-signals.md)** | **2026-04-21** | **Design-only (Proposed): narrow ISP protocols in core/ports/ for cross-domain intelligence consultation at judgment time; 6 ways-of-acting, 3 mutual axes + 7 diagonals; companion Shared Signal pattern for cross-cutting infrastructure → peer consultation** |
+| **[ADR-060: UserContext as Single Source of Truth — Awareness Slice Protocols Retired](decisions/ADR-060-userctx-single-source-of-truth.md)** | **2026-05-11** | **11 ISP "awareness slice" protocols (`TaskAwareness`, `KnowledgeAwareness`, `FullAwareness`, etc.) deleted; UserContext is the contract; 751 lines removed; type-level minimum-context guarantee was theoretical and outweighed by drift cost** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Tools
