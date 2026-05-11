@@ -121,7 +121,9 @@ def render_ps_detail_content(
         cls="prose prose-lg max-w-none",
     )
 
-    # Exercises + Submissions + Feedback (learning loop sections)
+    # Exercises stay visible with an empty state (the workflow entry point).
+    # Submissions + Feedback collapse to an empty Div when the user has no
+    # activity yet — see render_ps_submissions_and_feedback.
     submissions_section: Any = Div()
     feedback_section: Any = Div()
     if user_uid:

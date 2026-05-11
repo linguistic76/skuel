@@ -108,7 +108,11 @@ def render_ps_submissions_and_feedback(rows: list[PathStepSubmissionRow]) -> Div
 
     Composes the submissions list and feedback list into a single fragment,
     used by the /learning-loop/ps/{ps_uid}/submissions-and-feedback endpoint.
+    When the user has no submissions yet, collapse silently — the Start
+    Learning button is the gateway, not a stack of empty states.
     """
+    if not rows:
+        return Div()
     return Div(
         H3("My Submissions", cls="text-base font-semibold mb-2 mt-6"),
         render_ps_submissions(rows),
