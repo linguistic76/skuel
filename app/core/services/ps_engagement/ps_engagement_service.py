@@ -35,6 +35,7 @@ Completion triggers (decision pinned 2026-05-11): two paths.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -74,6 +75,23 @@ ReviewDecision = Literal["keep", "discard"]
 Keys are template UIDs (the originals authored on the PS), values are the
 student's keep/discard call.
 """
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReviewItem:
+    """One row's worth of data for the completion review screen.
+
+    Per the contract pinned 2026-05-11, the review is keyed by ``template_uid``
+    (one decision applies to every instance sharing that template, even if a
+    future spawn fans 1→N). ``instance_uid`` is a representative used by the
+    UI to look up additional details; ``label`` is the activity-domain Neo4j
+    label (``Task``, ``Habit``, …) for badge rendering.
+    """
+
+    template_uid: str
+    instance_uid: str
+    label: str
+    title: str
 
 
 class PsEngagementService:
@@ -482,6 +500,52 @@ class PsEngagementService:
         toward engaged PathSteps without bringing the gateway into a public API.
         """
         return await self._gateway.find_active(student_uid, ps_uid)
+
+    async def list_review_items(self, student_uid: str, ps_uid: str) -> Result[list[ReviewItem]]:
+        """Rich per-instance rows for the completion review screen.
+
+        Returns one ``ReviewItem`` per spawned instance currently in
+        ``engagement_state IN ['engaged', 'owned']`` for this (student, PS).
+        Mirrors ``_fetch_engaged_instances`` but also pulls ``title`` so the
+        UI can render meaningful rows without a second round-trip.
+        """
+        query = """
+        MATCH (ps {uid: $ps_uid})-[:HAS_TASK_TEMPLATE
+                                   |HAS_GOAL_TEMPLATE
+                                   |HAS_HABIT_TEMPLATE
+                                   |HAS_EVENT_TEMPLATE
+                                   |HAS_CHOICE_TEMPLATE
+                                   |HAS_PRINCIPLE_TEMPLATE]->(t)
+        MATCH (n {user_uid: $student_uid, template_uid: t.uid})
+        WHERE n.engagement_state IN ['engaged', 'owned']
+        RETURN t.uid          AS template_uid,
+               n.uid           AS instance_uid,
+               labels(n)       AS labels,
+               coalesce(n.title, n.uid) AS title
+        """
+        res: Result[list[dict[str, Any]]] = await self._executor.execute(
+            query=query,
+            params={"student_uid": student_uid, "ps_uid": ps_uid},
+            operation="list_review_items",
+        )
+        if res.is_error:
+            return Result.fail(res)
+        out: list[ReviewItem] = []
+        for record in res.value:
+            labels = record.get("labels") or []
+            domain_label = next(
+                (lab for lab in labels if lab != "Entity"),
+                labels[0] if labels else "Entity",
+            )
+            out.append(
+                ReviewItem(
+                    template_uid=str(record["template_uid"]),
+                    instance_uid=str(record["instance_uid"]),
+                    label=str(domain_label),
+                    title=str(record["title"]),
+                )
+            )
+        return Result.ok(out)
 
     async def list_engaged(self, student_uid: str) -> Result[list[Engagement]]:
         """Return all active engagements for a student, with spawned instance UIDs.

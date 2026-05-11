@@ -14,10 +14,14 @@ from fasthtml.common import A, Div, P, Request, Span
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from core.services.ps_engagement.engagement import Engagement
-from core.services.ps_engagement.ps_engagement_service import PsEngagementService
+from core.services.ps_engagement.ps_engagement_service import (
+    PsEngagementService,
+    ReviewDecision,
+)
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.explore.ps_completion_review import render_review_error, render_review_form
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -53,13 +57,32 @@ def _start_step_button(uid: str, is_in_progress: bool, is_mastered: bool) -> Any
     )
 
 
+def _parse_review_form(form: Any) -> dict[str, ReviewDecision]:
+    """Build the review dict from the inline review form's payload.
+
+    The form carries one ``template_uids`` hidden field per spawned template
+    (every row contributes one — Starlette returns them as a multi-value
+    list via ``getlist``). For each template UID, the corresponding
+    ``keep_{template_uid}`` checkbox is present in the form payload only
+    when the user left it checked; missing == discard. Templates absent
+    from the form (defensive) default to "keep" — matches the service's
+    forgiving default.
+    """
+    template_uids = form.getlist("template_uids") if hasattr(form, "getlist") else []
+    review: dict[str, ReviewDecision] = {}
+    for template_uid in template_uids:
+        review[template_uid] = "keep" if f"keep_{template_uid}" in form else "discard"
+    return review
+
+
 def render_engagement_actions(uid: str, engagement: Engagement | None) -> Any:
-    """Render the Engage/Abandon button group for a PathStep.
+    """Render the Engage/Complete/Abandon button group for a PathStep.
 
     The group's outer div carries id="ps-engagement-actions" — HTMX handlers
-    return this same wrapper so swaps replace it in place. Slice 1 covers
-    engage + abandon only; Complete renders as a deferred note pointing at
-    the future review screen (slice 4).
+    return this same wrapper so swaps replace it in place. When engaged, the
+    Complete button hx-GETs the review form into the same wrapper; Cancel on
+    that form hx-GETs ``/explore/ps/{uid}/engagement-actions`` to restore the
+    button row.
     """
     if engagement is None:
         body: Any = Button(
@@ -73,9 +96,13 @@ def render_engagement_actions(uid: str, engagement: Engagement | None) -> Any:
     else:
         body = Div(
             Badge("Engaged", variant=BadgeT.success, size=Size.sm),
-            Span(
-                "Complete: review screen coming soon.",
-                cls="text-xs text-muted-foreground",
+            Button(
+                "Complete",
+                variant=ButtonT.primary,
+                size=Size.sm,
+                hx_get=f"/explore/ps/{uid}/complete-review",
+                hx_swap="outerHTML",
+                hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
             ),
             Button(
                 "Abandon",
@@ -261,8 +288,56 @@ def create_path_steps_ui_routes(
             # filtered out) — render_engagement_actions(None) shows Engage again.
             return render_engagement_actions(uid, None)
 
+        @rt("/explore/ps/{uid}/engagement-actions")
+        async def get_engagement_actions(request: Request, uid: str) -> Any:
+            """Re-render the engagement-actions group from current state.
+
+            Used by the review form's Cancel button to bail out without
+            mutating the engagement edge.
+            """
+            user_uid = require_authenticated_user(request)
+            active = await ps_engagement_service.find_active(user_uid, uid)
+            engagement = active.value if active.is_ok else None
+            return render_engagement_actions(uid, engagement)
+
+        @rt("/explore/ps/{uid}/complete-review")
+        async def get_complete_review(request: Request, uid: str) -> Any:
+            """Fetch the inline review form for the active engagement."""
+            user_uid = require_authenticated_user(request)
+            active = await ps_engagement_service.find_active(user_uid, uid)
+            if active.is_error or active.value is None:
+                # No active engagement — restore the engagement-actions group.
+                return render_engagement_actions(uid, active.value if active.is_ok else None)
+            items_result = await ps_engagement_service.list_review_items(user_uid, uid)
+            if items_result.is_error:
+                return render_review_error(
+                    uid,
+                    "Could not load the activities spawned by this PathStep. Please try again.",
+                )
+            return render_review_form(uid, items_result.value)
+
+        @rt("/explore/ps/{uid}/complete", methods=["POST"])
+        @csrf_protected
+        async def complete_path_step(request: Request, uid: str) -> Any:
+            """Apply the keep/discard review and close the engagement."""
+            user_uid = require_authenticated_user(request)
+            form = await request.form()
+            review = _parse_review_form(form)
+
+            result = await ps_engagement_service.complete_pathstep(user_uid, uid, review)
+            if result.is_error:
+                err = result.expect_error()
+                return render_review_error(uid, err.display_message or "Completion failed.")
+            # Engagement is now state='completed' — find_active returns None,
+            # so the Engage button reappears.
+            return render_engagement_actions(uid, None)
+
     engagement_routes_note = (
-        ", /explore/ps/{uid}/engage, /explore/ps/{uid}/abandon"
+        (
+            ", /explore/ps/{uid}/engage, /explore/ps/{uid}/abandon, "
+            "/explore/ps/{uid}/complete-review, /explore/ps/{uid}/complete, "
+            "/explore/ps/{uid}/engagement-actions"
+        )
         if ps_engagement_service is not None
         else " (engagement routes skipped — ps_engagement_service unavailable)"
     )
