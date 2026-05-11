@@ -44,6 +44,7 @@ def create_explore_routes(
         rt,
         orchestrator=orchestrator,
         ps_engagement_service=services.ps_engagement,
+        user_service=services.user,
     )
 
 

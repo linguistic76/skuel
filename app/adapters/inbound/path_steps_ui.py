@@ -7,12 +7,16 @@ POST mutation endpoints for HTMX learning state actions (start, mark-read, bookm
 Detail view lives at /explore/ps/{uid} (explore_ui.py).
 """
 
-from typing import Any
+from typing import Any, cast
 
 from fasthtml.common import A, Div, P, Request, Span
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.csrf import csrf_protected
+from core.models.enums import UserRole
+from core.models.enums.learning_enums import KnowledgeStatus
+from core.ports.query_types import Violation
 from core.services.ps_engagement.engagement import Engagement
 from core.services.ps_engagement.ps_engagement_service import (
     PsEngagementService,
@@ -22,6 +26,11 @@ from core.services.ps_service import PsService
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.explore.ps_completion_review import render_review_error, render_review_form
+from ui.explore.ps_publish_state import (
+    render_publish_state,
+    render_publish_violations,
+    render_status_badge,
+)
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -128,6 +137,7 @@ def create_path_steps_ui_routes(
     rt: Any,
     ps_service: PsService,
     ps_engagement_service: PsEngagementService | None = None,
+    user_service: Any = None,
 ) -> list[Any]:
     """Create Path Steps UI routes.
 
@@ -138,6 +148,8 @@ def create_path_steps_ui_routes(
 
     ``ps_engagement_service`` is optional so curriculum-only deployments
     without the engagement subsystem still get the read/learning routes.
+    ``user_service`` is required for the teacher publish flow (slice 2);
+    when absent, the publish routes are skipped.
     """
 
     # ========================================================================
@@ -332,6 +344,82 @@ def create_path_steps_ui_routes(
             # so the Engage button reappears.
             return render_engagement_actions(uid, None)
 
+    # ========================================================================
+    # PUBLISH HTMX ACTIONS (slice 2: teacher draft → published flow)
+    # ========================================================================
+
+    if ps_engagement_service is not None and user_service is not None:
+
+        async def _is_teacher(request: Request) -> bool:
+            role = await get_user_role(request, user_service)
+            return role is not None and role.has_permission(UserRole.TEACHER)
+
+        async def _current_ps_status(uid: str) -> KnowledgeStatus | None:
+            ps_result = await ps_service.core.get(uid)
+            if ps_result.is_error or ps_result.value is None:
+                return None
+            status = getattr(ps_result.value, "status", None)
+            if isinstance(status, KnowledgeStatus):
+                return status
+            if isinstance(status, str):
+                try:
+                    return KnowledgeStatus(status)
+                except ValueError:
+                    return None
+            return None
+
+        @rt("/explore/ps/{uid}/publish", methods=["POST"])
+        @csrf_protected
+        async def publish_path_step(request: Request, uid: str) -> Any:
+            """Validate + publish a PathStep. Teacher-only.
+
+            On success: returns the publish-state wrapper (now empty, since
+            status flipped to PUBLISHED) plus an out-of-band swap of the
+            ``#ps-status-badge`` to reflect the new status.
+
+            On validation failure (``ps_validation_report``): returns the
+            violations panel into the publish-state wrapper — the teacher
+            sees every broken cross-template reference at once.
+            """
+            # require_authenticated_user raises 401 if the user isn't logged in;
+            # the role check below produces a 403-equivalent empty wrapper for
+            # authenticated non-teachers (matches the SHARED-content posture:
+            # the button never rendered for them either).
+            require_authenticated_user(request)
+            if not await _is_teacher(request):
+                return render_publish_state(uid, await _current_ps_status(uid), is_teacher=False)
+
+            result = await ps_engagement_service.publish_pathstep(uid)
+            if result.is_error:
+                err = result.expect_error()
+                violations = err.details.get("violations") if err.details else None
+                if err.code == "BUSINESS_PS_TEMPLATE_VALIDATION" and isinstance(violations, list):
+                    return render_publish_violations(uid, cast("list[Violation]", violations))
+                # Other failures (not-found, infra) collapse to an empty
+                # wrapper rather than a noisy banner — the teacher can retry
+                # from the page; system errors surface elsewhere.
+                return render_publish_state(uid, await _current_ps_status(uid), is_teacher=True)
+
+            # Success: publish_pathstep returns the updated PS with status=PUBLISHED.
+            # Tuple = (in-place wrapper, OOB badge). FastHTML serializes both.
+            new_status = getattr(result.value, "status", KnowledgeStatus.PUBLISHED)
+            return (
+                render_publish_state(uid, new_status, is_teacher=True),
+                render_status_badge(new_status, oob=True),
+            )
+
+        @rt("/explore/ps/{uid}/publish-state")
+        async def get_publish_state(request: Request, uid: str) -> Any:
+            """Restore the publish-state wrapper.
+
+            Used by the Dismiss button on the validation-error panel and by
+            any other client that needs to reset the wrapper to its from-page
+            baseline (button if teacher+DRAFT, empty otherwise).
+            """
+            require_authenticated_user(request)
+            is_teacher = await _is_teacher(request)
+            return render_publish_state(uid, await _current_ps_status(uid), is_teacher=is_teacher)
+
     engagement_routes_note = (
         (
             ", /explore/ps/{uid}/engage, /explore/ps/{uid}/abandon, "
@@ -341,11 +429,16 @@ def create_path_steps_ui_routes(
         if ps_engagement_service is not None
         else " (engagement routes skipped — ps_engagement_service unavailable)"
     )
+    publish_routes_note = (
+        ", /explore/ps/{uid}/publish, /explore/ps/{uid}/publish-state"
+        if ps_engagement_service is not None and user_service is not None
+        else " (publish routes skipped — user_service unavailable)"
+    )
     logger.info(
         "Path Steps UI routes registered: "
         "/path-steps, /path-steps/content, "
         "/api/path-steps/{uid}/start, /api/path-steps/{uid}/mark-read, "
-        "/api/path-steps/{uid}/bookmark" + engagement_routes_note
+        "/api/path-steps/{uid}/bookmark" + engagement_routes_note + publish_routes_note
     )
 
     return []

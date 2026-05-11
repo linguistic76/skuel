@@ -20,9 +20,18 @@ from adapters.inbound.path_steps_ui import (
     _parse_review_form,
     render_engagement_actions,
 )
+from core.models.enums.learning_enums import KnowledgeStatus
+from core.ports.query_types import Violation
 from core.services.ps_engagement.engagement import Engagement
 from core.services.ps_engagement.ps_engagement_service import ReviewItem
 from ui.explore.ps_completion_review import render_review_error, render_review_form
+from ui.explore.ps_publish_state import (
+    PUBLISH_STATE_ID,
+    STATUS_BADGE_ID,
+    render_publish_state,
+    render_publish_violations,
+    render_status_badge,
+)
 
 _PS_UID = "ps:test:slice1"
 _WRAPPER_ID = 'id="ps-engagement-actions"'
@@ -245,3 +254,179 @@ class TestParseReviewForm:
         form = _FakeForm(multi={}, scalar=[])
 
         assert _parse_review_form(form) == {}
+
+
+# ============================================================================
+# Slice 2 — teacher publish flow (badge + button + violations panel)
+# ============================================================================
+
+
+def _violation(
+    *,
+    template_uid: str = "tpl_task_x",
+    template_title: str = "Read intro",
+    template_type: str = "TaskTemplate",
+    field: str = "fulfills_goal_template_uid",
+    violation: str = "target_missing",
+    referenced_uid: str | None = "tpl_goal_missing",
+    hint: str | None = None,
+) -> Violation:
+    return Violation(  # type: ignore[typeddict-item]
+        template_uid=template_uid,
+        template_title=template_title,
+        template_type=template_type,
+        field=field,
+        violation=violation,
+        referenced_uid=referenced_uid,
+        hint=hint,
+    )
+
+
+class TestRenderStatusBadge:
+    """The Draft/Published indicator that lives in the PS metadata row."""
+
+    def test_draft_status_renders_draft_label(self) -> None:
+        html = to_xml(render_status_badge(KnowledgeStatus.DRAFT))
+
+        assert "Draft" in html
+        assert "Status:" in html
+
+    def test_published_status_renders_published_label(self) -> None:
+        html = to_xml(render_status_badge(KnowledgeStatus.PUBLISHED))
+
+        assert "Published" in html
+
+    def test_carries_stable_id_for_oob_swap(self) -> None:
+        html = to_xml(render_status_badge(KnowledgeStatus.DRAFT))
+
+        assert f'id="{STATUS_BADGE_ID}"' in html
+
+    def test_oob_flag_adds_swap_oob_attribute(self) -> None:
+        """Publish handler returns the badge as an OOB swap on success."""
+        html = to_xml(render_status_badge(KnowledgeStatus.PUBLISHED, oob=True))
+
+        assert 'hx-swap-oob="true"' in html
+
+    def test_oob_default_omits_swap_oob_attribute(self) -> None:
+        """In-page render (initial metadata row) must NOT be OOB-tagged."""
+        html = to_xml(render_status_badge(KnowledgeStatus.DRAFT))
+
+        assert "hx-swap-oob" not in html
+
+    def test_none_status_defaults_to_draft(self) -> None:
+        """Legacy nodes missing the field still render something sensible."""
+        html = to_xml(render_status_badge(None))
+
+        assert "Draft" in html
+
+
+class TestRenderPublishStateTeacherDraft:
+    """Teacher viewing a DRAFT PS — Publish button is visible and posts."""
+
+    def test_button_visible_for_teacher_on_draft(self) -> None:
+        html = to_xml(render_publish_state(_PS_UID, KnowledgeStatus.DRAFT, is_teacher=True))
+
+        assert "Publish" in html
+        assert f'hx-post="/explore/ps/{_PS_UID}/publish"' in html
+
+    def test_button_swaps_publish_state_wrapper(self) -> None:
+        html = to_xml(render_publish_state(_PS_UID, KnowledgeStatus.DRAFT, is_teacher=True))
+
+        assert f'hx-target="#{PUBLISH_STATE_ID}"' in html
+        assert 'hx-swap="outerHTML"' in html
+
+    def test_wrapper_id_present(self) -> None:
+        html = to_xml(render_publish_state(_PS_UID, KnowledgeStatus.DRAFT, is_teacher=True))
+
+        assert f'id="{PUBLISH_STATE_ID}"' in html
+
+
+class TestRenderPublishStateHidden:
+    """Button is hidden when the role or status disqualifies the viewer."""
+
+    def test_non_teacher_sees_no_publish_button(self) -> None:
+        html = to_xml(render_publish_state(_PS_UID, KnowledgeStatus.DRAFT, is_teacher=False))
+
+        assert "Publish" not in html
+
+    def test_teacher_on_published_ps_sees_no_button(self) -> None:
+        """DRAFT-only trigger — re-publish isn't meaningful."""
+        html = to_xml(render_publish_state(_PS_UID, KnowledgeStatus.PUBLISHED, is_teacher=True))
+
+        assert "Publish" not in html
+
+    def test_teacher_on_under_review_sees_no_button(self) -> None:
+        html = to_xml(render_publish_state(_PS_UID, KnowledgeStatus.UNDER_REVIEW, is_teacher=True))
+
+        assert "Publish" not in html
+
+    def test_hidden_state_preserves_wrapper_id(self) -> None:
+        """Dismiss-from-violations needs the wrapper id to swap back into."""
+        html = to_xml(render_publish_state(_PS_UID, KnowledgeStatus.DRAFT, is_teacher=False))
+
+        assert f'id="{PUBLISH_STATE_ID}"' in html
+
+
+class TestRenderPublishViolations:
+    """Validation-failure panel replaces the publish button."""
+
+    def test_renders_one_row_per_violation(self) -> None:
+        violations = [
+            _violation(template_uid="t1", template_title="Read intro"),
+            _violation(template_uid="t2", template_title="Master X", violation="wrong_type"),
+            _violation(template_uid="t3", template_title="Daily review", violation="cycle"),
+        ]
+        html = to_xml(render_publish_violations(_PS_UID, violations))
+
+        assert "Read intro" in html
+        assert "Master X" in html
+        assert "Daily review" in html
+
+    def test_heading_counts_issues(self) -> None:
+        html = to_xml(render_publish_violations(_PS_UID, [_violation()]))
+
+        assert "Cannot publish: 1 issue" in html
+
+    def test_heading_pluralizes_correctly(self) -> None:
+        violations = [_violation(template_uid="a"), _violation(template_uid="b")]
+        html = to_xml(render_publish_violations(_PS_UID, violations))
+
+        assert "Cannot publish: 2 issues" in html
+
+    def test_dismiss_button_restores_publish_state(self) -> None:
+        html = to_xml(render_publish_violations(_PS_UID, [_violation()]))
+
+        assert "Dismiss" in html
+        assert f'hx-get="/explore/ps/{_PS_UID}/publish-state"' in html
+        assert f'hx-target="#{PUBLISH_STATE_ID}"' in html
+
+    def test_wrapper_id_preserved_for_swap(self) -> None:
+        html = to_xml(render_publish_violations(_PS_UID, [_violation()]))
+
+        assert f'id="{PUBLISH_STATE_ID}"' in html
+
+    def test_violation_field_and_kind_rendered(self) -> None:
+        violations = [
+            _violation(
+                template_title="Read intro",
+                field="fulfills_goal_template_uid",
+                violation="target_missing",
+            )
+        ]
+        html = to_xml(render_publish_violations(_PS_UID, violations))
+
+        assert "fulfills_goal_template_uid" in html
+        # The phrase is humanized rather than the raw enum value.
+        assert "references a template not on this PathStep" in html
+
+    def test_hint_rendered_when_present(self) -> None:
+        violations = [_violation(hint="tpl_goal_existing")]
+        html = to_xml(render_publish_violations(_PS_UID, violations))
+
+        assert "tpl_goal_existing" in html
+
+    def test_no_hint_omits_did_you_mean(self) -> None:
+        violations = [_violation(hint=None)]
+        html = to_xml(render_publish_violations(_PS_UID, violations))
+
+        assert "did you mean" not in html

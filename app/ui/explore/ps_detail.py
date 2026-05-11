@@ -11,10 +11,12 @@ from typing import Any
 from fasthtml.common import H3, Div, Li, NotStr, P, Ul
 
 from adapters.inbound.path_steps_ui import _start_step_button, render_engagement_actions
+from core.models.enums import UserRole
 from core.models.type_hints import EntityUID
 from core.services.ps_engagement.engagement import Engagement
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
+from ui.explore.ps_publish_state import render_publish_state, render_status_badge
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.breadcrumbs import Breadcrumbs
@@ -59,6 +61,7 @@ def render_ps_detail_content(
     user_uid: str | None,
     exercises: list[dict],
     engagement: Engagement | None,
+    user_role: UserRole | None = None,
 ) -> Div:
     """Render the full PathStep detail content fragment.
 
@@ -76,7 +79,10 @@ def render_ps_detail_content(
         engagement: Active engagement (state="engaged") for this user+PS, or
             None if no active engagement. Drives the Engage/Abandon button
             group rendered above the learning-state action row.
+        user_role: Viewer's role, or None for unauthenticated. Used to gate
+            the Publish button (TEACHER+ only) in the action area.
     """
+    is_teacher = user_role is not None and user_role.has_permission(UserRole.TEACHER)
     has_toc = bool(toc_html and toc_html.strip())
 
     # Breadcrumbs
@@ -86,7 +92,7 @@ def render_ps_detail_content(
     ]
 
     # Metadata badges
-    metadata_items = []
+    metadata_items = [render_status_badge(getattr(step, "status", None))]
     if step.domain:
         domain_label = getattr(step.domain, "value", str(step.domain))
         metadata_items.append(metadata_badge("Domain:", domain_label, BadgeT.primary))
@@ -99,9 +105,7 @@ def render_ps_detail_content(
     if step.estimated_hours:
         metadata_items.append(metadata_badge("Hours:", f"{step.estimated_hours:.1f}h"))
 
-    metadata_section = (
-        Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4") if metadata_items else Div()
-    )
+    metadata_section = Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4")
 
     # Learning objectives
     objectives_section = Div()
@@ -173,6 +177,7 @@ def render_ps_detail_content(
         )
         action_area: Any = Div(
             render_engagement_actions(uid, engagement),
+            render_publish_state(uid, getattr(step, "status", None), is_teacher),
             Div(
                 _start_step_button(uid, is_in_progress, is_mastered),
                 mark_read_btn,
