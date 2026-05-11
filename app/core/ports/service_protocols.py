@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
-from core.ports.context_awareness_protocols import FullAwareness
 from core.ports.query_types import (
     AlertCheckResult,
     BlockingChainRow,
@@ -65,6 +64,7 @@ if TYPE_CHECKING:
         LearningVelocityMetrics,
         SpendingPatternAnalysis,
     )
+    from core.services.user.unified_user_context import UserContext
 
 # ============================================================================
 # CALENDAR
@@ -466,7 +466,7 @@ class GoalTaskGeneratorOperations(Protocol):
     async def generate_tasks_for_goal(
         self,
         goal_uid: str,
-        user_context: FullAwareness,
+        user_context: "UserContext",
         auto_create: bool = False,
     ) -> "Result[list[TaskDTO]]":
         """Generate tasks for a goal."""
@@ -484,7 +484,7 @@ class HabitEventSchedulerOperations(Protocol):
     async def schedule_events_for_habit(
         self,
         habit_uid: str,
-        user_context: FullAwareness,
+        user_context: "UserContext",
         auto_create: bool = False,
         days_ahead: int | None = None,
     ) -> "Result[list[EventDTO]]":

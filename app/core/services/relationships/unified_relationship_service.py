@@ -62,12 +62,7 @@ from core.utils.sort_functions import get_result_score
 
 if TYPE_CHECKING:
     from core.models.type_hints import UserUID
-    from core.ports.context_awareness_protocols import (
-        CoreIdentity,
-        CrossDomainAwareness,
-        GoalAwareness,
-        TaskAwareness,
-    )
+    from core.services.user.unified_user_context import UserContext
 
 # Type variables
 T = TypeVar("T")  # Domain model type
@@ -555,7 +550,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     @with_error_handling("get_actionable_for_user", error_type="database")
     async def get_actionable_for_user(
         self,
-        context: CrossDomainAwareness,
+        context: UserContext,
         limit: int = 10,
         include_learning: bool = True,
     ) -> Result[list[Model]]:
@@ -653,7 +648,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     @with_error_handling("get_blocked_for_user", error_type="database")
     async def get_blocked_for_user(
         self,
-        context: TaskAwareness,
+        context: UserContext,
         limit: int = 10,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -708,7 +703,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     @with_error_handling("get_goal_aligned_for_user", error_type="database")
     async def get_goal_aligned_for_user(
         self,
-        context: GoalAwareness,
+        context: UserContext,
         goal_uid: str | None = None,
         limit: int = 10,
     ) -> Result[list[Model]]:
@@ -753,7 +748,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     async def _calculate_readiness_score(
         self,
         entity: Model,
-        context: TaskAwareness,
+        context: UserContext,
     ) -> float:
         """Calculate readiness score (0-1) based on prerequisites met."""
         try:
@@ -804,7 +799,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     def _calculate_relevance_score(
         self,
         entity: Model,
-        context: GoalAwareness,
+        context: UserContext,
     ) -> float:
         """Calculate relevance score (0-1) based on goal alignment."""
         try:
@@ -831,7 +826,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         except Exception:  # safety-net: catch unexpected errors
             return 0.5
 
-    def _is_completed(self, entity: Model, context: CoreIdentity) -> bool:
+    def _is_completed(self, entity: Model, context: UserContext) -> bool:
         """Check if entity is completed based on context."""
         entity_uid = getattr(entity, "uid", None)
         status = getattr(entity, "status", None)
@@ -847,7 +842,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
         return entity_uid in completed_uids
 
-    def _is_urgent(self, entity: Model, context: TaskAwareness) -> bool:
+    def _is_urgent(self, entity: Model, context: UserContext) -> bool:
         """Check if entity is urgent based on context."""
         entity_uid = getattr(entity, "uid", None)
 
@@ -866,7 +861,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     async def _identify_blocking_reasons(
         self,
         entity: Model,
-        context: TaskAwareness,
+        context: UserContext,
     ) -> list[str]:
         """Identify what's blocking this entity."""
         reasons: list[str] = []

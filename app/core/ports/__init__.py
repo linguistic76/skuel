@@ -128,23 +128,6 @@ from .base_protocols import (
     to_dict,
 )
 
-# Context awareness protocols - ISP slices of UserContext (~240 fields → focused protocols)
-# These define the architecture for context-aware services. Services should depend on the
-# smallest slice they need. See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
-from .context_awareness_protocols import (
-    ChoiceAwareness,
-    CoreIdentity,
-    CrossDomainAwareness,
-    EventAwareness,
-    FullAwareness,
-    GoalAwareness,
-    HabitAwareness,
-    KnowledgeAwareness,
-    LearningPathAwareness,
-    PrincipleAwareness,
-    TaskAwareness,
-)
-
 # Curriculum operation protocols (November 2025 - consistent hierarchy)
 # Three curriculum domains: KU (point), PS (edge), LP (path)
 # All three have dedicated operations protocols: KuOperations, PsOperations, LpOperations (April 2026)
@@ -330,18 +313,6 @@ __all__ = [
     "BackendOperations",  # THE protocol for UniversalNeo4jBackend
     # ========== CALENDAR/SYSTEM/SERVICE PROTOCOLS (7 - February 2026) ==========
     "CalendarServiceOperations",
-    # ========== CONTEXT AWARENESS PROTOCOLS (11 - ISP slices of UserContext) ==========
-    "ChoiceAwareness",
-    "CoreIdentity",
-    "CrossDomainAwareness",
-    "EventAwareness",
-    "FullAwareness",
-    "GoalAwareness",
-    "HabitAwareness",
-    "KnowledgeAwareness",
-    "LearningPathAwareness",
-    "PrincipleAwareness",
-    "TaskAwareness",
     # ========== SEARCH OPERATION PROTOCOLS (10) ==========
     "ChoicesSearchOperations",
     # ========== DOMAIN OPERATION PROTOCOLS (8) ==========
