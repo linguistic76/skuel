@@ -13,6 +13,8 @@ from fasthtml.common import A, Div, P, Request, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
+from core.services.ps_engagement.engagement import Engagement
+from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
@@ -22,6 +24,10 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
+
+# Container id used by HTMX swaps for the engagement action group.
+# Defined here so both renderer and handlers stay in sync.
+_ENGAGEMENT_ACTIONS_ID = "ps-engagement-actions"
 
 logger = get_logger("skuel.routes.path_steps.ui")
 
@@ -47,17 +53,64 @@ def _start_step_button(uid: str, is_in_progress: bool, is_mastered: bool) -> Any
     )
 
 
+def render_engagement_actions(uid: str, engagement: Engagement | None) -> Any:
+    """Render the Engage/Abandon button group for a PathStep.
+
+    The group's outer div carries id="ps-engagement-actions" — HTMX handlers
+    return this same wrapper so swaps replace it in place. Slice 1 covers
+    engage + abandon only; Complete renders as a deferred note pointing at
+    the future review screen (slice 4).
+    """
+    if engagement is None:
+        body: Any = Button(
+            "Engage with this Path Step",
+            variant=ButtonT.primary,
+            size=Size.sm,
+            hx_post=f"/explore/ps/{uid}/engage",
+            hx_swap="outerHTML",
+            hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
+        )
+    else:
+        body = Div(
+            Badge("Engaged", variant=BadgeT.success, size=Size.sm),
+            Span(
+                "Complete: review screen coming soon.",
+                cls="text-xs text-muted-foreground",
+            ),
+            Button(
+                "Abandon",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                hx_post=f"/explore/ps/{uid}/abandon",
+                hx_swap="outerHTML",
+                hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
+                hx_confirm="Abandon this engagement? Spawned activities will be removed.",
+            ),
+            cls="flex items-center gap-3",
+        )
+    return Div(body, id=_ENGAGEMENT_ACTIONS_ID, cls="flex items-center gap-2")
+
+
 # ============================================================================
 # Route factory
 # ============================================================================
 
 
-def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> list[Any]:
+def create_path_steps_ui_routes(
+    _app: Any,
+    rt: Any,
+    ps_service: PsService,
+    ps_engagement_service: PsEngagementService | None = None,
+) -> list[Any]:
     """Create Path Steps UI routes.
 
     GET /path-steps lists all curriculum PathSteps. Detail view lives at
     /explore/ps/{uid} (merged discovery page). POST mutation endpoints remain
-    here for HTMX learning state actions.
+    here for HTMX learning state actions, plus the Engage/Abandon engagement
+    flow (HTML-returning peers of the JSON API at /api/ps/{uid}/...).
+
+    ``ps_engagement_service`` is optional so curriculum-only deployments
+    without the engagement subsystem still get the read/learning routes.
     """
 
     # ========================================================================
@@ -174,11 +227,50 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
             hx_target="this",
         )
 
+    # ========================================================================
+    # ENGAGEMENT HTMX ACTIONS (slice 1: engage + abandon)
+    # ========================================================================
+
+    if ps_engagement_service is not None:
+
+        @rt("/explore/ps/{uid}/engage", methods=["POST"])
+        @csrf_protected
+        async def engage_path_step(request: Request, uid: str) -> Any:
+            """Open an engagement with this PathStep. Returns updated action group."""
+            user_uid = require_authenticated_user(request)
+            result = await ps_engagement_service.engage_pathstep(user_uid, uid)
+            if result.is_error:
+                # Re-read state so the rendered group still reflects reality
+                # (e.g. an "already engaged" race resolves to the engaged view).
+                active = await ps_engagement_service.find_active(user_uid, uid)
+                engagement = active.value if active.is_ok else None
+                return render_engagement_actions(uid, engagement)
+            return render_engagement_actions(uid, result.value)
+
+        @rt("/explore/ps/{uid}/abandon", methods=["POST"])
+        @csrf_protected
+        async def abandon_path_step(request: Request, uid: str) -> Any:
+            """Abandon the active engagement. Returns updated action group."""
+            user_uid = require_authenticated_user(request)
+            result = await ps_engagement_service.abandon_pathstep(user_uid, uid)
+            if result.is_error:
+                active = await ps_engagement_service.find_active(user_uid, uid)
+                engagement = active.value if active.is_ok else None
+                return render_engagement_actions(uid, engagement)
+            # After abandon, find_active returns None (state="abandoned" is
+            # filtered out) — render_engagement_actions(None) shows Engage again.
+            return render_engagement_actions(uid, None)
+
+    engagement_routes_note = (
+        ", /explore/ps/{uid}/engage, /explore/ps/{uid}/abandon"
+        if ps_engagement_service is not None
+        else " (engagement routes skipped — ps_engagement_service unavailable)"
+    )
     logger.info(
         "Path Steps UI routes registered: "
         "/path-steps, /path-steps/content, "
         "/api/path-steps/{uid}/start, /api/path-steps/{uid}/mark-read, "
-        "/api/path-steps/{uid}/bookmark"
+        "/api/path-steps/{uid}/bookmark" + engagement_routes_note
     )
 
     return []

@@ -37,6 +37,7 @@ from ui.patterns.loading import content_loading_placeholder
 
 if TYPE_CHECKING:
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
+    from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 
 logger = get_logger("skuel.routes.learning_loop")
 
@@ -50,6 +51,7 @@ def create_learning_loop_detail_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: "ExploreOrchestrator",
+    ps_engagement_service: "PsEngagementService | None" = None,
 ) -> None:
     """Register /explore/ku/{uid} and /explore/ps/{uid} detail routes.
 
@@ -60,6 +62,9 @@ def create_learning_loop_detail_routes(
         _app: FastHTML application instance.
         rt: Route decorator.
         orchestrator: ExploreOrchestrator for cross-service reads.
+        ps_engagement_service: Read-only access for the active engagement
+            edge on PS detail page load. Optional — engagement actions in
+            the rendered detail collapse to "Engage" when this is None.
     """
 
     # -----------------------------------------------------------------
@@ -157,6 +162,7 @@ def create_learning_loop_detail_routes(
         is_bookmarked = False
         is_in_progress = False
         is_mastered = False
+        engagement = None
         if user_uid:
             await orchestrator.record_ps_view(user_uid, uid)
             state_result = await orchestrator.get_ps_learning_state(user_uid, uid)
@@ -168,6 +174,10 @@ def create_learning_loop_detail_routes(
             is_mastered = (
                 state_result.value.state.value == "mastered" if state_result.is_ok else False
             )
+            if ps_engagement_service is not None:
+                engagement_result = await ps_engagement_service.find_active(user_uid, uid)
+                if engagement_result.is_ok:
+                    engagement = engagement_result.value
 
         # Exercises for unauthenticated users
         exercises: list[dict] = []
@@ -190,6 +200,7 @@ def create_learning_loop_detail_routes(
             is_mastered=is_mastered,
             user_uid=user_uid,
             exercises=exercises,
+            engagement=engagement,
         )
 
     logger.info(
@@ -246,12 +257,13 @@ def create_learning_loop_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: "ExploreOrchestrator",
+    ps_engagement_service: "PsEngagementService | None" = None,
 ) -> None:
     """Register all learning loop routes (detail pages + fragments).
 
     This is the single entry point called by explore_routes.py.
     """
-    create_learning_loop_detail_routes(app, rt, orchestrator)
+    create_learning_loop_detail_routes(app, rt, orchestrator, ps_engagement_service)
     create_learning_loop_fragment_routes(app, rt, orchestrator)
 
 

@@ -23,6 +23,9 @@ PS_CONFIG = DomainRouteConfig(
     api_related_services={
         "user_service": "user",
     },
+    ui_related_services={
+        "ps_engagement_service": "ps_engagement",
+    },
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 

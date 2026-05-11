@@ -10,8 +10,9 @@ from typing import Any
 
 from fasthtml.common import H3, Div, Li, NotStr, P, Ul
 
-from adapters.inbound.path_steps_ui import _start_step_button
+from adapters.inbound.path_steps_ui import _start_step_button, render_engagement_actions
 from core.models.type_hints import EntityUID
+from core.services.ps_engagement.engagement import Engagement
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
@@ -57,6 +58,7 @@ def render_ps_detail_content(
     is_mastered: bool,
     user_uid: str | None,
     exercises: list[dict],
+    engagement: Engagement | None,
 ) -> Div:
     """Render the full PathStep detail content fragment.
 
@@ -71,6 +73,9 @@ def render_ps_detail_content(
         is_mastered: Whether the user has mastered this step.
         user_uid: Current user UID, or None if unauthenticated.
         exercises: Exercise dicts (used for unauthenticated exercise list).
+        engagement: Active engagement (state="engaged") for this user+PS, or
+            None if no active engagement. Drives the Engage/Abandon button
+            group rendered above the learning-state action row.
     """
     has_toc = bool(toc_html and toc_html.strip())
 
@@ -167,10 +172,14 @@ def render_ps_detail_content(
             hx_target="this",
         )
         action_area: Any = Div(
-            _start_step_button(uid, is_in_progress, is_mastered),
-            mark_read_btn,
-            bookmark_btn,
-            cls="flex gap-2 border-t border-border pt-6 mt-8",
+            render_engagement_actions(uid, engagement),
+            Div(
+                _start_step_button(uid, is_in_progress, is_mastered),
+                mark_read_btn,
+                bookmark_btn,
+                cls="flex gap-2",
+            ),
+            cls="flex flex-col gap-3 border-t border-border pt-6 mt-8",
         )
     else:
         action_area = Div(
