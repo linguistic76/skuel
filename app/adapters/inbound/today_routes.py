@@ -17,7 +17,7 @@ Today is a cross-cutting view; routes are registered via the
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from starlette.responses import Response
 
@@ -28,8 +28,6 @@ from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from services_bootstrap._container import Services
 
@@ -58,7 +56,7 @@ def create_today_routes(
     assert rels is not None, "UserRelationshipService not wired in Services container"
 
     @rt("/today")
-    async def today_page(request: Request) -> FT | Response:
+    async def today_page(request: Request) -> Any:
         """Render the Today landing page."""
         user_uid = require_authenticated_user(request)
         from ui.layouts.base_page import BasePage
@@ -82,7 +80,7 @@ def create_today_routes(
         )
 
     @rt("/today/tasks/{uid}/drawer")
-    async def today_task_drawer(request: Request, uid: str) -> FT | Response:
+    async def today_task_drawer(request: Request, uid: str) -> Any:
         """Return the HTMX fragment body for the drawer."""
         user_uid = require_authenticated_user(request)
 
