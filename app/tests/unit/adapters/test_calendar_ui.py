@@ -234,7 +234,7 @@ class TestQuickCreateHTMX:
 
     @pytest.mark.asyncio
     async def test_missing_start_time_returns_inline_error(self, routes_and_service) -> None:
-        registry, service = routes_and_service
+        registry, _service = routes_and_service
         handler = registry.get("/events/calendar/quick-create")
         request = _make_request(form_data={"type": "task", "title": "Brew tea"})
         response = await handler(request)

@@ -305,7 +305,7 @@ class TestSections:
         )
         html = get_form_html(form)
         # Each section is a bordered card with a header underline.
-        # 3 sections × (1 outer card border + 1 header underline) = 6 border-b/border tokens.
+        # 3 sections x (1 outer card border + 1 header underline) = 6 border-b/border tokens.
         assert html.count("rounded-lg border border-border bg-card") == 3
         assert html.count("border-b border-border") == 3
 

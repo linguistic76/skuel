@@ -128,7 +128,7 @@ class TestExclusions:
 
 
 class TestClearButton:
-    """A clear (×) button is rendered, hidden until the picker holds a value,
+    """A clear (x) button is rendered, hidden until the picker holds a value,
     and wired to the Alpine ``clear()`` handler."""
 
     def test_clear_button_present(self):
