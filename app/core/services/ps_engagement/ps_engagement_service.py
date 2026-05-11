@@ -23,8 +23,14 @@ Invariants enforced:
 - T4 deletes all spawned instances (engaged or owned-by-this-engagement);
   engagement edge transitions to ``state="abandoned"`` (preserved for audit).
 
-Completion trigger (decision pinned 2026-05-09): student-declared only for
-V1. Mastery-based auto-completion is deferred to a later phase.
+Completion triggers (decision pinned 2026-05-11): two paths.
+- Student-declared via ``complete_pathstep`` with an explicit keep/discard
+  review (the original V1 path).
+- Auto-completion via ``check_auto_complete`` when all engaged siblings reach
+  engagement-terminal status. Subscribed to TaskCompleted / GoalAchieved /
+  CalendarEventCompleted / ChoiceMade (see ``_auto_completion_handler``).
+  Equivalent to ``complete_pathstep`` with an empty review — auto-keep all.
+  Mastery-based auto-completion remains deferred.
 """
 
 from __future__ import annotations
@@ -359,6 +365,110 @@ class PsEngagementService:
                 return Result.fail(del_res)
 
         return await self._gateway.mark_abandoned(student_uid, ps_uid)
+
+    # ========================================================================
+    # T3 (auto) — Auto-complete when all engaged siblings reach terminal
+    # ========================================================================
+
+    async def check_auto_complete(
+        self, student_uid: str, instance_uid: str
+    ) -> Result[Engagement | None]:
+        """If this instance is part of an active engagement and *all* its
+        engaged siblings are now engagement-terminal, auto-complete the
+        engagement with an empty review (auto-keep all).
+
+        Returns:
+            ``Result.ok(None)`` — instance isn't part of an active engagement,
+                or some siblings are still pending.
+            ``Result.ok(Engagement)`` — auto-completion fired; the resulting
+                completed Engagement.
+            ``Result.fail(...)`` — propagates query or completion errors.
+
+        Idempotent: completion edges are filtered by ``state='engaged'``, so
+        re-firing after the edge has transitioned is a no-op (returns None).
+
+        Per ``_terminal_status_rules``: Principles never block, Habits and
+        Principles never trigger (no clean entity-terminal event to subscribe
+        to). The 4 subscribed trigger events are ``TaskCompleted``,
+        ``GoalAchieved``, ``CalendarEventCompleted``, ``ChoiceMade``.
+        """
+        from core.models.enums.entity_enums import EntityStatus, EntityType
+
+        from ._terminal_status_rules import is_engagement_terminal
+
+        # One query: anchor on the just-changed instance, walk to its PS, find
+        # all sibling instances still in engagement_state='engaged' under an
+        # ACTIVE engagement edge.
+        query = """
+        MATCH (n {uid: $instance_uid, user_uid: $student_uid})
+        WHERE n.template_uid IS NOT NULL
+          AND n.engagement_state = 'engaged'
+        MATCH (t {uid: n.template_uid})
+        MATCH (ps)-[:HAS_TASK_TEMPLATE
+                    |HAS_GOAL_TEMPLATE
+                    |HAS_HABIT_TEMPLATE
+                    |HAS_EVENT_TEMPLATE
+                    |HAS_CHOICE_TEMPLATE
+                    |HAS_PRINCIPLE_TEMPLATE]->(t)
+        MATCH (u:User {uid: $student_uid})-[e:ENGAGED_WITH]->(ps)
+        WHERE e.state = 'engaged'
+        WITH ps
+        MATCH (ps)-[:HAS_TASK_TEMPLATE
+                    |HAS_GOAL_TEMPLATE
+                    |HAS_HABIT_TEMPLATE
+                    |HAS_EVENT_TEMPLATE
+                    |HAS_CHOICE_TEMPLATE
+                    |HAS_PRINCIPLE_TEMPLATE]->(other_t)
+        MATCH (other_n {template_uid: other_t.uid, user_uid: $student_uid})
+        WHERE other_n.engagement_state = 'engaged'
+        RETURN ps.uid AS ps_uid,
+               collect({
+                 entity_type: other_n.entity_type,
+                 status: other_n.status
+               }) AS siblings
+        LIMIT 1
+        """
+        res: Result[list[dict[str, Any]]] = await self._executor.execute(
+            query=query,
+            params={"student_uid": student_uid, "instance_uid": instance_uid},
+            operation="check_auto_complete",
+        )
+        if res.is_error:
+            return Result.fail(res)
+        if not res.value:
+            # Instance isn't part of any active engagement (or template_uid is null,
+            # or engagement_state isn't 'engaged'). Nothing to do.
+            return Result.ok(None)
+
+        row = res.value[0]
+        ps_uid = row["ps_uid"]
+        siblings = row.get("siblings") or []
+
+        for sibling in siblings:
+            try:
+                et = EntityType(sibling["entity_type"])
+                st = EntityStatus(sibling["status"])
+            except (KeyError, ValueError) as exc:
+                # Defensive: malformed property — skip auto-complete, let the
+                # student declare. Not a hard failure of the calling event.
+                self.logger.warning(
+                    f"check_auto_complete skipping malformed sibling "
+                    f"(student={student_uid}, ps={ps_uid}): {exc}"
+                )
+                return Result.ok(None)
+            if not is_engagement_terminal(et, st):
+                # Something still pending — don't fire.
+                return Result.ok(None)
+
+        # All siblings terminal → auto-complete with empty review (keep all).
+        completed = await self.complete_pathstep(student_uid, ps_uid, review={})
+        if completed.is_error:
+            return Result.fail(completed)
+        self.logger.info(
+            f"Auto-completed engagement: student={student_uid} ps={ps_uid} "
+            f"({len(siblings)} instances kept)"
+        )
+        return Result.ok(completed.value)
 
     # ========================================================================
     # Read — engagement edge lookup

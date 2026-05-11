@@ -1247,6 +1247,7 @@ async def compose_services(
             user_entry_backend=user_entry_backend,
             insight_store=insight_store,
             group_backend=group_backend,
+            ps_engagement=template_services["ps_engagement"],
         )
         logger.info("✅ All services initialized")
 

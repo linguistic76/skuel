@@ -20,6 +20,7 @@ def _wire_event_subscribers(
     user_entry_backend: Any = None,
     insight_store: Any = None,
     group_backend: Any = None,
+    ps_engagement: Any = None,
 ) -> None:
     """Wire all event subscribers for context invalidation, cross-domain, and intelligence.
 
@@ -295,6 +296,24 @@ def _wire_event_subscribers(
     logger.info(
         "✅ GoalEventHandlerService subscribed to GoalAchieved, GoalAbandoned, GoalProgressUpdated"
     )
+
+    # ── PS engagement auto-completion ───────────────────────────────────────
+    # When an Activity instance reaches engagement-terminal status, check
+    # whether its parent PS engagement is now fully done and auto-complete
+    # if so. See: core/services/ps_engagement/_auto_completion_handler.py
+    # and core/services/ps_engagement/_terminal_status_rules.py.
+    if ps_engagement is not None:
+        from core.services.ps_engagement._auto_completion_handler import _AutoCompletionHandler
+
+        auto_complete = _AutoCompletionHandler(ps_engagement)
+        event_bus.subscribe(TaskCompleted, auto_complete.on_task_completed)
+        event_bus.subscribe(GoalAchieved, auto_complete.on_goal_achieved)
+        event_bus.subscribe(CalendarEventCompleted, auto_complete.on_calendar_event_completed)
+        event_bus.subscribe(ChoiceMade, auto_complete.on_choice_made)
+        logger.info(
+            "✅ PsEngagementService auto-complete subscribed to TaskCompleted, "
+            "GoalAchieved, CalendarEventCompleted, ChoiceMade"
+        )
 
     # Knowledge mastery → Learning Path progress update
     lp_service = learning_services["learning_paths"]
