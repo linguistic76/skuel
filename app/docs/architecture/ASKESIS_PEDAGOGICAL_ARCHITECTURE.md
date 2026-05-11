@@ -71,30 +71,29 @@ A KU is in the **proximal zone** when:
 This is the computation `ZPDService.assess_zone()` performs (see
 `docs/roadmap/zpd-service-deferred.md`).
 
-### ZPD and Context Awareness Protocols
+### ZPD and Askesis take UserContext
 
-When `ZPDService` and Askesis query user readiness, they need a well-defined slice of `UserContext` — not all 240 fields. The context awareness protocols define exactly these slices:
-
-| Service | Protocol | Fields used |
-|---------|----------|------------|
-| `ZPDService.assess_zone()` | `KnowledgeAwareness & LearningPathAwareness` | `mastered_knowledge_uids`, `in_progress_knowledge_uids`, `active_path_step_uids`, `prerequisites_completed`, `prerequisites_needed`, `enrolled_path_uids`, `current_step_uid` |
-| `AskesisQueryService` | `LearningPathAwareness` | Enrolled paths, current step, ZPD position |
-| `AskesisStateAnalysisService` | `CrossDomainAwareness` | Cross-domain readiness signals |
-| Askesis dialogue context | `FullAwareness` | Complete user state for Socratic scaffolding |
+`ZPDService` and the Askesis services take `UserContext` directly. There is no parallel layer of ISP "awareness slice" protocols — that pattern was retired (2026-05-11, commit `a82faaba`) in favor of a single source of truth.
 
 ```python
-from core.ports import KnowledgeAwareness, LearningPathAwareness
-
-async def assess_zone(self, context: KnowledgeAwareness) -> ZPDAssessment:
-    """ZPD assessment only needs knowledge mastery + prerequisites."""
+async def assess_zone(self, context: UserContext) -> ZPDAssessment:
+    """ZPD assessment reads knowledge mastery + prerequisites + path position."""
     mastered = context.mastered_knowledge_uids
     prereqs = context.prerequisites_completed
+    enrolled = context.enrolled_path_uids
     ...
 ```
 
-This is architecturally significant: the ZPD score is derived entirely from knowledge state. A service that declares `KnowledgeAwareness` cannot accidentally access task or habit data — the contract is enforced by MyPy.
+The function docstring (and body) document which fields are actually read. Don't reintroduce slice protocols to encode that at the type level — the duplication-and-drift cost exceeds the MyPy-enforcement benefit.
 
-**See:** `core/ports/context_awareness_protocols.py`
+| Service | Fields it actually reads |
+|---------|-------------------------|
+| `ZPDService.assess_zone()` | `mastered_knowledge_uids`, `in_progress_knowledge_uids`, `active_path_step_uids`, `prerequisites_completed`, `prerequisites_needed`, `enrolled_path_uids`, `current_step_uid` |
+| `AskesisQueryService` | Enrolled paths, current step, ZPD position |
+| `AskesisStateAnalysisService` | Cross-domain readiness signals |
+| Askesis dialogue context | Complete user state for Socratic scaffolding |
+
+**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` → "UserContext as Single Source of Truth"
 
 ---
 

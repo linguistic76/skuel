@@ -324,7 +324,6 @@ Several Phase 1 protocols were never adopted in service signatures and were remo
 **Kept (confirmed used):**
 `HasUID`, `HasCreatedAt`, `HasUpdatedAt`, `HasUpdated`, `HasPriority`, `HasSummary`, `HasMetadata`, `HasScore`, `HasRelevanceScore`, `HasValidate`, `HasLogger`, `HasSeverity`, `HasStrategy`, `HasUsage`, `MetricsLike`, `StreaksLike`
 
-**Kept (architectural intent, adoption pending):**
-All 11 context awareness protocols (`CoreIdentity`, `TaskAwareness`, `KnowledgeAwareness`, etc.) — ISP slices of UserContext, pending adoption in intelligence/planning services. See `/home/mike/.claude/plans/context-awareness-protocol-adoption.md`.
+**Update (2026-05-11):** The 11 context awareness protocols listed here were subsequently retired in commit `a82faaba`. They re-declared ~25 UserContext fields and drifted by hand. `UserContext` is now the single source of truth for user-state parameters. See `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` → "UserContext as Single Source of Truth".
 
 **Net**: ~280 lines deleted, 1036 tests pass, zero breaking changes.

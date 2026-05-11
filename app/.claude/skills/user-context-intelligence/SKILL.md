@@ -465,36 +465,24 @@ class DailyPlanningMixin:
     ku: Any                        # KuGraphService
 ```
 
-### Context Awareness Protocol Targets
+### Mixins Take UserContext
 
-Each mixin currently accepts `UserContext` (~250 fields) but only uses a narrow slice. The **adoption target** is to narrow each mixin signature to its specific awareness protocol — making dependencies explicit and making the mixin trivially testable:
-
-| Mixin | Current | Adoption Target | Rationale |
-|-------|---------|-----------------|-----------|
-| `DailyPlanningMixin` | `UserContext` | `FullAwareness` | Flagship method touches all domains |
-| `LearningIntelligenceMixin` | `UserContext` | `KnowledgeAwareness & LearningPathAwareness` | Prerequisites, mastery, ZPD position |
-| `LifePathIntelligenceMixin` | `UserContext` | `CrossDomainAwareness` | Multi-domain alignment scoring |
-| `SynergyIntelligenceMixin` | `UserContext` | `CrossDomainAwareness` | Cross-domain relationship patterns |
-| `ScheduleIntelligenceMixin` | `UserContext` | `EventAwareness & TaskAwareness` | Schedule + task capacity |
+Every mixin signature is `(self, context: UserContext)`. There is no parallel layer of ISP "awareness slice" protocols (`TaskAwareness`, `KnowledgeAwareness`, `FullAwareness`, etc.) — that pattern was retired (2026-05-11, commit `a82faaba`) because the slices re-declared ~25 fields already owned by `UserContext` and drifted by hand.
 
 ```python
-from core.ports import KnowledgeAwareness, LearningPathAwareness
-
-# Adoption target — explicit ISP dependency
 class LearningIntelligenceMixin:
     async def get_optimal_next_path_steps(
-        self, context: KnowledgeAwareness  # not UserContext
+        self, context: UserContext
     ) -> Result[list[PathStep]]:
-        # Only knowledge-related fields accessible → MyPy-verified
         ready = context.get_ready_to_learn()
         ...
 ```
 
-`UserContext` implements all 11 awareness protocols, so `factory.create(context)` call sites are unchanged.
+Don't reintroduce slice protocols when adding a new mixin. If a method needs only one field, take it as a primitive parameter rather than wrapping in a protocol.
 
-**See:** `core/ports/context_awareness_protocols.py`, adoption plan: `/home/mike/.claude/plans/context-awareness-protocol-adoption.md`
+**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` → "UserContext as Single Source of Truth"
 
-**Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc. Each method: (1) accepts a domain-specific protocol slice (`HabitAwareness`, `TaskAwareness`, etc.), (2) returns `Result.fail()` if `context.is_rich_context` is `False`, and (3) uses `context.get_rich_entities(domain, filter_uids)` for entity extraction.
+**Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc. Each method: (1) takes `context: UserContext`, (2) returns `Result.fail()` if `context.is_rich_context` is `False`, and (3) uses `context.get_rich_entities(domain, filter_uids)` for entity extraction.
 
 **`include_learning` scoring boost:** `PlanningMixin.get_actionable_for_user()` and its `UnifiedRelationshipService` override accept `include_learning: bool = True`. When enabled, entities whose knowledge relationships overlap with `context.in_progress_knowledge_uids` receive a 20% score boost (`score *= 1.2`). This surfaces learning-relevant activities higher in the ranking. The boost checks `knowledge`, `applied_knowledge`, and `prerequisite_knowledge` relationship keys via `get_related_uids()`.
 

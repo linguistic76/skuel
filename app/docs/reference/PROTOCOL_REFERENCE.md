@@ -23,8 +23,7 @@ related: [ADR-025, ADR-027]
 4. [Facade Services — Explicit Delegation (February 2026)](#facade-services--explicit-delegation-february-2026)
 5. [Route-Facing Service Protocols (February 2026)](#route-facing-service-protocols-february-2026)
 6. [Knowledge Carrier Protocols (ADR-027)](#knowledge-carrier-protocols-adr-027)
-7. [Context Awareness Protocols](#context-awareness-protocols)
-8. [Usage Examples](#usage-examples)
+7. [Usage Examples](#usage-examples)
 
 ---
 
@@ -45,7 +44,6 @@ related: [ADR-025, ADR-027]
 | **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User (3 ISP sub-protocols + 1 composed), Ingestion, Closeable |
 | **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed |
 | **Facade Services** | `/core/services/{domain}_service.py` | Concrete classes with explicit delegation methods |
-| **Context Awareness** | `/core/ports/context_awareness_protocols.py` | ISP slices of UserContext — the adoption target for all intelligence services |
 | **Knowledge Carrier** | `/core/models/protocols/knowledge_carrier_protocol.py` | Knowledge integration |
 
 ---
@@ -650,67 +648,6 @@ class IntelligenceOperations(KnowledgeIntelligenceOperations, DomainIntelligence
 ```
 
 **Usage:** Route factories use the composed protocol. Services that only need knowledge intelligence depend on `KnowledgeIntelligenceOperations`.
-
----
-
-## Context Awareness Protocols
-
-**Location:** `/core/ports/context_awareness_protocols.py`
-**Purpose:** ISP-compliant slices of UserContext (~240 fields → focused protocols)
-**Status:** Defined, tested — partially adopted (planning mixins, 2026-03-05); remaining adoption ongoing
-
-### Why These Protocols Exist
-
-UserContext is the single cross-domain object that represents a user's complete state (~240 fields). Services that accept `UserContext` as a parameter currently take a dependency on all 240 fields, even when they use only 5-10. This violates ISP.
-
-Context awareness is the core value of SKUEL. ZPD calculations, Askesis recommendations, daily planning, life path alignment — all of it is powered by *what is known about the user right now*. These protocols make that dependency explicit, testable, and composable.
-
-**The adoption goal:** Every service that currently accepts `UserContext` should be updated to accept the narrowest awareness slice it actually needs. This makes the dependency contract visible from the function signature.
-
-### Available Protocols
-
-| Protocol | Fields Covered | Adopted in | Next targets |
-|----------|---------------|------------|-------------|
-| `CoreIdentity` | user_uid, username | `PlanningMixin._is_completed`, `UnifiedRelationshipService` | Every context-aware service |
-| `TaskAwareness` | active/blocked/overdue tasks, priorities | `PlanningMixin`, `DomainPlanningMixin`, `UnifiedRelationshipService` | TasksPlanningService, TasksSchedulingService |
-| `KnowledgeAwareness` | mastery, in-progress KUs, active path steps, prerequisites, velocity | `PlanningMixin.get_learning_related_for_user` | ZPDService, AskesisRecommendationService |
-| `HabitAwareness` | streaks, at-risk habits, consistency | `DomainPlanningMixin.get_at_risk_habits_for_user` | HabitsIntelligenceService |
-| `GoalAwareness` | progress, milestones | `PlanningMixin`, `DomainPlanningMixin`, `UnifiedRelationshipService` | GoalsPlanningService |
-| `EventAwareness` | upcoming, scheduled events | `DomainPlanningMixin.get_upcoming_events_for_user` | EventsCoreService / EventsSearchService |
-| `PrincipleAwareness` | core principles, integrity scores | `DomainPlanningMixin.get_aligned_principles_for_user` | PrinciplesIntelligenceService |
-| `ChoiceAwareness` | pending choices, decision patterns | `DomainPlanningMixin.get_pending_decisions_for_user` | ChoicesIntelligenceService |
-| `LearningPathAwareness` | enrolled paths, current steps, ZPD | — | ZPDService, AskesisQueryService |
-| `CrossDomainAwareness` | Multi-domain subset incl. in-progress KUs, active path steps | `PlanningMixin.get_actionable_for_user`, `UnifiedRelationshipService` | Askesis cross-domain methods |
-| `FullAwareness` | All fields | — | Dashboards, Askesis (use sparingly) |
-
-### Usage Pattern
-
-```python
-# Before: unclear what context fields are actually needed
-async def get_ready_to_work_on_today(self, context: UserContext) -> Result[list[Task]]:
-    # silently depends on: active_task_uids, blocked_task_uids, overdue_task_uids
-    ...
-
-# After: explicit ISP dependency — mockable with 3 fields instead of 240
-async def get_ready_to_work_on_today(self, context: TaskAwareness) -> Result[list[Task]]:
-    # MyPy enforces only TaskAwareness fields are used
-    ...
-```
-
-UserContext implements **all** of these protocols, so existing call sites pass it unchanged. Only the service signature changes.
-
-### Testing Benefit
-
-```python
-# Test with a minimal mock — no full UserContext construction needed
-class MinimalTaskContext:
-    active_task_uids = ["task_abc"]
-    blocked_task_uids = []
-    overdue_task_uids = ["task_xyz"]
-    task_priorities = {"task_abc": "high"}
-
-result = await planning_service.get_ready_to_work_on_today(MinimalTaskContext())
-```
 
 ---
 
