@@ -206,7 +206,7 @@ def test_navbar_mobile_button_aria():
     navbar = create_navbar(
         current_user="testuser",
         is_authenticated=True,
-        active_page="home",
+        active_page="profile",
     )
 
     html_str = str(navbar)

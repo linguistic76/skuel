@@ -170,7 +170,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile")
     async def profile_hub(request: Request) -> Any:
-        """Profile hub — Activity Domains + Knowledge + Path Steps + Exercises + Reports."""
+        """Profile hub — 4 tabs (Activity Domains / Submissions / GradeBook / Library).
+
+        The active tab is selected by `?tab=` (activities | submissions | gradebook |
+        library), defaulting to "activities".
+        """
         user_uid = require_authenticated_user(request)
         try:
             context = await _get_context(user_uid)
@@ -182,16 +186,18 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             )
 
         from ui.patterns.personal_header import personal_header
-        from ui.profile.hub import ProfileHubView
+        from ui.profile.hub import ProfileHubView, normalize_tab
+
+        active_tab = normalize_tab(request.query_params.get("tab"))
 
         return await BasePage(
             content=Div(
                 personal_header(context),
-                ProfileHubView(context),
+                ProfileHubView(active_tab=active_tab),
             ),
             title="Profile",
             request=request,
-            active_page="activity",
+            active_page="profile",
         )
 
     @rt("/api/profile/{slug}/preview")

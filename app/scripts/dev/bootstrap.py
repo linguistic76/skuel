@@ -527,9 +527,10 @@ async def _wire_all_routes(
 
     create_pathways_routes(app, rt, services, None)
 
-    from adapters.inbound.askesis_routes import create_askesis_routes
+    if services.askesis is not None:
+        from adapters.inbound.askesis_routes import create_askesis_routes
 
-    create_askesis_routes(app, rt, services, None)
+        create_askesis_routes(app, rt, services, None)
 
     # -- Activity Domain read-focused UI --
     from adapters.inbound.tasks_routes import create_tasks_routes

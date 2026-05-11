@@ -9,7 +9,6 @@ registered in parallel through Commit 5a.
 Routes:
 - GET  /submit                           — Exercise worksheet upload form
 - GET  /gradebook/{uid}                  — Submission detail page
-- GET  /submissions                      — Submissions hub (HomeHub tab)
 - GET  /submissions/history              — Submission history
 - GET  /submissions/history/list         — HTMX fragment refresh
 - POST /submissions/history/delete       — HTMX row delete
@@ -202,22 +201,10 @@ def create_user_entry_ui_routes(
         )
 
     # =========================================================================
-    # SUBMISSIONS HUB
+    # /submissions (hub root) is now a tab on /profile?tab=submissions.
+    # Detail routes and the /api/submissions/* preview endpoints below
+    # remain — the Submissions tab and the upload/submit flows reuse them.
     # =========================================================================
-
-    @rt("/submissions")
-    async def submissions_hub(request: Request) -> Any:
-        """Submissions hub — tabbed HomeHub with Submissions tab active."""
-        require_authenticated_user(request)
-        from ui.home_hub import HomeHub
-        from ui.layouts.base_page import BasePage
-
-        return await BasePage(
-            content=HomeHub(active_tab="submissions"),
-            title="Submissions",
-            request=request,
-            active_page="submissions",
-        )
 
     @rt("/api/submissions/upload/preview")
     async def upload_preview(request: Request) -> Any:
@@ -574,7 +561,6 @@ def create_user_entry_ui_routes(
 
     return [
         submit_page,
-        submissions_hub,
         upload_preview,
         submit_preview,
         journal_preview,

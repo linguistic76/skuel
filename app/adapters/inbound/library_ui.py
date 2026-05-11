@@ -211,22 +211,10 @@ def create_library_ui_routes(
     """
 
     # ========================================================================
-    # LIBRARY HUB PAGE
+    # /library (hub root) is now a tab on /profile?tab=library. Detail and
+    # API routes below remain — they are the "View all" destinations and
+    # HTMX preview endpoints for the Library tab and the in-tab links.
     # ========================================================================
-
-    @rt("/library")
-    async def library_hub(request: Request) -> Any:
-        """Library hub — exercises, submission history, resources, and curriculum."""
-        require_authenticated_user(request)
-        from ui.layouts.base_page import BasePage
-        from ui.library.hub import LibraryHub
-
-        return await BasePage(
-            content=LibraryHub(),
-            title="Library",
-            request=request,
-            active_page="library",
-        )
 
     # ========================================================================
     # HTMX FRAGMENT: EXERCISES TAB

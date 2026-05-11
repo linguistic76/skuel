@@ -1,6 +1,6 @@
 """Groups hub — tabbed view of content shared to each of a student's groups.
 
-Mirrors the HomeHub tab pattern (Alpine-driven x-show panels, HTMX-loaded
+Mirrors the /profile tab pattern (Alpine-driven x-show panels, HTMX-loaded
 block content) but with dynamic tabs: one per group the student belongs to,
 capped at MAX_STUDENT_GROUPS. Each tab surfaces a single "Recent Shares"
 block of UserEntry content peers shared via SHARED_WITH_GROUP.

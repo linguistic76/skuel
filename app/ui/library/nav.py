@@ -52,5 +52,5 @@ async def render_library_sidebar_page(
         storage_key=LIBRARY_STORAGE_KEY,
         request=request,
         active_page="library",
-        title_href="/library",
+        title_href="/profile?tab=library",
     )

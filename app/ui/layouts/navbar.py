@@ -145,6 +145,22 @@ def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
     )
 
 
+def _profile_button(current_user: str, active_page: str) -> A:
+    """Avatar circle linking to /profile — regular user's entry point to their hub."""
+    is_active = active_page == "profile"
+    ring = " ring-2 ring-primary" if is_active else ""
+    return A(
+        Span("Profile", cls="sr-only"),
+        _avatar_circle(current_user),
+        href="/profile",
+        cls=(
+            "inline-flex items-center justify-center size-11 rounded-full hover:bg-accent"
+            + ring
+        ),
+        **({"aria-current": "page"} if is_active else {}),
+    )
+
+
 def _admin_right_section(current_user: str) -> Div:
     """Admin right section: avatar link + sign out."""
     return Div(
@@ -286,6 +302,7 @@ def create_navbar(
         right_section: Any = Div(
             _search_button(active_page, desktop_only=True),
             _notification_badge_placeholder(),
+            _profile_button(current_user or "", active_page),
             _signout_button(),
             cls="flex items-center gap-1",
         )

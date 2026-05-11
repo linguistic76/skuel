@@ -1,9 +1,6 @@
-"""Submissions hub — block definitions for the shared tabbed hub interface.
+"""Submissions block definitions — Submissions tab on /profile.
 
-SUBMISSIONS_BLOCKS is imported by ui/home_hub.py to populate the Submissions tab
-on /home, /submissions, /gradebook, and /library.
-
-See: /docs/design-principles/HUB_PAGES.md
+SUBMISSIONS_BLOCKS feeds the Submissions tab in ui/profile/hub.py.
 """
 
 from ui.patterns.hub import HubBlockData
