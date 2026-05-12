@@ -493,6 +493,27 @@ async def compose_services(
             user_vaults_base=config.vault.user_vaults_path,
         )
 
+        # Batch chunk regeneration (Phase 2, May 2026) — admin tool used when
+        # CHUNKING_ALGORITHM_VERSION changes or chunks drift from their source.
+        # event_bus is wired only in FULL tier; in CORE the embedding worker
+        # isn't running, so publishing ChunkEmbeddingRequested would be a
+        # queue-with-no-listener. CORE-tier regen produces fresh chunks; admins
+        # sweep embeddings separately via migrate_chunk_embeddings.py.
+        from core.services.chunks.batch_chunking_service import BatchChunkingService
+
+        batch_chunking_service = BatchChunkingService(
+            driver=driver,
+            chunking_service=chunking_service,
+            content_adapter=content_adapter,
+            event_bus=event_bus if tier.ai_enabled else None,
+        )
+        if tier.ai_enabled:
+            logger.info("✅ BatchChunkingService created (regen + re-embed via event bus)")
+        else:
+            logger.info(
+                "✅ BatchChunkingService created (CORE tier: regen-only, no event publication)"
+            )
+
         logger.info(
             "✅ Content services created (includes UnifiedIngestionService with automatic chunking)"
         )
@@ -1307,6 +1328,7 @@ async def compose_services(
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
             user_upload_service=user_upload_service,  # Per-user bulk upload
+            batch_chunking_service=batch_chunking_service,  # Phase 2 admin tool
             calendar=calendar_service,
             system=system_service,
             admin_stats=admin_stats_service,

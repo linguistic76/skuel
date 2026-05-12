@@ -34,6 +34,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import IngestionOperations
+    from core.services.chunks.batch_chunking_service import BatchChunkingService
 
 logger = get_logger("skuel.routes.ingestion")
 
@@ -114,6 +115,7 @@ def create_ingestion_api_routes(
     rt,
     unified_ingestion: "IngestionOperations",
     user_service=None,
+    batch_chunking_service: "BatchChunkingService | None" = None,
 ):
     """
     Create unified ingestion API routes.
@@ -123,6 +125,8 @@ def create_ingestion_api_routes(
         rt: Router instance
         unified_ingestion: The UnifiedIngestionService instance
         user_service: UserService instance for admin role checks
+        batch_chunking_service: Phase 2 admin tool for chunk regeneration.
+            When None, the /api/chunks/regenerate route is not registered.
 
     Returns:
         List of created routes
@@ -456,6 +460,54 @@ def create_ingestion_api_routes(
                 )
             )
 
+    # Chunk regeneration — admin tool, only registered when service is wired.
+    # In CORE tier the service exists but publishes no embedding events.
+    chunk_routes: list[Any] = []
+    if batch_chunking_service is not None:
+
+        @rt("/api/chunks/regenerate", methods=["POST"])
+        @csrf_protected
+        @require_admin(get_user_service)
+        @boundary_handler()
+        async def regenerate_chunks_route(request: Request, current_user):
+            """
+            Regenerate :ContentChunk nodes for :Content parents.
+
+            Request body (JSON, validated by RegenerateChunksRequest):
+                parent_uids: list[str] | None — restrict to these uids. None = all.
+                force: bool — regenerate even when chunks match current
+                    CHUNKING_ALGORITHM_VERSION.
+
+            Returns:
+                Result wrapping RegenerationStats as a dict (counts + per-parent
+                errors + duration). Per-parent failures do not fail the batch.
+            """
+            from pydantic import ValidationError
+
+            from core.models.chunks_request import RegenerateChunksRequest
+
+            try:
+                payload = await request.json()
+                body = RegenerateChunksRequest.model_validate(payload)
+            except ValidationError as e:
+                return Result.fail(
+                    Errors.validation(
+                        f"Invalid request body: {e.errors()}",
+                        "body",
+                        None,
+                    )
+                )
+
+            result = await batch_chunking_service.regenerate_chunks(
+                parent_uids=body.parent_uids,
+                force=body.force,
+            )
+            if result.is_error:
+                return Result.fail(result)
+            return Result.ok(result.value.to_dict())
+
+        chunk_routes.append(regenerate_chunks_route)
+
     # WebSocket route for real-time progress
     @rt("/ws/ingest/progress/{operation_id}")
     async def ingestion_progress_websocket(ws: WebSocket, operation_id: str):
@@ -507,6 +559,7 @@ def create_ingestion_api_routes(
             ingest_vault_route,
             ingest_bundle_route,
             domain_ingest,
+            *chunk_routes,
             ingestion_progress_websocket,
         ]
     )

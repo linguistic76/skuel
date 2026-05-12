@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
+    from core.services.chunks.batch_chunking_service import BatchChunkingService
 
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
@@ -284,6 +285,10 @@ class Services:
     )
     # Per-user bulk upload service (wraps UnifiedIngestionService)
     user_upload_service: "UserUploadService | None" = None
+    # Batch chunk regeneration (Phase 2, May 2026) — admin tool for rechunking
+    # existing :Content when CHUNKING_ALGORITHM_VERSION changes. event_bus is
+    # wired only in FULL tier; CORE tier gets a regen-only instance.
+    batch_chunking_service: "BatchChunkingService | None" = None
 
     # The Destination - LifePath (Domain #14)
     # "Everything flows toward the life path"
