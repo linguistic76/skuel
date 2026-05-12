@@ -266,7 +266,9 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
     async def process_expense_create(request: Request, current_user) -> Any:
         """Form-encoded create endpoint for the expense form."""
         form = await request.form()
-        data: dict[str, Any] = {k: (v.strip() if isinstance(v, str) else v) for k, v in form.items()}
+        data: dict[str, Any] = {
+            k: (v.strip() if isinstance(v, str) else v) for k, v in form.items()
+        }
 
         # Form uses uppercase labels for category — schema expects lowercase Literal.
         category = data.get("category")
@@ -296,7 +298,9 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
     async def process_budget_create(request: Request, current_user) -> Any:
         """Form-encoded create endpoint for the budget form."""
         form = await request.form()
-        data: dict[str, Any] = {k: (v.strip() if isinstance(v, str) else v) for k, v in form.items()}
+        data: dict[str, Any] = {
+            k: (v.strip() if isinstance(v, str) else v) for k, v in form.items()
+        }
 
         # Form uses uppercase Period; schema expects lowercase Literal.
         period = data.get("period")
