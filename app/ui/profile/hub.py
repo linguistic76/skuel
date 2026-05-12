@@ -1,32 +1,30 @@
-"""Profile hub page — 4-tab personal space.
+"""Profile hub page — 3-tab personal space.
 
-/profile is the student's home: four tabs sharing the /library colored-header
-block style. Default is "activities" — the 6 Activity Domains as preview
-blocks. The other three tabs (Submissions / GradeBook / Library) carry the
-loop stages: submit, grade, study.
+/profile is the student's home: three tabs sharing the /library colored-header
+block style. The tabs (Submissions / GradeBook / Library) carry the loop
+stages: submit, grade, study. Default is "submissions".
 """
 
 from __future__ import annotations
 
 from fasthtml.common import Button, Div
 
-from ui.activities.activity_hub import ACTIVITY_BLOCKS
 from ui.gradebook.hub import GRADEBOOK_BLOCKS
 from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubDomainBlockList
 from ui.workbench.hub import SUBMISSIONS_BLOCKS
 
-ACTIVITIES_TAB_SLUG = "activities"
-_VALID_TABS = frozenset({ACTIVITIES_TAB_SLUG, "submissions", "gradebook", "library"})
+_DEFAULT_TAB_SLUG = "submissions"
+_VALID_TABS = frozenset({_DEFAULT_TAB_SLUG, "gradebook", "library"})
 
 
 def normalize_tab(slug: str | None) -> str:
-    """Coerce a query-string tab value to a known slug; default to activities."""
-    return slug if slug in _VALID_TABS else ACTIVITIES_TAB_SLUG
+    """Coerce a query-string tab value to a known slug; default to submissions."""
+    return slug if slug in _VALID_TABS else _DEFAULT_TAB_SLUG
 
 
-def ProfileHubView(active_tab: str = ACTIVITIES_TAB_SLUG) -> Div:
-    """Profile hub — 4 tabs (Activity Domains / Submissions / GradeBook / Library)."""
+def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
+    """Profile hub — 3 tabs (Submissions / GradeBook / Library)."""
     active_tab = normalize_tab(active_tab)
     return Div(
         _tab_bar(),
@@ -51,7 +49,6 @@ _INACTIVE_STYLE = (
 _TAB_BASE = "flex-1 text-center px-3 py-3 text-sm font-semibold cursor-pointer transition-all"
 
 _TAB_SPEC: tuple[tuple[str, str], ...] = (
-    (ACTIVITIES_TAB_SLUG, "Activity Domains"),
     ("submissions", "Submissions"),
     ("gradebook", "GradeBook"),
     ("library", "Library"),
@@ -86,11 +83,6 @@ def _tab_button(slug: str, label: str) -> Button:
 def _tab_panels() -> Div:
     return Div(
         Div(
-            HubDomainBlockList(ACTIVITY_BLOCKS),
-            role="tabpanel",
-            **{"x-show": f"activeTab === '{ACTIVITIES_TAB_SLUG}'"},
-        ),
-        Div(
             HubDomainBlockList(SUBMISSIONS_BLOCKS),
             role="tabpanel",
             **{"x-show": "activeTab === 'submissions'"},
@@ -108,4 +100,4 @@ def _tab_panels() -> Div:
     )
 
 
-__all__ = ["ACTIVITIES_TAB_SLUG", "ProfileHubView", "normalize_tab"]
+__all__ = ["ProfileHubView", "normalize_tab"]

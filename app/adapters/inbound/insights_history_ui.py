@@ -22,6 +22,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
+from ui.patterns.personal_header import personal_header_placeholder
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.insights.history")
@@ -190,6 +191,7 @@ def create_insights_history_routes(
 
         # Build page content
         content = Div(
+            personal_header_placeholder(),
             PageHeader(
                 title="📜 Insight History",
                 subtitle=f"{len(insights)} historical insight{'s' if len(insights) != 1 else ''} - audit trail of your actions",

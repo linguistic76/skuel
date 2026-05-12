@@ -31,6 +31,7 @@ from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
+from ui.patterns.personal_header import personal_header_placeholder
 from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
@@ -140,6 +141,7 @@ def create_insights_ui_routes(
 
         # Build page content
         content = Div(
+            personal_header_placeholder(),
             PageHeader(
                 title="💡 Insights",
                 subtitle=f"{len(insights)} active insight{'s' if len(insights) != 1 else ''} from your behavior patterns",
@@ -207,6 +209,7 @@ def create_insights_ui_routes(
         )
 
         content = Div(
+            personal_header_placeholder(),
             PageHeader(
                 title="📊 Insight Statistics",
                 subtitle="Track how you're using insights to improve",
