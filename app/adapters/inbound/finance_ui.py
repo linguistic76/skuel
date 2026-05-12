@@ -16,10 +16,18 @@ SECURITY: All Finance UI routes require ADMIN role.
 
 __version__ = "3.0"
 
+import uuid
+from datetime import date
 from typing import Any
+
+from fasthtml.common import Div
+from pydantic import ValidationError
+from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.fasthtml_types import Request
+from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
+from core.services.conversion_service import ConversionServiceV2
 from core.utils.logging import get_logger
 from ui.finance import FinanceUIComponents, create_finance_page
 from ui.finance.section_views import FinanceSectionViews
@@ -238,6 +246,88 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             title="Invoices",
             request=request,
         )
+
+    # =========================================================================
+    # FORM-ENCODED CREATE HANDLERS
+    # =========================================================================
+    # The JSON API at /api/{expenses,budgets}/create requires a JSON body, but
+    # the HTMX forms in section_views.py post application/x-www-form-urlencoded.
+    # These handlers bridge that gap: normalize the form payload, validate
+    # against the Pydantic schema, and redirect back to the section page.
+
+    def _form_error_banner(message: str) -> Div:
+        return Div(
+            message,
+            cls="bg-error/10 border border-error/20 rounded-lg p-3 text-error mb-3 text-sm",
+        )
+
+    @rt("/finance/expenses/create", methods=["POST"])
+    @require_admin(get_user_service)
+    async def process_expense_create(request: Request, current_user) -> Any:
+        """Form-encoded create endpoint for the expense form."""
+        form = await request.form()
+        data: dict[str, Any] = {k: (v.strip() if isinstance(v, str) else v) for k, v in form.items()}
+
+        # Form uses uppercase labels for category — schema expects lowercase Literal.
+        category = data.get("category")
+        if isinstance(category, str):
+            data["category"] = category.lower()
+
+        try:
+            schema = ExpenseCreateRequest.model_validate(data)
+        except ValidationError as e:
+            logger.warning(f"Expense form validation failed: {e}")
+            return _form_error_banner(f"Could not create expense: {e.errors()[0]['msg']}")
+
+        uid = f"expense:{uuid.uuid4().hex[:12]}"
+        entity = ConversionServiceV2.expense_create_to_pure(schema, uid, user_uid=current_user.uid)
+
+        result = await finance_service.create(entity)
+        if result.is_error:
+            err = result.expect_error()
+            logger.error(f"Expense create failed: {err.message}")
+            return _form_error_banner(f"Could not create expense: {err.message}")
+
+        logger.info(f"Expense created via form by admin {current_user.uid}: {uid}")
+        return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/finance/expenses"})
+
+    @rt("/finance/budgets/create", methods=["POST"])
+    @require_admin(get_user_service)
+    async def process_budget_create(request: Request, current_user) -> Any:
+        """Form-encoded create endpoint for the budget form."""
+        form = await request.form()
+        data: dict[str, Any] = {k: (v.strip() if isinstance(v, str) else v) for k, v in form.items()}
+
+        # Form uses uppercase Period; schema expects lowercase Literal.
+        period = data.get("period")
+        if isinstance(period, str):
+            data["period"] = period.lower()
+
+        # Form sends a single category; schema expects categories: list[Literal].
+        category = data.pop("category", None)
+        if isinstance(category, str) and category:
+            data["categories"] = [category.lower()]
+
+        # Form doesn't expose start_date; default to today.
+        data.setdefault("start_date", date.today().isoformat())
+
+        try:
+            schema = BudgetCreateRequest.model_validate(data)
+        except ValidationError as e:
+            logger.warning(f"Budget form validation failed: {e}")
+            return _form_error_banner(f"Could not create budget: {e.errors()[0]['msg']}")
+
+        uid = f"budget:{uuid.uuid4().hex[:12]}"
+        entity = ConversionServiceV2.budget_create_to_pure(schema, uid, user_uid=current_user.uid)
+
+        result = await finance_service.create_budget(entity)
+        if result.is_error:
+            err = result.expect_error()
+            logger.error(f"Budget create failed: {err.message}")
+            return _form_error_banner(f"Could not create budget: {err.message}")
+
+        logger.info(f"Budget created via form by admin {current_user.uid}: {uid}")
+        return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/finance/budgets"})
 
     logger.info("Finance Hub UI routes registered")
 

@@ -23,7 +23,7 @@ class FinanceUIComponents:
         """Create expense form using FormGenerator."""
         return FormGenerator.from_model(
             ExpenseCreateRequest,
-            action="/api/expenses",
+            action="/finance/expenses/create",
             method="POST",
             include_fields=[
                 "amount",
@@ -44,7 +44,7 @@ class FinanceUIComponents:
         """Create budget form using FormGenerator."""
         return FormGenerator.from_model(
             BudgetCreateRequest,
-            action="/api/budgets",
+            action="/finance/budgets/create",
             method="POST",
             include_fields=[
                 "name",
