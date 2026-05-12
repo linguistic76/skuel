@@ -979,7 +979,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         WHERE e.event_date = date($event_date)
           AND e.user_uid = $user_uid
           AND e.uid <> $event_uid
-          AND e.status NOT IN ['cancelled']
+          AND NOT e.status IN ['cancelled']
         RETURN e
         """
         result = await self.execute_query(
@@ -1200,7 +1200,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         MATCH (c:Entity {entity_type: 'choice'})
         WHERE c.user_uid = $user_uid
           AND c.decision_deadline <= date($end_date)
-          AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
+          AND NOT c.status IN ['completed', 'decided', 'cancelled', 'archived']
         RETURN c
         ORDER BY c.decision_deadline ASC
         """

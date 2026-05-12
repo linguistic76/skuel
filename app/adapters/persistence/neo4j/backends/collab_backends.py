@@ -164,15 +164,16 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
         OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
         OPTIONAL MATCH (sub:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
-          WHERE sub.status NOT IN ['completed', 'archived']
+          WHERE NOT sub.status IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
                g.description AS description,
                g.is_active AS is_active,
+               g.created_at AS created_at,
                count(DISTINCT member) AS member_count,
                count(DISTINCT ex) AS exercise_count,
                count(DISTINCT sub) AS pending_count
-        ORDER BY g.created_at DESC
+        ORDER BY created_at DESC
         """
         return await self.execute_query(query, {"teacher_uid": teacher_uid})
 
