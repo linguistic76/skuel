@@ -452,11 +452,15 @@ class Result[T]:
         if self.is_error and self._error:
             try:
                 new_error = func(self._error)
-                return Result.fail(new_error)
             except Exception as e:  # intentional-broad: side-effect must not propagate
-                # If transformation fails, preserve original error
                 logger.warning(f"map_error function raised exception: {e}")
                 return self
+            if not isinstance(new_error, ErrorContext):
+                logger.warning(  # type: ignore[unreachable]
+                    f"map_error function returned {type(new_error).__name__}, expected ErrorContext"
+                )
+                return self
+            return Result.fail(new_error)
         return self
 
     def inspect(self, func: Callable[[T], None]) -> Result[T]:
