@@ -54,6 +54,11 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _neg_shared_tasks_count(goal_entry: dict[str, Any]) -> int:
+    """Sort key: descending by shared_tasks count (negated for ascending sort)."""
+    return -len(goal_entry["shared_tasks"])
+
+
 class ActionRecommendationEngine:
     """
     Generate personalized action recommendations.
@@ -531,7 +536,7 @@ class ActionRecommendationEngine:
                 }
                 for goal_uid, partners in overlaps_by_goal.items()
             ),
-            key=lambda g: -len(g["shared_tasks"]),
+            key=_neg_shared_tasks_count,
         )
 
     def _identify_key_prerequisites(self, user_context: UserContext) -> list[str]:

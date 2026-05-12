@@ -7,6 +7,7 @@ Handles transformation between External → Transfer → Core layers.
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
 # Direct imports to avoid circular dependency with __init__.py
@@ -47,7 +48,7 @@ def _enum_value(maybe_enum: Any) -> Any:
     coerced to their str values, but enum *defaults* keep the enum instance
     on attribute access. Always normalize at the converter boundary.
     """
-    return maybe_enum.value if hasattr(maybe_enum, "value") else maybe_enum
+    return maybe_enum.value if isinstance(maybe_enum, Enum) else maybe_enum
 
 
 def askesis_create_request_to_dto(

@@ -10,6 +10,7 @@ Detail view lives at /explore/ps/{uid} (explore_ui.py).
 from typing import Any, cast
 
 from fasthtml.common import A, Div, P, Request, Span
+from starlette.datastructures import FormData
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
@@ -66,7 +67,7 @@ def _start_step_button(uid: str, is_in_progress: bool, is_mastered: bool) -> Any
     )
 
 
-def _parse_review_form(form: Any) -> dict[str, ReviewDecision]:
+def _parse_review_form(form: FormData) -> dict[str, ReviewDecision]:
     """Build the review dict from the inline review form's payload.
 
     The form carries one ``template_uids`` hidden field per spawned template
@@ -77,7 +78,7 @@ def _parse_review_form(form: Any) -> dict[str, ReviewDecision]:
     from the form (defensive) default to "keep" — matches the service's
     forgiving default.
     """
-    template_uids = form.getlist("template_uids") if hasattr(form, "getlist") else []
+    template_uids = form.getlist("template_uids")
     review: dict[str, ReviewDecision] = {}
     for template_uid in template_uids:
         review[template_uid] = "keep" if f"keep_{template_uid}" in form else "discard"
