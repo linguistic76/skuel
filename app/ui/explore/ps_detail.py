@@ -22,6 +22,7 @@ from ui.layout import Size
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.relationships import EntityRelationshipsSection
+from ui.teaching.templates_panel import render_templates_panel_placeholder
 
 
 def render_ps_not_found(uid: str) -> Div:
@@ -197,6 +198,12 @@ def render_ps_detail_content(
             cls="border-t border-border pt-6 mt-8",
         )
 
+    # Teacher-only: Activity Templates panel. HTMX-loaded so detach + create
+    # flows can refresh in place without re-rendering the entire PS detail.
+    templates_panel: Any = (
+        render_templates_panel_placeholder(uid) if is_teacher else Div()
+    )
+
     # Main content column
     main_column = Div(
         Breadcrumbs(path=breadcrumb_path, show_home=False),
@@ -207,6 +214,7 @@ def render_ps_detail_content(
         submissions_section,
         feedback_section,
         action_area,
+        templates_panel,
         Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),
         EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ps"),
         cls="flex-1 min-w-0 max-w-4xl",

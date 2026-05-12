@@ -594,6 +594,12 @@ async def _wire_all_routes(
     create_pathstep_principle_templates_routes(app, rt, services)
     create_ps_engagement_routes(app, rt, services)
 
+    # Teacher-facing template authoring UI (panel on PS detail + full-page
+    # create/edit forms). Wraps the JSON CRUD with HTML forms.
+    from adapters.inbound.templates_ui import create_templates_ui_routes
+
+    create_templates_ui_routes(app, rt, services)
+
     # -- Forms --
     from adapters.inbound.form_templates_routes import create_form_templates_routes
 
