@@ -57,6 +57,7 @@ dependencies = [
     "httpx>=0.28.0",
     # Stripe webhook signature verification (ADR-051)
     "stripe>=11.0.0",
+    "keyring>=25.7.0",
 ]
 
 [project.scripts]

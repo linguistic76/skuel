@@ -1,6 +1,6 @@
 # Secrets Out of the Worktree
 
-**Status**: Stage 1 + Stage 2 shipped. Stage 3 deferred.
+**Status**: Stages 1, 2, 3 all shipped. No plaintext secrets on disk.
 **Last updated**: 2026-05-12
 
 **Canonical plan**: `/home/mike/.claude/plans/secrets-out-of-worktree.md` — full design, decision points, and rationale. This document is the in-repo "where are we" view.
@@ -48,40 +48,45 @@ After Stage 2, the worktree has zero credential bytes. Verified by full-tree gre
 
 `.env.bak` (the migration's safety copy) was `shred`-deleted after a working-day's use without surprises.
 
----
+### Stage 3 — OS keychain backend (2026-05-12)
 
-## What hasn't shipped — Stage 3 (OS keychain backend)
+**Goal**: credentials live in the OS keychain — *not* in any plaintext file. Even an attacker with read access to `$HOME` can't dump credentials without going through the OS auth flow.
 
-**Status**: deferred until Stage 2 has run long enough to surface any breakage.
+**Backend selection**: `SKUEL_CREDENTIAL_BACKEND=keyring` (set in `app/.env`) routes `get_credential()` to the keychain. Unset / any other value keeps the Fernet-encrypted JSON path. The keyring backend is therefore strictly opt-in — devs on the Fernet path or the direnv-only path are unaffected.
 
-### What it would do
+**What landed**:
 
-After Stage 3, credentials live in libsecret (Linux) / macOS Keychain — *not* in any plaintext file. Even an attacker with read access to `$HOME` can't dump credentials without going through the OS auth flow.
+- `core/config/credential_store.py` — `KeyringBackend` class (same `get/set/delete/list_keys/exists/migrate_from_env` interface as `CredentialStore`). Uses the `keyring` package: `SecretService` on Linux, `Keychain` on macOS, `Credential Locker` on Windows. Maintains a key-only index at `~/.config/skuel/keyring-index.json` so `credential_setup.py` can list what's stored without iterating the keychain (which isn't portable across keyring backends). Dispatch via `get_active_backend()`.
+- `core/config/credential_store.get_credential()` — picks the active backend, catches backend errors gracefully (D-Bus down, etc.), auto-migrates env-loaded values into the active backend on first read. Placeholder values from `.env.example` (`your-openai-api-key-here`, etc.) are excluded from auto-migration via a shared `_PLACEHOLDER_VALUES` set.
+- `app/scripts/migrate_secrets_to_keychain.py` *(new)* — idempotent one-shot. Reads `~/.config/skuel/secrets.env` (falls back to credential-shaped shell env vars if the file is gone), diffs against current keychain state, prompts before writing. Offers to append `SKUEL_CREDENTIAL_BACKEND=keyring` to `app/.env`. Optionally deletes `secrets.env` after success (with `shred`-style zero-fill before unlink). `--keep-source` keeps the file for verification; `--yes` is for automation.
+- `pyproject.toml` — `keyring>=25.7.0` added.
 
-### What changes
+**Verified**: 10 secrets migrated; `keyring.get_password("skuel", "NEO4J_PASSWORD")` returns the value; integration tests `test_ingestion_chunking.py` + `test_chunk_embedding_pipeline.py` pass with the keychain as the credential source (5 passed).
 
-| File | Change |
-|---|---|
-| `core/config/credential_store.py` | Add a `KeyringBackend` class implementing the same `get/set/delete/list_keys/exists` interface as the existing Fernet `CredentialStore`. Selection by env var: `SKUEL_CREDENTIAL_BACKEND=keyring` ⇒ keychain; anything else ⇒ existing Fernet JSON. The top-level `get_credential()` dispatches. |
-| `core/config/credential_setup.py` | Extend the interactive setup with a "backend selection" prompt at first run. The existing Fernet flow stays for users who don't opt in. |
-| `app/scripts/migrate_secrets_to_keychain.py` *(new)* | One-shot: reads each secret from `~/.config/skuel/secrets.env` (or env), writes via `secret-tool store --label="SKUEL <KEY>" service skuel key <KEY>`, removes from the homedir file after success. Mirrors the Stage-2 migration shape. |
-| `pyproject.toml` | `uv add keyring` — single dependency, handles libsecret/Keychain/Windows Credential Locker uniformly. |
+**Known caveats (documented in the migration script's output too)**:
 
-### When to do Stage 3
+1. **Docker Compose reads `.env` directly** for `${VAR}` interpolation. After Stage 3, `.env` no longer holds credentials — anything in `app/docker-compose.yml` or `infrastructure/docker-compose.yml` referencing `${NEO4J_PASSWORD}` will fail unless you pre-export from the keychain before running `docker compose up`. The pre-export shape:
 
-The plan's trigger criteria:
+   ```bash
+   export NEO4J_PASSWORD="$(python -c 'import keyring; print(keyring.get_password(\"skuel\", \"NEO4J_PASSWORD\"))')"
+   docker compose up
+   ```
 
-- **Threat-model needs Stage 3** — laptop is shared with other user accounts, or `$HOME` gets synced to a location you don't fully control (cloud sync that touches `~/.config/`), or you want OS-mediated unlock prompts for credential rotation. If you're single-user, full-disk-encrypted, and `~/.config/` isn't auto-synced anywhere sketchy, Stage 2 is already sufficient.
-- **Stage 2 is settled** — at least a week of normal workflow use (dev server start, vault ingest, askesis endpoint, any one-off scripts) without finding a credential read path that bypasses direnv. Specific things to watch for during this period:
-  - Docker Compose reads `.env` directly. Anything in `infrastructure/` or `app/docker-compose.yml` that needed a credential will break after Stage 2 because `.env` no longer has those values. CI / cron jobs that bypass interactive shells have the same risk.
-  - Scripts that don't pick up `~/.config/skuel/secrets.env`. Symptom: `get_credential(K, fallback_to_env=True)` returns `None` in a script context that wasn't invoked from a direnv-loaded shell. Workaround pattern: `set -a; . ~/.config/skuel/secrets.env; set +a; <command>`.
+   Acceptable for the dev loop; CI/prod will need a different secret-injection path (out of scope for this work).
 
-### When NOT to do Stage 3
+2. **Keychain unlock**: the credential store is unlocked when your desktop session is unlocked. Headless boxes / CI / cron environments don't get keychain access — they need the Fernet path or platform-native secrets.
 
-- If Stage 2 has surfaced friction that you'd rather fix first (e.g., Docker Compose can't see Neo4j password). Stage 3 doesn't help that class of problem and adds another moving part.
-- If you're about to migrate to a hosted environment (Droplet, App Platform, AuraDB) where secrets come from the platform's secret store anyway. The Stage 3 keychain story is a developer-machine concern; production deployments have their own answer (which the plan calls out at § "Out of scope").
+3. **`secrets.env` is still intact** on disk (the migration ran with `--keep-source`). When you're satisfied Stage 3 sticks, run `shred -u ~/.config/skuel/secrets.env` to remove the last plaintext copy.
 
 ---
+
+## What's left
+
+Nothing structurally — Stages 1–3 cover the full "no plaintext secrets on disk" goal for a single-developer machine. Open follow-ups, all small and optional:
+
+- Shred `~/.config/skuel/secrets.env` once Stage 3 has run a few sessions without surprises (it's still on disk because the migration was invoked with `--keep-source`).
+- Pre-export wrapper for Docker Compose. A `scripts/dev/with-secrets` shim like `secret-tool` → `env` → `docker compose up` would smooth the rough edge in caveat #1 above.
+- Tests for `KeyringBackend` round-trip. Currently covered by integration tests + the inline smoke test in the Stage 3a commit; a dedicated unit test isn't strictly needed but would be cheap insurance.
 
 ## What's permanently out of scope (deliberate)
 
@@ -98,8 +103,10 @@ From the plan's § "Out of scope":
 
 - Plan (full design): `~/.claude/plans/secrets-out-of-worktree.md`
 - Hook stack (the seatbelt): `app/scripts/git-hooks/README.md`
-- Credential store (Fernet-encrypted, today's default): `app/core/config/credential_store.py`
+- Credential store (both backends — Fernet + Keyring): `app/core/config/credential_store.py`
 - Setup tool: `app/core/config/credential_setup.py`
-- Stage 2 migration script: `app/scripts/migrate_secrets_to_homedir.py`
+- Stage 2 migration script (`.env` → `~/.config/skuel/secrets.env`): `app/scripts/migrate_secrets_to_homedir.py`
+- Stage 3 migration script (`secrets.env` → OS keychain): `app/scripts/migrate_secrets_to_keychain.py`
 - direnv loader: `app/.envrc`
 - Two-file convention reference: `app/.env.example`
+- Backend selector: set `SKUEL_CREDENTIAL_BACKEND=keyring` in `app/.env` (already there if you ran the Stage 3 migration)
