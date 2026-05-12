@@ -153,10 +153,7 @@ def _profile_button(current_user: str, active_page: str) -> A:
         Span("Profile", cls="sr-only"),
         _avatar_circle(current_user),
         href="/profile",
-        cls=(
-            "inline-flex items-center justify-center size-11 rounded-full hover:bg-accent"
-            + ring
-        ),
+        cls=("inline-flex items-center justify-center size-11 rounded-full hover:bg-accent" + ring),
         **({"aria-current": "page"} if is_active else {}),
     )
 
