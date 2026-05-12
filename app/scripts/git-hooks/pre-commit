@@ -1,82 +1,120 @@
 #!/usr/bin/env bash
-# SKUEL pre-commit hook — block accidental secret leaks.
+# SKUEL pre-commit hook — single canonical script.
 #
-# Catches:
-#   1. .env / .env.local / .env.<anything> files staged for commit (allows
-#      .env.example and .env.sample).
-#   2. High-confidence secret patterns in added lines (OpenAI, AWS, Stripe,
-#      GitHub PAT, HuggingFace).
+# Runs two independent checks; failure of EITHER blocks the commit:
 #
-# Bypass (legitimate test fixtures, etc.):  SKUEL_ALLOW_SECRETS=1 git commit ...
+#   1. Secret-leak scan
+#      - .env / .env.local / .env.<anything> files staged
+#        (.env.example and .env.sample are allowed)
+#      - high-confidence credential patterns in added lines
 #
-# Install:  ln -sf ../../app/scripts/git-hooks/pre-commit .git/hooks/pre-commit
-# Or use:   ./dev install-hooks  (from the app/ directory)
+#   2. Doc cross-reference validation
+#      - only when at least one .md file is staged
+#      - runs scripts/validate_cross_references.py --errors-only
+#        (broken skill references, broken /docs/ links,
+#         missing frontmatter on pattern docs)
+#
+# Bypass (use sparingly, prefer fixing):
+#   SKUEL_ALLOW_SECRETS=1 git commit ...   # skip secret scan only
+#   git commit --no-verify ...             # skip BOTH (last resort)
+#
+# Install (idempotent):  app/scripts/install_git_hooks.sh
+# See:                    app/scripts/git-hooks/README.md
 
 set -uo pipefail
 
-if [[ "${SKUEL_ALLOW_SECRETS:-0}" == "1" ]]; then
-  echo "pre-commit: SKUEL_ALLOW_SECRETS=1 set — skipping secret scan." >&2
-  exit 0
-fi
-
-red() { printf '\033[31m%s\033[0m\n' "$*"; }
+red()    { printf '\033[31m%s\033[0m\n' "$*"; }
 yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
+green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 
+repo_root="$(git rev-parse --show-toplevel)"
 fail=0
 
-# --- Check 1: refuse .env-shaped files ------------------------------------
-staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
-while IFS= read -r path; do
-  [[ -z "$path" ]] && continue
-  case "$(basename "$path")" in
-    .env.example|.env.sample) ;;
-    .env|.env.*)
-      red "✗ Refusing to commit env file: $path"
+# =========================================================================
+# Check 1 — Secret-leak scan
+# =========================================================================
+if [[ "${SKUEL_ALLOW_SECRETS:-0}" == "1" ]]; then
+  yellow "⚠ SKUEL_ALLOW_SECRETS=1 set — skipping secret scan."
+else
+  # --- 1a: refuse .env-shaped files --------------------------------------
+  staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
+  while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    case "$(basename "$path")" in
+      .env.example|.env.sample) ;;
+      .env|.env.*)
+        red "✗ Refusing to commit env file: $path"
+        fail=1
+        ;;
+    esac
+  done <<< "$staged_files"
+
+  # --- 1b: scan added lines for known credential shapes ------------------
+  # -U0 = only changed lines, no surrounding context.
+  diff_text=$(git diff --cached -U0 --diff-filter=ACMR -- \
+    ':(exclude)*.lock' ':(exclude)*.lock.json')
+
+  # provider | regex.  Length thresholds avoid matching doc placeholders.
+  patterns=(
+    'OpenAI key|sk-(proj|live|test|or)-[A-Za-z0-9_-]{40,}'
+    'AWS access key|\bAKIA[0-9A-Z]{16}\b'
+    'Stripe webhook secret|\bwhsec_[A-Za-z0-9]{30,}\b'
+    'Stripe live key|\bsk_live_[A-Za-z0-9]{20,}\b'
+    'GitHub PAT|\bghp_[A-Za-z0-9]{36}\b'
+    'GitHub fine-grained PAT|\bgithub_pat_[A-Za-z0-9_]{60,}\b'
+    'HuggingFace token|\bhf_[A-Za-z0-9]{30,}\b'
+    'Slack token|\bxox[abprs]-[A-Za-z0-9-]{20,}\b'
+    'Google API key|\bAIza[0-9A-Za-z_-]{35}\b'
+    'Private key block|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
+  )
+
+  added_lines=$(printf '%s\n' "$diff_text" | grep -E '^\+[^+]' || true)
+
+  for entry in "${patterns[@]}"; do
+    label="${entry%%|*}"
+    regex="${entry#*|}"
+    matches=$(printf '%s\n' "$added_lines" | grep -E -- "$regex" || true)
+    if [[ -n "$matches" ]]; then
+      red "✗ Possible $label in staged changes:"
+      # Redact the actual match in the printed output so we don't echo the
+      # secret into terminal scrollback / CI logs.
+      printf '%s\n' "$matches" | sed -E -e 's/'"$regex"'/[REDACTED]/g' \
+        | head -5 | sed 's/^/    /' >&2
       fail=1
-      ;;
-  esac
-done <<< "$staged_files"
+    fi
+  done
+fi
 
-# --- Check 2: scan added lines for known secret shapes --------------------
-# Use -U0 so we get only changed lines with no surrounding context.
-diff_text=$(git diff --cached -U0 --diff-filter=ACMR -- ':(exclude)*.lock' ':(exclude)*.lock.json')
+# =========================================================================
+# Check 2 — Doc cross-reference validation
+# =========================================================================
+staged_docs=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
 
-# Each pattern is provider + regex. Length thresholds are tuned to avoid
-# matching short placeholders like `sk-proj-...` in docs.
-patterns=(
-  'OpenAI key|sk-(proj|live|test|or)-[A-Za-z0-9_-]{40,}'
-  'AWS access key|\bAKIA[0-9A-Z]{16}\b'
-  'Stripe webhook secret|\bwhsec_[A-Za-z0-9]{30,}\b'
-  'Stripe live key|\bsk_live_[A-Za-z0-9]{20,}\b'
-  'GitHub PAT|\bghp_[A-Za-z0-9]{36}\b'
-  'GitHub fine-grained PAT|\bgithub_pat_[A-Za-z0-9_]{60,}\b'
-  'HuggingFace token|\bhf_[A-Za-z0-9]{30,}\b'
-  'Slack token|\bxox[abprs]-[A-Za-z0-9-]{20,}\b'
-  'Google API key|\bAIza[0-9A-Za-z_-]{35}\b'
-  'Private key block|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
-)
+if [[ -n "$staged_docs" ]]; then
+  doc_count=$(echo "$staged_docs" | wc -l | tr -d ' ')
+  echo "🔍 Validating cross-references in $doc_count staged .md file(s)..."
 
-# Only inspect added lines (start with `+` but not `+++`).
-added_lines=$(printf '%s\n' "$diff_text" | grep -E '^\+[^+]' || true)
-
-for entry in "${patterns[@]}"; do
-  label="${entry%%|*}"
-  regex="${entry#*|}"
-  matches=$(printf '%s\n' "$added_lines" | grep -E -- "$regex" || true)
-  if [[ -n "$matches" ]]; then
-    red "✗ Possible $label in staged changes:"
-    # Show match locations without echoing the secret in full — print the
-    # filename + line marker, redact long matches.
-    printf '%s\n' "$matches" | sed -E -e 's/'"$regex"'/[REDACTED]/g' | head -5 | sed 's/^/    /' >&2
+  # validate_cross_references.py + pyproject.toml live under app/, so cd in.
+  if ( cd "$repo_root/app" && uv run python scripts/validate_cross_references.py --errors-only ); then
+    green "✅ Cross-reference validation passed"
+  else
+    red "✗ Cross-reference validation failed"
+    yellow "  Details:  cd app && uv run python scripts/validate_cross_references.py"
     fail=1
   fi
-done
+fi
 
+# =========================================================================
+# Verdict
+# =========================================================================
 if [[ $fail -ne 0 ]]; then
   echo
-  yellow "Commit blocked. If this is a false positive (test fixture, doc placeholder, etc.):"
-  yellow "  SKUEL_ALLOW_SECRETS=1 git commit ..."
-  yellow "If a real key was about to be committed: rotate it now and unstage."
+  yellow "Commit blocked. To bypass (last-resort, prefer fixing):"
+  yellow "  • False-positive secret (test fixture / doc placeholder):"
+  yellow "      SKUEL_ALLOW_SECRETS=1 git commit ..."
+  yellow "  • Skip ALL checks (use only if you understand the trade-off):"
+  yellow "      git commit --no-verify ..."
+  yellow "Real key in staged diff? Rotate it now and unstage."
   exit 1
 fi
 
