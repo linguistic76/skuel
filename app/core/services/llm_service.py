@@ -456,6 +456,25 @@ class LLMService:
                             context_lines.append(f"    - {title} ({uid})")
                 continue
 
+            # Special formatting for relevant_chunks — inline the passage text
+            # (with context_window for grounding) and attribute to the parent
+            # PathStep so the LLM can cite the source.
+            if key == "relevant_chunks" and isinstance(value, list):
+                context_lines.append("Relevant Passages:")
+                for hit in value:
+                    if not isinstance(hit, dict):
+                        continue
+                    title = hit.get("parent_title", "Unknown")
+                    parent_uid = hit.get("parent_uid", "")
+                    chunk_type = hit.get("chunk_type", "")
+                    similarity = hit.get("similarity", 0.0)
+                    passage = (hit.get("context_window") or hit.get("text") or "").strip()
+                    header = f"  From '{title}' ({parent_uid}) — {chunk_type}, similarity {similarity:.2f}:"
+                    context_lines.append(header)
+                    for line in passage.splitlines() or [""]:
+                        context_lines.append(f"    {line}")
+                continue
+
             # Format key for readability (snake_case → Title Case)
             formatted_key = key.replace("_", " ").title()
 

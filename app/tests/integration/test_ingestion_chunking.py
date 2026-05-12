@@ -10,16 +10,35 @@ Implementation (January 2026) - Automatic Chunking
 
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Any
 
 import pytest
 
+from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from core.services.entity_chunking_service import EntityChunkingService
 from core.services.ingestion import UnifiedIngestionService
 
 
+class _DriverConnection:
+    """Thin shim adapting an AsyncDriver to the Neo4jConnection.execute_query shape
+    expected by Neo4jContentAdapter, so tests can use the integration neo4j_driver
+    fixture directly without spinning up a separate Neo4jConnection singleton.
+    """
+
+    def __init__(self, driver: Any) -> None:
+        self.driver = driver
+
+    async def execute_query(
+        self, query: str, params: dict[str, Any] | None = None
+    ) -> list[Any]:
+        async with self.driver.session() as session:
+            result = await session.run(query, params or {})
+            return [record async for record in result]
+
+
 @pytest.mark.asyncio
 async def test_ingest_file_creates_chunks(neo4j_driver):
-    """Test that ingesting a KU file automatically creates chunks"""
+    """Test that ingesting a KU file automatically creates chunks AND persists them to Neo4j."""
     # Given: A markdown file with curriculum content
     ku_content = """---
 type: Lesson
@@ -59,11 +78,14 @@ Python is easy to learn and powerful.
         temp_path = Path(f.name)
 
     try:
-        # Given: UnifiedIngestionService with chunking enabled
+        # Given: UnifiedIngestionService with chunking enabled AND a content adapter
+        # so chunks persist to Neo4j (Stage 1 of the chunk-retrieval pipeline).
         chunking_service = EntityChunkingService()
+        content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
         ingestion_service = UnifiedIngestionService(
             driver=neo4j_driver,
             chunking_service=chunking_service,
+            content_adapter=content_adapter,
         )
 
         # When: Ingesting the file
@@ -93,6 +115,23 @@ Python is easy to learn and powerful.
 
         # Verify content was chunked (should have multiple chunks for this content)
         assert len(chunks) >= 3, f"Expected at least 3 chunks, got {len(chunks)}"
+
+        # Then: Chunks were persisted to Neo4j (this is the gap Stage 1 closes).
+        # Embeddings are populated later by the background worker — at this point
+        # we only assert the nodes and HAS_CHUNK edges exist.
+        async with neo4j_driver.session() as session:
+            cypher_result = await session.run(
+                """
+                MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                RETURN count(chunk) AS n, collect(DISTINCT chunk.chunk_type) AS types
+                """,
+                {"uid": ku_uid},
+            )
+            record = await cypher_result.single()
+
+        assert record is not None, "Content node should exist with chunks"
+        assert record["n"] > 0, f"Expected ContentChunk nodes in Neo4j, got {record['n']}"
+        assert len(record["types"]) > 0, "Persisted chunks should have chunk_type set"
 
     finally:
         # Cleanup

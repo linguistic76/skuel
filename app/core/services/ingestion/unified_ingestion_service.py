@@ -115,6 +115,8 @@ class UnifiedIngestionService:
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
         embeddings_service: Any | None = None,
         chunking_service: Any | None = None,
+        content_adapter: Any | None = None,
+        event_bus: Any | None = None,
         ingestion_backend: Any | None = None,
         user_entry_service: UserEntryService | None = None,
         user_service: UserService | None = None,
@@ -132,6 +134,11 @@ class UnifiedIngestionService:
                                 If not provided, ingestion works without embeddings (graceful degradation).
             chunking_service: Optional EntityChunkingService for automatic chunk generation.
                               If not provided, ingestion works without chunking (graceful degradation).
+            content_adapter: Neo4jContentAdapter for persisting :Content and :ContentChunk nodes
+                             after chunk generation. Required in production for RAG retrieval;
+                             when omitted, chunks remain in-memory only.
+            event_bus: EventBusOperations for publishing ChunkEmbeddingRequested events to the
+                       background embedding worker. Required in production for chunk embeddings.
             ingestion_backend: IngestionBackend for ingestion tracking (optional).
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
                                 the same create_entry() pipeline as /submit. Required
@@ -152,6 +159,8 @@ class UnifiedIngestionService:
         self.max_file_size_bytes = max_file_size_bytes
         self.embeddings = embeddings_service  # Can be None - graceful degradation
         self.chunking = chunking_service  # Can be None - graceful degradation
+        self.content_adapter = content_adapter  # Can be None - graceful degradation
+        self.event_bus = event_bus  # Can be None - graceful degradation
         self.user_entry_service = user_entry_service
         self.user_service = user_service
         self.logger = logger
@@ -174,6 +183,18 @@ class UnifiedIngestionService:
         else:
             self.logger.warning(
                 "⚠️ Chunking service not available - PathStep ingestion will work without chunks"
+            )
+
+        # Chunks reach Neo4j only when both the chunker and the content adapter are wired.
+        # In tests, omitting either keeps the path entirely in-memory; in production
+        # both are wired in compose.py so the full ingest → persist → embed chain runs.
+        if self.chunking and not self.content_adapter:
+            self.logger.warning(
+                "⚠️ Chunking enabled but content_adapter missing — chunks will not be persisted to Neo4j"
+            )
+        if self.content_adapter and not self.event_bus:
+            self.logger.warning(
+                "⚠️ Content adapter wired but event_bus missing — chunk embeddings will not be generated"
             )
 
         # Lazy-initialized engines per domain type (keyed by EntityType/NonKuDomain)
@@ -524,11 +545,47 @@ class UnifiedIngestionService:
                     )
                 else:
                     content, _metadata = chunk_result.value
-                    chunks_generated = True
                     self.logger.info(
                         f"Generated {content.chunk_count} chunks for {entity_data['uid']} "
                         f"({content.word_count} words)"
                     )
+
+                    # Persist chunks to Neo4j so retrieval can target them
+                    if self.content_adapter:
+                        stored = await self.content_adapter.store_content_with_chunks(
+                            entity_data["uid"], content
+                        )
+                        if not stored:
+                            self.logger.warning(
+                                f"Chunk persistence failed for {entity_data['uid']}"
+                            )
+                        chunks_generated = stored
+
+                        # Request async embedding generation for the persisted chunks
+                        if stored and self.event_bus and content.chunks:
+                            from datetime import datetime
+
+                            from core.events import ChunkEmbeddingRequested, publish_event
+
+                            await publish_event(
+                                self.event_bus,
+                                # ku_uid is the legacy event field name; the parent is a
+                                # PathStep. Rename deferred to a follow-up cleanup PR
+                                # (ripples through worker + migration script).
+                                ChunkEmbeddingRequested(
+                                    ku_uid=entity_data["uid"],
+                                    chunk_uids=tuple(c.chunk_id for c in content.chunks),
+                                    chunk_texts=tuple(
+                                        c.context_window for c in content.chunks
+                                    ),
+                                    requested_at=datetime.now(),
+                                    user_uid=user_uid if user_uid else None,
+                                ),
+                                self.logger,
+                            )
+                    else:
+                        # Chunks generated in-memory but not persisted — flag for the caller.
+                        chunks_generated = True
 
         return Result.ok(
             {

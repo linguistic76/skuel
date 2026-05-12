@@ -683,7 +683,6 @@ fixable = ["ALL"]
 
 # Core utilities - various patterns
 "core/utils/api_responses.py" = ["B021", "F822"]  # f-string docstrings + legacy re-exports
-"core/services/ku_retrieval.py" = ["ARG002"]      # Protocol method signatures
 "core/models/relationships/*.py" = ["F822", "ARG003", "PERF401"]  # Re-exports + class methods + performance patterns
 
 # GraphQL schema - Strawberry patterns

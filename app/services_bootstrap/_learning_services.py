@@ -33,7 +33,6 @@ def _create_learning_services(
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from core.models.pathways.learning_path import LearningPath
-    from core.services.entity_retrieval import EntityRetrieval
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ps_service import PsService
     from core.services.query_builder import QueryBuilder
@@ -139,15 +138,6 @@ def _create_learning_services(
         user_service=user_service,
     )
 
-    # Create retrieval service (embeddings_service is OPTIONAL - graceful degradation)
-    ku_retrieval = EntityRetrieval(
-        knowledge_repo=knowledge_backend,
-        embeddings_service=embeddings_service,  # Can be None - will use keyword search fallback
-        unified_query_builder=unified_query_builder,
-        user_progress_service=user_progress,
-        chunking_service=chunking_service,
-    )
-
     # NOTE: Askesis creation MOVED to compose_services() (January 2026)
     # This allows intelligence_factory to be passed at construction time (not post-wired)
 
@@ -173,7 +163,6 @@ def _create_learning_services(
         # unified_progress DELETED (January 2026)
         "learning_paths": learning_paths,
         "ps": ps_service,
-        "ku_retrieval": ku_retrieval,
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,
         "activity_knowledge_intelligence": activity_knowledge_intelligence,

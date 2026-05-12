@@ -453,7 +453,8 @@ async def compose_services(
         # Note: MarkdownSyncService DELETED (January 2026) - use UnifiedIngestionService
 
         # Create knowledge components using 100% dynamic backend pattern
-        # IMPORTANT: chunking_service must be created BEFORE UnifiedIngestionService (January 2026)
+        # IMPORTANT: chunking_service AND content_adapter must be created BEFORE
+        # UnifiedIngestionService so chunks persist to Neo4j at ingest time.
         from adapters.persistence.neo4j.neo4j_connection import get_connection
         from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
         from core.services.entity_chunking_service import EntityChunkingService
@@ -461,9 +462,14 @@ async def compose_services(
         chunking_service = EntityChunkingService()
         logger.info("✅ EntityChunkingService created for automatic chunk generation")
 
+        # Content adapter implements ContentOperations protocol — used by ingestion
+        # (store_content_with_chunks) and by the embedding worker (store_chunk_embeddings).
+        connection = await get_connection()
+        content_adapter = Neo4jContentAdapter(connection)
+
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
-        # January 2026 - Automatic Chunking: Pass chunking service for RAG-ready ingestion
-        # January 2026 - GenAI Integration: Pass embeddings service for automatic embedding generation
+        # Wires the chunk pipeline end-to-end: chunk generation → Neo4j persistence →
+        # ChunkEmbeddingRequested event → background worker.
         from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
         from core.services.ingestion import UnifiedIngestionService
 
@@ -474,6 +480,8 @@ async def compose_services(
             ingestion_backend=ingestion_backend,
             embeddings_service=None,  # Optional - will be created later in learning_services
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
+            content_adapter=content_adapter,  # Persist :ContentChunk nodes for RAG retrieval
+            event_bus=event_bus,  # Publish ChunkEmbeddingRequested for async embedding
             user_service=user_service,  # Role lookup for audience:public gate (Finding 2)
         )
 
@@ -488,10 +496,6 @@ async def compose_services(
         logger.info(
             "✅ Content services created (includes UnifiedIngestionService with automatic chunking)"
         )
-
-        # Use Neo4jContentAdapter for ContentOperations protocol (store_content_with_chunks, get_chunks, etc.)
-        connection = await get_connection()
-        content_adapter = Neo4jContentAdapter(connection)
 
         # Create LLM service BEFORE learning services (OPTIONAL - enables AI features)
         # Gated by intelligence tier (ADR-043): CORE skips entirely
@@ -585,6 +589,7 @@ async def compose_services(
                     event_bus=event_bus,
                     embeddings_service=embeddings_service,
                     config=config,
+                    content_adapter=content_adapter,  # Unlocks _process_chunk_batch
                     prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
                     batch_size=25,  # Process 25 entities per batch (cost-optimized)
                     batch_interval_seconds=30,  # Run every 30 seconds

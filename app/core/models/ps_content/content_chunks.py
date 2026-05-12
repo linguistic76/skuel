@@ -437,9 +437,3 @@ def get_chunks_by_type(
 ) -> list[ContentChunk]:
     """Filter chunks by type"""
     return [c for c in chunks if c.chunk_type == chunk_type]
-
-
-def search_chunks(chunks: list[ContentChunk], query: str) -> list[ContentChunk]:
-    """Simple text search within chunks"""
-    query_lower = query.lower()
-    return [c for c in chunks if query_lower in c.text.lower()]

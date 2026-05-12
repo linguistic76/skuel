@@ -100,11 +100,6 @@ class CurriculumContent:
         """Get all chunks of a specific type"""
         return tuple(c for c in self.chunks if c.chunk_type == chunk_type)
 
-    def search_chunks(self, query: str) -> tuple[ContentChunk, ...]:
-        """Simple text search within chunks"""
-        query_lower = query.lower()
-        return tuple(c for c in self.chunks if query_lower in c.text.lower())
-
     def get_chunk(self, chunk_index: int) -> ContentChunk | None:
         """Get a specific chunk by index"""
         if 0 <= chunk_index < len(self.chunks):

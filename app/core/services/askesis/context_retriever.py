@@ -70,6 +70,26 @@ logger = get_logger(__name__)
 _SENTINEL = object()
 
 
+# Intent → preferred ContentChunk types. The chunker classifies passages into
+# semantic types (DEFINITION, EXAMPLE, EXERCISE, ...) — different question
+# intents are best answered by different passage types. None disables the
+# filter (search all chunk types).
+_INTENT_CHUNK_TYPES: dict[QueryIntent, list[str]] = {
+    QueryIntent.PREREQUISITE: ["DEFINITION", "EXPLANATION"],
+    QueryIntent.PRACTICE: ["EXERCISE", "EXAMPLE"],
+    QueryIntent.HIERARCHICAL: ["DEFINITION", "EXPLANATION"],
+}
+
+
+def _intent_to_chunk_types(intent: QueryIntent) -> list[str] | None:
+    """Pick the chunk types most likely to answer a given intent.
+
+    Returning None means 'no filter' — used for exploratory/aggregate queries
+    where any chunk type is fair game.
+    """
+    return _INTENT_CHUNK_TYPES.get(intent)
+
+
 class ContextRetriever:
     """
     Retrieve domain-specific context and PS bundles.
@@ -228,16 +248,17 @@ class ContextRetriever:
                 "overdue_tasks": len(user_context.overdue_task_uids),
             }
 
-        # PHASE 2: Semantic search enrichment via Neo4j native vector indexes
-        # Always attempt when vector_search_service is available — the min_score
-        # threshold (0.6) already filters irrelevant results without a keyword gate.
+        # PHASE 2: Chunk-level semantic search via Neo4j native vector indexes.
+        # We target :ContentChunk (not :Entity) so the LLM grounds answers in the
+        # actual passage that matched, with the owning PathStep surfaced via the
+        # chunk → content → entity join for citation.
         if self.vector_search_service:
-            similar_knowledge = await self._find_similar_knowledge(query, user_context.user_uid)
-            if similar_knowledge:
-                context["semantically_similar_knowledge"] = [
-                    {"uid": uid, "similarity": score, "title": title}
-                    for uid, score, title in similar_knowledge[:3]  # Top 3
-                ]
+            chunk_types = _intent_to_chunk_types(intent)
+            relevant_chunks = await self._find_similar_chunks(
+                query, user_context.user_uid, chunk_types=chunk_types
+            )
+            if relevant_chunks:
+                context["relevant_chunks"] = relevant_chunks[:3]  # Top 3
                 context["semantic_search_enabled"] = True
             else:
                 context["semantic_search_enabled"] = False
@@ -759,37 +780,56 @@ class ContextRetriever:
     # PRIVATE - HELPER METHODS
     # ========================================================================
 
-    async def _find_similar_knowledge(
-        self, query: str, _user_uid: UserUID
-    ) -> list[tuple[str, float, str]]:
+    async def _find_similar_chunks(
+        self,
+        query: str,
+        _user_uid: UserUID,
+        chunk_types: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """
-        Find semantically similar knowledge using Neo4j native vector indexes.
+        Find the most relevant :ContentChunk nodes for the user's question.
 
-        Uses Neo4jVectorSearchService.find_similar_by_text() which handles
-        embedding creation + db.index.vector.queryNodes() in one call.
+        Returns the chunk_uid, chunk_type, text, context_window (the 100-word
+        pre/post buffer designed for LLM grounding), similarity score, and the
+        owning entity's uid + title — so a downstream prompt can both quote the
+        passage AND cite the PathStep it came from.
 
         Args:
             query: User's question
-            _user_uid: User identifier (unused - for future personalization)
+            _user_uid: User identifier (unused — reserved for future personalization)
+            chunk_types: Optional filter (e.g. ["DEFINITION", "EXAMPLE"]) derived
+                from the classified intent.
 
         Returns:
-            List of (uid, similarity_score, title) tuples
+            List of dicts shaped like SemanticSearchChunkResult; empty on
+            missing service or search error.
         """
         if not self.vector_search_service:
             return []
 
-        result = await self.vector_search_service.find_similar_by_text(
-            "Entity", query, limit=5, min_score=0.6
+        result = await self.vector_search_service.find_similar_chunks_by_text(
+            text=query,
+            chunk_types=chunk_types,
+            limit=5,
+            min_score=0.6,
         )
 
         if result.is_error:
-            logger.warning("Semantic search failed: %s", result.expect_error())
+            logger.warning("Chunk semantic search failed: %s", result.expect_error())
             return []
 
         return [
-            (item["node"].get("uid", ""), item["score"], item["node"].get("title", "Unknown"))
-            for item in result.value
-            if item.get("node", {}).get("uid")
+            {
+                "chunk_uid": hit.get("chunk_uid", ""),
+                "chunk_type": hit.get("chunk_type", ""),
+                "text": hit.get("text", ""),
+                "context_window": hit.get("context_window") or hit.get("text", ""),
+                "similarity": hit.get("similarity_score", 0.0),
+                "parent_uid": hit.get("parent_uid", ""),
+                "parent_title": hit.get("parent_title") or "Unknown",
+            }
+            for hit in result.value
+            if hit.get("chunk_uid")
         ]
 
     async def _analyze_blocked_knowledge_prerequisites(

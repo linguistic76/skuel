@@ -2519,15 +2519,20 @@ class LearningRecommendationResult(TypedDict):
 
 
 class SemanticSearchChunkResult(TypedDict):
-    """Return shape for semantic_search_chunks()."""
+    """Return shape for semantic_search_chunks().
+
+    `parent_uid` / `parent_title` refer to the owning Entity, which for the
+    automatic chunking pipeline is a PathStep (not a Ku — chunking is keyed
+    off EntityType.PATH_STEP in UnifiedIngestionService).
+    """
 
     chunk_uid: str
     chunk_type: str
     text: str
     context_window: str | None
     similarity_score: float
-    parent_entity_uid: str
-    parent_ku_title: str
+    parent_uid: str
+    parent_title: str
 
 
 class RequiredKnowledgeResult(TypedDict):

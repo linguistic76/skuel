@@ -93,7 +93,6 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
     RootOrganizerResult,
-    SemanticSearchChunkResult,
     SubstantiationSummaryResult,
     UserMasteryResult,
     UserProgressResult,
@@ -766,16 +765,9 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Increment practice count and update last_practiced_date."""
         ...
 
-    async def semantic_search_chunks(
-        self,
-        query_embedding: list[float],
-        limit: int,
-        threshold: float,
-        chunk_types: list[str] | None = None,
-        ku_uid: str | None = None,
-    ) -> Result[list[SemanticSearchChunkResult]]:
-        """Vector search across ContentChunk nodes for precise RAG retrieval."""
-        ...
+    # Chunk-level vector search lives on VectorSearchBackend, not on the
+    # PathStep backend — see core/ports/vector_search_protocols.py
+    # (semantic_search_chunks) and adapters/persistence/neo4j/vector_search_backend.py.
 
     # =========================================================================
     # SEARCH    # =========================================================================
