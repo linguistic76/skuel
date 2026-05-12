@@ -31,13 +31,16 @@ fi
 
 red()    { printf '\033[31m%s\033[0m\n' "$*"; }
 yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
+green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 
 # All-zeros = ref is being deleted; no diff to scan.
 zero_sha="0000000000000000000000000000000000000000"
 
 fail=0
+commit_count=0
 
-# Build the combined diff across every ref being pushed.
+# Build the combined diff across every ref being pushed, and count commits
+# so we can print a meaningful summary on success.
 diff_text=""
 while read -r local_ref local_sha remote_ref remote_sha; do
   [[ -z "$local_sha" ]] && continue
@@ -51,6 +54,10 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   else
     range_args=("${remote_sha}..${local_sha}")
   fi
+
+  # Count commits in this ref's push range (used in the success summary).
+  this_count=$(git rev-list --count "${range_args[@]}" 2>/dev/null || echo 0)
+  commit_count=$((commit_count + this_count))
 
   # -U0 = only the changed lines themselves.
   this_diff=$(git diff -U0 "${range_args[@]}" -- \
@@ -104,4 +111,9 @@ if [[ $fail -ne 0 ]]; then
   exit 1
 fi
 
+# Confirm the hook ran. Otherwise a silent pass is indistinguishable from a
+# hook that's not installed — and we want operators to see the seatbelt
+# clicking on each push.
+commit_word=$([[ "$commit_count" == "1" ]] && echo "commit" || echo "commits")
+green "✓ pre-push: scanned ${commit_count} ${commit_word}; no credential patterns detected."
 exit 0
