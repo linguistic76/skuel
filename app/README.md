@@ -26,29 +26,42 @@ npm install
 
 ### 2. Configure Environment
 
-Create a `.env` file in the project root:
+SKUEL splits configuration into two files by sensitivity:
+
+| File | What goes here | Where it lives |
+|---|---|---|
+| `~/.config/skuel/secrets.env` | Credentials (NEO4J_PASSWORD, OPENAI_API_KEY, SESSION_SECRET_KEY, FIREFLY_PAT_*, …) | **Outside the worktree** — `git add . .env` cannot stage it |
+| `app/.env` | Non-secret config (NEO4J_URI, APP_PORT, INTELLIGENCE_TIER, VAULT_ROOT, …) | Inside the repo (gitignored) |
+
+Both files are sourced automatically by `direnv` via `app/.envrc` whenever you `cd` into the project. The variable names and which file each belongs to are documented in `app/.env.example`.
+
+**First-time setup:**
 
 ```bash
-# Neo4j Connection (running in ~/skuel/infrastructure)
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=your_password
+sudo apt install direnv
+echo 'eval "$(direnv hook bash)"' >> ~/.bashrc && exec bash
 
-# Application Settings
-APP_HOST=0.0.0.0
-APP_PORT=8000
-APP_DEBUG=false
+# Copy the template, fill in non-secret values, leave secret entries blank:
+cp app/.env.example app/.env
+$EDITOR app/.env
 
-# AI Services (optional)
-OPENAI_API_KEY=your_key_here
-OLLAMA_URL=http://localhost:11434
+# Then store credentials in the homedir file (template values shown in .env.example):
+mkdir -p ~/.config/skuel && chmod 700 ~/.config/skuel
+$EDITOR ~/.config/skuel/secrets.env
+chmod 600 ~/.config/skuel/secrets.env
 
-# Paths
-OBSIDIAN_VAULT_PATH=./vault
-
-# Logging
-LOG_LEVEL=INFO
+cd app/ && direnv allow .
 ```
+
+**Already have an `app/.env` with credentials in it?** Run the migration:
+
+```bash
+uv run python scripts/migrate_secrets_to_homedir.py
+```
+
+It backs up `.env`, splits it into the two files, sets `0600` on the secrets file. Idempotent — safe to re-run.
+
+See `.claude/plans/secrets-out-of-worktree.md` for the rationale (and the path forward to OS-keychain-backed credentials).
 
 ### 3. Start Neo4j Infrastructure
 
