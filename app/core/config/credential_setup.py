@@ -39,23 +39,90 @@ def _validate_openai_key(key: str) -> bool:
 class CredentialSetup:
     """Interactive credential setup utility."""
 
-    # Credentials to manage
+    # Credentials to manage. Required = production cannot start without it;
+    # Optional = feature degrades gracefully when missing (e.g. AI features
+    # disabled, Firefly sidecar not used). All are stored encrypted.
     CREDENTIALS: ClassVar[dict[str, dict[str, Any | bool | None | Callable[[str], bool]]]] = {
+        # --- Core infra (required for app to function) ---
         "NEO4J_PASSWORD": {
             "description": "Neo4j database password",
-            "required": False,
+            "required": True,
             "sensitive": True,
             "default": None,
         },
-        "OPENAI_API_KEY": {
-            "description": "OpenAI API key for embeddings and AI features",
+        "SESSION_SECRET_KEY": {
+            "description": "Session cookie signing key (32+ random bytes)",
             "required": True,
+            "sensitive": True,
+            "default": None,
+        },
+        # --- AI providers (required for INTELLIGENCE_TIER=full) ---
+        "OPENAI_API_KEY": {
+            "description": "OpenAI API key — embeddings + LLM (INTELLIGENCE_TIER=full)",
+            "required": False,
             "sensitive": True,
             "default": None,
             "validation": _validate_openai_key,
         },
+        "ANTHROPIC_API_KEY": {
+            "description": "Anthropic API key — only when LLMConfig.provider=anthropic",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
+        "HF_API_TOKEN": {
+            "description": "HuggingFace Inference API token (bge-large-en-v1.5)",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
         "DEEPGRAM_API_KEY": {
-            "description": "Deepgram API key for audio transcription",
+            "description": "Deepgram API key — voice journal transcription",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
+        # --- Firefly III finance sidecar (ADR-051) ---
+        "FIREFLY_APP_KEY": {
+            "description": "Firefly III APP_KEY (base64:... format, 32 bytes)",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
+        "FIREFLY_DB_PASSWORD": {
+            "description": "Firefly III Postgres password",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
+        "FIREFLY_PAT_PERSONAL": {
+            "description": "Firefly Personal Access Token — Mike's personal account",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
+        "FIREFLY_PAT_SKUEL": {
+            "description": "Firefly Personal Access Token — SKUEL business account",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
+        # --- Stripe → Firefly revenue sync ---
+        "STRIPE_WEBHOOK_SECRET": {
+            "description": "Stripe webhook signing secret (whsec_... format)",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
+        # --- Dev/test accounts (local development only) ---
+        "TEST_ADMIN_PASSWORD": {
+            "description": "Test admin account password (local dev/integration tests)",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
+        "TEST_USER_PASSWORD": {
+            "description": "Test regular user password (local dev/integration tests)",
             "required": False,
             "sensitive": True,
             "default": None,

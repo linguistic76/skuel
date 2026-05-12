@@ -389,16 +389,11 @@ async def main():
     logger.info("=" * 60)
 
     # Neo4j connection
+    from core.config.credential_store import get_credential
+
     neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password = os.getenv("NEO4J_PASSWORD", "")
-    if not neo4j_password:
-        try:
-            from core.config.credential_store import get_credential
-
-            neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-        except Exception:
-            neo4j_password = "neo4j"
+    neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True) or ""
 
     logger.info(f"\nConnecting to Neo4j at {neo4j_uri}...")
 

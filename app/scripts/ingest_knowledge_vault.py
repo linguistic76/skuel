@@ -330,10 +330,12 @@ async def main():
     """Run example ingestion."""
     import os
 
-    # Get configuration from environment or use defaults
+    from core.config.credential_store import get_credential
+
+    # Get configuration — password from credential store, rest from env
     neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password = os.getenv("NEO4J_PASSWORD", "neo4j_password")
+    neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True) or ""
     vault_path = Path(os.getenv("VAULT_PATH", "/home/mike/vault"))
 
     logger.info("Starting vault ingestion")

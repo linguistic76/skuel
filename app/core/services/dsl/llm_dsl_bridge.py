@@ -581,11 +581,11 @@ def create_llm_dsl_bridge(
     Returns:
         Configured LLMDSLBridgeService instance
     """
-    import os
-
     from openai import AsyncOpenAI
 
-    api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
+    from core.config.credential_store import get_credential
+
+    api_key = openai_api_key or get_credential("OPENAI_API_KEY", fallback_to_env=True)
 
     if not api_key:
         # Return service without client (will use rule-based fallback)

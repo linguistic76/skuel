@@ -742,10 +742,14 @@ async def main():
     """Main execution function"""
     logger.info("Starting SEL content seeding...")
 
-    # Get Neo4j connection details from environment
+    from core.config.credential_store import get_credential
+
+    # Get Neo4j connection details — password via credential store
     neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
+    # Default "password" used to silently mask config errors. Letting the
+    # connection fail loudly is more diagnostic.
+    neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True) or ""
 
     # Connect to Neo4j
     try:

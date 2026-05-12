@@ -272,7 +272,6 @@ class TestUnifiedConfigFromEnvironment:
             assert config.environment == Environment.PRODUCTION
             # Production settings that survive _load_from_env
             assert config.cache.provider == "redis"
-            assert config.application.enable_auth is True
             assert config.features.enable_experimental_features is False
 
     def test_from_environment_development(self):

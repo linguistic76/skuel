@@ -24,7 +24,6 @@ See: /docs/decisions/ADR-049-huggingface-embeddings-migration.md
 
 import asyncio
 import math
-import os
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -78,7 +77,9 @@ class HuggingFaceEmbeddingsService:
         self.prometheus_metrics = prometheus_metrics
 
         # Initialize async HuggingFace client (non-blocking I/O)
-        hf_token = os.getenv("HF_API_TOKEN", "")
+        from core.config.credential_store import get_credential
+
+        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
         if not hf_token:
             self.logger.warning("HF_API_TOKEN not set - embeddings will fail")
             self._client = None

@@ -183,13 +183,10 @@ async def clear_with_constraints(
     if username is None:
         username = os.getenv("NEO4J_USERNAME", "neo4j")
     if password is None:
-        # Try credential store first
-        try:
-            from core.config.credential_store import get_credential
+        from core.config.credential_store import get_credential
 
-            password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-        except Exception:
-            password = os.getenv("NEO4J_PASSWORD")
+        # fallback_to_env=True already covers the missing-master-key case.
+        password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
 
         if password is None:
             password = getpass.getpass(f"Neo4j password for {username}: ")

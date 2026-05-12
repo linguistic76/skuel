@@ -27,9 +27,11 @@ async def main() -> None:
     yaml_files = sorted(vault_dir.glob("*.yaml"))
     print(f"Found {len(yaml_files)} YAML files in {vault_dir}")
 
+    from core.config.credential_store import get_credential
+
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     user = os.getenv("NEO4J_USERNAME", "neo4j")
-    password = os.getenv("NEO4J_PASSWORD", "")
+    password = get_credential("NEO4J_PASSWORD", fallback_to_env=True) or ""
 
     driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
 

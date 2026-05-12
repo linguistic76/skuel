@@ -10,7 +10,6 @@ __version__ = "1.0"
 
 
 import logging
-import os
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -98,8 +97,11 @@ class LLMService:
         """Initialize Anthropic client. Fails fast if anthropic is not installed."""
         import anthropic
 
+        from core.config.credential_store import get_credential
+
         self.client = anthropic.Anthropic(
-            api_key=self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
+            api_key=self.config.api_key
+            or get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
         )
         logger.info("Anthropic LLM provider initialized")
 
