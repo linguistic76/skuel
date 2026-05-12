@@ -473,13 +473,13 @@ class LearningAlignmentBridge[T, DTO, Request]:
                 mastery_suggestion = {
                     "title": f"Master {step_description}",
                     "name": f"Master {step_description}",  # For habits
-                    "description": f"Achieve mastery in {step_description} from {path.name}",
+                    "description": f"Achieve mastery in {step_description} from {path.title}",
                     "domain": path.domain,
                     "priority": Priority.HIGH,
                     "learning_alignment_score": 0.95,
-                    "supporting_path": path.name,
+                    "supporting_path": path.title,
                     "suggested_timeline": f"{coerce_int(current_step.estimated_hours)} hours",
-                    "suggestion_reason": f"Current step in {path.name} learning path",
+                    "suggestion_reason": f"Current step in {path.title} learning path",
                 }
                 suggestions.append(mastery_suggestion)
 
@@ -489,13 +489,13 @@ class LearningAlignmentBridge[T, DTO, Request]:
             )
             if remaining_steps > 0:
                 completion_suggestion = {
-                    "title": f"Complete {path.name} Learning Path",
-                    "name": f"Complete {path.name}",  # For habits
-                    "description": f"Complete all {remaining_steps} remaining steps in {path.name}",
+                    "title": f"Complete {path.title} Learning Path",
+                    "name": f"Complete {path.title}",  # For habits
+                    "description": f"Complete all {remaining_steps} remaining steps in {path.title}",
                     "domain": path.domain,
                     "priority": Priority.MEDIUM,
                     "learning_alignment_score": 0.9,
-                    "supporting_path": path.name,
+                    "supporting_path": path.title,
                     "suggested_timeline": f"{remaining_steps} weeks",
                     "suggestion_reason": f"Path completion with {remaining_steps} steps remaining",
                 }
@@ -506,13 +506,13 @@ class LearningAlignmentBridge[T, DTO, Request]:
                 outcome_suggestion = {
                     "title": f"Achieve: {outcome}",
                     "name": f"Practice: {outcome}",  # For habits
-                    "description": f"Learning outcome from {path.name}: {outcome}",
+                    "description": f"Learning outcome from {path.title}: {outcome}",
                     "domain": path.domain,
                     "priority": Priority.MEDIUM,
                     "learning_alignment_score": 0.8,
-                    "supporting_path": path.name,
+                    "supporting_path": path.title,
                     "suggested_timeline": "1-2 months",
-                    "suggestion_reason": f"Learning outcome from {path.name}",
+                    "suggestion_reason": f"Learning outcome from {path.title}",
                 }
                 suggestions.append(outcome_suggestion)
 
@@ -625,7 +625,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
 
                     assessment["learning_milestones"].append(
                         {
-                            "path": path.name,
+                            "path": path.title,
                             "current_step": step_description,
                             "milestone": f"Complete {step_description} mastery",
                         }
@@ -720,7 +720,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         entity_text = f"{entity_title} {entity_desc}".lower()
 
         for path in learning_position.active_paths:
-            if path.name.lower() in entity_text:
+            if path.title.lower() in entity_text:
                 learning_score += 0.3
                 break  # Only count once per entity
 

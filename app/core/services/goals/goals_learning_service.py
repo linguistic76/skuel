@@ -232,7 +232,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
             path_support = 0.0
             goal_text = f"{goal.title} {goal.description}".lower()
 
-            if path.name.lower() in goal_text:
+            if path.title.lower() in goal_text:
                 path_support += 0.5
 
             # NOTE: Knowledge alignment check removed - goal.linked_knowledge_uids
@@ -251,7 +251,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
 
                 # Build PathProgressData frozen dataclass
                 path_data = PathProgressData(
-                    path=path.name,
+                    path=path.title,
                     support_score=path_support,
                     progress=path_progress,
                     completed_steps=completed_steps,

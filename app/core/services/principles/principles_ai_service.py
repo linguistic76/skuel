@@ -77,7 +77,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
 
         all_principles = all_principles_result.value or []
         candidates = [
-            (p.uid, f"{p.name} {p.description or ''}")
+            (p.uid, f"{p.title} {p.description or ''}")
             for p in all_principles
             if p.uid != principle_uid
         ]

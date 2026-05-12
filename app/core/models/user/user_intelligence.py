@@ -199,7 +199,7 @@ class UserLearningIntelligence:
                     "type": "learning_progress",
                     "target_uid": path.uid,
                     "score": 0.8,  # High priority for active paths
-                    "reason": f"Continue learning path: {path.name}",
+                    "reason": f"Continue learning path: {path.title}",
                     "source": IntelligenceSource.RELATIONSHIP_ANALYSIS,
                     "urgency": 0.7,
                 }

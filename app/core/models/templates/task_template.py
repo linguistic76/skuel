@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING
 
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.templates.relative_offset import RelativeOffset
 
 if TYPE_CHECKING:
@@ -63,9 +64,8 @@ class TaskTemplate(Entity):
     scheduled_offset: RelativeOffset | None = None
     duration_minutes: int | None = None
 
-    # Recurrence — pattern is a string (RecurrencePattern enum value); end
-    # is engagement-relative.
-    recurrence_pattern: str | None = None
+    # Recurrence — end offset is engagement-relative.
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_offset: RelativeOffset | None = None
 
     # =========================================================================

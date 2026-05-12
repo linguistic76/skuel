@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_dto import UserOwnedDTO
 
 
@@ -56,7 +57,7 @@ class TaskDTO(UserOwnedDTO):
     actual_minutes: int | None = None
 
     # Recurrence
-    recurrence_pattern: str | None = None
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
 
@@ -139,7 +140,13 @@ class TaskDTO(UserOwnedDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "visibility"],
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "recurrence_pattern",
+            ],
             date_fields=["due_date", "scheduled_date", "completion_date", "recurrence_end_date"],
             datetime_fields=["created_at", "updated_at"],
         )
@@ -157,6 +164,7 @@ class TaskDTO(UserOwnedDTO):
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
+                "recurrence_pattern": RecurrencePattern,
             },
             date_fields=[
                 "due_date",

@@ -120,7 +120,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
 
         all_habits = all_habits_result.value or []
         candidates = [
-            (h.uid, f"{h.name} {h.description or ''} {h.routine or ''}")
+            (h.uid, f"{h.title} {h.description or ''} {h.routine or ''}")
             for h in all_habits
             if h.uid != habit_uid
         ]

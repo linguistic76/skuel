@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -100,7 +101,7 @@ class Habit(UserOwnedEntity):
     # SCHEDULING
     # =========================================================================
     duration_minutes: int | None = None  # Expected duration
-    recurrence_pattern: str | None = None  # RecurrencePattern enum value
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
     target_days_per_week: int | None = None  # Habit frequency

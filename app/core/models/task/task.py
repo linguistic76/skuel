@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from core.models.task.task_dto import TaskDTO
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -72,7 +73,7 @@ class Task(UserOwnedEntity):
     actual_minutes: int | None = None  # Actual time spent
 
     # Recurrence
-    recurrence_pattern: str | None = None  # RecurrencePattern enum value
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
 
@@ -237,11 +238,6 @@ class Task(UserOwnedEntity):
     @property
     def is_from_path_step(self) -> bool:
         """Check if this task originated from a path step."""
-        return self.source_path_step_uid is not None
-
-    @property
-    def fulfills_path_step(self) -> bool:
-        """Check if this task fulfills a path step."""
         return self.source_path_step_uid is not None
 
     # =========================================================================

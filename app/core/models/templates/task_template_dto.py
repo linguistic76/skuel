@@ -17,6 +17,7 @@ from typing import Any
 from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.templates.relative_offset import RelativeOffset
 
 # Names of fields that hold a RelativeOffset value. Centralised so adding a
@@ -66,7 +67,7 @@ class TaskTemplateDTO(EntityDTO):
     duration_minutes: int | None = None
 
     # Recurrence
-    recurrence_pattern: str | None = None
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_offset: RelativeOffset | None = None
 
     # Hierarchy
@@ -93,7 +94,7 @@ class TaskTemplateDTO(EntityDTO):
 
         data = dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain"],
+            enum_fields=["entity_type", "status", "domain", "recurrence_pattern"],
             datetime_fields=["created_at", "updated_at"],
         )
         for name in _OFFSET_FIELDS:
@@ -119,6 +120,7 @@ class TaskTemplateDTO(EntityDTO):
                 "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
+                "recurrence_pattern": RecurrencePattern,
             },
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags"],

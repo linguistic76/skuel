@@ -28,6 +28,7 @@ from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_dto import UserOwnedDTO
 
 
@@ -91,7 +92,7 @@ class HabitDTO(UserOwnedDTO):
     # SCHEDULING
     # =========================================================================
     duration_minutes: int | None = None
-    recurrence_pattern: str | None = None
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
     target_days_per_week: int | None = None
@@ -165,6 +166,7 @@ class HabitDTO(UserOwnedDTO):
                 "polarity",
                 "habit_category",
                 "habit_difficulty",
+                "recurrence_pattern",
             ],
             date_fields=["recurrence_end_date"],
             datetime_fields=[
@@ -192,6 +194,7 @@ class HabitDTO(UserOwnedDTO):
                 "polarity": HabitPolarity,
                 "habit_category": HabitCategory,
                 "habit_difficulty": HabitDifficulty,
+                "recurrence_pattern": RecurrencePattern,
             },
             date_fields=["recurrence_end_date"],
             datetime_fields=[

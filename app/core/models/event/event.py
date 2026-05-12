@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from core.models.event.event_dto import EventDTO
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -72,7 +73,7 @@ class Event(UserOwnedEntity):
     # =========================================================================
     # RECURRENCE
     # =========================================================================
-    recurrence_pattern: str | None = None  # RecurrencePattern enum value
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
 
@@ -171,11 +172,6 @@ class Event(UserOwnedEntity):
     @property
     def is_from_path_step(self) -> bool:
         """Check if this event originated from a path step."""
-        return self.source_path_step_uid is not None
-
-    @property
-    def fulfills_path_step(self) -> bool:
-        """Check if this event fulfills a path step."""
         return self.source_path_step_uid is not None
 
     def get_summary(self, max_length: int = 200) -> str:

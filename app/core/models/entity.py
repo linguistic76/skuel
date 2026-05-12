@@ -235,20 +235,6 @@ class Entity:
         return QueryIntent.EXPLORATORY
 
     # =========================================================================
-    # DISPLAY
-    # =========================================================================
-
-    @property
-    def name(self) -> str:
-        """Alias for title — backward compat for code referencing old domain models."""
-        return self.title
-
-    @property
-    def key_topics(self) -> tuple[str, ...]:
-        """Key topics — alias for tags."""
-        return self.tags
-
-    # =========================================================================
     # CONVERSION — DISPATCHER + GENERIC EXTRACTION
     # =========================================================================
 

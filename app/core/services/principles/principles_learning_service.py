@@ -209,7 +209,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
             if current_step:
                 enhanced_frame["mastery_indicators"].append(
                     {
-                        "path": path.name,
+                        "path": path.title,
                         "indicator": f"Apply {principle_category} while mastering {current_step.title}",
                         "success_metric": f"Demonstrate {principle_category} in {current_step.title} application",
                     }
@@ -219,9 +219,9 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         for path in learning_position.active_paths:
             enhanced_frame["learning_path_integration"].append(
                 {
-                    "path": path.name,
-                    "integration": f"Practice {principle_category} throughout {path.name} learning journey",
-                    "milestone": f"Embody {principle_category} in {path.name} outcomes",
+                    "path": path.title,
+                    "integration": f"Practice {principle_category} throughout {path.title} learning journey",
+                    "milestone": f"Embody {principle_category} in {path.title} outcomes",
                 }
             )
 
@@ -328,7 +328,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
 
                 if path_support > 0.4:
                     learning_support_score += path_support
-                    supporting_paths.append(path.name)
+                    supporting_paths.append(path.title)
 
             # Create suggestion if well-supported
             if learning_support_score > 0.5:
@@ -418,10 +418,10 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
 
                 learning_path_embodiment.append(
                     {
-                        "path": path.name,
+                        "path": path.title,
                         "embodiment_score": path_embodiment,
                         "progress": path_progress,
-                        "development_evidence": f"Demonstrating {principle_category} through {path.name} progression",
+                        "development_evidence": f"Demonstrating {principle_category} through {path.title} progression",
                     }
                 )
 
