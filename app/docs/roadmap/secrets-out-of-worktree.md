@@ -65,14 +65,17 @@ After Stage 2, the worktree has zero credential bytes. Verified by full-tree gre
 
 **Known caveats (documented in the migration script's output too)**:
 
-1. **Docker Compose reads `.env` directly** for `${VAR}` interpolation. After Stage 3, `.env` no longer holds credentials — anything in `app/docker-compose.yml` or `infrastructure/docker-compose.yml` referencing `${NEO4J_PASSWORD}` will fail unless you pre-export from the keychain before running `docker compose up`. The pre-export shape:
+1. **Docker Compose reads `.env` directly** for `${VAR}` interpolation. After Stage 3, `.env` no longer holds credentials — anything in `app/docker-compose.yml` or `infrastructure/docker-compose.yml` referencing `${NEO4J_PASSWORD}` will fail unless you pre-export from the keychain before running `docker compose up`.
+
+   Use `app/scripts/dev/with-secrets`:
 
    ```bash
-   export NEO4J_PASSWORD="$(python -c 'import keyring; print(keyring.get_password(\"skuel\", \"NEO4J_PASSWORD\"))')"
-   docker compose up
+   ./scripts/dev/with-secrets docker compose up
+   ./scripts/dev/with-secrets psql "$DATABASE_URL"
+   WITH_SECRETS_VERBOSE=1 ./scripts/dev/with-secrets env | grep NEO4J_
    ```
 
-   Acceptable for the dev loop; CI/prod will need a different secret-injection path (out of scope for this work).
+   The helper reads `~/.config/skuel/keyring-index.json`, fetches each stored credential from the OS keychain, exports them as env vars, then `exec`s your command — so the credentials exist only in the spawned process tree. CI/prod will need a different secret-injection path (out of scope for this work).
 
 2. **Keychain unlock**: the credential store is unlocked when your desktop session is unlocked. Headless boxes / CI / cron environments don't get keychain access — they need the Fernet path or platform-native secrets.
 
@@ -85,7 +88,6 @@ After Stage 2, the worktree has zero credential bytes. Verified by full-tree gre
 Nothing structurally — Stages 1–3 cover the full "no plaintext secrets on disk" goal for a single-developer machine. Open follow-ups, all small and optional:
 
 - Shred `~/.config/skuel/secrets.env` once Stage 3 has run a few sessions without surprises (it's still on disk because the migration was invoked with `--keep-source`).
-- Pre-export wrapper for Docker Compose. A `scripts/dev/with-secrets` shim like `secret-tool` → `env` → `docker compose up` would smooth the rough edge in caveat #1 above.
 - Tests for `KeyringBackend` round-trip. Currently covered by integration tests + the inline smoke test in the Stage 3a commit; a dedicated unit test isn't strictly needed but would be cheap insurance.
 
 ## What's permanently out of scope (deliberate)
@@ -107,6 +109,7 @@ From the plan's § "Out of scope":
 - Setup tool: `app/core/config/credential_setup.py`
 - Stage 2 migration script (`.env` → `~/.config/skuel/secrets.env`): `app/scripts/migrate_secrets_to_homedir.py`
 - Stage 3 migration script (`secrets.env` → OS keychain): `app/scripts/migrate_secrets_to_keychain.py`
+- Docker-Compose-and-friends helper: `app/scripts/dev/with-secrets`
 - direnv loader: `app/.envrc`
 - Two-file convention reference: `app/.env.example`
 - Backend selector: set `SKUEL_CREDENTIAL_BACKEND=keyring` in `app/.env` (already there if you ran the Stage 3 migration)
