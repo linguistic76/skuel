@@ -90,7 +90,7 @@ echo ""
 
 # Check if SKUEL app metrics endpoint is accessible (if app is running)
 echo "9️⃣  Checking SKUEL metrics endpoint..."
-if curl -sf http://localhost:5001/metrics > /dev/null; then
+if curl -sf http://localhost:8000/metrics > /dev/null; then
     echo -e "${GREEN}✅ SKUEL /metrics endpoint is accessible${NC}"
 
     # Check if Prometheus is scraping
@@ -116,7 +116,7 @@ echo "📊 Monitoring Stack Status"
 echo "=========================="
 echo -e "Prometheus UI:     ${GREEN}http://localhost:9090${NC}"
 echo -e "Grafana UI:        ${GREEN}http://localhost:3000${NC} (admin/admin)"
-echo -e "SKUEL Metrics:     ${GREEN}http://localhost:5001/metrics${NC}"
+echo -e "SKUEL Metrics:     ${GREEN}http://localhost:8000/metrics${NC}"
 echo ""
 
 echo -e "${GREEN}✅ Phase 1 setup verification complete!${NC}"

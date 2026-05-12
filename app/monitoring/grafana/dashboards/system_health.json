@@ -199,62 +199,8 @@
       "collapsed": false
     },
     {
-      "id": 9,
-      "gridPos": { "x": 0, "y": 19, "w": 6, "h": 6 },
-      "type": "stat",
-      "title": "Neo4j Connection Status",
-      "targets": [
-        {
-          "expr": "skuel_neo4j_connected",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"]
-        },
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "orientation": "horizontal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "red"
-              },
-              {
-                "value": 1,
-                "color": "green"
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                }
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
       "id": 10,
-      "gridPos": { "x": 6, "y": 19, "w": 6, "h": 6 },
+      "gridPos": { "x": 0, "y": 19, "w": 8, "h": 6 },
       "type": "gauge",
       "title": "Total HTTP Requests (5m)",
       "targets": [
@@ -292,7 +238,7 @@
     },
     {
       "id": 11,
-      "gridPos": { "x": 12, "y": 19, "w": 6, "h": 6 },
+      "gridPos": { "x": 8, "y": 19, "w": 8, "h": 6 },
       "type": "gauge",
       "title": "Total Neo4j Queries (5m)",
       "targets": [
@@ -330,7 +276,7 @@
     },
     {
       "id": 12,
-      "gridPos": { "x": 18, "y": 19, "w": 6, "h": 6 },
+      "gridPos": { "x": 16, "y": 19, "w": 8, "h": 6 },
       "type": "stat",
       "title": "Python Process Memory",
       "targets": [

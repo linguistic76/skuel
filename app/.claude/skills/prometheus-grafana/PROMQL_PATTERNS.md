@@ -181,19 +181,6 @@ sum by (entity_type) (rate(skuel_entities_completed_total[5m]))
 sum(rate(skuel_entities_completed_total{entity_type="task"}[5m]))
 ```
 
-### Active Entity Tracking
-
-```promql
-# Current active entities by type
-skuel_active_entities_count
-
-# Total active entities across all types
-sum(skuel_active_entities_count)
-
-# Active entities per user
-sum by (user_uid) (skuel_active_entities_count)
-```
-
 ---
 
 ## Event Bus Queries
@@ -317,9 +304,6 @@ sum by (layer) (skuel_relationships_count)
 
 # Lateral relationships by category
 sum by (category) (skuel_lateral_relationships_by_category)
-
-# Cross-domain connections heatmap
-sum by (from_domain, to_domain) (skuel_cross_domain_relationships_count)
 ```
 
 ### Dependency Patterns
@@ -330,57 +314,6 @@ skuel_blocking_relationships_count
 
 # Active ENABLES relationships
 skuel_enables_relationships_count
-
-# Dependency chain length
-skuel_dependency_chain_max_length
-
-# Alert on deep chains (>5 levels)
-skuel_dependency_chain_max_length > 5
-```
-
----
-
-## Search Performance Queries
-
-### Search Volume and Latency
-
-```promql
-# Total searches per second
-rate(skuel_searches_total[5m])
-
-# Searches by type
-sum by (search_type) (rate(skuel_searches_total[5m]))
-
-# Search duration p95
-histogram_quantile(0.95,
-  sum by (search_type, le) (
-    rate(skuel_search_duration_seconds_bucket[5m])
-  )
-)
-
-# Slow searches (>1s p95)
-histogram_quantile(0.95,
-  sum by (search_type, le) (
-    rate(skuel_search_duration_seconds_bucket[5m])
-  )
-) > 1.0
-```
-
-### Search Quality Metrics
-
-```promql
-# Average similarity score
-avg(rate(skuel_search_similarity_score_sum[5m])
-  / rate(skuel_search_similarity_score_count[5m]))
-
-# Similarity p50 (median relevance)
-histogram_quantile(0.50,
-  rate(skuel_search_similarity_score_bucket[5m])
-)
-
-# High-quality results (similarity > 0.8)
-sum(rate(skuel_search_similarity_score_bucket{le="1.0"}[5m]))
-- sum(rate(skuel_search_similarity_score_bucket{le="0.8"}[5m]))
 ```
 
 ---

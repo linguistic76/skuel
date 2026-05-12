@@ -564,9 +564,9 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 
 - **Prometheus UI**: http://localhost:9090
 - **Grafana Dashboards**: http://localhost:3000
-- **Metrics Endpoint**: http://localhost:5001/metrics
+- **Metrics Endpoint**: http://localhost:8000/metrics
 
-47 metrics across 9 categories, 13 production alerts, 4 Grafana dashboards. AI/LLM cost tracking included.
+33 metrics across 7 categories (HTTP, Database, Event Bus, Domains, Relationships, Queries, AI), 11 production alerts, 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Event Bus).
 
 **See:** `@prometheus-grafana` skill, `monitoring/README.md`
 

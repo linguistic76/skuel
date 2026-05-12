@@ -18,21 +18,19 @@ SKUEL uses Prometheus for metrics collection and Grafana for visualization, foll
 **Grafana**: Visualization platform with 4 production dashboards for operational intelligence
 **Architecture**: Direct writes to Prometheus (zero lag), optional in-memory cache for debugging
 
-### The 47 Metrics (Phase 1 - January 2026)
+### The 33 Metrics
 
-SKUEL tracks 47 metrics across 9 categories:
+SKUEL tracks 33 metrics across 7 categories:
 
 | Category | Metrics | Purpose | Examples |
 |----------|---------|---------|----------|
-| **System** (3) | CPU, memory, Neo4j health | Infrastructure monitoring | `skuel_cpu_usage_percent`, `skuel_neo4j_connected` |
 | **HTTP** (3) | Requests, latency, errors | API performance | `skuel_http_requests_total`, `skuel_http_request_duration_seconds` |
 | **Database** (3) | Queries, duration, errors | Neo4j performance | `skuel_neo4j_queries_total`, `skuel_neo4j_query_duration_seconds` |
 | **Events** (6) | Publications, handlers, invalidations | Event bus health | `skuel_events_published_total`, `skuel_event_handler_duration_seconds` |
-| **Domains** (3) | Creation, completion, active count | Business activity | `skuel_entities_created_total`, `skuel_entities_completed_total` |
-| **Relationships** (14) | Graph density, layers, dependencies | Graph health | `skuel_graph_density`, `skuel_blocking_relationships_count` |
-| **Search** (3) | Searches, duration, similarity | Search performance | `skuel_searches_total`, `skuel_search_similarity_score` |
+| **Domains** (2) | Creation, completion | Business activity | `skuel_entities_created_total`, `skuel_entities_completed_total` |
+| **Relationships** (10) | Graph density, layers, dependencies | Graph health | `skuel_graph_density`, `skuel_blocking_relationships_count` |
 | **Queries** (3) | Operations, duration, errors | Granular performance | `skuel_operation_calls_total`, `skuel_operation_duration_seconds` |
-| **AI Services** (9) | AI API calls, embeddings, transcription | AI cost & performance | `skuel_ai_requests_total`, `skuel_embedding_queue_size` |
+| **AI Services** (6) | AI API calls, embeddings | AI cost & performance | `skuel_ai_requests_total`, `skuel_embedding_queue_size` |
 
 ### The 4 Grafana Dashboards
 
@@ -40,8 +38,8 @@ SKUEL tracks 47 metrics across 9 categories:
 |-----------|-------|------------|----------|
 | **System Health** | HTTP & API | Request rate, latency (p50/p95/p99), error rates | Monitor API performance, debug slow endpoints |
 | **Domain Activity** | Business metrics | Entity creation/completion by domain | Track user engagement, feature adoption |
-| **Graph Health** | Relationship patterns | Graph density, orphaned entities, dependency chains | Ensure graph integrity, optimize relationships |
-| **Search & Events** | Search + event bus | Search latency/quality, event handler performance | Debug search quality, monitor event bus health |
+| **Graph Health** | Relationship patterns | Graph density, orphaned entities | Ensure graph integrity, optimize relationships |
+| **Event Bus** | Event publication, handler latency, errors | Detect handler regressions, monitor event bus health |
 
 ### Start the Stack
 
@@ -50,7 +48,7 @@ SKUEL tracks 47 metrics across 9 categories:
 docker-compose up -d prometheus grafana
 
 # Verify Prometheus is scraping
-curl http://localhost:5001/metrics | grep skuel_
+curl http://localhost:8000/metrics | grep skuel_
 
 # Access Grafana dashboards
 open http://localhost:3000
@@ -97,23 +95,7 @@ Event/Operation
 
 ## Metric Categories Reference
 
-### 1. System Metrics (3 metrics)
-
-**Class**: `SystemMetrics` in `prometheus_metrics.py`
-
-| Metric | Type | Labels | Purpose |
-|--------|------|--------|---------|
-| `skuel_cpu_usage_percent` | Gauge | None | CPU usage percentage |
-| `skuel_memory_usage_bytes` | Gauge | None | Memory consumption |
-| `skuel_neo4j_connected` | Gauge | None | Neo4j health (1=up, 0=down) |
-
-**Usage**:
-```python
-prometheus_metrics.system.cpu_usage.set(45.2)
-prometheus_metrics.system.neo4j_connected.set(1)  # Up
-```
-
-### 2. HTTP Metrics (3 metrics)
+### 1. HTTP Metrics (3 metrics)
 
 **Class**: `HttpMetrics`
 
@@ -141,7 +123,7 @@ prometheus_metrics.http.requests_total.labels(
 
 **See**: [INSTRUMENTATION.md](INSTRUMENTATION.md) for HTTP instrumentation patterns
 
-### 3. Database Metrics (3 metrics)
+### 2. Database Metrics (3 metrics)
 
 **Class**: `DatabaseMetrics`
 
@@ -166,7 +148,7 @@ prometheus_metrics.db.query_duration.labels(
 ).observe(0.15)  # 150ms
 ```
 
-### 4. Event Metrics (6 metrics)
+### 3. Event Metrics (6 metrics)
 
 **Class**: `EventMetrics`
 
@@ -195,7 +177,7 @@ prometheus_metrics.events.event_handler_duration_seconds.labels(
 ).observe(0.08)
 ```
 
-### 5. Domain Metrics (3 metrics)
+### 4. Domain Metrics (2 metrics)
 
 **Class**: `DomainMetrics`
 
@@ -203,9 +185,8 @@ prometheus_metrics.events.event_handler_duration_seconds.labels(
 |--------|------|--------|---------|
 | `skuel_entities_created_total` | Counter | `entity_type` | Creation tracking |
 | `skuel_entities_completed_total` | Counter | `entity_type` | Completion tracking |
-| `skuel_active_entities_count` | Gauge | `entity_type` | Active count |
 
-**Entity Types**: `task`, `goal`, `habit`, `event`, `choice`, `principle`
+**Entity Types**: `task`, `goal`, `habit`, `event`, `choice`, `principle`, `expense`, `transcription`, `ku`, `ps`, `lp`, `user_entry`
 
 **Usage**:
 ```python
@@ -221,7 +202,7 @@ prometheus_metrics.domains.entities_completed.labels(
 
 **See**: `core/infrastructure/monitoring/metrics_event_handler.py` for event subscriptions
 
-### 6. Relationship Metrics (14 metrics)
+### 5. Relationship Metrics (10 metrics)
 
 **Class**: `RelationshipMetrics`
 
@@ -241,32 +222,15 @@ Tracks SKUEL's four relationship layers:
 | `skuel_lateral_relationships_by_category` | Gauge | `category` | Lateral breakdown |
 | `skuel_blocking_relationships_count` | Gauge | None | Active BLOCKS |
 | `skuel_enables_relationships_count` | Gauge | None | Active ENABLES |
-| `skuel_dependency_chain_max_length` | Gauge | None | Longest chain |
 | `skuel_contains_relationships_count` | Gauge | None | CONTAINS count |
 | `skuel_organizes_relationships_count` | Gauge | None | ORGANIZES count |
-| `skuel_semantic_relationships_count` | Gauge | `tier` | Semantic by tier |
-| `skuel_cross_domain_relationships_count` | Gauge | `from_domain`, `to_domain` | Cross-domain |
-| `skuel_graph_traversal_avg_depth` | Gauge | None | Avg query depth |
 
 **Layer Values**: `hierarchical`, `lateral`, `semantic`, `cross_domain`
 **Category Values**: `structural`, `dependency`, `semantic`, `associative`
 
 **Updated By**: Background task (every 5 minutes) running Neo4j queries
 
-### 7. Search Metrics (3 metrics)
-
-**Class**: `SearchMetrics`
-
-| Metric | Type | Labels | Purpose |
-|--------|------|--------|---------|
-| `skuel_searches_total` | Counter | `search_type` | Search count |
-| `skuel_search_duration_seconds` | Histogram | `search_type` | Search latency |
-| `skuel_search_similarity_score` | Histogram | `search_type` | Result relevance |
-
-**Search Types**: `vector`, `fulltext`, `hybrid`
-**Similarity Buckets**: `(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)`
-
-### 8. Query Metrics (3 metrics)
+### 6. Query Metrics (3 metrics)
 
 **Class**: `QueryMetrics`
 
@@ -283,24 +247,22 @@ More granular than DatabaseMetrics - tracks individual operation performance.
 
 ---
 
-### 9. AI Service Metrics (9 metrics) - Phase 1 (January 2026)
+### 7. AI Service Metrics (6 metrics)
 
 **Class**: `AiMetrics`
 
-Tracks AI API calls (OpenAI LLM, HuggingFace embeddings), and Deepgram transcription. Critical for monitoring expensive AI operations and enabling cost optimization.
+Tracks AI API calls (OpenAI LLM, HuggingFace embeddings). Critical for monitoring expensive AI operations.
 
-#### AI API Metrics (4 metrics)
+#### AI API Metrics (3 metrics)
 
 | Metric | Type | Labels | Purpose |
 |--------|------|--------|---------|
 | `skuel_ai_requests_total` | Counter | `operation`, `model` | Total AI API requests |
 | `skuel_ai_duration_seconds` | Histogram | `operation`, `model` | AI API call duration |
-| `skuel_ai_tokens_total` | Counter | `operation`, `model`, `token_type` | Token consumption |
 | `skuel_ai_errors_total` | Counter | `operation`, `error_type` | AI API errors |
 
 **Operations**: `embeddings`, `chat`, `completion`
 **Models**: `BAAI/bge-large-en-v1.5`, `gpt-4`, etc.
-**Token Types**: `prompt`, `completion`
 **Error Types**: `rate_limit`, `timeout`, `auth`, `unknown`
 **Duration Buckets**: `(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0)`
 
@@ -311,9 +273,6 @@ sum by (model) (rate(skuel_ai_requests_total[5m]))
 
 # Average AI latency
 histogram_quantile(0.50, rate(skuel_ai_duration_seconds_bucket[5m]))
-
-# Token usage by operation (cost tracking)
-sum by (operation) (rate(skuel_ai_tokens_total[1h]))
 
 # AI error rate
 sum(rate(skuel_ai_errors_total[5m]))
@@ -349,35 +308,16 @@ histogram_quantile(0.50, rate(skuel_embedding_batch_size_bucket[5m]))
 sum by (entity_type) (rate(skuel_embeddings_processed_total[5m]))
 ```
 
-#### Deepgram Transcription Metrics (2 metrics)
-
-| Metric | Type | Labels | Purpose |
-|--------|------|--------|---------|
-| `skuel_transcription_requests_total` | Counter | `status` | Total transcription requests |
-| `skuel_transcription_duration_seconds` | Histogram | - | Transcription time |
-
-**Statuses**: `success`, `failed`
-**Duration Buckets**: `(0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)`
-
-**Example Queries**:
-```promql
-# Transcription request rate
-rate(skuel_transcription_requests_total[5m])
-
-# p95 transcription latency
-histogram_quantile(0.95, rate(skuel_transcription_duration_seconds_bucket[5m]))
-```
-
 **Instrumentation Locations**:
 - OpenAI calls: `core/services/neo4j_genai_embeddings_service.py:138-160`
 - Embedding worker: `core/services/background/embedding_worker.py:165-180`
 - Prometheus metrics passed to backends in `compose_services()` via `prometheus_metrics=` parameter
 
 **Key Alerts** (see `ALERTING.md`):
-- `HighOpenAIErrorRate` - >20% API failures
+- `HighAIErrorRate` - >20% API failures
 - `EmbeddingQueueBacklog` - >500 pending items
 - `HighEmbeddingFailureRate` - >20% failed embeddings
-- `SlowOpenAICalls` - p95 >30s
+- `SlowAICalls` - p95 >30s
 
 ---
 
@@ -405,9 +345,8 @@ histogram_quantile(0.95, rate(skuel_transcription_duration_seconds_bucket[5m]))
 **Key Panels**:
 1. **Entity Creation Rate**: `rate(skuel_entities_created_total[5m])` by entity_type
 2. **Entity Completion Rate**: `rate(skuel_entities_completed_total[5m])` by entity_type
-3. **Active Entities**: `skuel_active_entities_count` gauge
-4. **Completion Percentage**: `(completed / created) * 100`
-5. **User Engagement Heatmap**: Creation events by hour/day
+3. **Completion Percentage**: `(completed / created) * 100`
+4. **User Engagement Heatmap**: Creation events by hour/day
 
 **Use Case**: Track feature adoption, monitor user engagement, identify trends
 
@@ -421,22 +360,18 @@ histogram_quantile(0.95, rate(skuel_transcription_duration_seconds_bucket[5m]))
 2. **Orphaned Entities**: `skuel_orphaned_entities_count` (target: 0)
 3. **Relationship Breakdown by Layer**: `skuel_relationships_count` stacked by layer
 4. **Blocking Dependencies**: `skuel_blocking_relationships_count`
-5. **Dependency Chain Length**: `skuel_dependency_chain_max_length` (detect deep chains)
-6. **Cross-Domain Connections**: `skuel_cross_domain_relationships_count` heatmap
 
 **Use Case**: Ensure graph integrity, optimize relationship structure, detect anomalies
 
-### 4. Search & Events Dashboard
+### 4. Event Bus Dashboard
 
-**File**: `/monitoring/grafana/dashboards/search_events.json`
-**Focus**: Search performance and event bus health
+**File**: `/monitoring/grafana/dashboards/event_bus.json`
+**Focus**: Event bus health
 
 **Key Panels**:
 1. **Event Publication Rate**: `rate(skuel_events_published_total[5m])`
 2. **Event Handler Latency**: `skuel_event_handler_duration_seconds` histogram
-3. **Slow Event Handlers**: Top 5 by p95 latency
-4. **Event Handler Errors**: `skuel_event_handler_errors_total`
-5. **Context Invalidations**: `rate(skuel_context_invalidations_total[5m])`
+3. **Event Handler Errors**: `skuel_event_handler_errors_total`
 
 **Use Case**: Debug event processing, optimize handler performance, track invalidations
 
@@ -448,7 +383,7 @@ histogram_quantile(0.95, rate(skuel_transcription_duration_seconds_bucket[5m]))
 
 ```bash
 # 1. Check /metrics endpoint
-curl http://localhost:5001/metrics | grep skuel_http_requests_total
+curl http://localhost:8000/metrics | grep skuel_http_requests_total
 
 # Expected output:
 # skuel_http_requests_total{endpoint="/tasks",method="GET",status="200"} 42.0

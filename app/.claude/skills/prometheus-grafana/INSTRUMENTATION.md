@@ -405,10 +405,10 @@ journaps_service = JournalsService(
 
 ```bash
 # 1. Trigger the action (create journal entry)
-curl -X POST http://localhost:5001/api/journals/create -d '{"entry_type": "reflection"}'
+curl -X POST http://localhost:8000/api/journals/create -d '{"entry_type": "reflection"}'
 
 # 2. Check /metrics endpoint
-curl http://localhost:5001/metrics | grep skuel_journal_entries_created_total
+curl http://localhost:8000/metrics | grep skuel_journal_entries_created_total
 
 # Expected output:
 # skuel_journal_entries_created_total{entry_type="reflection"} 1.0
@@ -534,11 +534,11 @@ skuel_entities_created_total
 
 # Gauges - no suffix
 skuel_graph_density
-skuel_active_entities_count
+skuel_orphaned_entities_count
 
 # Histograms - suffix with unit
 skuel_http_request_duration_seconds
-skuel_search_duration_seconds
+skuel_neo4j_query_duration_seconds
 
 # Use underscores (not camelCase)
 skuel_event_handler_calls_total  # GOOD
