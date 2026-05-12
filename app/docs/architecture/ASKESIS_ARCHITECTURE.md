@@ -458,7 +458,7 @@ Six stub implementations were completed to bring Askesis from ~60-70% to ~95% fu
 
 | Method | File | Implementation |
 |--------|------|----------------|
-| `_find_similar_knowledge()` | `context_retriever.py` | Semantic search via EmbeddingsService |
+| `_find_similar_chunks()` | `context_retriever.py` | Chunk-level vector search via `Neo4jVectorSearchService.find_similar_chunks_by_text` |
 | `get_learning_context()` | `context_retriever.py` | Delegates to `PsBackend.get_user_learning_context()` |
 | `_analyze_blocked_knowledge_prerequisites()` | `context_retriever.py` | Gap analysis via `KuBackend.get_unmastered_prerequisites()` + `count_dependents()` |
 | `_identify_quick_wins_and_high_impact()` | `context_retriever.py` | Classification based on prerequisite count |
@@ -467,28 +467,36 @@ Six stub implementations were completed to bring Askesis from ~60-70% to ~95% fu
 
 ### Semantic Search Implementation
 
-`ContextRetriever._find_similar_knowledge()` now performs real semantic search:
+`ContextRetriever._find_similar_chunks()` performs chunk-level vector search so
+answers cite the actual matching passage (not just the parent PathStep's title):
 
 ```python
-async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tuple[str, float, str]]:
-    # 1. Create query embedding via EmbeddingsService
-    query_embedding = await self.embeddings_service.create_embedding(query)
-
-    # 2. Fetch knowledge entities (PathSteps, KUs, Resources) with embeddings from Neo4j
-    ku_query = """
-    MATCH (ku:Entity)
-    WHERE ku.embedding IS NOT NULL
-      AND ku.entity_type IN ['path_step', 'ku', 'resource']
-    RETURN ku.uid, ku.title, ku.embedding LIMIT 100
-    """
-
-    # 3. Find similar via cosine similarity (threshold 0.6, top_k=5)
-    similar = self.embeddings_service.find_similar(
-        query_embedding=query_embedding,
-        embeddings=embeddings_list,
-        threshold=0.6, top_k=5
+async def _find_similar_chunks(
+    self,
+    query: str,
+    _user_uid: UserUID,
+    chunk_types: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    # Targets contentchunk_embedding_idx (not entity_embedding_idx).
+    # The join chunk → content → entity surfaces the owning PathStep for citation.
+    result = await self.vector_search_service.find_similar_chunks_by_text(
+        text=query,
+        chunk_types=chunk_types,  # intent-aware (e.g. PRACTICE → ["EXERCISE","EXAMPLE"])
+        limit=5,
+        min_score=0.6,
     )
-    return [(uid, score, title) for uid, score in similar]
+    return [
+        {
+            "chunk_uid": hit["chunk_uid"],
+            "chunk_type": hit["chunk_type"],
+            "text": hit["text"],
+            "context_window": hit["context_window"] or hit["text"],
+            "similarity": hit["similarity_score"],
+            "parent_uid": hit["parent_uid"],      # owning PathStep
+            "parent_title": hit["parent_title"],
+        }
+        for hit in result.value
+    ]
 ```
 
 ### LLM Integration

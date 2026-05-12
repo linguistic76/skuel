@@ -46,7 +46,6 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | `get_by_date_range()` | - | - | - | D | - | - | - | - | - | - |
 | `get_by_urgency()` | - | - | - | - | D | - | - | - | - | - |
 | `get_by_strength()` | - | - | - | - | - | D | - | - | - | - |
-| `search_chunks()` | - | - | - | - | - | - | D | - | - | - |
 | `find_similar_content()` | - | - | - | - | - | - | D | - | - | - |
 | `get_for_learning_path()` | - | - | - | - | - | - | - | D | - | - |
 | `get_by_path_type()` | - | - | - | - | - | - | - | - | D | - |
@@ -423,10 +422,12 @@ _graph_enrichment_patterns = [
 | `search_by_title_template` | `(template: str, domain: Domain) -> Result[list[Ku]]` | Pattern-based title search |
 | `search_by_tags` | `(tags: list[str], match_all: bool = False) -> Result[list[Ku]]` | Tag-based search |
 | `search_by_facets` | `(facets: dict) -> Result[list[Ku]]` | Multi-facet filtering |
-| `search_chunks` | `(query: str, limit: int = 10) -> Result[list[dict]]` | Semantic chunk search |
-| `search_chunks_with_facets` | `(query: str, facets: dict) -> Result[list[dict]]` | Chunk search with filters |
 | `get_content_chunks` | `(ku_uid: str) -> Result[list[dict]]` | Get all chunks for a KU |
 | `find_similar_content` | `(ku_uid: str, limit: int = 5) -> Result[list[Ku]]` | Semantic similarity search |
+
+> Chunk-level vector search now lives on `Neo4jVectorSearchService.find_similar_chunks_by_text()`
+> — see `docs/guides/ASKESIS_SEARCH_ARCHITECTURE.md`. The legacy in-memory
+> `search_chunks` keyword path on `EntityChunkingService` was removed.
 | `search_by_features` | `(features: dict) -> Result[list[Ku]]` | Feature-based search |
 | `search_with_user_context` | `(query: str, user_uid: UserUID) -> Result[list[Ku]]` | Personalized search |
 | `search_with_semantic_intent` | `(intent: str, user_uid: UserUID) -> Result[list[Ku]]` | Intent-based discovery |

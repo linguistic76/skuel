@@ -377,8 +377,13 @@ The largest single migration — 35 inline Cypher queries from 8 PathStep servic
 
 | Category | Methods | Mixin (Phase 10) |
 |----------|---------|-------------------|
-| **Practice + AI (3)** | `find_kus_practiced_by_event`, `increment_practice_count`, `semantic_search_chunks` | `_AdaptiveMixin` |
+| **Practice (2)** | `find_kus_practiced_by_event`, `increment_practice_count` | `_AdaptiveMixin` |
 | **Search (2)** | `find_similar_by_keywords`, `search_by_keywords` | `_AdaptiveMixin` |
+
+> Chunk vector search (`semantic_search_chunks`) was lifted out of `_AdaptiveMixin`
+> into `VectorSearchBackend` so chunk retrieval lives next to the rest of the
+> vector-index operations. See `adapters/persistence/neo4j/vector_search_backend.py`
+> and `core/ports/vector_search_protocols.py`.
 | **Application Discovery (3)** | `find_connected_activities`, `find_path_steps_containing_ku`, `find_learning_paths_teaching_ku` | `_KnowledgeContextMixin` |
 | **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | `_KnowledgeContextMixin` |
 | **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | `_SemanticMixin` |

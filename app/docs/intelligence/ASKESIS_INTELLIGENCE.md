@@ -308,7 +308,7 @@ Both methods run the same LP-scoped pipeline: LP enrollment gate → intent clas
 - `load_ps_bundle()` - Load complete PS bundle from UserContext + service lookups (absorbed from LSContextLoader, March 2026)
 
 **Internal Methods:**
-- `_find_similar_knowledge()` - Semantic search via EmbeddingsService (cosine similarity ≥0.6)
+- `_find_similar_chunks()` - Chunk-level vector search via `Neo4jVectorSearchService.find_similar_chunks_by_text` (cosine ≥0.6, intent-aware `chunk_types` filter); returns chunk text + owning PathStep for citation
 - `_analyze_blocked_knowledge_prerequisites()` - Gap analysis via `KuBackend.get_unmastered_prerequisites()` + `count_dependents()`
 - `_identify_quick_wins_and_high_impact()` - Classification by prerequisite count:
   - **Quick wins**: 0-1 prerequisites (easy to start)
@@ -320,7 +320,7 @@ Both methods run the same LP-scoped pipeline: LP enrollment gate → intent clas
 
 **Backend deps** for graph queries: `ku_backend` (KuBackend), `ps_backend` (PsBackend).
 
-**Graph Integration:** Uses PsBackend for learning context queries, KuBackend for prerequisite analysis, EmbeddingsService for vector similarity
+**Graph Integration:** Uses PsBackend for learning context queries, KuBackend for prerequisite analysis, and `Neo4jVectorSearchService` for chunk-level vector similarity (`contentchunk_embedding_idx`).
 
 ---
 

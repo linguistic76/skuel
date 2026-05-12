@@ -42,27 +42,6 @@ sleep 2
 
 ---
 
-### Embeddings Service Required Error
-
-**Symptom**: `ValueError: Embeddings service is required - vector search is not optional`
-
-**Cause**: `EntityRetrieval` service initialized without embeddings service when code expected it to be required
-
-**Solution**: Embeddings service is now optional (fixed 2026-01-31). Server will gracefully degrade to keyword search.
-
-**Verification**:
-```bash
-# Check logs for graceful degradation message
-grep "keyword search fallback" /tmp/server.log
-
-# Expected output:
-# ✅ EntityRetrieval initialized with keyword search fallback (no embeddings)
-```
-
-**Related**: See `/EMBEDDINGS_SERVICE_FIX_COMPLETE.md`
-
----
-
 ## Route Registration Issues
 
 ### 404 on Valid Routes
