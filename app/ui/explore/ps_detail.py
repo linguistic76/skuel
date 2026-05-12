@@ -200,9 +200,7 @@ def render_ps_detail_content(
 
     # Teacher-only: Activity Templates panel. HTMX-loaded so detach + create
     # flows can refresh in place without re-rendering the entire PS detail.
-    templates_panel: Any = (
-        render_templates_panel_placeholder(uid) if is_teacher else Div()
-    )
+    templates_panel: Any = render_templates_panel_placeholder(uid) if is_teacher else Div()
 
     # Main content column
     main_column = Div(

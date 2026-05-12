@@ -81,6 +81,8 @@ def _parse_review_form(form: FormData) -> dict[str, ReviewDecision]:
     template_uids = form.getlist("template_uids")
     review: dict[str, ReviewDecision] = {}
     for template_uid in template_uids:
+        if not isinstance(template_uid, str):
+            continue
         review[template_uid] = "keep" if f"keep_{template_uid}" in form else "discard"
     return review
 

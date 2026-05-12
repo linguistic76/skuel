@@ -83,7 +83,8 @@ def PsTemplatePicker(
     for uid, title in options:
         is_selected = uid == value
         option_nodes.append(
-            Option(title or uid, value=uid, selected=is_selected) if is_selected
+            Option(title or uid, value=uid, selected=is_selected)
+            if is_selected
             else Option(title or uid, value=uid)
         )
 

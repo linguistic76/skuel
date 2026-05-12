@@ -19,14 +19,14 @@ from pydantic import Field
 
 from core.models.enums import EntityStatus
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
-from core.models.request_base import CreateRequestBase, UpdateRequestBase
+from core.models.request_base import UpdateRequestBase
+from core.models.templates._template_request_base import TemplateCreateRequest
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
 
 
-class GoalTemplateCreateRequest(CreateRequestBase):
+class GoalTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a GoalTemplate."""
 
-    title: str = Field(min_length=1, max_length=200)
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
 

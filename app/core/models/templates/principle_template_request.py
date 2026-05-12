@@ -21,13 +21,13 @@ from core.models.enums.principle_enums import (
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.request_base import CreateRequestBase, UpdateRequestBase
+from core.models.request_base import UpdateRequestBase
+from core.models.templates._template_request_base import TemplateCreateRequest
 
 
-class PrincipleTemplateCreateRequest(CreateRequestBase):
+class PrincipleTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a PrincipleTemplate."""
 
-    title: str = Field(min_length=1, max_length=200)
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
 

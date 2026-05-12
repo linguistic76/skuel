@@ -12,14 +12,14 @@ from pydantic import Field
 
 from core.models.enums import EntityStatus
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
-from core.models.request_base import CreateRequestBase, UpdateRequestBase
+from core.models.request_base import UpdateRequestBase
+from core.models.templates._template_request_base import TemplateCreateRequest
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
 
 
-class HabitTemplateCreateRequest(CreateRequestBase):
+class HabitTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a HabitTemplate."""
 
-    title: str = Field(min_length=1, max_length=200)
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
 

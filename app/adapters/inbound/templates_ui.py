@@ -32,6 +32,7 @@ from adapters.inbound._template_form_parsing import parse_template_form_body
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
+from core.ports import ActivityTemplateOperations
 from core.services.conversion_service import ConversionServiceV2
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -87,7 +88,7 @@ _DOMAIN_UID_PREFIX: dict[str, str] = {
 def create_templates_ui_routes(
     _app: Any,
     rt: Any,
-    services: "Services | None",
+    services: Services | None,
     _sync_service: Any = None,
 ) -> None:
     """Register the teacher-facing template authoring routes.
@@ -99,15 +100,16 @@ def create_templates_ui_routes(
         logger.warning("Template UI routes registered without services")
         return
 
-    template_services = {
+    raw_services = {
         domain: getattr(services, attr, None) for domain, attr in _DOMAIN_TO_SERVICE_ATTR.items()
     }
-    if any(s is None for s in template_services.values()):
+    if any(s is None for s in raw_services.values()):
         logger.warning(
             "Template UI routes registered, but one or more template services is None "
             "— skipping registration"
         )
         return
+    template_services: dict[str, ActivityTemplateOperations] = dict(raw_services.items())
 
     user_service = getattr(services, "user", None)
     get_user_service = make_service_getter(user_service)
@@ -137,7 +139,10 @@ def create_templates_ui_routes(
                 continue
             result = await service.list_for_pathstep(ps_uid)
             options[target] = (
-                [(str(t.get("uid", "")), str(t.get("title") or t.get("uid", ""))) for t in result.value]
+                [
+                    (str(t.get("uid", "")), str(t.get("title") or t.get("uid", "")))
+                    for t in result.value
+                ]
                 if result.is_ok
                 else []
             )
@@ -462,8 +467,7 @@ def create_templates_ui_routes(
         return render_templates_panel(ps_uid, attached)
 
     logger.info(
-        "Templates UI routes registered "
-        "(panel fragment + create/edit/detach for %d domains)",
+        "Templates UI routes registered (panel fragment + create/edit/detach for %d domains)",
         len(PANEL_DOMAINS),
     )
 

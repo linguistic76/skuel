@@ -265,6 +265,9 @@ from .service_protocols import (
 # Sharing protocol — cross-cutting, any entity type can be shared
 from .sharing_protocols import SharingOperations
 
+# Activity Template protocol — PS-owned templates (May 2026)
+from .template_protocols import ActivityTemplateOperations
+
 # ZPD protocol — Zone of Proximal Development (March 2026)
 from .zpd_protocols import ZPDOperations
 
@@ -300,6 +303,8 @@ __all__ = [
     "GraphContextResult",
     "IntelligenceResult",
     "ProgressResult",
+    # ========== ACTIVITY TEMPLATE PROTOCOL (1 - May 2026) ==========
+    "ActivityTemplateOperations",
     # ========== ASKESIS PROTOCOLS (6 - February 2026) ==========
     "AskesisCoreOperations",  # CRUD + context building (6 methods)
     "AskesisDomainSynthesisOperations",

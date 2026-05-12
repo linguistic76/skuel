@@ -21,6 +21,7 @@ See:
     project_pathstep_lifecycle_contract.md (memory)
 """
 
+from core.models.templates._template_request_base import TemplateCreateRequest
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.choice_template_dto import ChoiceTemplateDTO
 from core.models.templates.choice_template_request import (
@@ -87,4 +88,5 @@ __all__ = [
     "TaskTemplateCreateRequest",
     "TaskTemplateDTO",
     "TaskTemplateUpdateRequest",
+    "TemplateCreateRequest",
 ]

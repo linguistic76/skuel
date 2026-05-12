@@ -18,14 +18,14 @@ from __future__ import annotations
 from pydantic import Field
 
 from core.models.enums import EntityStatus, RecurrencePattern
-from core.models.request_base import CreateRequestBase, UpdateRequestBase
+from core.models.request_base import UpdateRequestBase
+from core.models.templates._template_request_base import TemplateCreateRequest
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
 
 
-class TaskTemplateCreateRequest(CreateRequestBase):
+class TaskTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a TaskTemplate."""
 
-    title: str = Field(min_length=1, max_length=200, description="Template title")
     description: str | None = Field(None, description="Detailed description")
     tags: list[str] = Field(default_factory=list, description="Tags for categorization")
 

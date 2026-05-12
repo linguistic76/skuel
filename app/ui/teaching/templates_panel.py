@@ -153,10 +153,7 @@ def _render_template_row(
             detach_form,
             cls="flex items-center gap-2 shrink-0",
         ),
-        cls=(
-            "flex items-center justify-between gap-3 px-2 py-1 rounded "
-            "hover:bg-muted/40"
-        ),
+        cls=("flex items-center justify-between gap-3 px-2 py-1 rounded hover:bg-muted/40"),
     )
 
 

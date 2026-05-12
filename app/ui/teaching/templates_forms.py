@@ -22,10 +22,9 @@ default. Authoring those nested shapes requires repeatable subforms — deferred
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel
-
+from core.models.templates._template_request_base import TemplateCreateRequest
 from core.models.templates.choice_template_request import (
     ChoiceTemplateCreateRequest,
     ChoiceTemplateUpdateRequest,
@@ -53,13 +52,16 @@ from core.models.templates.task_template_request import (
 from ui.patterns.form_generator import FormGenerator
 from ui.teaching._template_widgets import PsTemplatePicker, RelativeOffsetWidget
 
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+
 
 @dataclass(frozen=True)
 class DomainSpec:
     """Per-domain config bundling everything the form layer needs."""
 
     domain: str
-    create_schema: type[BaseModel]
+    create_schema: type[TemplateCreateRequest]
     update_schema: type[BaseModel]
     offset_fields: tuple[str, ...]
     ref_fields: dict[str, str]  # field_name -> target domain (e.g. "goal")
@@ -543,9 +545,7 @@ def build_edit_form(
 ) -> Any:
     """Build the edit form prefilled from a persisted template."""
     values = _instance_values(template, spec)
-    custom_widgets = _build_custom_widgets(
-        spec, picker_options=picker_options, values=values
-    )
+    custom_widgets = _build_custom_widgets(spec, picker_options=picker_options, values=values)
     exclude = list(spec.excluded_edit)
     return FormGenerator.from_instance(
         spec.update_schema,
