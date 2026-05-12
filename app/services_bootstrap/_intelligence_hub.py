@@ -165,6 +165,17 @@ async def _create_intelligence_hub(
                 "bootstrap order is broken (template_services must run first)."
             )
 
+        # Askesis grounds answers in :ContentChunk vectors. Without vector_search_service
+        # it silently degrades to graph-only context (Gap #6). FULL tier promises both
+        # services; missing vector_search_service here means embedding bootstrap was
+        # swallowed somewhere upstream.
+        if vector_search_service is None:
+            raise RuntimeError(
+                "Askesis cannot be created without vector_search_service in FULL tier — "
+                "chunk retrieval would silently fall back to graph-only context. "
+                "Check embedding bootstrap (_learning_services.py)."
+            )
+
         services.askesis = create_askesis_service(
             intelligence_factory=context_intelligence_factory,
             learning_services=learning_services,

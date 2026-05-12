@@ -569,11 +569,8 @@ class UnifiedIngestionService:
 
                             await publish_event(
                                 self.event_bus,
-                                # ku_uid is the legacy event field name; the parent is a
-                                # PathStep. Rename deferred to a follow-up cleanup PR
-                                # (ripples through worker + migration script).
                                 ChunkEmbeddingRequested(
-                                    ku_uid=entity_data["uid"],
+                                    parent_uid=entity_data["uid"],
                                     chunk_uids=tuple(c.chunk_id for c in content.chunks),
                                     chunk_texts=tuple(
                                         c.context_window for c in content.chunks

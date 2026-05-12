@@ -75,11 +75,17 @@ def _create_learning_services(
             )
             logger.info("✅ Neo4j vector search service created")
 
-        except Exception as e:  # safety-net: service bootstrap must report initialization failures
-            logger.warning(f"Failed to initialize embedding services: {e}")
-            logger.warning("   Vector search will not be available - using keyword search fallback")
-            embeddings_service = None
-            vector_search_service = None
+        except Exception as e:  # safety-net: surface FULL-tier embedding init failure loudly
+            # Fail-fast per CLAUDE.md "Fail-Fast Dependency Philosophy": FULL tier promises
+            # vector search to downstream services (Askesis, intelligence). Silently degrading
+            # leaves the system in a half-on state where Askesis exists but produces
+            # graph-only answers — exactly the silent fallback Gap #6 calls out.
+            logger.error(f"FULL-tier embedding services failed to initialize: {e}")
+            raise RuntimeError(
+                "FULL-tier bootstrap requires HuggingFace embedding services. "
+                "Set INTELLIGENCE_TIER=core to run without vector search, or fix the "
+                f"underlying init error: {e}"
+            ) from e
 
     # NOTE: LpIntelligenceService now created internally by LpService (January 2026)
     # See LpService.__init__ for intelligence creation pattern (unified with other domains)

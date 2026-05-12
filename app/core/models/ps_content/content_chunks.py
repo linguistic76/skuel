@@ -14,6 +14,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+# Bumped whenever ContentChunkingStrategy logic changes in a way that produces
+# different chunk boundaries or types for the same input. Stored on every chunk
+# so BatchChunkingService can identify stale chunks (chunking_version < current).
+CHUNKING_ALGORITHM_VERSION = "v1"
+
 
 class ContentChunkType(Enum):
     """Types of content chunks for semantic categorization"""
@@ -53,6 +58,7 @@ class ContentChunk:
     word_count: int = 0  # Word count of chunk
     metadata: dict[str, Any] = field(default_factory=dict)  # Additional metadata
     embedding: tuple[float, ...] | None = None  # Vector embedding (immutable tuple)
+    chunking_version: str = CHUNKING_ALGORITHM_VERSION  # Algorithm version that produced this chunk
 
     def __post_init__(self) -> None:
         """Calculate word count after initialization"""

@@ -72,20 +72,28 @@ _SENTINEL = object()
 
 # Intent → preferred ContentChunk types. The chunker classifies passages into
 # semantic types (DEFINITION, EXAMPLE, EXERCISE, ...) — different question
-# intents are best answered by different passage types. None disables the
-# filter (search all chunk types).
+# intents are best answered by different passage types. An absent key means
+# 'no filter' (search all chunk types).
+#
+# Unmapped on purpose:
+#   AGGREGATION       — pure graph/count query; chunk text doesn't help.
+#   SPECIFIC          — catch-all default; any chunk type may answer.
+#   GOAL_ACHIEVEMENT, PRINCIPLE_EMBODIMENT, PRINCIPLE_ALIGNMENT, SCHEDULED_ACTION
+#                     — domain queries served from user activity data, not curriculum.
 _INTENT_CHUNK_TYPES: dict[QueryIntent, list[str]] = {
     QueryIntent.PREREQUISITE: ["DEFINITION", "EXPLANATION"],
     QueryIntent.PRACTICE: ["EXERCISE", "EXAMPLE"],
     QueryIntent.HIERARCHICAL: ["DEFINITION", "EXPLANATION"],
+    QueryIntent.EXPLORATORY: ["INTRODUCTION", "SUMMARY", "DEFINITION"],
+    QueryIntent.RELATIONSHIP: ["EXPLANATION", "DEFINITION"],
 }
 
 
 def _intent_to_chunk_types(intent: QueryIntent) -> list[str] | None:
     """Pick the chunk types most likely to answer a given intent.
 
-    Returning None means 'no filter' — used for exploratory/aggregate queries
-    where any chunk type is fair game.
+    Returning None means 'no filter' — used for catch-all (SPECIFIC),
+    aggregate, or user-data queries where any chunk type is fair game.
     """
     return _INTENT_CHUNK_TYPES.get(intent)
 
@@ -115,7 +123,7 @@ class ContextRetriever:
         self,
         graph_intel: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
-        vector_search_service: Any | None = None,  # boundary: Neo4jVectorSearchService
+        vector_search_service: Any,  # boundary: Neo4jVectorSearchService
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: EntityLookup | None = None,
         ku_service: EntityLookup | None = None,
@@ -252,18 +260,12 @@ class ContextRetriever:
         # We target :ContentChunk (not :Entity) so the LLM grounds answers in the
         # actual passage that matched, with the owning PathStep surfaced via the
         # chunk → content → entity join for citation.
-        if self.vector_search_service:
-            chunk_types = _intent_to_chunk_types(intent)
-            relevant_chunks = await self._find_similar_chunks(
-                query, user_context.user_uid, chunk_types=chunk_types
-            )
-            if relevant_chunks:
-                context["relevant_chunks"] = relevant_chunks[:3]  # Top 3
-                context["semantic_search_enabled"] = True
-            else:
-                context["semantic_search_enabled"] = False
-        else:
-            context["semantic_search_enabled"] = False
+        chunk_types = _intent_to_chunk_types(intent)
+        relevant_chunks = await self._find_similar_chunks(
+            query, user_context.user_uid, chunk_types=chunk_types
+        )
+        if relevant_chunks:
+            context["relevant_chunks"] = relevant_chunks[:3]  # Top 3
 
         return context
 
@@ -801,12 +803,8 @@ class ContextRetriever:
                 from the classified intent.
 
         Returns:
-            List of dicts shaped like SemanticSearchChunkResult; empty on
-            missing service or search error.
+            List of dicts shaped like SemanticSearchChunkResult; empty on search error.
         """
-        if not self.vector_search_service:
-            return []
-
         result = await self.vector_search_service.find_similar_chunks_by_text(
             text=query,
             chunk_types=chunk_types,

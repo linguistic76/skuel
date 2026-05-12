@@ -297,6 +297,17 @@ class Neo4jContentAdapter:
                     logger.info(f"First chunk attributes: {dir(content.chunks[0])}")
 
             if chunks:
+                # Idempotency: delete any existing chunks for this content before creating
+                # new ones. Without this, re-ingestion (file edited + re-uploaded) or batch
+                # regeneration would accumulate duplicate ContentChunk nodes.
+                await self.neo4j.execute_query(
+                    """
+                    MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                    DETACH DELETE chunk
+                    """,
+                    {"uid": uid},
+                )
+
                 chunk_query = """
                 MATCH (c:Content {uid: $uid})
                 CREATE (chunk:ContentChunk {
@@ -306,6 +317,7 @@ class Neo4jContentAdapter:
                     start_index: $start_index,
                     end_index: $end_index,
                     context_window: $context_window,
+                    chunking_version: $chunking_version,
                     created_at: datetime(),
                     embedding: null,
                     embedding_version: null,
@@ -337,6 +349,7 @@ class Neo4jContentAdapter:
                         "end_index": getattr(
                             chunk, "word_count", len(getattr(chunk, "text", "").split())
                         ),
+                        "chunking_version": getattr(chunk, "chunking_version", "v1"),
                         # Note: Metadata not stored (Neo4j can't handle nested structures)
                         "sequence": i,
                     }
