@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.activity_status_api_factory import (
+from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
     create_activity_status_api_routes,
 )
