@@ -123,9 +123,6 @@ def OverviewView(
     return Div(
         header,
         intelligence_section,
-        # Core profile components (always shown)
-        _current_focus_card(context),
-        _velocity_summary(context),
         _domain_progress_grid(context),
         _overview_insights(context),
     )
@@ -252,63 +249,6 @@ def _insight_item(level: str, message: str, href: str) -> A:
         Span(message),
         href=href,
         cls="flex items-center p-3 bg-background rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground",
-    )
-
-
-def _current_focus_card(context: UserContext) -> Div:
-    """Current task focus — compact inline element."""
-    if not context.current_task_focus:
-        return Div(
-            Span("🎯", cls="text-lg mr-2"),
-            Span(
-                "No current focus set",
-                cls="text-sm text-muted-foreground",
-            ),
-            cls="flex items-center mb-4",
-        )
-
-    # Get task title from rich data if available
-    task_title = "Current Task"
-    for task_data in context.entities_rich.get("tasks", []):
-        task = task_data.get("entity", {})
-        if task.get("uid") == context.current_task_focus:
-            task_title = task.get("title", "Current Task")
-            break
-
-    return Div(
-        Span("🎯", cls="text-lg mr-2"),
-        Span("Focus: ", cls="text-sm font-medium text-muted-foreground"),
-        Span(
-            task_title,
-            cls="text-sm font-medium text-primary",
-        ),
-        cls="flex items-center mb-4",
-    )
-
-
-def _velocity_summary(context: UserContext) -> Div:
-    """Overall velocity — compact inline indicator, not a gray box."""
-    total_velocity = sum(context.velocity_by_domain.values())
-    total_time = sum(context.time_invested_hours_by_domain.values())
-
-    # Determine momentum status
-    if total_velocity > 0.5:
-        momentum = ("🚀", "Strong Momentum", "text-success")
-    elif total_velocity > 0:
-        momentum = ("📈", "Building", "text-primary")
-    elif total_velocity > -0.3:
-        momentum = ("➡️", "Steady", "text-muted-foreground")
-    else:
-        momentum = ("📉", "Slowing", "text-warning")
-
-    icon, label, color = momentum
-
-    return Div(
-        Span(icon, cls="text-lg mr-2"),
-        Span(label, cls=f"text-sm font-medium {color}"),
-        Span(" · ", cls="text-foreground/30 mx-2"),
-        Span(f"{total_time:.1f}h invested", cls="text-sm text-muted-foreground"),
-        cls="flex items-center mb-6",
     )
 
 
