@@ -23,6 +23,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from core.constants import ExerciseTimeEstimate
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
@@ -798,7 +799,7 @@ class ExerciseService(BaseService):
                     subtype="assignment",
                     blocking_kus=blocking_kus,
                     readiness_score=readiness_score,
-                    est_time_minutes=60,
+                    est_time_minutes=ExerciseTimeEstimate.FRESH_SUBMISSION_MINUTES,
                 )
             )
 
@@ -850,7 +851,7 @@ class ExerciseService(BaseService):
                     subtype="revision",
                     blocking_kus=blocking_kus,
                     readiness_score=readiness_score,
-                    est_time_minutes=45,
+                    est_time_minutes=ExerciseTimeEstimate.REVISION_MINUTES,
                 )
             )
 

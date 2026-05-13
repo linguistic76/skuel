@@ -7,11 +7,24 @@ Method 5 of UserContextIntelligence:
 
 This is the core value proposition: "What should I work on next?"
 
-**Synthesizes 10 domains:**
-- Activity Domains (6): tasks, habits, goals, events, choices, principles
-- Curriculum Domains (3): ku, ls, lp
-- Exercise Domain (2): exercises.get_actionable_exercises_for_user — Priority 2.5
-                       exercises.get_pending_revisions_for_user — Priority 2.3
+Two data sources, kept distinct so callers don't confuse "service queried at
+plan time" with "context field already resolved by the MEGA-QUERY":
+
+**Domain service queries (8 required + 1 optional):**
+- Activity (6): tasks, habits, goals, events, choices, principles
+- Curriculum (2): ps (P5 learning), exercises (P2.3 revisions + P2.5 assignments)
+- Optional: vector_search (semantic enhancement of P5 learning recommendations)
+
+Each query returns enriched Contextual* objects with readiness signals —
+prerequisite mastery, blocking dependencies, urgency math.
+
+**Already-resolved context fields (read directly, no query):**
+- available_minutes_daily, daily_habits, zpd_assessment,
+  estimated_time_to_mastery, learning_goals, primary_goal_focus,
+  life_path_uid, latest_activity_report_*, active_ps_engagements
+
+These are pre-computed by UserContextBuilder.MEGA-QUERY. The mixin reads
+them as-is; it does NOT treat them as "domains" in the service sense.
 """
 
 from __future__ import annotations
@@ -38,14 +51,18 @@ class DailyPlanningMixin(IntelligenceMixinBase):
     """
     Mixin providing daily planning methods.
 
-    Requires self.context (UserContext) and domain relationship services:
-    - self.tasks, self.habits, self.goals, self.events
-    - self.choices, self.principles
-    - self.ps
-    - self.exercises  (ExerciseService — actionable exercises + pending revisions
-      with prerequisite-mastery enrichment)
-    - self.report  (ReportRelationshipService — feedback loop queries)
-    Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
+    Requires self.context (RichUserContext) and 8 domain services that
+    get_ready_to_work_on_today() actually queries:
+    - Activity: self.tasks, self.habits, self.goals, self.events,
+      self.choices, self.principles
+    - Curriculum: self.ps (learning readiness), self.exercises (actionable
+      exercises + pending revisions with prerequisite-mastery enrichment)
+    Optional: self.vector_search (Neo4jVectorSearchService) for semantic
+    enhancement of the P5 learning block.
+
+    Other services on UserContextIntelligence (lp, user_entries, report,
+    analytics, calendar, zpd_service) are used by sibling mixins — this
+    mixin does not call them.
     """
 
     # Forward declarations of TemporalMomentumMixin methods used here. These
