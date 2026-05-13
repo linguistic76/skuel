@@ -41,8 +41,6 @@ services:
       # Override: APOC meta only — no GenAI procedures
       NEO4J_dbms_security_procedures_unrestricted: "apoc.meta.*"
       NEO4J_dbms_security_procedures_allowlist: "apoc.meta.*"
-      # Override: clear GenAI API key (not needed without GenAI plugin)
-      OPENAI_API_KEY: ""
     networks:
       - skuel-network
 

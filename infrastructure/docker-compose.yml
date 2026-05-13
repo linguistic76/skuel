@@ -1,7 +1,7 @@
 # ============================================================================
 # SKUEL Infrastructure - Neo4j Graph Database (standalone)
 # ============================================================================
-# Production-ready Neo4j configuration with GenAI + APOC (meta only).
+# Production-ready Neo4j configuration with APOC (meta only).
 #
 # NOTE: The primary dev workflow now uses the unified compose in app/:
 #   cd ~/skuel/app && docker compose up        # Full stack
@@ -15,7 +15,7 @@
 
 services:
   neo4j:
-    image: neo4j:5.26.0
+    image: neo4j:2025.12.1
     container_name: skuel-neo4j
     restart: unless-stopped
 
@@ -28,19 +28,15 @@ services:
       # ============================================
       # PLUGINS
       # ============================================
-      # Enable GenAI plugin (automatically copies from /products to /plugins)
-      NEO4J_PLUGINS: '["apoc", "genai"]'
+      # APOC only — embeddings are generated Python-side via BGE / HuggingFace
+      # (ADR-049), so the GenAI procedures are unused. Loading the genai jar
+      # also tied us to a Java-21 image; sticking to apoc keeps the choice open.
+      NEO4J_PLUGINS: '["apoc"]'
 
       # ============================================
       # AUTHENTICATION
       # ============================================
       NEO4J_AUTH: "${NEO4J_AUTH}"
-
-      # ============================================
-      # GENAI PLUGIN CONFIGURATION
-      # ============================================
-      # OpenAI API key for GenAI plugin (accessed via procedures)
-      OPENAI_API_KEY: "${NEO4J_OPENAI_API_KEY}"
 
       # ============================================
       # MEMORY CONFIGURATION (Phase 6.3 tuned)
@@ -84,9 +80,9 @@ services:
       # ============================================
       # SECURITY CONFIGURATION
       # ============================================
-      # Allow GenAI plugin procedures
-      NEO4J_dbms_security_procedures_unrestricted: "genai.*,apoc.meta.*"
-      NEO4J_dbms_security_procedures_allowlist: "genai.*,apoc.meta.*"
+      # APOC meta procedures only (SKUEL001 — domain services use pure Cypher)
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.meta.*"
+      NEO4J_dbms_security_procedures_allowlist: "apoc.meta.*"
 
       # ============================================
       # NETWORK CONFIGURATION
