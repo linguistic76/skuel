@@ -94,6 +94,7 @@ if TYPE_CHECKING:
         RichPathStepItem,
         UnsubmittedExerciseItem,
     )
+    from core.services.ps_engagement.engagement import Engagement
 
 
 @dataclass
@@ -253,6 +254,12 @@ class UserContext:
     current_path_steps: list[CurrentPathStepItem] = field(
         default_factory=list
     )  # {uid, title} for path steps with IN_PROGRESS relationship
+
+    # PS engagement state (per ADR-059) — ps_uid -> Engagement projection of the
+    # (User)-[:ENGAGED_WITH]->(PathStep) edge. Populated by build_rich() via
+    # PsEngagementService.list_engaged(). None in standard build() path or when
+    # list_engaged fails. Consumers must null-check before reading.
+    active_ps_engagements: dict[str, Engagement] | None = None
 
     # KU interaction tracking (Phase B)
     ku_view_counts: dict[str, int] = field(default_factory=dict)  # uid -> total view count

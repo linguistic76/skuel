@@ -1489,10 +1489,10 @@ class ContextualExercise:
 class EngagedPsGroup:
     """One engaged PathStep plus its still-pending spawned activities.
 
-    Built by ``AskesisService.get_daily_work_plan`` from the intersection of
-    ``Engagement.spawned_instance_uids`` (set at engage time) and the daily
-    plan's per-domain UID lists. ``pending_*`` tuples preserve the plan's
-    ordering — they are filtered slices, not re-ranked sets.
+    Built by ``DailyPlanningMixin.get_ready_to_work_on_today`` from the
+    intersection of ``Engagement.spawned_instance_uids`` (set at engage time)
+    and the daily plan's per-domain UID lists. ``pending_*`` tuples preserve
+    the plan's ordering — they are filtered slices, not re-ranked sets.
 
     The ``engagement`` snapshot carries ``state``, ``since``, and the full
     ``spawned_instance_uids`` tuple — useful when a consumer wants to know
@@ -1544,8 +1544,10 @@ class DailyWorkPlan:
     contextual_knowledge: tuple[ContextualKnowledge, ...] = ()
     contextual_exercises: tuple[ContextualExercise, ...] = ()
 
-    # PS-engagement bucketing (ADR-059) — populated by AskesisService.get_daily_work_plan,
-    # left empty by UserContextIntelligence (which is engagement-blind by design).
+    # PS-engagement bucketing (ADR-059) — populated by DailyPlanningMixin from
+    # RichUserContext.active_ps_engagements (which UserContextBuilder fetches
+    # via PsEngagementService.list_engaged). Empty when active_ps_engagements
+    # is None (standard build or list_engaged failure).
     engaged_ps_groups: tuple[EngagedPsGroup, ...] = ()  # one per active engagement
     available_to_start: tuple[str, ...] = ()  # PS UIDs touched but not engaged
 

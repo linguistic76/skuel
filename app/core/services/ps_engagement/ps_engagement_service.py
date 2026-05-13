@@ -554,8 +554,9 @@ class PsEngagementService:
         by that engagement (via ``template_uid`` join against templates attached
         to the PS) and populates ``Engagement.spawned_instance_uids``.
 
-        Used by ``AskesisService.get_daily_work_plan`` to bucket the daily plan
-        by which PS engagement spawned each pending activity.
+        Called by ``UserContextBuilder.build_rich_user_context`` to populate
+        ``RichUserContext.active_ps_engagements``; ``DailyPlanningMixin`` then
+        reads that field to bucket the daily plan by originating PS (ADR-059).
         """
         from dataclasses import replace
 

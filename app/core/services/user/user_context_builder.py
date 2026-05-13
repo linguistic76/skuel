@@ -43,6 +43,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.services.ps_engagement import PsEngagementService
     from core.services.user_service import UserService
     from core.services.zpd.zpd_service import ZPDService
 
@@ -99,6 +100,10 @@ class UserContextBuilder:
         self.executor = executor
         self.user_service = user_service
         self.zpd_service: ZPDService | None = None
+        # PsEngagementService is post-wired by services_bootstrap/_intelligence_hub.py
+        # alongside zpd_service. ps_engagement is core-tier, but UserContextBuilder
+        # is constructed before template_services run, so it can't be a ctor arg.
+        self.ps_engagement_service: PsEngagementService | None = None
 
         # Compose modules for separation of concerns
         self._query_executor = UserContextQueryExecutor(executor)
@@ -405,6 +410,21 @@ class UserContextBuilder:
         if ps_result.is_ok:
             context.current_path_steps = ps_result.value
             context.current_ps_uids = {item["uid"] for item in ps_result.value}
+
+        # Fetch active PS engagements (per ADR-059 — engagement-aware planning).
+        # Failure of the engagement read must not kill context build — the daily
+        # plan still works without bucketing, it just won't have engaged_ps_groups.
+        if self.ps_engagement_service is not None:
+            engaged_result = await self.ps_engagement_service.list_engaged(user_uid)
+            if engaged_result.is_ok:
+                context.active_ps_engagements = {
+                    eng.ps_uid: eng for eng in engaged_result.value
+                }
+            else:
+                logger.warning(
+                    f"list_engaged failed for {user_uid}: {engaged_result.expect_error()} "
+                    "— context.active_ps_engagements left as None"
+                )
 
         # Fetch group memberships, ownerships, and assigned curriculum
         groups_result = await self._query_executor.fetch_user_groups(user_uid)

@@ -42,6 +42,18 @@ async def _create_intelligence_hub(
     analytics_relationship_service = AnalyticsRelationshipService(driver)
     logger.info("✅ Processing domain relationship services created (UserEntry, Report, Analytics)")
 
+    # ── PsEngagementService post-wire to context_builder (ADR-059) ──────────
+    # ps_engagement is core-tier (always wired by template_services). Bind it
+    # to the builder here so build_rich() can populate active_ps_engagements
+    # for engagement-aware daily planning in DailyPlanningMixin.
+    if services.ps_engagement is not None:
+        context_builder.ps_engagement_service = services.ps_engagement
+        logger.info("✅ PsEngagementService wired to UserContextBuilder (ADR-059)")
+    else:
+        logger.warning(
+            "⚠️ services.ps_engagement is None — daily plan will lack engagement buckets"
+        )
+
     # ── ZPD Service (March 2026 — pedagogical core of Askesis) ──────────────
     # Gated by INTELLIGENCE_TIER=FULL — requires behavioral signals from
     # choices + habits intelligence services.

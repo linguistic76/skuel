@@ -20,7 +20,7 @@ from dataclasses import replace
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from core.models.context_types import ContextualExercise, DailyWorkPlan
+from core.models.context_types import ContextualExercise, DailyWorkPlan, EngagedPsGroup
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
@@ -31,6 +31,8 @@ if TYPE_CHECKING:
         ContextualKnowledge,
         ContextualTask,
     )
+    from core.services.ps_engagement.engagement import Engagement
+    from core.services.user.unified_user_context import RichUserContext
 
 
 class DailyPlanningMixin(IntelligenceMixinBase):
@@ -345,6 +347,17 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         rationale = self._generate_daily_rationale(plan, prioritize_life_path, momentum)
         plan = replace(plan, priorities=tuple(priorities), rationale=rationale)
 
+        # ADR-059 bucketing — fold PS engagement state into the plan. The
+        # engagement data lives on context.active_ps_engagements (populated
+        # by UserContextBuilder via PsEngagementService.list_engaged). When
+        # None or empty, the plan is returned with the default empty buckets.
+        engagements_map = self.context.active_ps_engagements
+        if engagements_map:
+            engagements = list(engagements_map.values())
+            groups = _build_engaged_groups(plan, engagements)
+            available = _compute_available_to_start(self.context, engagements)
+            plan = replace(plan, engaged_ps_groups=groups, available_to_start=available)
+
         return Result.ok(plan)
 
     def _build_priority_list(self, plan: DailyWorkPlan) -> list[str]:
@@ -602,6 +615,67 @@ class DailyPlanningMixin(IntelligenceMixinBase):
                 warnings.append("Many tasks but no goals — work lacks strategic direction")
 
         return warnings
+
+
+# =========================================================================
+# ADR-059 Bucketing Helpers — pure data transformations on the assembled
+# DailyWorkPlan. Module-level (not methods) so they have no implicit self
+# coupling and are trivially testable. Lifted from askesis_service.py
+# (where the code was dead — Askesis is uncalled) to live in the mixin
+# that actually produces the plan.
+# =========================================================================
+
+
+def _build_engaged_groups(
+    plan: DailyWorkPlan,
+    engagements: list[Engagement],
+) -> tuple[EngagedPsGroup, ...]:
+    """Intersect each engagement's spawned UIDs with the plan's per-domain lists."""
+    if not engagements:
+        return ()
+
+    groups: list[EngagedPsGroup] = []
+    for engagement in engagements:
+        spawned = set(engagement.spawned_instance_uids)
+        if not spawned:
+            # Engagement carries no instance UIDs — still surface the
+            # engagement itself so the consumer can render "you're engaged
+            # with X" even when no spawned activity is on today's plan.
+            groups.append(EngagedPsGroup(ps_uid=engagement.ps_uid, engagement=engagement))
+            continue
+        groups.append(
+            EngagedPsGroup(
+                ps_uid=engagement.ps_uid,
+                engagement=engagement,
+                pending_task_uids=tuple(uid for uid in plan.tasks if uid in spawned),
+                pending_habit_uids=tuple(uid for uid in plan.habits if uid in spawned),
+                pending_event_uids=tuple(uid for uid in plan.events if uid in spawned),
+                pending_goal_uids=tuple(uid for uid in plan.goals if uid in spawned),
+                pending_choice_uids=tuple(uid for uid in plan.choices if uid in spawned),
+                pending_principle_uids=tuple(uid for uid in plan.principles if uid in spawned),
+            )
+        )
+    return tuple(groups)
+
+
+def _compute_available_to_start(
+    user_context: RichUserContext,
+    engagements: list[Engagement],
+) -> tuple[str, ...]:
+    """PS UIDs the user has touched but has not engaged with yet."""
+    engaged_ps_uids = {e.ps_uid for e in engagements}
+    touched: list[str] = []
+    seen: set[str] = set()
+    for item in user_context.active_path_steps_rich:
+        step = item.get("step") if isinstance(item, dict) else None
+        if not isinstance(step, dict):
+            continue
+        uid = step.get("uid")
+        if not isinstance(uid, str) or uid in seen or uid in engaged_ps_uids:
+            continue
+        seen.add(uid)
+        touched.append(uid)
+    return tuple(touched)
 
 
 __all__ = ["DailyPlanningMixin"]

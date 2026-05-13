@@ -65,6 +65,7 @@ def make_context(
     ctx.unsubmitted_exercises = []
     ctx.pending_revised_exercises = []
     ctx.zpd_assessment = None
+    ctx.active_ps_engagements = None
     return ctx
 
 

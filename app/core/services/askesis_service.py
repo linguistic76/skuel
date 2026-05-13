@@ -26,7 +26,7 @@ for single responsibility and reduced complexity (962 → ~500 lines).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
@@ -48,7 +48,6 @@ if TYPE_CHECKING:
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
-        EngagedPsGroup,
         LifePathAlignment,
         PathStep,
         ScheduleAwareRecommendation,
@@ -59,7 +58,6 @@ if TYPE_CHECKING:
         AskesisInsight,
         AskesisRecommendation,
     )
-    from core.services.ps_engagement.engagement import Engagement
     from core.services.user import UserContext
     from core.services.user.intelligence import UserContextIntelligenceFactory
     from core.services.user.unified_user_context import RichUserContext
@@ -445,12 +443,11 @@ class AskesisService:
         - Pending decisions (high priority only)
         - Aligned principles (for focus)
 
-        Bucketing layer (ADR-059): the flat plan from
-        ``UserContextIntelligence`` is post-processed to populate
-        ``engaged_ps_groups`` (one per active PS engagement, with the spawned
-        activities still in today's plan) and ``available_to_start`` (PSes the
-        user has touched but has not engaged with yet). The flat per-domain
-        UID lists remain — bucketing is additive.
+        Engagement-aware bucketing (ADR-059) lives inside
+        ``UserContextIntelligence.get_ready_to_work_on_today()`` — the plan
+        returned here already has ``engaged_ps_groups`` and
+        ``available_to_start`` populated when ``user_context.active_ps_engagements``
+        is set by the builder.
 
         Args:
             user_context: Complete UserContext snapshot (~240 fields)
@@ -474,84 +471,10 @@ class AskesisService:
             )
 
         intelligence = self.intelligence_factory.create(user_context)
-        plan_result: Result[DailyWorkPlan] = await intelligence.get_ready_to_work_on_today(
+        return await intelligence.get_ready_to_work_on_today(
             prioritize_life_path=prioritize_life_path,
             respect_capacity=respect_capacity,
         )
-        if plan_result.is_error:
-            return Result.fail(plan_result)
-        plan: DailyWorkPlan = plan_result.value
-
-        # ADR-059 bucketing — fold engagement state into the plan.
-        engaged_res = await self.ps_engagement_service.list_engaged(user_context.user_uid)
-        if engaged_res.is_error:
-            # Engagement read failure shouldn't kill the plan — log and return
-            # the un-bucketed plan so the rest of the daily surface still works.
-            logger.warning(
-                f"list_engaged failed for {user_context.user_uid}: {engaged_res.error} "
-                "— returning plan without engagement buckets"
-            )
-            return Result.ok(plan)
-
-        engagements: list[Engagement] = engaged_res.value
-        groups = self._build_engaged_groups(plan, engagements)
-        available = self._compute_available_to_start(user_context, engagements)
-
-        return Result.ok(replace(plan, engaged_ps_groups=groups, available_to_start=available))
-
-    @staticmethod
-    def _build_engaged_groups(
-        plan: DailyWorkPlan,
-        engagements: list[Engagement],
-    ) -> tuple[EngagedPsGroup, ...]:
-        """Intersect each engagement's spawned UIDs with the plan's per-domain lists."""
-        from core.models.context_types import EngagedPsGroup
-
-        if not engagements:
-            return ()
-
-        groups: list[EngagedPsGroup] = []
-        for engagement in engagements:
-            spawned = set(engagement.spawned_instance_uids)
-            if not spawned:
-                # Engagement carries no instance UIDs — still surface the
-                # engagement itself so the consumer can render "you're engaged
-                # with X" even when no spawned activity is on today's plan.
-                groups.append(EngagedPsGroup(ps_uid=engagement.ps_uid, engagement=engagement))
-                continue
-            groups.append(
-                EngagedPsGroup(
-                    ps_uid=engagement.ps_uid,
-                    engagement=engagement,
-                    pending_task_uids=tuple(uid for uid in plan.tasks if uid in spawned),
-                    pending_habit_uids=tuple(uid for uid in plan.habits if uid in spawned),
-                    pending_event_uids=tuple(uid for uid in plan.events if uid in spawned),
-                    pending_goal_uids=tuple(uid for uid in plan.goals if uid in spawned),
-                    pending_choice_uids=tuple(uid for uid in plan.choices if uid in spawned),
-                    pending_principle_uids=tuple(uid for uid in plan.principles if uid in spawned),
-                )
-            )
-        return tuple(groups)
-
-    @staticmethod
-    def _compute_available_to_start(
-        user_context: RichUserContext,
-        engagements: list[Engagement],
-    ) -> tuple[str, ...]:
-        """PS UIDs the user has touched but has not engaged with yet."""
-        engaged_ps_uids = {e.ps_uid for e in engagements}
-        touched: list[str] = []
-        seen: set[str] = set()
-        for item in user_context.active_path_steps_rich:
-            step = item.get("step") if isinstance(item, dict) else None
-            if not isinstance(step, dict):
-                continue
-            uid = step.get("uid")
-            if not isinstance(uid, str) or uid in seen or uid in engaged_ps_uids:
-                continue
-            seen.add(uid)
-            touched.append(uid)
-        return tuple(touched)
 
     async def get_optimal_next_path_steps(
         self,
