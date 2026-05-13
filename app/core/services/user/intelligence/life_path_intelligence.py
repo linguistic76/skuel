@@ -75,6 +75,14 @@ class LifePathIntelligenceMixin(IntelligenceMixinBase):
         principle_score = self._calculate_principle_alignment()
         momentum_score = self._calculate_momentum_score()
 
+        # PS-engagement boost on activity/goal: spawned-from-engagement items are
+        # taught movement on the life path, not native drift, so they earn extra
+        # credit beyond native learning-goal linkage. Bonus is shared across
+        # activity and goal dimensions because the spawn pool spans both.
+        engagement_bonus = self._engagement_alignment_bonus()
+        activity_score = min(1.0, activity_score * engagement_bonus)
+        goal_score = min(1.0, goal_score * engagement_bonus)
+
         # Weighted average for overall score
         overall_score = (
             knowledge_score * 0.25
@@ -423,6 +431,34 @@ class LifePathIntelligenceMixin(IntelligenceMixinBase):
                     supporting.append(habit_uid)
                     break
         return supporting
+
+    def _engagement_alignment_bonus(self) -> float:
+        """Multiplier reflecting share of active activities/goals spawned by PS engagements.
+
+        Returns a value in [1.0, 1.20]: 1.0 when no spawned items are active,
+        scaling to 1.20 when 100% of active tasks/habits/goals were spawned from
+        engagements. Abandoned engagements have their spawned items deleted per
+        ADR-059, so their UIDs naturally don't appear in active_* sets.
+
+        Applied to activity_score and goal_score by the caller — the spawn pool
+        crosses both dimensions, so one shared multiplier is the honest reading.
+        """
+        spawned_index = self.context.spawned_uid_to_ps_uid
+        if not spawned_index:
+            return 1.0
+
+        active_uids = (
+            self.context.active_task_uids
+            + self.context.active_habit_uids
+            + self.context.active_goal_uids
+        )
+        total = len(active_uids)
+        if total == 0:
+            return 1.0
+
+        spawned_count = sum(1 for uid in active_uids if uid in spawned_index)
+        spawned_share = spawned_count / total
+        return 1.0 + (spawned_share * 0.20)
 
     def _count_completed_milestones(self) -> int:
         """Count completed life path milestones."""

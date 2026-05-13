@@ -420,6 +420,11 @@ class UserContextBuilder:
                 context.active_ps_engagements = {
                     eng.ps_uid: eng for eng in engaged_result.value
                 }
+                context.spawned_uid_to_ps_uid = {
+                    instance_uid: eng.ps_uid
+                    for eng in engaged_result.value
+                    for instance_uid in eng.spawned_instance_uids
+                }
             else:
                 logger.warning(
                     f"list_engaged failed for {user_uid}: {engaged_result.expect_error()} "

@@ -261,6 +261,14 @@ class UserContext:
     # list_engaged fails. Consumers must null-check before reading.
     active_ps_engagements: dict[str, Engagement] | None = None
 
+    # Reverse index over active_ps_engagements: spawned instance UID -> ps_uid.
+    # Flat lookup so intelligence consumers can ask "did this activity come from
+    # a PS engagement?" without scanning every engagement's spawned tuple.
+    # Each instance UID is unique to one engagement (engage_pathstep mints fresh
+    # `_template_uid` suffixes per spawn), so the mapping is single-valued.
+    # Empty dict when active_ps_engagements is None/empty.
+    spawned_uid_to_ps_uid: dict[str, str] = field(default_factory=dict)
+
     # KU interaction tracking (Phase B)
     ku_view_counts: dict[str, int] = field(default_factory=dict)  # uid -> total view count
     ku_time_spent_seconds: dict[str, int] = field(default_factory=dict)  # uid -> cumulative seconds
