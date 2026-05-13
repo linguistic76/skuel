@@ -5,8 +5,12 @@ Unit Tests — Daily Planning: Priority 2.5 Unsubmitted Exercises
 Tests for the Priority 2.5 block in DailyPlanningMixin that surfaces
 teacher-assigned exercises not yet submitted by the student.
 
-Exercises now come from UserContext.unsubmitted_exercises (populated by
-MEGA-QUERY) instead of a separate ReportRelationshipService call.
+Exercises are service-routed via ExerciseService.get_actionable_exercises_for_user
+(which reads context.unsubmitted_exercises and joins required-KU mastery).
+Pending revisions are service-routed via ExerciseService.get_pending_revisions_for_user.
+The mock below replicates the dict → ContextualExercise conversion the real
+service performs so these tests continue to exercise daily_planning's
+plan-assembly behavior (capacity gate, max cap, warning generation).
 
 Covers:
 1. Happy path — exercises appear in plan with correct ContextualExercise fields
@@ -19,6 +23,7 @@ Covers:
 """
 
 from datetime import date, timedelta
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -74,6 +79,54 @@ def make_no_op_service() -> AsyncMock:
     mock.get_advancing_goals_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_pending_decisions_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_aligned_principles_for_user = AsyncMock(return_value=Result.ok([]))
+    # Exercise service methods — default to empty.
+    mock.get_actionable_exercises_for_user = AsyncMock(return_value=Result.ok([]))
+    mock.get_pending_revisions_for_user = AsyncMock(return_value=Result.ok([]))
+    return mock
+
+
+def _assignment_dict_to_contextual(ex_dict: dict[str, str | None]) -> ContextualExercise:
+    """Mirror ExerciseService.get_actionable_exercises_for_user dict→model
+    conversion (no prereq enrichment — tests don't populate knowledge_mastery)."""
+    today = date.today()
+    due_date: date | None = None
+    days_until_due: int | None = None
+    is_overdue = False
+    raw_due = ex_dict.get("due_date")
+    if raw_due:
+        due_date = date.fromisoformat(raw_due)
+        delta = (due_date - today).days
+        days_until_due = delta
+        is_overdue = delta < 0
+    return ContextualExercise(
+        uid=ex_dict["uid"],  # type: ignore[arg-type]
+        title=ex_dict.get("title", "Untitled Exercise") or "Untitled Exercise",
+        due_date=due_date,
+        is_overdue=is_overdue,
+        days_until_due=days_until_due,
+        subtype="assignment",
+        est_time_minutes=60,
+    )
+
+
+def make_exercises_mock(
+    unsubmitted: list[dict[str, str | None]] | None = None,
+    revisions: list[dict[str, Any]] | None = None,
+) -> AsyncMock:
+    """Mock ExerciseService with the daily-planning surface populated from dicts."""
+    assignments = [_assignment_dict_to_contextual(d) for d in (unsubmitted or [])][:3]
+    revs = [
+        ContextualExercise(
+            uid=r["uid"],
+            title=r.get("title", "Revision"),
+            subtype="revision",
+            est_time_minutes=45,
+        )
+        for r in (revisions or [])
+    ][:3]
+    mock = AsyncMock()
+    mock.get_actionable_exercises_for_user = AsyncMock(return_value=Result.ok(assignments))
+    mock.get_pending_revisions_for_user = AsyncMock(return_value=Result.ok(revs))
     return mock
 
 
@@ -90,6 +143,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         choices: object,
         principles: object,
         ku: object,
+        exercises: object,
         report: object,
     ) -> None:
         self.context = context
@@ -100,6 +154,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.choices = choices
         self.principles = principles
         self.ps = ku
+        self.exercises = exercises
         self.report = report
         self.vector_search = None
         self.filtered_providers = {}
@@ -108,9 +163,11 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
 def build_service(
     unsubmitted_exercises: list[dict[str, str | None]] | None = None,
 ) -> MockDailyPlanningService:
-    """Build a service with exercises on context; all domain services are no-ops."""
+    """Build a service with exercises on context; all domain services are no-ops
+    except for the exercises mock which receives the test inputs."""
     no_op = make_no_op_service()
     ctx = make_context(unsubmitted_exercises=unsubmitted_exercises)
+    exercises_mock = make_exercises_mock(unsubmitted=unsubmitted_exercises)
     return MockDailyPlanningService(
         context=ctx,
         tasks=no_op,
@@ -120,6 +177,7 @@ def build_service(
         choices=no_op,
         principles=no_op,
         ku=no_op,
+        exercises=exercises_mock,
         report=no_op,
     )
 
@@ -240,6 +298,9 @@ async def test_exercises_skipped_when_capacity_full() -> None:
         choices=no_op,
         principles=no_op,
         ku=no_op,
+        exercises=make_exercises_mock(
+            unsubmitted=[{"uid": "exercise_capacity", "title": "Long essay", "due_date": due}]
+        ),
         report=no_op,
     )
 
@@ -334,6 +395,7 @@ def test_rationale_includes_report_reference_when_present() -> None:
         choices=make_no_op_service(),
         principles=make_no_op_service(),
         ku=make_no_op_service(),
+        exercises=make_no_op_service(),
         report=make_no_op_service(),
     )
 

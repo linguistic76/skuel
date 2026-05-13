@@ -1463,10 +1463,16 @@ class PathStep:
 @dataclass(frozen=True)
 class ContextualExercise:
     """
-    An assigned exercise enriched with urgency context.
+    An assigned exercise enriched with urgency + prerequisite context.
 
-    Used by DailyPlanningMixin to present teacher assignments with
-    deadline awareness in the daily work plan.
+    Used by DailyPlanningMixin to present teacher assignments and pending
+    revisions with deadline awareness AND learning-readiness signals
+    ("blocked by N unmastered KUs") in the daily work plan.
+
+    The enrichment fields (subtype, blocking_kus, readiness_score,
+    est_time_minutes) all carry safe defaults so this dataclass remains
+    backward-compatible with the original 5-field shape until callers
+    migrate to ExerciseService.get_actionable_exercises_for_user().
     """
 
     uid: str
@@ -1474,6 +1480,12 @@ class ContextualExercise:
     due_date: date | None = None
     is_overdue: bool = False
     days_until_due: int | None = None  # None = no deadline set
+    # ── Enrichment fields (service-routed callers populate; legacy callers
+    #    accept the defaults, which mean "ready, unblocked, 60min estimate"). ──
+    subtype: str = "assignment"  # "assignment" | "revision"
+    blocking_kus: tuple[str, ...] = ()  # UIDs of required KUs below mastery threshold
+    readiness_score: float = 1.0  # 0.0-1.0; fraction of prerequisite KUs at mastery>=0.7
+    est_time_minutes: int = 60
 
     @property
     def entity_type(self) -> str:
@@ -1483,6 +1495,16 @@ class ContextualExercise:
     def is_urgent(self) -> bool:
         """Due within 3 days."""
         return self.days_until_due is not None and 0 <= self.days_until_due <= 3
+
+    @property
+    def is_blocked(self) -> bool:
+        """Has unmastered prerequisite knowledge."""
+        return bool(self.blocking_kus)
+
+    @property
+    def is_ready(self) -> bool:
+        """Prerequisite mastery clears the 0.7 readiness threshold."""
+        return self.readiness_score >= 0.7
 
 
 @dataclass(frozen=True)

@@ -10,14 +10,13 @@ This is the core value proposition: "What should I work on next?"
 **Synthesizes 10 domains:**
 - Activity Domains (6): tasks, habits, goals, events, choices, principles
 - Curriculum Domains (3): ku, ls, lp
-- Submissions Domain (1): context.unsubmitted_exercises — Priority 2.5
-- Revised Exercises (1): context.pending_revised_exercises — Priority 2.3
+- Exercise Domain (2): exercises.get_actionable_exercises_for_user — Priority 2.5
+                       exercises.get_pending_revisions_for_user — Priority 2.3
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.context_types import ContextualExercise, DailyWorkPlan, EngagedPsGroup
@@ -43,7 +42,9 @@ class DailyPlanningMixin(IntelligenceMixinBase):
     - self.tasks, self.habits, self.goals, self.events
     - self.choices, self.principles
     - self.ps
-    - self.report  (ReportRelationshipService — for unsubmitted exercises)
+    - self.exercises  (ExerciseService — actionable exercises + pending revisions
+      with prerequisite-mastery enrichment)
+    - self.report  (ReportRelationshipService — feedback loop queries)
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
 
@@ -140,62 +141,56 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         # =====================================================================
         # PRIORITY 2.3: Pending revised exercises (teacher-created revisions)
         # Higher priority than regular exercises — teacher wrote targeted feedback.
+        # Service-routed via ExerciseService: enriches with prereq readiness so
+        # blocked revisions surface in warnings.
         # =====================================================================
-        if self.context.pending_revised_exercises:
-            for rev_dict in self.context.pending_revised_exercises[:3]:
-                est_time = 45  # ~45 min to address a revision (shorter than fresh exercise)
-                if not respect_capacity or estimated_time + est_time <= available_time:
-                    contextual_ex = ContextualExercise(
-                        uid=rev_dict["uid"],
-                        title=rev_dict.get("title", "Revision"),
-                        due_date=None,  # Revised exercises don't have due dates
-                        is_overdue=False,
-                        days_until_due=None,
-                    )
-                    exercises_uids.append(rev_dict["uid"])
-                    contextual_exercises_list.append(contextual_ex)
-                    estimated_time += est_time
+        revisions_result = await self.exercises.get_pending_revisions_for_user(self.context)
+        if revisions_result.is_ok and revisions_result.value:
+            for contextual_rev in revisions_result.value:
+                if (
+                    not respect_capacity
+                    or estimated_time + contextual_rev.est_time_minutes <= available_time
+                ):
+                    exercises_uids.append(contextual_rev.uid)
+                    contextual_exercises_list.append(contextual_rev)
+                    estimated_time += contextual_rev.est_time_minutes
 
-            if len(self.context.pending_revised_exercises) > 0:
-                count = len(self.context.pending_revised_exercises)
+            total_revisions = len(self.context.pending_revised_exercises)
+            if total_revisions > 0:
                 warnings_list.append(
-                    f"{count} pending revision{'s' if count > 1 else ''} from teacher feedback"
+                    f"{total_revisions} pending revision{'s' if total_revisions > 1 else ''} from teacher feedback"
+                )
+            blocked_revs = [r for r in revisions_result.value if r.is_blocked]
+            if blocked_revs:
+                warnings_list.append(
+                    f"{len(blocked_revs)} revision{'s' if len(blocked_revs) > 1 else ''} blocked by unmastered prerequisites"
                 )
 
         # =====================================================================
-        # PRIORITY 2.5: Unsubmitted exercises (from UserContext — no extra query)
+        # PRIORITY 2.5: Unsubmitted exercises
+        # Service-routed via ExerciseService: prereq readiness drives ordering
+        # ("blocked by N unmastered KUs") and feeds the blocked-count warning.
         # =====================================================================
-        if self.context.unsubmitted_exercises:
-            today = date.today()
-            overdue_count = 0
-            for ex_dict in self.context.unsubmitted_exercises[:3]:
-                est_time = 60  # ~60 min to complete an exercise submission
-                if not respect_capacity or estimated_time + est_time <= available_time:
-                    due_date: date | None = None
-                    days_until_due: int | None = None
-                    is_overdue = False
-                    if ex_dict.get("due_date"):
-                        due_date = date.fromisoformat(ex_dict["due_date"])
-                        delta = (due_date - today).days
-                        days_until_due = delta
-                        is_overdue = delta < 0
-                        if is_overdue:
-                            overdue_count += 1
-
-                    contextual_ex = ContextualExercise(
-                        uid=ex_dict["uid"],
-                        title=ex_dict.get("title", "Untitled Exercise"),
-                        due_date=due_date,
-                        is_overdue=is_overdue,
-                        days_until_due=days_until_due,
-                    )
-                    exercises_uids.append(ex_dict["uid"])
+        exercises_result = await self.exercises.get_actionable_exercises_for_user(self.context)
+        if exercises_result.is_ok and exercises_result.value:
+            for contextual_ex in exercises_result.value:
+                if (
+                    not respect_capacity
+                    or estimated_time + contextual_ex.est_time_minutes <= available_time
+                ):
+                    exercises_uids.append(contextual_ex.uid)
                     contextual_exercises_list.append(contextual_ex)
-                    estimated_time += est_time
+                    estimated_time += contextual_ex.est_time_minutes
 
+            overdue_count = sum(1 for ex in exercises_result.value if ex.is_overdue)
             if overdue_count:
                 warnings_list.append(
                     f"{overdue_count} exercise submission{'s' if overdue_count > 1 else ''} overdue"
+                )
+            blocked_assignments = sum(1 for ex in exercises_result.value if ex.is_blocked)
+            if blocked_assignments:
+                warnings_list.append(
+                    f"{blocked_assignments} exercise{'s' if blocked_assignments > 1 else ''} blocked by unmastered prerequisites"
                 )
 
         # =====================================================================
@@ -375,17 +370,23 @@ class DailyPlanningMixin(IntelligenceMixinBase):
             priorities.append(f"Attend {len(plan.events)} scheduled events")
 
         if plan.exercises:
-            revision_count = len(self.context.pending_revised_exercises)
-            overdue_ex = [e for e in plan.contextual_exercises if e.is_overdue]
-            if revision_count > 0:
+            # Derive counts from the plan itself (subtype field on each
+            # ContextualExercise) so totals are internally consistent — the
+            # previous version mixed plan counts with full context totals,
+            # which made `remaining` potentially negative when context had
+            # more revisions than fit in the plan.
+            revisions = [e for e in plan.contextual_exercises if e.subtype == "revision"]
+            assignments = [e for e in plan.contextual_exercises if e.subtype == "assignment"]
+            overdue_ex = [e for e in assignments if e.is_overdue]
+            if revisions:
                 priorities.append(
-                    f"Address {revision_count} pending revision{'s' if revision_count > 1 else ''} from teacher feedback"
+                    f"Address {len(revisions)} pending revision{'s' if len(revisions) > 1 else ''} from teacher feedback"
                 )
             if overdue_ex:
                 priorities.append(
                     f"Submit {len(overdue_ex)} overdue exercise{'s' if len(overdue_ex) > 1 else ''} (teacher assignment)"
                 )
-            remaining = len(plan.exercises) - revision_count - len(overdue_ex)
+            remaining = len(assignments) - len(overdue_ex)
             if remaining > 0:
                 priorities.append(
                     f"Complete {remaining} exercise submission{'s' if remaining > 1 else ''}"
@@ -421,9 +422,10 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         if len(plan.habits) >= 3:
             rationale_parts.append("Strong focus on habit consistency")
 
-        # Exercise focus
+        # Exercise focus — derived from the plan (subtype on each ContextualExercise)
         if plan.exercises:
-            if self.context.pending_revised_exercises:
+            has_revision = any(e.subtype == "revision" for e in plan.contextual_exercises)
+            if has_revision:
                 rationale_parts.append("Teacher revision feedback to address")
             else:
                 rationale_parts.append("Teacher assignment submissions due")

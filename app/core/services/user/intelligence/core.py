@@ -121,9 +121,10 @@ class UserContextIntelligence(
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (2) - REQUIRED
+        # Curriculum Domains (3) - REQUIRED
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
+        exercises: Any,  # ExerciseService facade — daily-plan exercise enrichment
         # Processing Domains (3) - REQUIRED
         user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
@@ -180,9 +181,10 @@ class UserContextIntelligence(
             "events": events,
             "choices": choices,
             "principles": principles,
-            # Curriculum Domains (2)
+            # Curriculum Domains (3)
             "ps": ps,
             "lp": lp,
+            "exercises": exercises,
             # Processing Domains (3)
             "user_entries": user_entries,
             "report": report,
@@ -194,7 +196,7 @@ class UserContextIntelligence(
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligence requires all 12 domain services. "
+                f"UserContextIntelligence requires all 13 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -209,9 +211,10 @@ class UserContextIntelligence(
         self.choices = choices
         self.principles = principles
 
-        # Curriculum domains (2)
+        # Curriculum domains (3)
         self.ps = ps
         self.lp = lp
+        self.exercises = exercises
 
         # Processing domains (3)
         self.user_entries = user_entries

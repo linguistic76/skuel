@@ -79,6 +79,8 @@ def make_no_op_service() -> AsyncMock:
     mock.get_advancing_goals_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_pending_decisions_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_aligned_principles_for_user = AsyncMock(return_value=Result.ok([]))
+    mock.get_actionable_exercises_for_user = AsyncMock(return_value=Result.ok([]))
+    mock.get_pending_revisions_for_user = AsyncMock(return_value=Result.ok([]))
     return mock
 
 
@@ -106,6 +108,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.choices = no_op
         self.principles = no_op
         self.ps = no_op
+        self.exercises = no_op
         self.report = no_op
         self.vector_search = None
         self.filtered_providers = filtered_providers or {}

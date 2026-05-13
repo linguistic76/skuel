@@ -99,9 +99,10 @@ class UserContextIntelligenceFactory:
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (2) - REQUIRED
+        # Curriculum Domains (3) - REQUIRED
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
+        exercises: Any,  # ExerciseService facade — get_actionable_exercises_for_user / get_pending_revisions_for_user
         # Processing Domains (3) - REQUIRED
         user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
@@ -148,9 +149,9 @@ class UserContextIntelligenceFactory:
         Raises:
             ValueError: If any required service is None
         """
-        # Single source of truth for the 12 required services. Both validation
+        # Single source of truth for the 13 required services. Both validation
         # and forwarding to UserContextIntelligence read from this dict — adding
-        # a 13th service means one entry here (plus the matching __init__ param
+        # a 14th service means one entry here (plus the matching __init__ param
         # and the matching UserContextIntelligence.__init__ param).
         self._required_services: dict[str, Any] = {
             # Activity Domains (6)
@@ -160,9 +161,10 @@ class UserContextIntelligenceFactory:
             "events": events,
             "choices": choices,
             "principles": principles,
-            # Curriculum Domains (2)
+            # Curriculum Domains (3)
             "ps": ps,
             "lp": lp,
+            "exercises": exercises,
             # Processing Domains (3)
             "user_entries": user_entries,
             "report": report,

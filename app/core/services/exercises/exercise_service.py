@@ -56,7 +56,9 @@ _UNSET: Any = object()  # Sentinel for "argument not provided"
 if TYPE_CHECKING:
     from datetime import date
 
+    from core.models.context_types import ContextualExercise
     from core.ports.query_types import ListContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 def _compute_exercise_stats(all_exercises: list[Any]) -> dict[str, int | float]:
@@ -736,6 +738,153 @@ class ExerciseService(BaseService):
         ]
         self.logger.info(f"Found {len(exercises)} exercises for curriculum {curriculum_uid}")
         return Result.ok(exercises)
+
+    # ========================================================================
+    # DAILY PLANNING QUERIES (service-routed replacement for the inline blocks
+    # that DailyPlanningMixin formerly built from context.unsubmitted_exercises
+    # and context.pending_revised_exercises). These join prerequisite mastery
+    # so callers see "blocked by N unmastered KUs" without re-querying.
+    # ========================================================================
+
+    @with_error_handling("get_actionable_exercises_for_user", error_type="database")
+    async def get_actionable_exercises_for_user(
+        self,
+        context: RichUserContext,
+        limit: int = 3,
+    ) -> Result[list[ContextualExercise]]:
+        """Unsubmitted exercises enriched with REQUIRES_KNOWLEDGE prerequisite
+        readiness. Sorted: most-ready first, then overdue, then earliest due."""
+        from datetime import date as _date
+
+        from core.models.context_types import ContextualExercise
+
+        if not context.unsubmitted_exercises:
+            return Result.ok([])
+
+        today = _date.today()
+        enriched: list[ContextualExercise] = []
+
+        for ex_dict in context.unsubmitted_exercises:
+            uid = ex_dict.get("uid")
+            if not uid:
+                continue
+
+            due_date: date | None = None
+            days_until_due: int | None = None
+            is_overdue = False
+            raw_due = ex_dict.get("due_date")
+            if raw_due:
+                try:
+                    due_date = _date.fromisoformat(raw_due)
+                    delta = (due_date - today).days
+                    days_until_due = delta
+                    is_overdue = delta < 0
+                except ValueError:
+                    self.logger.warning(
+                        f"Invalid due_date on exercise {uid}: {raw_due!r}"
+                    )
+
+            blocking_kus, readiness_score = await self._compute_prereq_readiness(
+                uid, context
+            )
+
+            enriched.append(
+                ContextualExercise(
+                    uid=uid,
+                    title=ex_dict.get("title", "Untitled Exercise"),
+                    due_date=due_date,
+                    is_overdue=is_overdue,
+                    days_until_due=days_until_due,
+                    subtype="assignment",
+                    blocking_kus=blocking_kus,
+                    readiness_score=readiness_score,
+                    est_time_minutes=60,
+                )
+            )
+
+        def _sort_key(ex: ContextualExercise) -> tuple[float, int, int]:
+            days = ex.days_until_due if ex.days_until_due is not None else 10_000
+            return (-ex.readiness_score, -int(ex.is_overdue), days)
+
+        enriched.sort(key=_sort_key)
+        return Result.ok(enriched[:limit])
+
+    @with_error_handling("get_pending_revisions_for_user", error_type="database")
+    async def get_pending_revisions_for_user(
+        self,
+        context: RichUserContext,
+        limit: int = 3,
+    ) -> Result[list[ContextualExercise]]:
+        """Pending revised exercises enriched with prereq readiness. Lives on
+        ExerciseService (not RevisedExerciseService) because the prereq chain
+        REVISES_EXERCISE → Exercise → REQUIRES_KNOWLEDGE → Ku is anchored to
+        the original Exercise, whose UID is already on each revision dict."""
+        from core.models.context_types import ContextualExercise
+
+        if not context.pending_revised_exercises:
+            return Result.ok([])
+
+        enriched: list[ContextualExercise] = []
+
+        for rev_dict in context.pending_revised_exercises:
+            rev_uid = rev_dict.get("uid")
+            if not rev_uid:
+                continue
+
+            original_uid = rev_dict.get("original_exercise_uid")
+            if original_uid:
+                blocking_kus, readiness_score = await self._compute_prereq_readiness(
+                    original_uid, context
+                )
+            else:
+                blocking_kus = ()
+                readiness_score = 1.0
+
+            enriched.append(
+                ContextualExercise(
+                    uid=rev_uid,
+                    title=rev_dict.get("title", "Revision"),
+                    due_date=None,
+                    is_overdue=False,
+                    days_until_due=None,
+                    subtype="revision",
+                    blocking_kus=blocking_kus,
+                    readiness_score=readiness_score,
+                    est_time_minutes=45,
+                )
+            )
+
+        def _revision_sort_key(ex: ContextualExercise) -> float:
+            return -ex.readiness_score
+
+        enriched.sort(key=_revision_sort_key)
+        return Result.ok(enriched[:limit])
+
+    async def _compute_prereq_readiness(
+        self,
+        exercise_uid: str,
+        context: RichUserContext,
+    ) -> tuple[tuple[str, ...], float]:
+        """Join exercise REQUIRES_KNOWLEDGE prerequisites with
+        context.knowledge_mastery (threshold 0.7). Lookup failures degrade to
+        (empty, 1.0) so a single prereq query error never collapses the batch."""
+        result = await self.get_required_knowledge(exercise_uid)
+        if result.is_error:
+            self.logger.warning(
+                f"get_required_knowledge failed for exercise {exercise_uid}: "
+                f"{result.expect_error()}"
+            )
+            return ((), 1.0)
+        prereqs = result.value or []
+        if not prereqs:
+            return ((), 1.0)
+        unmastered = tuple(
+            ku["uid"]
+            for ku in prereqs
+            if context.knowledge_mastery.get(ku["uid"], 0.0) < 0.7
+        )
+        score = (len(prereqs) - len(unmastered)) / len(prereqs)
+        return (unmastered, score)
 
     # ========================================================================
     # QUERY LAYER (FilteredContextProvider)

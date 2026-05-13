@@ -127,16 +127,22 @@ async def _create_intelligence_hub(
     if services.exercises is not None:
         filtered_providers["exercises"] = services.exercises  # type: ignore[assignment]  # ExerciseOperations satisfies FilteredContextProvider protocol
 
-    # ── UserContextIntelligence factory (12-domain architecture) ────────────
+    # ── UserContextIntelligence factory (13-domain architecture) ────────────
+    if services.exercises is None:
+        raise RuntimeError(
+            "UserContextIntelligence factory requires services.exercises (ExerciseService). "
+            "compose_services must wire ExerciseService before _create_intelligence_hub."
+        )
     activity_relationships = {
         name: activity_services[name].relationships
         for name in ("tasks", "goals", "habits", "events", "choices", "principles")
     }
     context_intelligence_factory = UserContextIntelligenceFactory(
         **activity_relationships,
-        # Curriculum Domains (2)
+        # Curriculum Domains (3)
         ps=learning_services["ps"],
         lp=learning_services["learning_paths"].relationships,  # factory param name
+        exercises=services.exercises,
         # Processing Domains (3)
         user_entries=entry_relationship_service,
         report=report_relationship_service,
