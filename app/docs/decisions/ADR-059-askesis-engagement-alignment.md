@@ -1,6 +1,6 @@
 ---
 title: "ADR-059: Engagement-Aware Daily Plan in Askesis"
-updated: 2026-05-10
+updated: 2026-05-13
 status: current
 category: decisions
 tags: [adr, decisions, askesis, engagement, daily-plan]
@@ -9,7 +9,7 @@ related: [ADR-043, ADR-048, ADR-055]
 
 # ADR-059: Engagement-Aware Daily Plan in Askesis
 
-**Status:** Proposed
+**Status:** Implemented (2026-05-13) — landed with one deliberate deviation from the original Decision; see "As Shipped" below.
 
 **Date:** 2026-05-10
 
@@ -157,7 +157,7 @@ it behind a larger redesign blocks a small, correct fix.
 
 ## Implementation Details
 
-### Files
+### Original Proposed Files (superseded — see "As Shipped" below)
 
 **Modified:**
 - `core/models/askesis/daily_work_plan.py` — add `engaged_ps_groups`,
@@ -173,7 +173,7 @@ it behind a larger redesign blocks a small, correct fix.
 **New:** none. The bundle already carries the engagement; `_spawn_orchestrator`
 already resolves dates; routes are already pruned.
 
-### Wiring Sketch
+### Original Wiring Sketch (superseded)
 
 ```python
 # core/services/askesis_service.py — get_daily_work_plan
@@ -184,16 +184,64 @@ available = await self._published_but_not_engaged(user_uid, engaged)
 return Result.ok(plan.with_buckets(engaged_ps_groups=groups, available_to_start=available))
 ```
 
+### As Shipped (2026-05-13)
+
+The bucketing landed in `UserContextIntelligence` (`DailyPlanningMixin`),
+not in `AskesisService` — the path "Future Considerations § When to Revisit"
+predicted. A second consumer (`SynergyIntelligenceMixin`) needed the same
+engagement state during implementation, so lifting one level upstream
+avoided the duplication the original Decision would have introduced.
+
+The dataflow as shipped:
+
+1. `UserContextBuilder.build_rich` calls `PsEngagementService.list_engaged`
+   and writes the result into `RichUserContext.active_ps_engagements`
+   (`core/services/user/user_context_builder.py:418`).
+2. `DailyPlanningMixin.get_ready_to_work_on_today` reads
+   `self.context.active_ps_engagements`, builds `EngagedPsGroup` entries
+   via `_build_engaged_groups`, and computes `available_to_start` via
+   `_compute_available_to_start`
+   (`core/services/user/intelligence/daily_planning.py:362-371`).
+3. `AskesisService.get_daily_work_plan` is now a pass-through —
+   `engaged_ps_groups` and `available_to_start` are already populated on
+   the `DailyWorkPlan` returned from
+   `intelligence.get_ready_to_work_on_today()`
+   (`core/services/askesis_service.py:446-477`).
+
+**Files as actually modified:**
+
+- `core/models/context_types.py:1511` — `EngagedPsGroup` dataclass.
+- `core/models/context_types.py:1573-1574` — `DailyWorkPlan.engaged_ps_groups`,
+  `DailyWorkPlan.available_to_start`.
+- `core/services/user/unified_user_context.py:259-269` —
+  `RichUserContext.active_ps_engagements` + spawned-instance reverse index.
+- `core/services/user/user_context_builder.py:418` — builder populates the
+  field via `list_engaged`; logs and leaves `None` on failure.
+- `core/services/user/intelligence/daily_planning.py:362-371` — bucketing
+  logic and `replace(plan, engaged_ps_groups=..., available_to_start=...)`.
+- `core/services/askesis_service.py:446-450` — docstring updated to point
+  consumers at the upstream populating site.
+
 ### Testing Strategy
 
-- [ ] Unit: bucketing logic groups spawned activity UIDs correctly when
-  some are completed, some pending, some abandoned.
-- [ ] Unit: `available_to_start` excludes any PS in the engaged set.
-- [ ] Integration: end-to-end daily-plan response distinguishes engaged
-  from available, and an abandoned engagement is omitted.
-- [ ] Manual: exercise `/askesis/api/submit` with a fixture user holding
-  one engaged PS and one published-but-not-engaged PS; confirm the two
-  surfaces render differently.
+- [x] **Unit:** bucketing logic groups spawned activity UIDs correctly when
+  some are completed, some pending, some abandoned —
+  `tests/unit/test_daily_planning_bucketing.py`.
+- [x] **Unit:** `available_to_start` excludes any PS in the engaged set —
+  `tests/unit/test_daily_planning_bucketing.py`.
+- [x] **Unit:** rendered "engaged PS" UI section gates on empty buckets —
+  `tests/unit/test_engaged_ps_section.py`.
+- [~] **Integration:** intentionally **not** added to
+  `tests/integration/test_askesis_rag_wiring.py` (and a note at line 140-143
+  of that file documents the move). Because bucketing happens in
+  `DailyPlanningMixin`, the unit tests above exercise the same code path
+  the Askesis surface ultimately hits — adding a Neo4j-backed integration
+  test would re-verify the same logic at a higher cost. If a future
+  end-to-end smoke test for Askesis daily-plan rendering is desired, it
+  belongs alongside other Askesis surface tests, not in `test_askesis_rag_wiring.py`.
+- [ ] **Manual:** exercise `/askesis/api/submit` with a fixture user
+  holding one engaged PS and one published-but-not-engaged PS; confirm the
+  two surfaces render differently.
 
 ---
 
@@ -226,4 +274,6 @@ return Result.ok(plan.with_buckets(engaged_ps_groups=groups, available_to_start=
 - `core/services/ps_engagement/` — engagement service, gateway, spawn orchestrator
 - `core/models/templates/relative_offset.py` — value type already consumed by `_spawn_orchestrator`
 - `core/services/askesis/context_retriever.py:396-571` — engagement-aware bundle building (already shipped)
-- `core/services/askesis_service.py:417-467` — daily-plan entry point (the change site)
+- `core/services/askesis_service.py:417-477` — daily-plan entry point (pass-through after 2026-05-13; bucketing happens upstream in `DailyPlanningMixin`)
+- `core/services/user/intelligence/daily_planning.py:362-371` — actual bucketing site
+- `tests/unit/test_daily_planning_bucketing.py`, `tests/unit/test_engaged_ps_section.py` — coverage for the shipped path
