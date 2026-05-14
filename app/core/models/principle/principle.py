@@ -40,6 +40,36 @@ from core.models.enums.principle_enums import (
 from core.models.principle.principle_types import AlignmentAssessment, PrincipleExpression
 from core.models.user_owned_entity import UserOwnedEntity
 
+# ``why_important`` is a request-only field — Principle has no dedicated column,
+# so the create/update flow appends it to ``description`` with this marker.
+# Edit forms call ``split_why_important`` to reverse the merge for prefill.
+# Round-trip caveat: if ``description`` was empty at write time the marker is
+# omitted (preserves the original behavior of principles_core_service), so a
+# write of (description=None, why_important="x") reads back as
+# (description="x", why_important=None).
+WHY_IMPORTANT_MARKER = "\n\nWhy this matters:\n"
+
+
+def merge_why_important(description: str | None, why_important: str | None) -> str | None:
+    """Append ``why_important`` to ``description`` with the canonical marker."""
+    if not why_important:
+        return description
+    if not description:
+        return why_important
+    return f"{description}{WHY_IMPORTANT_MARKER}{why_important}"
+
+
+def split_why_important(
+    description: str | None,
+) -> tuple[str | None, str | None]:
+    """Inverse of ``merge_why_important``: return (prose, why_important)."""
+    if not description:
+        return None, None
+    prose, sep, why = description.rpartition(WHY_IMPORTANT_MARKER)
+    if not sep:
+        return description, None
+    return (prose or None), (why or None)
+
 
 def _to_alignment_assessment(entry: Any) -> AlignmentAssessment:
     """Reconstruct an AlignmentAssessment from a dict produced by ``asdict()``.

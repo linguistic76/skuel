@@ -22,6 +22,7 @@ from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activi
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from core.models.principle.principle import merge_why_important
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
 from core.utils.connection_fetcher import PRINCIPLE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_principles
@@ -168,16 +169,14 @@ def create_principles_ui_routes(
         # Drop None values and translate request field names to the domain model:
         # request uses ``category``/``source``; the Principle model uses
         # ``principle_category``/``principle_source``. ``why_important`` has no
-        # dedicated field on the model — appended to description.
+        # dedicated field on the model — merged into description.
         raw = {k: v for k, v in parsed.value.model_dump().items() if v is not None}
         why_important = raw.pop("why_important", None)
         rename = {"category": "principle_category", "source": "principle_source"}
         updates: dict[str, Any] = {rename.get(k, k): v for k, v in raw.items()}
         if why_important:
-            base = updates.get("description") or principle.description or ""
-            updates["description"] = (
-                f"{base}\n\nWhy this matters:\n{why_important}" if base else why_important
-            )
+            base = updates.get("description", principle.description)
+            updates["description"] = merge_why_important(base, why_important)
 
         result = await principles_service.update_principle(uid, updates)
         if result.is_error:

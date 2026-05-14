@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.models.principle.principle import Principle
+from core.models.principle.principle import Principle, split_why_important
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
 from ui.patterns.activity_form_helper import render_activity_form
 
@@ -114,7 +114,10 @@ def PrincipleEditForm(principle: Principle) -> Any:
     """Render the Principle edit form prefilled from an existing principle.
 
     Bridges the request-model / domain-model field-name mismatch via ``values``.
+    ``why_important`` lives inside ``description`` (no dedicated model field) —
+    split it back out so the field round-trips through edit.
     """
+    description, why_important = split_why_important(principle.description)
     return render_activity_form(
         domain_slug="principles",
         entity_name="Principle",
@@ -127,13 +130,13 @@ def PrincipleEditForm(principle: Principle) -> Any:
         values={
             "title": principle.title,
             "statement": principle.statement,
-            "description": principle.description,
+            "description": description,
             "category": principle.principle_category,
             "source": principle.principle_source,
             "strength": principle.strength,
             "tradition": principle.tradition,
             "personal_interpretation": principle.personal_interpretation,
-            "why_important": None,  # Not stored as a separate field on the model
+            "why_important": why_important,
             "priority": principle.priority,
         },
     )

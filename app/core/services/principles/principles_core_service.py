@@ -19,7 +19,7 @@ from typing import Any
 from core.events import publish_event
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import PrincipleStrength
-from core.models.principle.principle import Principle
+from core.models.principle.principle import Principle, merge_why_important
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.principle.principle_types import PrincipleExpression
@@ -237,16 +237,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         from core.utils.uid_generator import UIDGenerator
 
-        # description and why_important serve distinct purposes in the request but the
-        # Principle model has only `description`. Combine them when both are present so
-        # neither piece of authoring is lost.
-        body = request.description
-        if request.why_important:
-            body = (
-                f"{body}\n\nWhy this matters:\n{request.why_important}"
-                if body
-                else request.why_important
-            )
+        body = merge_why_important(request.description, request.why_important)
 
         expressions = tuple(
             PrincipleExpression(context=e.context, behavior=e.behavior, example=e.example)
