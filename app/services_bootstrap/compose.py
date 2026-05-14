@@ -721,6 +721,12 @@ async def compose_services(
             from core.services.ai_service import OpenAIService
 
             openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+            if not openai_api_key or openai_api_key in ("your-openai-api-key-here", "sk-"):
+                raise RuntimeError(
+                    "FULL-tier bootstrap requires OPENAI_API_KEY for content enrichment. "
+                    "Set INTELLIGENCE_TIER=core to run without LLM features, or "
+                    "set OPENAI_API_KEY in the credential store / environment."
+                )
             ai_service = OpenAIService(api_key=openai_api_key)
             logger.info("✅ OpenAI service created")
         else:
