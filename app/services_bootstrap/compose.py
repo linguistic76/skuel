@@ -618,30 +618,25 @@ async def compose_services(
         # ========================================================================
 
         # Create embedding background worker (async embedding generation for all activity domains)
-        # Worker processes EmbeddingRequested events in batches for zero-latency user experience
+        # Worker processes EmbeddingRequested events in batches for zero-latency user experience.
+        # Tier-gated via embeddings_service: CORE tier legitimately runs without the worker.
         embedding_worker = None
         if embeddings_service:
-            try:
-                from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+            from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 
-                embedding_worker = EmbeddingBackgroundWorker(
-                    event_bus=event_bus,
-                    embeddings_service=embeddings_service,
-                    config=config,
-                    content_adapter=content_adapter,  # Unlocks _process_chunk_batch
-                    prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
-                    batch_size=25,  # Process 25 entities per batch (cost-optimized)
-                    batch_interval_seconds=30,  # Run every 30 seconds
-                )
-                logger.info("✅ Embedding background worker created (batch_size=25, interval=30s)")
-                logger.info(
-                    "   Worker handles: 6 Activity + 7 Curriculum entity types + content chunks"
-                )
-            except (
-                Exception
-            ) as e:  # safety-net: service bootstrap must report initialization failures
-                logger.warning(f"Failed to initialize embedding background worker: {e}")
-                logger.warning("   Embeddings will only be generated during ingestion")
+            embedding_worker = EmbeddingBackgroundWorker(
+                event_bus=event_bus,
+                embeddings_service=embeddings_service,
+                config=config,
+                content_adapter=content_adapter,  # Unlocks _process_chunk_batch
+                prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
+                batch_size=25,  # Process 25 entities per batch (cost-optimized)
+                batch_interval_seconds=30,  # Run every 30 seconds
+            )
+            logger.info("✅ Embedding background worker created (batch_size=25, interval=30s)")
+            logger.info(
+                "   Worker handles: 6 Activity + 7 Curriculum entity types + content chunks"
+            )
         else:
             logger.info("⏭️  Embedding background worker skipped (embeddings_service not available)")
 
