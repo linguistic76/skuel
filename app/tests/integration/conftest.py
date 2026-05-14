@@ -832,16 +832,18 @@ async def populated_test_data(skuel_app):
 
 
 @pytest.fixture
-def embeddings_service():
+def embeddings_service(monkeypatch):
     """Create embeddings service with mock driver for integration tests.
 
     Tests that use this fixture immediately override service methods (e.g.,
     create_batch_embeddings) with AsyncMock, so the mock driver is sufficient.
+    HF_API_TOKEN is set so the constructor's fail-fast check passes.
     """
     from unittest.mock import AsyncMock, MagicMock
 
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
+    monkeypatch.setenv("HF_API_TOKEN", "test-token")
     mock_backend = MagicMock()
     mock_backend.store_embedding_metadata = AsyncMock()
     mock_backend.get_embedding_metadata = AsyncMock()

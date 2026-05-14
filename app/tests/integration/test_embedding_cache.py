@@ -33,12 +33,12 @@ def mock_backend():
 
 
 @pytest.fixture
-def embeddings_service(mock_backend):
+def embeddings_service(mock_backend, monkeypatch):
     """Create embeddings service with mock backend and mock HF client."""
+    # HF_API_TOKEN is required by the constructor; tests then swap _client for a mock
+    monkeypatch.setenv("HF_API_TOKEN", "test-token")
     service = HuggingFaceEmbeddingsService(mock_backend)
-    # Patch a mock client so create_embedding works without HF_API_TOKEN
-    mock_client = MagicMock()
-    service._client = mock_client
+    service._client = MagicMock()
     return service
 
 

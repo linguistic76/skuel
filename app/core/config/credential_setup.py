@@ -114,6 +114,13 @@ class CredentialSetup:
             "sensitive": True,
             "default": None,
         },
+        # --- Transactional email (required when EMAIL_ENABLED=true) ---
+        "RESEND_API_KEY": {
+            "description": "Resend API key — password reset emails (gated by EMAIL_ENABLED)",
+            "required": False,
+            "sensitive": True,
+            "default": None,
+        },
         # --- Dev/test accounts (local development only) ---
         "TEST_ADMIN_PASSWORD": {
             "description": "Test admin account password (local dev/integration tests)",

@@ -311,17 +311,30 @@ async def compose_services(
 
         session_backend = SessionBackend(driver)
 
-        # Optional email service for password reset (March 2026)
+        # Email service for password reset (March 2026, tier-gated May 2026)
+        # Gated by EMAIL_ENABLED to match the embeddings pattern: opt-in via flag,
+        # fail-fast on missing credential when opted in. Default off keeps local-dev
+        # quiet. graph_auth handles email_service=None — password reset returns
+        # Result.ok(True) without sending (prevents email-enumeration leak).
         email_service = None
-        resend_api_key = os.environ.get("RESEND_API_KEY")
-        if resend_api_key:
+        email_enabled = os.environ.get("EMAIL_ENABLED", "").lower() in ("true", "1", "yes")
+        if email_enabled:
+            from core.config.credential_store import get_credential
+
+            resend_api_key = get_credential("RESEND_API_KEY", fallback_to_env=True)
+            if not resend_api_key:
+                raise RuntimeError(
+                    "EMAIL_ENABLED=true but RESEND_API_KEY is not set in keychain or env. "
+                    "Add it via the credential setup flow, or set EMAIL_ENABLED=false "
+                    "to disable password reset emails."
+                )
             from adapters.outbound.email_service import ResendEmailService
 
             resend_from = os.environ.get("RESEND_FROM_EMAIL", "noreply@skuel.app")
             email_service = ResendEmailService(api_key=resend_api_key, from_email=resend_from)
             logger.info("✅ ResendEmailService created (password reset emails)")
         else:
-            logger.warning("⚠️ RESEND_API_KEY not set — password reset emails disabled")
+            logger.info("⏭️  Email service skipped (EMAIL_ENABLED not set)")
 
         app_url = os.environ.get("APP_URL", "http://localhost:8000")
 
