@@ -1,5 +1,6 @@
 """UI Patterns - Composed components built from primitives."""
 
+from ui.patterns.activity_form_helper import render_activity_form
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_empty_state_with_error, render_error_banner
@@ -26,6 +27,7 @@ __all__ = [
     "StatCard",
     "StatsGrid",
     "content_loading_placeholder",
+    "render_activity_form",
     "render_empty_state_with_error",
     "render_error_banner",
 ]

@@ -16,8 +16,8 @@ from typing import Any
 
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
+from ui.patterns.activity_form_helper import render_activity_form
 from ui.patterns.entity_picker import EntityPicker
-from ui.patterns.form_generator import FormGenerator
 
 _CREATE_SECTIONS: dict[str, dict[str, Any]] = {
     "Basics": {"icon": "info", "accent": "blue", "fields": ["title", "description"]},
@@ -94,24 +94,22 @@ _FIELD_HELP: dict[str, str] = {
 def TaskCreateForm() -> Any:
     """Render the Task create form with EntityPicker for cross-domain UIDs.
 
-    POSTs ``application/x-www-form-urlencoded`` to ``/tasks/create``. Each
-    picker emits a hidden input named ``{parent,fulfills_goal,reinforces_habit}_uid``
+    Each picker emits a hidden input named ``{parent,fulfills_goal,reinforces_habit}_uid``
     so the form body validates directly against :class:`TaskCreateRequest`.
     """
-    return FormGenerator.from_model(
-        TaskCreateRequest,
-        action="/tasks/create",
-        method="POST",
+    return render_activity_form(
+        domain_slug="tasks",
+        entity_name="Task",
+        request_model=TaskCreateRequest,
+        operation="create",
         sections=_CREATE_SECTIONS,
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
         custom_widgets={
             "parent_uid": EntityPicker("parent_uid", target_type="task"),
             "fulfills_goal_uid": EntityPicker("fulfills_goal_uid", target_type="goal"),
             "reinforces_habit_uid": EntityPicker("reinforces_habit_uid", target_type="habit"),
         },
-        labels=_FIELD_LABELS,
-        help_texts=_FIELD_HELP,
-        submit_label="Create Task",
-        form_attrs={"id": "task-create-form"},
     )
 
 
@@ -124,20 +122,21 @@ def TaskEditForm(
     """Render the Task edit form prefilled from an existing task.
 
     Args:
-        task: The Task being edited. Provides UID context (so the parent picker
-            could later exclude self+descendants), and field values to prefill.
-        goal_display: Human-readable title for ``task.fulfills_goal_uid``,
-            resolved by the route layer. ``None`` leaves the picker's visible
-            input empty even when the hidden UID is set.
-        habit_display: Same as ``goal_display`` but for
-            ``task.reinforces_habit_uid``.
+        task: The Task being edited. Provides UID context and field values to prefill.
+        goal_display: Human-readable title for ``task.fulfills_goal_uid``, resolved by
+            the route layer. ``None`` leaves the picker's visible input empty even
+            when the hidden UID is set.
+        habit_display: Same as ``goal_display`` but for ``task.reinforces_habit_uid``.
     """
-    return FormGenerator.from_instance(
-        TaskUpdateRequest,
-        task,
-        action=f"/tasks/edit?uid={task.uid}",
-        method="POST",
+    return render_activity_form(
+        domain_slug="tasks",
+        entity_name="Task",
+        request_model=TaskUpdateRequest,
+        operation="edit",
         sections=_EDIT_SECTIONS,
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
+        entity=task,
         custom_widgets={
             "fulfills_goal_uid": EntityPicker(
                 "fulfills_goal_uid",
@@ -152,10 +151,6 @@ def TaskEditForm(
                 display=habit_display,
             ),
         },
-        labels=_FIELD_LABELS,
-        help_texts=_FIELD_HELP,
-        submit_label="Save Changes",
-        form_attrs={"id": "task-edit-form"},
     )
 
 

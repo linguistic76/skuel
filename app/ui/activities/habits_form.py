@@ -9,6 +9,10 @@ Habit's cross-domain links (``linked_goal_uids``, ``linked_principle_uids``,
 ``linked_knowledge_uids``, ``prerequisite_habit_uids``) are all list-typed,
 so they are intentionally omitted from the form — UID-list relationships
 belong on the detail-page relationship picker.
+
+HabitUpdateRequest uses ``name`` / ``category`` / ``difficulty`` while the Habit
+domain model uses ``title`` / ``habit_category`` / ``habit_difficulty``, so the
+edit form passes an explicit ``values`` dict to bridge those field names.
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ from typing import Any
 
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
-from ui.patterns.form_generator import FormGenerator
+from ui.patterns.activity_form_helper import render_activity_form
 
 _CREATE_SECTIONS: dict[str, dict[str, Any]] = {
     "Basics": {
@@ -107,58 +111,48 @@ _FIELD_HELP: dict[str, str] = {
 
 
 def HabitCreateForm() -> Any:
-    """Render the Habit create form.
-
-    POSTs ``application/x-www-form-urlencoded`` to ``/habits/create``. List-typed
-    fields (``linked_*_uids``, ``prerequisite_habit_uids``, ``tags``) are
-    intentionally omitted; assign those via the detail-page relationship picker.
-    """
-    return FormGenerator.from_model(
-        HabitCreateRequest,
-        action="/habits/create",
-        method="POST",
+    """Render the Habit create form."""
+    return render_activity_form(
+        domain_slug="habits",
+        entity_name="Habit",
+        request_model=HabitCreateRequest,
+        operation="create",
         sections=_CREATE_SECTIONS,
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
-        submit_label="Create Habit",
-        form_attrs={"id": "habit-create-form"},
     )
 
 
 def HabitEditForm(habit: Habit) -> Any:
     """Render the Habit edit form prefilled from an existing habit.
 
-    HabitUpdateRequest uses ``name`` / ``category`` / ``difficulty`` while the Habit
-    domain model uses ``title`` / ``habit_category`` / ``habit_difficulty`` — bridge
-    those field names in the prefill dict. No EntityPicker widgets: HabitUpdateRequest
-    exposes no single-UID cross-domain fields.
+    Bridges the request-model / domain-model field-name mismatch via ``values``.
     """
-    values: dict[str, Any] = {
-        "name": habit.title,
-        "description": habit.description,
-        "polarity": habit.polarity,
-        "category": habit.habit_category,
-        "difficulty": habit.habit_difficulty,
-        "recurrence_pattern": habit.recurrence_pattern,
-        "target_days_per_week": habit.target_days_per_week,
-        "preferred_time": habit.preferred_time,
-        "duration_minutes": habit.duration_minutes,
-        "cue": habit.cue,
-        "routine": habit.routine,
-        "reward": habit.reward,
-        "status": habit.status,
-        "priority": habit.priority,
-    }
-    return FormGenerator.from_model(
-        HabitUpdateRequest,
-        action=f"/habits/edit?uid={habit.uid}",
-        method="POST",
+    return render_activity_form(
+        domain_slug="habits",
+        entity_name="Habit",
+        request_model=HabitUpdateRequest,
+        operation="edit",
         sections=_EDIT_SECTIONS,
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
-        submit_label="Save Changes",
-        form_attrs={"id": "habit-edit-form"},
-        values=values,
+        entity=habit,
+        values={
+            "name": habit.title,
+            "description": habit.description,
+            "polarity": habit.polarity,
+            "category": habit.habit_category,
+            "difficulty": habit.habit_difficulty,
+            "recurrence_pattern": habit.recurrence_pattern,
+            "target_days_per_week": habit.target_days_per_week,
+            "preferred_time": habit.preferred_time,
+            "duration_minutes": habit.duration_minutes,
+            "cue": habit.cue,
+            "routine": habit.routine,
+            "reward": habit.reward,
+            "status": habit.status,
+            "priority": habit.priority,
+        },
     )
 
 

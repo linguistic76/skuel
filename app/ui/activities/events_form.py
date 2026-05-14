@@ -22,8 +22,8 @@ from typing import Any
 
 from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
+from ui.patterns.activity_form_helper import render_activity_form
 from ui.patterns.entity_picker import EntityPicker
-from ui.patterns.form_generator import FormGenerator
 
 _CREATE_SECTIONS: dict[str, dict[str, Any]] = {
     "Basics": {"icon": "info", "accent": "blue", "fields": ["title", "description"]},
@@ -126,26 +126,21 @@ _FIELD_HELP: dict[str, str] = {
 
 
 def EventCreateForm() -> Any:
-    """Render the Event create form with EntityPicker for cross-domain UIDs.
-
-    POSTs ``application/x-www-form-urlencoded`` to ``/events/create``. List-typed
-    fields and the attendee list are not in this form — assign them on the detail page.
-    """
-    return FormGenerator.from_model(
-        EventCreateRequest,
-        action="/events/create",
-        method="POST",
+    """Render the Event create form with EntityPicker for cross-domain UIDs."""
+    return render_activity_form(
+        domain_slug="events",
+        entity_name="Event",
+        request_model=EventCreateRequest,
+        operation="create",
         sections=_CREATE_SECTIONS,
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
         custom_widgets={
             "reinforces_habit_uid": EntityPicker("reinforces_habit_uid", target_type="habit"),
             "milestone_celebration_for_goal": EntityPicker(
                 "milestone_celebration_for_goal", target_type="goal"
             ),
         },
-        labels=_FIELD_LABELS,
-        help_texts=_FIELD_HELP,
-        submit_label="Create Event",
-        form_attrs={"id": "event-create-form"},
     )
 
 
@@ -164,12 +159,15 @@ def EventEditForm(
         goal_display: Same as ``habit_display`` but for
             ``event.milestone_celebration_for_goal``.
     """
-    return FormGenerator.from_instance(
-        EventUpdateRequest,
-        event,
-        action=f"/events/edit?uid={event.uid}",
-        method="POST",
+    return render_activity_form(
+        domain_slug="events",
+        entity_name="Event",
+        request_model=EventUpdateRequest,
+        operation="edit",
         sections=_EDIT_SECTIONS,
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
+        entity=event,
         custom_widgets={
             "reinforces_habit_uid": EntityPicker(
                 "reinforces_habit_uid",
@@ -184,10 +182,6 @@ def EventEditForm(
                 display=goal_display,
             ),
         },
-        labels=_FIELD_LABELS,
-        help_texts=_FIELD_HELP,
-        submit_label="Save Changes",
-        form_attrs={"id": "event-edit-form"},
     )
 
 

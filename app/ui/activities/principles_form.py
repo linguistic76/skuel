@@ -10,6 +10,10 @@ List-typed fields (``key_behaviors``, ``decision_criteria``, ``tags``) and the n
 list-input bug, and structured nested fields belong on the detail page. Cross-domain
 links to goals / habits / knowledge are list-typed and assigned via the detail-page
 relationship picker.
+
+PrincipleUpdateRequest uses ``category`` / ``source`` while the Principle domain
+model uses ``principle_category`` / ``principle_source``, so the edit form passes
+an explicit ``values`` dict to bridge those field names.
 """
 
 from __future__ import annotations
@@ -18,7 +22,7 @@ from typing import Any
 
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
-from ui.patterns.form_generator import FormGenerator
+from ui.patterns.activity_form_helper import render_activity_form
 
 _CREATE_SECTIONS: dict[str, dict[str, Any]] = {
     "Basics": {
@@ -94,53 +98,44 @@ _FIELD_HELP: dict[str, str] = {
 
 
 def PrincipleCreateForm() -> Any:
-    """Render the Principle create form.
-
-    POSTs ``application/x-www-form-urlencoded`` to ``/principles/create``.
-    Expressions, key_behaviors, decision_criteria, tags are not in this form —
-    assign them on the detail page.
-    """
-    return FormGenerator.from_model(
-        PrincipleCreateRequest,
-        action="/principles/create",
-        method="POST",
+    """Render the Principle create form."""
+    return render_activity_form(
+        domain_slug="principles",
+        entity_name="Principle",
+        request_model=PrincipleCreateRequest,
+        operation="create",
         sections=_CREATE_SECTIONS,
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
-        submit_label="Create Principle",
-        form_attrs={"id": "principle-create-form"},
     )
 
 
 def PrincipleEditForm(principle: Principle) -> Any:
     """Render the Principle edit form prefilled from an existing principle.
 
-    PrincipleUpdateRequest uses ``category`` / ``source`` while the Principle domain
-    model uses ``principle_category`` / ``principle_source`` — bridge those in the
-    prefill dict.
+    Bridges the request-model / domain-model field-name mismatch via ``values``.
     """
-    values: dict[str, Any] = {
-        "title": principle.title,
-        "statement": principle.statement,
-        "description": principle.description,
-        "category": principle.principle_category,
-        "source": principle.principle_source,
-        "strength": principle.strength,
-        "tradition": principle.tradition,
-        "personal_interpretation": principle.personal_interpretation,
-        "why_important": None,  # Not stored as a separate field on the model
-        "priority": principle.priority,
-    }
-    return FormGenerator.from_model(
-        PrincipleUpdateRequest,
-        action=f"/principles/edit?uid={principle.uid}",
-        method="POST",
+    return render_activity_form(
+        domain_slug="principles",
+        entity_name="Principle",
+        request_model=PrincipleUpdateRequest,
+        operation="edit",
         sections=_EDIT_SECTIONS,
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
-        submit_label="Save Changes",
-        form_attrs={"id": "principle-edit-form"},
-        values=values,
+        entity=principle,
+        values={
+            "title": principle.title,
+            "statement": principle.statement,
+            "description": principle.description,
+            "category": principle.principle_category,
+            "source": principle.principle_source,
+            "strength": principle.strength,
+            "tradition": principle.tradition,
+            "personal_interpretation": principle.personal_interpretation,
+            "why_important": None,  # Not stored as a separate field on the model
+            "priority": principle.priority,
+        },
     )
 
 

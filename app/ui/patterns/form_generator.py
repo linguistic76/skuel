@@ -6,6 +6,10 @@ Generates forms from Pydantic model introspection. Supports
 sections, help text, pre-fill, hidden fields, and fragment mode for
 embedding forms within curriculum content.
 
+For Activity Domain forms (Tasks, Goals, Habits, Events, Choices, Principles),
+prefer :func:`ui.patterns.activity_form_helper.render_activity_form` — it
+encodes the action URL / submit label / form id conventions on top of this.
+
 See: /docs/patterns/FORM_GENERATOR_GUIDE.md
 """
 

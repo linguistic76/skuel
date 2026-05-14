@@ -16,8 +16,8 @@ from typing import Any
 
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
+from ui.patterns.activity_form_helper import render_activity_form
 from ui.patterns.entity_picker import EntityPicker
-from ui.patterns.form_generator import FormGenerator
 
 _CREATE_SECTIONS: dict[str, dict[str, Any]] = {
     "Basics": {
@@ -109,51 +109,41 @@ _FIELD_HELP: dict[str, str] = {
 def GoalCreateForm() -> Any:
     """Render the Goal create form with EntityPicker for the parent-goal UID.
 
-    POSTs ``application/x-www-form-urlencoded`` to ``/goals/create``. The picker
-    emits a hidden input named ``parent_goal_uid`` so the form body validates
-    directly against :class:`GoalCreateRequest`.
-
     List-typed fields (``required_knowledge_uids``, ``supporting_habit_uids``,
     ``guiding_principle_uids``, ``potential_obstacles``, ``strategies``, ``tags``)
     are intentionally omitted — UID-list relationships belong on the detail-page
     relationship picker, and free-text list fields hit the FormGenerator list
     bug. See: project_form_generator_list_bug.md.
     """
-    return FormGenerator.from_model(
-        GoalCreateRequest,
-        action="/goals/create",
-        method="POST",
+    return render_activity_form(
+        domain_slug="goals",
+        entity_name="Goal",
+        request_model=GoalCreateRequest,
+        operation="create",
         sections=_CREATE_SECTIONS,
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
         custom_widgets={
             "parent_goal_uid": EntityPicker("parent_goal_uid", target_type="goal"),
         },
-        labels=_FIELD_LABELS,
-        help_texts=_FIELD_HELP,
-        submit_label="Create Goal",
-        form_attrs={"id": "goal-create-form"},
     )
 
 
 def GoalEditForm(goal: Goal) -> Any:
     """Render the Goal edit form prefilled from an existing goal.
 
-    Args:
-        goal: The Goal being edited. Field values prefill via
-            :meth:`FormGenerator.from_instance`.
-
     GoalUpdateRequest exposes no cross-domain single-UID fields, so no
     EntityPicker widgets are wired here.
     """
-    return FormGenerator.from_instance(
-        GoalUpdateRequest,
-        goal,
-        action=f"/goals/edit?uid={goal.uid}",
-        method="POST",
+    return render_activity_form(
+        domain_slug="goals",
+        entity_name="Goal",
+        request_model=GoalUpdateRequest,
+        operation="edit",
         sections=_EDIT_SECTIONS,
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
-        submit_label="Save Changes",
-        form_attrs={"id": "goal-edit-form"},
+        entity=goal,
     )
 
 

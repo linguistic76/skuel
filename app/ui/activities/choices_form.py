@@ -18,7 +18,7 @@ from typing import Any
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
-from ui.patterns.form_generator import FormGenerator
+from ui.patterns.activity_form_helper import render_activity_form
 
 _SECTIONS: dict[str, dict[str, Any]] = {
     "Basics": {"icon": "info", "accent": "blue", "fields": ["title", "description"]},
@@ -50,36 +50,29 @@ _FIELD_HELP: dict[str, str] = {
 
 
 def ChoiceCreateForm() -> Any:
-    """Render the Choice create form.
-
-    POSTs ``application/x-www-form-urlencoded`` to ``/choices/create``. Options,
-    decision_criteria, constraints, stakeholders, tags, and
-    informed_by_knowledge_uids are not in this form — add them on the detail page.
-    """
-    return FormGenerator.from_model(
-        ChoiceCreateRequest,
-        action="/choices/create",
-        method="POST",
+    """Render the Choice create form."""
+    return render_activity_form(
+        domain_slug="choices",
+        entity_name="Choice",
+        request_model=ChoiceCreateRequest,
+        operation="create",
         sections=_SECTIONS,
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
-        submit_label="Create Choice",
-        form_attrs={"id": "choice-create-form"},
     )
 
 
 def ChoiceEditForm(choice: Choice) -> Any:
     """Render the Choice edit form prefilled from an existing choice."""
-    return FormGenerator.from_instance(
-        ChoiceUpdateRequest,
-        choice,
-        action=f"/choices/edit?uid={choice.uid}",
-        method="POST",
+    return render_activity_form(
+        domain_slug="choices",
+        entity_name="Choice",
+        request_model=ChoiceUpdateRequest,
+        operation="edit",
         sections=_SECTIONS,
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
-        submit_label="Save Changes",
-        form_attrs={"id": "choice-edit-form"},
+        entity=choice,
     )
 
 
