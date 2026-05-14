@@ -29,6 +29,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -499,15 +500,16 @@ class PrinciplesService(
     # ========================================================================
 
     async def create_principle(
-        self,
-        label: str,
-        description: str,
-        category: PrincipleCategory,
-        why_matters: str,
-        **kwargs: Any,
+        self, request: PrincipleCreateRequest, user_uid: UserUID
     ) -> Result[Principle]:
-        """Create a new principle."""
-        return await self.core.create_principle(label, description, category, why_matters, **kwargs)
+        """Create a principle from a validated request."""
+        return await self.core.create_principle(request, user_uid)
+
+    async def update_principle(
+        self, principle_uid: str, updates: dict[str, Any]
+    ) -> Result[Principle]:
+        """Update a principle by uid with a dict of fields to change."""
+        return await self.core.update_principle(principle_uid, updates)
 
     # ========================================================================
     # QUERY LAYER

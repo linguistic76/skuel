@@ -59,7 +59,6 @@ if TYPE_CHECKING:
 
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.choice.choice_request import ChoiceCreateRequest
-    from core.models.entity_requests import EntityUpdateRequest
     from core.models.enums import Domain, Priority
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
@@ -462,11 +461,9 @@ class ChoicesService(
         """
         return await self.core.create_choice(choice_request, user_uid)
 
-    async def update_choice(
-        self, choice_uid: str, choice_update: EntityUpdateRequest
-    ) -> Result[Choice]:
-        """Update a choice."""
-        return await self.core.update_choice(choice_uid, choice_update)
+    async def update_choice(self, choice_uid: str, updates: dict[str, Any]) -> Result[Choice]:
+        """Update a choice from a dict of fields to change."""
+        return await self.core.update_choice(choice_uid, updates)
 
     async def delete_choice(self, choice_uid: str) -> Result[bool]:
         """Delete a choice."""

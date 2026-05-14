@@ -536,14 +536,15 @@ class TestPrincipleEmbeddingEvents:
 
         # Create principle
         from core.models.enums.principle_enums import PrincipleCategory
+        from core.models.principle.principle_request import PrincipleCreateRequest
 
-        result = await principles_service.create_principle(
-            label="Continuous Learning",
-            description="Always seek to expand knowledge and skills",
+        request = PrincipleCreateRequest(
+            title="Continuous Learning",
+            statement="Always seek to expand knowledge and skills",
             category=PrincipleCategory.PERSONAL,
-            why_matters="Growth mindset enables adaptation and success",
-            user_uid=user_uid,
+            why_important="Growth mindset enables adaptation and success",
         )
+        result = await principles_service.create_principle(request, user_uid)
 
         # Wait for event propagation
         await asyncio.sleep(0.1)

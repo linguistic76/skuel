@@ -352,7 +352,7 @@ class CalendarService:
                     end_time=new_end.time(),
                     status=event.status,
                 )
-                event_update = await self.events_service.update(source_uid, updated_event_dto)
+                event_update = await self.events_service.update_event(source_uid, updated_event_dto)
                 if event_update.is_ok:
                     return Result.ok(self._event_to_calendar_item(event_update.value))
                 return Result.fail(event_update)

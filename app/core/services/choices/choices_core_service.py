@@ -38,7 +38,6 @@ if TYPE_CHECKING:
         ChoiceCreateRequest,
         ChoiceEvaluationRequest,
     )
-    from core.models.entity_requests import EntityUpdateRequest
     from core.ports.domain_protocols import ChoicesOperations
 
 
@@ -362,20 +361,17 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
         return Result.ok(choices)
 
-    async def update_choice(
-        self, choice_uid: str, choice_update: EntityUpdateRequest
-    ) -> Result[Choice]:
+    async def update_choice(self, choice_uid: str, updates: dict[str, Any]) -> Result[Choice]:
         """
-        Update a choice.
+        Update a choice from a dict of fields to change.
 
         Args:
-            choice_uid: UID of the choice,
-            choice_update: Updated choice data
+            choice_uid: UID of the choice
+            updates: Dict of fields to update (caller drops None values)
 
         Returns:
             Result containing updated Choice
         """
-        # Get existing choice
         existing_result = await self.get_choice(choice_uid)
         if existing_result.is_error:
             return Result.fail(existing_result)
@@ -385,43 +381,17 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
         assert isinstance(existing, Choice)
 
-        # Create updated DTO
-        dto = existing.to_dto()
-
-        # Apply updates
-        if choice_update.title is not None:
-            dto.title = choice_update.title
-        if choice_update.description is not None:
-            dto.description = choice_update.description
-        if choice_update.priority is not None:
-            dto.priority = choice_update.priority
-        if choice_update.decision_deadline is not None:
-            dto.decision_deadline = choice_update.decision_deadline
-
-        # Track updated fields
-        updated_fields: dict[str, Any] = {}
-        if choice_update.title is not None:
-            updated_fields["title"] = choice_update.title
-        if choice_update.description is not None:
-            updated_fields["description"] = choice_update.description
-        if choice_update.priority is not None:
-            updated_fields["priority"] = choice_update.priority
-        if choice_update.decision_deadline is not None:
-            updated_fields["deadline"] = choice_update.decision_deadline
-
-        # Update in backend
-        update_result = await self.backend.update(choice_uid, dto.to_dict())
+        update_result = await self.backend.update(choice_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result)
 
         choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
 
-        # Publish ChoiceUpdated event (event-driven architecture)
-        if updated_fields:
+        if updates:
             event = ChoiceUpdated(
                 choice_uid=choice.uid,
                 user_uid=choice.user_uid,
-                updated_fields=updated_fields,
+                updated_fields=updates,
             )
             await publish_event(self.event_bus, event, self.logger)
 

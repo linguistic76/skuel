@@ -983,21 +983,23 @@ class ActivityExtractorService:
         if convert_result.is_error:
             return Result.fail(convert_result)
 
-        principle_dict = convert_result.value
+        # activity_to_principle_dict emits "name" + linked_*_uids and other DSL-specific keys
+        # that don't map onto PrincipleCreateRequest. Translate keys and drop unsupported
+        # ones so the request validates. ConversionResult is a union, but the principle
+        # converter always returns a dict.
+        from core.models.principle.principle_request import PrincipleCreateRequest
 
-        # Create principle via service
-        # Note: Adapt this to your PrinciplesCoreService interface
-        if getattr(self.principles_service, "create_principle", None):
-            create_result = await self.principles_service.create_principle(principle_dict, user_uid)
-        elif getattr(self.principles_service, "create", None):
-            create_result = await self.principles_service.create(principle_dict, user_uid)
-        else:
-            return Result.fail(
-                Errors.system(
-                    message="Principles service has no create method",
-                    operation="create_principle",
-                )
-            )
+        raw = convert_result.value
+        principle_dict: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
+
+        request_kwargs = dict(principle_dict)
+        if "name" in request_kwargs:
+            request_kwargs["title"] = request_kwargs.pop("name")
+        for unsupported in ("linked_knowledge_uids", "linked_goal_uids", "linked_principle_uids"):
+            request_kwargs.pop(unsupported, None)
+
+        request = PrincipleCreateRequest(**request_kwargs)
+        create_result = await self.principles_service.create_principle(request, user_uid)
 
         if create_result.is_error:
             return Result.fail(create_result)

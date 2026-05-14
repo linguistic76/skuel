@@ -216,6 +216,9 @@ class HabitsService(
     ) -> Result[Habit]:
         return await self.core.create_habit(habit_request, user_uid)
 
+    async def update_habit(self, habit_uid: str, updates: dict[str, Any]) -> Result[Habit]:
+        return await self.core.update(habit_uid, updates)
+
     async def get_habit(self, uid: str) -> Result[Habit]:
         return await self.core.get_habit(uid)
 

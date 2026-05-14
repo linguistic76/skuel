@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.event.event_request import EventCreateRequest
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_attr_str
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -220,8 +221,43 @@ class EventsService(
     async def count_events(self, filters: dict[str, Any] | None = None) -> Result[int]:
         return await self.core.count_events(filters)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
-        return await self.core.update(uid, updates)
+    async def create_event(self, request: EventCreateRequest, user_uid: UserUID) -> Result[Event]:
+        """Create an event from a validated request."""
+        validation = self.core._validate_required_user_uid(user_uid, "event creation")
+        if validation:
+            return Result.fail(validation)
+
+        from core.utils.uid_generator import UIDGenerator
+
+        event = Event(
+            uid=UIDGenerator.generate_uid("event", request.title),
+            user_uid=user_uid,
+            title=request.title,
+            description=request.description,
+            event_date=request.event_date,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            event_type=request.event_type,
+            visibility=request.visibility,
+            location=request.location,
+            is_online=request.is_online,
+            meeting_url=request.meeting_url,
+            tags=tuple(request.tags),
+            priority=request.priority,
+            attendee_emails=tuple(request.attendee_emails),
+            max_attendees=request.max_attendees,
+            recurrence_pattern=request.recurrence_pattern,
+            recurrence_end_date=request.recurrence_end_date,
+            reminder_minutes=request.reminder_minutes,
+            reinforces_habit_uid=request.reinforces_habit_uid,
+            milestone_celebration_for_goal=request.milestone_celebration_for_goal,
+            habit_completion_quality=request.habit_completion_quality,
+            knowledge_retention_check=request.knowledge_retention_check,
+        )
+        return await self.core.create(event)
+
+    async def update_event(self, event_uid: str, updates: dict[str, Any]) -> Result[Event]:
+        return await self.core.update(event_uid, updates)
 
     async def get_user_items_in_range(
         self,

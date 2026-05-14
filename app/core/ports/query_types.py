@@ -377,7 +377,7 @@ class EventUpdatePayload(BaseUpdatePayload, total=False):
             "start_time": "14:00",
             "end_time": "15:30",
         }
-        result = await events_service.update(uid, updates)
+        result = await events_service.update_event(uid, updates)
     """
 
     event_date: str

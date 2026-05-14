@@ -28,7 +28,7 @@ def create_events_api_routes(
     """Register Events API routes."""
 
     async def update(uid: str, new_status: str) -> Result[Any]:
-        return await events_service.update(uid, {"status": new_status})
+        return await events_service.update_event(uid, {"status": new_status})
 
     return create_activity_status_api_routes(
         rt,

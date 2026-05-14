@@ -1,0 +1,165 @@
+"""
+Habit create / edit form
+========================
+
+FormGenerator-rendered Habit forms used by ``adapters/inbound/habits_ui.py``
+(``GET /habits/create`` and ``GET /habits/edit``).
+
+Habit's cross-domain links (``linked_goal_uids``, ``linked_principle_uids``,
+``linked_knowledge_uids``, ``prerequisite_habit_uids``) are all list-typed,
+so they are intentionally omitted from the form — UID-list relationships
+belong on the detail-page relationship picker.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from core.models.habit.habit import Habit
+from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+from ui.patterns.form_generator import FormGenerator
+
+_CREATE_SECTIONS: dict[str, dict[str, Any]] = {
+    "Basics": {
+        "icon": "info",
+        "accent": "blue",
+        "fields": ["name", "description", "polarity", "category", "difficulty"],
+    },
+    "Schedule": {
+        "icon": "calendar",
+        "accent": "amber",
+        "fields": [
+            "recurrence_pattern",
+            "target_days_per_week",
+            "preferred_time",
+            "duration_minutes",
+        ],
+    },
+    "Behavioral Science": {
+        "icon": "lightbulb",
+        "accent": "violet",
+        "fields": ["cue", "routine", "reward"],
+    },
+    "Identity": {
+        "icon": "user-check",
+        "accent": "emerald",
+        "fields": ["reinforces_identity", "is_identity_habit"],
+    },
+    "Organization": {"icon": "flag", "accent": "rose", "fields": ["priority"]},
+}
+
+_EDIT_SECTIONS: dict[str, dict[str, Any]] = {
+    "Basics": {
+        "icon": "info",
+        "accent": "blue",
+        "fields": ["name", "description", "polarity", "category", "difficulty"],
+    },
+    "Schedule": {
+        "icon": "calendar",
+        "accent": "amber",
+        "fields": [
+            "recurrence_pattern",
+            "target_days_per_week",
+            "preferred_time",
+            "duration_minutes",
+        ],
+    },
+    "Behavioral Science": {
+        "icon": "lightbulb",
+        "accent": "violet",
+        "fields": ["cue", "routine", "reward"],
+    },
+    "Status & Priority": {
+        "icon": "flag",
+        "accent": "rose",
+        "fields": ["status", "priority"],
+    },
+}
+
+_FIELD_LABELS: dict[str, str] = {
+    "name": "Name",
+    "description": "Description",
+    "polarity": "Polarity",
+    "category": "Category",
+    "difficulty": "Difficulty",
+    "recurrence_pattern": "Recurrence",
+    "target_days_per_week": "Target days per week",
+    "preferred_time": "Preferred time of day",
+    "duration_minutes": "Duration (minutes)",
+    "cue": "Cue / trigger",
+    "routine": "Routine",
+    "reward": "Reward",
+    "reinforces_identity": "Identity it reinforces",
+    "is_identity_habit": "Identity habit",
+    "status": "Status",
+    "priority": "Priority",
+}
+
+_FIELD_HELP: dict[str, str] = {
+    "polarity": "'Build' to establish a habit; 'Break' to eliminate one.",
+    "preferred_time": "morning / afternoon / evening — or leave blank for any time.",
+    "cue": "What triggers this habit? (e.g. 'After morning coffee')",
+    "routine": "The specific behavior you carry out.",
+    "reward": "What immediate benefit do you get from completing it?",
+    "reinforces_identity": "An identity statement this habit supports (e.g. 'I am a writer').",
+    "is_identity_habit": "Mark this as primarily about identity rather than outcomes.",
+}
+
+
+def HabitCreateForm() -> Any:
+    """Render the Habit create form.
+
+    POSTs ``application/x-www-form-urlencoded`` to ``/habits/create``. List-typed
+    fields (``linked_*_uids``, ``prerequisite_habit_uids``, ``tags``) are
+    intentionally omitted; assign those via the detail-page relationship picker.
+    """
+    return FormGenerator.from_model(
+        HabitCreateRequest,
+        action="/habits/create",
+        method="POST",
+        sections=_CREATE_SECTIONS,
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
+        submit_label="Create Habit",
+        form_attrs={"id": "habit-create-form"},
+    )
+
+
+def HabitEditForm(habit: Habit) -> Any:
+    """Render the Habit edit form prefilled from an existing habit.
+
+    HabitUpdateRequest uses ``name`` / ``category`` / ``difficulty`` while the Habit
+    domain model uses ``title`` / ``habit_category`` / ``habit_difficulty`` — bridge
+    those field names in the prefill dict. No EntityPicker widgets: HabitUpdateRequest
+    exposes no single-UID cross-domain fields.
+    """
+    values: dict[str, Any] = {
+        "name": habit.title,
+        "description": habit.description,
+        "polarity": habit.polarity,
+        "category": habit.habit_category,
+        "difficulty": habit.habit_difficulty,
+        "recurrence_pattern": habit.recurrence_pattern,
+        "target_days_per_week": habit.target_days_per_week,
+        "preferred_time": habit.preferred_time,
+        "duration_minutes": habit.duration_minutes,
+        "cue": habit.cue,
+        "routine": habit.routine,
+        "reward": habit.reward,
+        "status": habit.status,
+        "priority": habit.priority,
+    }
+    return FormGenerator.from_model(
+        HabitUpdateRequest,
+        action=f"/habits/edit?uid={habit.uid}",
+        method="POST",
+        sections=_EDIT_SECTIONS,
+        labels=_FIELD_LABELS,
+        help_texts=_FIELD_HELP,
+        submit_label="Save Changes",
+        form_attrs={"id": "habit-edit-form"},
+        values=values,
+    )
+
+
+__all__ = ["HabitCreateForm", "HabitEditForm"]
