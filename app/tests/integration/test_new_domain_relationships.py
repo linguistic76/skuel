@@ -25,6 +25,7 @@ from datetime import date
 import pytest
 
 from core.models.choice.choice_request import ChoiceCreateRequest
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.services.choices.choice_relationships import ChoiceRelationships
 from core.services.ku.ku_relationships import KuRelationships
 from core.services.lp.lp_relationships import LpRelationships
@@ -153,14 +154,19 @@ class TestPrincipleRelationships:
         from core.models.enums.principle_enums import PrincipleCategory
 
         # Create a test principle using core service directly
-        principle_result = await services.principles.core.create_principle(
-            label="Test Principle",
+        request = PrincipleCreateRequest(
+            title="Test Principle",
+            statement="Testing relationship fetching",
             description="Testing relationship fetching",
-            category=PrincipleCategory.PERSONAL,
-            why_matters="For testing relationships",
-            user_uid="test_user",
+            principle_category=PrincipleCategory.PERSONAL,
+            why_important="For testing relationships",
         )
-        assert principle_result.is_ok, f"Failed to create principle: {principle_result.error}"
+        principle_result = await services.principles.core.create_principle(
+            request, user_uid="test_user"
+        )
+        assert principle_result.is_ok, (
+            f"Failed to create principle: {principle_result.expect_error()}"
+        )
         principle = principle_result.value
 
         # Fetch relationships
@@ -500,12 +506,15 @@ class TestParallelFetching:
         )
         choice_result = await services.choices.core.create_choice(choice_request, "test_user")
 
-        principle_result = await services.principles.core.create_principle(
-            label="Test Principle",
+        principle_request = PrincipleCreateRequest(
+            title="Test Principle",
+            statement="Test",
             description="Test",
-            category=PrincipleCategory.PERSONAL,
-            why_matters="Testing",
-            user_uid="test_user",
+            principle_category=PrincipleCategory.PERSONAL,
+            why_important="Testing",
+        )
+        principle_result = await services.principles.core.create_principle(
+            principle_request, user_uid="test_user"
         )
 
         assert choice_result.is_ok
