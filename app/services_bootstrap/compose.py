@@ -531,8 +531,8 @@ async def compose_services(
             "✅ Content services created (includes UnifiedIngestionService with automatic chunking)"
         )
 
-        # Create LLM service BEFORE learning services (OPTIONAL - enables AI features)
-        # Gated by intelligence tier (ADR-043): CORE skips entirely
+        # Create LLM service BEFORE learning services.
+        # Gated by intelligence tier (ADR-043): CORE skips entirely; FULL requires it.
         llm_service = None
         if not tier.ai_enabled:
             logger.info("⏭️  LLM service skipped (intelligence tier: CORE)")
@@ -540,26 +540,31 @@ async def compose_services(
             from core.config.credential_store import get_credential
             from core.services.llm_service import LLMConfig, LLMProvider, LLMService
 
+            openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+            if not openai_api_key or openai_api_key in ("your-openai-api-key-here", "sk-"):
+                raise RuntimeError(
+                    "FULL-tier bootstrap requires OPENAI_API_KEY. "
+                    "Set INTELLIGENCE_TIER=core to run without LLM features, or "
+                    "set OPENAI_API_KEY in the credential store / environment."
+                )
+
             try:
-                openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-                # Check if key is valid (not placeholder/empty)
-                if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
-                    llm_config = LLMConfig(
-                        provider=LLMProvider.OPENAI,
-                        api_key=openai_api_key,
-                        model_name="gpt-4",  # Use GPT-4 for high-quality RAG and intelligence insights
-                    )
-                    llm_service = LLMService(config=llm_config)
-                    logger.info(
-                        "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
-                    )
-                else:
-                    logger.warning("⚠️ LLM service disabled - OPENAI_API_KEY not configured")
-            except (
-                Exception
-            ) as e:  # safety-net: service bootstrap must report initialization failures
-                logger.error(f"Failed to initialize LLM service: {e}")
-                logger.warning("⚠️ LLM service disabled - continuing with basic features")
+                llm_config = LLMConfig(
+                    provider=LLMProvider.OPENAI,
+                    api_key=openai_api_key,
+                    model_name="gpt-4",  # GPT-4 for high-quality RAG and intelligence insights
+                )
+                llm_service = LLMService(config=llm_config)
+                logger.info(
+                    "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
+                )
+            except Exception as e:  # safety-net: surface FULL-tier LLM init failure loudly
+                logger.error(f"FULL-tier LLM service failed to initialize: {e}")
+                raise RuntimeError(
+                    "FULL-tier bootstrap requires the LLM service. "
+                    "Set INTELLIGENCE_TIER=core to run without LLM features, or fix the "
+                    f"underlying init error: {e}"
+                ) from e
 
         # Create learning services (graph_intelligence already created above)
         learning_services = _create_learning_services(
