@@ -11,9 +11,11 @@ list-input bug, and structured nested fields belong on the detail page. Cross-do
 links to goals / habits / knowledge are list-typed and assigned via the detail-page
 relationship picker.
 
-PrincipleUpdateRequest uses ``category`` / ``source`` while the Principle domain
-model uses ``principle_category`` / ``principle_source``, so the edit form passes
-an explicit ``values`` dict to bridge those field names.
+Request-model field names match the Principle domain model 1:1, so the edit form
+auto-prefills via ``entity=principle``. The one ``values`` override is for
+``why_important``: it has no dedicated model column and is folded into
+``description`` with a canonical marker — ``split_why_important`` reverses the
+merge for prefill.
 """
 
 from __future__ import annotations
@@ -33,7 +35,7 @@ _CREATE_SECTIONS: dict[str, dict[str, Any]] = {
     "Classification": {
         "icon": "tag",
         "accent": "violet",
-        "fields": ["category", "source", "strength"],
+        "fields": ["principle_category", "principle_source", "strength"],
     },
     "Context": {
         "icon": "book-open",
@@ -57,7 +59,7 @@ _EDIT_SECTIONS: dict[str, dict[str, Any]] = {
     "Classification": {
         "icon": "tag",
         "accent": "violet",
-        "fields": ["category", "source", "strength", "priority"],
+        "fields": ["principle_category", "principle_source", "strength", "priority"],
     },
     "Context": {
         "icon": "book-open",
@@ -75,8 +77,8 @@ _FIELD_LABELS: dict[str, str] = {
     "title": "Title",
     "statement": "Statement",
     "description": "Description",
-    "category": "Category",
-    "source": "Source",
+    "principle_category": "Category",
+    "principle_source": "Source",
     "strength": "Strength",
     "tradition": "Tradition / school of thought",
     "original_source": "Original source text",
@@ -113,7 +115,6 @@ def PrincipleCreateForm() -> Any:
 def PrincipleEditForm(principle: Principle) -> Any:
     """Render the Principle edit form prefilled from an existing principle.
 
-    Bridges the request-model / domain-model field-name mismatch via ``values``.
     ``why_important`` lives inside ``description`` (no dedicated model field) —
     split it back out so the field round-trips through edit.
     """
@@ -128,16 +129,8 @@ def PrincipleEditForm(principle: Principle) -> Any:
         help_texts=_FIELD_HELP,
         entity=principle,
         values={
-            "title": principle.title,
-            "statement": principle.statement,
             "description": description,
-            "category": principle.principle_category,
-            "source": principle.principle_source,
-            "strength": principle.strength,
-            "tradition": principle.tradition,
-            "personal_interpretation": principle.personal_interpretation,
             "why_important": why_important,
-            "priority": principle.priority,
         },
     )
 

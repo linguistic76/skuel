@@ -159,13 +159,7 @@ def create_habits_ui_routes(
             )
             return await render_activity_sidebar_page(content, active="habits", request=request)
 
-        # Drop None values and translate request field names to the domain model's
-        # field names (request uses ``name``/``category``/``difficulty``; the Habit
-        # model uses ``title``/``habit_category``/``habit_difficulty``).
-        raw = {k: v for k, v in parsed.value.model_dump().items() if v is not None}
-        rename = {"name": "title", "category": "habit_category", "difficulty": "habit_difficulty"}
-        updates = {rename.get(k, k): v for k, v in raw.items()}
-
+        updates = {k: v for k, v in parsed.value.model_dump().items() if v is not None}
         result = await habits_service.update_habit(uid, updates)
         if result.is_error:
             err = result.expect_error()

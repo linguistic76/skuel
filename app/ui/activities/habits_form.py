@@ -10,9 +10,8 @@ Habit's cross-domain links (``linked_goal_uids``, ``linked_principle_uids``,
 so they are intentionally omitted from the form — UID-list relationships
 belong on the detail-page relationship picker.
 
-HabitUpdateRequest uses ``name`` / ``category`` / ``difficulty`` while the Habit
-domain model uses ``title`` / ``habit_category`` / ``habit_difficulty``, so the
-edit form passes an explicit ``values`` dict to bridge those field names.
+Request-model field names match the Habit domain model 1:1, so the edit form
+auto-prefills via ``entity=habit`` (no hand-maintained ``values`` dict).
 """
 
 from __future__ import annotations
@@ -27,7 +26,7 @@ _CREATE_SECTIONS: dict[str, dict[str, Any]] = {
     "Basics": {
         "icon": "info",
         "accent": "blue",
-        "fields": ["name", "description", "polarity", "category", "difficulty"],
+        "fields": ["title", "description", "polarity", "habit_category", "habit_difficulty"],
     },
     "Schedule": {
         "icon": "calendar",
@@ -56,7 +55,7 @@ _EDIT_SECTIONS: dict[str, dict[str, Any]] = {
     "Basics": {
         "icon": "info",
         "accent": "blue",
-        "fields": ["name", "description", "polarity", "category", "difficulty"],
+        "fields": ["title", "description", "polarity", "habit_category", "habit_difficulty"],
     },
     "Schedule": {
         "icon": "calendar",
@@ -81,11 +80,11 @@ _EDIT_SECTIONS: dict[str, dict[str, Any]] = {
 }
 
 _FIELD_LABELS: dict[str, str] = {
-    "name": "Name",
+    "title": "Name",
     "description": "Description",
     "polarity": "Polarity",
-    "category": "Category",
-    "difficulty": "Difficulty",
+    "habit_category": "Category",
+    "habit_difficulty": "Difficulty",
     "recurrence_pattern": "Recurrence",
     "target_days_per_week": "Target days per week",
     "preferred_time": "Preferred time of day",
@@ -124,10 +123,7 @@ def HabitCreateForm() -> Any:
 
 
 def HabitEditForm(habit: Habit) -> Any:
-    """Render the Habit edit form prefilled from an existing habit.
-
-    Bridges the request-model / domain-model field-name mismatch via ``values``.
-    """
+    """Render the Habit edit form prefilled from an existing habit."""
     return render_activity_form(
         domain_slug="habits",
         entity_name="Habit",
@@ -137,22 +133,6 @@ def HabitEditForm(habit: Habit) -> Any:
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
         entity=habit,
-        values={
-            "name": habit.title,
-            "description": habit.description,
-            "polarity": habit.polarity,
-            "category": habit.habit_category,
-            "difficulty": habit.habit_difficulty,
-            "recurrence_pattern": habit.recurrence_pattern,
-            "target_days_per_week": habit.target_days_per_week,
-            "preferred_time": habit.preferred_time,
-            "duration_minutes": habit.duration_minutes,
-            "cue": habit.cue,
-            "routine": habit.routine,
-            "reward": habit.reward,
-            "status": habit.status,
-            "priority": habit.priority,
-        },
     )
 
 

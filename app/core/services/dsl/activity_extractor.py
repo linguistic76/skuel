@@ -983,18 +983,15 @@ class ActivityExtractorService:
         if convert_result.is_error:
             return Result.fail(convert_result)
 
-        # activity_to_principle_dict emits "name" + linked_*_uids and other DSL-specific keys
-        # that don't map onto PrincipleCreateRequest. Translate keys and drop unsupported
-        # ones so the request validates. ConversionResult is a union, but the principle
-        # converter always returns a dict.
+        # activity_to_principle_dict emits some DSL-specific keys (linked_*_uids) that
+        # PrincipleCreateRequest doesn't accept — drop those. ConversionResult is a
+        # union, but the principle converter always returns a dict.
         from core.models.principle.principle_request import PrincipleCreateRequest
 
         raw = convert_result.value
         principle_dict: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
 
         request_kwargs = dict(principle_dict)
-        if "name" in request_kwargs:
-            request_kwargs["title"] = request_kwargs.pop("name")
         for unsupported in ("linked_knowledge_uids", "linked_goal_uids", "linked_principle_uids"):
             request_kwargs.pop(unsupported, None)
 

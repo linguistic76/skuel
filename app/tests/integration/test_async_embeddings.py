@@ -396,7 +396,7 @@ class TestHabitEmbeddingEvents:
         from core.models.habit.habit_request import HabitCreateRequest
 
         request = HabitCreateRequest(
-            name="Morning Meditation",
+            title="Morning Meditation",
             description="Practice mindfulness for 10 minutes",
             cue="After waking up",
             reward="Feel calm and centered",
@@ -541,7 +541,7 @@ class TestPrincipleEmbeddingEvents:
         request = PrincipleCreateRequest(
             title="Continuous Learning",
             statement="Always seek to expand knowledge and skills",
-            category=PrincipleCategory.PERSONAL,
+            principle_category=PrincipleCategory.PERSONAL,
             why_important="Growth mindset enables adaptation and success",
         )
         result = await principles_service.create_principle(request, user_uid)

@@ -74,7 +74,7 @@ class TestPrinciplesServiceCreate:
         request = PrincipleCreateRequest(
             title="Do the right thing",
             statement="Always act with integrity",
-            category=PrincipleCategory.ETHICAL,
+            principle_category=PrincipleCategory.ETHICAL,
             why_important="Foundation of trust",
         )
         result = await principles_service.create_principle(request, user_uid="user_123")

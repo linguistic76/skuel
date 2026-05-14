@@ -41,15 +41,25 @@ class PrincipleExpressionRequest(BaseModel):
 
 
 class PrincipleCreateRequest(CreateRequestBase):
-    """Create a Principle entity (knowledge about what you believe)."""
+    """Create a Principle entity (knowledge about what you believe).
+
+    Field names mirror the ``Principle`` domain model 1:1 so the form layer
+    auto-prefills via ``FormGenerator.from_instance``. The one exception is
+    ``why_important``: it has no dedicated model column and is folded into
+    ``description`` with the canonical marker via ``merge_why_important``.
+    """
 
     title: str = Field(min_length=1, max_length=100, description="Principle title")
     statement: str = Field(min_length=1, max_length=500, description="Core statement")
     description: str | None = Field(None, max_length=1000, description="Full description")
 
     # Classification
-    category: PrincipleCategory = Field(default=PrincipleCategory.PERSONAL, description="Category")
-    source: PrincipleSource = Field(default=PrincipleSource.PERSONAL, description="Source")
+    principle_category: PrincipleCategory = Field(
+        default=PrincipleCategory.PERSONAL, description="Category"
+    )
+    principle_source: PrincipleSource = Field(
+        default=PrincipleSource.PERSONAL, description="Source"
+    )
     strength: PrincipleStrength = Field(default=PrincipleStrength.MODERATE, description="Strength")
 
     # Origin
@@ -82,13 +92,16 @@ class PrincipleCreateRequest(CreateRequestBase):
 
 
 class PrincipleUpdateRequest(UpdateRequestBase):
-    """Update a Principle entity."""
+    """Update a Principle entity.
+
+    Field names mirror the ``Principle`` domain model 1:1 (see PrincipleCreateRequest).
+    """
 
     title: str | None = Field(None, min_length=1, max_length=100, description="Principle title")
     statement: str | None = Field(None, min_length=1, max_length=500, description="Core statement")
     description: str | None = Field(None, max_length=1000, description="Full description")
-    category: PrincipleCategory | None = Field(None, description="Category")
-    source: PrincipleSource | None = Field(None, description="Source")
+    principle_category: PrincipleCategory | None = Field(None, description="Category")
+    principle_source: PrincipleSource | None = Field(None, description="Source")
     strength: PrincipleStrength | None = Field(None, description="Strength")
     tradition: str | None = Field(None, max_length=100, description="Tradition/school of thought")
     personal_interpretation: str | None = Field(

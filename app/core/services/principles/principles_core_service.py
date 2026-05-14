@@ -250,8 +250,8 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             title=request.title,
             statement=request.statement,
             description=body,
-            principle_category=request.category,
-            principle_source=request.source,
+            principle_category=request.principle_category,
+            principle_source=request.principle_source,
             strength=request.strength,
             tradition=request.tradition,
             original_source=request.original_source,
@@ -274,7 +274,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             principle_uid=principle.uid,
             user_uid=user_uid,
             principle_label=request.title,
-            category=request.category.value,
+            category=request.principle_category.value,
             strength=request.strength.value,
         )
         await publish_event(self.event_bus, event, logger)

@@ -27,10 +27,15 @@ class HabitCreateRequest(BaseModel):
     """
     External request for creating a habit.
     Validates input from API/UI layer.
+
+    Field names mirror the ``Habit`` domain model 1:1 so ``FormGenerator.from_instance``
+    auto-prefills the edit form and the create service can copy fields without a
+    rename table. See: feedback_userctx_single_source_of_truth on the One Path
+    Forward principle.
     """
 
     # Required fields
-    name: str = Field(..., min_length=1, max_length=200, description="Habit name")
+    title: str = Field(..., min_length=1, max_length=200, description="Habit title")
 
     # Optional with defaults
     description: str | None = Field(
@@ -40,11 +45,11 @@ class HabitCreateRequest(BaseModel):
         HabitPolarity.BUILD,
         description="Whether to 'build' (establish) or 'break' (eliminate) this habit",
     )
-    category: HabitCategory = Field(
+    habit_category: HabitCategory = Field(
         HabitCategory.OTHER,
         description="Category: health, learning, productivity, social, creative, mindfulness, financial, or other",
     )
-    difficulty: HabitDifficulty = Field(
+    habit_difficulty: HabitDifficulty = Field(
         HabitDifficulty.MODERATE,
         description="Difficulty level: trivial, easy, moderate, challenging, or heroic",
     )
@@ -94,7 +99,7 @@ class HabitCreateRequest(BaseModel):
     tags: list[str] = Field(default_factory=list, max_length=20)
 
     # Shared validators
-    _validate_name = validate_required_string("name")
+    _validate_title = validate_required_string("title")
     _validate_duration = validate_habit_duration_by_difficulty()
     _validate_target_days = validate_habit_target_days_by_pattern()
 
@@ -102,10 +107,10 @@ class HabitCreateRequest(BaseModel):
         use_enum_values=False,  # Keep enums as objects
         json_schema_extra={
             "example": {
-                "name": "Morning Meditation",
+                "title": "Morning Meditation",
                 "description": "10 minutes of mindfulness meditation",
-                "category": "mindfulness",
-                "difficulty": "easy",
+                "habit_category": "mindfulness",
+                "habit_difficulty": "easy",
                 "recurrence_pattern": "daily",
                 "target_days_per_week": 7,
                 "preferred_time": "morning",
@@ -124,15 +129,17 @@ class HabitUpdateRequest(BaseModel):
     """
     External request for updating a habit.
     All fields are optional for partial updates.
+
+    Field names mirror the ``Habit`` domain model 1:1 (see HabitCreateRequest).
     """
 
-    name: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(None, min_length=1, max_length=200)
     description: str | None = Field(None, max_length=1000)
 
     # Behavior can be modified
     polarity: HabitPolarity | None = None
-    category: HabitCategory | None = None
-    difficulty: HabitDifficulty | None = None
+    habit_category: HabitCategory | None = None
+    habit_difficulty: HabitDifficulty | None = None
 
     # Schedule can be adjusted
     recurrence_pattern: RecurrencePattern | None = None
@@ -161,7 +168,7 @@ class HabitUpdateRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "duration_minutes": 15,
-                "difficulty": "moderate",
+                "habit_difficulty": "moderate",
                 "routine": "Updated routine with more detail",
             }
         },

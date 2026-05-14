@@ -22,6 +22,9 @@ from pydantic import BaseModel
 from ui.patterns.form_generator import FormGenerator
 
 
+_MISSING = object()
+
+
 def render_activity_form(
     *,
     domain_slug: str,
@@ -38,9 +41,10 @@ def render_activity_form(
     """Render an activity domain create or edit form with SKUEL conventions.
 
     ``entity`` is required when ``operation="edit"`` — its ``uid`` builds the
-    action URL and (unless ``values`` is supplied) its fields prefill the form.
-    Pass ``values`` to override the prefill when request-model field names
-    diverge from the domain model (e.g. Habit's ``name`` vs ``title``).
+    action URL and its attributes auto-prefill the form (same extraction as
+    ``FormGenerator.from_instance``). ``values`` overrides specific keys on top
+    of that prefill — use it for fields with no 1:1 attribute on the entity
+    (e.g. Principle's ``why_important``, which lives inside ``description``).
     """
     entity_slug = entity_name.lower()
     if operation == "create":
@@ -54,6 +58,13 @@ def render_activity_form(
         submit_label = "Save Changes"
         form_id = f"{entity_slug}-edit-form"
 
+    if values:
+        unknown = set(values.keys()) - set(request_model.model_fields)
+        if unknown:
+            raise ValueError(
+                f"values keys {sorted(unknown)} are not on {request_model.__name__}.model_fields"
+            )
+
     common: dict[str, Any] = {
         "action": action,
         "method": "POST",
@@ -65,8 +76,15 @@ def render_activity_form(
         "form_attrs": {"id": form_id},
     }
 
-    if operation == "edit" and values is None:
-        return FormGenerator.from_instance(request_model, entity, **common)
+    if operation == "edit":
+        prefill: dict[str, Any] = {
+            field_name: val
+            for field_name in request_model.model_fields
+            if (val := getattr(entity, field_name, _MISSING)) is not _MISSING
+        }
+        if values:
+            prefill.update(values)
+        return FormGenerator.from_model(request_model, values=prefill, **common)
 
     if values is not None:
         return FormGenerator.from_model(request_model, values=values, **common)

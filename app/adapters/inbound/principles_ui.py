@@ -166,14 +166,12 @@ def create_principles_ui_routes(
             )
             return await render_activity_sidebar_page(content, active="principles", request=request)
 
-        # Drop None values and translate request field names to the domain model:
-        # request uses ``category``/``source``; the Principle model uses
-        # ``principle_category``/``principle_source``. ``why_important`` has no
-        # dedicated field on the model — merged into description.
-        raw = {k: v for k, v in parsed.value.model_dump().items() if v is not None}
-        why_important = raw.pop("why_important", None)
-        rename = {"category": "principle_category", "source": "principle_source"}
-        updates: dict[str, Any] = {rename.get(k, k): v for k, v in raw.items()}
+        # ``why_important`` has no dedicated model column — merge it into
+        # description with the canonical marker (see merge_why_important).
+        updates: dict[str, Any] = {
+            k: v for k, v in parsed.value.model_dump().items() if v is not None
+        }
+        why_important = updates.pop("why_important", None)
         if why_important:
             base = updates.get("description", principle.description)
             updates["description"] = merge_why_important(base, why_important)
