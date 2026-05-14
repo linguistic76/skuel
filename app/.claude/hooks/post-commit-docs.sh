@@ -12,6 +12,24 @@ set -euo pipefail
 # Read JSON from stdin
 INPUT=$(cat)
 
+# Filter by the actual command that ran — the parent matcher fires on every Bash
+# call, so we have to short-circuit here for non-commit commands. Settings.json
+# does NOT support an "if" field on hooks; filtering MUST happen inside the script.
+TOOL_COMMAND=$(python3 -c "
+import json, sys
+try:
+    data = json.loads(sys.argv[1])
+    cmd = data.get('tool_input', {}).get('command', '')
+    print(cmd if isinstance(cmd, str) else '')
+except Exception:
+    print('')
+" "$INPUT" 2>/dev/null || echo "")
+
+if [[ "$TOOL_COMMAND" != git\ commit* ]]; then
+    echo '{}'
+    exit 0
+fi
+
 # Check if the commit succeeded by looking at tool_response
 TOOL_RESPONSE=$(python3 -c "
 import json, sys
