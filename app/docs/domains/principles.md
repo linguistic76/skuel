@@ -409,14 +409,15 @@ Read-focused UI at `/principles` is planned. API routes remain active.
 
 ```python
 from core.models.enums.principle_enums import PrincipleCategory
+from core.models.principle.principle_request import PrincipleCreateRequest
 
-result = await principles_service.create_principle(
-    label="Continuous Learning",
-    description="Commit to lifelong learning and growth",
+request = PrincipleCreateRequest(
+    title="Continuous Learning",
+    statement="Commit to lifelong learning and growth",
     category=PrincipleCategory.INTELLECTUAL,
-    why_matters="Knowledge compounds over time, leading to wisdom",
-    user_uid=user_uid,
+    why_important="Knowledge compounds over time, leading to wisdom",
 )
+result = await principles_service.create_principle(request, user_uid)
 principle = result.value
 ```
 

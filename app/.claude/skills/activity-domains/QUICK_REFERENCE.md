@@ -24,18 +24,22 @@
 | Choices | `choices_service.py` | `choices/choices_core_service.py` | `choices_search_service.py` | `choices_intelligence_service.py` |
 | Principles | `principles_service.py` | `principles/principles_core_service.py` | `principles_search_service.py` | `principles_intelligence_service.py` |
 
-### UI (Read-Focused Pattern)
+### UI
 
-Activity Domains use a read-focused UI — data enters via `/upload`, no CRUD forms. All 6 share a collapsible Activity sidebar (`ui/activities/nav.py`) linking back to `/profile`. Activity Domains content is embedded inline in `/profile` via `ActivityHubView()`.
+All 6 Activity Domains support both bulk ingestion (`/upload` of YAML) and
+direct authoring through per-domain create/edit forms (`/{domain}/create`,
+`/{domain}/edit?uid=...`). All 6 share a collapsible Activity sidebar
+(`ui/activities/nav.py`) linking back to `/profile`. Activity Domains content
+is embedded inline in `/profile` via `ActivityHubView()`.
 
-| Domain | Routes | Views | Events File |
-|--------|--------|-------|-------------|
-| Tasks | `adapters/inbound/tasks_ui.py` | `ui/activities/tasks_views.py` | `core/events/task_events.py` |
-| Goals | `adapters/inbound/goals_ui.py` | `ui/activities/goals_views.py` | `core/events/goal_events.py` |
-| Habits | `adapters/inbound/habits_ui.py` | `ui/activities/habits_views.py` | `core/events/habit_events.py` |
-| Events | `adapters/inbound/events_ui.py` | `ui/activities/events_views.py` | `core/events/calendar_event_events.py` |
-| Choices | `adapters/inbound/choices_ui.py` | `ui/activities/choices_views.py` | `core/events/choice_events.py` |
-| Principles | `adapters/inbound/principles_ui.py` | `ui/activities/principles_views.py` | `core/events/principle_events.py` |
+| Domain | Routes | Form | Views | Events File |
+|--------|--------|------|-------|-------------|
+| Tasks | `adapters/inbound/tasks_ui.py` | `ui/activities/tasks_form.py` | `ui/activities/tasks_views.py` | `core/events/task_events.py` |
+| Goals | `adapters/inbound/goals_ui.py` | `ui/activities/goals_form.py` | `ui/activities/goals_views.py` | `core/events/goal_events.py` |
+| Habits | `adapters/inbound/habits_ui.py` | `ui/activities/habits_form.py` | `ui/activities/habits_views.py` | `core/events/habit_events.py` |
+| Events | `adapters/inbound/events_ui.py` | `ui/activities/events_form.py` | `ui/activities/events_views.py` | `core/events/calendar_event_events.py` |
+| Choices | `adapters/inbound/choices_ui.py` | `ui/activities/choices_form.py` | `ui/activities/choices_views.py` | `core/events/choice_events.py` |
+| Principles | `adapters/inbound/principles_ui.py` | `ui/activities/principles_form.py` | `ui/activities/principles_views.py` | `core/events/principle_events.py` |
 
 **Shared UI utilities:** `ui/activities/_shared.py` — `MetadataField()` (label + value pairs for detail grids), `safe_id()`, `PRIORITY_ORDER`, `CONNECTION_ICONS`, `ConnectionBadges()` (outgoing links), `ConnectionSummary()` (incoming count badges for gravity-well domains like Goals/Principles).
 
