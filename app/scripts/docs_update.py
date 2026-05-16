@@ -25,7 +25,6 @@ Usage:
 
 import argparse
 import difflib
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +37,7 @@ sys.path.insert(0, str(project_root))
 import anthropic
 from anthropic.types import TextBlock
 
+from core.config.credential_store import get_credential
 from scripts.docs_freshness import (
     DocFreshness,
     check_freshness,
@@ -364,10 +364,14 @@ Examples:
     if not args.doc and not args.all:
         parser.error("Either --doc or --all is required")
 
-    # Check for API key
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    # Check for API key (routed through get_credential so the keychain is honored).
+    api_key = get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
     if not api_key:
-        print(f"{RED}Error: ANTHROPIC_API_KEY environment variable not set{RESET}", file=sys.stderr)
+        print(
+            f"{RED}Error: ANTHROPIC_API_KEY not found in the active credential "
+            f"backend or env. Run: uv run python -m core.config{RESET}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     client = anthropic.Anthropic(api_key=api_key)

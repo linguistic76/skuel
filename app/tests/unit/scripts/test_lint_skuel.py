@@ -59,6 +59,8 @@ def lint_content(
         linter._check_broad_exception_catches(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL018") and not is_test:
         linter._check_rich_only_field_access(fp, rel, content, lines)
+    if linter._should_run_rule("SKUEL019") and not is_test:
+        linter._check_credential_env_reads(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -1055,3 +1057,272 @@ class TestSKUEL018:
         assert "No graceful accessor" in suggestion
         assert "_or_empty" not in suggestion
         assert "_or_zero" not in suggestion
+
+
+# ============================================================================
+# SKUEL019: Credential-shaped env reads bypassing get_credential()
+# ============================================================================
+
+
+class TestSKUEL019:
+    # --- Catalog hits (ERROR severity) ---
+
+    def test_detects_os_environ_get_catalog_key(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter, '    key = os.environ.get("OPENAI_API_KEY")'
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL019"
+        assert violations[0].severity == Severity.ERROR
+        assert "OPENAI_API_KEY" in violations[0].message
+
+    def test_detects_os_getenv_catalog_key(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    pw = os.getenv("NEO4J_PASSWORD")')
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.ERROR
+
+    def test_detects_os_environ_subscript(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    tok = os.environ["HF_API_TOKEN"]')
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.ERROR
+        assert "HF_API_TOKEN" in violations[0].message
+
+    def test_catalog_key_with_default_arg(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter, '    key = os.getenv("DEEPGRAM_API_KEY", "")'
+        )
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.ERROR
+
+    # --- Pattern hits (WARNING severity) ---
+
+    def test_pattern_password_suffix_warning(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    p = os.getenv("CUSTOM_DB_PASSWORD")')
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.WARNING
+        assert "credential-shaped" in violations[0].message
+
+    def test_pattern_api_key_suffix_warning(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    k = os.getenv("THIRDPARTY_API_KEY")')
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.WARNING
+
+    def test_pattern_auth_suffix_warning(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    a = os.getenv("NEO4J_AUTH")')
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.WARNING
+
+    def test_pattern_pat_underscore_warning(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        # FIREFLY_PAT_PERSONAL is NOT in the catalog mirror as of writing —
+        # but actually it IS in the catalog. Use a synthetic name to exercise the regex.
+        violations = lint_content(linter, '    p = os.getenv("VENDOR_PAT_PROD")')
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.WARNING
+
+    def test_pattern_secret_inside_name_warning(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        # SESSION_SECRET_KEY ends in _SECRET_KEY — `_SECRET_` matches the regex
+        # mid-word. SESSION_SECRET_KEY itself is catalogued, so use a synthetic
+        # name with the _SECRET_ infix pattern to test the regex independently.
+        violations = lint_content(linter, '    s = os.getenv("CUSTOM_SECRET_HANDLE")')
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.WARNING
+
+    # --- Non-credential names should pass cleanly ---
+
+    def test_neo4j_uri_passes(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    uri = os.getenv("NEO4J_URI")')
+        assert len(violations) == 0
+
+    def test_neo4j_username_passes(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    u = os.getenv("NEO4J_USERNAME")')
+        assert len(violations) == 0
+
+    def test_app_port_passes(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    p = os.getenv("APP_PORT", "8000")')
+        assert len(violations) == 0
+
+    def test_intelligence_tier_passes(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    t = os.getenv("INTELLIGENCE_TIER", "core")')
+        assert len(violations) == 0
+
+    def test_ingestion_path_passes(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter, '    p = os.environ.get("SKUEL_INGESTION_ALLOWED_PATHS")'
+        )
+        assert len(violations) == 0
+
+    def test_master_key_passes(self) -> None:
+        """SKUEL_MASTER_KEY decrypts the Fernet store — it has to come from env,
+        and its name doesn't match any credential-shape suffix."""
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    k = os.getenv("SKUEL_MASTER_KEY")')
+        assert len(violations) == 0
+
+    def test_credential_backend_selector_passes(self) -> None:
+        """SKUEL_CREDENTIAL_BACKEND is the backend selector, not a credential."""
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter, '    b = os.getenv("SKUEL_CREDENTIAL_BACKEND", "").lower()'
+        )
+        assert len(violations) == 0
+
+    # --- get_credential() calls don't trigger ---
+
+    def test_get_credential_call_passes(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter,
+            '    key = get_credential("OPENAI_API_KEY", fallback_to_env=True)',
+        )
+        assert len(violations) == 0
+
+    # --- Exempt files (credential plumbing) ---
+
+    def test_credential_store_file_exempt(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter,
+            '    value = os.getenv("OPENAI_API_KEY")',
+            file_path="core/config/credential_store.py",
+        )
+        assert len(violations) == 0
+
+    def test_credential_setup_file_exempt(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter,
+            '    if not os.getenv("SKUEL_MASTER_KEY"):',
+            file_path="core/config/credential_setup.py",
+        )
+        assert len(violations) == 0
+
+    def test_migrate_homedir_script_exempt(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter,
+            '    pw = os.getenv("NEO4J_PASSWORD")',
+            file_path="scripts/migrate_secrets_to_homedir.py",
+        )
+        assert len(violations) == 0
+
+    def test_migrate_keychain_script_exempt(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter,
+            '    pw = os.getenv("NEO4J_PASSWORD")',
+            file_path="scripts/migrate_secrets_to_keychain.py",
+        )
+        assert len(violations) == 0
+
+    # --- Suppression ---
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter,
+            '    key = os.getenv("OPENAI_API_KEY")  # skuel-lint: disable=SKUEL019 -- legacy path',
+        )
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL019 -- one-off compatibility shim\n"
+            'key = os.getenv("OPENAI_API_KEY")\n'
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_test_files(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter,
+            '    monkeypatch.setenv("OPENAI_API_KEY", "test"); k = os.getenv("OPENAI_API_KEY")',
+            file_path="tests/unit/test_something.py",
+        )
+        assert len(violations) == 0
+
+    def test_skips_docstrings(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        content = '"""\nDo not call os.getenv("OPENAI_API_KEY") — use get_credential().\n"""'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_comments(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(
+            linter, '    # legacy code did os.getenv("OPENAI_API_KEY") here'
+        )
+        assert len(violations) == 0
+
+    # --- Suggestion content ---
+
+    def test_suggestion_includes_get_credential(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        violations = lint_content(linter, '    k = os.getenv("OPENAI_API_KEY")')
+        assert len(violations) == 1
+        assert "get_credential" in violations[0].suggestion
+        assert "fallback_to_env=True" in violations[0].suggestion
+        assert "OPENAI_API_KEY" in violations[0].suggestion
+
+    # --- Multiple hits in one file ---
+
+    def test_multiple_hits_one_file(self) -> None:
+        linter = make_linter(["SKUEL019"])
+        content = "\n".join(
+            [
+                'k1 = os.getenv("OPENAI_API_KEY")',
+                'k2 = os.environ.get("HF_API_TOKEN")',
+                'k3 = os.environ["NEO4J_PASSWORD"]',
+            ]
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 3
+        assert all(v.severity == Severity.ERROR for v in violations)
+
+
+# ============================================================================
+# SKUEL019: Catalog drift test
+# ============================================================================
+
+
+class TestCredentialCatalogDrift:
+    """The linter mirrors the credential catalog from credential_setup.py.
+    If those drift, lint coverage silently loses the new credentials.
+    """
+
+    def test_linter_catalog_matches_credential_setup(self) -> None:
+        # Import inside the test so collection still works in environments
+        # where core/ isn't importable (e.g. minimal CI lint runners).
+        from core.config.credential_setup import CredentialSetup
+
+        actual = set(CredentialSetup.CREDENTIALS.keys())
+        mirrored = set(SkuelLinter.CREDENTIAL_CATALOG)
+
+        missing = actual - mirrored
+        extra = mirrored - actual
+        assert not missing, (
+            f"SkuelLinter.CREDENTIAL_CATALOG is missing keys present in "
+            f"CredentialSetup.CREDENTIALS: {sorted(missing)}. "
+            f"Add them to scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG."
+        )
+        assert not extra, (
+            f"SkuelLinter.CREDENTIAL_CATALOG has keys not in "
+            f"CredentialSetup.CREDENTIALS: {sorted(extra)}. "
+            f"Remove them from scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG "
+            f"(or add them to CredentialSetup.CREDENTIALS if they're real credentials)."
+        )
