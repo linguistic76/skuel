@@ -290,13 +290,21 @@ async def compose_services(
         )
         logger.info("✅ UserService created (foundation service)")
 
-        # Ensure system user exists for infrastructure operations
+        # Ensure system user exists for infrastructure operations.
+        # Fail-fast: system-owned content (e.g. the default transcript exercise)
+        # creates OWNS edges against (:User {uid: "user_system"}). If that node
+        # doesn't exist the MATCH yields zero rows, MERGE silently no-ops, and
+        # the exercise becomes an orphan with no warning. Bootstrap should die
+        # here rather than ship an app with broken system-owned content.
         logger.info("Ensuring system user exists...")
         system_user_result = await user_service.ensure_system_user()
         if system_user_result.is_error:
-            logger.warning(f"Failed to create system user: {system_user_result.error}")
-        else:
-            logger.info("✅ System user ready")
+            raise RuntimeError(
+                f"Bootstrap requires the system user (uid='user_system') for "
+                f"infrastructure-owned content. ensure_system_user() failed: "
+                f"{system_user_result.error}"
+            )
+        logger.info("✅ System user ready")
 
         # Create user relationship service (pinning, following, etc.)
         from core.services.user_relationship_service import UserRelationshipService
