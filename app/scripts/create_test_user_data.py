@@ -26,7 +26,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from neo4j import AsyncGraphDatabase
 
-from core.config.credential_store import get_credential_store
+from core.config.credential_store import get_credential
 from core.utils.logging import get_logger
 
 # Add project root to path
@@ -263,21 +263,15 @@ async def main():
 
     args = parser.parse_args()
 
-    # Get Neo4j password from credential store or args
+    # Get Neo4j password via the credential funnel (respects SKUEL_CREDENTIAL_BACKEND).
     neo4j_password = args.neo4j_password
     if not neo4j_password:
-        try:
-            store = get_credential_store()
-            neo4j_password = store.get("NEO4J_PASSWORD")
-            if neo4j_password:
-                logger.info("✅ Using Neo4j password from credential store")
-            else:
-                logger.error("❌ NEO4J_PASSWORD not found in credential store")
-                logger.error("Please run: python -m core.config.credential_setup")
-                sys.exit(1)
-        except Exception as e:
-            logger.error(f"❌ Failed to get password from credential store: {e}")
-            logger.error("Please provide --neo4j-password or set up credentials")
+        neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
+        if neo4j_password:
+            logger.info("✅ Using Neo4j password from credential backend")
+        else:
+            logger.error("❌ NEO4J_PASSWORD not found in active credential backend or env")
+            logger.error("Run: uv run python -m core.config")
             sys.exit(1)
 
     # Connect to Neo4j
