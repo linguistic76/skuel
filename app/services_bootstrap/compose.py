@@ -128,16 +128,46 @@ async def compose_services(
 
         schema_manager = Neo4jSchemaManager(driver)
 
-        # Create auth-specific indexes (rate limiting, session lookup, email uniqueness)
-        auth_index_result = await schema_manager.sync_auth_indexes()
-        if auth_index_result.is_ok:
-            created = auth_index_result.value.get("created", [])
-            logger.info(f"✅ Auth indexes synced: {', '.join(created) if created else 'all exist'}")
-        else:
-            logger.warning(f"⚠️ Auth index sync had issues: {auth_index_result.error}")
+        # Schema sync fail-fast policy:
+        # The sync_* methods return Result.ok(dict) even when individual indexes
+        # fail — per-index failures live in the returned `failed:[]` list.
+        # Bootstrap escalates a non-empty `failed:[]` (or Result.is_error) to a
+        # RuntimeError for everything that affects correctness or fundamental
+        # functionality. drop_stale_indexes is cosmetic (leftover indexes cost
+        # disk, not correctness) and stays warn-only.
+        def _check_schema_sync(
+            result: Any, label: str, *, key: str = "created"
+        ) -> dict[str, Any]:
+            if result.is_error:
+                raise RuntimeError(
+                    f"Schema sync failed ({label}): {result.error}. "
+                    "Bootstrap cannot proceed without required Neo4j indexes."
+                )
+            payload = result.value
+            failed = payload.get("failed", [])
+            if failed:
+                raise RuntimeError(
+                    f"Schema sync had per-index failures ({label}): {failed}. "
+                    "Check Neo4j logs — common causes: missing privileges, "
+                    "constraint creation against existing duplicate rows, "
+                    "or missing plugins. Bootstrap cannot proceed."
+                )
+            created = payload.get(key, [])
+            return {"created": created}
 
-        # Create vector indexes for semantic search (FULL tier only — ADR-043)
-        # CORE tier has no embeddings, so vector indexes are unnecessary
+        # Create auth-specific indexes (rate limiting, session lookup, email uniqueness).
+        # User(email) UNIQUE failure means two accounts could share an email
+        # (data-integrity bug); Session(session_token) failure means every
+        # authenticated request scans the Session label.
+        auth_index_result = await schema_manager.sync_auth_indexes()
+        auth_summary = _check_schema_sync(auth_index_result, "auth indexes")
+        created = auth_summary["created"]
+        logger.info(f"✅ Auth indexes synced: {', '.join(created) if created else 'all exist'}")
+
+        # Create vector indexes for semantic search (FULL tier only — ADR-043).
+        # CORE tier has no embeddings, so vector indexes are unnecessary. At FULL
+        # tier a missing vector index means db.index.vector.queryNodes() returns
+        # zero results — Askesis RAG silently degrades to graph-only (Gap #6).
         if tier.ai_enabled:
             vector_labels = [
                 "Entity",  # Base label — covers all entity types via multi-label
@@ -146,46 +176,42 @@ async def compose_services(
             vector_result = await schema_manager.sync_vector_indexes(
                 entity_labels=vector_labels, dimension=1024, similarity="cosine"
             )
-            if vector_result.is_ok:
-                created = vector_result.value.get("created", [])
-                logger.info(
-                    f"✅ Vector indexes synced: {', '.join(created) if created else 'all exist'}"
-                )
-            else:
-                logger.warning(f"⚠️ Vector index sync had issues: {vector_result.error}")
+            vector_summary = _check_schema_sync(vector_result, "vector indexes")
+            created = vector_summary["created"]
+            logger.info(
+                f"✅ Vector indexes synced: {', '.join(created) if created else 'all exist'}"
+            )
         else:
             logger.info("⏭️  Vector indexes skipped (intelligence tier: CORE)")
 
-        # Drop stale indexes from removed labels
+        # Drop stale indexes from removed labels. Cosmetic — failures leave a
+        # leftover index but no correctness impact. Warn-only by design.
         stale_result = await schema_manager.drop_stale_indexes()
         if stale_result.is_ok:
             dropped = stale_result.value.get("dropped", [])
+            failed = stale_result.value.get("failed", [])
             if dropped:
                 logger.info(f"✅ Dropped stale indexes: {', '.join(dropped)}")
+            if failed:
+                logger.warning(f"⚠️ Could not drop {len(failed)} stale indexes: {failed}")
+        else:
+            logger.warning(f"⚠️ Stale-index drop had issues: {stale_result.error}")
 
-        # Sync domain indexes (UID, user_uid, status, date, composite)
+        # Sync domain indexes (UID, user_uid, status, date, composite).
+        # Missing UID indexes turn every entity lookup into a full label scan.
         domain_idx_result = await schema_manager.sync_domain_indexes()
-        if domain_idx_result.is_ok:
-            created = domain_idx_result.value.get("created", [])
-            failed = domain_idx_result.value.get("failed", [])
-            logger.info(
-                f"✅ Domain indexes synced: {len(created)} created/verified"
-                + (f", {len(failed)} failed" if failed else "")
-            )
-        else:
-            logger.warning(f"⚠️ Domain index sync had issues: {domain_idx_result.error}")
+        domain_summary = _check_schema_sync(domain_idx_result, "domain indexes")
+        logger.info(
+            f"✅ Domain indexes synced: {len(domain_summary['created'])} created/verified"
+        )
 
-        # Sync full-text indexes (Cypher-first search foundation — always created)
+        # Sync full-text indexes (Cypher-first search foundation — always created).
+        # Missing fulltext indexes break SearchRouter for that domain.
         fulltext_result = await schema_manager.sync_fulltext_indexes()
-        if fulltext_result.is_ok:
-            created = fulltext_result.value.get("created", [])
-            failed = fulltext_result.value.get("failed", [])
-            logger.info(
-                f"✅ Fulltext indexes synced: {len(created)} created/verified"
-                + (f", {len(failed)} failed" if failed else "")
-            )
-        else:
-            logger.warning(f"⚠️ Fulltext index sync had issues: {fulltext_result.error}")
+        fulltext_summary = _check_schema_sync(fulltext_result, "fulltext indexes")
+        logger.info(
+            f"✅ Fulltext indexes synced: {len(fulltext_summary['created'])} created/verified"
+        )
 
         # Cleanup expired sessions and reset tokens (daily maintenance at startup)
         from adapters.persistence.neo4j.session_backend import SessionBackend
