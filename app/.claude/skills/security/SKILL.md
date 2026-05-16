@@ -155,7 +155,7 @@ When adding a new route, verify:
 | No lambdas | SKUEL012 | Use named functions (prevents injection via closable scope) |
 | No `print()` in production | SKUEL015 | Use `logger.*()` — print can leak to stdout |
 | No `eval()`/`exec()` | — | Never execute dynamic code |
-| No hardcoded secrets | — | All secrets via env vars or credential store |
+| No hardcoded secrets | — | All secret reads go through `get_credential(KEY, fallback_to_env=True)` from `core/config/credential_store` — never raw `os.getenv("FOO_API_KEY")`. Backend (keychain / Fernet / direnv-loaded env) is selected by `SKUEL_CREDENTIAL_BACKEND`. Tier-gated services fail-fast at boot when a required credential is missing (commit `fed4287f`). |
 | No APOC in domain services | SKUEL001 | APOC scoped to `apoc.meta.*` only |
 
 ---

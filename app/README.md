@@ -26,42 +26,41 @@ npm install
 
 ### 2. Configure Environment
 
-SKUEL splits configuration into two files by sensitivity:
+Non-secret config lives in `app/.env` (gitignored). Credentials are read via `get_credential()` from one of three backends, picked by `SKUEL_CREDENTIAL_BACKEND`:
 
-| File | What goes here | Where it lives |
-|---|---|---|
-| `~/.config/skuel/secrets.env` | Credentials (NEO4J_PASSWORD, OPENAI_API_KEY, SESSION_SECRET_KEY, FIREFLY_PAT_*, …) | **Outside the worktree** — `git add . .env` cannot stage it |
-| `app/.env` | Non-secret config (NEO4J_URI, APP_PORT, INTELLIGENCE_TIER, VAULT_ROOT, …) | Inside the repo (gitignored) |
+| Backend | Selector | Where credentials sit | When to pick it |
+|---|---|---|---|
+| **OS keychain** (recommended) | `SKUEL_CREDENTIAL_BACKEND=keyring` | libsecret / macOS Keychain / Windows Credential Locker | Desktop dev — no plaintext on disk |
+| Fernet-encrypted JSON | unset | `~/.skuel/credentials.enc`, keyed by `SKUEL_MASTER_KEY` | Headless boxes that can't reach the OS keychain |
+| direnv two-file (Stage 2) | unset | `~/.config/skuel/secrets.env` (mode 0600) sourced by `app/.envrc` | Fallback / CI |
 
-Both files are sourced automatically by `direnv` via `app/.envrc` whenever you `cd` into the project. The variable names and which file each belongs to are documented in `app/.env.example`.
+The `.env.example` template lists every credential the app reads (marked `[SECRET]`) and every non-secret config key. Do not paste real credentials into `.env` — leave the `[SECRET]` lines blank there and load them into the active backend.
 
-**First-time setup:**
+**First-time setup (keychain path):**
 
 ```bash
-sudo apt install direnv
-echo 'eval "$(direnv hook bash)"' >> ~/.bashrc && exec bash
-
-# Copy the template, fill in non-secret values, leave secret entries blank:
 cp app/.env.example app/.env
-$EDITOR app/.env
-
-# Then store credentials in the homedir file (template values shown in .env.example):
-mkdir -p ~/.config/skuel && chmod 700 ~/.config/skuel
-$EDITOR ~/.config/skuel/secrets.env
-chmod 600 ~/.config/skuel/secrets.env
-
-cd app/ && direnv allow .
+$EDITOR app/.env                           # set SKUEL_CREDENTIAL_BACKEND=keyring + non-secret config
+uv run python -m core.config               # interactive: writes credentials into the keychain
 ```
 
-**Already have an `app/.env` with credentials in it?** Run the migration:
+**Migrating an older `.env` that still has credentials in it:**
 
 ```bash
+# Path A: move credentials out of the worktree into ~/.config/skuel/secrets.env (Stage 2)
 uv run python scripts/migrate_secrets_to_homedir.py
+
+# Path B: move credentials from secrets.env (or env) into the OS keychain (Stage 3)
+uv run python scripts/migrate_secrets_to_keychain.py
 ```
 
-It backs up `.env`, splits it into the two files, sets `0600` on the secrets file. Idempotent — safe to re-run.
+Both scripts are idempotent. The Stage 3 path is what you want unless you're on a box without a graphical session.
 
-See `.claude/plans/secrets-out-of-worktree.md` for the rationale (and the path forward to OS-keychain-backed credentials).
+**Docker note:** Docker Compose interpolates `${VAR}` directly from a `.env`-shaped file, bypassing `get_credential()`. The two keys it needs for the Neo4j services (`NEO4J_AUTH`, `NEO4J_PASSWORD`) are kept in `~/.config/skuel/secrets.env` even after Stage 3. To run docker-compose with keychain-only credentials, use `./scripts/dev/with-secrets docker compose up`.
+
+**Missing-credential behavior:** every credential the active intelligence tier needs is required at boot, not request time. Anything missing fails the bootstrap with a clear error (commit `fed4287f`). If the app starts, the credentials it needs are present.
+
+See `docs/roadmap/secrets-out-of-worktree.md` for the full design — three stages, what each shipped, and the table of where each key actually lives today.
 
 ### 3. Start Neo4j Infrastructure
 

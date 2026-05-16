@@ -1,7 +1,17 @@
 # Secrets Out of the Worktree
 
-**Status**: Stages 1, 2, 3 all shipped. No plaintext secrets on disk.
-**Last updated**: 2026-05-12
+**Status**: Stages 1, 2, 3 all shipped. Keyring is the canonical store.
+**Last updated**: 2026-05-16
+
+> **Where credentials actually live today** (single-developer machine, `SKUEL_CREDENTIAL_BACKEND=keyring`):
+>
+> | Store | Holds | Why |
+> |---|---|---|
+> | OS keychain (libsecret) | All app-read credentials — read via `get_credential()` | The Stage 3 target. Indexed at `~/.config/skuel/keyring-index.json`. |
+> | `~/.config/skuel/secrets.env` | `NEO4J_AUTH` + `NEO4J_PASSWORD` only | Docker Compose interpolates `${VAR}` from a `.env`-shaped file; it doesn't call `get_credential()`. These two stay so `docker compose up` works without the `with-secrets` wrapper. |
+> | `app/.env` | Non-secret config (URIs, ports, flags) + `SKUEL_CREDENTIAL_BACKEND=keyring` selector | In-repo, gitignored. |
+>
+> The "10 keys in secrets.env" snapshot in commit `5cd6970e`'s message is the Stage 2 inventory at migration time — not a current contract. Once Stage 3 ran, the keys moved into the keychain and `secrets.env` was trimmed to the docker-compose residue. If you see `secrets.env` with only NEO4J_* in it, that's healthy state, not a regression.
 
 **Canonical plan**: `/home/mike/.claude/plans/secrets-out-of-worktree.md` — full design, decision points, and rationale. This document is the in-repo "where are we" view.
 
@@ -61,7 +71,17 @@ After Stage 2, the worktree has zero credential bytes. Verified by full-tree gre
 - `app/scripts/migrate_secrets_to_keychain.py` *(new)* — idempotent one-shot. Reads `~/.config/skuel/secrets.env` (falls back to credential-shaped shell env vars if the file is gone), diffs against current keychain state, prompts before writing. Offers to append `SKUEL_CREDENTIAL_BACKEND=keyring` to `app/.env`. Optionally deletes `secrets.env` after success (with `shred`-style zero-fill before unlink). `--keep-source` keeps the file for verification; `--yes` is for automation.
 - `pyproject.toml` — `keyring>=25.7.0` added.
 
-**Verified**: 10 secrets migrated; `keyring.get_password("skuel", "NEO4J_PASSWORD")` returns the value; integration tests `test_ingestion_chunking.py` + `test_chunk_embedding_pipeline.py` pass with the keychain as the credential source (5 passed).
+**Verified at migration time**: 10 secrets migrated; `keyring.get_password("skuel", "NEO4J_PASSWORD")` returns the value; integration tests `test_ingestion_chunking.py` + `test_chunk_embedding_pipeline.py` pass with the keychain as the credential source (5 passed). The current keyring-index inventory drifts up or down from that snapshot as you add or rotate credentials — `cat ~/.config/skuel/keyring-index.json` for what's actually there.
+
+### fed4287f — Fail-fast on missing credentials (2026-05-13)
+
+Stages 1–3 moved secrets to a safer store. `fed4287f` closed the matching silent-degrade gaps so a *missing* secret can't boot the app in a half-on state:
+
+- `HuggingFaceEmbeddingsService` raises on missing `HF_API_TOKEN` (was: warn + set client to `None`).
+- `FireflyClient.from_env` reads PATs via `get_credential()` (was: `os.environ.get`, which missed keychain entries).
+- Email bootstrap is gated by `EMAIL_ENABLED`. When `true`, missing `RESEND_API_KEY` is fatal; when `false` (default), the service is skipped entirely.
+
+Combined effect: if a credential the active tier needs is missing from both the keychain and env, bootstrap raises with a clear "set X via `get_credential()`" message rather than logging a warning and continuing. This is why a `secrets.env` that holds only `NEO4J_*` doesn't indicate a regression — anything else missing would have already failed boot.
 
 **Known caveats (documented in the migration script's output too)**:
 
@@ -79,7 +99,7 @@ After Stage 2, the worktree has zero credential bytes. Verified by full-tree gre
 
 2. **Keychain unlock**: the credential store is unlocked when your desktop session is unlocked. Headless boxes / CI / cron environments don't get keychain access — they need the Fernet path or platform-native secrets.
 
-3. **`secrets.env` is still intact** on disk (the migration ran with `--keep-source`). When you're satisfied Stage 3 sticks, run `shred -u ~/.config/skuel/secrets.env` to remove the last plaintext copy.
+3. **`secrets.env` is intentionally still on disk**, holding only `NEO4J_AUTH` + `NEO4J_PASSWORD` for docker-compose interpolation. Everything else was deleted from the file after Stage 3 — those keys now live exclusively in the OS keychain. You can `shred -u` the file once you've moved Neo4j env injection through the `with-secrets` wrapper too; until then, leave it.
 
 ---
 
@@ -87,7 +107,7 @@ After Stage 2, the worktree has zero credential bytes. Verified by full-tree gre
 
 Nothing structurally — Stages 1–3 cover the full "no plaintext secrets on disk" goal for a single-developer machine. Open follow-ups, all small and optional:
 
-- Shred `~/.config/skuel/secrets.env` once Stage 3 has run a few sessions without surprises (it's still on disk because the migration was invoked with `--keep-source`).
+- Move docker-compose's `NEO4J_AUTH` / `NEO4J_PASSWORD` interpolation onto the `with-secrets` wrapper so `secrets.env` can be shredded entirely. Today the file is kept as the two-line residue that `${VAR}` substitution in `app/docker-compose.yml` + `infrastructure/docker-compose.yml` still needs.
 - Tests for `KeyringBackend` round-trip. Currently covered by integration tests + the inline smoke test in the Stage 3a commit; a dedicated unit test isn't strictly needed but would be cheap insurance.
 
 ## What's permanently out of scope (deliberate)
