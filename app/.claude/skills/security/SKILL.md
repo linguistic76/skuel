@@ -86,9 +86,34 @@ if error:
 `@boundary_handler()` catches service-layer errors and converts them to safe HTTP responses.
 Internal error details (stack traces, Cypher queries, Neo4j internals) are never exposed.
 
+### Credential Handling (SKUEL019)
+
+Every secret read goes through `get_credential()` — the funnel that dispatches to whichever backend is configured. Raw `os.getenv("FOO_API_KEY")` is a SKUEL019 violation.
+
+```python
+from core.config.credential_store import get_credential
+
+api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+if not api_key:
+    raise RuntimeError("OPENAI_API_KEY missing — set via `uv run python -m core.config`")
+```
+
+| Layer | Mechanism |
+|---|---|
+| **Storage** | OS keychain (`SKUEL_CREDENTIAL_BACKEND=keyring`, recommended) → libsecret / macOS Keychain / Windows Credential Locker. Or Fernet-encrypted JSON at `~/.skuel/credentials.enc` keyed by `SKUEL_MASTER_KEY`. |
+| **Funnel** | `get_credential(K, fallback_to_env=True)` in `core/config/credential_store.py`. Dispatches via `SKUEL_CREDENTIAL_BACKEND`. Falls back to env, auto-migrates env values into the backend on first read. |
+| **Boot validation** | Tier-gated services fail-fast when their credential is missing (commit `fed4287f`) — no silent half-on state. |
+| **Lint enforcement** | SKUEL019 — ERROR for catalog credentials, WARNING for credential-shape names not yet in the catalog. Catalog mirrored from `CredentialSetup.CREDENTIALS` and pinned by a drift test. |
+
+**Catalog as the single source of truth:** when adding a new credential, register it in `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`. The drift test (`test_lint_skuel.py::TestCredentialCatalogDrift`) will tell you to mirror it in `SkuelLinter.CREDENTIAL_CATALOG` so SKUEL019 catches future bypasses with ERROR severity.
+
+**Exempt files** (raw env reads ARE the implementation): `credential_store.py`, `credential_setup.py`, `migrate_secrets_to_homedir.py`, `migrate_secrets_to_keychain.py`, test files.
+
+**See:** `docs/roadmap/secrets-out-of-worktree.md` — full storage architecture; `docs/patterns/linter_rules.md` § SKUEL019.
+
 ### Session Configuration
 
-- `SESSION_SECRET_KEY` env var — required in production, auto-generated in development
+- `SESSION_SECRET_KEY` read via `get_credential()` from the active backend — required in production, auto-generated in development.
 - Session IDs hashed with SHA-256 before storage
 - Cookies: `HttpOnly=True`, `SameSite=strict`, `Secure=True` in production
 - Session data stored in Neo4j (graph-native, no separate session store)
