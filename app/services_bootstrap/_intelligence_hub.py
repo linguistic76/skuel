@@ -43,16 +43,18 @@ async def _create_intelligence_hub(
     logger.info("✅ Processing domain relationship services created (UserEntry, Report, Analytics)")
 
     # ── PsEngagementService post-wire to context_builder (ADR-059) ──────────
-    # ps_engagement is core-tier (always wired by template_services). Bind it
-    # to the builder here so build_rich() can populate active_ps_engagements
-    # for engagement-aware daily planning in DailyPlanningMixin.
-    if services.ps_engagement is not None:
-        context_builder.ps_engagement_service = services.ps_engagement
-        logger.info("✅ PsEngagementService wired to UserContextBuilder (ADR-059)")
-    else:
-        logger.warning(
-            "⚠️ services.ps_engagement is None — daily plan will lack engagement buckets"
+    # ps_engagement is core-tier (always wired by template_services before this
+    # hub runs). A None here means the lifecycle layer didn't compose — fail
+    # fast rather than silently leaving daily planning without engagement
+    # buckets. Same invariant the Askesis branch below enforces.
+    if services.ps_engagement is None:
+        raise RuntimeError(
+            "UserContextBuilder cannot wire engagement-aware daily planning "
+            "without PsEngagementService — bootstrap order is broken "
+            "(template_services must run before _create_intelligence_hub)."
         )
+    context_builder.ps_engagement_service = services.ps_engagement
+    logger.info("✅ PsEngagementService wired to UserContextBuilder (ADR-059)")
 
     # ── ZPD Service (March 2026 — pedagogical core of Askesis) ──────────────
     # Gated by INTELLIGENCE_TIER=FULL — requires behavioral signals from
@@ -173,15 +175,6 @@ async def _create_intelligence_hub(
         citation_service = AskesisCitationService(
             backend=learning_services["ps"].core.backend,
         )
-
-        # ps_engagement is core-tier (no AI), so it's always wired by the
-        # template_services bootstrap step before this hub runs. A None here
-        # would mean the lifecycle layer didn't compose — fail fast.
-        if services.ps_engagement is None:
-            raise RuntimeError(
-                "Askesis cannot be created without PsEngagementService — "
-                "bootstrap order is broken (template_services must run first)."
-            )
 
         # Askesis grounds answers in :ContentChunk vectors. Without vector_search_service
         # it silently degrades to graph-only context (Gap #6). FULL tier promises both

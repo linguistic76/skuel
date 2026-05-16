@@ -1126,14 +1126,9 @@ async def compose_services(
             sharing_service=unified_sharing_service,
             ps_service=learning_services["ps"],
             exercises_service=exercise_service,
-            # NOTE: ProfileOrchestrator captures this at construction. The
-            # intelligence factory is created later by `_create_intelligence_hub`,
-            # so the orchestrator always runs in degraded mode (see
-            # ProfileOrchestrator docstring). Pre-existing — separate from the
-            # UserContextService.intelligence_factory dead-wiring cleanup.
-            context_intelligence=None,
+            context_intelligence=None,  # Post-wired after _create_intelligence_hub below
         )
-        logger.info("✅ Profile Orchestrator created")
+        logger.info("✅ Profile Orchestrator created (intelligence post-wired below)")
 
         # ADR-054 Commit 5c: SubmissionsOrchestrator + JournalOrchestrator retired.
         # UserEntryOrchestrator is the sole facade for submissions + journals.
@@ -1434,6 +1429,13 @@ async def compose_services(
             askesis_core_service=askesis_core_service,
         )
 
+        # Post-wire intelligence factory into ProfileOrchestrator.
+        # ProfileOrchestrator is built before the hub (it goes into the Services
+        # container above), so we attach the factory after the hub creates it.
+        # Validated in the post-construction wiring check below.
+        profile_orchestrator.context_intelligence = services.context_intelligence
+        logger.info("✅ ProfileOrchestrator wired with UserContextIntelligenceFactory")
+
         # ========================================================================
         # CREATE SEARCH ROUTER (One Path Forward, January 2026)
         # ========================================================================
@@ -1458,6 +1460,7 @@ async def compose_services(
             "services.context_intelligence": services.context_intelligence,
             "services.search_router": services.search_router,
             "form_submission_service.sharing_service": form_submission_service.sharing_service,
+            "profile_orchestrator.context_intelligence": profile_orchestrator.context_intelligence,
             # habits.goal_analytics shelved (2026-03-28)
         }
         missing = [name for name, value in post_wiring_checks.items() if value is None]
