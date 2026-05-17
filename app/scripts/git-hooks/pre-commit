@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SKUEL pre-commit hook — single canonical script.
 #
-# Runs two independent checks; failure of EITHER blocks the commit:
+# Runs three independent checks; failure of ANY blocks the commit:
 #
 #   1. Secret-leak scan
 #      - .env / .env.local / .env.<anything> files staged
@@ -14,9 +14,19 @@
 #        (broken skill references, broken /docs/ links,
 #         missing frontmatter on pattern docs)
 #
+#   3. MyPy type check on staged Python files
+#      - only when at least one app/**/*.py file is staged
+#      - runs `uv run mypy --follow-imports=silent <staged files>`
+#      - --follow-imports=silent loads imports for type info but suppresses
+#        errors in unmodified files, so pre-existing issues elsewhere don't
+#        block unrelated commits. The CI job (quality.yml) is the global gate.
+#      - Reads files from disk, not the index — if you staged then edited,
+#        the check sees the edited version (usually what you want).
+#
 # Bypass (use sparingly, prefer fixing):
 #   SKUEL_ALLOW_SECRETS=1 git commit ...   # skip secret scan only
-#   git commit --no-verify ...             # skip BOTH (last resort)
+#   SKUEL_SKIP_MYPY=1     git commit ...   # skip MyPy only
+#   git commit --no-verify ...             # skip ALL (last resort)
 #
 # Install (idempotent):  app/scripts/install_git_hooks.sh
 # See:                    app/scripts/git-hooks/README.md
@@ -105,6 +115,41 @@ if [[ -n "$staged_docs" ]]; then
 fi
 
 # =========================================================================
+# Check 3 — MyPy type check on staged Python files
+# =========================================================================
+if [[ "${SKUEL_SKIP_MYPY:-0}" == "1" ]]; then
+  yellow "⚠ SKUEL_SKIP_MYPY=1 set — skipping MyPy."
+else
+  # Only .py files inside app/; strip the prefix so paths resolve from app/.
+  staged_py=$(git diff --cached --name-only --diff-filter=ACMR \
+    | grep -E '^app/.*\.py$' \
+    | sed 's|^app/||' || true)
+
+  if [[ -n "$staged_py" ]]; then
+    py_count=$(printf '%s\n' "$staged_py" | wc -l | tr -d ' ')
+    py_word=$([[ "$py_count" == "1" ]] && echo "file" || echo "files")
+    echo "🔍 MyPy type-checking ${py_count} staged Python ${py_word}..."
+
+    # xargs reads the file list on stdin; --no-run-if-empty guards against
+    # the empty-input edge case (already prevented by the outer -n check,
+    # but defensive against future refactors).
+    if mypy_output=$(
+      printf '%s\n' "$staged_py" \
+        | (cd "$repo_root/app" && xargs --no-run-if-empty \
+             uv run mypy --follow-imports=silent --no-error-summary 2>&1)
+    ); then
+      green "✅ MyPy type check passed (${py_count} ${py_word})"
+    else
+      red "✗ MyPy type check failed"
+      printf '%s\n' "$mypy_output" | sed 's/^/    /' >&2
+      yellow "  Reproduce:   cd app && uv run mypy --follow-imports=silent <staged files>"
+      yellow "  Bypass once: SKUEL_SKIP_MYPY=1 git commit ..."
+      fail=1
+    fi
+  fi
+fi
+
+# =========================================================================
 # Verdict
 # =========================================================================
 if [[ $fail -ne 0 ]]; then
@@ -112,6 +157,8 @@ if [[ $fail -ne 0 ]]; then
   yellow "Commit blocked. To bypass (last-resort, prefer fixing):"
   yellow "  • False-positive secret (test fixture / doc placeholder):"
   yellow "      SKUEL_ALLOW_SECRETS=1 git commit ..."
+  yellow "  • Skip just the MyPy check (work-in-progress refactor):"
+  yellow "      SKUEL_SKIP_MYPY=1     git commit ..."
   yellow "  • Skip ALL checks (use only if you understand the trade-off):"
   yellow "      git commit --no-verify ..."
   yellow "Real key in staged diff? Rotate it now and unstage."

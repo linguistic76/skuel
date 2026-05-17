@@ -2,6 +2,43 @@
 
 This directory contains CI/CD workflows for SKUEL.
 
+## Code Quality Checks (`quality.yml`)
+
+**Purpose**: Enforce the zero-MyPy-error baseline on every push/PR. See `app/docs/patterns/mypy_pragmatic_strategy.md` for the philosophy.
+
+**Triggers**:
+- Push to `main` or `develop`
+- Pull requests to `main` or `develop`
+- Manual dispatch
+
+**Only runs when Python or dependency files change**:
+- `app/**/*.py`
+- `app/pyproject.toml`
+- `app/uv.lock`
+- `.github/workflows/quality.yml`
+
+**Concurrency**: Superseded runs on the same branch / PR are cancelled.
+
+### Job: `mypy`
+
+| Step | Behavior |
+|------|----------|
+| Install dependencies | `uv sync --no-root` (venv cached on `uv.lock` hash) |
+| Cache `.mypy_cache` | Restored across runs on the same branch for incrementality |
+| `uv run mypy .` | Fails the job on any MyPy error |
+| Upload artifact | `mypy-output.txt` retained for 14 days on failure |
+| PR comment | Posts truncated output + reproduction instructions on PR failures |
+
+**CI Failure Conditions**: Any non-zero exit from `uv run mypy .`.
+
+### Running Locally
+
+```bash
+cd app
+uv run mypy .                    # The CI check
+./dev quality                    # Full quality suite (ruff + SKUEL linter + cypher + mypy)
+```
+
 ## Documentation Quality Checks (`docs.yml`)
 
 **Purpose**: Automatically validate documentation quality on every push/PR.
