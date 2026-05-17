@@ -191,9 +191,22 @@ exclude = [
 
 # Per-module configuration for SKUEL-specific patterns
 [[tool.mypy.overrides]]
-# Core ports — strict typing enforced (0 untyped defs as of 2026-03-27)
+# Core ports — strict typing enforced (0 untyped defs as of 2026-03-27).
+# warn_return_any added 2026-05-16 after fixing 10 no-any-return errors in
+# content_protocols.py (getattr() → cast). Protocols are the contract;
+# silent Any returns defeat the type system at the most important boundary.
 module = ["core.ports.*"]
 disallow_untyped_defs = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+# Core auth — warn_return_any enforced (added 2026-05-16). Auth is a
+# security-critical boundary; silently propagating Any through Result
+# returns hides type-mismatch bugs. Fixed 17 occurrences of cross-type
+# Result propagation (`return some_result` → `return Result.fail(some_result)`,
+# per CLAUDE.md error-handling guidance).
+module = ["core.auth.*"]
+warn_return_any = true
 
 [[tool.mypy.overrides]]
 # Core services - gradual strictness migration
