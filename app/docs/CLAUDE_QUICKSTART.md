@@ -1,7 +1,7 @@
 ---
 title: Claude Quick Start Guide
 created: 2025-12-04
-updated: 2025-12-04
+updated: 2026-05-16
 status: current
 category: guides
 tags: [claude, quickstart, onboarding, ai-assistant]
@@ -193,12 +193,25 @@ uv run python -m py_compile core/services/tasks/tasks_core_service.py
 ```bash
 # Run mypy on specific file
 uv run mypy core/services/tasks/tasks_core_service.py
+
+# Run mypy across the whole repo (the CI check)
+uv run mypy .
 ```
+
+**Zero is the enforced baseline.** Two gates catch regressions before you
+get a chance to forget:
+
+- **Pre-commit hook** runs `mypy --follow-imports=silent` on staged `.py`
+  files (~10s warm). Bypass with `SKUEL_SKIP_MYPY=1 git commit ...` for
+  WIP refactors. See `app/scripts/git-hooks/README.md`.
+- **CI** (`.github/workflows/quality.yml`) runs the full
+  `uv run mypy .` on every push/PR to `main` and `develop`. Posts a PR
+  comment with the failing output.
 
 ### Linter Issues
 
 ```bash
-./dev quality      # Run all checks
+./dev quality      # Run all checks (Ruff + SKUEL linter + Cypher + MyPy)
 ./dev quality-fix  # Auto-fix issues
 ```
 
