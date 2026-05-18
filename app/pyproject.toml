@@ -243,12 +243,24 @@ warn_return_any = false
 disallow_any_generics = false
 
 [[tool.mypy.overrides]]
-# UI modules - lenient; monsterui has no py.typed marker
+# UI modules - lenient; monsterui has no py.typed marker.
+# warn_unreachable=true: ui/ doesn't construct domain models, so it avoids
+# the __post_init__ sentinel + Neo4j JSON-string patterns that make
+# warn_unreachable unworkable in core/models/*. See pyproject.toml:154.
 module = ["ui.*"]
 disallow_untyped_defs = false
 warn_return_any = false
 disallow_any_generics = false
+warn_unreachable = true
 disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+# Bootstrap + routes: no frozen-dataclass post-init normalization or Neo4j
+# JSON-string boundary here, so warn_unreachable catches dead defensive
+# code without false positives. See pyproject.toml:154 for why this is
+# scoped per-module rather than enabled globally.
+module = ["services_bootstrap.*", "routes.*"]
+warn_unreachable = true
 
 [[tool.mypy.overrides]]
 # Events and protocols - lenient (auto-generated patterns)
