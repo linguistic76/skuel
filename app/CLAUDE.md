@@ -122,8 +122,8 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 |--------|-------------|
 | **Three-Tier Type System** | Pydantic at edges, frozen dataclasses at core, DTOs between |
 | **Protocol-Based DI** | Zero concrete dependencies in route signatures — all services injected as protocols |
-| **Typed Protocol Returns** | ~170 protocol methods return specific models/TypedDicts; 0 `Result[Any]` in protocols. Service-layer `Result[Any]` also narrowed. Route handlers: 0 `Result[Any]` across 27 API files (2 intentional `# boundary:` for FastHTML FT components) |
-| **Any Usage Policy** | Every `Any` is justified (Category C boundary) or eliminated (Categories A + B) |
+| **Typed Protocol Returns** | ~170 protocol methods return specific models/TypedDicts; 0 `Result[Any]` in protocols. Service-layer `Result[Any]` also narrowed. Route handlers: handlers that return rendered HTML use `Result[FT]` (the `fastcore.xml.FT` base class type-checks); handlers that return models use `Result[Goal]`, `Result[Event]`, etc. The route-factory generics in `adapters/inbound/route_factories/` keep `Result[Any]` where `T` is genuinely erased — those are the only legitimate sites. |
+| **Any Usage Policy** | Every `Any` is justified (Category C boundary) or eliminated (Categories A + B). At the FastHTML boundary: use the `FastHTMLApp` / `RouteDecorator` protocols for `app` / `rt` parameters; use `FT` for HTML fragment returns; `*c: Any, **kwargs: Any` inside FT factories stay (HTML is structurally heterogeneous). |
 | **Search Protocol Generics** | All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, etc.), not `Entity` |
 | **Enum-Enforced Boundaries** | `UserRole`, `ExerciseScope`, `SubmissionModality`, `EntityStatus`, `FeedbackCategory`, `MasteryImpact`, `Pipeline`, `ReportSource`, `Visibility`, `EnrichmentMode` — zero raw string comparisons for roles, scopes, modalities, status checks, feedback categorization, mastery scoring, user-entry pipelines, report provenance, visibility levels, enrichment modes |
 
@@ -131,9 +131,14 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **Protocol return TypedDicts** (from `core/ports/query_types.py`): 159 TypedDicts — 21 for inputs (filters, payloads) + 138 for outputs (domain stats, system health, teacher review, visualization configs, intelligence, life path, lateral relationships, activity reports, UserContext field shapes, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns, PS backend result types, journal cleanup stats). New protocol methods and route handlers should return a specific model or TypedDict, not `Result[Any]`. Use `Result.fail(result)` to propagate errors across type boundaries (not `return result`).
 
-**FastHTML boundary** (no type stubs): `from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request`
+**FastHTML boundary** (no type stubs): FastHTML/fastcore ship no `py.typed` marker, so the framework presents four distinct boundary surfaces — each with a different policy:
 
-**`Any` policy:** Category A (eliminate), Category B (use specific type like `Neo4jProperties`), Category C (permanent boundary — add `# boundary:` comment).
+1. **Route signatures** (`app`, `rt`): use `from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request`. The protocols capture exactly the surface SKUEL uses. No `# boundary:` comment — the protocol *is* the typed boundary.
+2. **Route handler returns**: annotate the concrete return — `Result[FT]` for HTMX fragments, `Result[Goal]` for models, `Response` for redirects. `from fasthtml.common import FT` works as a type (`FT = fastcore.xml.FT` is a real class). `Result[Any]` here is almost always a regression, not a boundary.
+3. **FT element internals** (variadic `*c: Any` for children, `**kwargs: Any` for attrs inside `Div(...)` and friends): permanent Category C. Mark with `# boundary: fasthtml-elements`. HTML is structurally heterogeneous and cannot be modeled.
+4. **ASGI plumbing** (`__call__(scope, receive, send) -> None` inside the `FastHTMLApp` protocol): Starlette doesn't export usable ASGI types. Permanent Category C, marked `# boundary: fasthtml-app`.
+
+**`Any` policy:** Category A (eliminate), Category B (use specific type like `Neo4jProperties`), Category C (permanent boundary — add `# boundary:` comment). The rule is not "ban `Any`" but "`Any` must state *this is genuinely heterogeneous* — if `FT` or `Event` or `Neo4jProperties` would type-check, that's strictly more truthful."
 
 **See:** `docs/architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md` (why), `docs/patterns/TYPE_SAFETY_OVERVIEW.md` (how), `docs/patterns/ANY_USAGE_POLICY.md`, `docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md`
 
