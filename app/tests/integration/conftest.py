@@ -408,7 +408,6 @@ async def services(neo4j_driver):
 
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.entity import Entity
-    from core.models.entity_dto import EntityDTO
     from core.models.user.user import User
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
@@ -599,21 +598,6 @@ async def services(neo4j_driver):
     ps_service.core.backend = ps_backend
     lp_service.core.backend = lp_backend
     principles_service.core.backend = principles_backend
-
-    # PATCH: Set _dto_class and _model_class on core services
-    # The context_operations_mixin reads self._dto_class directly (class attribute),
-    # which is None on BaseService. Setting instance attributes ensures
-    # get_with_context() works correctly via the mixin.
-    for core_service in [
-        tasks_service.core,
-        goals_service.core,
-        events_service.core,
-        principles_service.core,
-        ps_service.core,
-        lp_service.core,
-    ]:
-        core_service._dto_class = EntityDTO  # type: ignore[attr-defined]
-        core_service._model_class = Entity  # type: ignore[attr-defined]
 
     services_container = TestServices(
         choices=choices_service,

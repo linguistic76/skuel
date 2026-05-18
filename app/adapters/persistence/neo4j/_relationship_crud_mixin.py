@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams
@@ -67,11 +68,11 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         """
         Extract label from UID pattern (e.g., 'task:123' → 'Task').
 
-        SKUEL uses consistent UID patterns: {domain}:{id}
+        SKUEL uses consistent UID patterns: {domain}:{id} or {domain}.{id}.
         Fast pattern matching, no DB query needed.
 
         Args:
-            uid: Entity UID (e.g., "task:123", "ku.python-basics")
+            uid: Entity UID (e.g., "task:123", "ku:python-basics")
 
         Returns:
             Label string if pattern matches, None otherwise (requires DB fallback)
@@ -79,12 +80,13 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         Examples:
             >>> backend._extract_label_from_uid("task:123")
             "Task"
-            >>> backend._extract_label_from_uid("ku.python-basics")
-            "Entity"
+            >>> backend._extract_label_from_uid("ku:python-basics")
+            "Ku"
             >>> backend._extract_label_from_uid("unknown:xyz")
             None
         """
         # Common UID patterns in SKUEL
+        # Ingestion accepts both ':' and '.' separators (validator.py normalizes).
         patterns = {
             "task:": "Task",
             "event:": "Event",
@@ -92,7 +94,14 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             "goal:": "Goal",
             "principle:": "Principle",
             "choice:": "Choice",
-            "ku.": "Entity",  # Knowledge uses dots
+            "ku:": "Ku",
+            "ku.": "Ku",
+            "ps:": "PathStep",
+            "ps.": "PathStep",
+            "lp:": "LearningPath",
+            "lp.": "LearningPath",
+            "ex:": "Exercise",
+            "ex.": "Exercise",
             "user.": "User",
             "expense:": "Expense",
             "ue_": "UserEntry",  # ADR-054 unified user-authored content
@@ -103,6 +112,23 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 return label
 
         return None  # Fallback to DB query
+
+    @staticmethod
+    def _pick_domain_label(labels: builtins.list[str]) -> str | None:
+        """
+        Pick the domain-specific label from a multi-label node.
+
+        SKUEL domain entities use multi-label CREATE — e.g. ``(n:Entity:Ku)`` —
+        and ``labels(n)`` returns them in unspecified order. The relationship
+        registry (``LABEL_CONFIGS``) is keyed by domain-specific labels only;
+        the universal ``:Entity`` base label has no entry. So when the
+        validator falls back to DB labels, it must skip ``"Entity"`` to find
+        the label that actually keys the registry.
+        """
+        for label in labels:
+            if label != NeoLabel.ENTITY.value:
+                return label
+        return labels[0] if labels else None
 
     def _build_direction_pattern(
         self,
@@ -322,9 +348,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         target_labels: builtins.list[str]
         source_labels, target_labels = labels_result.value
 
-        # Use DB label if UID parsing failed
-        if not source_label and source_labels:
-            source_label = source_labels[0]
+        # Use DB label if UID parsing failed (skip universal :Entity base label)
+        if not source_label:
+            source_label = self._pick_domain_label(source_labels)
 
         if not source_label:
             return Result.fail(
@@ -364,7 +390,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         # Step 4: Validate target node label
         spec = get_relationship_metadata(source_label, relationship_type)
         if spec and spec.target_labels:
-            primary_target_label = target_labels[0] if target_labels else "Unknown"
+            primary_target_label = self._pick_domain_label(target_labels) or "Unknown"
 
             # Check if any of the node's labels match the spec
             valid_target = any(label in spec.target_labels for label in target_labels)
@@ -734,9 +760,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             target_labels: builtins.list[str]
             source_labels, target_labels = labels_result.value
 
-            # Use DB label if UID parsing failed
-            if not source_label and source_labels:
-                source_label = source_labels[0]
+            # Use DB label if UID parsing failed (skip universal :Entity base label)
+            if not source_label:
+                source_label = self._pick_domain_label(source_labels)
 
             if not source_label:
                 validation_errors.append(
@@ -770,7 +796,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 valid_target = any(label in spec.target_labels for label in target_labels)
 
                 if not valid_target:
-                    primary_target_label = target_labels[0] if target_labels else "Unknown"
+                    primary_target_label = self._pick_domain_label(target_labels) or "Unknown"
                     validation_errors.append(
                         {
                             "index": idx,
