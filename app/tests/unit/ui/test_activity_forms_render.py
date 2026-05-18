@@ -304,9 +304,7 @@ class TestSectionRendering:
             # decode entities once so the assertion reads naturally.
             decoded = html_lib.unescape(html)
             for section_name in _EXPECTED_SECTIONS[(slug, op)]:
-                assert section_name in decoded, (
-                    f"{slug}/{op}: section {section_name!r} missing"
-                )
+                assert section_name in decoded, f"{slug}/{op}: section {section_name!r} missing"
 
 
 # =============================================================================
@@ -391,9 +389,7 @@ class TestEditFormPrefill:
         # marker substring would be brittle; instead verify both halves render
         # as distinct values, which split_why_important guarantees.)
 
-    def test_principles_edit_blank_why_when_description_has_no_marker(
-        self, principle
-    ) -> None:
+    def test_principles_edit_blank_why_when_description_has_no_marker(self, principle) -> None:
         """A Principle whose description lacks the marker prefills why_important as blank."""
         plain = type(principle)(
             uid=principle.uid,

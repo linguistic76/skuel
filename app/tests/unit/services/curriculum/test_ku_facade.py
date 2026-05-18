@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined,assignment"
 """
 Unit tests for PsService facade orchestration methods.
 

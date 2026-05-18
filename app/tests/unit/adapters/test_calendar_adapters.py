@@ -270,7 +270,7 @@ class TestCreateAdapter:
         with patch("adapters.calendar_adapters.Task", FakeTask):
             adapter = create_adapter(task)  # type: ignore[arg-type]
         # Tasks pass through (cast to CalendarTrackable), so we get the entity itself.
-        assert adapter is task
+        assert adapter is task  # type: ignore[comparison-overlap]
 
     def test_dispatches_habit_passthrough(self) -> None:
         class FakeHabit:
@@ -281,7 +281,7 @@ class TestCreateAdapter:
         habit = FakeHabit()
         with patch("adapters.calendar_adapters.Habit", FakeHabit):
             adapter = create_adapter(habit)  # type: ignore[arg-type]
-        assert adapter is habit
+        assert adapter is habit  # type: ignore[comparison-overlap]
 
 
 class TestAdaptEntities:

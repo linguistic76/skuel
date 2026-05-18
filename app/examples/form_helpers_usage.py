@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined"
 """
 Example: Type-Safe Form Data Extraction
 

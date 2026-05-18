@@ -231,6 +231,7 @@ class TestCurriculumDomains:
     def test_ls_has_knowledge_relationships(self):
         """Verify PS config has knowledge and step relationships (activity wiring moved to Lessons)."""
         config = get_config_by_label("Ls")
+        assert config is not None
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.CONTAINS_KNOWLEDGE in rel_names
         assert RelationshipName.TRAINS_KU in rel_names
@@ -239,6 +240,7 @@ class TestCurriculumDomains:
     def test_lp_has_milestone_relationship(self):
         """Verify LP config has milestone event relationship."""
         config = get_config_by_label("Lp")
+        assert config is not None
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.HAS_MILESTONE_EVENT in rel_names
 
@@ -250,6 +252,7 @@ class TestCurriculumDomains:
         wires this up in the registry.
         """
         config = get_config_by_label("PathStep")
+        assert config is not None
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.ORGANIZES in rel_names
 
@@ -337,10 +340,10 @@ class TestRegistryIntegration:
         """Verify KU config has organizes in bidirectional relationships."""
         organizes_rel = None
         for rel in KU_CONFIG.bidirectional_relationships:
-            if rel.method_key == "organizes":
+            if rel.method_key == "organizes":  # type: ignore[attr-defined]
                 organizes_rel = rel
                 break
         assert organizes_rel is not None
-        assert organizes_rel.relationship == RelationshipName.ORGANIZES
-        assert organizes_rel.target_label == "Ku"
-        assert organizes_rel.direction == "outgoing"
+        assert organizes_rel.relationship == RelationshipName.ORGANIZES  # type: ignore[attr-defined]
+        assert organizes_rel.target_label == "Ku"  # type: ignore[attr-defined]
+        assert organizes_rel.direction == "outgoing"  # type: ignore[attr-defined]

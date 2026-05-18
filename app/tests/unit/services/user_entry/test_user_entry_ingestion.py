@@ -69,7 +69,7 @@ class TestBuildUserEntryRequest:
         req = result.value
         assert req.pipeline == Pipeline.TEACHER_REVIEW
         assert req.share_with_groups == ["g_a", "g_b"]
-        resolver.resolve_default_teachers.assert_awaited_once_with("user_1")
+        resolver.resolve_default_teachers.assert_awaited_once_with("user_1")  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
     async def test_explicit_group_audience(self):

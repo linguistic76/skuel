@@ -1754,9 +1754,7 @@ class SkuelLinter:
             return
 
         rel_str = str(rel_path).replace("\\", "/")
-        if rel_str in self.CREDENTIAL_PLUMBING_FILES or rel_str.endswith(
-            "scripts/lint_skuel.py"
-        ):
+        if rel_str in self.CREDENTIAL_PLUMBING_FILES or rel_str.endswith("scripts/lint_skuel.py"):
             return
 
         shape_re = re.compile(self.CREDENTIAL_SHAPE_RE)

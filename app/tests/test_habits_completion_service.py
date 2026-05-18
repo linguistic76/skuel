@@ -82,7 +82,7 @@ def sample_habit() -> Habit:
 
 
 @pytest.fixture
-def sample_habit_dto(sample_habit) -> sample_habit:
+def sample_habit_dto(sample_habit):
     """Create sample habit DTO."""
     return sample_habit.to_dto()
 

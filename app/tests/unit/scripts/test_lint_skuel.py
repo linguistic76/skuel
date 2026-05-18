@@ -12,7 +12,7 @@ from pathlib import Path
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
-from lint_skuel import LintResult, Severity, SkuelLinter, Violation
+from lint_skuel import LintResult, Severity, SkuelLinter, Violation  # type: ignore[import-not-found]
 
 # ============================================================================
 # HELPERS
@@ -1069,9 +1069,7 @@ class TestSKUEL019:
 
     def test_detects_os_environ_get_catalog_key(self) -> None:
         linter = make_linter(["SKUEL019"])
-        violations = lint_content(
-            linter, '    key = os.environ.get("OPENAI_API_KEY")'
-        )
+        violations = lint_content(linter, '    key = os.environ.get("OPENAI_API_KEY")')
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL019"
         assert violations[0].severity == Severity.ERROR
@@ -1092,9 +1090,7 @@ class TestSKUEL019:
 
     def test_catalog_key_with_default_arg(self) -> None:
         linter = make_linter(["SKUEL019"])
-        violations = lint_content(
-            linter, '    key = os.getenv("DEEPGRAM_API_KEY", "")'
-        )
+        violations = lint_content(linter, '    key = os.getenv("DEEPGRAM_API_KEY", "")')
         assert len(violations) == 1
         assert violations[0].severity == Severity.ERROR
 
@@ -1160,9 +1156,7 @@ class TestSKUEL019:
 
     def test_ingestion_path_passes(self) -> None:
         linter = make_linter(["SKUEL019"])
-        violations = lint_content(
-            linter, '    p = os.environ.get("SKUEL_INGESTION_ALLOWED_PATHS")'
-        )
+        violations = lint_content(linter, '    p = os.environ.get("SKUEL_INGESTION_ALLOWED_PATHS")')
         assert len(violations) == 0
 
     def test_master_key_passes(self) -> None:
@@ -1264,9 +1258,7 @@ class TestSKUEL019:
 
     def test_skips_comments(self) -> None:
         linter = make_linter(["SKUEL019"])
-        violations = lint_content(
-            linter, '    # legacy code did os.getenv("OPENAI_API_KEY") here'
-        )
+        violations = lint_content(linter, '    # legacy code did os.getenv("OPENAI_API_KEY") here')
         assert len(violations) == 0
 
     # --- Suggestion content ---

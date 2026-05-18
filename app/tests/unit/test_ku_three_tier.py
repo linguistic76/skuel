@@ -67,6 +67,7 @@ class TestKuThreeTierRoundTrip:
         """CurriculumDTO → Entity.from_dto() must carry all 26 fields."""
         dto = self._make_full_dto()
         ku = Entity.from_dto(dto)
+        assert isinstance(ku, Curriculum)
 
         assert ku.uid == dto.uid
         assert ku.title == dto.title
@@ -101,7 +102,9 @@ class TestKuThreeTierRoundTrip:
         """Ku.to_dto() must carry all 26 fields back to CurriculumDTO."""
         dto = self._make_full_dto()
         ku = Entity.from_dto(dto)
+        assert isinstance(ku, Curriculum)
         dto2 = ku.to_dto()
+        assert isinstance(dto2, CurriculumDTO)
 
         assert dto2.uid == dto.uid
         assert dto2.title == dto.title
@@ -142,9 +145,11 @@ class TestKuThreeTierRoundTrip:
             sel_category=None,
         )
         ku = Entity.from_dto(dto)
+        assert isinstance(ku, Curriculum)
         assert ku.sel_category is None
 
         dto2 = ku.to_dto()
+        assert isinstance(dto2, CurriculumDTO)
         assert dto2.sel_category is None
 
 

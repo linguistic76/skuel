@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined"
 """
 Unit tests for HabitsService facade orchestration methods.
 

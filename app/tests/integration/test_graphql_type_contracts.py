@@ -281,7 +281,9 @@ async def test_learning_path_service_returns_typed_steps(lp_service, type_contra
     # Assert - Each step is properly typed
     for i, step in enumerate(steps, 1):
         # Core type check
-        assert isinstance(step, Entity), f"Step {i} should be Entity instance, got {type(step)}"
+        assert isinstance(step, PathStepModel), (
+            f"Step {i} should be PathStep instance, got {type(step)}"
+        )
 
         # Required string fields
         assert isinstance(step.uid, str), f"Step {i} uid should be string"

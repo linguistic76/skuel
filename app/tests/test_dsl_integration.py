@@ -1,3 +1,4 @@
+# mypy: disable-error-code="union-attr"
 """
 Integration Tests for SKUEL DSL Pipeline
 ========================================

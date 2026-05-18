@@ -1,3 +1,4 @@
+# mypy: disable-error-code="var-annotated,comparison-overlap"
 """
 Test Adapter-Less CRUD Routes Integration
 ==========================================

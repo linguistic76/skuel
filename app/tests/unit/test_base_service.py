@@ -1,3 +1,4 @@
+# mypy: disable-error-code="assignment"
 """
 Test Suite for BaseService
 ==========================
@@ -25,6 +26,8 @@ from unittest.mock import AsyncMock, Mock
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from core.ports.base_protocols import BackendOperations  # noqa: F401
 
 import pytest
 

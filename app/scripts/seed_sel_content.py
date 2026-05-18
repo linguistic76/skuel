@@ -653,7 +653,7 @@ async def seed_sel_content(ku_backend):
     for ku_data in EXAMPLE_SEL_KUS:
         try:
             # Create entity object (prerequisites and enables are graph relationships, not fields)
-            content_body = ku_data.get("content", "")
+            content_body: str = ku_data.get("content", "")  # type: ignore[assignment]
             ku = Curriculum(
                 uid=ku_data["uid"],
                 title=ku_data["title"],
@@ -706,7 +706,7 @@ async def create_enables_relationships(driver):
     async with driver.session() as session:
         for ku_data in EXAMPLE_SEL_KUS:
             uid = ku_data["uid"]
-            enables_list = ku_data.get("enables", [])
+            enables_list: list[str] = ku_data.get("enables", [])  # type: ignore[assignment]
 
             for target_uid in enables_list:
                 try:

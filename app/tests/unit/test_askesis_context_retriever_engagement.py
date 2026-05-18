@@ -1,3 +1,4 @@
+# mypy: disable-error-code="typeddict-item"
 """Tests for ContextRetriever — engagement-aware active-PS selection (ADR-059).
 
 Covers ``_find_active_ps`` selection rules:

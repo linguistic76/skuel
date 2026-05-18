@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: disable-error-code="union-attr,call-arg,attr-defined"
 """
 One-off script: Ingest Activity Domain YAML files for a specific user.
 

@@ -271,12 +271,12 @@ def _violation(
     referenced_uid: str | None = "tpl_goal_missing",
     hint: str | None = None,
 ) -> Violation:
-    return Violation(  # type: ignore[typeddict-item]
+    return Violation(
         template_uid=template_uid,
         template_title=template_title,
-        template_type=template_type,
+        template_type=template_type,  # type: ignore[typeddict-item]
         field=field,
-        violation=violation,
+        violation=violation,  # type: ignore[typeddict-item]
         referenced_uid=referenced_uid,
         hint=hint,
     )

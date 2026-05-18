@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from fastcore.xml import to_xml
+from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
 from adapters.inbound.calendar_api import create_calendar_api_routes
 from core.models.event.calendar_models import CalendarItem, CalendarItemType

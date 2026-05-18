@@ -76,14 +76,14 @@ def _exclude_from_subjects(path: Path) -> bool:
     return any(part in SUBJECT_EXCLUDE_DIR_PARTS for part in rel.parts)
 
 
-def get_production_py_files() -> list[Path]:
+def get_production_py_files() -> tuple[list[Path], list[Path]]:
     """
     Returns:
       subjects   — files to check for dead imports (excludes scripts/, tests/, __init__.py)
       all_sources — files to scan for imports (includes scripts/ so bootstrap counts)
     """
-    subjects = []
-    all_sources = []
+    subjects: list[Path] = []
+    all_sources: list[Path] = []
     for path in ROOT.rglob("*.py"):
         if _never_scan(path):
             continue

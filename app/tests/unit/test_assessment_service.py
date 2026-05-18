@@ -8,6 +8,8 @@ and get_assessments_by_teacher on AssessmentService (ADR-054 Commit 6a).
 
 from unittest.mock import AsyncMock, MagicMock
 
+from typing import Any
+
 import pytest
 
 from core.models.enums.entity_enums import EntityType
@@ -16,7 +18,7 @@ from core.utils.result_simplified import Errors, Result
 
 # Helpers for mocking execute_query call sequence (returns Result[list[dict]])
 AUTHORITY_MATCH = Result.ok([{"group_uid": "group_abc"}])
-AUTHORITY_NO_MATCH = Result.ok([])
+AUTHORITY_NO_MATCH: Result[list[dict[str, Any]]] = Result.ok([])
 RELATIONSHIP_SUCCESS = Result.ok([{"success": True}])
 
 

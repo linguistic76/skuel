@@ -1,3 +1,4 @@
+# mypy: disable-error-code="var-annotated"
 """Integration tests for ``PsEngagementService`` (Phase 4 verification).
 
 Covers the four-transition lifecycle end-to-end against a real Neo4j

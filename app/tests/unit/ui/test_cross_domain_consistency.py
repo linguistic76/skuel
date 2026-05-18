@@ -1,3 +1,4 @@
+# mypy: disable-error-code="operator,attr-defined"
 """Cross-domain UI component consistency tests.
 
 Verifies that shared UI components (PageHeader, EmptyState, StatsGrid,

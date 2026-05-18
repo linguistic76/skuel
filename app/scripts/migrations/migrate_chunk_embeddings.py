@@ -38,6 +38,7 @@ import asyncio
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -55,10 +56,10 @@ logger = get_logger("skuel.migrations.chunk_embeddings")
 
 
 async def get_chunks_without_embeddings(
-    driver: any,
+    driver: Any,
     limit: int | None = None,
     offset: int = 0,
-) -> list[dict[str, any]]:
+) -> list[dict[str, Any]]:
     """
     Query all ContentChunk nodes that don't have embeddings yet.
 
@@ -94,7 +95,7 @@ async def get_chunks_without_embeddings(
         return records
 
 
-async def get_total_chunks_without_embeddings(driver: any) -> int:
+async def get_total_chunks_without_embeddings(driver: Any) -> int:
     """
     Count total ContentChunk nodes without embeddings.
 
@@ -147,7 +148,7 @@ async def migrate_chunk_embeddings(
         logger.error("   Set INTELLIGENCE_TIER=full in .env before running migration")
         return {"total": 0, "processed": 0, "successful": 0, "failed": 0, "skipped": 0}
 
-    if not config.genai.embeddings_enabled:
+    if not config.genai.embeddings_enabled:  # type: ignore[attr-defined]
         logger.error("❌ Embeddings are disabled (GENAI_EMBEDDINGS_ENABLED=False)")
         logger.error("   Enable embeddings in config before running migration")
         return {"total": 0, "processed": 0, "successful": 0, "failed": 0, "skipped": 0}
@@ -174,7 +175,7 @@ async def migrate_chunk_embeddings(
     )
     await neo4j_connection.connect()
 
-    embeddings_service = HuggingFaceEmbeddingsService(
+    embeddings_service = HuggingFaceEmbeddingsService(  # type: ignore[call-arg]
         driver=driver,
         model=config.genai.embedding_model,
     )

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: disable-error-code="var-annotated,call-arg,operator,attr-defined,return-value,index"
 """
 Example ingestion script for Obsidian vault using the new bulk operations.
 

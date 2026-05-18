@@ -15,6 +15,7 @@ import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
@@ -54,8 +55,7 @@ async def get_semantic_relationship_metrics() -> dict:
         dict: Metrics including activation counts, usage stats, etc.
     """
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:
@@ -75,7 +75,7 @@ async def get_semantic_relationship_metrics() -> dict:
             records = await result.data()
 
             # Build metrics
-            metrics = {
+            metrics: dict[str, Any] = {
                 "timestamp": datetime.now().isoformat(),
                 "total_semantic_types_defined": 80,  # From semantic_relationships.py
                 "tier_1": {

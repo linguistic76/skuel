@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: disable-error-code="var-annotated,union-attr,comparison-overlap"
 """Test the simplified Result implementation."""
 
 from core.utils.result_simplified import ErrorCategory, Errors, ErrorSeverity, Result

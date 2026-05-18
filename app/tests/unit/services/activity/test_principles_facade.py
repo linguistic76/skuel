@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined,var-annotated"
 """
 Unit tests for PrinciplesService facade orchestration methods.
 

@@ -107,8 +107,7 @@ async def main():
     print(f"Ingesting nous files from: {NOUS_PATH}")
 
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
     print(f"Connecting to Neo4j at {conn.uri}")
 
     try:

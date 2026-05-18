@@ -48,14 +48,14 @@ def _engagement(
 
 def _contextual(uid: str, title: str) -> Any:
     """Minimal stand-in for ContextualTask/Habit/Goal — only uid + title used."""
+    from dataclasses import dataclass
 
+    @dataclass
     class _Item:
-        pass
+        uid: str
+        title: str
 
-    item = _Item()
-    item.uid = uid
-    item.title = title
-    return item
+    return _Item(uid=uid, title=title)
 
 
 # =============================================================================

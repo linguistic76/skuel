@@ -1,3 +1,6 @@
+# mypy: disable-error-code="call-arg,misc"
+# Strawberry decorators generate __init__ dynamically; mypy can't see the
+# inferred constructor args. Mirrors the routes.graphql.* override.
 """
 Unit Tests for GraphQL Schema Resolvers
 ========================================

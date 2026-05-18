@@ -1,3 +1,4 @@
+# mypy: disable-error-code="var-annotated"
 """
 Test Search Intelligence Service
 =================================

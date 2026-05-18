@@ -93,6 +93,8 @@ def _parse_delegation_expr(node: ast.expr) -> dict[str, tuple[str, str]]:
                 for key, value in zip(arg.keys, arg.values, strict=False):
                     if isinstance(key, ast.Constant) and isinstance(value, ast.Tuple):
                         method_name = key.value
+                        if not isinstance(method_name, str):
+                            continue
                         if len(value.elts) == 2:
                             sub_service = ast.literal_eval(value.elts[0])
                             target_method = ast.literal_eval(value.elts[1])
@@ -103,6 +105,8 @@ def _parse_delegation_expr(node: ast.expr) -> dict[str, tuple[str, str]]:
         for key, value in zip(node.keys, node.values, strict=False):
             if isinstance(key, ast.Constant) and isinstance(value, ast.Tuple):
                 method_name = key.value
+                if not isinstance(method_name, str):
+                    continue
                 if len(value.elts) == 2:
                     sub_service = ast.literal_eval(value.elts[0])
                     target_method = ast.literal_eval(value.elts[1])
@@ -257,15 +261,15 @@ def generate_method_index() -> str:
                         by_service[sub_service] = []
                     by_service[sub_service].append((facade_method, target_method))
 
-                for sub_service, methods in sorted(by_service.items()):
+                for sub_service, sub_methods in sorted(by_service.items()):
                     lines.append(
-                        f"#### {sub_service.capitalize()} Delegations ({len(methods)} methods)"
+                        f"#### {sub_service.capitalize()} Delegations ({len(sub_methods)} methods)"
                     )
                     lines.append("")
                     lines.append("| Facade Method | Target Method |")
                     lines.append("|---------------|---------------|")
 
-                    for facade_method, target_method in sorted(methods):
+                    for facade_method, target_method in sorted(sub_methods):
                         lines.append(f"| `{facade_method}()` | `{sub_service}.{target_method}()` |")
 
                     lines.append("")

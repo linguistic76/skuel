@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock
 import pytest
 import pytest_asyncio
 from neo4j import AsyncGraphDatabase
-from testcontainers.neo4j import Neo4jContainer
+from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
@@ -460,7 +460,7 @@ async def services(neo4j_driver):
                 if dataclasses.is_dataclass(self.model_class):
                     valid_fields = {f.name for f in dataclasses.fields(self.model_class)}
                     filtered_dict = {k: v for k, v in entity.items() if k in valid_fields}
-                    entity = self.model_class(**filtered_dict)
+                    entity = self.model_class(**filtered_dict)  # type: ignore[operator]
                 else:
                     entity = self.model_class(**entity)
 
@@ -612,8 +612,8 @@ async def services(neo4j_driver):
         ps_service.core,
         lp_service.core,
     ]:
-        core_service._dto_class = EntityDTO
-        core_service._model_class = Entity
+        core_service._dto_class = EntityDTO  # type: ignore[attr-defined]
+        core_service._model_class = Entity  # type: ignore[attr-defined]
 
     services_container = TestServices(
         choices=choices_service,

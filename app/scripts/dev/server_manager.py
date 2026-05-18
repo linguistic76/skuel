@@ -15,7 +15,7 @@ __version__ = "1.0"
 
 # Import secure command execution
 try:
-    from utils.secure_command_execution import (
+    from utils.secure_command_execution import (  # type: ignore[import-not-found]
         get_secure_executor,
         safe_kill_process,
         safe_lsof_port,

@@ -50,7 +50,7 @@ class TestEnvironmentEnum:
     def test_environment_is_string_enum(self):
         """Test that Environment inherits from str."""
         assert isinstance(Environment.LOCAL, str)
-        assert Environment.LOCAL == "local"
+        assert Environment.LOCAL == "local"  # type: ignore[comparison-overlap]
 
     def test_environment_count(self):
         """Test there are exactly 5 environments."""

@@ -1,6 +1,7 @@
 """Tests for the ProfileOrchestrator."""
 
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -260,7 +261,7 @@ async def test_get_intelligence_data_all_calls_fail_returns_error(
     full_built: tuple[ProfileOrchestrator, dict[str, MagicMock], MagicMock, MagicMock],
 ) -> None:
     orch, _, _, intel = full_built
-    err = Result.fail(Errors.database("read", "boom"))
+    err: Result[Any] = Result.fail(Errors.database("read", "boom"))
     intel.get_ready_to_work_on_today.return_value = err
     intel.calculate_life_path_alignment.return_value = err
     intel.get_cross_domain_synergies.return_value = err

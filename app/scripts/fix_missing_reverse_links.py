@@ -61,7 +61,7 @@ def extract_frontmatter(content: str) -> tuple[str | None, str]:
 
 def parse_related_skills(frontmatter: str) -> set[str]:
     """Extract existing related_skills from frontmatter."""
-    skills = set()
+    skills: set[str] = set()
     in_related_skills = False
 
     for line in frontmatter.split("\n"):

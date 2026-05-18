@@ -55,7 +55,7 @@ def _service_with_stubs(
     focused on the classification + delegation surface.
     """
     svc = PsEngagementService.__new__(PsEngagementService)
-    svc._executor = executor  # type: ignore[attr-defined]
+    svc._executor = executor  # type: ignore[assignment]
     svc.logger = AsyncMock()  # silences the info/warning logs
     if complete_mock is not None:
         svc.complete_pathstep = complete_mock  # type: ignore[method-assign]

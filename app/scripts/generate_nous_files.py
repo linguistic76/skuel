@@ -15,6 +15,7 @@ Each file includes proper YAML frontmatter with:
 """
 
 import re
+from typing import Any
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote
@@ -93,7 +94,7 @@ def parse_moc_file(file_path: Path) -> tuple[dict, list[ContentItem]]:
     content = file_path.read_text(encoding="utf-8")
 
     # Split frontmatter and body
-    frontmatter = {}
+    frontmatter: dict[str, Any] = {}
     body = content
     if content.startswith("---"):
         parts = content.split("---", 2)
@@ -170,7 +171,7 @@ def parse_moc_file(file_path: Path) -> tuple[dict, list[ContentItem]]:
             indent = len(line) - len(line.lstrip())
             bullet_content = line.lstrip()[2:].strip()  # Remove "- " or "* "
             if bullet_content:
-                bullet_match = True
+                bullet_match = True  # type: ignore[assignment]
                 indent // 2  # Approximate nesting level
 
         if bullet_match or (line.lstrip().startswith("-") or line.lstrip().startswith("*")):

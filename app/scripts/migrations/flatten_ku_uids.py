@@ -16,6 +16,7 @@ See: /docs/migrations/UNIVERSAL_HIERARCHICAL_IMPLEMENTATION_2026-01-30.md
 
 import asyncio
 import uuid
+from typing import Any
 
 from neo4j import AsyncGraphDatabase
 
@@ -99,8 +100,8 @@ async def main(dry_run: bool = True):
 
         # Step 2: Plan flattening
         logger.info("Step 2: Planning UID flattening...")
-        existing_uids = set()
-        migration_plan = []
+        existing_uids: set[str] = set()
+        migration_plan: list[Any] = []
 
         for record in hierarchical_kus:
             old_uid = record["old_uid"]

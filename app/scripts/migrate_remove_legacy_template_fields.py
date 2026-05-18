@@ -119,8 +119,7 @@ async def migrate(
     password = _resolve_password(password, username)
 
     conn = Neo4jConnection(uri=uri, username=username, password=password)
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     summary: dict[str, dict[str, int]] = {}
     try:

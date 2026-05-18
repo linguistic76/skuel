@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: disable-error-code="list-item,dict-item"
 """
 TasksSchedulingService Test Suite
 ==================================

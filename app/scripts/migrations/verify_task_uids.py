@@ -22,8 +22,7 @@ async def verify_tasks():
         pass
 
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         print("=" * 80)

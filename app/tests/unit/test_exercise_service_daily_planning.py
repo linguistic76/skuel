@@ -15,7 +15,9 @@ The daily_planning.py test files use a mock that simulates the same
 conversion — these tests exercise the real implementation.
 """
 
+from dataclasses import dataclass, field
 from datetime import date, timedelta
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,6 +25,13 @@ import pytest
 from core.constants import ExerciseTimeEstimate
 from core.services.exercises.exercise_service import ExerciseService
 from core.utils.result_simplified import Errors, Result
+
+
+@dataclass
+class _StubContext:
+    unsubmitted_exercises: list[Any] = field(default_factory=list)
+    pending_revised_exercises: list[Any] = field(default_factory=list)
+    knowledge_mastery: dict[str, float] = field(default_factory=dict)
 
 
 def _make_service() -> tuple[ExerciseService, AsyncMock]:
@@ -35,17 +44,13 @@ def _make_context(
     unsubmitted: list[dict[str, str | None]] | None = None,
     revisions: list[dict[str, object]] | None = None,
     mastery: dict[str, float] | None = None,
-) -> object:
+) -> _StubContext:
     """Minimal RichUserContext stand-in carrying only what the two methods read."""
-
-    class _Ctx:
-        pass
-
-    ctx = _Ctx()
-    ctx.unsubmitted_exercises = unsubmitted or []
-    ctx.pending_revised_exercises = revisions or []
-    ctx.knowledge_mastery = mastery or {}
-    return ctx
+    return _StubContext(
+        unsubmitted_exercises=unsubmitted or [],
+        pending_revised_exercises=revisions or [],
+        knowledge_mastery=mastery or {},
+    )
 
 
 # =========================================================================
@@ -69,9 +74,7 @@ class TestGetActionableExercises:
         """est_time_minutes must come from ExerciseTimeEstimate.FRESH_SUBMISSION_MINUTES."""
         service, backend = _make_service()
         backend.get_required_knowledge.return_value = Result.ok([])
-        ctx = _make_context(
-            unsubmitted=[{"uid": "ex_1", "title": "Essay", "due_date": None}]
-        )
+        ctx = _make_context(unsubmitted=[{"uid": "ex_1", "title": "Essay", "due_date": None}])
 
         result = await service.get_actionable_exercises_for_user(ctx)
 
@@ -124,9 +127,7 @@ class TestGetActionableExercises:
         backend.get_required_knowledge.return_value = Result.fail(
             Errors.database(operation="get_required_knowledge", message="Neo4j unavailable")
         )
-        ctx = _make_context(
-            unsubmitted=[{"uid": "ex_1", "title": "Essay", "due_date": None}]
-        )
+        ctx = _make_context(unsubmitted=[{"uid": "ex_1", "title": "Essay", "due_date": None}])
 
         result = await service.get_actionable_exercises_for_user(ctx)
 

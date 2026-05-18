@@ -76,8 +76,7 @@ async def clear_database(
             return None
 
     conn = Neo4jConnection(uri=uri, username=username, password=password)
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:
@@ -200,8 +199,7 @@ async def clear_with_constraints(
         return None
 
     conn = Neo4jConnection(uri=uri, username=username, password=password)
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:
@@ -285,8 +283,7 @@ async def clear_domain_bundle_only(
             password = getpass.getpass(f"Neo4j password for {username}: ")
 
     conn = Neo4jConnection(uri=uri, username=username, password=password)
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:

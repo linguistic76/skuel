@@ -151,7 +151,7 @@ async def test_complete_task_with_cascade_success(
 
     # Setup updated task (completed)
     completed_dto = sample_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     completed_dto.completion_date = date.today()
     completed_dto.actual_minutes = 90
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
@@ -178,7 +178,7 @@ async def test_complete_task_cascade_effects(
     mock_backend.get.return_value = Result.ok(sample_task.to_dto().to_dict())
 
     completed_dto = sample_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -360,7 +360,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
     ):
         # Setup unblocked task
         unblocked_dto = ready_task.to_dto()
-        unblocked_dto.status = EntityStatus.SCHEDULED.value
+        unblocked_dto.status = EntityStatus.SCHEDULED
         mock_backend.update.return_value = Result.ok(unblocked_dto.to_dict())
 
         # Create mock context
@@ -481,7 +481,7 @@ async def test_complete_task_updates_goal(progress_service, mock_backend, user_c
     mock_backend.get.return_value = Result.ok(goal_task.to_dto().to_dict())
 
     completed_dto = goal_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -511,7 +511,7 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
     mock_backend.get.return_value = Result.ok(habit_task.to_dto().to_dict())
 
     completed_dto = habit_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -545,7 +545,7 @@ async def test_complete_task_updates_knowledge_mastery(
     mock_backend.get.return_value = Result.ok(mastery_task.to_dto().to_dict())
 
     completed_dto = mastery_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -579,7 +579,7 @@ async def test_complete_and_unblock_workflow(progress_service, mock_backend, use
     mock_backend.get.return_value = Result.ok(task.to_dto().to_dict())
 
     completed_dto = task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Complete the task

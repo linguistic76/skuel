@@ -20,7 +20,9 @@ populate_submission_stats (4 tests):
 11. Null exercises in list → filtered out
 """
 
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from core.services.user.unified_user_context import UserContext
 from core.services.user.user_context_populator import UserContextPopulator
@@ -30,20 +32,20 @@ from core.services.user.user_context_populator import UserContextPopulator
 # =============================================================================
 
 
-def make_context() -> object:
+@dataclass
+class _StubContext:
     """Minimal stand-in with the activity report and insights fields."""
 
-    class _Context:
-        pass
+    latest_activity_report_uid: str | None = None
+    latest_activity_report_period: str | None = None
+    latest_activity_report_generated_at: datetime | None = None
+    latest_activity_report_content: str | None = None
+    latest_activity_report_user_annotation: str | None = None
+    cross_domain_insights: dict[str, Any] | None = None
 
-    ctx = _Context()
-    ctx.latest_activity_report_uid = None
-    ctx.latest_activity_report_period = None
-    ctx.latest_activity_report_generated_at = None
-    ctx.latest_activity_report_content = None
-    ctx.latest_activity_report_user_annotation = None
-    ctx.cross_domain_insights = None
-    return ctx
+
+def make_context() -> _StubContext:
+    return _StubContext()
 
 
 # =============================================================================
@@ -179,7 +181,14 @@ def test_populate_from_consolidated_data_no_activity_report() -> None:
     populator = UserContextPopulator()
     ctx = UserContext(user_uid="user_test")
 
-    data = {"tasks": {}, "habits": {}, "goals": {}, "knowledge": {}, "events": {}, "mocs": {}}
+    data: dict[str, Any] = {
+        "tasks": {},
+        "habits": {},
+        "goals": {},
+        "knowledge": {},
+        "events": {},
+        "mocs": {},
+    }
 
     populator.populate_from_consolidated_data(ctx, data)
 
@@ -219,7 +228,14 @@ def test_populate_from_consolidated_data_principles_choices_absent() -> None:
     populator = UserContextPopulator()
     ctx = UserContext(user_uid="user_test")
 
-    data = {"tasks": {}, "habits": {}, "goals": {}, "knowledge": {}, "events": {}, "mocs": {}}
+    data: dict[str, Any] = {
+        "tasks": {},
+        "habits": {},
+        "goals": {},
+        "knowledge": {},
+        "events": {},
+        "mocs": {},
+    }
 
     populator.populate_from_consolidated_data(ctx, data)
 
@@ -295,6 +311,7 @@ def test_populate_cross_domain_insights_sorted() -> None:
 
     populator.populate_cross_domain_insights(ctx, insights)
 
+    assert ctx.cross_domain_insights is not None
     assert ctx.cross_domain_insights["active_count"] == 3
     top = ctx.cross_domain_insights["top_insights"]
     assert len(top) == 3

@@ -135,9 +135,7 @@ async def compose_services(
         # RuntimeError for everything that affects correctness or fundamental
         # functionality. drop_stale_indexes is cosmetic (leftover indexes cost
         # disk, not correctness) and stays warn-only.
-        def _check_schema_sync(
-            result: Any, label: str, *, key: str = "created"
-        ) -> dict[str, Any]:
+        def _check_schema_sync(result: Any, label: str, *, key: str = "created") -> dict[str, Any]:
             if result.is_error:
                 raise RuntimeError(
                     f"Schema sync failed ({label}): {result.error}. "
@@ -201,9 +199,7 @@ async def compose_services(
         # Missing UID indexes turn every entity lookup into a full label scan.
         domain_idx_result = await schema_manager.sync_domain_indexes()
         domain_summary = _check_schema_sync(domain_idx_result, "domain indexes")
-        logger.info(
-            f"✅ Domain indexes synced: {len(domain_summary['created'])} created/verified"
-        )
+        logger.info(f"✅ Domain indexes synced: {len(domain_summary['created'])} created/verified")
 
         # Sync full-text indexes (Cypher-first search foundation — always created).
         # Missing fulltext indexes break SearchRouter for that domain.

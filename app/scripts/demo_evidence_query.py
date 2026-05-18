@@ -20,8 +20,7 @@ load_dotenv()
 async def demo_evidence_query():
     """Query a relationship and display its evidence."""
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:

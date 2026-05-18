@@ -391,7 +391,7 @@ class BloatDetector:
         self, check_events: bool = True, check_methods: bool = True
     ) -> dict[str, Any]:
         """Generate comprehensive bloat report."""
-        report = {}
+        report: dict[str, Any] = {}
 
         if check_events:
             unused_events = self.find_unused_events()

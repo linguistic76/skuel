@@ -341,7 +341,7 @@ async def _compose_services(
 
     # Convert Result to exception at boundary
     if services_result.is_error:
-        error = services_result.error
+        error = services_result.expect_error()
         logger.error(f"❌ Service composition failed: {error.message}")
         raise RuntimeError(f"Failed to compose services: {error.message}") from None
 

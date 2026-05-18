@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: disable-error-code="union-attr"
 """
 Import teacher reports from markdown files into SKUEL.
 

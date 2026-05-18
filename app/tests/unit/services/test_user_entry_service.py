@@ -644,7 +644,7 @@ class TestDeleteEntryAsTeacher:
         service = _make_service(backend=backend)
         result = await service.delete_entry_as_teacher("ue_test_1", teacher_uid="teacher_1")
         assert result.is_error
-        assert result.error.category.value == "not_found"
+        assert result.expect_error().category.value == "not_found"
         backend.delete.assert_not_called()
 
     @pytest.mark.asyncio
