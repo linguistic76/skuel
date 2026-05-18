@@ -284,14 +284,6 @@ disallow_untyped_decorators = false
 warn_return_any = true
 
 [[tool.mypy.overrides]]
-# Test modules - more lenient for testing utilities
-module = ["tests.*"]
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-# But still check Result patterns
-warn_return_any = true
-
-[[tool.mypy.overrides]]
 # External dependencies that may not have full typing
 module = [
     "neo4j.*",
@@ -324,11 +316,27 @@ disable_error_code = ["call-arg", "misc"]  # Disable constructor argument checki
 warn_return_any = false
 
 [[tool.mypy.overrides]]
-# Tests, examples, and scripts - verified by pytest (151/151 passing)
-# Focus MyPy on production code quality, not test boilerplate
-# Rationale: Tests prove runtime correctness; no need for static analysis duplication
+# Tests and scripts — check_untyped_defs enforced (2026-05-17).
+# Rationale: pytest verifies runtime behavior, but a test that constructs a
+# wrong-typed DTO (e.g. stale kwargs after a model refactor) passes locally
+# only because the test never exercised that path — MyPy catches the
+# construction site itself. Same logic for one-shot scripts that wire up
+# domain objects. We keep disallow_untyped_defs=false (tests don't need
+# return annotations on every fixture) but turn on body-level checking.
+#
+# Disabled error codes (all inherent to the test/script context):
+#   method-assign  — tests monkey-patch service methods with Mock/AsyncMock,
+#                    which mypy correctly flags but the pattern is unavoidable.
+#   type-var       — tests parameterize generics with DTOs (EntityDTO et al.)
+#                    that don't satisfy the production bound; fine for fixtures.
+#   misc           — Strawberry/Pydantic dynamic __init__ on test-only stubs.
 module = ["tests.*", "examples.*", "scripts.*"]
-ignore_errors = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+warn_return_any = false  # too noisy for fixture helpers
+warn_unused_ignores = false  # tests use # type: ignore liberally for mocks
+disable_error_code = ["method-assign", "type-var", "misc"]
 
 # ============================================================================
 # PYRIGHT CONFIGURATION - Additional type checking for VS Code
