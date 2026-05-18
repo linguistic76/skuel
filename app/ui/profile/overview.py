@@ -615,9 +615,7 @@ def _engaged_ps_section(plan: "DailyWorkPlan") -> "Div | None":
 
         total_spawned = len(group.engagement.spawned_instance_uids)
         progress_text = (
-            f"{len(pending_pairs)} of {total_spawned} pending"
-            if total_spawned
-            else "engaged"
+            f"{len(pending_pairs)} of {total_spawned} pending" if total_spawned else "engaged"
         )
 
         group_blocks.append(

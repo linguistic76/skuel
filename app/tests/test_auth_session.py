@@ -206,7 +206,9 @@ class TestSessionMiddlewareConfig:
 
     def test_secret_key_from_credential_store(self):
         """Test secret key is read from credential store."""
-        with patch("core.config.credential_store.get_credential", return_value="test_secret_key_12345"):
+        with patch(
+            "core.config.credential_store.get_credential", return_value="test_secret_key_12345"
+        ):
             config = get_session_middleware_config()
 
         assert config["secret_key"] == "test_secret_key_12345"

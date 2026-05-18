@@ -781,13 +781,9 @@ class ExerciseService(BaseService):
                     days_until_due = delta
                     is_overdue = delta < 0
                 except ValueError:
-                    self.logger.warning(
-                        f"Invalid due_date on exercise {uid}: {raw_due!r}"
-                    )
+                    self.logger.warning(f"Invalid due_date on exercise {uid}: {raw_due!r}")
 
-            blocking_kus, readiness_score = await self._compute_prereq_readiness(
-                uid, context
-            )
+            blocking_kus, readiness_score = await self._compute_prereq_readiness(uid, context)
 
             enriched.append(
                 ContextualExercise(
@@ -880,9 +876,7 @@ class ExerciseService(BaseService):
         if not prereqs:
             return ((), 1.0)
         unmastered = tuple(
-            ku["uid"]
-            for ku in prereqs
-            if context.knowledge_mastery.get(ku["uid"], 0.0) < 0.7
+            ku["uid"] for ku in prereqs if context.knowledge_mastery.get(ku["uid"], 0.0) < 0.7
         )
         score = (len(prereqs) - len(unmastered)) / len(prereqs)
         return (unmastered, score)

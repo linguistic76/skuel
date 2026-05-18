@@ -572,9 +572,7 @@ class UnifiedIngestionService:
                                 ChunkEmbeddingRequested(
                                     parent_uid=entity_data["uid"],
                                     chunk_uids=tuple(c.chunk_id for c in content.chunks),
-                                    chunk_texts=tuple(
-                                        c.context_window for c in content.chunks
-                                    ),
+                                    chunk_texts=tuple(c.context_window for c in content.chunks),
                                     requested_at=datetime.now(),
                                     user_uid=user_uid if user_uid else None,
                                 ),

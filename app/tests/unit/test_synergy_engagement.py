@@ -146,9 +146,7 @@ def test_ongoing_only_engagement_gets_flat_score() -> None:
     s = synergies[0]
     assert s.synergy_score == 0.35
     assert "ongoing commitments" in s.rationale
-    assert s.recommendations == (
-        "Maintain habits/events spawned by this engagement",
-    )
+    assert s.recommendations == ("Maintain habits/events spawned by this engagement",)
 
 
 def test_engaged_all_completable_all_completed_scores_high() -> None:

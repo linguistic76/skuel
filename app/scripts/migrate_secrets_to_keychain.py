@@ -34,6 +34,7 @@ Caveats this script will print (worth re-reading before you delete the file):
    (``secret-tool``, ``seahorse``) can inspect and rotate values without
    touching this script.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -96,7 +97,9 @@ def ensure_backend_env_var(app_env_path: Path, *, assume_yes: bool) -> None:
     rather than overwrite to preserve any existing config.
     """
     if not app_env_path.exists():
-        print(f"⚠ {app_env_path} doesn't exist — please set SKUEL_CREDENTIAL_BACKEND=keyring manually.")
+        print(
+            f"⚠ {app_env_path} doesn't exist — please set SKUEL_CREDENTIAL_BACKEND=keyring manually."
+        )
         return
 
     content = app_env_path.read_text()
@@ -248,8 +251,7 @@ def main() -> int:
         print(f"\nKeeping {secrets_path} intact (--keep-source).")
     elif secrets_path.exists():
         if confirm(
-            f"\nDelete {secrets_path} now? It contains the credentials you "
-            "just migrated.",
+            f"\nDelete {secrets_path} now? It contains the credentials you just migrated.",
             assume_yes=args.yes,
         ):
             # Best-effort: overwrite with zeros before unlink so the disk

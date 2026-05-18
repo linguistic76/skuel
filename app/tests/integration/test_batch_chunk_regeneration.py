@@ -30,9 +30,7 @@ class _DriverConnection:
     def __init__(self, driver: Any) -> None:
         self.driver = driver
 
-    async def execute_query(
-        self, query: str, params: dict[str, Any] | None = None
-    ) -> list[Any]:
+    async def execute_query(self, query: str, params: dict[str, Any] | None = None) -> list[Any]:
         async with self.driver.session() as session:
             result = await session.run(query, params or {})
             return [record async for record in result]
@@ -115,9 +113,7 @@ async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
             event_bus=None,  # skip embedding event in test
         )
 
-        regen_result = await service.regenerate_chunks(
-            parent_uids=[parent_uid], force=False
-        )
+        regen_result = await service.regenerate_chunks(parent_uids=[parent_uid], force=False)
         assert regen_result.is_ok
         stats = regen_result.value
         assert stats.total_candidates == 1
@@ -177,9 +173,7 @@ async def test_regenerate_chunks_skips_already_current_when_force_false(neo4j_dr
             event_bus=None,
         )
 
-        regen_result = await service.regenerate_chunks(
-            parent_uids=[parent_uid], force=False
-        )
+        regen_result = await service.regenerate_chunks(parent_uids=[parent_uid], force=False)
         assert regen_result.is_ok
         stats = regen_result.value
         assert stats.total_candidates == 0, (

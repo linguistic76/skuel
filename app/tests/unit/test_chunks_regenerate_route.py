@@ -194,9 +194,7 @@ class TestRegenerateRouteHappyPath:
     @pytest.mark.asyncio
     async def test_force_true_passed_through(self, admin_routes_and_service) -> None:
         registry, batch_service = admin_routes_and_service
-        batch_service.regenerate_chunks = AsyncMock(
-            return_value=Result.ok(RegenerationStats())
-        )
+        batch_service.regenerate_chunks = AsyncMock(return_value=Result.ok(RegenerationStats()))
 
         handler = registry.get("/api/chunks/regenerate", "POST")
         request = _request_with_session(

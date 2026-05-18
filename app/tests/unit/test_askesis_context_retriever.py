@@ -350,9 +350,7 @@ class TestIntentToChunkTypes:
             ("RELATIONSHIP", ["EXPLANATION", "DEFINITION"]),
         ],
     )
-    def test_mapped_intents_return_chunk_types(
-        self, intent_name: str, expected: list[str]
-    ) -> None:
+    def test_mapped_intents_return_chunk_types(self, intent_name: str, expected: list[str]) -> None:
         from core.models.query_types import QueryIntent
         from core.services.askesis.context_retriever import _intent_to_chunk_types
 

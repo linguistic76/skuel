@@ -417,9 +417,7 @@ class UserContextBuilder:
         if self.ps_engagement_service is not None:
             engaged_result = await self.ps_engagement_service.list_engaged(user_uid)
             if engaged_result.is_ok:
-                context.active_ps_engagements = {
-                    eng.ps_uid: eng for eng in engaged_result.value
-                }
+                context.active_ps_engagements = {eng.ps_uid: eng for eng in engaged_result.value}
                 context.spawned_uid_to_ps_uid = {
                     instance_uid: eng.ps_uid
                     for eng in engaged_result.value

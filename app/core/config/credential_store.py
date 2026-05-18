@@ -276,8 +276,7 @@ class KeyringBackend:
         self._keyring = _keyring
         self.INDEX_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         logger.debug(
-            f"KeyringBackend initialized — active keyring: "
-            f"{type(_keyring.get_keyring()).__name__}"
+            f"KeyringBackend initialized — active keyring: {type(_keyring.get_keyring()).__name__}"
         )
 
     def set(self, key: str, value: str) -> None:
@@ -441,9 +440,7 @@ def get_credential(key: str, fallback_to_env: bool = True) -> str | None:
     if env_value and not _is_placeholder(env_value):
         try:
             backend.set(key, env_value)
-            logger.info(
-                f"Auto-migrated {key} from environment to {type(backend).__name__}"
-            )
+            logger.info(f"Auto-migrated {key} from environment to {type(backend).__name__}")
         except Exception as e:  # safety-net: never block on a migration failure
             logger.warning(f"Auto-migration failed for {key}: {e}")
         return env_value

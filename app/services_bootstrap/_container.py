@@ -32,10 +32,10 @@ if TYPE_CHECKING:
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
-    from core.services.chunks.batch_chunking_service import BatchChunkingService
 
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
+    from core.services.chunks.batch_chunking_service import BatchChunkingService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.embeddings_service import HuggingFaceEmbeddingsService

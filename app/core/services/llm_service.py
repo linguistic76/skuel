@@ -100,8 +100,7 @@ class LLMService:
         from core.config.credential_store import get_credential
 
         self.client = anthropic.Anthropic(
-            api_key=self.config.api_key
-            or get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
+            api_key=self.config.api_key or get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
         )
         logger.info("Anthropic LLM provider initialized")
 

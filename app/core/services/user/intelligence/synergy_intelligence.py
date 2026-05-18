@@ -383,7 +383,6 @@ class SynergyIntelligenceMixin(IntelligenceMixinBase):
 
         return synergies
 
-
     def _detect_engagement_synergies(self) -> list[CrossDomainSynergy]:
         """
         Score each active PS engagement by completion ratio of its completable
@@ -431,8 +430,7 @@ class SynergyIntelligenceMixin(IntelligenceMixinBase):
             elif completable == 0:
                 synergy_score = 0.35
                 rationale = (
-                    f"Engaged; {len(spawned)} ongoing commitments "
-                    "(no terminal-state items spawned)"
+                    f"Engaged; {len(spawned)} ongoing commitments (no terminal-state items spawned)"
                 )
                 recommendations = ("Maintain habits/events spawned by this engagement",)
             else:

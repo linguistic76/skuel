@@ -61,9 +61,7 @@ class _DriverConnection:
     def __init__(self, driver: Any) -> None:
         self.driver = driver
 
-    async def execute_query(
-        self, query: str, params: dict[str, Any] | None = None
-    ) -> list[Any]:
+    async def execute_query(self, query: str, params: dict[str, Any] | None = None) -> list[Any]:
         async with self.driver.session() as session:
             result = await session.run(query, params or {})
             return [record async for record in result]

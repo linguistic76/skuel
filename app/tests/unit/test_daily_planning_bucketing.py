@@ -60,9 +60,7 @@ def _ctx_with_touched(ps_uids: tuple[str, ...]) -> MagicMock:
     _compute_available_to_start. Only the shape matters here, not the full
     UserContext surface."""
     ctx = MagicMock()
-    ctx.active_path_steps_rich = [
-        {"step": {"uid": uid}, "graph_context": {}} for uid in ps_uids
-    ]
+    ctx.active_path_steps_rich = [{"step": {"uid": uid}, "graph_context": {}} for uid in ps_uids]
     return ctx
 
 

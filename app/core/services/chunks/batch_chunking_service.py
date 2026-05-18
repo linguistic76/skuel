@@ -69,7 +69,7 @@ class BatchChunkingService:
         driver: Any,
         chunking_service: Any,  # EntityChunkingService — boundary, no protocol extracted
         content_adapter: Any,  # Neo4jContentAdapter — boundary
-        event_bus: "EventBusOperations | None" = None,
+        event_bus: EventBusOperations | None = None,
         max_concurrency: int = 10,
     ) -> None:
         """
@@ -187,9 +187,7 @@ class BatchChunkingService:
             result = await session.run(query, params)
             return [dict(record) async for record in result]
 
-    async def _regenerate_one(
-        self, candidate: dict[str, Any], stats: RegenerationStats
-    ) -> None:
+    async def _regenerate_one(self, candidate: dict[str, Any], stats: RegenerationStats) -> None:
         """Regenerate chunks for a single parent. Failures are recorded, not raised."""
         parent_uid = candidate["uid"]
         body = candidate.get("body") or ""

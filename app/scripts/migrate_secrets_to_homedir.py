@@ -25,6 +25,7 @@ Running twice is safe:
 The script asks for confirmation before any destructive write. Pass
 ``--yes`` to skip prompts (for automation).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -206,7 +207,9 @@ def confirm(prompt: str, *, assume_yes: bool) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompts")
     parser.add_argument(
         "--dry-run",
