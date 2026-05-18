@@ -15,9 +15,9 @@ Each file includes proper YAML frontmatter with:
 """
 
 import re
-from typing import Any
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote
 
 # Icon mapping for section headings (H2)

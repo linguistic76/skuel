@@ -17,8 +17,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import FT
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
@@ -27,6 +25,8 @@ from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+
+    from fasthtml.common import FT
 
     from adapters.inbound.fasthtml_types import RouteDecorator
     from core.utils.result_simplified import Result

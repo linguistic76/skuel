@@ -6,9 +6,8 @@ Tests create_assessment, get_assessments_for_student,
 and get_assessments_by_teacher on AssessmentService (ADR-054 Commit 6a).
 """
 
-from unittest.mock import AsyncMock, MagicMock
-
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

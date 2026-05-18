@@ -46,9 +46,9 @@ class CalendarOptimizationOrchestrator:
 
     def __init__(
         self,
-        calendar_service: "CalendarOptimizationService",
-        tasks_service: "TasksService",
-        events_service: "EventsService",
+        calendar_service: CalendarOptimizationService,
+        tasks_service: TasksService,
+        events_service: EventsService,
     ) -> None:
         self._calendar = calendar_service
         self._tasks = tasks_service

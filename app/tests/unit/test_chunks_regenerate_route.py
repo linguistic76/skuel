@@ -53,7 +53,7 @@ class _RouteRegistry:
 def _admin_user_service() -> MagicMock:
     """A user_service stub that resolves every uid to an ADMIN user."""
     user = SimpleNamespace(role=UserRole.ADMIN)
-    user.has_permission = lambda required: True
+    user.has_permission = lambda _required: True
     svc = MagicMock()
     svc.get_user = AsyncMock(return_value=Result.ok(user))
     return svc

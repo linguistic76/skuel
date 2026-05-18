@@ -126,5 +126,5 @@ def test_mixed_domain_spawned_pool_counted_uniformly() -> None:
         active_habit_uids=["habit_native"],
         active_goal_uids=["goal_native"],
     )
-    # 1/4 spawn share × 0.20 = 0.05 bonus
+    # 1/4 spawn share * 0.20 = 0.05 bonus
     assert mixin._engagement_alignment_bonus() == pytest.approx(1.05)

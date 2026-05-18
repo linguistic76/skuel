@@ -31,7 +31,7 @@ def _make_driver_returning(rows: list[dict[str, Any]]) -> MagicMock:
             yield row
 
     result = MagicMock()
-    result.__aiter__ = lambda self: _aiter()
+    result.__aiter__ = lambda _self: _aiter()
     session.run = AsyncMock(return_value=result)
 
     driver = MagicMock()

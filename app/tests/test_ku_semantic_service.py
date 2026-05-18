@@ -5,9 +5,8 @@ Test KU Semantic Service
 Tests for the PsSemanticService focused sub-service.
 """
 
-from unittest.mock import AsyncMock, MagicMock
-
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

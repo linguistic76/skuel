@@ -239,7 +239,6 @@ def main() -> int:
         print("No secret-shaped keys found in .env. Nothing to do.")
         return 0
 
-    moving = sorted(set(from_env) - {k for k, v in from_secrets.items() if v == from_env.get(k)})
     already_there = sorted(set(from_secrets) - set(from_env))
     print(f"Found {len(from_env)} secret keys in {env_path.name}:")
     for k in sorted(from_env):

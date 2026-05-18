@@ -12,7 +12,12 @@ from pathlib import Path
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
-from lint_skuel import LintResult, Severity, SkuelLinter, Violation  # type: ignore[import-not-found]
+from lint_skuel import (  # type: ignore[import-not-found]
+    LintResult,
+    Severity,
+    SkuelLinter,
+    Violation,
+)
 
 # ============================================================================
 # HELPERS

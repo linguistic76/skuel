@@ -15,12 +15,12 @@ widgets, prefill overrides) stays as plain dicts passed through.
 
 from __future__ import annotations
 
-from typing import Any, Literal
-
-from pydantic import BaseModel
+from typing import TYPE_CHECKING, Any, Literal
 
 from ui.patterns.form_generator import FormGenerator
 
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 _MISSING = object()
 

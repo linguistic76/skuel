@@ -50,10 +50,10 @@ class ContentAdapter:
         """Get title with fallback."""
         title = getattr(self._content, "title", None)
         if title is not None:
-            return cast(str, title)
+            return cast("str", title)
         name = getattr(self._content, "name", None)
         if name is not None:
-            return cast(str, name)
+            return cast("str", name)
         return str(self._content)
 
     @property
@@ -61,10 +61,10 @@ class ContentAdapter:
         """Get content type with fallback."""
         ctype = getattr(self._content, "content_type", None)
         if ctype is not None:
-            return cast(str, ctype)
+            return cast("str", ctype)
         type_val = getattr(self._content, "type", None)
         if type_val is not None:
-            return cast(str, type_val)
+            return cast("str", type_val)
         return "unknown"
 
     @property
@@ -78,7 +78,7 @@ class ContentAdapter:
         """Get difficulty with fallback."""
         difficulty = getattr(self._content, "difficulty", None)
         if difficulty is not None:
-            return cast(str, difficulty)
+            return cast("str", difficulty)
 
         level = getattr(self._content, "level", None)
         if level is not None:
@@ -97,15 +97,15 @@ class ContentAdapter:
         """Get estimated time with fallback."""
         est_time = getattr(self._content, "estimated_time", None)
         if est_time is not None:
-            return cast(int, est_time)
+            return cast("int", est_time)
 
         est_time_min = getattr(self._content, "estimated_time_minutes", None)
         if est_time_min is not None:
-            return cast(int, est_time_min)
+            return cast("int", est_time_min)
 
         duration = getattr(self._content, "duration", None)
         if duration is not None:
-            return cast(int, duration)
+            return cast("int", duration)
 
         return 30  # Default 30 minutes
 
@@ -114,11 +114,11 @@ class ContentAdapter:
         """Get prerequisites with fallback."""
         prereqs = getattr(self._content, "prerequisites", None)
         if prereqs:
-            return cast(list[str], prereqs)
+            return cast("list[str]", prereqs)
 
         prereq_uids = getattr(self._content, "prerequisite_uids", None)
         if prereq_uids:
-            return cast(list[str], prereq_uids)
+            return cast("list[str]", prereq_uids)
 
         return []
 

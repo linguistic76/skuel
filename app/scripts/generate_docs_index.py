@@ -18,8 +18,8 @@ import re
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 from core.utils.frontmatter import parse_frontmatter
 

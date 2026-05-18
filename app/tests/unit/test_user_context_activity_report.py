@@ -20,7 +20,7 @@ populate_submission_stats (4 tests):
 11. Null exercises in list → filtered out
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 

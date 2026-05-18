@@ -152,7 +152,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         exercises: object,
         report: object,
     ) -> None:
-        self.context = cast(Any, context)
+        self.context = cast("Any", context)
         self.tasks = tasks
         self.habits = habits
         self.goals = goals
@@ -161,7 +161,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.principles = principles
         self.ps = ku
         self.exercises = exercises
-        self.report = cast(Any, report)
+        self.report = cast("Any", report)
         self.vector_search = None
         self.filtered_providers = {}
 

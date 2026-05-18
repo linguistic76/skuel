@@ -102,7 +102,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         context: object,
         filtered_providers: dict[str, object] | None = None,
     ) -> None:
-        self.context = cast(Any, context)
+        self.context = cast("Any", context)
         no_op = make_no_op_service()
         self.tasks = no_op
         self.habits = no_op
@@ -112,9 +112,9 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.principles = no_op
         self.ps = no_op
         self.exercises = no_op
-        self.report = cast(Any, no_op)
+        self.report = cast("Any", no_op)
         self.vector_search = None
-        self.filtered_providers = cast(Any, filtered_providers or {})
+        self.filtered_providers = cast("Any", filtered_providers or {})
 
 
 def build_service(
