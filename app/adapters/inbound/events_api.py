@@ -15,6 +15,7 @@ from ui.activities.events_views import EventCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.event.event import Event
     from core.services.events_service import EventsService
     from core.utils.result_simplified import Result
 
@@ -27,7 +28,7 @@ def create_events_api_routes(
 ) -> list[Any]:
     """Register Events API routes."""
 
-    async def update(uid: str, new_status: str) -> Result[Any]:
+    async def update(uid: str, new_status: str) -> Result[Event]:
         return await events_service.update_event(uid, {"status": new_status})
 
     return create_activity_status_api_routes(

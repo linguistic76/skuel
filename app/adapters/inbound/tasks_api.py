@@ -15,6 +15,7 @@ from ui.activities.tasks_views import TaskCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.task.task import Task
     from core.services.tasks_service import TasksService
     from core.utils.result_simplified import Result
 
@@ -27,7 +28,7 @@ def create_tasks_api_routes(
 ) -> list[Any]:
     """Register Tasks API routes."""
 
-    async def update(uid: str, new_status: str) -> Result[Any]:
+    async def update(uid: str, new_status: str) -> Result[Task]:
         return await tasks_service.update_task(uid, {"status": new_status})
 
     return create_activity_status_api_routes(

@@ -35,7 +35,10 @@ from adapters.inbound.route_factories import (
     register_domain_routes,
 )
 from core.models.type_hints import UserUID
-from core.services.calendar_optimization_service import SchedulingStrategy
+from core.orchestrator.calendar_optimization_orchestrator import (
+    CalendarOptimizationOrchestrator,
+)
+from core.services.calendar_optimization_service import CalendarOptimization, SchedulingStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -48,7 +51,9 @@ logger = get_logger("skuel.routes.advanced")
 
 
 def create_calendar_optimization_routes(
-    _app: Any, rt: Any, calendar_optimization_orchestrator: Any
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
+    calendar_optimization_orchestrator: CalendarOptimizationOrchestrator,
 ) -> list[Any]:
     """Register calendar optimization endpoints."""
 
@@ -58,7 +63,7 @@ def create_calendar_optimization_routes(
         user_uid: UserUID = "default_user",  # type: ignore[assignment]
         target_date: str | None = None,
         strategy: str = "cognitive_balanced",
-    ) -> Result[Any]:
+    ) -> Result[CalendarOptimization]:
         """
         Optimize calendar for a specific date with cognitive load balancing.
 
@@ -72,7 +77,7 @@ def create_calendar_optimization_routes(
         if target_date:
             date_result = parse_date_param_strict(target_date, "target_date")
             if date_result.is_error:
-                return date_result
+                return Result.fail(date_result)
             opt_date = date_result.value
         else:
             opt_date = date.today()
@@ -84,12 +89,11 @@ def create_calendar_optimization_routes(
                 Errors.validation(f"Invalid strategy: {strategy}", field="strategy", value=strategy)
             )
 
-        result: Result[Any] = await calendar_optimization_orchestrator.optimize_schedule(
+        return await calendar_optimization_orchestrator.optimize_schedule(
             user_uid=user_uid,
             target_date=opt_date,
             strategy=strat,
         )
-        return result
 
     @rt("/events/calendar/cognitive-load")
     @boundary_handler()

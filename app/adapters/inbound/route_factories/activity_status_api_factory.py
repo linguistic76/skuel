@@ -17,6 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from fasthtml.common import FT
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
@@ -31,31 +33,35 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class ActivityStatusApiConfig:
+class ActivityStatusApiConfig[T]:
     """Configuration for a single Activity Domain's status-update endpoint.
+
+    The type parameter ``T`` ties ``update_status``'s return value to
+    ``card_fn``'s input, so a tasks config produces ``Result[Task]`` and the
+    factory's ``card_fn(result.value)`` is checked against ``Task``.
 
     Attributes:
         domain_name: URL path segment, e.g. ``"tasks"``.
         singular: Singular form used in error messages, e.g. ``"task"``.
         service: Facade with a ``verify_ownership(uid, user_uid)`` method
             (all Activity Domain facades inherit it from ``BaseService``).
-        update_status: Coroutine ``(uid, new_status) -> Result[entity]``.
-            Domains whose status transitions have side effects (e.g. goals
-            setting ``progress_percentage=100`` on completion) dispatch
-            internally; simple domains just delegate to ``core.update``.
-        card_fn: Card component receiving the updated entity.
+        update_status: Coroutine ``(uid, new_status) -> Result[T]``. Domains
+            whose status transitions have side effects (e.g. goals setting
+            ``progress_percentage=100`` on completion) dispatch internally;
+            simple domains delegate to ``core.update``.
+        card_fn: Card component receiving the updated entity, returns an FT.
     """
 
     domain_name: str
     singular: str
     service: Any
-    update_status: Callable[[str, str], Awaitable[Result[Any]]]
-    card_fn: Callable[[Any], Any]
+    update_status: Callable[[str, str], Awaitable[Result[T]]]
+    card_fn: Callable[[T], FT]
 
 
-def create_activity_status_api_routes(
+def create_activity_status_api_routes[T](
     rt: RouteDecorator,
-    config: ActivityStatusApiConfig,
+    config: ActivityStatusApiConfig[T],
 ) -> list[Any]:
     """Register the ``POST /api/{domain}/{uid}/status`` route for one domain."""
     not_found = f"{config.singular.capitalize()} not found"

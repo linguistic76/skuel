@@ -5,7 +5,7 @@ Provides HTMX-compatible endpoints for principle status updates.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
@@ -15,6 +15,7 @@ from ui.activities.principles_views import PrincipleCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.principle.principle import Principle
     from core.services.principles_service import PrinciplesService
     from core.utils.result_simplified import Result
 
@@ -27,12 +28,8 @@ def create_principles_api_routes(
 ) -> list[Any]:
     """Register Principles API routes."""
 
-    async def update(uid: str, new_status: str) -> Result[Any]:
-        # self.core is loosely typed on the facade; cast narrows for mypy.
-        return cast(
-            "Result[Any]",
-            await principles_service.core.update(uid, {"status": new_status}),
-        )
+    async def update(uid: str, new_status: str) -> Result[Principle]:
+        return await principles_service.core.update(uid, {"status": new_status})
 
     return create_activity_status_api_routes(
         rt,

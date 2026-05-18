@@ -8,7 +8,7 @@ API routes for managing event-driven insights (dismiss, mark as actioned).
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
+from fasthtml.common import FT, Request
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
@@ -45,9 +45,7 @@ def create_insights_api_routes(
     @rt("/api/insights/{uid}/dismiss", methods=["POST"])
     @csrf_protected
     @boundary_handler(success_status=200)
-    async def dismiss_insight(
-        request: Request, uid: str
-    ) -> Result[Any]:  # boundary: FastHTML FT component
+    async def dismiss_insight(request: Request, uid: str) -> Result[FT]:
         """Dismiss an insight (mark as dismissed).
 
         , Task 17: Now accepts optional notes parameter.
@@ -87,9 +85,7 @@ def create_insights_api_routes(
     @rt("/api/insights/{uid}/action", methods=["POST"])
     @csrf_protected
     @boundary_handler(success_status=200)
-    async def mark_insight_actioned(
-        request: Request, uid: str
-    ) -> Result[Any]:  # boundary: FastHTML FT component
+    async def mark_insight_actioned(request: Request, uid: str) -> Result[FT]:
         """Mark an insight as actioned.
 
         , Task 17: Now accepts optional notes parameter.

@@ -41,6 +41,7 @@ from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.forms.form_submission_request import FormSubmitRequest
 from core.models.type_hints import UserUID
+from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryProcessRequest,
@@ -77,7 +78,7 @@ def create_user_entry_api_routes(
 
     logger.info("Creating UserEntry API routes")
 
-    async def _load_owned(uid: str, user_uid: UserUID) -> Result[Any]:
+    async def _load_owned(uid: str, user_uid: UserUID) -> Result[UserEntry]:
         """Load an entry and 404 when the requester does not own it."""
         result = await user_entry_service.get_entry(uid, user_uid)
         if result.is_error:

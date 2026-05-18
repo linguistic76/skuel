@@ -19,6 +19,7 @@ from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
+from core.models.pathways.learning_progress import LearningJourney
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
     PathStepPathRequest,
@@ -296,7 +297,7 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/journey")
     @boundary_handler()
-    async def get_step_journey(request: Request) -> Result[Any]:
+    async def get_step_journey(request: Request) -> Result[LearningJourney]:
         """Get user's SEL learning journey — progress across all 5 categories."""
         user_uid = require_authenticated_user(request)
         return await ps_service.get_sel_journey(user_uid)
