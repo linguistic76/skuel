@@ -380,8 +380,6 @@ class Services:
                 logger.info("Closing graph adapter...")
                 if isinstance(adapter, AsyncCloseable):
                     await adapter.close()
-                elif isinstance(adapter, Closeable):
-                    adapter.close()
                 logger.info("Graph adapter closed")
             except (
                 Exception
@@ -396,8 +394,6 @@ class Services:
                 logger.info("Closing event bus...")
                 if isinstance(bus, AsyncCloseable):
                     await bus.close()
-                elif isinstance(bus, Closeable):
-                    bus.close()
                 logger.info("Event bus closed")
             except (
                 Exception

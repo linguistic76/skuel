@@ -1,6 +1,5 @@
 """Journal entry card rendering components."""
 
-from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Div, P, Span
@@ -80,12 +79,7 @@ def render_instruction_card(ex: Exercise, is_first: bool = False) -> Any:
     title = ex.title or "Unnamed"
     created_at = ex.created_at
 
-    if isinstance(created_at, datetime):
-        date_str = created_at.strftime("%b %d, %Y")
-    elif isinstance(created_at, str) and created_at:
-        date_str = created_at[:10]
-    else:
-        date_str = ""
+    date_str = created_at.strftime("%b %d, %Y") if created_at else ""
 
     selected_cls = "ring-2 ring-primary bg-muted" if is_first else ""
     return Div(

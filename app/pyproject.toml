@@ -151,7 +151,7 @@ disallow_untyped_decorators = false  # FastHTML routes
 warn_unused_ignores = true
 warn_no_return = false  # Too noisy
 warn_return_any = false  # Only enforce in critical modules
-warn_unreachable = false  # Too noisy during development
+warn_unreachable = false  # Conflicts with the __post_init__ sentinel-default pattern and Neo4j JSON-string boundary in core/models/*. See: core/models/entity.py:82, core/models/exercises/exercise.py:89.
 
 # SILENCE THE NOISE: Disable specific error codes that don't matter
 # These are type inference issues that work fine at runtime
@@ -175,7 +175,7 @@ show_column_numbers = true
 show_error_context = true
 
 # Files to check (gradual migration strategy)
-files = ["core", "adapters", "api", "main.py"]
+files = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui", "routes"]
 exclude = [
     "build/",
     "dist/",
