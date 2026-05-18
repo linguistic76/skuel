@@ -236,6 +236,15 @@ class QueryProcessor:
         intent = intent_result.value
 
         # Step 5: Extract entities
+        extracted_entities: dict[str, list[dict[str, Any]]] = {
+            "knowledge": [],
+            "tasks": [],
+            "goals": [],
+            "habits": [],
+            "events": [],
+            "principles": [],
+            "choices": [],
+        }
         try:
             extracted_entities = await self.entity_extractor.extract_entities_from_query(
                 question, user_context
@@ -249,15 +258,6 @@ class QueryProcessor:
             logger.warning(
                 "Entity extraction failed — continuing without entity matches", exc_info=True
             )
-            extracted_entities = {
-                "knowledge": [],
-                "tasks": [],
-                "goals": [],
-                "habits": [],
-                "events": [],
-                "principles": [],
-                "choices": [],
-            }
 
         # Step 6: Retrieve relevant context
         relevant_context = await self.context_retriever.retrieve_relevant_context(

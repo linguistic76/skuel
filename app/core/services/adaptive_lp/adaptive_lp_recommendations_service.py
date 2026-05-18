@@ -17,6 +17,7 @@ from typing import Any
 
 from core.models.enums import EntityStatus
 from core.models.goal.goal_dto import GoalDTO
+from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.type_hints import UserUID
 
@@ -144,6 +145,7 @@ class AdaptiveLpRecommendationsService:
                         gaps.update(goal_gaps_result.value)
 
         # Analyze task patterns to infer additional gaps
+        completed_tasks: list[Task] = []
         if self.tasks_service:
             tasks_result = await self.tasks_service.get_user_tasks(user_uid)
             if tasks_result.is_ok:
@@ -151,14 +153,15 @@ class AdaptiveLpRecommendationsService:
                     tasks_result.value, knowledge_state
                 )
                 gaps.update(task_gaps)
+                completed_tasks = [
+                    t for t in tasks_result.value if t.status == EntityStatus.COMPLETED
+                ]
 
         # Use knowledge generation service to identify pattern-based gaps
         if self.ku_generation_service:
             try:
                 patterns_result = await self.ku_generation_service.analyze_task_completion_patterns(
-                    [t for t in tasks_result.value if t.status == EntityStatus.COMPLETED]
-                    if tasks_result.is_ok
-                    else []
+                    completed_tasks
                 )
                 if patterns_result.is_ok:
                     pattern_gaps = await self._extract_gaps_from_patterns(

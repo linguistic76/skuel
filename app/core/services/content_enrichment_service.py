@@ -815,6 +815,7 @@ Preserve the author's voice and authenticity while improving readability.
                     )
                     recent_themes = "none"
 
+                mood_trends_data: Any = {}
                 try:
                     mood_trends_data = context.get("mood_trends") or {}
                     trend_text = (
@@ -828,6 +829,7 @@ Preserve the author's voice and authenticity while improving readability.
                     )
                     trend_text = "stable"
 
+                active_goals_list: Any = []
                 try:
                     active_goals_list = context.get("active_goals", []) or []
                     goal_titles = ", ".join(

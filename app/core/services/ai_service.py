@@ -9,6 +9,8 @@ Simple wrapper for AI completions used by:
 Supports both OpenAI and Anthropic models.
 """
 
+from anthropic.types import TextBlock
+
 from core.utils.exception_types import ANTHROPIC_EXCEPTIONS, OPENAI_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -158,7 +160,8 @@ class AnthropicService:
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            completion = response.content[0].text
+            first_block = response.content[0]
+            completion = first_block.text if isinstance(first_block, TextBlock) else ""
 
             self.logger.info(f"Generated completion: {len(completion)} chars")
 

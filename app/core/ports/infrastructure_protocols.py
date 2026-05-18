@@ -51,6 +51,19 @@ class EventBusOperations(Protocol):
         """
         ...
 
+    def unsubscribe(self, event_type: type, handler: Any) -> None:
+        """
+        Unsubscribe a previously-registered handler.
+
+        Required for subscription lifecycles (e.g. GraphQL subscriptions)
+        that need to detach handlers when the subscription ends.
+
+        Args:
+            event_type: Event class to unsubscribe from
+            handler: Handler function previously passed to subscribe()
+        """
+        ...
+
     async def publish_async(self, event: Any) -> None:
         """
         Publish a typed event asynchronously (preferred for async contexts).

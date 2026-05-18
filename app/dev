@@ -52,6 +52,11 @@ case "$1" in
     uv run python scripts/run_quality_checks.py --fix
     ;;
 
+  typecheck-strict)
+    echo -e "${YELLOW}Running pyright (opt-in strict type check)...${NC}"
+    uv run pyright
+    ;;
+
   bloat)
     echo -e "${YELLOW}Detecting bloat (unused code)...${NC}"
     uv run python scripts/detect_bloat.py

@@ -273,6 +273,7 @@ class HabitsProgressService:
 
         new_streak = habit.current_streak
         streak_broken = False
+        days_since = 0
         if habit.last_completed:
             days_since = (completion_date - habit.last_completed.date()).days
             if days_since == 1:

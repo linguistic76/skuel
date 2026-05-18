@@ -14,6 +14,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+import anthropic
+from anthropic.types import TextBlock
+from openai import AsyncOpenAI
+
 from core.config import get_openai_key
 from core.ports.base_protocols import EnumLike
 from core.utils.exception_types import ANTHROPIC_EXCEPTIONS, OPENAI_EXCEPTIONS
@@ -66,6 +70,7 @@ class LLMService:
             config: LLM configuration
         """
         self.config = config or LLMConfig()
+        self.client: AsyncOpenAI | anthropic.Anthropic | None = None
         self._initialize_provider()
 
     def _initialize_provider(self) -> None:
@@ -81,22 +86,13 @@ class LLMService:
             logger.info("Using mock LLM provider")
 
     def _init_openai(self) -> None:
-        """Initialize OpenAI client. Fails fast if openai is not installed."""
-        from openai import AsyncOpenAI
-
-        # Use provided key or get from centralized config
-        api_key = self.config.api_key
-        if not api_key:
-            api_key = get_openai_key()
-
-        # Create modern OpenAI client (v1.x+)
+        """Initialize OpenAI client."""
+        api_key = self.config.api_key or get_openai_key()
         self.client = AsyncOpenAI(api_key=api_key)
         logger.info("OpenAI LLM provider initialized (modern API v1.x+)")
 
     def _init_anthropic(self) -> None:
-        """Initialize Anthropic client. Fails fast if anthropic is not installed."""
-        import anthropic
-
+        """Initialize Anthropic client."""
         from core.config.credential_store import get_credential
 
         self.client = anthropic.Anthropic(
@@ -164,6 +160,13 @@ class LLMService:
         conversation_history: list[dict[str, str]] | None = None,
     ) -> LLMResponse:
         """Generate using OpenAI API (modern v1.x+ syntax)."""
+        if not isinstance(self.client, AsyncOpenAI):
+            return LLMResponse(
+                content="",
+                provider=LLMProvider.OPENAI,
+                model=self.config.model_name,
+                error="OpenAI client not initialized",
+            )
         try:
             messages = []
             if system_prompt:
@@ -206,6 +209,13 @@ class LLMService:
         conversation_history: list[dict[str, str]] | None = None,
     ) -> LLMResponse:
         """Generate using Anthropic API."""
+        if not isinstance(self.client, anthropic.Anthropic):
+            return LLMResponse(
+                content="",
+                provider=LLMProvider.ANTHROPIC,
+                model=self.config.model_name,
+                error="Anthropic client not initialized",
+            )
         try:
             all_messages: list[dict[str, str]] = (
                 list(conversation_history) if conversation_history else []
@@ -220,8 +230,10 @@ class LLMService:
                 messages=all_messages,
             )
 
+            first_block = message.content[0]
+            content = first_block.text if isinstance(first_block, TextBlock) else ""
             return LLMResponse(
-                content=message.content[0].text,
+                content=content,
                 provider=LLMProvider.ANTHROPIC,
                 model=self.config.model_name,
             )

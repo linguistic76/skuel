@@ -351,81 +351,73 @@ warn_unused_ignores = false  # tests use # type: ignore liberally for mocks
 disable_error_code = ["method-assign", "type-var", "misc"]
 
 # ============================================================================
-# PYRIGHT CONFIGURATION - Additional type checking for VS Code
+# PYRIGHT CONFIGURATION
 # ============================================================================
+# Complements MyPy. The differentiator is reportAttributeAccessIssue +
+# reportPossiblyUnboundVariable — pyright catches missing protocol attributes
+# and branch-bound variables that mypy's defaults let through (`arg-type` is
+# globally disabled in mypy above, which masks the same category).
+#
+# Mode is "basic" + selectively-elevated rules. Strict mode floods on Result[T]
+# inference (12k+ reportUnknown* warnings); basic mode + targeted rules is
+# what actually pays for itself on this codebase.
+#
+# Invoke: `./dev quality` (gating) or `./dev typecheck-strict` (pyright alone).
+# Baseline as of 2026-05-18: 0 errors, ~1039 warnings (mostly MonsterUI /
+# FastHTML missing-py.typed framework noise).
+# See: docs/patterns/linter_rules.md § Pyright
 
 [tool.pyright]
-include = ["skuel", "services", "core", "routes", "components"]
-exclude = ["**/__pycache__", ".venv", "build", "dist", "tests/fixtures"]
-defineConstant = { DEBUG = true }
-
+include = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui", "routes"]
+exclude = [
+    "**/__pycache__",
+    ".venv",
+    "build",
+    "dist",
+    "tests",
+    "examples",
+    "scripts",
+    "**/archive/**",
+    "z_archives",
+    "**/_old.py",
+]
 pythonVersion = "3.12"
 pythonPlatform = "Linux"
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+reportMissingTypeStubs = "none"
+reportMissingImports = "none"   # mypy owns import resolution
 
-# Strictness levels that catch Result pattern issues
-typeCheckingMode = "strict"
-reportMissingImports = true
-reportMissingTypeStubs = false  # Many dependencies lack stubs
-
-# Function and class decorator handling (FastHTML compatibility)
-reportUntypedFunctionDecorator = "warning"  # FastHTML routes
-reportUntypedClassDecorator = "warning"
-reportUntypedBaseClass = "error"
-reportUntypedNamedTuple = "error"
-
-# Type checking strictness for catching double-wrap bugs
-reportPrivateUsage = "warning"
-reportConstantRedefinition = "error"
-reportDuplicateImport = "error"
-reportFunctionMemberAccess = "error"
-reportIncompatibleMethodOverride = "error"
-reportIncompatibleVariableOverride = "error"
-reportInconsistentConstructor = "error"
-reportOverlappingOverloads = "error"
-reportMissingSuperCall = false
-reportUninitializedInstanceVariable = "error"
+# Errors — high-value, low-noise (pyright catches what mypy misses)
+reportAttributeAccessIssue = "error"
+reportPossiblyUnboundVariable = "error"
 reportInvalidStringEscapeSequence = "error"
+reportInvalidTypeArguments = "error"
 
-# Critical for Result pattern validation
-reportUnknownParameterType = "error"
-reportUnknownArgumentType = "warning"  # Some FastHTML flexibility
-reportUnknownLambdaType = "warning"
-reportUnknownVariableType = "warning"
-reportUnknownMemberType = "warning"
-reportMissingParameterType = "error"
-reportMissingTypeArgument = "error"
-reportInvalidTypeVarUse = "error"
-reportCallInDefaultInitializer = "error"
+# Warnings — useful signal but framework-noisy (MonsterUI Button etc.)
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+reportAssignmentType = "warning"
+reportOptionalMemberAccess = "warning"
+reportOptionalSubscript = "warning"
+reportOptionalCall = "warning"
+reportOptionalIterable = "warning"
+reportOptionalOperand = "warning"
+reportUnusedExpression = "warning"
+reportRedeclaration = "warning"
 
-# Result-specific validation
-reportUnnecessaryIsInstance = "warning"
-reportUnnecessaryCast = "warning"
-reportUnnecessaryComparison = "warning"
-reportAssertAlwaysTrue = "warning"
-reportSelfClsParameterName = "error"
-reportImplicitStringConcatenation = "warning"
-reportUndefinedVariable = "error"
-reportUnboundVariable = "error"
-
-# Optional handling (critical for Result pattern)
-reportOptionalSubscript = "error"
-reportOptionalMemberAccess = "error"
-reportOptionalCall = "error"
-reportOptionalIterable = "error"
-reportOptionalContextManager = "error"
-reportOptionalOperand = "error"
-
-# General type issues that catch Result problems
-reportGeneralTypeIssues = "error"
-reportPropertyTypeMismatch = "error"
-reportReturnType = "error"
-reportAssignmentType = "error"
-
-# Unused code detection
-reportUnusedImport = "warning"
-reportUnusedClass = "warning" 
-reportUnusedFunction = "warning"
-reportUnusedVariable = "warning"
+# Silenced — Result[T] noise + FastHTML/MonsterUI lack py.typed markers
+reportUnknownVariableType = "none"
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownLambdaType = "none"
+reportUntypedFunctionDecorator = "none"
+reportUntypedClassDecorator = "none"
+reportUntypedBaseClass = "none"
+reportPrivateUsage = "none"
+reportGeneralTypeIssues = "none"          # mypy owns the catch-all
+reportTypedDictNotRequiredAccess = "none" # noisy on intentional .get() patterns
 
 # ============================================================================
 # PYTEST CONFIGURATION - Enhanced for type safety testing

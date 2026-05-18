@@ -393,7 +393,9 @@ class FireflyClient:
         return Result.ok(True)
 
 
-def _parse_insight_rows(body: dict[str, Any]) -> list[FireflyInsightRow]:
+def _parse_insight_rows(
+    body: dict[str, Any] | list[dict[str, Any]],
+) -> list[FireflyInsightRow]:
     """Firefly insight endpoints return a flat list (not JSON:API)."""
     rows_in = body if isinstance(body, list) else body.get("data") or []
     return [
