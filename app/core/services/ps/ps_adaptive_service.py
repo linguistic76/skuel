@@ -543,7 +543,11 @@ class PsAdaptiveService:
                 velocity_counts[vel] = velocity_counts.get(vel, 0) + 1
 
             if velocity_counts:
-                dominant_vel = max(velocity_counts.keys(), key=velocity_counts.get)
+                from core.utils.sort_functions import make_dict_value_getter
+
+                dominant_vel = max(
+                    velocity_counts.keys(), key=make_dict_value_getter(velocity_counts)
+                )
                 velocities[domain] = dominant_vel
             else:
                 velocities[domain] = LearningVelocity.MODERATE

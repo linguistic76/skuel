@@ -99,12 +99,14 @@ class UserLearningIntelligence:
         if not self.learning_velocity_by_domain:
             return LearningVelocity.MODERATE
 
+        from core.utils.sort_functions import make_dict_value_getter
+
         # Count velocity occurrences
         velocity_counts: dict[LearningVelocity, int] = {}
         for velocity in self.learning_velocity_by_domain.values():
             velocity_counts[velocity] = velocity_counts.get(velocity, 0) + 1
 
-        return max(velocity_counts.keys(), key=velocity_counts.get)
+        return max(velocity_counts.keys(), key=make_dict_value_getter(velocity_counts))
 
     def get_dominant_content_preferences(self) -> list[ContentPreference]:
         """Get user's dominant content preferences from learning intelligence."""
@@ -322,9 +324,13 @@ class EnhancedUserContext(UserContext):
         if not self.learning_intelligence:
             return None
 
+        from core.utils.sort_functions import make_dict_value_getter
+
         # Use mastery patterns and preferences to suggest optimal path
         efficiency_by_domain = self.learning_intelligence.get_learning_efficiency_by_domain()
-        best_domain = max(efficiency_by_domain.keys(), key=efficiency_by_domain.get)
+        best_domain = max(
+            efficiency_by_domain.keys(), key=make_dict_value_getter(efficiency_by_domain)
+        )
 
         # Find learning paths in the user's most efficient domain
         for path in self.learning_intelligence.active_learning_paths:

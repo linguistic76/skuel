@@ -6,6 +6,7 @@ Named sort functions to replace lambda expressions in sorting operations.
 Following clean code principle: no lambdas, only named functions.
 """
 
+from collections.abc import Callable
 from typing import Any
 
 from core.models.enums import Priority
@@ -1151,27 +1152,29 @@ def get_conflict_count(item: dict[str, Any]) -> int:
     return item["conflict_count"]
 
 
-def make_dict_count_getter(counts_dict: dict[str, int]):
+def make_dict_value_getter[K, V](mapping: dict[K, V]) -> Callable[[K], V]:
     """
-    Create a sort key function for dictionary count lookups.
+    Create a sort key function for dictionary value lookups.
 
-    Used for finding max value from a dictionary of counts.
+    Used for finding max/min by value over a dictionary's keys. Replaces
+    `dict.get` as a key= callable — `dict.get`'s `_VT | None` return type
+    is rejected by max/min as it doesn't satisfy SupportsRichComparison.
+
     Example:
         alignment_counts = {"high": 5, "medium": 3, "low": 2}
-        most_common = max(alignment_counts.keys(), key=make_dict_count_getter(alignment_counts))
+        most_common = max(alignment_counts, key=make_dict_value_getter(alignment_counts))
 
     Args:
-        counts_dict: Dictionary mapping keys to counts
+        mapping: Dictionary to look up values in
 
     Returns:
-        A function that can be used as a sort/max key
+        A function that takes a key and returns its value
     """
 
-    def get_count(key: str) -> int:
-        """Get count for key from dictionary."""
-        return counts_dict[key]
+    def get_value(key: K) -> V:
+        return mapping[key]
 
-    return get_count
+    return get_value
 
 
 def get_tuple_first(item: tuple[Any, ...]) -> Any:
@@ -1206,25 +1209,3 @@ def get_aligned_count(item: tuple[str, dict[str, Any]]) -> int:
     return item[1]["aligned_count"]
 
 
-def make_dict_value_getter(values_dict: dict[str, float], default: float = 0.0):
-    """
-    Create a sort key function for dictionary value lookups.
-
-    Used for finding max/min values from a dictionary when sorting by keys.
-    Example:
-        load_by_timeframe = {"weekly": 3.5, "monthly": 2.0}
-        peak = max(load_by_timeframe, key=make_dict_value_getter(load_by_timeframe))
-
-    Args:
-        values_dict: Dictionary mapping keys to float values
-        default: Default value for missing keys (default 0.0)
-
-    Returns:
-        A function that can be used as a sort/max/min key
-    """
-
-    def get_value(key: str) -> float:
-        """Get value for key from dictionary."""
-        return values_dict.get(key, default)
-
-    return get_value

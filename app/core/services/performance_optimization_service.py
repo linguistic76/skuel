@@ -325,7 +325,9 @@ class AdvancedCache:
 
         # Evict entry with lowest score
         if scores:
-            victim_key = min(scores.keys(), key=scores.get)
+            from core.utils.sort_functions import make_dict_value_getter
+
+            victim_key = min(scores.keys(), key=make_dict_value_getter(scores))
             await self.delete(victim_key)
 
     def _update_access_patterns(self, key: str) -> None:

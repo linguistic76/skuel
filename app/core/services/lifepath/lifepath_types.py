@@ -87,6 +87,8 @@ class LifePathDesignation:
 
     def get_weakest_dimension(self) -> str:
         """Identify the dimension needing most attention."""
+        from core.utils.sort_functions import make_dict_value_getter
+
         dimensions = {
             "knowledge": self.knowledge_alignment,
             "activity": self.activity_alignment,
@@ -94,7 +96,7 @@ class LifePathDesignation:
             "principle": self.principle_alignment,
             "momentum": self.momentum,
         }
-        return min(dimensions, key=dimensions.get)
+        return min(dimensions, key=make_dict_value_getter(dimensions))
 
     def get_dimension_insights(self) -> dict[str, str]:
         """Generate insights for each alignment dimension."""
