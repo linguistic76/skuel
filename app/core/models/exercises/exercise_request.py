@@ -226,13 +226,11 @@ class ReportGenerateRequest(BaseModel):
 
     exercise_uid: str = Field(..., description="UID of the Exercise with instructions")
 
-    temperature: float | None = Field(
+    temperature: float = Field(
         default=0.7, ge=0.0, le=1.0, description="Sampling temperature for LLM (0-1)"
     )
 
-    max_tokens: int | None = Field(
-        default=4000, ge=100, le=8000, description="Maximum tokens to generate"
-    )
+    max_tokens: int = Field(default=4000, ge=100, le=8000, description="Maximum tokens to generate")
 
 
 class ExerciseKnowledgeRequest(BaseModel):

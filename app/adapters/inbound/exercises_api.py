@@ -19,6 +19,7 @@ from core.models.exercises.exercise_request import (
     ExerciseKnowledgeRequest,
     ReportGenerateRequest,
 )
+from core.models.user_entry.user_entry import UserEntry
 from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
 from core.services.content_enrichment_service import ContentEnrichmentService
 from core.services.exercises.exercise_service import ExerciseService
@@ -110,6 +111,10 @@ def create_exercises_api_routes(
 
         entry = entry_result.value
         exercise = exercise_result.value
+        # transcript_service.get() returns Result[Entity]; narrow to UserEntry
+        # which is what generate_report requires. Wrong-type entries hit a 404.
+        if not isinstance(entry, UserEntry):
+            return Result.fail(Errors.not_found("UserEntry", report_request.submission_uid))
 
         # Generate report — creates ExerciseReport entity + REPORT_FOR relationship
         report_result = await exercise_report_service.generate_report(
