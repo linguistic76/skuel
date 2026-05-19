@@ -132,10 +132,10 @@ class Neo4jSchemaManager:
                     status = result.value
                     if status == "created":
                         results["created"].append(f"{label}.{field_name}")
-                        (self.logger.info(f"Created index: {label}.{field_name}"),)
+                        self.logger.info(f"Created index: {label}.{field_name}")
                     else:
                         results["existing"].append(f"{label}.{field_name}")
-                        (self.logger.debug(f"Index already exists: {label}.{field_name}"),)
+                        self.logger.debug(f"Index already exists: {label}.{field_name}")
                 else:
                     results["failed"].append(f"{label}.{field_name}")
                     self.logger.error(

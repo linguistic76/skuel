@@ -358,7 +358,7 @@ class Neo4jContentAdapter:
 
                     if chunk_result is None:
                         logger.error(f"Failed to create chunk {i} - query returned None")
-                        (logger.error(f"Chunk params: {chunk_params}"),)
+                        logger.error(f"Chunk params: {chunk_params}")
                     else:
                         logger.info(
                             f"Created chunk {i} ({chunk_params['chunk_type']}): {chunk_params['chunk_uid']}"
