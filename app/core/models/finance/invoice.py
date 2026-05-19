@@ -111,16 +111,16 @@ class InvoiceCreateRequest(BaseModel):
     invoice_date: date
     due_date: date | None = None
     items: list[LineItemInput] = Field(..., min_length=1)
-    notes: str | None = Field(None, max_length=2000)
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class InvoiceUpdateRequest(BaseModel):
     """Request model for updating an invoice."""
 
-    counterparty: str | None = Field(None, min_length=1, max_length=200)
+    counterparty: str | None = Field(default=None, min_length=1, max_length=200)
     due_date: date | None = None
     items: list[LineItemInput] | None = None
-    notes: str | None = Field(None, max_length=2000)
+    notes: str | None = Field(default=None, max_length=2000)
     status: Literal["draft", "sent", "pending", "paid", "overdue", "cancelled"] | None = None
 
 

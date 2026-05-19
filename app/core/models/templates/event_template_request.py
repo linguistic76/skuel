@@ -31,7 +31,7 @@ class EventTemplateCreateRequest(TemplateCreateRequest):
     event_offset: RelativeOffsetDTO | None = None
     start_time: time | None = None
     end_time: time | None = None
-    duration_minutes: int | None = Field(None, ge=1)
+    duration_minutes: int | None = Field(default=None, ge=1)
 
     event_type: str | None = None
     location: str | None = None
@@ -41,15 +41,15 @@ class EventTemplateCreateRequest(TemplateCreateRequest):
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffsetDTO | None = None
 
-    reminder_minutes: int | None = Field(None, ge=0)
-    max_attendees: int | None = Field(None, ge=1)
+    reminder_minutes: int | None = Field(default=None, ge=0)
+    max_attendees: int | None = Field(default=None, ge=1)
 
     reinforces_habit_template_uid: str | None = None
     milestone_celebration_for_goal_template_uid: str | None = None
 
     is_milestone_event: bool = False
     milestone_type: str | None = None
-    curriculum_week: int | None = Field(None, ge=0)
+    curriculum_week: int | None = Field(default=None, ge=0)
 
     knowledge_retention_check: bool = False
     recurrence_maintains_habit: bool = False
@@ -59,7 +59,7 @@ class EventTemplateCreateRequest(TemplateCreateRequest):
 class EventTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating an EventTemplate."""
 
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     status: EntityStatus | None = None
     tags: list[str] | None = None
@@ -67,7 +67,7 @@ class EventTemplateUpdateRequest(UpdateRequestBase):
     event_offset: RelativeOffsetDTO | None = None
     start_time: time | None = None
     end_time: time | None = None
-    duration_minutes: int | None = Field(None, ge=1)
+    duration_minutes: int | None = Field(default=None, ge=1)
 
     event_type: str | None = None
     location: str | None = None
@@ -77,15 +77,15 @@ class EventTemplateUpdateRequest(UpdateRequestBase):
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffsetDTO | None = None
 
-    reminder_minutes: int | None = Field(None, ge=0)
-    max_attendees: int | None = Field(None, ge=1)
+    reminder_minutes: int | None = Field(default=None, ge=0)
+    max_attendees: int | None = Field(default=None, ge=1)
 
     reinforces_habit_template_uid: str | None = None
     milestone_celebration_for_goal_template_uid: str | None = None
 
     is_milestone_event: bool | None = None
     milestone_type: str | None = None
-    curriculum_week: int | None = Field(None, ge=0)
+    curriculum_week: int | None = Field(default=None, ge=0)
 
     knowledge_retention_check: bool | None = None
     recurrence_maintains_habit: bool | None = None

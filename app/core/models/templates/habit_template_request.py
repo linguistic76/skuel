@@ -34,12 +34,12 @@ class HabitTemplateCreateRequest(TemplateCreateRequest):
     reinforces_identity: str | None = None
     is_identity_habit: bool = False
     target_identity: str | None = None
-    identity_evidence_required: int = Field(0, ge=0)
+    identity_evidence_required: int = Field(default=0, ge=0)
 
-    duration_minutes: int | None = Field(None, ge=1)
+    duration_minutes: int | None = Field(default=None, ge=1)
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffsetDTO | None = None
-    target_days_per_week: int | None = Field(None, ge=1, le=7)
+    target_days_per_week: int | None = Field(default=None, ge=1, le=7)
     preferred_time: str | None = None
 
     reminder_time: str | None = None
@@ -50,7 +50,7 @@ class HabitTemplateCreateRequest(TemplateCreateRequest):
 class HabitTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating a HabitTemplate."""
 
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     status: EntityStatus | None = None
     tags: list[str] | None = None
@@ -66,12 +66,12 @@ class HabitTemplateUpdateRequest(UpdateRequestBase):
     reinforces_identity: str | None = None
     is_identity_habit: bool | None = None
     target_identity: str | None = None
-    identity_evidence_required: int | None = Field(None, ge=0)
+    identity_evidence_required: int | None = Field(default=None, ge=0)
 
-    duration_minutes: int | None = Field(None, ge=1)
+    duration_minutes: int | None = Field(default=None, ge=1)
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffsetDTO | None = None
-    target_days_per_week: int | None = Field(None, ge=1, le=7)
+    target_days_per_week: int | None = Field(default=None, ge=1, le=7)
     preferred_time: str | None = None
 
     reminder_time: str | None = None

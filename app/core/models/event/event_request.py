@@ -42,7 +42,7 @@ class EventCreateRequest(BaseModel):
     """External API request for creating an event."""
 
     title: str = Field(min_length=1, max_length=200, description="Event title")
-    description: str | None = Field(None, description="Event description")
+    description: str | None = Field(default=None, description="Event description")
 
     # Timing
     event_date: date = Field(description="Date of the event")
@@ -54,9 +54,9 @@ class EventCreateRequest(BaseModel):
     visibility: Visibility = Field(default=Visibility.PRIVATE, description="Event visibility")
 
     # Location
-    location: str | None = Field(None, description="Event location")
+    location: str | None = Field(default=None, description="Event location")
     is_online: bool = Field(default=False, description="Is this an online event")
-    meeting_url: str | None = Field(None, description="Online meeting URL")
+    meeting_url: str | None = Field(default=None, description="Online meeting URL")
 
     # Organization
     tags: list[str] = Field(default_factory=list, description="Event tags")
@@ -64,33 +64,32 @@ class EventCreateRequest(BaseModel):
 
     # Attendees
     attendee_emails: list[str] = Field(default_factory=list, description="Attendee email addresses")
-    max_attendees: int | None = Field(None, ge=1, description="Maximum number of attendees")
+    max_attendees: int | None = Field(default=None, ge=1, description="Maximum number of attendees")
 
     # Recurrence
-    recurrence_pattern: RecurrencePattern | None = Field(None, description="Recurrence pattern")
-    recurrence_end_date: date | None = Field(None, description="End date for recurrence")
+    recurrence_pattern: RecurrencePattern | None = Field(default=None, description="Recurrence pattern")
+    recurrence_end_date: date | None = Field(default=None, description="End date for recurrence")
 
     # Reminders
     reminder_minutes: int | None = Field(
-        None, ge=0, le=10080, description="Reminder time in minutes before event"
+        default=None, ge=0, le=10080, description="Reminder time in minutes before event"
     )
 
     # Learning Integration (OPTIONAL)
-    reinforces_habit_uid: str | None = Field(None, description="Habit this event reinforces")
+    reinforces_habit_uid: str | None = Field(default=None, description="Habit this event reinforces")
     practices_knowledge_uids: list[str] = Field(
         default_factory=list, description="Knowledge practiced in event"
     )
     milestone_celebration_for_goal: str | None = Field(
-        None, description="Goal milestone being celebrated"
+        default=None, description="Goal milestone being celebrated"
     )
     executes_tasks: list[str] = Field(
         default_factory=list, description="Tasks to execute during event"
     )
     habit_completion_quality: int | None = Field(
-        None, ge=1, le=5, description="Quality of habit completion (1-5)"
+        default=None, ge=1, le=5, description="Quality of habit completion (1-5)"
     )
-    knowledge_retention_check: bool = Field(
-        False, description="Is this a knowledge retention check?"
+    knowledge_retention_check: bool = Field(default=False, description="Is this a knowledge retention check?"
     )
 
     # Shared validators (DRY pattern)
@@ -108,7 +107,7 @@ class EventCreateRequest(BaseModel):
 class EventUpdateRequest(BaseModel):
     """External API request for updating an event."""
 
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     event_date: date | None = None
     start_time: time | None = None
@@ -121,14 +120,14 @@ class EventUpdateRequest(BaseModel):
     tags: list[str] | None = None
     priority: Priority | None = None
     status: EntityStatus | None = None
-    reminder_minutes: int | None = Field(None, ge=0, le=10080)
+    reminder_minutes: int | None = Field(default=None, ge=0, le=10080)
 
     # Learning Integration Updates (OPTIONAL)
     reinforces_habit_uid: str | None = None
     practices_knowledge_uids: list[str] | None = None
     milestone_celebration_for_goal: str | None = None
     executes_tasks: list[str] | None = None
-    habit_completion_quality: int | None = Field(None, ge=1, le=5)
+    habit_completion_quality: int | None = Field(default=None, ge=1, le=5)
     knowledge_retention_check: bool | None = None
 
     model_config = ConfigDict(
@@ -234,8 +233,8 @@ class EventStatusUpdateRequest(BaseModel):
 
     event_uid: str = Field(description="UID of the event to update")
     status: EntityStatus = Field(description="New event status")
-    notes: str | None = Field(None, description="Status change notes")
-    cancellation_reason: str | None = Field(None, description="Reason for cancellation")
+    notes: str | None = Field(default=None, description="Status change notes")
+    cancellation_reason: str | None = Field(default=None, description="Reason for cancellation")
 
     model_config = ConfigDict(
         # Pydantic V2 serializes enums automatically
@@ -246,10 +245,10 @@ class EventPostponeRequest(BaseModel):
     """Request model for postponing an event."""
 
     new_date: date = Field(description="New event date")
-    new_start_time: time | None = Field(None, description="New start time")
-    new_end_time: time | None = Field(None, description="New end time")
-    reason: str | None = Field(None, description="Reason for postponement")
-    notify_attendees: bool = Field(True, description="Whether to notify attendees")
+    new_start_time: time | None = Field(default=None, description="New start time")
+    new_end_time: time | None = Field(default=None, description="New end time")
+    reason: str | None = Field(default=None, description="Reason for postponement")
+    notify_attendees: bool = Field(default=True, description="Whether to notify attendees")
 
     # Shared validators (DRY pattern)
     _validate_new_date = validate_future_date("new_date")
@@ -263,9 +262,9 @@ class EventAttendeeRequest(BaseModel):
     """Request model for adding attendees to an event."""
 
     email: str = Field(description="Attendee email address")
-    name: str | None = Field(None, description="Attendee name")
-    role: str | None = Field(None, description="Attendee role")
-    required: bool = Field(True, description="Whether attendance is required")
+    name: str | None = Field(default=None, description="Attendee name")
+    role: str | None = Field(default=None, description="Attendee role")
+    required: bool = Field(default=True, description="Whether attendance is required")
 
     # Shared validators (DRY pattern)
     _validate_email = validate_email("email")
@@ -275,7 +274,7 @@ class AttendeeUpdateRequest(BaseModel):
     """Request model for updating attendee response."""
 
     response: str = Field(description="Attendee response: accepted, declined, maybe")
-    notes: str | None = Field(None, description="Response notes")
+    notes: str | None = Field(default=None, description="Response notes")
 
     @field_validator("response")
     @classmethod
@@ -337,8 +336,8 @@ class CalendarEventsRequest(BaseModel):
     """Request for retrieving calendar events."""
 
     user_uid: UserUID = Field(description="User identifier")
-    start_date: date | None = Field(None, description="Start of date range")
-    end_date: date | None = Field(None, description="End of date range")
+    start_date: date | None = Field(default=None, description="Start of date range")
+    end_date: date | None = Field(default=None, description="End of date range")
     limit: int = Field(default=100, ge=1, le=500, description="Maximum results")
 
 
@@ -355,7 +354,7 @@ class EventsInRangeRequest(BaseModel):
 
     start_date: date = Field(description="Start of date range")
     end_date: date = Field(description="End of date range")
-    user_uid: UserUID | None = Field(None, description="Optional user filter")
+    user_uid: UserUID | None = Field(default=None, description="Optional user filter")
     limit: int = Field(default=100, ge=1, le=500, description="Maximum results")
 
 

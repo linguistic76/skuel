@@ -38,22 +38,22 @@ class GoalCreateRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=200, description="Goal title")
 
     # Optional with defaults
-    description: str | None = Field(None, max_length=2000)
-    vision_statement: str | None = Field(None, max_length=1000, description="Long-term vision")
+    description: str | None = Field(default=None, max_length=2000)
+    vision_statement: str | None = Field(default=None, max_length=1000, description="Long-term vision")
 
     # Classification
     goal_type: GoalType = Field(GoalType.OUTCOME)
-    domain: Domain = Field(Domain.KNOWLEDGE, description="Knowledge domain")
+    domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
     timeframe: GoalTimeframe = Field(GoalTimeframe.QUARTERLY)
 
     # Measurement
     measurement_type: MeasurementType = Field(MeasurementType.PERCENTAGE)
-    target_value: float | None = Field(None, ge=0, description="Target value to achieve")
-    unit_of_measurement: str | None = Field(None, max_length=50)
+    target_value: float | None = Field(default=None, ge=0, description="Target value to achieve")
+    unit_of_measurement: str | None = Field(default=None, max_length=50)
 
     # Timeline
     start_date: date | None = Field(default_factory=date.today)
-    target_date: date | None = Field(None, description="Target completion date")
+    target_date: date | None = Field(default=None, description="Target completion date")
 
     # Learning Integration
     required_knowledge_uids: list[str] = Field(default_factory=list)
@@ -62,7 +62,7 @@ class GoalCreateRequest(BaseModel):
 
     # Hierarchical Relationships (2026-01-30 - Hierarchical Pattern)
     parent_goal_uid: str | None = Field(
-        None, description="Parent goal UID for subgoal decomposition"
+        default=None, description="Parent goal UID for subgoal decomposition"
     )
     progress_weight: float = Field(
         default=1.0,
@@ -71,8 +71,8 @@ class GoalCreateRequest(BaseModel):
     )
 
     # Motivation
-    why_important: str | None = Field(None, max_length=1000)
-    success_criteria: str | None = Field(None, max_length=1000)
+    why_important: str | None = Field(default=None, max_length=1000)
+    success_criteria: str | None = Field(default=None, max_length=1000)
     potential_obstacles: list[str] = Field(default_factory=list, max_length=10)
     strategies: list[str] = Field(default_factory=list, max_length=10)
 
@@ -142,9 +142,9 @@ class GoalUpdateRequest(BaseModel):
     All fields are optional for partial updates.
     """
 
-    title: str | None = Field(None, min_length=1, max_length=200)
-    description: str | None = Field(None, max_length=2000)
-    vision_statement: str | None = Field(None, max_length=1000)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    vision_statement: str | None = Field(default=None, max_length=1000)
 
     # Classification can be modified
     goal_type: GoalType | None = None
@@ -153,8 +153,8 @@ class GoalUpdateRequest(BaseModel):
 
     # Measurement can be adjusted
     measurement_type: MeasurementType | None = None
-    target_value: float | None = Field(None, ge=0)
-    unit_of_measurement: str | None = Field(None, max_length=50)
+    target_value: float | None = Field(default=None, ge=0)
+    unit_of_measurement: str | None = Field(default=None, max_length=50)
 
     # Timeline can be extended
     target_date: date | None = None
@@ -165,15 +165,15 @@ class GoalUpdateRequest(BaseModel):
     guiding_principle_uids: list[str] | None = None
 
     # Motivation can be refined
-    why_important: str | None = Field(None, max_length=1000)
-    success_criteria: str | None = Field(None, max_length=1000)
-    potential_obstacles: list[str] | None = Field(None, max_length=10)
-    strategies: list[str] | None = Field(None, max_length=10)
+    why_important: str | None = Field(default=None, max_length=1000)
+    success_criteria: str | None = Field(default=None, max_length=1000)
+    potential_obstacles: list[str] | None = Field(default=None, max_length=10)
+    strategies: list[str] | None = Field(default=None, max_length=10)
 
     # Status and priority can change
     status: EntityStatus | None = None
     priority: Priority | None = None
-    tags: list[str] | None = Field(None, max_length=20)
+    tags: list[str] | None = Field(default=None, max_length=20)
 
     model_config = ConfigDict(use_enum_values=False)
 
@@ -185,7 +185,7 @@ class GoalProgressUpdateRequest(BaseModel):
 
     new_value: float = Field(..., validation_alias="progress", description="New progress value")
     notes: str = Field(default="", max_length=500, description="Progress notes")
-    update_date: str | None = Field(None, validation_alias="date", description="Progress date")
+    update_date: str | None = Field(default=None, validation_alias="date", description="Progress date")
 
     @field_validator("new_value")
     @classmethod
@@ -208,8 +208,8 @@ class MilestoneCreateRequest(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=200)
     target_date: date = Field(..., description="Target date for milestone")
-    description: str | None = Field(None, max_length=500)
-    target_value: float | None = Field(None, ge=0)
+    description: str | None = Field(default=None, max_length=500)
+    target_value: float | None = Field(default=None, ge=0)
     required_knowledge_uids: list[str] = Field(default_factory=list)
 
     # Shared validators (DRY pattern)
@@ -234,7 +234,7 @@ class MilestoneCompleteRequest(BaseModel):
 
     milestone_uid: str = Field(..., description="Milestone UID to complete")
     achieved_date: date | None = Field(default_factory=date.today)
-    notes: str | None = Field(None, max_length=500)
+    notes: str | None = Field(default=None, max_length=500)
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -270,8 +270,8 @@ class GoalFilterRequest(BaseModel):
     parent_goal_uid: str | None = None
 
     # Progress filters
-    min_progress: float | None = Field(None, ge=0, le=100)
-    max_progress: float | None = Field(None, ge=0, le=100)
+    min_progress: float | None = Field(default=None, ge=0, le=100)
+    max_progress: float | None = Field(default=None, ge=0, le=100)
     is_overdue: bool | None = None
 
     # Date filters
@@ -302,7 +302,7 @@ class GoalAnalyticsRequest(BaseModel):
     include_milestone_analysis: bool = Field(True)
     include_habit_correlation: bool = Field(False)
     include_predictions: bool = Field(False)
-    days_back: int = Field(30, ge=1, le=365)
+    days_back: int = Field(default=30, ge=1, le=365)
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -328,16 +328,16 @@ class HabitSystemUpdateRequest(BaseModel):
     """
 
     essential_habit_uids: list[str] | None = Field(
-        None, description="Habits that are ESSENTIAL - goal is impossible without these"
+        default=None, description="Habits that are ESSENTIAL - goal is impossible without these"
     )
     critical_habit_uids: list[str] | None = Field(
-        None, description="Habits that are CRITICAL - goal is very difficult without these"
+        default=None, description="Habits that are CRITICAL - goal is very difficult without these"
     )
     supporting_habit_uids: list[str] | None = Field(
-        None, description="Habits that are SUPPORTING - goal is easier with these"
+        default=None, description="Habits that are SUPPORTING - goal is easier with these"
     )
     optional_habit_uids: list[str] | None = Field(
-        None, description="Habits that are OPTIONAL - tangentially helpful"
+        default=None, description="Habits that are OPTIONAL - tangentially helpful"
     )
 
     @model_validator(mode="after")
@@ -393,8 +393,7 @@ class IdentityBasedGoalRequest(BaseModel):
         max_length=100,
         description="Target identity (e.g., 'I am a writer', 'I am a runner')",
     )
-    identity_evidence_required: int = Field(
-        50,
+    identity_evidence_required: int = Field(default=50,
         ge=1,
         le=200,
         description="Number of habit completions required to establish identity (default 50 based on research)",
@@ -425,13 +424,11 @@ class SystemHealthCheckRequest(BaseModel):
     Returns actionable insights about system strength and weaknesses.
     """
 
-    include_habit_success_rates: bool = Field(
-        True, description="Include success rate analysis for each habit"
+    include_habit_success_rates: bool = Field(default=True, description="Include success rate analysis for each habit"
     )
-    include_recommendations: bool = Field(
-        True, description="Include actionable recommendations for system improvement"
+    include_recommendations: bool = Field(default=True, description="Include actionable recommendations for system improvement"
     )
-    include_velocity_metrics: bool = Field(True, description="Include habit velocity calculations")
+    include_velocity_metrics: bool = Field(default=True, description="Include habit velocity calculations")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -451,7 +448,7 @@ class HabitEssentialityChangeRequest(BaseModel):
 
     habit_uid: str = Field(..., description="UID of habit to reclassify")
     new_essentiality: HabitEssentiality = Field(..., description="New essentiality level")
-    reason: str | None = Field(None, max_length=500, description="Optional reason for the change")
+    reason: str | None = Field(default=None, max_length=500, description="Optional reason for the change")
 
     model_config = ConfigDict(
         json_schema_extra={

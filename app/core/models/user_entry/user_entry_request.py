@@ -40,7 +40,7 @@ class UserEntryCreateRequest(CreateRequestBase):
     # Core content
     # -------------------------------------------------------------------------
     title: str = Field(min_length=1, max_length=200, description="Entry title")
-    content: str | None = Field(None, description="Text content (if any)")
+    content: str | None = Field(default=None, description="Text content (if any)")
     domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
     tags: list[str] = Field(default_factory=list, description="Tags")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Free-form metadata")
@@ -53,23 +53,23 @@ class UserEntryCreateRequest(CreateRequestBase):
         description="Processing pipeline — dispatch discriminator",
     )
     modality: SubmissionModality | None = Field(
-        None, description="How the entry was created (FILE_UPLOAD, STRUCTURED_FORM, ...)"
+        default=None, description="How the entry was created (FILE_UPLOAD, STRUCTURED_FORM, ...)"
     )
-    instructions: str | None = Field(None, description="Pipeline-specific instructions")
+    instructions: str | None = Field(default=None, description="Pipeline-specific instructions")
 
     # -------------------------------------------------------------------------
     # File metadata (populated by upload handler, not user input)
     # -------------------------------------------------------------------------
-    original_filename: str | None = Field(None, description="Uploaded filename")
-    file_path: str | None = Field(None, description="Server file path")
-    file_size: int | None = Field(None, ge=0, description="File size in bytes")
-    file_type: str | None = Field(None, description="MIME type")
+    original_filename: str | None = Field(default=None, description="Uploaded filename")
+    file_path: str | None = Field(default=None, description="Server file path")
+    file_size: int | None = Field(default=None, ge=0, description="File size in bytes")
+    file_type: str | None = Field(default=None, description="MIME type")
 
     # -------------------------------------------------------------------------
     # Relationships — all optional, drive edge creation in the service
     # -------------------------------------------------------------------------
     fulfills_exercise_uid: EntityUID | None = Field(
-        None,
+        default=None,
         description=(
             "Exercise this entry fulfills. When set with "
             "pipeline=TEACHER_REVIEW and no explicit audience, the service "
@@ -77,10 +77,10 @@ class UserEntryCreateRequest(CreateRequestBase):
         ),
     )
     about_path_step_uid: EntityUID | None = Field(
-        None, description="PathStep this entry is situated in"
+        default=None, description="PathStep this entry is situated in"
     )
     transforms_of_uid: EntityUID | None = Field(
-        None,
+        default=None,
         description=(
             "Source UserEntry this one transforms (set by the "
             "TRANSCRIBE_AND_STRUCTURE pipeline when producing the second entry)"
@@ -105,7 +105,7 @@ class UserEntryCreateRequest(CreateRequestBase):
         ),
     )
     visibility: Visibility | None = Field(
-        None,
+        default=None,
         description=(
             "Visibility override. Defaults to PRIVATE; set PUBLIC for portfolio publication."
         ),
@@ -121,9 +121,9 @@ class UserEntryUpdateRequest(UpdateRequestBase):
     the audience is an independent graph concern.
     """
 
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     content: str | None = None
-    summary: str | None = Field(None, max_length=500)
+    summary: str | None = Field(default=None, max_length=500)
     description: str | None = None
     tags: list[str] | None = None
     metadata: dict[str, Any] | None = None
@@ -139,10 +139,10 @@ class UserEntryProcessRequest(CreateRequestBase):
 
     uid: EntityUID = Field(description="UserEntry UID to process")
     pipeline: Pipeline | None = Field(
-        None,
+        default=None,
         description=(
             "Override the entry's stored pipeline for this run. Leave "
             "unset to use the entry's existing `pipeline` field."
         ),
     )
-    instructions: str | None = Field(None, description="Override pipeline instructions")
+    instructions: str | None = Field(default=None, description="Override pipeline instructions")

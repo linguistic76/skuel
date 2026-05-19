@@ -51,10 +51,10 @@ class EntityUpdateRequest(UpdateRequestBase):
     """
 
     # --- COMMON ---
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     content: str | None = None
-    summary: str | None = Field(None, max_length=500)
+    summary: str | None = Field(default=None, max_length=500)
     domain: Domain | None = None
     tags: list[str] | None = None
     priority: Priority | None = None
@@ -74,9 +74,9 @@ class EntityUpdateRequest(UpdateRequestBase):
     complexity: KuComplexity | None = None
     learning_level: LearningLevel | None = None
     sel_category: SELCategory | None = None
-    quality_score: float | None = Field(None, ge=0.0, le=1.0)
-    estimated_time_minutes: int | None = Field(None, ge=1)
-    difficulty_rating: float | None = Field(None, ge=0.0, le=1.0)
+    quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    estimated_time_minutes: int | None = Field(default=None, ge=1)
+    difficulty_rating: float | None = Field(default=None, ge=0.0, le=1.0)
 
     # --- SHARING ---
     visibility: Visibility | None = None
@@ -90,52 +90,52 @@ class EntityUpdateRequest(UpdateRequestBase):
     start_time: time | None = None
     end_time: time | None = None
     decision_deadline: datetime | None = None
-    duration_minutes: int | None = Field(None, ge=1, le=480)
-    reminder_minutes: int | None = Field(None, ge=0, le=10080)
+    duration_minutes: int | None = Field(default=None, ge=1, le=480)
+    reminder_minutes: int | None = Field(default=None, ge=0, le=10080)
     recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
 
     # --- PROGRESS (Goals, Tasks) ---
-    progress_percentage: float | None = Field(None, ge=0.0, le=100.0)
-    current_value: float | None = Field(None, ge=0)
-    target_value: float | None = Field(None, ge=0)
-    unit_of_measurement: str | None = Field(None, max_length=50)
+    progress_percentage: float | None = Field(default=None, ge=0.0, le=100.0)
+    current_value: float | None = Field(default=None, ge=0)
+    target_value: float | None = Field(default=None, ge=0)
+    unit_of_measurement: str | None = Field(default=None, max_length=50)
     measurement_type: MeasurementType | None = None
-    progress_weight: float | None = Field(None, ge=0.0)
+    progress_weight: float | None = Field(default=None, ge=0.0)
 
     # --- STREAK (Habits) ---
-    current_streak: int | None = Field(None, ge=0)
-    longest_streak: int | None = Field(None, ge=0)
-    total_completions: int | None = Field(None, ge=0)
-    target_days_per_week: int | None = Field(None, ge=1, le=7)
+    current_streak: int | None = Field(default=None, ge=0)
+    longest_streak: int | None = Field(default=None, ge=0)
+    total_completions: int | None = Field(default=None, ge=0)
+    target_days_per_week: int | None = Field(default=None, ge=1, le=7)
     preferred_time: str | None = None
 
     # --- GOAL-SPECIFIC ---
     goal_type: GoalType | None = None
     timeframe: GoalTimeframe | None = None
-    why_important: str | None = Field(None, max_length=1000)
-    success_criteria: str | None = Field(None, max_length=1000)
+    why_important: str | None = Field(default=None, max_length=1000)
+    success_criteria: str | None = Field(default=None, max_length=1000)
     potential_obstacles: list[str] | None = None
     strategies: list[str] | None = None
-    vision_statement: str | None = Field(None, max_length=2000)
+    vision_statement: str | None = Field(default=None, max_length=2000)
 
     # --- HABIT-SPECIFIC ---
     polarity: HabitPolarity | None = None
     category: HabitCategory | None = None
     difficulty: HabitDifficulty | None = None
-    cue: str | None = Field(None, max_length=500)
-    routine: str | None = Field(None, max_length=1000)
-    reward: str | None = Field(None, max_length=500)
-    reinforces_identity: str | None = Field(None, max_length=200)
+    cue: str | None = Field(default=None, max_length=500)
+    routine: str | None = Field(default=None, max_length=1000)
+    reward: str | None = Field(default=None, max_length=500)
+    reinforces_identity: str | None = Field(default=None, max_length=200)
     is_identity_habit: bool | None = None
 
     # --- EVENT-SPECIFIC ---
     event_type: str | None = None
-    location: str | None = Field(None, max_length=500)
+    location: str | None = Field(default=None, max_length=500)
     is_online: bool | None = None
     meeting_url: str | None = None
     attendee_emails: list[str] | None = None
-    max_attendees: int | None = Field(None, ge=1)
+    max_attendees: int | None = Field(default=None, ge=1)
 
     # --- CHOICE-SPECIFIC ---
     choice_type: ChoiceType | None = None
@@ -143,29 +143,29 @@ class EntityUpdateRequest(UpdateRequestBase):
     constraints: list[str] | None = None
     stakeholders: list[str] | None = None
     selected_option_uid: str | None = None
-    decision_rationale: str | None = Field(None, max_length=1000)
+    decision_rationale: str | None = Field(default=None, max_length=1000)
 
     # --- PRINCIPLE-SPECIFIC ---
-    statement: str | None = Field(None, max_length=500)
+    statement: str | None = Field(default=None, max_length=500)
     principle_category: PrincipleCategory | None = None
     principle_source: PrincipleSource | None = None
     strength: PrincipleStrength | None = None
-    tradition: str | None = Field(None, max_length=100)
-    original_source: str | None = Field(None, max_length=200)
-    personal_interpretation: str | None = Field(None, max_length=1000)
-    origin_story: str | None = Field(None, max_length=2000)
+    tradition: str | None = Field(default=None, max_length=100)
+    original_source: str | None = Field(default=None, max_length=200)
+    personal_interpretation: str | None = Field(default=None, max_length=1000)
+    origin_story: str | None = Field(default=None, max_length=2000)
     key_behaviors: list[str] | None = None
 
     # --- ORGANIZATION ---
     parent_uid: str | None = None
-    project: str | None = Field(None, max_length=200)
+    project: str | None = Field(default=None, max_length=200)
     assignee: str | None = None
 
     # --- CURRICULUM STRUCTURE ---
-    sequence: int | None = Field(None, ge=1)
+    sequence: int | None = Field(default=None, ge=1)
     intent: str | None = None
-    mastery_threshold: float | None = Field(None, ge=0.0, le=1.0)
-    estimated_hours: float | None = Field(None, gt=0)
+    mastery_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    estimated_hours: float | None = Field(default=None, gt=0)
     learning_path_uid: str | None = None
     lp_goal: str | None = None
     lp_type: LpType | None = None
@@ -544,18 +544,18 @@ class ScheduleUpdateRequest(BaseModel):
     """Request model for updating an entity schedule. All fields optional."""
 
     schedule_type: str | None = Field(
-        None,
+        default=None,
         description="Schedule frequency",
         pattern=r"^(weekly|biweekly|monthly)$",
     )
-    day_of_week: int | None = Field(None, ge=0, le=6, description="Day of week")
-    domains: list[str] | None = Field(None, description="Domains to include")
+    day_of_week: int | None = Field(default=None, ge=0, le=6, description="Day of week")
+    domains: list[str] | None = Field(default=None, description="Domains to include")
     depth: str | None = Field(
-        None,
+        default=None,
         description="Report depth",
         pattern=r"^(summary|standard|detailed)$",
     )
-    is_active: bool | None = Field(None, description="Enable/disable schedule")
+    is_active: bool | None = Field(default=None, description="Enable/disable schedule")
 
 
 # =============================================================================
@@ -569,9 +569,9 @@ class ActivityFeedbackSubmitRequest(BaseModel):
     subject_uid: str = Field(..., description="UID of the user being reviewed")
     feedback_text: str = Field(..., min_length=1, description="Feedback text")
     time_period: str = Field(default="7d", description="Time period covered")
-    domains: list[str] | None = Field(None, description="Activity domains to cover")
+    domains: list[str] | None = Field(default=None, description="Activity domains to cover")
     snapshot_context: dict[str, Any] | None = Field(
-        None, description="Snapshot context from prior review"
+        default=None, description="Snapshot context from prior review"
     )
 
 
@@ -580,16 +580,16 @@ class AnnotationSaveRequest(BaseModel):
 
     uid: str = Field(..., min_length=1, description="ActivityReport UID")
     annotation_mode: str = Field(default="", description="additive or revision")
-    user_annotation: str | None = Field(None, description="Commentary text")
-    user_revision: str | None = Field(None, description="Replacement text")
+    user_annotation: str | None = Field(default=None, description="Commentary text")
+    user_revision: str | None = Field(default=None, description="Replacement text")
 
 
 class ActivityReviewRequest(BaseModel):
     """User requests an activity review from an admin."""
 
     time_period: str = Field(default="7d", description="Time period to review")
-    domains: list[str] | None = Field(None, description="Domains to review")
-    message: str | None = Field(None, max_length=1000, description="Optional message")
+    domains: list[str] | None = Field(default=None, description="Domains to review")
+    message: str | None = Field(default=None, max_length=1000, description="Optional message")
 
 
 class CalendarQuickCreateRequest(BaseModel):

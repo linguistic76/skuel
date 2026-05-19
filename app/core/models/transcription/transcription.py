@@ -178,9 +178,9 @@ class TranscriptionCreateRequest(BaseModel):
     """Request to create a new transcription."""
 
     audio_file_path: str = Field(..., description="Path to audio file")
-    original_filename: str | None = Field(None, description="Original filename")
-    language: str = Field("en", description="Language code for transcription")
-    model: str = Field("nova-2", description="Deepgram model to use")
+    original_filename: str | None = Field(default=None, description="Original filename")
+    language: str = Field(default="en", description="Language code for transcription")
+    model: str = Field(default="nova-2", description="Deepgram model to use")
 
     model_config = {"extra": "forbid"}
 
@@ -188,11 +188,11 @@ class TranscriptionCreateRequest(BaseModel):
 class TranscriptionProcessOptions(BaseModel):
     """Options for processing transcription."""
 
-    language: str = Field("en", description="Language code")
-    model: str = Field("nova-2", description="Deepgram model")
-    punctuate: bool = Field(True, description="Enable punctuation")
-    paragraphs: bool = Field(True, description="Enable paragraph detection")
-    diarize: bool = Field(False, description="Enable speaker diarization")
+    language: str = Field(default="en", description="Language code")
+    model: str = Field(default="nova-2", description="Deepgram model")
+    punctuate: bool = Field(default=True, description="Enable punctuation")
+    paragraphs: bool = Field(default=True, description="Enable paragraph detection")
+    diarize: bool = Field(default=False, description="Enable speaker diarization")
 
     model_config = {"extra": "forbid"}
 

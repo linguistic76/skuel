@@ -56,13 +56,13 @@ class GoalTemplateCreateRequest(TemplateCreateRequest):
     selected_choice_option_template_uid: str | None = None
 
     target_identity: str | None = None
-    identity_evidence_required: int = Field(0, ge=0)
+    identity_evidence_required: int = Field(default=0, ge=0)
 
 
 class GoalTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating a GoalTemplate."""
 
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     status: EntityStatus | None = None
     tags: list[str] | None = None
@@ -90,4 +90,4 @@ class GoalTemplateUpdateRequest(UpdateRequestBase):
     selected_choice_option_template_uid: str | None = None
 
     target_identity: str | None = None
-    identity_evidence_required: int | None = Field(None, ge=0)
+    identity_evidence_required: int | None = Field(default=None, ge=0)

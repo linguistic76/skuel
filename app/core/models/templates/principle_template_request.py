@@ -58,7 +58,7 @@ class PrincipleTemplateCreateRequest(TemplateCreateRequest):
 class PrincipleTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating a PrincipleTemplate."""
 
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     status: EntityStatus | None = None
     tags: list[str] | None = None
