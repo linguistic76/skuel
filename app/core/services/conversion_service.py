@@ -87,7 +87,7 @@ class ConversionServiceV2:
 
     @classmethod
     def create_to_pure(
-        cls, schema: T, pure_class: type[U], uid: str | None = None, **extra_fields: Any
+        cls, schema: object, pure_class: type[U], uid: str | None = None, **extra_fields: Any
     ) -> U:
         """
         Generic method to convert any CreateRequest to a Pure model.
@@ -145,7 +145,7 @@ class ConversionServiceV2:
 
     @classmethod
     def pure_to_dict(
-        cls, pure_model: T, exclude_none: bool = True, exclude_fields: set[str] | None = None
+        cls, pure_model: object, exclude_none: bool = True, exclude_fields: set[str] | None = None
     ) -> dict[str, Any]:
         """
         Generic method to convert pure model to dictionary.

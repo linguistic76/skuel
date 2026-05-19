@@ -114,7 +114,7 @@ def to_domain_models[D: DTOConvertible, M: DomainModelConvertible](
     return [to_domain_model(data, dto_class, model_class) for data in data_list]
 
 
-def from_domain_model[T](model: T, dto_class: type) -> Any:
+def from_domain_model(model: object, dto_class: type) -> Any:
     """
     Convert domain model to DTO for backend operations.
 
