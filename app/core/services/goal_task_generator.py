@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
 from core.models.goal.goal import Goal
@@ -60,8 +60,8 @@ class GoalTaskGenerator:
         self,
         goals_backend: GoalsOperations,
         tasks_backend: TasksOperations,
-        relationship_service=None,
-        tasks_relationship_service=None,
+        relationship_service: Any = None,
+        tasks_relationship_service: Any = None,
         config: TaskGenerationConfig | None = None,
     ) -> None:
         """

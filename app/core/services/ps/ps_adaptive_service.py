@@ -56,7 +56,7 @@ class PsAdaptiveService:
     def __init__(
         self,
         backend: Any,  # PS backend operations
-        user_service=None,
+        user_service: Any = None,
     ) -> None:
         if not backend:
             raise ValueError("backend is required")

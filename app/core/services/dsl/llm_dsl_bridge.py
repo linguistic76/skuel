@@ -195,7 +195,7 @@ class LLMDSLBridgeService:
 
     def __init__(
         self,
-        openai_client=None,
+        openai_client: Any = None,
         model: str = "gpt-4o-mini",
         use_compact_prompt: bool = False,
     ) -> None:

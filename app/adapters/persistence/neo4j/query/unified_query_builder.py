@@ -608,17 +608,16 @@ class UnifiedQueryBuilder:
         if self._template_library_cache is None:
             # Access _template_library directly (contains TemplateSpec objects)
             # Note: get_template_library() returns a different structure (dict[category -> list])
-            self._template_library_cache = getattr(qb, "_template_library", {})
+            self._template_library_cache = getattr(qb, "_template_library", {}) or {}
+        # Local binding — pyright doesn't narrow self.X attribute access across
+        # statements (the assignment in the if-block doesn't carry over).
+        cache: dict[str, Any] = self._template_library_cache or {}
 
         # Filter by category if requested
         if category:
-            return {
-                name: spec
-                for name, spec in self._template_library_cache.items()
-                if spec.category == category
-            }
+            return {name: spec for name, spec in cache.items() if spec.category == category}
 
-        return self._template_library_cache
+        return cache
 
     def template(self, name: str) -> TemplateQueryBuilder:
         """

@@ -187,9 +187,10 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             if set(updates.keys()) & modifying_core_fields and (
                 "modification_reason" not in updates or not updates["modification_reason"]
             ):
+                strength_label = current.strength.value if current.strength else "unknown"
                 return Result.fail(
                     Errors.validation(
-                        message=f"Modifying well-established principles (strength: {current.strength.value}) "
+                        message=f"Modifying well-established principles (strength: {strength_label}) "
                         "requires a modification_reason field explaining why this core value is changing.",
                         field="modification_reason",
                         value=None,

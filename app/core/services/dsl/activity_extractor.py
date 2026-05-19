@@ -425,23 +425,23 @@ class ActivityExtractorService:
     def __init__(
         self,
         # Activity Domains (7)
-        tasks_service=None,  # TasksCoreService
-        habits_service=None,  # HabitsCoreService
-        goals_service=None,  # GoalsCoreService
-        events_service=None,  # EventsCoreService
-        principles_service=None,  # PrinciplesCoreService
-        choices_service=None,  # ChoicesCoreService
-        finance_service=None,  # FinanceCoreService
+        tasks_service: Any = None,  # TasksCoreService
+        habits_service: Any = None,  # HabitsCoreService
+        goals_service: Any = None,  # GoalsCoreService
+        events_service: Any = None,  # EventsCoreService
+        principles_service: Any = None,  # PrinciplesCoreService
+        choices_service: Any = None,  # ChoicesCoreService
+        finance_service: Any = None,  # FinanceCoreService
         # Curriculum Domains (3)
-        ku_service=None,  # PsCoreService
-        ps_service=None,  # PsCoreService
-        lp_service=None,  # LpCoreService
+        ku_service: Any = None,  # PsCoreService
+        ps_service: Any = None,  # PsCoreService
+        lp_service: Any = None,  # LpCoreService
         # Meta Domains (3)
-        report_service=None,  # SubmissionsCoreService (for metadata updates)
-        analytics_service=None,  # AnalyticsService
-        calendar_service=None,  # CalendarService
+        report_service: Any = None,  # SubmissionsCoreService (for metadata updates)
+        analytics_service: Any = None,  # AnalyticsService
+        calendar_service: Any = None,  # CalendarService
         # The Destination (+1)
-        lifepath_service=None,  # LifePathService
+        lifepath_service: Any = None,  # LifePathService
     ) -> None:
         """
         Initialize the extractor with domain services for all 13 SKUEL domains.

@@ -434,15 +434,16 @@ class SchemaChangeDetector:
                 data.get("initial_fingerprint", {})
                 data.get("current_fingerprint", {})
 
-                self._migration_history = SchemaMigrationHistory(
+                history = SchemaMigrationHistory(
                     schema_id=data.get("schema_id", "default"),
                     initial_fingerprint=current_fp,  # Use current for now
                     current_fingerprint=current_fp,
                     migration_count=data.get("migration_count", 0),
                 )
+                self._migration_history = history
 
                 self.logger.info(
-                    f"Loaded migration history with {self._migration_history.migration_count} migrations"
+                    f"Loaded migration history with {history.migration_count} migrations"
                 )
 
         except _HISTORY_IO_EXCEPTIONS as e:
