@@ -9,7 +9,7 @@ PathStep is the curriculum anchor, linked via (PathStep)-[:RELATED_TO]->(Exercis
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.exercises.exercise import Exercise
@@ -142,7 +142,9 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
         if result.is_error:
             return Result.fail(result)
-        items: list[RequiredKnowledgeResult] = [dict(record) for record in (result.value or [])]
+        items: list[RequiredKnowledgeResult] = [
+            cast(RequiredKnowledgeResult, dict(record)) for record in (result.value or [])
+        ]
         return Result.ok(items)
 
     async def create_owns_relationship(
@@ -350,7 +352,9 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
         if result.is_error:
             return Result.fail(result)
-        items: list[CurriculumExerciseResult] = [dict(record) for record in (result.value or [])]
+        items: list[CurriculumExerciseResult] = [
+            cast(CurriculumExerciseResult, dict(record)) for record in (result.value or [])
+        ]
         return Result.ok(items)
 
     async def get_exercise_for_submission(
@@ -649,7 +653,9 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         )
         if result.is_error:
             return Result.fail(result)
-        items: list[RevisionChainResult] = [dict(record) for record in (result.value or [])]
+        items: list[RevisionChainResult] = [
+            cast(RevisionChainResult, dict(record)) for record in (result.value or [])
+        ]
         return Result.ok(items)
 
     async def get_for_teacher(

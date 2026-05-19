@@ -23,7 +23,7 @@ not a delete). To fully delete a template node, use the JSON CRUD API.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from fasthtml.common import Div
 from starlette.responses import RedirectResponse
@@ -109,7 +109,9 @@ def create_templates_ui_routes(
             "— skipping registration"
         )
         return
-    template_services: dict[str, ActivityTemplateOperations] = dict(raw_services.items())
+    template_services: dict[str, ActivityTemplateOperations] = cast(
+        dict[str, ActivityTemplateOperations], dict(raw_services)
+    )
 
     user_service = getattr(services, "user", None)
     get_user_service = make_service_getter(user_service)

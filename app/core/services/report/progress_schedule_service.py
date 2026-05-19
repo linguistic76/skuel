@@ -7,7 +7,7 @@ Manages recurring progress report generation schedules.
 """
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.constants import ReportTimePeriod
 from core.models.enums.user_entry_enums import ScheduleType
@@ -137,7 +137,9 @@ class ProgressScheduleService:
 
             schedules = []
             for record in result.value or []:
-                node: dict[str, Any] = dict(record["s"])  # boundary: Neo4j node → dict
+                node: dict[str, Any] = cast(
+                    dict[str, Any], dict(record["s"])
+                )  # boundary: Neo4j node → dict
                 dto = ReportScheduleDTO(
                     uid=str(node["uid"]),
                     user_uid=str(node.get("user_uid", "")),

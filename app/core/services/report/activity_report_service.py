@@ -16,7 +16,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
 from core.models.type_hints import UserUID
@@ -399,7 +399,9 @@ class ActivityReportService:
         for record in records:
             node = record.get("n") if isinstance(record, dict) else record
             if node:
-                props: dict[str, Any] = dict(node) if not isinstance(node, dict) else node
+                props: dict[str, Any] = (
+                    node if isinstance(node, dict) else cast(dict[str, Any], dict(node))
+                )
                 feedbacks.append(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
         return Result.ok(feedbacks)
