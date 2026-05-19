@@ -551,10 +551,11 @@ async def validate_relationship_targets(
     existing_uids: set[str] = set()
 
     # Use driver.execute_query which accepts dynamic strings
-    # The label is derived from ENTITY_CONFIGS so it's trusted
+    # The label is derived from ENTITY_CONFIGS so it's trusted (driver requires
+    # LiteralString for injection safety, which we've already verified).
     try:
         for label, uids in uids_by_label.items():
-            records, _, _ = await driver.execute_query(
+            records, _, _ = await driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
                 f"UNWIND $uids AS uid MATCH (n:{label} {{uid: uid}}) RETURN n.uid AS uid",
                 uids=list(uids),
             )

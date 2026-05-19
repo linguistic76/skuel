@@ -369,7 +369,20 @@ class ActivityReportService:
         if not records:
             return Result.fail(Errors.not_found("ActivityReport", uid))
         node = records[0]
-        props = dict(node.get("n")) if isinstance(node, dict) and "n" in node else dict(node)
+        # Neo4j Node implements Mapping at runtime but isn't typed as such
+        if isinstance(node, dict) and "n" in node:
+            inner = node["n"]
+            props = (
+                cast(dict[str, Any], inner)
+                if isinstance(inner, dict)
+                else cast(dict[str, Any], dict(cast(Any, inner)))
+            )
+        else:
+            props = (
+                cast(dict[str, Any], node)
+                if isinstance(node, dict)
+                else cast(dict[str, Any], dict(cast(Any, node)))
+            )
         return Result.ok(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
     async def get_history(
@@ -399,9 +412,11 @@ class ActivityReportService:
         for record in records:
             node = record.get("n") if isinstance(record, dict) else record
             if node:
-                props: dict[str, Any] = (
-                    node if isinstance(node, dict) else cast(dict[str, Any], dict(node))
-                )
+                # Neo4j Node implements Mapping at runtime but isn't typed as such
+                if isinstance(node, dict):
+                    props = node
+                else:
+                    props = cast(dict[str, Any], dict(cast(Any, node)))
                 feedbacks.append(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
         return Result.ok(feedbacks)

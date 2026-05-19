@@ -323,7 +323,10 @@ class UnifiedIngestionService:
         """
 
         try:
-            records, _, _ = await self.driver.execute_query(
+            # rel_type validated against RelationshipName enum above — safe to pass
+            # the interpolated query at the neo4j boundary (driver requires
+            # LiteralString for injection safety, which we've already verified).
+            records, _, _ = await self.driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
                 query,
                 from_uid=from_uid,
                 to_uid=to_uid,
