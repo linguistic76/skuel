@@ -770,9 +770,9 @@ class CalendarService:
 
     def _format_recurrence_pattern(self, habit: Habit) -> str:
         """Format recurrence pattern for display."""
-        pattern = getattr(habit, "recurrence_pattern", "daily")
+        raw_pattern = getattr(habit, "recurrence_pattern", "daily")
         # Extract value if it's an enum, otherwise use as-is (handles both enum and string)
-        pattern = get_enum_value(pattern)
+        pattern = str(get_enum_value(raw_pattern))
 
         pattern_labels = {
             "none": "One-time",

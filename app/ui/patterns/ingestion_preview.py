@@ -121,7 +121,7 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
     )
 
 
-def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT:
+def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT | None:
     """
     Table showing files that would be created.
 
@@ -173,7 +173,7 @@ def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT:
     )
 
 
-def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
+def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT | None:
     """
     Table showing files that would be updated.
 
@@ -231,7 +231,7 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
     )
 
 
-def ValidationMessages(warnings: list[str], errors: list[str]) -> FT:
+def ValidationMessages(warnings: list[str], errors: list[str]) -> FT | None:
     """
     Display validation warnings and errors.
 

@@ -414,7 +414,8 @@ class AskesisResponse:
         # NOTE: Uses getattr for optional to_summary() on SearchResultDTO
         to_summary = getattr(self.search_results, "to_summary", None)
         if callable(to_summary):
-            return to_summary()
+            summary = to_summary()
+            return str(summary) if summary is not None else None
         return f"Found {getattr(self.search_results, 'total_results', 0)} results"
 
     def should_show_prerequisites(self) -> bool:
