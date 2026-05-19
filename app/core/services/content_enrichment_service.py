@@ -505,11 +505,11 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if not journals:
             return {"average_energy": 0, "recent_moods": [], "trend": "insufficient data"}
 
-        # Extract energy levels and moods
-        energy_levels = [j["energy_level"] for j in journals if j["energy_level"]]
+        # Extract energy levels and moods (energy_level stored as numeric string)
+        energy_levels: list[int] = [int(j["energy_level"]) for j in journals if j["energy_level"]]
         moods = [j["mood"] for j in journals if j["mood"] and j["mood"] != "not specified"]
 
-        avg_energy = sum(energy_levels) / len(energy_levels) if energy_levels else 0
+        avg_energy: float = sum(energy_levels) / len(energy_levels) if energy_levels else 0
 
         # Simple trend detection
         trend = "stable"
