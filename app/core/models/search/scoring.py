@@ -1002,9 +1002,12 @@ def score_choice(choice: "Choice", context: "UserContext") -> PriorityScore:
         "medium": (0.5, "Medium priority"),
         "low": (0.25, "Low priority"),
     }
-    priority_normalized, priority_reason = priority_scores.get(
-        priority_value, (0.5, "No priority set")
-    )
+    if priority_value is None:
+        priority_normalized, priority_reason = (0.5, "No priority set")
+    else:
+        priority_normalized, priority_reason = priority_scores.get(
+            priority_value, (0.5, "No priority set")
+        )
 
     components.append(
         ComponentScore(
@@ -1078,9 +1081,12 @@ def score_principle(principle: "Principle", context: "UserContext") -> PriorityS
         PrincipleStrength.DEVELOPING: (0.4, "Developing principle"),
         PrincipleStrength.EXPLORING: (0.2, "Exploring principle"),
     }
-    strength_normalized, strength_reason = strength_scores.get(
-        principle.strength, (0.5, "Unknown strength")
-    )
+    if principle.strength is None:
+        strength_normalized, strength_reason = (0.5, "Unknown strength")
+    else:
+        strength_normalized, strength_reason = strength_scores.get(
+            principle.strength, (0.5, "Unknown strength")
+        )
 
     components.append(
         ComponentScore(

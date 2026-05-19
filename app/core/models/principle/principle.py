@@ -235,6 +235,8 @@ class Principle(UserOwnedEntity):
 
     def _review_cadence_days(self) -> int:
         """Review interval based on strength level."""
+        if self.strength is None:
+            return 30
         cadence = {
             PrincipleStrength.EXPLORING: 14,
             PrincipleStrength.DEVELOPING: 21,

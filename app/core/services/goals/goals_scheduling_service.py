@@ -360,8 +360,8 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
     def _calculate_goal_complexity(self, goal: Goal) -> float:
         """Calculate complexity score for a goal."""
-        type_score = COMPLEXITY_BY_TYPE.get(goal.goal_type, 3)
-        timeframe_score = COMPLEXITY_BY_TIMEFRAME.get(goal.timeframe, 3)
+        type_score = COMPLEXITY_BY_TYPE.get(goal.goal_type, 3) if goal.goal_type else 3
+        timeframe_score = COMPLEXITY_BY_TIMEFRAME.get(goal.timeframe, 3) if goal.timeframe else 3
         return (type_score * timeframe_score) / 10.0  # Normalize
 
     def _analyze_priority_distribution(self, goals: list[Goal]) -> dict[str, int]:
