@@ -15,7 +15,7 @@ NEO4J GENAI INTEGRATION (January 2026):
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import UserUID
@@ -306,13 +306,16 @@ async def prepare_entity_data_async(
     return entity_data
 
 
-def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
+def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> TypeGuard[EntityType]:
     """
     Determine if entity type should have embeddings.
 
     All content-bearing entity types receive embeddings for semantic search:
     - Curriculum: PathStep, Ku, Exercise, LearningPath, Resource, RevisedExercise
     - Activity: Task, Goal, Habit, Event, Choice, Principle
+
+    TypeGuard narrows the union to EntityType in the True branch — only
+    EntityType values can be embeddable.
     """
     embeddable_types = {
         # Curriculum
