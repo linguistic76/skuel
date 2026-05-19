@@ -135,8 +135,11 @@ class DomainRouteConfig:
 
     domain_name: str
     primary_service_attr: str
-    api_factory: Callable[..., list[Any]] | None = None
-    ui_factory: Callable[..., list[Any]] | None = None
+    # Factory return is widened to `list[Any] | None` because ~half of the
+    # ~140 factories register via decorators and return None — the runtime
+    # `or []` in register_domain_routes handles both shapes.
+    api_factory: Callable[..., list[Any] | None] | None = None
+    ui_factory: Callable[..., list[Any] | None] | None = None
     api_related_services: dict[str, str] = field(default_factory=dict)
     ui_related_services: dict[str, str] = field(default_factory=dict)
     # Config-driven factory fields (all default None = backward compatible)
@@ -293,11 +296,11 @@ def register_domain_routes(
 def create_activity_domain_route_config(
     domain_name: str,
     primary_service_attr: str,
-    api_factory: Callable[..., list[Any]],
+    api_factory: Callable[..., list[Any] | None],
     create_schema: type,
     update_schema: type,
     uid_prefix: str,
-    ui_factory: Callable[..., list[Any]] | None = None,
+    ui_factory: Callable[..., list[Any] | None] | None = None,
     supports_goal_filter: bool = False,
     supports_habit_filter: bool = False,
     api_related_services: dict[str, str] | None = None,

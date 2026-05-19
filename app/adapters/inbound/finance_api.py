@@ -76,8 +76,14 @@ def create_finance_api_routes(
     # EXPENSE CRUD ROUTES (Factory-Generated, Admin-Only)
     # ========================================================================
 
+    # FinancesOperations satisfies CrudOperations (base_protocols) but not
+    # CRUDOperations (crud_route_factory) — the two protocols diverged on
+    # list() signature + the get_for_user/update_for_user/delete_for_user
+    # ownership-verified methods. SHARED scope skips the *_for_user paths at
+    # runtime, so this works; the static gap is a known ISP issue worth
+    # unifying later.
     expense_factory: CRUDRouteFactory[Any] = CRUDRouteFactory(
-        service=finance_service,
+        service=finance_service,  # pyright: ignore[reportArgumentType]
         domain_name="expenses",
         create_schema=ExpenseCreateSchema,
         update_schema=ExpenseUpdateSchema,
@@ -215,7 +221,7 @@ def create_finance_api_routes(
     # ========================================================================
 
     budget_factory: CRUDRouteFactory[Any] = CRUDRouteFactory(
-        service=finance_service,
+        service=finance_service,  # pyright: ignore[reportArgumentType]  # see expense_factory note above
         domain_name="budgets",
         create_schema=BudgetCreateSchema,
         update_schema=BudgetUpdateSchema,
