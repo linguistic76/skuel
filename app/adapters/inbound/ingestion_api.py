@@ -63,7 +63,7 @@ def broadcast_progress(operation_id: str, progress_data: dict[str, Any]) -> None
             logger.error(f"Failed to broadcast progress: {e}")
 
 
-def _validate_ingestion_path(path_str: str) -> Result[Path]:
+def _validate_ingestion_path(path_str: str | None) -> Result[Path]:
     """
     Validate a path for ingestion, checking for traversal attacks.
 
@@ -391,8 +391,12 @@ def create_ingestion_api_routes(
         """
         try:
             form_data = await request.form()
-            source_path_str = form_data.get("source_path")
-            pattern = form_data.get("pattern", "*.md")
+            # form_data.get() returns `UploadFile | str | None` — narrow to str.
+            # File uploads in these fields are user error (not supported).
+            source_path_raw = form_data.get("source_path")
+            pattern_raw = form_data.get("pattern", "*.md")
+            source_path_str = source_path_raw if isinstance(source_path_raw, str) else None
+            pattern = pattern_raw if isinstance(pattern_raw, str) else "*.md"
             dry_run = form_data.get("dry_run") == "true"
 
             # Validate path

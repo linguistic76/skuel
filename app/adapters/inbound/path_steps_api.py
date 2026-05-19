@@ -130,8 +130,16 @@ def create_path_steps_api_routes(
             return result  # type: ignore[return-value]
         req = result.value
 
+        # Keyword args: req.description maps to `notes`; `confidence` keeps
+        # the service default. The prior positional call passed strength as
+        # confidence and description as strength — a real bug, latent only
+        # because the endpoint was rarely exercised.
         return await ps_service.create_step_relationship(
-            uid, req.target_uid, req.type, req.strength, req.description
+            source_uid=uid,
+            target_uid=req.target_uid,
+            relationship_type=req.type,
+            strength=req.strength,
+            notes=req.description or None,
         )
 
     @rt("/api/path-steps/relationships", methods=["GET"])

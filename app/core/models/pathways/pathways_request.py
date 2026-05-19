@@ -5,6 +5,7 @@ See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 
 from pydantic import BaseModel, Field
 
+from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import (
     Confidence,
     Domain,
@@ -128,7 +129,9 @@ class StepRelationshipCreateRequest(BaseModel):
     """Request to create a semantic relationship between path steps."""
 
     target_uid: str = Field(..., description="Target path step UID")
-    type: str = Field(default="RELATED_TO", description="Relationship type")
+    type: SemanticRelationshipType = Field(
+        default=SemanticRelationshipType.RELATED_TO, description="Relationship type"
+    )
     strength: float = Field(default=1.0, ge=0.0, le=1.0, description="Relationship strength")
     description: str = Field(default="", max_length=500, description="Relationship description")
 
