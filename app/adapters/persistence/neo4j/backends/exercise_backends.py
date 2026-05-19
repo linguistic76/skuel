@@ -143,7 +143,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         if result.is_error:
             return Result.fail(result)
         items: list[RequiredKnowledgeResult] = [
-            cast(RequiredKnowledgeResult, dict(record)) for record in (result.value or [])
+            cast("RequiredKnowledgeResult", dict(record)) for record in (result.value or [])
         ]
         return Result.ok(items)
 
@@ -353,7 +353,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         if result.is_error:
             return Result.fail(result)
         items: list[CurriculumExerciseResult] = [
-            cast(CurriculumExerciseResult, dict(record)) for record in (result.value or [])
+            cast("CurriculumExerciseResult", dict(record)) for record in (result.value or [])
         ]
         return Result.ok(items)
 
@@ -654,7 +654,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         if result.is_error:
             return Result.fail(result)
         items: list[RevisionChainResult] = [
-            cast(RevisionChainResult, dict(record)) for record in (result.value or [])
+            cast("RevisionChainResult", dict(record)) for record in (result.value or [])
         ]
         return Result.ok(items)
 

@@ -63,8 +63,12 @@ class PrincipleCreateRequest(CreateRequestBase):
     strength: PrincipleStrength = Field(default=PrincipleStrength.MODERATE, description="Strength")
 
     # Origin
-    tradition: str | None = Field(default=None, max_length=100, description="Tradition/school of thought")
-    original_source: str | None = Field(default=None, max_length=200, description="Original source text")
+    tradition: str | None = Field(
+        default=None, max_length=100, description="Tradition/school of thought"
+    )
+    original_source: str | None = Field(
+        default=None, max_length=200, description="Original source text"
+    )
     personal_interpretation: str | None = Field(
         default=None, max_length=1000, description="Personal interpretation"
     )
@@ -97,13 +101,19 @@ class PrincipleUpdateRequest(UpdateRequestBase):
     Field names mirror the ``Principle`` domain model 1:1 (see PrincipleCreateRequest).
     """
 
-    title: str | None = Field(default=None, min_length=1, max_length=100, description="Principle title")
-    statement: str | None = Field(default=None, min_length=1, max_length=500, description="Core statement")
+    title: str | None = Field(
+        default=None, min_length=1, max_length=100, description="Principle title"
+    )
+    statement: str | None = Field(
+        default=None, min_length=1, max_length=500, description="Core statement"
+    )
     description: str | None = Field(default=None, max_length=1000, description="Full description")
     principle_category: PrincipleCategory | None = Field(default=None, description="Category")
     principle_source: PrincipleSource | None = Field(default=None, description="Source")
     strength: PrincipleStrength | None = Field(default=None, description="Strength")
-    tradition: str | None = Field(default=None, max_length=100, description="Tradition/school of thought")
+    tradition: str | None = Field(
+        default=None, max_length=100, description="Tradition/school of thought"
+    )
     personal_interpretation: str | None = Field(
         default=None, max_length=1000, description="Personal interpretation"
     )

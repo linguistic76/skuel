@@ -48,7 +48,9 @@ class PathStepCreateRequest(CreateRequestBase):
     learning_level: LearningLevel = Field(
         default=LearningLevel.BEGINNER, description="Target learning level"
     )
-    estimated_time_minutes: int | None = Field(default=None, ge=1, description="Estimated completion time")
+    estimated_time_minutes: int | None = Field(
+        default=None, ge=1, description="Estimated completion time"
+    )
     difficulty_rating: float = Field(default=0.5, ge=0.0, le=1.0, description="Difficulty 0.0-1.0")
     learning_objectives: list[str] = Field(default_factory=list, description="Learning objectives")
 

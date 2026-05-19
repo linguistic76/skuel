@@ -279,7 +279,7 @@ def render_invoice_pdf(invoice: InvoicePure) -> bytes:
 
     pdf = HTML(string=html_content).write_pdf()
     assert pdf is not None, "write_pdf() returns None only when a target file is given"
-    return cast(bytes, pdf)
+    return cast("bytes", pdf)
 
 
 __all__ = ["render_invoice_html", "render_invoice_pdf"]

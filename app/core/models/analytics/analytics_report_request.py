@@ -17,7 +17,8 @@ class WeeklyPlanningRequest(BaseModel):
     user_uid: UserUID = Field(..., description="User UID for report generation")
 
     week_start: str | None = Field(
-        default=None, description="Week start date (YYYY-MM-DD). Defaults to current week if not provided."
+        default=None,
+        description="Week start date (YYYY-MM-DD). Defaults to current week if not provided.",
     )
 
 
@@ -27,7 +28,8 @@ class WeeklyReviewRequest(BaseModel):
     user_uid: UserUID = Field(..., description="User UID for report generation")
 
     week_start: str | None = Field(
-        default=None, description="Week start date (YYYY-MM-DD). Defaults to previous week if not provided."
+        default=None,
+        description="Week start date (YYYY-MM-DD). Defaults to previous week if not provided.",
     )
 
 

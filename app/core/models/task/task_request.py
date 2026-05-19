@@ -50,7 +50,9 @@ class TaskCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Task tags")
 
     # Hierarchical Relationships (2026-01-30 - Hierarchical Pattern)
-    parent_uid: str | None = Field(default=None, description="Parent task UID for subtask decomposition")
+    parent_uid: str | None = Field(
+        default=None, description="Parent task UID for subtask decomposition"
+    )
     progress_weight: float = Field(
         default=1.0,
         ge=0.0,
@@ -58,7 +60,9 @@ class TaskCreateRequest(CreateRequestBase):
     )
 
     # Recurrence
-    recurrence_pattern: RecurrencePattern | None = Field(default=None, description="Recurrence pattern")
+    recurrence_pattern: RecurrencePattern | None = Field(
+        default=None, description="Recurrence pattern"
+    )
     recurrence_end_date: date | None = Field(default=None, description="End date for recurrence")
 
     # Learning Integration (OPTIONAL)
@@ -70,10 +74,15 @@ class TaskCreateRequest(CreateRequestBase):
     aligned_principle_uids: list[str] = Field(
         default_factory=list, description="Aligned principles"
     )
-    goal_progress_contribution: float = Field(default=0.0, ge=0.0, le=1.0, description="Goal progress contribution (0-1)"
+    goal_progress_contribution: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Goal progress contribution (0-1)"
     )
-    knowledge_mastery_check: bool = Field(default=False, description="Is this a knowledge validation task?")
-    habit_streak_maintainer: bool = Field(default=False, description="Does this maintain a habit streak?")
+    knowledge_mastery_check: bool = Field(
+        default=False, description="Is this a knowledge validation task?"
+    )
+    habit_streak_maintainer: bool = Field(
+        default=False, description="Does this maintain a habit streak?"
+    )
     prerequisite_knowledge_uids: list[str] = Field(
         default_factory=list, description="Required knowledge"
     )
@@ -220,7 +229,9 @@ class TaskStatusUpdateRequest(RequestBase):
 
     status: EntityStatus = Field(description="New task status")
     notes: str | None = Field(default=None, description="Status change notes")
-    completion_date: date | None = Field(default=None, description="Completion date if marking complete")
+    completion_date: date | None = Field(
+        default=None, description="Completion date if marking complete"
+    )
     actual_minutes: int | None = Field(default=None, ge=0, description="Actual time spent")
 
     @field_validator("completion_date")

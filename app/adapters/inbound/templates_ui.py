@@ -110,7 +110,7 @@ def create_templates_ui_routes(
         )
         return
     template_services: dict[str, ActivityTemplateOperations] = cast(
-        dict[str, ActivityTemplateOperations], dict(raw_services)
+        "dict[str, ActivityTemplateOperations]", dict(raw_services)
     )
 
     user_service = getattr(services, "user", None)

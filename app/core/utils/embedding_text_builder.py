@@ -17,7 +17,6 @@ from typing import Any, overload
 
 from core.models.enums.entity_enums import EntityType
 
-
 # Single source of truth for embedding field mappings
 EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.PATH_STEP: ("title", "intent", "description", "content", "summary"),

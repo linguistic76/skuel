@@ -138,7 +138,7 @@ class ProgressScheduleService:
             schedules = []
             for record in result.value or []:
                 # Neo4j Node implements Mapping at runtime but isn't typed as such
-                node: dict[str, Any] = cast(dict[str, Any], dict(cast(Any, record["s"])))
+                node: dict[str, Any] = cast("dict[str, Any]", dict(cast("Any", record["s"])))
                 dto = ReportScheduleDTO(
                     uid=str(node["uid"]),
                     user_uid=str(node.get("user_uid", "")),

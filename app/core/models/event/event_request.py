@@ -67,7 +67,9 @@ class EventCreateRequest(BaseModel):
     max_attendees: int | None = Field(default=None, ge=1, description="Maximum number of attendees")
 
     # Recurrence
-    recurrence_pattern: RecurrencePattern | None = Field(default=None, description="Recurrence pattern")
+    recurrence_pattern: RecurrencePattern | None = Field(
+        default=None, description="Recurrence pattern"
+    )
     recurrence_end_date: date | None = Field(default=None, description="End date for recurrence")
 
     # Reminders
@@ -76,7 +78,9 @@ class EventCreateRequest(BaseModel):
     )
 
     # Learning Integration (OPTIONAL)
-    reinforces_habit_uid: str | None = Field(default=None, description="Habit this event reinforces")
+    reinforces_habit_uid: str | None = Field(
+        default=None, description="Habit this event reinforces"
+    )
     practices_knowledge_uids: list[str] = Field(
         default_factory=list, description="Knowledge practiced in event"
     )
@@ -89,7 +93,8 @@ class EventCreateRequest(BaseModel):
     habit_completion_quality: int | None = Field(
         default=None, ge=1, le=5, description="Quality of habit completion (1-5)"
     )
-    knowledge_retention_check: bool = Field(default=False, description="Is this a knowledge retention check?"
+    knowledge_retention_check: bool = Field(
+        default=False, description="Is this a knowledge retention check?"
     )
 
     # Shared validators (DRY pattern)

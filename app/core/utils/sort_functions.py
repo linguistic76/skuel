@@ -1207,5 +1207,3 @@ def get_aligned_count(item: tuple[str, dict[str, Any]]) -> int:
         The aligned_count value
     """
     return item[1]["aligned_count"]
-
-

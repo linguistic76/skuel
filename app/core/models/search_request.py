@@ -178,42 +178,50 @@ class SearchRequest(BaseModel):
     # ========================================================================
 
     # Ready to learn - prerequisites are met
-    ready_to_learn: bool = Field(default=False,
+    ready_to_learn: bool = Field(
+        default=False,
         description="Filter by prerequisites met (graph pattern: all required knowledge mastered)",
     )
 
     # Builds on mastered knowledge
-    builds_on_mastered: bool = Field(default=False,
+    builds_on_mastered: bool = Field(
+        default=False,
         description="Show knowledge connected to mastered units (graph pattern: related to mastered knowledge)",
     )
 
     # In active learning path
-    in_active_path: bool = Field(default=False,
+    in_active_path: bool = Field(
+        default=False,
         description="Filter by active learning path membership (graph pattern: part of followed learning path)",
     )
 
     # Supports active goals
-    supports_goals: bool = Field(default=False,
+    supports_goals: bool = Field(
+        default=False,
         description="Show knowledge supporting active goals (graph pattern: connected to active goals)",
     )
 
     # Builds on active habits
-    builds_on_habits: bool = Field(default=False,
+    builds_on_habits: bool = Field(
+        default=False,
         description="Show knowledge connected to active habits (graph pattern: reinforces practicing habits)",
     )
 
     # Applied in recent tasks
-    applied_in_tasks: bool = Field(default=False,
+    applied_in_tasks: bool = Field(
+        default=False,
         description="Show knowledge used in recent tasks (graph pattern: applied in completed/active tasks)",
     )
 
     # Recommended by principles
-    aligned_with_principles: bool = Field(default=False,
+    aligned_with_principles: bool = Field(
+        default=False,
         description="Show knowledge aligned with core principles (graph pattern: supports adopted principles)",
     )
 
     # Next logical step
-    next_logical_step: bool = Field(default=False,
+    next_logical_step: bool = Field(
+        default=False,
         description="Show natural progression from mastered knowledge (graph pattern: enabled by mastered units)",
     )
 
@@ -238,17 +246,20 @@ class SearchRequest(BaseModel):
     # ========================================================================
 
     # Not yet viewed - show only unseen content
-    not_yet_viewed: bool = Field(default=False,
+    not_yet_viewed: bool = Field(
+        default=False,
         description="Show only content the user hasn't viewed yet (graph pattern: no VIEWED relationship)",
     )
 
     # Viewed but not mastered - in-progress content
-    viewed_not_mastered: bool = Field(default=False,
+    viewed_not_mastered: bool = Field(
+        default=False,
         description="Show content viewed but not yet mastered (graph pattern: VIEWED or IN_PROGRESS but not MASTERED)",
     )
 
     # Ready for review - spaced repetition
-    ready_to_review: bool = Field(default=False,
+    ready_to_review: bool = Field(
+        default=False,
         description="Show mastered content due for review (graph pattern: MASTERED with decay)",
     )
 
@@ -257,7 +268,8 @@ class SearchRequest(BaseModel):
     # ========================================================================
 
     # Enable semantic relationship boosting
-    enable_semantic_boost: bool = Field(default=False,
+    enable_semantic_boost: bool = Field(
+        default=False,
         description="Enable semantic relationship boosting (requires context_uids)",
     )
 
@@ -268,12 +280,14 @@ class SearchRequest(BaseModel):
     )
 
     # Enable learning-aware personalization
-    enable_learning_aware: bool = Field(default=False,
+    enable_learning_aware: bool = Field(
+        default=False,
         description="Enable learning state boosting (personalizes results based on user progress)",
     )
 
     # Learning preference mode
-    prefer_unmastered: bool = Field(default=True,
+    prefer_unmastered: bool = Field(
+        default=True,
         description="True = prioritize unlearned content, False = prioritize mastered content (review mode)",
     )
 
@@ -282,7 +296,8 @@ class SearchRequest(BaseModel):
     # ========================================================================
 
     extended_facets: dict[str, Any] | None = Field(
-        default=None, description="Extended domain-specific filters (e.g., habit frequency, goal deadline)"
+        default=None,
+        description="Extended domain-specific filters (e.g., habit frequency, goal deadline)",
     )
 
     # ========================================================================
@@ -308,7 +323,8 @@ class SearchRequest(BaseModel):
         description="RelationshipName for connected_to filter (e.g., ENABLES, REQUIRES_KNOWLEDGE)",
     )
 
-    connected_direction: str = Field(default="outgoing",
+    connected_direction: str = Field(
+        default="outgoing",
         description="Relationship direction: 'outgoing', 'incoming', or 'both'",
     )
 
@@ -321,7 +337,8 @@ class SearchRequest(BaseModel):
         description="Filter by tags containing these values",
     )
 
-    tags_match_all: bool = Field(default=False,
+    tags_match_all: bool = Field(
+        default=False,
         description="True = AND semantics (all tags must match), False = OR semantics (any tag matches)",
     )
 
@@ -333,7 +350,9 @@ class SearchRequest(BaseModel):
 
     offset: int = Field(default=0, ge=0, description="Pagination offset")
 
-    include_facet_counts: bool = Field(default=True, description="Include facet counts for UI filters")
+    include_facet_counts: bool = Field(
+        default=True, description="Include facet counts for UI filters"
+    )
 
     user_uid: UserUID | None = Field(
         default=None, description="User ID for personalized results (optional)"
@@ -850,7 +869,9 @@ class SearchResponse(BaseModel):
     )
 
     # Metadata
-    search_time_ms: float | None = Field(default=None, description="Search execution time in milliseconds")
+    search_time_ms: float | None = Field(
+        default=None, description="Search execution time in milliseconds"
+    )
 
     timestamp: datetime = Field(default_factory=datetime.now, description="Response timestamp")
 

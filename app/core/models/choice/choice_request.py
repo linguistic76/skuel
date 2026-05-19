@@ -71,7 +71,9 @@ class ChoiceCreateRequest(CreateRequestBase):
 class ChoiceUpdateRequest(UpdateRequestBase):
     """Update a Choice entity."""
 
-    title: str | None = Field(default=None, min_length=1, max_length=200, description="Choice title")
+    title: str | None = Field(
+        default=None, min_length=1, max_length=200, description="Choice title"
+    )
     description: str | None = Field(
         default=None, min_length=1, max_length=1000, description="Choice description"
     )
@@ -111,12 +113,19 @@ class ChoiceOptionCreateRequest(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=200, description="Option title")
     description: str = Field(..., min_length=1, max_length=1000, description="Option description")
-    feasibility_score: float = Field(default=0.5, ge=0.0, le=1.0, description="Feasibility score (0-1)")
-    risk_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Risk level (0-1)")
-    potential_impact: float = Field(default=0.5, ge=0.0, le=1.0, description="Potential impact (0-1)")
-    resource_requirement: float = Field(default=0.5, ge=0.0, le=1.0, description="Resource requirement (0-1)"
+    feasibility_score: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Feasibility score (0-1)"
     )
-    estimated_duration: int | None = Field(default=None, ge=1, description="Estimated duration in minutes")
+    risk_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Risk level (0-1)")
+    potential_impact: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Potential impact (0-1)"
+    )
+    resource_requirement: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Resource requirement (0-1)"
+    )
+    estimated_duration: int | None = Field(
+        default=None, ge=1, description="Estimated duration in minutes"
+    )
     dependencies: list[str] = Field(default_factory=list, description="Dependency UIDs")
     tags: list[str] = Field(default_factory=list, description="Tags for categorization")
 

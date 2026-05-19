@@ -39,7 +39,9 @@ class GoalCreateRequest(BaseModel):
 
     # Optional with defaults
     description: str | None = Field(default=None, max_length=2000)
-    vision_statement: str | None = Field(default=None, max_length=1000, description="Long-term vision")
+    vision_statement: str | None = Field(
+        default=None, max_length=1000, description="Long-term vision"
+    )
 
     # Classification
     goal_type: GoalType = Field(GoalType.OUTCOME)
@@ -185,7 +187,9 @@ class GoalProgressUpdateRequest(BaseModel):
 
     new_value: float = Field(..., validation_alias="progress", description="New progress value")
     notes: str = Field(default="", max_length=500, description="Progress notes")
-    update_date: str | None = Field(default=None, validation_alias="date", description="Progress date")
+    update_date: str | None = Field(
+        default=None, validation_alias="date", description="Progress date"
+    )
 
     @field_validator("new_value")
     @classmethod
@@ -393,7 +397,8 @@ class IdentityBasedGoalRequest(BaseModel):
         max_length=100,
         description="Target identity (e.g., 'I am a writer', 'I am a runner')",
     )
-    identity_evidence_required: int = Field(default=50,
+    identity_evidence_required: int = Field(
+        default=50,
         ge=1,
         le=200,
         description="Number of habit completions required to establish identity (default 50 based on research)",
@@ -424,11 +429,15 @@ class SystemHealthCheckRequest(BaseModel):
     Returns actionable insights about system strength and weaknesses.
     """
 
-    include_habit_success_rates: bool = Field(default=True, description="Include success rate analysis for each habit"
+    include_habit_success_rates: bool = Field(
+        default=True, description="Include success rate analysis for each habit"
     )
-    include_recommendations: bool = Field(default=True, description="Include actionable recommendations for system improvement"
+    include_recommendations: bool = Field(
+        default=True, description="Include actionable recommendations for system improvement"
     )
-    include_velocity_metrics: bool = Field(default=True, description="Include habit velocity calculations")
+    include_velocity_metrics: bool = Field(
+        default=True, description="Include habit velocity calculations"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -448,7 +457,9 @@ class HabitEssentialityChangeRequest(BaseModel):
 
     habit_uid: str = Field(..., description="UID of habit to reclassify")
     new_essentiality: HabitEssentiality = Field(..., description="New essentiality level")
-    reason: str | None = Field(default=None, max_length=500, description="Optional reason for the change")
+    reason: str | None = Field(
+        default=None, max_length=500, description="Optional reason for the change"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={

@@ -18,7 +18,9 @@ class FormSubmissionCreateRequest(BaseModel):
     title: str | None = Field(default=None, max_length=200, description="Optional title")
     # Sharing controls at submit time
     group_uid: str | None = Field(default=None, description="Share with this group on submit")
-    recipient_uids: list[str] | None = Field(default=None, description="Share with these users on submit")
+    recipient_uids: list[str] | None = Field(
+        default=None, description="Share with these users on submit"
+    )
     share_with_admin: bool = Field(default=False, description="Send to admin on submit")
 
 
@@ -37,4 +39,6 @@ class FormSubmitRequest(BaseModel):
     exercise_uid: str = Field(..., description="Exercise UID")
     form_data: dict[str, Any] = Field(..., description="Form field responses")
     title: str | None = Field(default=None, max_length=200, description="Optional submission title")
-    from_ps: str | None = Field(default=None, description="PathStep UID for deterministic learning context")
+    from_ps: str | None = Field(
+        default=None, description="PathStep UID for deterministic learning context"
+    )

@@ -26,7 +26,9 @@ class HabitCompletionCreateRequest(BaseModel):
     )
     notes: str | None = Field(default=None, max_length=500, description="Completion notes")
     quality: int | None = Field(default=None, ge=1, le=5, description="Quality rating 1-5")
-    duration_actual: int | None = Field(default=None, ge=0, description="Actual duration in minutes")
+    duration_actual: int | None = Field(
+        default=None, ge=0, description="Actual duration in minutes"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={

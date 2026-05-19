@@ -41,25 +41,32 @@ class HabitCreateRequest(BaseModel):
     description: str | None = Field(
         default=None, max_length=1000, description="Detailed description of the habit"
     )
-    polarity: HabitPolarity = Field(default=HabitPolarity.BUILD,
+    polarity: HabitPolarity = Field(
+        default=HabitPolarity.BUILD,
         description="Whether to 'build' (establish) or 'break' (eliminate) this habit",
     )
-    habit_category: HabitCategory = Field(default=HabitCategory.OTHER,
+    habit_category: HabitCategory = Field(
+        default=HabitCategory.OTHER,
         description="Category: health, learning, productivity, social, creative, mindfulness, financial, or other",
     )
-    habit_difficulty: HabitDifficulty = Field(default=HabitDifficulty.MODERATE,
+    habit_difficulty: HabitDifficulty = Field(
+        default=HabitDifficulty.MODERATE,
         description="Difficulty level: trivial, easy, moderate, challenging, or heroic",
     )
 
     # Schedule
-    recurrence_pattern: RecurrencePattern = Field(default=RecurrencePattern.DAILY, description="How often: daily, weekly, monthly, or custom"
+    recurrence_pattern: RecurrencePattern = Field(
+        default=RecurrencePattern.DAILY, description="How often: daily, weekly, monthly, or custom"
     )
-    target_days_per_week: int = Field(default=7, ge=1, le=7, description="Target days per week (1-7)")
+    target_days_per_week: int = Field(
+        default=7, ge=1, le=7, description="Target days per week (1-7)"
+    )
     preferred_time: str | None = Field(
         default=None,
         description="Preferred time of day: 'morning', 'afternoon', 'evening', or null for any time",
     )
-    duration_minutes: int = Field(default=15, ge=1, le=480, description="Expected duration in minutes per occurrence"
+    duration_minutes: int = Field(
+        default=15, ge=1, le=480, description="Expected duration in minutes per occurrence"
     )
 
     # Learning Integration
@@ -83,9 +90,12 @@ class HabitCreateRequest(BaseModel):
 
     # Identity (Atomic Habits)
     reinforces_identity: str | None = Field(
-        default=None, max_length=200, description="Identity this habit reinforces, e.g., 'I am a writer'"
+        default=None,
+        max_length=200,
+        description="Identity this habit reinforces, e.g., 'I am a writer'",
     )
-    is_identity_habit: bool = Field(default=False, description="True if primary purpose is identity reinforcement"
+    is_identity_habit: bool = Field(
+        default=False, description="True if primary purpose is identity reinforcement"
     )
 
     # Organization
@@ -177,7 +187,9 @@ class HabitCompletionRequest(BaseModel):
     completed_at: datetime | None = Field(default_factory=datetime.now)
     notes: str | None = Field(default=None, max_length=500, description="Completion notes")
     quality: int | None = Field(default=None, ge=1, le=5, description="Quality rating 1-5")
-    duration_actual: int | None = Field(default=None, ge=0, description="Actual duration in minutes")
+    duration_actual: int | None = Field(
+        default=None, ge=0, description="Actual duration in minutes"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -280,7 +292,9 @@ class TrackHabitRequest(BaseModel):
 
     habit_uid: str = Field(description="UID of the habit to track")
     completion_date: str | None = Field(
-        default=None, validation_alias="date", description="Date of completion (ISO format, default: today)"
+        default=None,
+        validation_alias="date",
+        description="Date of completion (ISO format, default: today)",
     )
     value: int = Field(default=1, ge=1, le=5, description="Quality/value rating (1-5)")
     notes: str | None = Field(default=None, max_length=500, description="Optional completion notes")
@@ -293,7 +307,9 @@ class UntrackHabitRequest(BaseModel):
 
     habit_uid: str = Field(description="UID of the habit")
     completion_date: str | None = Field(
-        default=None, validation_alias="date", description="Date to untrack (ISO format, default: today)"
+        default=None,
+        validation_alias="date",
+        description="Date to untrack (ISO format, default: today)",
     )
 
 
@@ -302,7 +318,9 @@ class PauseHabitRequest(BaseModel):
 
     habit_uid: str = Field(description="UID of the habit to pause")
     reason: str = Field(default="Paused", max_length=500, description="Reason for pausing")
-    until_date: str | None = Field(default=None, description="Optional date to auto-resume (ISO format)")
+    until_date: str | None = Field(
+        default=None, description="Optional date to auto-resume (ISO format)"
+    )
 
 
 class ResumeHabitRequest(BaseModel):

@@ -25,11 +25,15 @@ from core.models.validation_rules import validate_required_string
 class AskesisCreateRequest(BaseModel):
     """Request model for creating Askesis instances."""
 
-    name: str = Field(default="Askesis", min_length=1, max_length=100, description="Askesis instance name")
-    version: str = Field(default="1.0", description="Version identifier")
-    preferred_guidance_mode: GuidanceMode = Field(default=GuidanceMode.DIRECT, description="Preferred guidance mode"
+    name: str = Field(
+        default="Askesis", min_length=1, max_length=100, description="Askesis instance name"
     )
-    preferred_complexity_level: QueryComplexity = Field(default=QueryComplexity.MODERATE, description="Preferred query complexity level"
+    version: str = Field(default="1.0", description="Version identifier")
+    preferred_guidance_mode: GuidanceMode = Field(
+        default=GuidanceMode.DIRECT, description="Preferred guidance mode"
+    )
+    preferred_complexity_level: QueryComplexity = Field(
+        default=QueryComplexity.MODERATE, description="Preferred query complexity level"
     )
 
     model_config = ConfigDict(
@@ -60,9 +64,11 @@ class ConversationSessionCreateRequest(BaseModel):
     primary_intent: str | None = Field(
         default=None, max_length=200, description="Main intent of conversation"
     )
-    expected_complexity: QueryComplexity = Field(default=QueryComplexity.MODERATE, description="Expected complexity level"
+    expected_complexity: QueryComplexity = Field(
+        default=QueryComplexity.MODERATE, description="Expected complexity level"
     )
-    preferred_guidance_mode: GuidanceMode = Field(default=GuidanceMode.DIRECT, description="Preferred guidance mode"
+    preferred_guidance_mode: GuidanceMode = Field(
+        default=GuidanceMode.DIRECT, description="Preferred guidance mode"
     )
     context: dict[str, Any] | None = Field(default=None, description="Additional context")
 
@@ -76,7 +82,9 @@ class ConversationSessionUpdateRequest(BaseModel):
     action: str = Field(..., description="Update action")
 
     # Session outcomes
-    user_satisfaction: int | None = Field(default=None, ge=1, le=5, description="Satisfaction rating")
+    user_satisfaction: int | None = Field(
+        default=None, ge=1, le=5, description="Satisfaction rating"
+    )
     goals_achieved: bool | None = None
     integration_success: IntegrationSuccess | None = None
 
@@ -153,12 +161,18 @@ class GuidanceRecommendationCreateRequest(BaseModel):
         default_factory=dict, description="Context that triggered guidance"
     )
     relevant_domains: list[str] = Field(default_factory=list, description="Relevant domains")
-    confidence_score: float = Field(default=0.5, ge=0.0, le=1.0, description="Confidence in guidance")
+    confidence_score: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Confidence in guidance"
+    )
 
     # Implementation details
     actionable_steps: list[str] = Field(default_factory=list, description="Specific action steps")
-    expected_impact: str = Field(default="", max_length=500, description="Expected impact description")
-    estimated_effort: Priority = Field(default=Priority.MEDIUM, description="Estimated effort level")
+    expected_impact: str = Field(
+        default="", max_length=500, description="Expected impact description"
+    )
+    estimated_effort: Priority = Field(
+        default=Priority.MEDIUM, description="Estimated effort level"
+    )
 
     @field_validator("relevant_domains")
     @classmethod
@@ -192,7 +206,9 @@ class GuidanceRecommendationResponseRequest(BaseModel):
 
     recommendation_uid: str = Field(..., description="Recommendation UID")
     user_response: str = Field(..., description="User response")
-    effectiveness_rating: int | None = Field(default=None, ge=1, le=5, description="Effectiveness rating")
+    effectiveness_rating: int | None = Field(
+        default=None, ge=1, le=5, description="Effectiveness rating"
+    )
     feedback: str | None = Field(default=None, max_length=1000, description="Additional feedback")
 
     @field_validator("user_response")
@@ -210,7 +226,9 @@ class DomainSuggestionRequest(BaseModel):
     query_text: str = Field(..., min_length=1, max_length=500, description="User query")
     current_context: dict[str, Any] | None = Field(default=None, description="Current user context")
     active_domains: list[str] | None = Field(default=None, description="Currently active domains")
-    max_suggestions: int = Field(default=5, ge=1, le=10, description="Maximum number of suggestions")
+    max_suggestions: int = Field(
+        default=5, ge=1, le=10, description="Maximum number of suggestions"
+    )
 
     # Shared validators
     _validate_query_text = validate_required_string("query_text")

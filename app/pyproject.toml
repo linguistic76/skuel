@@ -363,8 +363,11 @@ disable_error_code = ["method-assign", "type-var", "misc"]
 # what actually pays for itself on this codebase.
 #
 # Invoke: `./dev quality` (gating) or `./dev typecheck-strict` (pyright alone).
-# Baseline as of 2026-05-18: 0 errors, ~1039 warnings (mostly MonsterUI /
-# FastHTML missing-py.typed framework noise).
+# Baseline as of 2026-05-19: 0 errors, ~872 warnings — entirely reportArgumentType
+# from MonsterUI / FastHTML missing-py.typed framework noise. All other warning
+# categories (reportCallIssue, reportReturnType, reportAssignmentType, etc.) are
+# at 0; the 78 real-signal warnings present on 2026-05-18 were resolved by
+# fixing the underlying type issues, not by suppression.
 # See: docs/patterns/linter_rules.md § Pyright
 
 [tool.pyright]

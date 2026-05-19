@@ -373,15 +373,15 @@ class ActivityReportService:
         if isinstance(node, dict) and "n" in node:
             inner = node["n"]
             props = (
-                cast(dict[str, Any], inner)
+                cast("dict[str, Any]", inner)
                 if isinstance(inner, dict)
-                else cast(dict[str, Any], dict(cast(Any, inner)))
+                else cast("dict[str, Any]", dict(cast("Any", inner)))
             )
         else:
             props = (
-                cast(dict[str, Any], node)
+                cast("dict[str, Any]", node)
                 if isinstance(node, dict)
-                else cast(dict[str, Any], dict(cast(Any, node)))
+                else cast("dict[str, Any]", dict(cast("Any", node)))
             )
         return Result.ok(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
@@ -416,7 +416,7 @@ class ActivityReportService:
                 if isinstance(node, dict):
                     props = node
                 else:
-                    props = cast(dict[str, Any], dict(cast(Any, node)))
+                    props = cast("dict[str, Any]", dict(cast("Any", node)))
                 feedbacks.append(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
         return Result.ok(feedbacks)

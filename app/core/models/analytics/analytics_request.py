@@ -24,7 +24,9 @@ class TrackQueryRequest(BaseModel):
         default=None, description="Detected query intent (e.g., 'search', 'filter', 'aggregate')"
     )
 
-    cache_hit: bool = Field(default=False, description="Whether the query result was served from cache")
+    cache_hit: bool = Field(
+        default=False, description="Whether the query result was served from cache"
+    )
 
     results_metadata: dict[str, Any] | None = Field(
         default_factory=dict,

@@ -82,9 +82,7 @@ def StatCard(
 
     if change:
         trend_cls = (
-            trend_colors.get(trend, "text-muted-foreground")
-            if trend
-            else "text-muted-foreground"
+            trend_colors.get(trend, "text-muted-foreground") if trend else "text-muted-foreground"
         )
         content.append(Span(change, cls=f"text-sm {trend_cls} mt-1 block"))
 
