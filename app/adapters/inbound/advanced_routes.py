@@ -100,7 +100,7 @@ def create_calendar_optimization_routes(
     async def cognitive_load(
         _user_uid: UserUID = "default_user",  # type: ignore[assignment]
         target_date: str | None = None,
-    ) -> JSONResponse:
+    ) -> Result[dict[str, Any]]:
         """
         Analyze cognitive load for a specific date.
         Returns cognitive load distribution and overload risks.
@@ -108,7 +108,7 @@ def create_calendar_optimization_routes(
         if target_date:
             date_result = parse_date_param_strict(target_date, "target_date")
             if date_result.is_error:
-                return date_result
+                return Result.fail(date_result)
             opt_date = date_result.value
         else:
             opt_date = date.today()
@@ -199,7 +199,7 @@ def create_performance_routes(
 
     @rt("/performance/cache-stats")
     @boundary_handler()
-    async def cache_stats() -> JSONResponse:
+    async def cache_stats() -> Result[Any]:
         """Get cache performance statistics (hit rate, size, evictions, efficiency)."""
         stats = performance_optimization.inference_engine.get_cache_stats()
         return Result.ok(stats)
@@ -212,7 +212,9 @@ def create_performance_routes(
 
     @rt("/performance/scale-test")
     @boundary_handler()
-    async def scale_test(concurrent_users: int = 100, duration_seconds: int = 60) -> JSONResponse:
+    async def scale_test(
+        concurrent_users: int = 100, duration_seconds: int = 60
+    ) -> Result[dict[str, Any]]:
         """
         Run scale testing simulation.
 

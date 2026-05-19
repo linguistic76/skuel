@@ -292,17 +292,17 @@ class PsIntelligenceService(
         if executor_result.is_error:
             return Result.fail(executor_result.error)
 
-        def _process_summary(records: list[dict]) -> dict[str, int]:
+        def _process_summary(records: list[dict]) -> PsPracticeSummaryResult:
             if not records:
-                return {
-                    "habits": 0,
-                    "tasks": 0,
-                    "events": 0,
-                    "goals": 0,
-                    "principles": 0,
-                    "choices": 0,
-                    "total": 0,
-                }
+                return PsPracticeSummaryResult(
+                    habits=0,
+                    tasks=0,
+                    events=0,
+                    goals=0,
+                    principles=0,
+                    choices=0,
+                    total=0,
+                )
 
             habits = records[0].get("habits", 0)
             tasks = records[0].get("tasks", 0)
@@ -312,15 +312,15 @@ class PsIntelligenceService(
             choices = records[0].get("choices", 0)
             total = habits + tasks + events + goals + principles + choices
 
-            return {
-                "habits": habits,
-                "tasks": tasks,
-                "events": events,
-                "goals": goals,
-                "principles": principles,
-                "choices": choices,
-                "total": total,
-            }
+            return PsPracticeSummaryResult(
+                habits=habits,
+                tasks=tasks,
+                events=events,
+                goals=goals,
+                principles=principles,
+                choices=choices,
+                total=total,
+            )
 
         return await executor_result.value.execute(
             query="""
