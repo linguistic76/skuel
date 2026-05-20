@@ -640,6 +640,39 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         """Get all tasks for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
+    async def get_tasks_reinforcing_habit(self, habit_uid: str) -> Result[list[Neo4jProperties]]:
+        """Return node props for tasks linked to a habit via REINFORCES_HABIT.
+
+        Graph-native reverse traversal of ``(Task)-[:REINFORCES_HABIT]->(Habit)``.
+        Replaces the former ``find_by(reinforces_habit_uid=...)`` property query.
+        """
+        query = """
+        MATCH (t:Entity {entity_type: 'task'})-[:REINFORCES_HABIT]->(h:Entity {uid: $habit_uid})
+        RETURN t
+        """
+        result = await self.execute_query(query, {"habit_uid": habit_uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([dict(row["t"]) for row in (result.value or [])])
+
+    async def get_habit_links_for_tasks(self, task_uids: list[str]) -> Result[dict[str, str]]:
+        """Map task_uid → reinforced habit_uid for the given tasks.
+
+        Batch reverse-lookup of the REINFORCES_HABIT edge, used to populate the
+        derived ``Task.reinforces_habit_uid`` field for in-memory scorers.
+        """
+        if not task_uids:
+            return Result.ok({})
+        query = """
+        MATCH (t:Entity {entity_type: 'task'})-[:REINFORCES_HABIT]->(h:Entity)
+        WHERE t.uid IN $task_uids
+        RETURN t.uid AS task_uid, h.uid AS habit_uid
+        """
+        result = await self.execute_query(query, {"task_uids": task_uids})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({row["task_uid"]: row["habit_uid"] for row in (result.value or [])})
+
     # ========================================================================
     # LEARNING LOOP METHODS (ADR-048)
     # ========================================================================
@@ -1092,6 +1125,76 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
             return Result.fail(result)
         row = result.value[0] if result.value else {}
         return Result.ok(row.get("event_count", 0) if isinstance(row, dict) else 0)
+
+    async def get_goal_celebration_stats(
+        self, user_uid: UserUID, start_date: str
+    ) -> Result[dict[str, Any]]:
+        """Aggregate completed events that celebrate goals since ``start_date``.
+
+        Graph-native: counts events with a ``(Event)-[:CELEBRATES_GOAL]->(Goal)``
+        edge rather than reading a property. Returns total completed events, the
+        count celebrating ≥1 goal, and the distinct goal uids celebrated.
+        """
+        query = """
+        MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event', status: 'completed'})
+        WHERE e.event_date >= date($start_date)
+        OPTIONAL MATCH (e)-[:CELEBRATES_GOAL]->(g:Goal)
+        RETURN count(DISTINCT e) AS total_completed,
+               count(DISTINCT CASE WHEN g IS NOT NULL THEN e.uid END) AS milestone_count,
+               collect(DISTINCT g.uid) AS goal_uids_raw
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid, "start_date": start_date})
+        if result.is_error:
+            return Result.fail(result)
+        row = result.value[0] if result.value else {}
+        goal_uids = [uid for uid in (row.get("goal_uids_raw") or []) if uid is not None]
+        return Result.ok(
+            {
+                "total_completed": int(row.get("total_completed", 0) or 0),
+                "milestone_count": int(row.get("milestone_count", 0) or 0),
+                "goal_uids": goal_uids,
+            }
+        )
+
+    async def get_events_reinforcing_habit(
+        self, habit_uid: str, user_uid: UserUID | None = None
+    ) -> Result[list[Neo4jProperties]]:
+        """Return node props for events linked to a habit via REINFORCES_HABIT.
+
+        Graph-native reverse traversal of ``(Event)-[:REINFORCES_HABIT]->(Habit)``.
+        Replaces the former ``find_by(reinforces_habit_uid=...)`` property query.
+        """
+        user_clause = "WHERE e.user_uid = $user_uid" if user_uid else ""
+        query = f"""
+        MATCH (e:Entity {{entity_type: 'event'}})-[:REINFORCES_HABIT]->(h:Entity {{uid: $habit_uid}})
+        {user_clause}
+        RETURN e
+        """
+        params: dict[str, object] = {"habit_uid": habit_uid}
+        if user_uid:
+            params["user_uid"] = user_uid
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([dict(row["e"]) for row in (result.value or [])])
+
+    async def get_habit_links_for_events(self, event_uids: list[str]) -> Result[dict[str, str]]:
+        """Map event_uid → reinforced habit_uid for the given events (batch).
+
+        Reverse-lookup of the REINFORCES_HABIT edge, used to enrich events with
+        their derived ``reinforces_habit_uid`` field on fallback (non-rich) paths.
+        """
+        if not event_uids:
+            return Result.ok({})
+        query = """
+        MATCH (e:Entity {entity_type: 'event'})-[:REINFORCES_HABIT]->(h:Entity)
+        WHERE e.uid IN $event_uids
+        RETURN e.uid AS event_uid, h.uid AS habit_uid
+        """
+        result = await self.execute_query(query, {"event_uids": event_uids})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({row["event_uid"]: row["habit_uid"] for row in (result.value or [])})
 
 
 class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):

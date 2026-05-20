@@ -1138,10 +1138,10 @@ def build_event_with_context(
     if include_celebrated_goals:
         relationships.append(
             {
-                "rel_types": "CELEBRATED_BY_EVENT",
+                "rel_types": "CELEBRATES_GOAL",
                 "target_label": "Goal",
                 "alias": "celebrated_goals",
-                "direction": "incoming",
+                "direction": "outgoing",
                 "fields": ["uid", "title"],
             }
         )

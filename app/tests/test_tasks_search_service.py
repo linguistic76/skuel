@@ -14,6 +14,7 @@ This service handles:
 - Curriculum task filtering
 """
 
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 from unittest.mock import AsyncMock, Mock
@@ -46,6 +47,9 @@ def mock_backend() -> Any:
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     backend.create_relationship = AsyncMock(return_value=Result.ok(True))
+    # Graph-native habit linkage (REINFORCES_HABIT edge)
+    backend.get_tasks_reinforcing_habit = AsyncMock(return_value=Result.ok([]))
+    backend.get_habit_links_for_tasks = AsyncMock(return_value=Result.ok({}))
     # count_related returns Result[int] for relationship counting
     backend.count_related = AsyncMock(return_value=Result.ok(0))
     # Temporal raw helpers used by TimeQueryMixin (get_upcoming/get_overdue/get_active)
@@ -82,22 +86,24 @@ def sample_tasks() -> list[Any]:
                 priority=Priority.HIGH.value,
                 status=EntityStatus.ACTIVE.value,
                 fulfills_goal_uid="goal:learn_python",
-                reinforces_habit_uid=None,
                 goal_progress_contribution=0.2,
                 created_at=now,
             )
         ),
-        Task.from_dto(
-            TaskDTO(
-                uid="task:2",
-                user_uid="user:demo",
-                title="Daily coding practice",
-                priority=Priority.MEDIUM.value,
-                status=EntityStatus.SCHEDULED.value,
-                fulfills_goal_uid=None,
-                reinforces_habit_uid="habit:daily_code",
-                created_at=now,
-            )
+        # reinforces_habit_uid is a DERIVED field (graph edge), set after from_dto.
+        replace(
+            Task.from_dto(
+                TaskDTO(
+                    uid="task:2",
+                    user_uid="user:demo",
+                    title="Daily coding practice",
+                    priority=Priority.MEDIUM.value,
+                    status=EntityStatus.SCHEDULED.value,
+                    fulfills_goal_uid=None,
+                    created_at=now,
+                )
+            ),
+            reinforces_habit_uid="habit:daily_code",
         ),
         Task.from_dto(
             TaskDTO(
@@ -201,11 +207,12 @@ async def test_get_tasks_for_goal_empty(search_service, mock_backend):
 
 @pytest.mark.asyncio
 async def test_get_tasks_for_habit_success(search_service, mock_backend, sample_tasks):
-    """Test successful retrieval of tasks for a specific habit."""
-    # Setup
-    habit_tasks = [t for t in sample_tasks if t.reinforces_habit_uid == "habit:daily_code"]
-    # Service now uses find_by() instead of list_tasks()
-    mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in habit_tasks])
+    """Test successful retrieval of tasks for a specific habit (graph traversal)."""
+    # Setup — service traverses (Task)-[:REINFORCES_HABIT]->(Habit) via the backend.
+    habit_tasks = [t for t in sample_tasks if t.uid == "task:2"]
+    mock_backend.get_tasks_reinforcing_habit.return_value = Result.ok(
+        [t.to_dto().to_dict() for t in habit_tasks]
+    )
 
     # Execute
     result = await search_service.get_tasks_for_habit("habit:daily_code")
@@ -214,7 +221,8 @@ async def test_get_tasks_for_habit_success(search_service, mock_backend, sample_
     assert result.is_ok
     tasks = result.value
     assert len(tasks) == 1
-    assert tasks[0].reinforces_habit_uid == "habit:daily_code"
+    assert tasks[0].uid == "task:2"
+    mock_backend.get_tasks_reinforcing_habit.assert_awaited_once_with("habit:daily_code")
 
 
 # ============================================================================

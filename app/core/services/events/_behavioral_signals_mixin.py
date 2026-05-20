@@ -15,6 +15,7 @@ from typing import Any
 from core.models.enums.activity_enums import EngagementLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
+from core.services.events._habit_links import enrich_events_with_habit_links
 from core.utils.result_simplified import Result
 
 
@@ -110,6 +111,8 @@ class _BehavioralSignalsMixin:
 
         all_events = events_result.value
         period_events = [e for e in all_events if e.event_date and e.event_date >= start_date]
+        # Populate the derived reinforces_habit_uid from the REINFORCES_HABIT edge.
+        period_events = await enrich_events_with_habit_links(self.backend, period_events)
 
         if not period_events:
             evidence.append(f"No events scheduled in last {period_days} days")

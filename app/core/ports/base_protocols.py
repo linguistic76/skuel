@@ -443,6 +443,26 @@ class GraphRelationshipOperations(Protocol):
         """
         ...
 
+    async def create_relationship(
+        self,
+        from_uid: str,
+        to_uid: str,
+        relationship_type: str,
+        properties: Neo4jProperties | None = None,
+    ) -> ResultType[bool]:
+        """Create (MERGE) a validated graph edge between two entities.
+
+        Args:
+            from_uid: Source entity UID
+            to_uid: Target entity UID
+            relationship_type: Neo4j relationship type (validated against the registry)
+            properties: Optional edge properties
+
+        Returns:
+            Result[bool] - True if created/updated
+        """
+        ...
+
 
 # ============================================================================
 # Composable Backend Protocols (ISP-compliant decomposition)

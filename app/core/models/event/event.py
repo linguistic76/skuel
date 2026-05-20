@@ -10,9 +10,9 @@ Inherits common fields from UserOwnedEntity. Adds 26 event-specific fields:
 - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
 - Reminders (2): reminder_minutes, reminder_sent
 - Attendees (2): attendee_emails, max_attendees
-- Cross-domain links (2): reinforces_habit_uid, source_path_step_uid
-- Curriculum/milestone integration (4): milestone_celebration_for_goal,
-  is_milestone_event, milestone_type, curriculum_week
+- Cross-domain links (1): source_path_step_uid (Habit link is the REINFORCES_HABIT edge)
+- Curriculum/milestone integration (3): is_milestone_event, milestone_type,
+  curriculum_week (goal-celebration linkage is the CELEBRATES_GOAL graph edge)
 - Quality tracking (4): habit_completion_quality, knowledge_retention_check,
   recurrence_maintains_habit, skip_breaks_habit_streak
 
@@ -92,13 +92,19 @@ class Event(UserOwnedEntity):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
-    reinforces_habit_uid: str | None = None  # EVENT -> HABIT
     source_path_step_uid: str | None = None  # EVENT -> PS
+    # DERIVED FROM EDGE — never persisted. The Event↔Habit link is the graph edge
+    # (Event)-[:REINFORCES_HABIT]->(Habit); this field is absent from EventDTO so
+    # it is never written to Neo4j. It is populated at fetch time (scoring,
+    # analytics, grouping) from the edge via enrich_events_with_habit_links so
+    # pure readers can use it. The edge is the single source of truth.
+    reinforces_habit_uid: str | None = None  # DERIVED — see note above
 
     # =========================================================================
     # CURRICULUM / MILESTONE INTEGRATION
     # =========================================================================
-    milestone_celebration_for_goal: str | None = None  # EVENT -> GOAL milestone
+    # Event -> Goal milestone linkage lives in the graph as
+    # (Event)-[:CELEBRATES_GOAL]->(Goal). Use EventsService.get_celebrated_goal().
     is_milestone_event: bool = False
     milestone_type: str | None = None
     curriculum_week: int | None = None
@@ -114,7 +120,7 @@ class Event(UserOwnedEntity):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None  # Back-pointer to EventTemplate that spawned this instance
+    # Back-reference is (Event)-[:SPAWNED_FROM]->(EventTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================

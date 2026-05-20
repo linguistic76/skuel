@@ -37,6 +37,7 @@ from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.search.scoring import score_event
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
@@ -147,6 +148,10 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
                 EntityStatus.CANCELLED.value,
             }
         ]
+
+        # Populate the derived reinforces_habit_uid from the REINFORCES_HABIT edge
+        # so the streak-protection scorer can read it (graph is source of truth).
+        active_events = await enrich_events_with_habit_links(self.backend, active_events)
 
         scored_events = [(event, score_event(event, user_context).total) for event in active_events]
         scored_events.sort(key=get_result_score, reverse=True)

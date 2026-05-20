@@ -181,6 +181,12 @@ class HabitEventScheduler:
                 if create_result.is_ok:
                     created_event = to_domain_model(create_result.value, EventDTO, Event)
                     created_events.append(created_event.to_dto())
+                    # Habit reinforcement is a graph edge, not a property — all
+                    # events here reinforce this habit.
+                    if self.relationships:
+                        await self.relationships.create_relationship(
+                            "habits", created_event.uid, habit_uid
+                        )
                 else:
                     self.logger.warning(f"Failed to create event: {create_result.error}")
 
@@ -257,6 +263,7 @@ class HabitEventScheduler:
         3. Habits supporting critical goals
         """
         maintenance_events = []
+        maintenance_habit_links: dict[str, str] = {}  # event_uid → habit_uid (for edges)
 
         # at_risk_habits is rich-context only; no maintenance to schedule at standard depth
         at_risk = user_context.at_risk_habits_or_empty()
@@ -286,14 +293,15 @@ class HabitEventScheduler:
                 end_time=end_time,
             )
 
-            # Add habit integration
-            event.reinforces_habit_uid = habit_uid
+            # Add habit integration. Habit reinforcement is a graph edge — track
+            # event_uid → habit_uid and write the edge after persistence.
             event.recurrence_maintains_habit = True
             event.skip_breaks_habit_streak = True
             event.metadata["is_urgent"] = True
             event.priority = Priority.CRITICAL if habit.is_keystone else Priority.HIGH
 
             maintenance_events.append(event)
+            maintenance_habit_links[event.uid] = habit_uid
 
         # Create events if requested
         if auto_create and maintenance_events:
@@ -301,7 +309,13 @@ class HabitEventScheduler:
             for event in maintenance_events:
                 create_result = await self.events_backend.create_event(event.to_dict())
                 if create_result.is_ok:
-                    created.append(to_domain_model(create_result.value, EventDTO, Event).to_dto())
+                    created_event = to_domain_model(create_result.value, EventDTO, Event)
+                    created.append(created_event.to_dto())
+                    linked_habit = maintenance_habit_links.get(created_event.uid)
+                    if linked_habit and self.relationships:
+                        await self.relationships.create_relationship(
+                            "habits", created_event.uid, linked_habit
+                        )
 
             # Context invalidation happens via domain events (event-driven architecture)
 
@@ -368,7 +382,10 @@ class HabitEventScheduler:
                 end_time=end_time,
             )
 
-            event.reinforces_habit_uid = habit_uid
+            # NOTE: create_habit_routine returns un-persisted templates; the
+            # habit-reinforcement edge ((Event)-[:REINFORCES_HABIT]->(Habit)) is
+            # written when these events are actually persisted by the caller via
+            # schedule_events_for_habit. Templates carry no graph edge.
             event.metadata["part_of_routine"] = routine_type
             event.metadata["routine_order"] = len(routine_events) + 1
 
@@ -436,8 +453,9 @@ class HabitEventScheduler:
                     end_time=end_time,
                 )
 
-                # Add habit integration
-                event.reinforces_habit_uid = habit.uid
+                # Add habit integration. Habit reinforcement is a graph edge
+                # written by schedule_events_for_habit after persistence (all events
+                # here reinforce `habit`), not a DTO property.
                 event.recurrence_maintains_habit = True
                 event.skip_breaks_habit_streak = True
 

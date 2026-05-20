@@ -42,7 +42,7 @@ class GoalDTO(UserOwnedDTO):
     - Timeline (3): start_date, target_date, achieved_date
     - Progress (4): milestones, progress_percentage, last_progress_update, progress_history
     - Motivation (5): vision_statement, why_important, success_criteria, potential_obstacles, strategies
-    - Cross-domain links (4): fulfills_goal_uid, source_path_step_uid, inspired_by_choice_uid, selected_choice_option_uid
+    - Cross-domain links (3): fulfills_goal_uid, source_path_step_uid, selected_choice_option_uid (Choice inspiration is a graph edge — see Goal model)
     - Identity (2): target_identity, identity_evidence_required
     """
 
@@ -89,7 +89,7 @@ class GoalDTO(UserOwnedDTO):
     # =========================================================================
     fulfills_goal_uid: str | None = None
     source_path_step_uid: str | None = None
-    inspired_by_choice_uid: str | None = None
+    # Choice inspiration lives in the graph as (Goal)-[:INSPIRED_BY_CHOICE]->(Choice).
     selected_choice_option_uid: str | None = None
 
     # =========================================================================
@@ -101,7 +101,7 @@ class GoalDTO(UserOwnedDTO):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None
+    # Back-reference is (Goal)-[:SPAWNED_FROM]->(GoalTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
@@ -229,11 +229,9 @@ class GoalDTO(UserOwnedDTO):
                 "strategies",
                 "fulfills_goal_uid",
                 "source_path_step_uid",
-                "inspired_by_choice_uid",
                 "selected_choice_option_uid",
                 "target_identity",
                 "identity_evidence_required",
-                "template_uid",
                 "engagement_state",
             },
             enum_mappings={

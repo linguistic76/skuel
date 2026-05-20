@@ -232,7 +232,8 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             ),
             actual_minutes=task_dict.get("actual_minutes"),
             fulfills_goal_uid=task_dict.get("fulfills_goal_uid"),
-            reinforces_habit_uid=task_dict.get("reinforces_habit_uid"),
+            # reinforces_habit_uid is a derived field (graph edge) — populated by
+            # explicit enrichment, not read from the persisted node dict.
             completion_updates_goal=task_dict.get("completion_updates_goal", False),
             goal_progress_contribution=task_dict.get("goal_progress_contribution", 0.0),
             knowledge_mastery_check=task_dict.get("knowledge_mastery_check", False),
@@ -406,9 +407,13 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
                 task.fulfills_goal_uid, task.goal_progress_contribution, user_context
             )
 
-        # 2. Reinforce habit if linked
-        if task.reinforces_habit_uid:
-            await self._reinforce_habit(task.reinforces_habit_uid, quality_score or 4)
+        # 2. Reinforce habit if linked (graph-native: query the REINFORCES_HABIT edge)
+        habit_result = await self.backend.get_related_uids(
+            task_uid, RelationshipName.REINFORCES_HABIT, direction="outgoing"
+        )
+        reinforced_habit_uids = habit_result.value if habit_result.is_ok else []
+        for habit_uid in reinforced_habit_uids:
+            await self._reinforce_habit(habit_uid, quality_score or 4)
 
         # 3. Update knowledge mastery if checking
         if task.knowledge_mastery_check and applies_knowledge_uids:
@@ -432,10 +437,10 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         completed_task = self._to_domain_model(update_result.value, TaskDTO, Task)
 
         self.logger.info(
-            "Completed task %s with cascading effects: goal=%s, habit=%s, knowledge=%d",
+            "Completed task %s with cascading effects: goal=%s, habits=%d, knowledge=%d",
             task_uid,
             task.fulfills_goal_uid,
-            task.reinforces_habit_uid,
+            len(reinforced_habit_uids),
             len(applies_knowledge_uids),
         )
 

@@ -236,7 +236,6 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             recurrence_pattern=task_request.recurrence_pattern,
             recurrence_end_date=task_request.recurrence_end_date,
             fulfills_goal_uid=task_request.fulfills_goal_uid,
-            reinforces_habit_uid=task_request.reinforces_habit_uid,
             goal_progress_contribution=getattr(task_request, "goal_progress_contribution", 0.0),
             knowledge_mastery_check=getattr(task_request, "knowledge_mastery_check", False),
             habit_streak_maintainer=getattr(task_request, "habit_streak_maintainer", False),
@@ -263,6 +262,17 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             relationships.extend(
                 (task.uid, knowledge_uid, RelationshipName.APPLIES_KNOWLEDGE.value, None)
                 for knowledge_uid in task_request.applies_knowledge_uids
+            )
+
+        # Habit reinforcement: graph edge, not a property (Task)-[:REINFORCES_HABIT]->(Habit)
+        if task_request.reinforces_habit_uid:
+            relationships.append(
+                (
+                    task.uid,
+                    task_request.reinforces_habit_uid,
+                    RelationshipName.REINFORCES_HABIT.value,
+                    None,
+                )
             )
 
         if task_request.prerequisite_knowledge_uids:

@@ -21,7 +21,11 @@ Within each layer the orchestrator:
      ``engagement_anchor`` (the engagement edge's ``since`` timestamp)
    - All other authoring fields (title, description, scoring weights, etc.)
      copied through unchanged.
-3. Persists via the activity backend's ``create()``.
+3. Persists via the activity backend's ``create_with_spawned_from()`` — an
+   atomic Cypher write that creates the instance node AND the
+   ``(instance)-[:SPAWNED_FROM {spawned_at}]->(template)`` edge in one
+   transaction. The edge is the only back-reference; there is no parallel
+   ``template_uid`` property.
 
 Transactional semantics for V1: best-effort. If a layer-N create fails, the
 orchestrator returns a failure Result and the facade rolls back by deleting
@@ -72,20 +76,46 @@ logger = get_logger(__name__)
 
 TASK_FIELD_REWRITES: dict[str, str] = {
     "fulfills_goal_template_uid": "fulfills_goal_uid",
-    "reinforces_habit_template_uid": "reinforces_habit_uid",
+    # reinforces_habit_template_uid is NOT rewritten to a property — instead
+    # written as a (Task)-[:REINFORCES_HABIT]->(Habit) edge. See TASK_CROSS_EDGES.
     "scheduled_event_template_uid": "scheduled_event_uid",
     # parent_template_uid → parent_uid (intra-domain; resolved within Task layer)
     "parent_template_uid": "parent_uid",
 }
 GOAL_FIELD_REWRITES: dict[str, str] = {
     "fulfills_goal_template_uid": "fulfills_goal_uid",
-    "inspired_by_choice_template_uid": "inspired_by_choice_uid",
+    # inspired_by_choice_template_uid is NOT rewritten to a property — instead
+    # written as a (Goal)-[:INSPIRED_BY_CHOICE]->(Choice) edge by the spawn
+    # orchestrator. See _build_goal cross_edges return.
     "selected_choice_option_template_uid": "selected_choice_option_uid",
 }
+
+# ============================================================================
+# Cross-template edge writes — relationships written as graph edges, not properties
+# ============================================================================
+#
+# Some template-to-template references are realized at spawn time as graph
+# edges between the spawned instances, NOT as `*_uid` properties on the
+# instance node. The orchestrator's `_build_*` functions return cross-edge
+# specs alongside the instance dataclass; `_persist` writes them after the
+# node + SPAWNED_FROM edge.
+#
+# Format: (template_field_name, instance_edge_type)
+GOAL_CROSS_EDGES: list[tuple[str, str]] = [
+    ("inspired_by_choice_template_uid", "INSPIRED_BY_CHOICE"),
+]
+EVENT_CROSS_EDGES: list[tuple[str, str]] = [
+    ("milestone_celebration_for_goal_template_uid", "CELEBRATES_GOAL"),
+    ("reinforces_habit_template_uid", "REINFORCES_HABIT"),
+]
+TASK_CROSS_EDGES: list[tuple[str, str]] = [
+    ("reinforces_habit_template_uid", "REINFORCES_HABIT"),
+]
 EVENT_FIELD_REWRITES: dict[str, str] = {
-    "reinforces_habit_template_uid": "reinforces_habit_uid",
-    # NOTE asymmetry: instance side drops `_uid` suffix.
-    "milestone_celebration_for_goal_template_uid": "milestone_celebration_for_goal",
+    # Neither reinforces_habit_template_uid nor milestone_celebration_for_goal_template_uid
+    # is rewritten to a property — both are written as graph edges
+    # ((Event)-[:REINFORCES_HABIT]->(Habit), (Event)-[:CELEBRATES_GOAL]->(Goal)).
+    # See EVENT_CROSS_EDGES.
 }
 
 # ============================================================================
@@ -186,19 +216,23 @@ class _SpawnOrchestrator:
             choice_inst = _build_choice(
                 ct, student_uid, ps_uid, engagement_anchor, template_to_instance
             )
-            res = await self._persist(self._backends.choices, choice_inst, created_uids)
+            res = await self._persist(
+                self._backends.choices, choice_inst, str(ct.uid), created_uids
+            )
             if res.is_error:
                 await self._rollback(created_uids)
                 return Result.fail(res)
         for ht in bundle.habits:
             habit_inst = _build_habit(ht, student_uid, engagement_anchor, template_to_instance)
-            res = await self._persist(self._backends.habits, habit_inst, created_uids)
+            res = await self._persist(self._backends.habits, habit_inst, str(ht.uid), created_uids)
             if res.is_error:
                 await self._rollback(created_uids)
                 return Result.fail(res)
         for pt in bundle.principles:
             principle_inst = _build_principle(pt, student_uid, ps_uid, template_to_instance)
-            res = await self._persist(self._backends.principles, principle_inst, created_uids)
+            res = await self._persist(
+                self._backends.principles, principle_inst, str(pt.uid), created_uids
+            )
             if res.is_error:
                 await self._rollback(created_uids)
                 return Result.fail(res)
@@ -208,7 +242,14 @@ class _SpawnOrchestrator:
             goal_inst = _build_goal(
                 gt, student_uid, ps_uid, engagement_anchor, template_to_instance
             )
-            res = await self._persist(self._backends.goals, goal_inst, created_uids)
+            goal_edges = _compute_cross_edges(gt, GOAL_CROSS_EDGES, template_to_instance)
+            res = await self._persist(
+                self._backends.goals,
+                goal_inst,
+                str(gt.uid),
+                created_uids,
+                cross_edges=goal_edges,
+            )
             if res.is_error:
                 await self._rollback(created_uids)
                 return Result.fail(res)
@@ -216,7 +257,14 @@ class _SpawnOrchestrator:
         # ----- Layer 3: Event -----
         for et in bundle.events:
             event_inst = _build_event(et, student_uid, engagement_anchor, template_to_instance)
-            res = await self._persist(self._backends.events, event_inst, created_uids)
+            event_edges = _compute_cross_edges(et, EVENT_CROSS_EDGES, template_to_instance)
+            res = await self._persist(
+                self._backends.events,
+                event_inst,
+                str(et.uid),
+                created_uids,
+                cross_edges=event_edges,
+            )
             if res.is_error:
                 await self._rollback(created_uids)
                 return Result.fail(res)
@@ -224,7 +272,14 @@ class _SpawnOrchestrator:
         # ----- Layer 4: Task -----
         for tt in bundle.tasks:
             task_inst = _build_task(tt, student_uid, engagement_anchor, template_to_instance)
-            res = await self._persist(self._backends.tasks, task_inst, created_uids)
+            task_edges = _compute_cross_edges(tt, TASK_CROSS_EDGES, template_to_instance)
+            res = await self._persist(
+                self._backends.tasks,
+                task_inst,
+                str(tt.uid),
+                created_uids,
+                cross_edges=task_edges,
+            )
             if res.is_error:
                 await self._rollback(created_uids)
                 return Result.fail(res)
@@ -238,13 +293,36 @@ class _SpawnOrchestrator:
 
     async def _persist(
         self,
-        backend: CrudOperations[Any],
+        backend: Any,  # boundary: backends.create_with_spawned_from is on UniversalNeo4jBackend
         instance: Any,
+        template_uid: str,
         created_uids: list[tuple[CrudOperations[Any], str]],
+        cross_edges: list[tuple[str, str]] | None = None,
     ) -> Result[Any]:
-        result: Result[Any] = await backend.create(instance)
-        if result.is_ok:
-            created_uids.append((backend, str(instance.uid)))
+        """Atomic node + SPAWNED_FROM edge create, then any cross-edges.
+
+        ``cross_edges`` is a list of ``(edge_type, target_uid)`` tuples — used
+        when a spawned instance also needs outbound edges to other already-
+        spawned instances (e.g. ``(Goal)-[:INSPIRED_BY_CHOICE]->(Choice)``).
+        Each cross-edge is written via ``backend.create_relationship``, which
+        validates against the relationship registry. If any cross-edge fails,
+        the node + SPAWNED_FROM are still committed; the rollback layer above
+        deletes the node and its edges via ``DETACH DELETE`` on next failure.
+        """
+        result: Result[Any] = await backend.create_with_spawned_from(instance, template_uid)
+        if result.is_error:
+            return result
+        # Track for rollback BEFORE writing cross-edges so a cross-edge failure
+        # still leaves the node deletable.
+        created_uids.append((backend, str(instance.uid)))
+        for edge_type, target_uid in cross_edges or ():
+            edge_result: Result[bool] = await backend.create_relationship(
+                from_uid=instance.uid,
+                to_uid=target_uid,
+                relationship_type=edge_type,
+            )
+            if edge_result.is_error:
+                return edge_result
         return result
 
     async def _rollback(self, created_uids: list[tuple[CrudOperations[Any], str]]) -> None:
@@ -299,6 +377,31 @@ def _resolve_refs(
     return out
 
 
+def _compute_cross_edges(
+    template: Any,
+    cross_edge_specs: list[tuple[str, str]],
+    template_to_instance: dict[str, str],
+) -> list[tuple[str, str]]:
+    """Resolve cross-template refs into (edge_type, target_instance_uid) tuples.
+
+    Used for relationships that are written as graph edges between spawned
+    instances rather than as ``*_uid`` properties — e.g.
+    ``(Goal)-[:INSPIRED_BY_CHOICE]->(Choice)``. The ``cross_edge_specs`` are
+    ``(template_field_name, edge_type)`` pairs; the helper reads the field on
+    the template, maps it through ``template_to_instance``, and returns the
+    edges the orchestrator should write via ``_persist``.
+    """
+    edges: list[tuple[str, str]] = []
+    for template_field, edge_type in cross_edge_specs:
+        ref = getattr(template, template_field, None)
+        if not ref:
+            continue
+        target_uid = template_to_instance.get(ref)
+        if target_uid:
+            edges.append((edge_type, target_uid))
+    return edges
+
+
 def _copy_through(template: Any, allowed_fields: set[str]) -> dict[str, Any]:
     """Copy authoring-side fields verbatim from template → instance kwargs.
 
@@ -333,7 +436,6 @@ def _build_task(
         - {
             "uid",
             "user_uid",
-            "template_uid",
             "engagement_state",
             "entity_type",
             # date fields and *_uid refs are filled by the rewrites below
@@ -345,7 +447,6 @@ def _build_task(
     return Task(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
-        template_uid=template.uid,
         engagement_state="engaged",
         **shared,
         **_resolve_offsets(template, TASK_OFFSET_REWRITES, anchor),
@@ -367,7 +468,6 @@ def _build_goal(
         - {
             "uid",
             "user_uid",
-            "template_uid",
             "engagement_state",
             "entity_type",
             "source_path_step_uid",
@@ -378,7 +478,6 @@ def _build_goal(
     return Goal(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
-        template_uid=template.uid,
         engagement_state="engaged",
         source_path_step_uid=ps_uid,
         **shared,
@@ -400,7 +499,6 @@ def _build_habit(
         - {
             "uid",
             "user_uid",
-            "template_uid",
             "engagement_state",
             "entity_type",
             *(r[1] for r in HABIT_OFFSET_REWRITES),
@@ -409,7 +507,6 @@ def _build_habit(
     return Habit(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
-        template_uid=template.uid,
         engagement_state="engaged",
         **shared,
         **_resolve_offsets(template, HABIT_OFFSET_REWRITES, anchor),
@@ -429,7 +526,6 @@ def _build_event(
         - {
             "uid",
             "user_uid",
-            "template_uid",
             "engagement_state",
             "entity_type",
             *(r[1] for r in EVENT_OFFSET_REWRITES),
@@ -439,7 +535,6 @@ def _build_event(
     return Event(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
-        template_uid=template.uid,
         engagement_state="engaged",
         **shared,
         **_resolve_offsets(template, EVENT_OFFSET_REWRITES, anchor),
@@ -461,7 +556,6 @@ def _build_choice(
         - {
             "uid",
             "user_uid",
-            "template_uid",
             "engagement_state",
             "entity_type",
             "source_path_step_uid",
@@ -471,7 +565,6 @@ def _build_choice(
     return Choice(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
-        template_uid=template.uid,
         engagement_state="engaged",
         source_path_step_uid=ps_uid,
         **shared,
@@ -492,7 +585,6 @@ def _build_principle(
         - {
             "uid",
             "user_uid",
-            "template_uid",
             "engagement_state",
             "entity_type",
             "source_path_step_uid",
@@ -501,7 +593,6 @@ def _build_principle(
     return Principle(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
-        template_uid=template.uid,
         engagement_state="engaged",
         source_path_step_uid=ps_uid,
         **shared,

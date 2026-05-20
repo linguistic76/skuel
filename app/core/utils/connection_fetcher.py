@@ -78,7 +78,7 @@ EVENT_CONNECTION_CONFIG = ConnectionConfig(
     config_lookup_label="Event",
     relationship_types=(
         "REINFORCES_HABIT",
-        "MILESTONE_CELEBRATION_FOR_GOAL",
+        "CELEBRATES_GOAL",
         "PART_OF_PATH_STEP",
         "PART_OF_LEARNING_PATH",
         "DEMONSTRATES_PRINCIPLE",

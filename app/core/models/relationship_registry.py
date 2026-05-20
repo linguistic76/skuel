@@ -514,13 +514,16 @@ TASKS_CONFIG = DomainRelationshipConfig(
             single=True,  # Context: expect single goal
             yaml_field_path="connections.fulfills_goal",
         ),
-        # Task → Habit: single result for context
+        # Task → Habit: (Task)-[:REINFORCES_HABIT]->(Habit), single result for context.
+        # Consolidated from the former SUPPORTS_HABIT (which was never written and
+        # disagreed with the field name, connection config, and context query — all
+        # of which use REINFORCES_HABIT, matching Event's identical concept).
         UnifiedRelationshipDefinition(
-            RelationshipName.SUPPORTS_HABIT,
+            RelationshipName.REINFORCES_HABIT,
             "Entity",
             "outgoing",
             "habit_context",  # Renamed for context view
-            "supports_habit",
+            "habits",
             fields=("uid", "title", "current_streak"),  # Context: include streak
             single=True,  # Context: expect single habit
             yaml_field_path="connections.reinforces_habit",
@@ -1033,6 +1036,14 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "habits",
             yaml_field_path="connections.reinforces_habit",
         ),
+        # Outgoing: Event → Goal (milestone celebration)
+        UnifiedRelationshipDefinition(
+            RelationshipName.CELEBRATES_GOAL,
+            "Goal",
+            "outgoing",
+            "celebrated_goals",
+            "celebrated_goals",
+        ),
         # Outgoing: Event → Task (tasks executed in this event)
         UnifiedRelationshipDefinition(
             RelationshipName.EXECUTES_TASK,
@@ -1050,13 +1061,6 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "incoming",
             "practiced_habits",
             "practiced_habits",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.CELEBRATED_BY_EVENT,
-            "Goal",
-            "incoming",
-            "celebrated_goals",
-            "celebrated_goals",
         ),
         # Bidirectional
         UnifiedRelationshipDefinition(

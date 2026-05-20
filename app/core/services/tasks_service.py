@@ -410,7 +410,37 @@ class TasksService(
         )
 
     async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
-        return await self.core.update_task(task_uid, updates)
+        # Habit reinforcement is a graph edge ((Task)-[:REINFORCES_HABIT]->(Habit)),
+        # not a property — route it out of the property updates into edge mutation
+        # (replace any existing reinforced habit with the new one).
+        habit_uid = updates.pop("reinforces_habit_uid", None)
+
+        result = await self.core.update_task(task_uid, updates)
+        if result.is_error:
+            return result
+
+        if habit_uid is not None:
+            existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
+            if existing.is_ok:
+                for old_habit in existing.value or []:
+                    await self.relationships.delete_relationship("habits", task_uid, old_habit)
+            if habit_uid:  # non-empty → create the new edge (empty string = cleared)
+                edge = await self.relationships.create_relationship("habits", task_uid, habit_uid)
+                if edge.is_error:
+                    return Result.fail(edge)
+        return result
+
+    async def get_reinforced_habit(self, task_uid: str) -> Result[str | None]:
+        """Return the habit uid this task reinforces via (Task)-[:REINFORCES_HABIT]->(Habit).
+
+        A task reinforces at most one habit, so this returns the first linked habit
+        uid or ``None``. Graph-native — the linkage is the edge, not a property.
+        """
+        related = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
+        if related.is_error:
+            return Result.fail(related)
+        uids = related.value or []
+        return Result.ok(uids[0] if uids else None)
 
     async def delete_task(self, task_uid: str) -> Result[bool]:
         return await self.core.delete_task(task_uid)

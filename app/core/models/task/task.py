@@ -91,8 +91,13 @@ class Task(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     fulfills_goal_uid: str | None = None  # TASK -> GOAL
-    reinforces_habit_uid: str | None = None  # TASK -> HABIT
     source_path_step_uid: str | None = None  # TASK -> PS
+    # DERIVED FROM EDGE — never persisted. The Task↔Habit link is the graph edge
+    # (Task)-[:REINFORCES_HABIT]->(Habit); this field is absent from TaskDTO so it
+    # is never written to Neo4j. It is populated at fetch time (e.g. by the
+    # prioritization path) from the edge so pure scorers can read it. Writing it
+    # has no persistent effect — the edge is the single source of truth.
+    reinforces_habit_uid: str | None = None  # DERIVED — see note above
 
     # =========================================================================
     # PROGRESS IMPACT
@@ -113,7 +118,8 @@ class Task(UserOwnedEntity):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None  # Back-pointer to TaskTemplate that spawned this instance
+    # Back-reference to the spawning template lives in the graph as
+    # (Task)-[:SPAWNED_FROM]->(TaskTemplate); no property on this node.
     engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
@@ -219,7 +225,7 @@ class Task(UserOwnedEntity):
             score += 0.40
         if self.knowledge_mastery_check:
             score += 0.20
-        if self.template_uid:
+        if self.engagement_state is not None:
             score += 0.20
         if self.knowledge_confidence_scores:
             score += min(0.20, len(self.knowledge_confidence_scores) * 0.04)

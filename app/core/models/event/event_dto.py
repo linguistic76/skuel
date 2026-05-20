@@ -42,8 +42,8 @@ class EventDTO(UserOwnedDTO):
     - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
     - Reminders (2): reminder_minutes, reminder_sent
     - Attendees (2): attendee_emails, max_attendees
-    - Cross-domain links (2): reinforces_habit_uid, source_path_step_uid
-    - Milestones (4): milestone_celebration_for_goal, is_milestone_event, milestone_type, curriculum_week
+    - Cross-domain links (1): source_path_step_uid (Habit link is the REINFORCES_HABIT edge)
+    - Milestones (3): is_milestone_event, milestone_type, curriculum_week (goal-celebration is the CELEBRATES_GOAL edge)
     - Quality (4): habit_completion_quality, knowledge_retention_check, recurrence_maintains_habit, skip_breaks_habit_streak
     """
 
@@ -85,13 +85,14 @@ class EventDTO(UserOwnedDTO):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
-    reinforces_habit_uid: str | None = None
+    # Event↔Habit linkage is the (Event)-[:REINFORCES_HABIT]->(Habit) graph edge,
+    # not a persisted property — intentionally absent from this DTO.
     source_path_step_uid: str | None = None
 
     # =========================================================================
     # MILESTONE INTEGRATION
     # =========================================================================
-    milestone_celebration_for_goal: str | None = None
+    # Goal-celebration linkage is the (Event)-[:CELEBRATES_GOAL]->(Goal) edge.
     is_milestone_event: bool = False
     milestone_type: str | None = None
     curriculum_week: int | None = None
@@ -107,7 +108,7 @@ class EventDTO(UserOwnedDTO):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None
+    # Back-reference is (Event)-[:SPAWNED_FROM]->(EventTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
@@ -222,9 +223,7 @@ class EventDTO(UserOwnedDTO):
                 "reminder_sent",
                 "attendee_emails",
                 "max_attendees",
-                "reinforces_habit_uid",
                 "source_path_step_uid",
-                "milestone_celebration_for_goal",
                 "is_milestone_event",
                 "milestone_type",
                 "curriculum_week",
@@ -232,7 +231,6 @@ class EventDTO(UserOwnedDTO):
                 "knowledge_retention_check",
                 "recurrence_maintains_habit",
                 "skip_breaks_habit_streak",
-                "template_uid",
                 "engagement_state",
             },
             enum_mappings={

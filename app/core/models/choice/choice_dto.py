@@ -81,7 +81,7 @@ class ChoiceDTO(UserOwnedDTO):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None
+    # Back-reference is (Choice)-[:SPAWNED_FROM]->(ChoiceTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
@@ -198,7 +198,6 @@ class ChoiceDTO(UserOwnedDTO):
                 "inspiration_type",
                 "expands_possibilities",
                 "source_path_step_uid",
-                "template_uid",
                 "engagement_state",
             },
             enum_mappings={

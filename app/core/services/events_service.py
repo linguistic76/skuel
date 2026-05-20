@@ -249,15 +249,96 @@ class EventsService(
             recurrence_pattern=request.recurrence_pattern,
             recurrence_end_date=request.recurrence_end_date,
             reminder_minutes=request.reminder_minutes,
-            reinforces_habit_uid=request.reinforces_habit_uid,
-            milestone_celebration_for_goal=request.milestone_celebration_for_goal,
             habit_completion_quality=request.habit_completion_quality,
             knowledge_retention_check=request.knowledge_retention_check,
         )
-        return await self.core.create(event)
+        created = await self.core.create(event)
+        if created.is_error:
+            return created
+
+        # Cross-domain linkages are graph edges, not properties — write them
+        # after node creation: (Event)-[:CELEBRATES_GOAL]->(Goal) and
+        # (Event)-[:REINFORCES_HABIT]->(Habit).
+        if request.milestone_celebration_for_goal:
+            edge = await self.relationships.create_relationship(
+                "celebrated_goals", created.value.uid, request.milestone_celebration_for_goal
+            )
+            if edge.is_error:
+                return Result.fail(edge)
+        if request.reinforces_habit_uid:
+            edge = await self.relationships.create_relationship(
+                "habits", created.value.uid, request.reinforces_habit_uid
+            )
+            if edge.is_error:
+                return Result.fail(edge)
+        return created
 
     async def update_event(self, event_uid: str, updates: dict[str, Any]) -> Result[Event]:
-        return await self.core.update(event_uid, updates)
+        # Cross-domain linkages are graph edges, not properties — pull them out of
+        # the property updates and apply as edge mutations (replace existing):
+        #   milestone_celebration_for_goal → (Event)-[:CELEBRATES_GOAL]->(Goal)
+        #   reinforces_habit_uid           → (Event)-[:REINFORCES_HABIT]->(Habit)
+        goal_uid = updates.pop("milestone_celebration_for_goal", None)
+        habit_uid = updates.pop("reinforces_habit_uid", None)
+
+        result = await self.core.update(event_uid, updates)
+        if result.is_error:
+            return result
+
+        if goal_uid is not None:
+            replaced = await self._replace_edge("celebrated_goals", event_uid, goal_uid)
+            if replaced.is_error:
+                return Result.fail(replaced)
+        if habit_uid is not None:
+            replaced = await self._replace_edge("habits", event_uid, habit_uid)
+            if replaced.is_error:
+                return Result.fail(replaced)
+        return result
+
+    async def _replace_edge(
+        self, relationship_key: str, event_uid: str, target_uid: str
+    ) -> Result[bool]:
+        """Replace the single outbound edge of ``relationship_key`` with ``target_uid``.
+
+        Empty ``target_uid`` clears the edge (delete only). Used by update_event to
+        route cross-domain field updates to graph-edge mutations.
+        """
+        existing = await self.relationships.get_related_uids(relationship_key, EntityUID(event_uid))
+        if existing.is_ok:
+            for old_uid in existing.value or []:
+                await self.relationships.delete_relationship(relationship_key, event_uid, old_uid)
+        if target_uid:  # non-empty → create the new edge (empty string = cleared)
+            return await self.relationships.create_relationship(
+                relationship_key, event_uid, target_uid
+            )
+        return Result.ok(True)
+
+    async def get_celebrated_goal(self, event_uid: str) -> Result[str | None]:
+        """Return the goal uid this event celebrates via (Event)-[:CELEBRATES_GOAL]->(Goal).
+
+        An event celebrates at most one goal milestone, so this returns the first
+        linked goal uid or ``None``. Graph-native — the linkage is the edge, not a
+        property on the event.
+        """
+        related = await self.relationships.get_related_uids(
+            "celebrated_goals", EntityUID(event_uid)
+        )
+        if related.is_error:
+            return Result.fail(related)
+        uids = related.value or []
+        return Result.ok(uids[0] if uids else None)
+
+    async def get_reinforced_habit(self, event_uid: str) -> Result[str | None]:
+        """Return the habit uid this event reinforces via (Event)-[:REINFORCES_HABIT]->(Habit).
+
+        An event reinforces at most one habit, so this returns the first linked
+        habit uid or ``None``. Graph-native — the linkage is the edge, not a property.
+        """
+        related = await self.relationships.get_related_uids("habits", EntityUID(event_uid))
+        if related.is_error:
+            return Result.fail(related)
+        uids = related.value or []
+        return Result.ok(uids[0] if uids else None)
 
     async def get_user_items_in_range(
         self,

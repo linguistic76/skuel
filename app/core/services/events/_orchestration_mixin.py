@@ -252,12 +252,14 @@ class _OrchestrationMixin:
             tags=event_data.tags,
         )
 
-        dto.reinforces_habit_uid = event_data.reinforces_habit_uid
+        # Habit reinforcement is a graph edge ((Event)-[:REINFORCES_HABIT]->(Habit)),
+        # not a DTO property — capture it here and write the edge after create.
+        habit_uid = event_data.reinforces_habit_uid
         # PHASE 3B: practices_knowledge_uids is a graph relationship, not a DTO field
         dto.fulfills_goal_uid = getattr(event_data, "supports_goal_uid", None)  # type: ignore[attr-defined]
         dto.learning_path_uid = getattr(event_data, "learning_path_uid", None)  # type: ignore[attr-defined]
 
-        if dto.reinforces_habit_uid and dto.reinforces_habit_uid in user_context.active_habit_uids:
+        if habit_uid and habit_uid in user_context.active_habit_uids:
             dto.recurrence_pattern = RecurrencePattern.DAILY  # Default
 
         create_result = await self.backend.create(dto.to_dict())
@@ -265,6 +267,9 @@ class _OrchestrationMixin:
             return Result.fail(create_result)
 
         event = self._to_domain_model(create_result.value, EventDTO, Event)  # type: ignore[attr-defined]
+
+        if habit_uid:
+            await self.link_event_to_habit(event.uid, habit_uid)
 
         from core.events import CalendarEventCreated, publish_event
 
@@ -297,7 +302,7 @@ class _OrchestrationMixin:
         self.logger.info(
             "Created event %s with habit=%s, knowledge=%d",
             event.uid,
-            event.reinforces_habit_uid,
+            habit_uid,
             len(event_data.practices_knowledge_uids or []),
         )
 

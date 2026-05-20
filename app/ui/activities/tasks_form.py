@@ -118,6 +118,7 @@ def TaskEditForm(
     *,
     goal_display: str | None = None,
     habit_display: str | None = None,
+    habit_uid: str | None = None,
 ) -> Any:
     """Render the Task edit form prefilled from an existing task.
 
@@ -126,7 +127,11 @@ def TaskEditForm(
         goal_display: Human-readable title for ``task.fulfills_goal_uid``, resolved by
             the route layer. ``None`` leaves the picker's visible input empty even
             when the hidden UID is set.
-        habit_display: Same as ``goal_display`` but for ``task.reinforces_habit_uid``.
+        habit_display: Human-readable title for the reinforced habit, resolved by
+            the route layer.
+        habit_uid: UID of the habit this task reinforces, resolved by the route layer
+            from the (Task)-[:REINFORCES_HABIT]->(Habit) edge (graph-native; no longer
+            a property on the task).
     """
     return render_activity_form(
         domain_slug="tasks",
@@ -147,7 +152,7 @@ def TaskEditForm(
             "reinforces_habit_uid": EntityPicker(
                 "reinforces_habit_uid",
                 target_type="habit",
-                value=task.reinforces_habit_uid,
+                value=habit_uid,
                 display=habit_display,
             ),
         },

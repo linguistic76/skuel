@@ -127,7 +127,7 @@ class Habit(UserOwnedEntity):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None  # Back-pointer to HabitTemplate that spawned this instance
+    # Back-reference is (Habit)-[:SPAWNED_FROM]->(HabitTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================

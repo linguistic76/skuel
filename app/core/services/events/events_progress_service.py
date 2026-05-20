@@ -26,6 +26,7 @@ from core.models.event.event_dto import EventDTO
 from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -169,10 +170,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         )
         await publish_event(self.event_bus, domain_event, self.logger)
 
-        self.logger.info(
-            f"Completed event {event_uid}: "
-            f"habit={event.reinforces_habit_uid}, quality={quality_score}"
-        )
+        self.logger.info(f"Completed event {event_uid}: quality={quality_score}")
 
         completed_event = self._to_domain_model(update_result.value, EventDTO, Event)
         return Result.ok(completed_event)
@@ -342,36 +340,23 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         """
         start_date = date.today() - timedelta(days=period_days)
 
-        result = await self.backend.find_by(
-            user_uid=user_uid,
-            event_date__gte=start_date.isoformat(),
-            status=EntityStatus.COMPLETED.value,
-        )
-        if result.is_error:
-            return Result.fail(result)
+        # Graph-native: counts events with a (Event)-[:CELEBRATES_GOAL]->(Goal) edge.
+        stats = await self.backend.get_goal_celebration_stats(user_uid, start_date.isoformat())
+        if stats.is_error:
+            return Result.fail(stats)
 
-        events = result.value or []
-
-        # Count events with goal milestones
-        milestone_events = [e for e in events if e.milestone_celebration_for_goal]
-
-        total_completed = len(events)
-        contribution_rate = len(milestone_events) / total_completed if total_completed > 0 else 0.0
+        total_completed = stats.value["total_completed"]
+        milestone_count = stats.value["milestone_count"]
+        contribution_rate = milestone_count / total_completed if total_completed > 0 else 0.0
 
         return Result.ok(
             {
                 "user_uid": user_uid,
                 "period_days": period_days,
                 "total_completed_events": total_completed,
-                "goal_milestone_events": len(milestone_events),
+                "goal_milestone_events": milestone_count,
                 "goal_contribution_rate": round(contribution_rate, 3),
-                "goals_with_milestones": list(
-                    set(
-                        e.milestone_celebration_for_goal
-                        for e in milestone_events
-                        if e.milestone_celebration_for_goal
-                    )
-                ),
+                "goals_with_milestones": stats.value["goal_uids"],
             }
         )
 
@@ -459,6 +444,8 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
             return Result.fail(result)
 
         events = result.value or []
+        # Populate the derived reinforces_habit_uid from the REINFORCES_HABIT edge.
+        events = await enrich_events_with_habit_links(self.backend, events)
 
         # Filter habit events (exclude None habit_uid)
         habit_events = [e for e in events if e.reinforces_habit_uid is not None]

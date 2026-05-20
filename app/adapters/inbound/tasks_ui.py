@@ -7,9 +7,10 @@ priority, cross-domain connections, and EntityRelationshipsSection.
 Also registers the create / edit forms (``GET|POST /tasks/create``,
 ``GET|POST /tasks/edit``) which use ``ui/activities/tasks_form.py`` to render
 :class:`~ui.patterns.form_generator.FormGenerator` with
-:class:`~ui.patterns.entity_picker.EntityPicker` widgets for the three
-cross-domain UID fields (``parent_uid``, ``fulfills_goal_uid``,
-``reinforces_habit_uid``).
+:class:`~ui.patterns.entity_picker.EntityPicker` widgets for the cross-domain
+pickers (``parent_uid``, ``fulfills_goal_uid``, and the habit picker). The habit
+picker collects user input that the service routes to a
+``(Task)-[:REINFORCES_HABIT]->(Habit)`` edge (graph-native, not a property).
 """
 
 from __future__ import annotations
@@ -158,13 +159,17 @@ def create_tasks_ui_routes(
             )
 
         task = result.value
+        reinforced = await tasks_service.get_reinforced_habit(task.uid)
+        habit_uid = reinforced.value if reinforced.is_ok else None
         goal_display, habit_display = await _resolve_picker_titles(
-            task.fulfills_goal_uid, task.reinforces_habit_uid
+            task.fulfills_goal_uid, habit_uid
         )
 
         content = Div(
             PageHeader(f"Edit: {task.title}"),
-            TaskEditForm(task, goal_display=goal_display, habit_display=habit_display),
+            TaskEditForm(
+                task, goal_display=goal_display, habit_display=habit_display, habit_uid=habit_uid
+            ),
             cls="space-y-6",
         )
         return await render_activity_sidebar_page(content, active="tasks", request=request)
@@ -189,17 +194,24 @@ def create_tasks_ui_routes(
                 request=request,
             )
         task = existing.value
+        reinforced = await tasks_service.get_reinforced_habit(task.uid)
+        habit_uid = reinforced.value if reinforced.is_ok else None
 
         parsed = await parse_form_body(request, TaskUpdateRequest)
         if parsed.is_error:
             err = parsed.expect_error()
             goal_display, habit_display = await _resolve_picker_titles(
-                task.fulfills_goal_uid, task.reinforces_habit_uid
+                task.fulfills_goal_uid, habit_uid
             )
             content = Div(
                 PageHeader(f"Edit: {task.title}"),
                 render_error_banner(err.display_message),
-                TaskEditForm(task, goal_display=goal_display, habit_display=habit_display),
+                TaskEditForm(
+                    task,
+                    goal_display=goal_display,
+                    habit_display=habit_display,
+                    habit_uid=habit_uid,
+                ),
                 cls="space-y-6",
             )
             return await render_activity_sidebar_page(content, active="tasks", request=request)
@@ -213,12 +225,17 @@ def create_tasks_ui_routes(
         if result.is_error:
             err = result.expect_error()
             goal_display, habit_display = await _resolve_picker_titles(
-                task.fulfills_goal_uid, task.reinforces_habit_uid
+                task.fulfills_goal_uid, habit_uid
             )
             content = Div(
                 PageHeader(f"Edit: {task.title}"),
                 render_error_banner(err.display_message),
-                TaskEditForm(task, goal_display=goal_display, habit_display=habit_display),
+                TaskEditForm(
+                    task,
+                    goal_display=goal_display,
+                    habit_display=habit_display,
+                    habit_uid=habit_uid,
+                ),
                 cls="space-y-6",
             )
             return await render_activity_sidebar_page(content, active="tasks", request=request)

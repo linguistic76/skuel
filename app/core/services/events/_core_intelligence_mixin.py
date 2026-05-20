@@ -40,6 +40,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     orchestrator: Any
     graph_intel: Any
     relationships: Any
+    backend: Any
     logger: Any
 
     @requires_graph_intelligence("get_event_with_context")
@@ -167,15 +168,17 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         """
         Analyze habit reinforcement impact.
 
-        Note: reinforces_habit_uid field still exists in Event model (not yet migrated to graph-only).
-        GRAPH-NATIVE: Uses habit_completion_quality instead of removed quality_score field.
+        GRAPH-NATIVE: the habit link is the (Event)-[:REINFORCES_HABIT]->(Habit) edge,
+        queried here rather than read from a property. Uses habit_completion_quality.
         """
-        if not event.reinforces_habit_uid:
+        links = await self.backend.get_habit_links_for_events([event.uid])
+        habit_uid = links.value.get(event.uid) if links.is_ok else None
+        if not habit_uid:
             return {"reinforces_habit": False, "habit_uid": None, "quality_score": None}
 
         return {
             "reinforces_habit": True,
-            "habit_uid": event.reinforces_habit_uid,
+            "habit_uid": habit_uid,
             "quality_score": event.habit_completion_quality,  # GRAPH-NATIVE: renamed from quality_score
             "status": event.status,
             "completed": event.status == EntityStatus.COMPLETED,

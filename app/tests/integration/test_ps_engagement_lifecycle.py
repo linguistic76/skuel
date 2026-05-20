@@ -277,7 +277,11 @@ async def _seed_full_bundle(
 
     habit = HabitTemplate(uid=uids["habit"], title="Daily review")
     event = EventTemplate(
-        uid=uids["event"], title="Cohort kickoff", event_offset=RelativeOffset(days=1)
+        uid=uids["event"],
+        title="Cohort kickoff",
+        event_offset=RelativeOffset(days=1),
+        # When cross_refs, the event reinforces the habit (→ REINFORCES_HABIT edge).
+        reinforces_habit_template_uid=uids["habit"] if cross_refs else None,
     )
     choice = ChoiceTemplate(uid=uids["choice"], title="Track selection")
     principle = PrincipleTemplate(uid=uids["principle"], title="Practice over theory")
@@ -320,7 +324,7 @@ async def _instance_count(executor: Neo4jQueryExecutor, student: str, ps: str) -
             "MATCH (ps {uid: $ps})-[:HAS_TASK_TEMPLATE|HAS_GOAL_TEMPLATE"
             "|HAS_HABIT_TEMPLATE|HAS_EVENT_TEMPLATE|HAS_CHOICE_TEMPLATE"
             "|HAS_PRINCIPLE_TEMPLATE]->(t) "
-            "MATCH (n {user_uid: $student, template_uid: t.uid}) "
+            "MATCH (n {user_uid: $student})-[:SPAWNED_FROM]->(t) "
             "RETURN count(n) AS n"
         ),
         params={"student": student, "ps": ps},
@@ -420,14 +424,15 @@ class TestEngagePathStep:
         assert await _instance_count(executor, test_user, PS_UID) == 6
         assert await _engagement_state(executor, test_user, PS_UID) == "engaged"
 
-        # Every instance carries template_uid + engagement_state="engaged".
+        # Every instance has a SPAWNED_FROM edge to its template
+        # and carries engagement_state="engaged".
         states_res = await executor.execute(
             query=(
                 "MATCH (ps {uid: $ps})-[:HAS_TASK_TEMPLATE|HAS_GOAL_TEMPLATE"
                 "|HAS_HABIT_TEMPLATE|HAS_EVENT_TEMPLATE|HAS_CHOICE_TEMPLATE"
                 "|HAS_PRINCIPLE_TEMPLATE]->(t) "
-                "MATCH (n {user_uid: $student, template_uid: t.uid}) "
-                "RETURN n.engagement_state AS state, n.template_uid AS tpl"
+                "MATCH (n {user_uid: $student})-[:SPAWNED_FROM]->(t) "
+                "RETURN n.engagement_state AS state, t.uid AS tpl"
             ),
             params={"ps": PS_UID, "student": test_user},
             operation="check_states",
@@ -450,10 +455,9 @@ class TestEngagePathStep:
         # at the spawned goal instance (NOT the template UID).
         ref_res = await executor.execute(
             query=(
-                "MATCH (task {user_uid: $student, template_uid: $task_tpl}) "
-                "MATCH (goal {user_uid: $student, template_uid: $goal_tpl}) "
+                "MATCH (task {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $task_tpl}) "
+                "MATCH (goal {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $goal_tpl}) "
                 "RETURN task.fulfills_goal_uid AS goal_ref, "
-                "       task.reinforces_habit_uid AS habit_ref, "
                 "       goal.uid AS goal_instance_uid"
             ),
             params={
@@ -467,7 +471,49 @@ class TestEngagePathStep:
         record = ref_res.value[0]
         assert record["goal_ref"] == record["goal_instance_uid"]
         assert record["goal_ref"] != uids["goal"]  # rewritten away from template uid
-        assert record["habit_ref"] is not None
+
+        # Task → Habit linkage is a graph edge (REINFORCES_HABIT), not a property.
+        task_habit_edge = await executor.execute(
+            query=(
+                "MATCH (task {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $task_tpl}) "
+                "MATCH (habit {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $habit_tpl}) "
+                "OPTIONAL MATCH (task)-[r:REINFORCES_HABIT]->(habit) "
+                "RETURN r IS NOT NULL AS edge_exists"
+            ),
+            params={
+                "student": test_user,
+                "task_tpl": uids["task"],
+                "habit_tpl": uids["habit"],
+            },
+            operation="check_reinforces_habit_edge",
+        )
+        assert task_habit_edge.is_ok and task_habit_edge.value
+        assert task_habit_edge.value[0]["edge_exists"], (
+            "Spawned Task must have (Task)-[:REINFORCES_HABIT]->(Habit) edge — "
+            "see TASK_CROSS_EDGES in _spawn_orchestrator.py"
+        )
+
+        # Goal → Choice linkage is a graph edge (INSPIRED_BY_CHOICE), not a property.
+        # Verify the spawned goal has the edge to the spawned choice instance.
+        edge_res = await executor.execute(
+            query=(
+                "MATCH (goal {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $goal_tpl}) "
+                "MATCH (choice {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $choice_tpl}) "
+                "OPTIONAL MATCH (goal)-[r:INSPIRED_BY_CHOICE]->(choice) "
+                "RETURN r IS NOT NULL AS edge_exists"
+            ),
+            params={
+                "student": test_user,
+                "goal_tpl": uids["goal"],
+                "choice_tpl": uids["choice"],
+            },
+            operation="check_inspired_by_choice_edge",
+        )
+        assert edge_res.is_ok and edge_res.value
+        assert edge_res.value[0]["edge_exists"], (
+            "Spawned Goal must have (Goal)-[:INSPIRED_BY_CHOICE]->(Choice) edge — "
+            "see GOAL_CROSS_EDGES in _spawn_orchestrator.py"
+        )
 
     async def test_engage_fails_for_empty_pathstep(self, engagement_service, ps_backend, test_user):
         # PS exists but has no templates attached.
@@ -530,7 +576,7 @@ class TestCompletePathStep:
                 "MATCH (ps {uid: $ps})-[:HAS_TASK_TEMPLATE|HAS_GOAL_TEMPLATE"
                 "|HAS_HABIT_TEMPLATE|HAS_EVENT_TEMPLATE|HAS_CHOICE_TEMPLATE"
                 "|HAS_PRINCIPLE_TEMPLATE]->(t) "
-                "MATCH (n {user_uid: $student, template_uid: t.uid}) "
+                "MATCH (n {user_uid: $student})-[:SPAWNED_FROM]->(t) "
                 "RETURN t.uid AS tpl, n.engagement_state AS state"
             ),
             params={"ps": PS_UID, "student": test_user},
@@ -561,7 +607,7 @@ class TestCompletePathStep:
                 "MATCH (ps {uid: $ps})-[:HAS_TASK_TEMPLATE|HAS_GOAL_TEMPLATE"
                 "|HAS_HABIT_TEMPLATE|HAS_EVENT_TEMPLATE|HAS_CHOICE_TEMPLATE"
                 "|HAS_PRINCIPLE_TEMPLATE]->(t) "
-                "MATCH (n {user_uid: $student, template_uid: t.uid}) "
+                "MATCH (n {user_uid: $student})-[:SPAWNED_FROM]->(t) "
                 "RETURN n.engagement_state AS state"
             ),
             params={"ps": PS_UID, "student": test_user},
@@ -707,3 +753,299 @@ class TestConcurrentEngage:
         active_edges = int(edges_res.value[0]["n"])
         assert active_edges == len(oks)
         assert await _instance_count(executor, test_user, PS_UID) == 6 * len(oks)
+
+
+# ============================================================================
+# Round-trip back-references — spawn → discover → mutate → re-discover
+# ============================================================================
+#
+# The four-transition tests above cover the engagement service's lifecycle
+# contract (publish/engage/complete/abandon). These tests cover the *round
+# trip* — the back-references that let a spawned activity be traced to its
+# originating PathStep and engagement, plus the gaps where back-references
+# are declared but not implemented.
+
+
+@pytest.mark.asyncio
+class TestRoundTripBackReferences:
+    """Verify the graph-native back-reference: (instance)-[:SPAWNED_FROM]->(template).
+
+    SKUEL committed to graph-native relationships for the spawn back-reference —
+    no parallel ``template_uid`` property as denormalized cache. ``list_engaged``
+    re-discovers spawned instances by traversing ``[:SPAWNED_FROM]`` to templates
+    attached to each PS; ``UserContextBuilder`` then derives
+    ``spawned_uid_to_ps_uid`` from those results.
+
+    ``source_path_step_uid`` is a domain-model field on Goal/Choice/Principle
+    only — Task/Habit/Event do not carry it. That asymmetry is a separate
+    open question (the PS-back-reference can be reached two hops via the
+    edge, or stored directly on the node; the codebase currently does both).
+    """
+
+    async def test_spawned_from_edge_set_on_all_six_instances(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        """Every spawned instance has a SPAWNED_FROM edge to its template.
+
+        This is the universal back-reference — used by every engagement-discovery
+        query and by the round-trip in ``list_engaged``. A missing edge would
+        silently drop the instance from ``spawned_uid_to_ps_uid`` and from the
+        engagement-bucketed daily plan.
+        """
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor)
+        engage = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engage.is_ok
+
+        rows = await executor.execute(
+            query=(
+                "MATCH (n {user_uid: $student})-[r:SPAWNED_FROM]->(t) "
+                "RETURN t.uid AS tpl, n.uid AS instance_uid, "
+                "       r.spawned_at AS spawned_at"
+            ),
+            params={"student": test_user},
+            operation="round_trip_spawned_from",
+        )
+        assert rows.is_ok
+        assert len(rows.value) == 6
+        template_uids_traversed = {r["tpl"] for r in rows.value}
+        assert template_uids_traversed == {
+            uids["task"],
+            uids["goal"],
+            uids["habit"],
+            uids["event"],
+            uids["choice"],
+            uids["principle"],
+        }
+        # Every edge carries the spawned_at timestamp (set atomically with
+        # node creation in create_with_spawned_from).
+        for record in rows.value:
+            assert record["spawned_at"] is not None, (
+                f"SPAWNED_FROM edge for instance {record['instance_uid']} "
+                "missing spawned_at — atomic create did not set it"
+            )
+
+    async def test_no_template_uid_property_remains_on_spawned_instances(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        """The ``template_uid`` property was dropped — only the edge remains.
+
+        Guard against a regression where someone re-adds the property as a
+        cache. SKUEL chose graph-native without the property; this test
+        locks that choice in. If you intentionally re-add ``template_uid``
+        as a denormalized cache (Forms pattern), delete this test and add
+        one that asserts edge+property agreement.
+        """
+        await _seed_full_bundle(ps_backend, template_backends, executor)
+        engage = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engage.is_ok
+
+        rows = await executor.execute(
+            query=(
+                "MATCH (n)-[:SPAWNED_FROM]->(t) WHERE n.user_uid = $student "
+                "RETURN n.template_uid AS prop_present"
+            ),
+            params={"student": test_user},
+            operation="check_no_template_uid_property",
+        )
+        assert rows.is_ok
+        for record in rows.value:
+            assert record["prop_present"] is None, (
+                "Found template_uid property on a spawned instance — "
+                "the property was dropped in favour of the SPAWNED_FROM edge. "
+                "See TestRoundTripBackReferences class docstring."
+            )
+
+    async def test_reinforces_habit_uid_never_persisted_on_task_node(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        """``Task.reinforces_habit_uid`` is a DERIVED field — never written to Neo4j.
+
+        The Task↔Habit link is the (Task)-[:REINFORCES_HABIT]->(Habit) edge. The
+        domain model carries a derived ``reinforces_habit_uid`` for in-memory
+        scorers, but it must NEVER be persisted as a node property (that would
+        recreate the drift we eliminated). This guard spawns a task that
+        reinforces a habit (via cross_refs) and asserts the node has the edge but
+        no property.
+        """
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor, cross_refs=True)
+        engage = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engage.is_ok
+
+        rows = await executor.execute(
+            query=(
+                "MATCH (task {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $task_tpl}) "
+                "OPTIONAL MATCH (task)-[r:REINFORCES_HABIT]->(:Entity) "
+                "RETURN task.reinforces_habit_uid AS prop_present, "
+                "       count(r) AS edge_count"
+            ),
+            params={"student": test_user, "task_tpl": uids["task"]},
+            operation="check_reinforces_habit_not_persisted",
+        )
+        assert rows.is_ok and rows.value
+        record = rows.value[0]
+        assert record["prop_present"] is None, (
+            "Found reinforces_habit_uid property on a Task node — it is a DERIVED "
+            "field and must never be persisted. The REINFORCES_HABIT edge is the "
+            "single source of truth. See Task model field comment."
+        )
+        assert record["edge_count"] == 1, (
+            "Spawned task should have exactly one REINFORCES_HABIT edge"
+        )
+
+    async def test_reinforces_habit_uid_never_persisted_on_event_node(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        """``Event.reinforces_habit_uid`` is a DERIVED field — never written to Neo4j.
+
+        The Event↔Habit link is the (Event)-[:REINFORCES_HABIT]->(Habit) edge.
+        Mirrors the Task guard above — the spawned event reinforces a habit (via
+        cross_refs) and the node must carry the edge but no property.
+        """
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor, cross_refs=True)
+        engage = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engage.is_ok
+
+        rows = await executor.execute(
+            query=(
+                "MATCH (event {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $event_tpl}) "
+                "OPTIONAL MATCH (event)-[r:REINFORCES_HABIT]->(:Entity) "
+                "RETURN event.reinforces_habit_uid AS prop_present, "
+                "       count(r) AS edge_count"
+            ),
+            params={"student": test_user, "event_tpl": uids["event"]},
+            operation="check_event_reinforces_habit_not_persisted",
+        )
+        assert rows.is_ok and rows.value
+        record = rows.value[0]
+        assert record["prop_present"] is None, (
+            "Found reinforces_habit_uid property on an Event node — it is a DERIVED "
+            "field and must never be persisted. The REINFORCES_HABIT edge is the "
+            "single source of truth. See Event model field comment."
+        )
+        assert record["edge_count"] == 1, (
+            "Spawned event should have exactly one REINFORCES_HABIT edge"
+        )
+
+    async def test_source_path_step_uid_asymmetric_by_design(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        """The spawn orchestrator writes ``source_path_step_uid`` on Goal/Choice/Principle only.
+
+        Task/Habit/Event leave it None at spawn time — the PS-back-reference
+        for these three goes via two hops: ``(instance)-[:SPAWNED_FROM]->(template)
+        <-[:HAS_*_TEMPLATE]-(ps)``. This asymmetry is a separate open question
+        (see project assessment). Locking the current contract in so any
+        change is deliberate.
+        """
+        await _seed_full_bundle(ps_backend, template_backends, executor)
+        engage = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engage.is_ok
+
+        rows = await executor.execute(
+            query=(
+                "MATCH (n {user_uid: $student})-[:SPAWNED_FROM]->(t) "
+                "RETURN labels(n) AS labs, n.source_path_step_uid AS src_ps"
+            ),
+            params={"student": test_user},
+            operation="round_trip_source_ps",
+        )
+        assert rows.is_ok
+        by_label: dict[str, str | None] = {}
+        for record in rows.value:
+            domain_label = next((lab for lab in record["labs"] if lab != "Entity"), "Entity")
+            by_label[domain_label] = record["src_ps"]
+
+        assert by_label["Goal"] == PS_UID, "Goal must carry source_path_step_uid"
+        assert by_label["Choice"] == PS_UID, "Choice must carry source_path_step_uid"
+        assert by_label["Principle"] == PS_UID, "Principle must carry source_path_step_uid"
+        assert by_label["Task"] is None, (
+            "Task does not carry source_path_step_uid at spawn time — PS-back-reference goes two hops via SPAWNED_FROM"
+        )
+        assert by_label["Habit"] is None, "Habit does not carry source_path_step_uid at spawn time"
+        assert by_label["Event"] is None, "Event does not carry source_path_step_uid at spawn time"
+
+    async def test_list_engaged_round_trips_spawned_instance_uids(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        """``list_engaged`` re-discovers the same instances the spawn just created.
+
+        This is the path ``UserContextBuilder.build_rich_user_context`` walks
+        to populate ``spawned_uid_to_ps_uid``. Round-tripping the UIDs here
+        proves the SPAWNED_FROM traversal is symmetric with the spawn-time
+        atomic writes.
+        """
+        await _seed_full_bundle(ps_backend, template_backends, executor)
+        engage = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engage.is_ok
+        spawned_at_engage = set(engage.value.spawned_instance_uids)
+        assert len(spawned_at_engage) == 6
+
+        listed = await engagement_service.list_engaged(test_user)
+        assert listed.is_ok
+        assert len(listed.value) == 1
+        re_discovered = set(listed.value[0].spawned_instance_uids)
+        assert re_discovered == spawned_at_engage, (
+            "list_engaged must re-discover exactly the instances spawn just created"
+        )
+
+        # Simulating UserContextBuilder's dict comprehension (lines 421-425 of
+        # user_context_builder.py) — every spawned UID maps to PS_UID.
+        spawned_uid_to_ps_uid = {
+            instance_uid: eng.ps_uid
+            for eng in listed.value
+            for instance_uid in eng.spawned_instance_uids
+        }
+        assert all(ps == PS_UID for ps in spawned_uid_to_ps_uid.values())
+        assert set(spawned_uid_to_ps_uid.keys()) == spawned_at_engage
+
+    async def test_activity_status_change_mid_engagement_preserves_round_trip(
+        self,
+        engagement_service,
+        ps_backend,
+        template_backends,
+        instance_backends,
+        executor,
+        test_user,
+    ):
+        """Student mutates a spawned activity while the engagement is still active.
+
+        The four-transition test ``test_complete_with_mixed_review`` mutates
+        instances via ``complete_pathstep`` (which flips ``engagement_state``
+        to 'owned' on keeps). This one models the other path — the student
+        opens the spawned Task and marks it complete directly. The activity's
+        ``status`` changes; ``engagement_state`` stays 'engaged'; the
+        SPAWNED_FROM edge is untouched, so the round trip must still work.
+        """
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor)
+        engage = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engage.is_ok
+
+        # Locate the spawned Task via SPAWNED_FROM — same traversal list_engaged uses.
+        task_lookup = await executor.execute(
+            query=(
+                "MATCH (n:Task {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $task_tpl}) "
+                "RETURN n.uid AS uid"
+            ),
+            params={"student": test_user, "task_tpl": uids["task"]},
+            operation="locate_spawned_task",
+        )
+        assert task_lookup.is_ok and task_lookup.value
+        task_uid = task_lookup.value[0]["uid"]
+
+        # Student-facing mutation — set status to completed via raw Cypher (no
+        # dependency on TasksService here; the round-trip property is what's
+        # under test, not the Tasks API).
+        mutate = await executor.execute_write(
+            query=("MATCH (n:Task {uid: $uid}) SET n.status = 'completed' RETURN n.uid AS uid"),
+            params={"uid": task_uid},
+            operation="student_completes_task",
+        )
+        assert mutate.is_ok
+
+        # The round-trip query must still find this instance — the
+        # SPAWNED_FROM edge is untouched and engagement_state is still 'engaged'.
+        listed = await engagement_service.list_engaged(test_user)
+        assert listed.is_ok
+        assert task_uid in set(listed.value[0].spawned_instance_uids), (
+            "Activity-side status mutation must not break the SPAWNED_FROM round trip"
+        )

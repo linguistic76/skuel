@@ -7,8 +7,9 @@ controls, scheduling info, cross-domain connections, and EntityRelationshipsSect
 Also registers the create / edit forms (``GET|POST /events/create``,
 ``GET|POST /events/edit``) which use ``ui/activities/events_form.py`` to render
 :class:`~ui.patterns.form_generator.FormGenerator` with
-:class:`~ui.patterns.entity_picker.EntityPicker` widgets for the two single-UID
-cross-domain fields (``reinforces_habit_uid``, ``milestone_celebration_for_goal``).
+:class:`~ui.patterns.entity_picker.EntityPicker` widgets for the cross-domain
+goal/habit pickers. The goal picker collects user input that the service routes
+to a ``(Event)-[:CELEBRATES_GOAL]->(Goal)`` edge (graph-native, not a property).
 """
 
 from __future__ import annotations
@@ -145,13 +146,21 @@ def create_events_ui_routes(
             )
 
         event = result.value
-        habit_display, goal_display = await _resolve_picker_titles(
-            event.reinforces_habit_uid, event.milestone_celebration_for_goal
-        )
+        celebrated = await events_service.get_celebrated_goal(event.uid)
+        goal_uid = celebrated.value if celebrated.is_ok else None
+        reinforced = await events_service.get_reinforced_habit(event.uid)
+        habit_uid = reinforced.value if reinforced.is_ok else None
+        habit_display, goal_display = await _resolve_picker_titles(habit_uid, goal_uid)
 
         content = Div(
             PageHeader(f"Edit: {event.title}"),
-            EventEditForm(event, habit_display=habit_display, goal_display=goal_display),
+            EventEditForm(
+                event,
+                habit_display=habit_display,
+                goal_display=goal_display,
+                goal_uid=goal_uid,
+                habit_uid=habit_uid,
+            ),
             cls="space-y-6",
         )
         return await render_activity_sidebar_page(content, active="events", request=request)
@@ -176,17 +185,25 @@ def create_events_ui_routes(
                 request=request,
             )
         event = existing.value
+        celebrated = await events_service.get_celebrated_goal(event.uid)
+        goal_uid = celebrated.value if celebrated.is_ok else None
+        reinforced = await events_service.get_reinforced_habit(event.uid)
+        habit_uid = reinforced.value if reinforced.is_ok else None
 
         parsed = await parse_form_body(request, EventUpdateRequest)
         if parsed.is_error:
             err = parsed.expect_error()
-            habit_display, goal_display = await _resolve_picker_titles(
-                event.reinforces_habit_uid, event.milestone_celebration_for_goal
-            )
+            habit_display, goal_display = await _resolve_picker_titles(habit_uid, goal_uid)
             content = Div(
                 PageHeader(f"Edit: {event.title}"),
                 render_error_banner(err.display_message),
-                EventEditForm(event, habit_display=habit_display, goal_display=goal_display),
+                EventEditForm(
+                    event,
+                    habit_display=habit_display,
+                    goal_display=goal_display,
+                    goal_uid=goal_uid,
+                    habit_uid=habit_uid,
+                ),
                 cls="space-y-6",
             )
             return await render_activity_sidebar_page(content, active="events", request=request)
@@ -196,13 +213,17 @@ def create_events_ui_routes(
         result = await events_service.update_event(uid, updates)
         if result.is_error:
             err = result.expect_error()
-            habit_display, goal_display = await _resolve_picker_titles(
-                event.reinforces_habit_uid, event.milestone_celebration_for_goal
-            )
+            habit_display, goal_display = await _resolve_picker_titles(habit_uid, goal_uid)
             content = Div(
                 PageHeader(f"Edit: {event.title}"),
                 render_error_banner(err.display_message),
-                EventEditForm(event, habit_display=habit_display, goal_display=goal_display),
+                EventEditForm(
+                    event,
+                    habit_display=habit_display,
+                    goal_display=goal_display,
+                    goal_uid=goal_uid,
+                    habit_uid=habit_uid,
+                ),
                 cls="space-y-6",
             )
             return await render_activity_sidebar_page(content, active="events", request=request)

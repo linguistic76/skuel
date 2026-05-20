@@ -7,7 +7,11 @@ dataclass. These tests verify:
 - Template field copy-through is correct.
 - Cross-template references resolve via the UID map.
 - RelativeOffset fields resolve to absolute date/datetime against the anchor.
-- ``template_uid`` and ``engagement_state`` are set correctly.
+- ``engagement_state`` is set correctly. (The template back-reference is
+  the ``(instance)-[:SPAWNED_FROM]->(template)`` graph edge, written
+  atomically by the persistence layer — not by the builders themselves.
+  See ``tests/integration/test_ps_engagement_lifecycle.py`` for the edge
+  contract.)
 
 End-to-end ``spawn()`` is exercised by integration tests with a Neo4j fixture
 (deferred — see Phase 4 verification block in the plan).
@@ -25,12 +29,15 @@ from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.relative_offset import RelativeOffset
 from core.models.templates.task_template import TaskTemplate
 from core.services.ps_engagement._spawn_orchestrator import (
+    EVENT_CROSS_EDGES,
+    TASK_CROSS_EDGES,
     _build_choice,
     _build_event,
     _build_goal,
     _build_habit,
     _build_principle,
     _build_task,
+    _compute_cross_edges,
 )
 
 ANCHOR = datetime(2026, 5, 9, 12, 0, 0)
@@ -39,12 +46,11 @@ PS = "ps_test"
 
 
 class TestTaskBuilder:
-    def test_basic_task_carries_template_uid_and_engaged_state(self) -> None:
+    def test_basic_task_carries_engaged_state(self) -> None:
         tt = TaskTemplate(uid="ttpl_a", title="Practice")
         task = _build_task(tt, STUDENT, ANCHOR, {"ttpl_a": "task_practice_xyz"})
         assert task.uid == "task_practice_xyz"
         assert task.user_uid == STUDENT
-        assert task.template_uid == "ttpl_a"
         assert task.engagement_state == "engaged"
         assert task.title == "Practice"
 
@@ -75,8 +81,28 @@ class TestTaskBuilder:
         }
         task = _build_task(tt, STUDENT, ANCHOR, uid_map)
         assert task.fulfills_goal_uid == "goal_uid"
-        assert task.reinforces_habit_uid == "habit_uid"
         assert task.scheduled_event_uid == "event_uid"
+
+    def test_habit_reinforcement_becomes_reinforces_habit_cross_edge(self) -> None:
+        """Habit reinforcement is a REINFORCES_HABIT edge, not a property.
+
+        ``_build_task`` no longer sets a ``reinforces_habit_uid`` property on the
+        instance; the linkage is resolved by ``_compute_cross_edges`` into a
+        ``(Task)-[:REINFORCES_HABIT]->(Habit)`` edge written by ``_persist``.
+        """
+        tt = TaskTemplate(
+            uid="ttpl_x",
+            title="Task with habit",
+            reinforces_habit_template_uid="htpl_z",
+        )
+        uid_map = {"ttpl_x": "task_uid", "htpl_z": "habit_uid"}
+
+        task = _build_task(tt, STUDENT, ANCHOR, uid_map)
+        # Derived field is not set by the builder (defaults to None).
+        assert task.reinforces_habit_uid is None
+
+        edges = _compute_cross_edges(tt, TASK_CROSS_EDGES, uid_map)
+        assert edges == [("REINFORCES_HABIT", "habit_uid")]
 
     def test_unset_offset_yields_none(self) -> None:
         tt = TaskTemplate(uid="ttpl_no_offset", title="t")
@@ -90,7 +116,6 @@ class TestGoalBuilder:
         gt = GoalTemplate(uid="gtpl_a", title="Goal A")
         goal = _build_goal(gt, STUDENT, PS, ANCHOR, {"gtpl_a": "goal_a_uid"})
         assert goal.source_path_step_uid == PS
-        assert goal.template_uid == "gtpl_a"
         assert goal.engagement_state == "engaged"
 
     def test_goal_offsets_resolve(self) -> None:
@@ -106,22 +131,28 @@ class TestGoalBuilder:
 
 
 class TestEventBuilder:
-    def test_event_milestone_field_uses_asymmetric_instance_name(self) -> None:
-        """Template field ends in `_template_uid`, instance field drops `_uid`."""
+    def test_event_milestone_goal_becomes_celebrates_goal_cross_edge(self) -> None:
+        """The milestone-celebration link is a CELEBRATES_GOAL edge, not a property.
+
+        ``_build_event`` no longer sets a ``milestone_celebration_for_goal``
+        property; the linkage is resolved by ``_compute_cross_edges`` into a
+        ``(Event)-[:CELEBRATES_GOAL]->(Goal)`` edge that the orchestrator's
+        ``_persist`` writes after the node.
+        """
         et = EventTemplate(
             uid="etpl_party",
             title="Celebration",
             milestone_celebration_for_goal_template_uid="gtpl_target",
         )
-        event = _build_event(
-            et,
-            STUDENT,
-            ANCHOR,
-            {"etpl_party": "event_uid", "gtpl_target": "goal_uid"},
-        )
-        assert event.milestone_celebration_for_goal == "goal_uid"
-        # And the symmetric one too.
-        assert event.template_uid == "etpl_party"
+        template_to_instance = {"etpl_party": "event_uid", "gtpl_target": "goal_uid"}
+
+        # Builder produces a clean instance with no goal property.
+        event = _build_event(et, STUDENT, ANCHOR, template_to_instance)
+        assert not hasattr(event, "milestone_celebration_for_goal")
+
+        # Cross-edge computation resolves the template ref to a CELEBRATES_GOAL edge.
+        edges = _compute_cross_edges(et, EVENT_CROSS_EDGES, template_to_instance)
+        assert edges == [("CELEBRATES_GOAL", "goal_uid")]
 
 
 class TestHabitBuilder:
@@ -156,5 +187,4 @@ class TestPrincipleBuilder:
         assert principle.uid == "principle_uid"
         assert principle.title == "Always truth-seek"
         assert principle.source_path_step_uid == PS
-        assert principle.template_uid == "ptpl_truth"
         assert principle.engagement_state == "engaged"

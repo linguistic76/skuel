@@ -414,14 +414,12 @@ class PsEngagementService:
 
         from ._terminal_status_rules import is_engagement_terminal
 
-        # One query: anchor on the just-changed instance, walk to its PS, find
-        # all sibling instances still in engagement_state='engaged' under an
-        # ACTIVE engagement edge.
+        # One query: anchor on the just-changed instance, walk SPAWNED_FROM to
+        # its template, then up to the PS, then find sibling instances still
+        # in engagement_state='engaged' under an ACTIVE engagement edge.
         query = """
-        MATCH (n {uid: $instance_uid, user_uid: $student_uid})
-        WHERE n.template_uid IS NOT NULL
-          AND n.engagement_state = 'engaged'
-        MATCH (t {uid: n.template_uid})
+        MATCH (n {uid: $instance_uid, user_uid: $student_uid})-[:SPAWNED_FROM]->(t)
+        WHERE n.engagement_state = 'engaged'
         MATCH (ps)-[:HAS_TASK_TEMPLATE
                     |HAS_GOAL_TEMPLATE
                     |HAS_HABIT_TEMPLATE
@@ -431,13 +429,13 @@ class PsEngagementService:
         MATCH (u:User {uid: $student_uid})-[e:ENGAGED_WITH]->(ps)
         WHERE e.state = 'engaged'
         WITH ps
+        MATCH (other_n {user_uid: $student_uid})-[:SPAWNED_FROM]->(other_t)
         MATCH (ps)-[:HAS_TASK_TEMPLATE
                     |HAS_GOAL_TEMPLATE
                     |HAS_HABIT_TEMPLATE
                     |HAS_EVENT_TEMPLATE
                     |HAS_CHOICE_TEMPLATE
                     |HAS_PRINCIPLE_TEMPLATE]->(other_t)
-        MATCH (other_n {template_uid: other_t.uid, user_uid: $student_uid})
         WHERE other_n.engagement_state = 'engaged'
         RETURN ps.uid AS ps_uid,
                collect({
@@ -454,8 +452,8 @@ class PsEngagementService:
         if res.is_error:
             return Result.fail(res)
         if not res.value:
-            # Instance isn't part of any active engagement (or template_uid is null,
-            # or engagement_state isn't 'engaged'). Nothing to do.
+            # Instance isn't part of any active engagement (no SPAWNED_FROM
+            # edge, or engagement_state isn't 'engaged'). Nothing to do.
             return Result.ok(None)
 
         row = res.value[0]
@@ -516,7 +514,7 @@ class PsEngagementService:
                                    |HAS_EVENT_TEMPLATE
                                    |HAS_CHOICE_TEMPLATE
                                    |HAS_PRINCIPLE_TEMPLATE]->(t)
-        MATCH (n {user_uid: $student_uid, template_uid: t.uid})
+        MATCH (n {user_uid: $student_uid})-[:SPAWNED_FROM]->(t)
         WHERE n.engagement_state IN ['engaged', 'owned']
         RETURN t.uid          AS template_uid,
                n.uid           AS instance_uid,
@@ -551,7 +549,7 @@ class PsEngagementService:
         """Return all active engagements for a student, with spawned instance UIDs.
 
         For each ``state='engaged'`` edge, fetches the activity instances spawned
-        by that engagement (via ``template_uid`` join against templates attached
+        by that engagement (via ``[:SPAWNED_FROM]`` traversal to templates attached
         to the PS) and populates ``Engagement.spawned_instance_uids``.
 
         Called by ``UserContextBuilder.build_rich_user_context`` to populate
@@ -583,9 +581,9 @@ class PsEngagementService:
         """Return [(template_uid, instance_uid, neo_label), ...] for this engagement.
 
         Defining "this engagement's instances" as: instances owned by this
-        student whose ``template_uid`` is a template currently attached to
-        this PS. Safe because the at-most-one-active invariant ensures the
-        only engaged instances belong to the current engagement.
+        student that have a ``[:SPAWNED_FROM]`` edge to a template currently
+        attached to this PS. Safe because the at-most-one-active invariant
+        ensures the only engaged instances belong to the current engagement.
         """
         query = """
         MATCH (ps {uid: $ps_uid})-[:HAS_TASK_TEMPLATE
@@ -594,7 +592,7 @@ class PsEngagementService:
                                    |HAS_EVENT_TEMPLATE
                                    |HAS_CHOICE_TEMPLATE
                                    |HAS_PRINCIPLE_TEMPLATE]->(t)
-        MATCH (n {user_uid: $student_uid, template_uid: t.uid})
+        MATCH (n {user_uid: $student_uid})-[:SPAWNED_FROM]->(t)
         WHERE n.engagement_state IN ['engaged', 'owned']
         RETURN t.uid AS template_uid, n.uid AS instance_uid, labels(n) AS labels
         """

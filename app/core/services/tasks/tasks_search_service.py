@@ -100,7 +100,8 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         """
         Get all tasks that reinforce a specific habit.
 
-        Pattern 1 (Graph-Aware Models): Simple query using reinforces_habit_uid field.
+        Graph-native: traverses the (Task)-[:REINFORCES_HABIT]->(Habit) edge
+        rather than reading a property.
 
         Args:
             habit_uid: Habit UID
@@ -108,10 +109,10 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing tasks reinforcing this habit
         """
-        result = await self.backend.find_by(reinforces_habit_uid=habit_uid)
+        result = await self.backend.get_tasks_reinforcing_habit(habit_uid)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         tasks = self._to_domain_models(result.value, TaskDTO, Task)
 
@@ -239,6 +240,20 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         entities, _total = tasks_result.value
         all_tasks = self._to_domain_models(entities, TaskDTO, Task)
         tasks = [task for task in all_tasks if task.status != EntityStatus.COMPLETED]
+
+        # Populate the derived reinforces_habit_uid field from the REINFORCES_HABIT
+        # edge so the pure streak-protection scorer can read it (graph is the
+        # source of truth; the field is never persisted).
+        links = await self.backend.get_habit_links_for_tasks([t.uid for t in tasks])
+        if links.is_ok and links.value:
+            from dataclasses import replace
+
+            tasks = [
+                replace(task, reinforces_habit_uid=links.value[task.uid])
+                if task.uid in links.value
+                else task
+                for task in tasks
+            ]
 
         scored = [(task, score_task(task, user_context).total) for task in tasks]
         scored.sort(key=get_result_score, reverse=True)

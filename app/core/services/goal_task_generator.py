@@ -123,6 +123,9 @@ class GoalTaskGenerator:
         )
 
         generated_tasks = []
+        # task.uid → habit_uid for tasks that reinforce a habit; written as
+        # (Task)-[:REINFORCES_HABIT]->(Habit) edges after persistence.
+        habit_links: dict[str, str] = {}
 
         # Generate different types of tasks
         if self.config.generate_milestone_tasks:
@@ -134,7 +137,7 @@ class GoalTaskGenerator:
             generated_tasks.extend(knowledge_tasks)
 
         if self.config.generate_habit_tasks:
-            habit_tasks = await self._generate_habit_tasks(goal, user_context)
+            habit_tasks = await self._generate_habit_tasks(goal, user_context, habit_links, rels)
             generated_tasks.extend(habit_tasks)
 
         if self.config.generate_check_in_tasks:
@@ -156,6 +159,13 @@ class GoalTaskGenerator:
                     # Create graph relationships for knowledge requirements
                     if self.tasks_relationships:
                         await self._create_task_knowledge_relationships(created_task)
+
+                    # Create the habit-reinforcement edge if this task targets a habit
+                    habit_uid = habit_links.get(created_task.uid)
+                    if habit_uid and self.tasks_relationships:
+                        await self.tasks_relationships.create_relationship(
+                            "habits", created_task.uid, habit_uid
+                        )
                 else:
                     self.logger.warning(f"Failed to create task: {create_result.error}")
 
@@ -355,9 +365,18 @@ class GoalTaskGenerator:
         return tasks
 
     async def _generate_habit_tasks(
-        self, goal: Goal, user_context: UserContext, rels: GoalRelationships | None = None
+        self,
+        goal: Goal,
+        user_context: UserContext,
+        habit_links: dict[str, str],
+        rels: GoalRelationships | None = None,
     ) -> list[TaskDTO]:
-        """Generate tasks for reinforcing supporting habits."""
+        """Generate tasks for reinforcing supporting habits.
+
+        The task→habit linkage is graph-native ((Task)-[:REINFORCES_HABIT]->(Habit)),
+        so instead of setting a property we record ``task.uid → habit_uid`` in
+        ``habit_links``; ``generate_tasks_for_goal`` writes the edge after persisting.
+        """
         tasks: list[TaskDTO] = []
 
         if not rels or not rels.supporting_habit_uids:
@@ -380,9 +399,10 @@ class GoalTaskGenerator:
                         duration_minutes=self.config.habit_task_duration_minutes,
                     )
 
-                    # Add habit integration
+                    # Add goal/habit integration. Habit link is a graph edge —
+                    # record it for edge creation after persistence.
                     task.fulfills_goal_uid = goal.uid
-                    task.reinforces_habit_uid = habit_uid
+                    habit_links[task.uid] = habit_uid
                     task.habit_streak_maintainer = True
                     task.metadata["recurring"] = True
                     task.recurrence_pattern = RecurrencePattern.DAILY

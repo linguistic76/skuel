@@ -149,15 +149,22 @@ def EventEditForm(
     *,
     habit_display: str | None = None,
     goal_display: str | None = None,
+    goal_uid: str | None = None,
+    habit_uid: str | None = None,
 ) -> Any:
     """Render the Event edit form prefilled from an existing event.
 
     Args:
         event: Event being edited (UID context + field prefill).
-        habit_display: Human-readable title for ``event.reinforces_habit_uid``
-            resolved by the route layer (powers the picker's visible input).
-        goal_display: Same as ``habit_display`` but for
-            ``event.milestone_celebration_for_goal``.
+        habit_display: Human-readable title for the reinforced habit, resolved by
+            the route layer (powers the picker's visible input).
+        goal_display: Human-readable title for the celebrated goal, resolved by
+            the route layer.
+        goal_uid: UID of the goal this event celebrates, resolved by the route
+            layer from the (Event)-[:CELEBRATES_GOAL]->(Goal) edge (graph-native;
+            no longer a property on the event).
+        habit_uid: UID of the habit this event reinforces, resolved by the route
+            layer from the (Event)-[:REINFORCES_HABIT]->(Habit) edge (graph-native).
     """
     return render_activity_form(
         domain_slug="events",
@@ -172,13 +179,13 @@ def EventEditForm(
             "reinforces_habit_uid": EntityPicker(
                 "reinforces_habit_uid",
                 target_type="habit",
-                value=event.reinforces_habit_uid,
+                value=habit_uid,
                 display=habit_display,
             ),
             "milestone_celebration_for_goal": EntityPicker(
                 "milestone_celebration_for_goal",
                 target_type="goal",
-                value=event.milestone_celebration_for_goal,
+                value=goal_uid,
                 display=goal_display,
             ),
         },

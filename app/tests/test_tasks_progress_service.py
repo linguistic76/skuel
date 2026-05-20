@@ -82,7 +82,6 @@ def sample_task() -> Task:
             priority=Priority.HIGH.value,
             status=EntityStatus.ACTIVE.value,
             fulfills_goal_uid="goal:learn_python",
-            reinforces_habit_uid="habit:daily_code",
             goal_progress_contribution=0.2,
             completion_updates_goal=True,
             knowledge_mastery_check=True,
@@ -494,8 +493,10 @@ async def test_complete_task_updates_goal(progress_service, mock_backend, user_c
 
 @pytest.mark.asyncio
 async def test_complete_task_reinforces_habit(progress_service, mock_backend, user_context):
-    """Test that completing a task reinforces linked habit."""
-    # Setup - task that reinforces habit
+    """Completing a task reinforces its linked habit via the REINFORCES_HABIT edge."""
+    from core.models.relationship_names import RelationshipName
+
+    # Setup - task that reinforces a habit (linkage is the graph edge, not a property)
     habit_task = Task.from_dto(
         TaskDTO(
             uid="task:habit_task",
@@ -503,7 +504,6 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
             title="Habit Task",
             priority=Priority.MEDIUM.value,
             status=EntityStatus.ACTIVE.value,
-            reinforces_habit_uid="habit:daily_code",
             created_at=datetime.now(),
         )
     )
@@ -514,14 +514,27 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
     completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
+    # The completion handler queries the REINFORCES_HABIT edge for the linked habit.
+    async def _related(uid, relationship, direction="outgoing"):
+        if relationship == RelationshipName.REINFORCES_HABIT:
+            return Result.ok(["habit:daily_code"])
+        return Result.ok([])
+
+    mock_backend.get_related_uids = AsyncMock(side_effect=_related)
+
     # Execute
     result = await progress_service.complete_task_with_cascade(
         "task:habit_task", user_context, quality_score=5
     )
 
-    # Verify
+    # Verify the habit edge was queried (reinforcement path fired)
     assert result.is_ok
-    # In real implementation, _reinforce_habit would be called
+    habit_calls = [
+        c
+        for c in mock_backend.get_related_uids.await_args_list
+        if c.args[1] == RelationshipName.REINFORCES_HABIT
+    ]
+    assert habit_calls, "completion should query the REINFORCES_HABIT edge"
 
 
 @pytest.mark.asyncio

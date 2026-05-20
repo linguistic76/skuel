@@ -10,7 +10,7 @@ Inherits common fields from UserOwnedEntity. Adds 24 goal-specific fields:
 - Timeline (3): start_date, target_date, achieved_date
 - Progress (4): milestones, progress_percentage, last_progress_update, progress_history
 - Motivation (4): vision_statement, why_important, success_criteria, potential_obstacles, strategies
-- Cross-domain links (4): fulfills_goal_uid, source_path_step_uid, inspired_by_choice_uid, selected_choice_option_uid
+- Cross-domain links (3): fulfills_goal_uid, source_path_step_uid, selected_choice_option_uid (Choice inspiration is a graph edge — see below)
 - Identity (2): target_identity, identity_evidence_required
 
 Goal-specific methods: calculate_progress, is_on_track, expected_progress_percentage,
@@ -107,7 +107,7 @@ class Goal(UserOwnedEntity):
     # =========================================================================
     fulfills_goal_uid: str | None = None  # SUB-GOAL -> PARENT GOAL
     source_path_step_uid: str | None = None  # GOAL -> PS
-    inspired_by_choice_uid: str | None = None  # GOAL <- CHOICE
+    # Goal <- Choice linkage lives in the graph as (Goal)-[:INSPIRED_BY_CHOICE]->(Choice).
     selected_choice_option_uid: str | None = None  # GOAL <- CHOICE option
 
     # =========================================================================
@@ -119,7 +119,7 @@ class Goal(UserOwnedEntity):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None  # Back-pointer to GoalTemplate that spawned this instance
+    # Back-reference is (Goal)-[:SPAWNED_FROM]->(GoalTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================

@@ -111,7 +111,7 @@ class PrincipleDTO(UserOwnedDTO):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None
+    # Back-reference is (Principle)-[:SPAWNED_FROM]->(PrincipleTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
@@ -243,7 +243,6 @@ class PrincipleDTO(UserOwnedDTO):
                 "is_active",
                 "adopted_date",
                 "source_path_step_uid",
-                "template_uid",
                 "engagement_state",
             },
             enum_mappings={

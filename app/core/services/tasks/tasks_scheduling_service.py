@@ -173,8 +173,8 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         )
 
         # Add learning integration fields (single UID properties only)
+        # (reinforces_habit_uid is a graph edge, written in the batch below)
         dto.fulfills_goal_uid = task_data.fulfills_goal_uid
-        dto.reinforces_habit_uid = task_data.reinforces_habit_uid
         dto.goal_progress_contribution = getattr(task_data, "goal_progress_contribution", 0.0)
         dto.knowledge_mastery_check = getattr(task_data, "knowledge_mastery_check", False)
         dto.habit_streak_maintainer = getattr(task_data, "habit_streak_maintainer", False)
@@ -189,6 +189,17 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Collect all relationships for batch creation (10x faster)
         relationships: list[tuple[str, str, str, None]] = []
+
+        # Habit reinforcement: graph edge (Task)-[:REINFORCES_HABIT]->(Habit)
+        if task_data.reinforces_habit_uid:
+            relationships.append(
+                (
+                    task.uid,
+                    task_data.reinforces_habit_uid,
+                    RelationshipName.REINFORCES_HABIT.value,
+                    None,
+                )
+            )
 
         # Knowledge application relationships
         if task_data.applies_knowledge_uids:
@@ -234,7 +245,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
             "Created task %s with context: goal=%s, habit=%s, knowledge=%s",
             task.uid,
             task.fulfills_goal_uid,
-            task.reinforces_habit_uid,
+            task_data.reinforces_habit_uid,
             len(task_data.applies_knowledge_uids),
         )
 

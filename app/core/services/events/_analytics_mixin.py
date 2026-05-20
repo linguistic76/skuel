@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.intelligence import RecommendationEngine
 from core.utils.result_simplified import Errors, Result
 
@@ -65,6 +66,8 @@ class _AnalyticsMixin:
             return Result.fail(result)
 
         events, _ = result.value
+        # Populate the derived reinforces_habit_uid from the REINFORCES_HABIT edge.
+        events = await enrich_events_with_habit_links(self.backend, events)
 
         high_impact_events = []
         low_impact_events = []

@@ -175,7 +175,7 @@ class Principle(UserOwnedEntity):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None  # Back-pointer to PrincipleTemplate that spawned this instance
+    # Back-reference is (Principle)-[:SPAWNED_FROM]->(PrincipleTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================

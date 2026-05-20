@@ -70,7 +70,8 @@ class RelationshipName(StrEnum):
     ENABLES_GOAL = "ENABLES_GOAL"
     ENABLES_TASK = "ENABLES_TASK"
     INFORMS_CHOICE = "INFORMS_CHOICE"
-    SUPPORTS_HABIT = "SUPPORTS_HABIT"
+    # NOTE: Task→Habit is REINFORCES_HABIT (matching Event + the field name). The
+    # former SUPPORTS_HABIT was never-written drift, removed when consolidating.
     COMPLETES_KNOWLEDGE = "COMPLETES_KNOWLEDGE"
     INFERRED_KNOWLEDGE = "INFERRED_KNOWLEDGE"
     GUIDED_BY_KNOWLEDGE = "GUIDED_BY_KNOWLEDGE"  # Goals guided by knowledge
@@ -124,7 +125,9 @@ class RelationshipName(StrEnum):
     SUPPORTS_GOAL = "SUPPORTS_GOAL"
     CONFLICTS_WITH_GOAL = "CONFLICTS_WITH_GOAL"
     INSPIRES_GOAL = "INSPIRES_GOAL"
-    CELEBRATED_BY_EVENT = "CELEBRATED_BY_EVENT"
+    CELEBRATES_GOAL = (
+        "CELEBRATES_GOAL"  # (event)-[:CELEBRATES_GOAL]->(goal) — milestone celebration
+    )
     ALIGNED_WITH_PATH = "ALIGNED_WITH_PATH"
     MOTIVATED_BY_GOAL = "MOTIVATED_BY_GOAL"
 
@@ -239,8 +242,10 @@ class RelationshipName(StrEnum):
     HAS_EVENT_TEMPLATE = "HAS_EVENT_TEMPLATE"
     HAS_CHOICE_TEMPLATE = "HAS_CHOICE_TEMPLATE"
     HAS_PRINCIPLE_TEMPLATE = "HAS_PRINCIPLE_TEMPLATE"
-    # (Activity instance)-[:INSTANCE_OF]->(*Template) — spawned-from pointer
-    INSTANCE_OF = "INSTANCE_OF"
+    # (Activity instance)-[:SPAWNED_FROM {spawned_at}]->(*Template) — graph-native
+    # back-reference written atomically with the instance node at spawn time.
+    # This is THE relationship; there is no parallel `template_uid` property.
+    SPAWNED_FROM = "SPAWNED_FROM"
     # (User)-[:ENGAGED_WITH {since, state, completed_at?, abandoned_at?}]->(PathStep)
     ENGAGED_WITH = "ENGAGED_WITH"
 

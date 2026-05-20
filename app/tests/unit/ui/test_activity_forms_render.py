@@ -321,7 +321,9 @@ class TestEntityPickerWiring:
         assert {"parent_uid", "fulfills_goal_uid", "reinforces_habit_uid"} <= names
 
     def test_tasks_edit_picker_carries_entity_uid_values(self, task) -> None:
-        html = to_xml(TaskEditForm(task))
+        # The habit picker value is resolved from the (Task)-[:REINFORCES_HABIT]->(Habit)
+        # edge by the route layer and passed in via habit_uid (graph-native; no property).
+        html = to_xml(TaskEditForm(task, habit_uid="habit_z"))
         # Pickers should be wired with the task's linked UIDs as hidden values
         assert re.search(
             r'<input[^>]*type="hidden"[^>]*name="fulfills_goal_uid"[^>]*value="goal_y"',

@@ -330,6 +330,20 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
      collect(DISTINCT {uid: conflicting_event.uid, title: conflicting_event.title})[0..5] as event_conflicting_events
 
+// Event → Habit reinforcement edge (graph-native; replaces the former
+// reinforces_habit_uid property). Loaded into graph_context.reinforced_habits.
+OPTIONAL MATCH (event)-[:REINFORCES_HABIT]->(event_reinforced_habit:Habit)
+WHERE event IS NOT NULL
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids,
+     event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
+     event_conflicting_events,
+     collect(DISTINCT {uid: event_reinforced_habit.uid, title: event_reinforced_habit.title})[0..10] as event_reinforced_habits
+
 // Aggregate events into rich format
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -343,7 +357,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
              applied_knowledge: event_applied_knowledge,
              linked_goals: event_linked_goals,
              practiced_habits: event_practiced_habits,
-             conflicting_events: event_conflicting_events
+             conflicting_events: event_conflicting_events,
+             reinforced_habits: event_reinforced_habits
          }
      } END) as events_rich
 

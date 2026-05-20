@@ -88,7 +88,7 @@ class Choice(UserOwnedEntity):
     # =========================================================================
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    template_uid: str | None = None  # Back-pointer to ChoiceTemplate that spawned this instance
+    # Back-reference is (Choice)-[:SPAWNED_FROM]->(ChoiceTemplate).
     engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================

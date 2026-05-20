@@ -5,7 +5,7 @@ construction, basic delegation, and the create_adapter factory's error path.
 Mock entities are SimpleNamespace, matching the style of test_calendar_converters.
 """
 
-from datetime import date, time
+from datetime import date, datetime, time
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -36,6 +36,7 @@ def _make_event(**overrides):
         event_type=EventType.MEETING,
         priority="MEDIUM",
         status="SCHEDULED",
+        event_date=date(2026, 1, 15),
         start_time=time(10, 0),
         end_time=time(11, 0),
         location="Room 101",
@@ -48,6 +49,19 @@ def _make_event(**overrides):
     )
     for key, value in overrides.items():
         setattr(base, key, value)
+
+    # Mirror Event.start_datetime()/end_datetime(): the adapter combines
+    # event_date + start/end time into datetimes (None when either is missing).
+    base.start_datetime = lambda: (
+        datetime.combine(base.event_date, base.start_time)
+        if base.event_date and base.start_time
+        else None
+    )
+    base.end_datetime = lambda: (
+        datetime.combine(base.event_date, base.end_time)
+        if base.event_date and base.end_time
+        else None
+    )
     return base
 
 
