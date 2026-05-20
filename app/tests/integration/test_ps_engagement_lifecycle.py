@@ -490,7 +490,7 @@ class TestEngagePathStep:
         assert task_habit_edge.is_ok and task_habit_edge.value
         assert task_habit_edge.value[0]["edge_exists"], (
             "Spawned Task must have (Task)-[:REINFORCES_HABIT]->(Habit) edge — "
-            "see TASK_CROSS_EDGES in _spawn_orchestrator.py"
+            "see TASK_SPEC.cross_edges in _spawn_orchestrator.py"
         )
 
         # Goal → Choice linkage is a graph edge (INSPIRED_BY_CHOICE), not a property.
@@ -512,7 +512,7 @@ class TestEngagePathStep:
         assert edge_res.is_ok and edge_res.value
         assert edge_res.value[0]["edge_exists"], (
             "Spawned Goal must have (Goal)-[:INSPIRED_BY_CHOICE]->(Choice) edge — "
-            "see GOAL_CROSS_EDGES in _spawn_orchestrator.py"
+            "see GOAL_SPEC.cross_edges in _spawn_orchestrator.py"
         )
 
     async def test_engage_fails_for_empty_pathstep(self, engagement_service, ps_backend, test_user):
