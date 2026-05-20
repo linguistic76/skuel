@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.type_hints import EntityUID, UserUID
@@ -97,6 +98,7 @@ def create_today_routes(
         return render_task_drawer_body(task_result.value)
 
     @rt("/today/tasks/{uid}/complete", methods=["POST"])
+    @csrf_protected
     async def today_task_complete(request: Request, uid: str) -> Response:
         """Complete a task. 204 on success, 404 on unknown/unowned."""
         user_uid = require_authenticated_user(request)
@@ -117,6 +119,7 @@ def create_today_routes(
         return Response(status_code=204)
 
     @rt("/today/tasks/{uid}/defer", methods=["POST"])
+    @csrf_protected
     async def today_task_defer(request: Request, uid: str) -> Response:
         """Shift a task's due_date by ``span`` (``1d`` or ``1w``). 204 on success."""
         user_uid = require_authenticated_user(request)
@@ -152,6 +155,7 @@ def create_today_routes(
         return Response(status_code=204)
 
     @rt("/today/tasks/{uid}/star", methods=["POST"])
+    @csrf_protected
     async def today_task_star(request: Request, uid: str) -> Response:
         """Toggle Today-scope pin-state on a task. 204 on success.
 
@@ -186,6 +190,7 @@ def create_today_routes(
         return Response(status_code=204)
 
     @rt("/today/lifepaths/{uid}/wake", methods=["POST"])
+    @csrf_protected
     async def today_lifepath_wake(request: Request, uid: str) -> Response:
         """Clear the dormant flag on a LifePath ribbon.
 

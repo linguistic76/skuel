@@ -22,7 +22,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from adapters.inbound.auth import make_service_getter, require_teacher
+from adapters.inbound.auth import (
+    make_service_getter,
+    require_authenticated_user,
+    require_teacher,
+)
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -105,9 +109,13 @@ def make_pathstep_template_api_factory(
         ) -> Result[list[dict[str, Any]]]:
             """List templates attached to a given PathStep.
 
-            Read-only: open to authenticated users (no TEACHER gate). The PS
-            and its templates are SHARED curriculum content.
+            Read-only: open to any authenticated user (no TEACHER gate) — the PS
+            and its templates are SHARED curriculum content. But enumeration
+            still requires a session: reject anonymous callers with 401 so the
+            attachment graph isn't readable without login. ``boundary_handler``
+            re-raises the ``HTTPException`` raised here.
             """
+            require_authenticated_user(request)
             return cast(
                 "Result[list[dict[str, Any]]]",
                 await primary_service.list_for_pathstep(ps_uid),

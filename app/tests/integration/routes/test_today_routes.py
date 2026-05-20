@@ -30,8 +30,15 @@ def _make_request(
     user_uid: str | None = "user_mike",
     form: dict[str, str] | None = None,
     query: dict[str, str] | None = None,
+    method: str = "POST",
 ) -> Any:
-    """Build a minimal request-like object for session-backed auth."""
+    """Build a minimal request-like object for session-backed auth.
+
+    Carries ``method`` because the POST routes are now ``@csrf_protected`` and
+    the wrapper reads ``request.method``. CSRF verification itself is disabled
+    for this module (see ``_disable_csrf_enforcement``) — these tests cover
+    handler logic, not the CSRF layer (that has its own tests).
+    """
     session = {"user_uid": user_uid} if user_uid is not None else {}
     form_data = form or {}
 
@@ -39,11 +46,25 @@ def _make_request(
         return form_data
 
     return SimpleNamespace(
+        method=method,
         session=session,
         url=SimpleNamespace(path="/today"),
         query_params=query or {},
         form=_form,
+        cookies={},
     )
+
+
+@pytest.fixture(autouse=True)
+def _disable_csrf_enforcement(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let the ``@csrf_protected`` POST wrappers pass through to the handler.
+
+    The request stubs here are ``SimpleNamespace`` objects without cookies, so
+    real CSRF verification can't run; with enforcement off the wrapper falls
+    straight through after the method check, preserving the 401/404/204
+    assertions below.
+    """
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
 
 
 def _make_task(uid: str = "task_001", due: date | None = None) -> Any:
@@ -341,3 +362,31 @@ class TestLifepathWake:
         request = _make_request()
         response = await handlers["/today/lifepaths/{uid}/wake"](request=request, uid="lp_001")
         assert response.status_code == 204
+
+
+# ============================================================================
+# CSRF protection (Finding 2 — Codex P2)
+# ============================================================================
+
+
+class TestCsrfProtection:
+    """The mutating Today POST routes must reject tokenless requests when CSRF
+    enforcement is on. Guards against the ``@csrf_protected`` decorator being
+    dropped (the other tests run with enforcement disabled)."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/today/tasks/{uid}/complete",
+            "/today/tasks/{uid}/defer",
+            "/today/tasks/{uid}/star",
+            "/today/lifepaths/{uid}/wake",
+        ],
+    )
+    async def test_post_without_csrf_token_is_forbidden(
+        self, handlers: dict[str, Any], monkeypatch: pytest.MonkeyPatch, path: str
+    ) -> None:
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")  # override the module-wide disable
+        request = _make_request()  # authenticated, but carries no CSRF cookie/token
+        response = await handlers[path](request=request, uid="x_001")
+        assert response.status_code == 403
