@@ -20,6 +20,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
@@ -72,6 +73,7 @@ def create_choices_ui_routes(
         return await render_activity_sidebar_page(content, active="choices", request=request)
 
     @rt("/choices/create", methods=["POST"])
+    @csrf_protected
     async def choice_create_submit(request: Request) -> Any:
         """Validate the form, create the choice, redirect to its detail page."""
         user_uid = require_authenticated_user(request)
@@ -129,6 +131,7 @@ def create_choices_ui_routes(
         return await render_activity_sidebar_page(content, active="choices", request=request)
 
     @rt("/choices/edit", methods=["POST"])
+    @csrf_protected
     async def choice_edit_submit(request: Request) -> Any:
         """Validate the form, apply updates, redirect to the detail page."""
         user_uid = require_authenticated_user(request)

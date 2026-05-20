@@ -19,6 +19,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
@@ -71,6 +72,7 @@ def create_habits_ui_routes(
         return await render_activity_sidebar_page(content, active="habits", request=request)
 
     @rt("/habits/create", methods=["POST"])
+    @csrf_protected
     async def habit_create_submit(request: Request) -> Any:
         """Validate the form, create the habit, redirect to its detail page."""
         user_uid = require_authenticated_user(request)
@@ -128,6 +130,7 @@ def create_habits_ui_routes(
         return await render_activity_sidebar_page(content, active="habits", request=request)
 
     @rt("/habits/edit", methods=["POST"])
+    @csrf_protected
     async def habit_edit_submit(request: Request) -> Any:
         """Validate the form, apply updates, redirect to the detail page."""
         user_uid = require_authenticated_user(request)

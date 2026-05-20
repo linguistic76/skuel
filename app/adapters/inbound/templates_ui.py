@@ -31,6 +31,7 @@ from starlette.responses import RedirectResponse
 from adapters.inbound._template_form_parsing import parse_template_form_body
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.ports import ActivityTemplateOperations
 from core.services.conversion_service import ConversionServiceV2
@@ -226,6 +227,7 @@ def create_templates_ui_routes(
     # ------------------------------------------------------------------
 
     @rt("/teaching/ps/{ps_uid}/templates/{domain}/new", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     async def template_create_submit(
         request: Request, ps_uid: str, domain: str, current_user: Any = None
@@ -372,6 +374,7 @@ def create_templates_ui_routes(
     # ------------------------------------------------------------------
 
     @rt("/teaching/ps/{ps_uid}/templates/{domain}/edit", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     async def template_edit_submit(
         request: Request, ps_uid: str, domain: str, current_user: Any = None
@@ -451,6 +454,7 @@ def create_templates_ui_routes(
     # ------------------------------------------------------------------
 
     @rt("/teaching/ps/{ps_uid}/templates/{domain}/detach", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     async def template_detach(
         request: Request, ps_uid: str, domain: str, current_user: Any = None

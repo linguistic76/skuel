@@ -22,6 +22,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
@@ -87,6 +88,7 @@ def create_tasks_ui_routes(
         return await render_activity_sidebar_page(content, active="tasks", request=request)
 
     @rt("/tasks/create", methods=["POST"])
+    @csrf_protected
     async def task_create_submit(request: Request) -> Any:
         """Validate the form, create the task, redirect to its detail page."""
         user_uid = require_authenticated_user(request)
@@ -175,6 +177,7 @@ def create_tasks_ui_routes(
         return await render_activity_sidebar_page(content, active="tasks", request=request)
 
     @rt("/tasks/edit", methods=["POST"])
+    @csrf_protected
     async def task_edit_submit(request: Request) -> Any:
         """Validate the form, apply updates, redirect to the detail page."""
         user_uid = require_authenticated_user(request)

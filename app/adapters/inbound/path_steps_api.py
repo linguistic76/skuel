@@ -62,9 +62,12 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/attach-to-path", methods=["POST"])
     @csrf_protected
+    @require_admin(get_user_service)
     @boundary_handler()
-    async def attach_step_to_path_route(request: Request, step_uid: str) -> Result[bool]:
-        """Attach a path step to a learning path."""
+    async def attach_step_to_path_route(
+        request: Request, current_user: Any, step_uid: str
+    ) -> Result[bool]:
+        """Attach a path step to a learning path. Requires ADMIN role (curriculum write)."""
         result = await parse_json_body(request, PathStepPathRequest)
         if result.is_error:
             return result  # type: ignore[return-value]
@@ -75,9 +78,12 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/detach-from-path", methods=["POST"])
     @csrf_protected
+    @require_admin(get_user_service)
     @boundary_handler()
-    async def detach_step_from_path_route(request: Request, step_uid: str) -> Result[bool]:
-        """Detach a path step from a learning path."""
+    async def detach_step_from_path_route(
+        request: Request, current_user: Any, step_uid: str
+    ) -> Result[bool]:
+        """Detach a path step from a learning path. Requires ADMIN role (curriculum write)."""
         result = await parse_json_body(request, PathStepPathRequest)
         if result.is_error:
             return result  # type: ignore[return-value]

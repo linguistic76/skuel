@@ -21,6 +21,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
@@ -97,6 +98,7 @@ def create_events_ui_routes(
         return await render_activity_sidebar_page(content, active="events", request=request)
 
     @rt("/events/create", methods=["POST"])
+    @csrf_protected
     async def event_create_submit(request: Request) -> Any:
         """Validate the form, create the event, redirect to its detail page."""
         user_uid = require_authenticated_user(request)
@@ -166,6 +168,7 @@ def create_events_ui_routes(
         return await render_activity_sidebar_page(content, active="events", request=request)
 
     @rt("/events/edit", methods=["POST"])
+    @csrf_protected
     async def event_edit_submit(request: Request) -> Any:
         """Validate the form, apply updates, redirect to the detail page."""
         user_uid = require_authenticated_user(request)

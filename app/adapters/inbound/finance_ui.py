@@ -25,6 +25,7 @@ from pydantic import ValidationError
 from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
 from core.services.conversion_service import ConversionServiceV2
@@ -262,6 +263,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         )
 
     @rt("/finance/expenses/create", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     async def process_expense_create(request: Request, current_user) -> Any:
         """Form-encoded create endpoint for the expense form."""
@@ -294,6 +296,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/finance/expenses"})
 
     @rt("/finance/budgets/create", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     async def process_budget_create(request: Request, current_user) -> Any:
         """Form-encoded create endpoint for the budget form."""
