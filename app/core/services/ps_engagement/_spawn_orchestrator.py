@@ -223,7 +223,9 @@ class _SpawnOrchestrator:
                 await self._rollback(created_uids)
                 return Result.fail(res)
         for ht in bundle.habits:
-            habit_inst = _build_habit(ht, student_uid, engagement_anchor, template_to_instance)
+            habit_inst = _build_habit(
+                ht, student_uid, ps_uid, engagement_anchor, template_to_instance
+            )
             res = await self._persist(self._backends.habits, habit_inst, str(ht.uid), created_uids)
             if res.is_error:
                 await self._rollback(created_uids)
@@ -256,7 +258,9 @@ class _SpawnOrchestrator:
 
         # ----- Layer 3: Event -----
         for et in bundle.events:
-            event_inst = _build_event(et, student_uid, engagement_anchor, template_to_instance)
+            event_inst = _build_event(
+                et, student_uid, ps_uid, engagement_anchor, template_to_instance
+            )
             event_edges = _compute_cross_edges(et, EVENT_CROSS_EDGES, template_to_instance)
             res = await self._persist(
                 self._backends.events,
@@ -271,7 +275,9 @@ class _SpawnOrchestrator:
 
         # ----- Layer 4: Task -----
         for tt in bundle.tasks:
-            task_inst = _build_task(tt, student_uid, engagement_anchor, template_to_instance)
+            task_inst = _build_task(
+                tt, student_uid, ps_uid, engagement_anchor, template_to_instance
+            )
             task_edges = _compute_cross_edges(tt, TASK_CROSS_EDGES, template_to_instance)
             res = await self._persist(
                 self._backends.tasks,
@@ -423,6 +429,7 @@ def _instance_field_names(cls: type) -> set[str]:
 def _build_task(
     template: TaskTemplate,
     student_uid: str,
+    ps_uid: str,
     anchor: datetime,
     template_to_instance: dict[str, str],
 ) -> Task:
@@ -448,6 +455,7 @@ def _build_task(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
         engagement_state="engaged",
+        source_path_step_uid=ps_uid,
         **shared,
         **_resolve_offsets(template, TASK_OFFSET_REWRITES, anchor),
         **_resolve_refs(template, TASK_FIELD_REWRITES, template_to_instance),
@@ -489,6 +497,7 @@ def _build_goal(
 def _build_habit(
     template: HabitTemplate,
     student_uid: str,
+    ps_uid: str,
     anchor: datetime,
     template_to_instance: dict[str, str],
 ) -> Habit:
@@ -501,6 +510,7 @@ def _build_habit(
             "user_uid",
             "engagement_state",
             "entity_type",
+            "source_path_step_uid",
             *(r[1] for r in HABIT_OFFSET_REWRITES),
         },
     )
@@ -508,6 +518,7 @@ def _build_habit(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
         engagement_state="engaged",
+        source_path_step_uid=ps_uid,
         **shared,
         **_resolve_offsets(template, HABIT_OFFSET_REWRITES, anchor),
     )
@@ -516,6 +527,7 @@ def _build_habit(
 def _build_event(
     template: EventTemplate,
     student_uid: str,
+    ps_uid: str,
     anchor: datetime,
     template_to_instance: dict[str, str],
 ) -> Event:
@@ -528,6 +540,7 @@ def _build_event(
             "user_uid",
             "engagement_state",
             "entity_type",
+            "source_path_step_uid",
             *(r[1] for r in EVENT_OFFSET_REWRITES),
             *EVENT_FIELD_REWRITES.values(),
         },
@@ -536,6 +549,7 @@ def _build_event(
         uid=template_to_instance[template.uid],
         user_uid=student_uid,
         engagement_state="engaged",
+        source_path_step_uid=ps_uid,
         **shared,
         **_resolve_offsets(template, EVENT_OFFSET_REWRITES, anchor),
         **_resolve_refs(template, EVENT_FIELD_REWRITES, template_to_instance),

@@ -776,10 +776,14 @@ class TestRoundTripBackReferences:
     attached to each PS; ``UserContextBuilder`` then derives
     ``spawned_uid_to_ps_uid`` from those results.
 
-    ``source_path_step_uid`` is a domain-model field on Goal/Choice/Principle
-    only — Task/Habit/Event do not carry it. That asymmetry is a separate
-    open question (the PS-back-reference can be reached two hops via the
-    edge, or stored directly on the node; the codebase currently does both).
+    ``source_path_step_uid`` is a domain-model field on all six activity
+    instances, and the spawn orchestrator now populates it uniformly. The
+    field is load-bearing on the consumer side (``get_tasks_for_step``,
+    adaptive-LP learning-task detection, habit/event planning) and is the
+    only PS-back-reference for curriculum activities created *without* a
+    template (no ``SPAWNED_FROM`` edge to traverse). The earlier Goal/Choice/
+    Principle-only behaviour was an inconsistency, not a design — see
+    ``test_spawned_source_path_step_uid_uniform_on_all_six``.
     """
 
     async def test_spawned_from_edge_set_on_all_six_instances(
@@ -926,16 +930,19 @@ class TestRoundTripBackReferences:
             "Spawned event should have exactly one REINFORCES_HABIT edge"
         )
 
-    async def test_source_path_step_uid_asymmetric_by_design(
+    async def test_spawned_source_path_step_uid_uniform_on_all_six(
         self, engagement_service, ps_backend, template_backends, executor, test_user
     ):
-        """The spawn orchestrator writes ``source_path_step_uid`` on Goal/Choice/Principle only.
+        """The spawn orchestrator writes ``source_path_step_uid`` on all six instances.
 
-        Task/Habit/Event leave it None at spawn time — the PS-back-reference
-        for these three goes via two hops: ``(instance)-[:SPAWNED_FROM]->(template)
-        <-[:HAS_*_TEMPLATE]-(ps)``. This asymmetry is a separate open question
-        (see project assessment). Locking the current contract in so any
-        change is deliberate.
+        Previously only Goal/Choice/Principle carried it; Task/Habit/Event were
+        left None, which made spawned tasks invisible to ``get_tasks_for_step``
+        and starved the adaptive-LP / habit / event consumers that read the
+        field. The PS-back-reference is now denormalised uniformly onto every
+        spawned instance — symmetric with the field's presence on all six
+        domain models and with the non-template scheduling-service paths that
+        already set it. The ``SPAWNED_FROM`` edge remains the universal
+        back-reference; this field is the directly-readable companion.
         """
         await _seed_full_bundle(ps_backend, template_backends, executor)
         engage = await engagement_service.engage_pathstep(test_user, PS_UID)
@@ -955,14 +962,11 @@ class TestRoundTripBackReferences:
             domain_label = next((lab for lab in record["labs"] if lab != "Entity"), "Entity")
             by_label[domain_label] = record["src_ps"]
 
-        assert by_label["Goal"] == PS_UID, "Goal must carry source_path_step_uid"
-        assert by_label["Choice"] == PS_UID, "Choice must carry source_path_step_uid"
-        assert by_label["Principle"] == PS_UID, "Principle must carry source_path_step_uid"
-        assert by_label["Task"] is None, (
-            "Task does not carry source_path_step_uid at spawn time — PS-back-reference goes two hops via SPAWNED_FROM"
-        )
-        assert by_label["Habit"] is None, "Habit does not carry source_path_step_uid at spawn time"
-        assert by_label["Event"] is None, "Event does not carry source_path_step_uid at spawn time"
+        for label in ("Task", "Goal", "Habit", "Event", "Choice", "Principle"):
+            assert by_label[label] == PS_UID, (
+                f"{label} must carry source_path_step_uid={PS_UID} at spawn time "
+                "— the spawn orchestrator populates it uniformly on all six instances"
+            )
 
     async def test_list_engaged_round_trips_spawned_instance_uids(
         self, engagement_service, ps_backend, template_backends, executor, test_user

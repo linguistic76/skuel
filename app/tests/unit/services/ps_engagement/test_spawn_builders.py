@@ -1,12 +1,13 @@
 """Unit tests for ``_SpawnOrchestrator``'s pure builder functions.
 
 The builders ( ``_build_task``, ``_build_goal`` etc.) are pure: they take a
-template, a UID map, and an engagement anchor, and return a frozen instance
-dataclass. These tests verify:
+template, the owning PathStep uid, a UID map, and an engagement anchor, and
+return a frozen instance dataclass. These tests verify:
 
 - Template field copy-through is correct.
 - Cross-template references resolve via the UID map.
 - RelativeOffset fields resolve to absolute date/datetime against the anchor.
+- ``source_path_step_uid`` is populated uniformly on all six instances.
 - ``engagement_state`` is set correctly. (The template back-reference is
   the ``(instance)-[:SPAWNED_FROM]->(template)`` graph edge, written
   atomically by the persistence layer — not by the builders themselves.
@@ -48,11 +49,12 @@ PS = "ps_test"
 class TestTaskBuilder:
     def test_basic_task_carries_engaged_state(self) -> None:
         tt = TaskTemplate(uid="ttpl_a", title="Practice")
-        task = _build_task(tt, STUDENT, ANCHOR, {"ttpl_a": "task_practice_xyz"})
+        task = _build_task(tt, STUDENT, PS, ANCHOR, {"ttpl_a": "task_practice_xyz"})
         assert task.uid == "task_practice_xyz"
         assert task.user_uid == STUDENT
         assert task.engagement_state == "engaged"
         assert task.title == "Practice"
+        assert task.source_path_step_uid == PS
 
     def test_due_offset_resolves_to_absolute_date(self) -> None:
         tt = TaskTemplate(
@@ -61,7 +63,7 @@ class TestTaskBuilder:
             due_offset=RelativeOffset(days=7),
             scheduled_offset=RelativeOffset(days=2),
         )
-        task = _build_task(tt, STUDENT, ANCHOR, {"ttpl_off": "task_uid"})
+        task = _build_task(tt, STUDENT, PS, ANCHOR, {"ttpl_off": "task_uid"})
         assert task.due_date == date(2026, 5, 16)
         assert task.scheduled_date == date(2026, 5, 11)
 
@@ -79,7 +81,7 @@ class TestTaskBuilder:
             "htpl_z": "habit_uid",
             "etpl_w": "event_uid",
         }
-        task = _build_task(tt, STUDENT, ANCHOR, uid_map)
+        task = _build_task(tt, STUDENT, PS, ANCHOR, uid_map)
         assert task.fulfills_goal_uid == "goal_uid"
         assert task.scheduled_event_uid == "event_uid"
 
@@ -97,7 +99,7 @@ class TestTaskBuilder:
         )
         uid_map = {"ttpl_x": "task_uid", "htpl_z": "habit_uid"}
 
-        task = _build_task(tt, STUDENT, ANCHOR, uid_map)
+        task = _build_task(tt, STUDENT, PS, ANCHOR, uid_map)
         # Derived field is not set by the builder (defaults to None).
         assert task.reinforces_habit_uid is None
 
@@ -106,7 +108,7 @@ class TestTaskBuilder:
 
     def test_unset_offset_yields_none(self) -> None:
         tt = TaskTemplate(uid="ttpl_no_offset", title="t")
-        task = _build_task(tt, STUDENT, ANCHOR, {"ttpl_no_offset": "task_uid"})
+        task = _build_task(tt, STUDENT, PS, ANCHOR, {"ttpl_no_offset": "task_uid"})
         assert task.due_date is None
         assert task.scheduled_date is None
 
@@ -147,8 +149,9 @@ class TestEventBuilder:
         template_to_instance = {"etpl_party": "event_uid", "gtpl_target": "goal_uid"}
 
         # Builder produces a clean instance with no goal property.
-        event = _build_event(et, STUDENT, ANCHOR, template_to_instance)
+        event = _build_event(et, STUDENT, PS, ANCHOR, template_to_instance)
         assert not hasattr(event, "milestone_celebration_for_goal")
+        assert event.source_path_step_uid == PS
 
         # Cross-edge computation resolves the template ref to a CELEBRATES_GOAL edge.
         edges = _compute_cross_edges(et, EVENT_CROSS_EDGES, template_to_instance)
@@ -162,9 +165,10 @@ class TestHabitBuilder:
             title="Morning practice",
             recurrence_end_offset=RelativeOffset(days=90),
         )
-        habit = _build_habit(ht, STUDENT, ANCHOR, {"htpl_morning": "habit_uid"})
+        habit = _build_habit(ht, STUDENT, PS, ANCHOR, {"htpl_morning": "habit_uid"})
         assert habit.recurrence_end_date == date(2026, 8, 7)
         assert habit.user_uid == STUDENT
+        assert habit.source_path_step_uid == PS
 
 
 class TestChoiceBuilder:
