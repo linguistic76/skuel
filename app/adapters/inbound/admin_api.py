@@ -29,6 +29,7 @@ from pydantic import ValidationError
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.result_helpers import require_found
 from core.models.entity_requests import ChangeUserRoleRequest
@@ -179,6 +180,7 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/role")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def change_user_role(
@@ -243,6 +245,7 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/deactivate")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def deactivate_user(
