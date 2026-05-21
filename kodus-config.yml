@@ -1,0 +1,53 @@
+# Kodus (Kody) code-review configuration — config-as-code.
+# Committed at the repo root, this file OVERRIDES the app.kodus.io dashboard.
+# Docs: https://docs.kodus.io/how_to_use/en/code_review/configs/general
+# Note: custom "Kody Rules" are dashboard-only; everything else lives here.
+
+version: '1.2'
+
+summary:
+  generatePRSummary: true
+  # Append Kody's summary to a human-written PR description rather than replace it.
+  behaviourForExistingDescription: concatenate
+
+# Review PRs targeting these branches.
+baseBranches: [main, develop]
+
+# Skip generated / vendored / secret files. Docs and skills markdown stay
+# reviewable on purpose (kept reviewable per maintainer decision 2026-05-21).
+ignorePaths:
+  - '**/*.lock'
+  - uv.lock
+  - .env
+  - app/static/vendor/**
+  - '**/*.min.js'
+
+# All review lenses on, including business-logic.
+reviewOptions:
+  security: true
+  code_style: true
+  kody_rules: true
+  refactoring: true
+  error_handling: true
+  maintainability: true
+  potential_issues: true
+  documentation_and_comments: true
+  performance_and_optimization: true
+  business_logic: true
+
+suggestionControl:
+  groupingMode: full
+  limitationType: pr
+  maxSuggestions: 9
+  # Drop low-severity noise; surface medium and above.
+  severityLevelFilter: medium
+
+ignoredTitleKeywords: []
+
+automatedReviewActive: true
+# Kody does not auto-APPROVE PRs (a bot approval gives false confidence solo)...
+pullRequestApprovalActive: false
+# ...but it DOES post a real CHANGES_REQUESTED review state on findings, so it
+# acts as a genuine review gate alongside branch protection.
+isRequestChangesActive: true
+llmGeneratedMemoriesRequireApproval: false
