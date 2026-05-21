@@ -5,6 +5,7 @@ category: patterns
 related_skills:
 - html-htmx
 - accessibility-guide
+- ui-browser
 related_docs: []
 ---
 # HTMX Accessibility Patterns

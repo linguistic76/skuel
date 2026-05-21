@@ -5,6 +5,7 @@ category: patterns
 related_skills:
 - activity-domains
 - curriculum-domains
+- security
 related_docs: []
 ---
 # Ownership Verification Pattern

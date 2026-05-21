@@ -1,10 +1,11 @@
 ---
-title: ADR-XXX: [Short Title of Decision]
+title: "ADR-XXX: [Short Title of Decision]"
 updated: 2025-11-26
 status: current
 category: decisions
 tags: [adr, decisions, template]
 related: []
+related_skills: [docs-skills-evolution]
 ---
 
 # ADR-XXX: [Short Title of Decision]

@@ -2,7 +2,7 @@
 title: Authentication Patterns in SKUEL
 updated: '2026-04-01'
 category: patterns
-related_skills: []
+related_skills: [security]
 related_docs: []
 ---
 # Authentication Patterns in SKUEL

@@ -4,7 +4,7 @@ updated: 2026-03-16
 status: current
 category: architecture
 tags: [pwa, service-worker, offline, mobile]
-related_skills: [fasthtml]
+related_skills: [fasthtml, pwa]
 related_adrs: [ADR-050]
 ---
 # PWA Architecture
