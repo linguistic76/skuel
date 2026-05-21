@@ -1,10 +1,11 @@
 ---
-title: Curriculum Grouping Patterns: KU, PS, LP + MOC Organization
+title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
 updated: 2026-03-03
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
 related: [ADR-023-curriculum-baseservice-migration, ADR-028-ku-moc-unified-relationship-migration]
+related_skills: [curriculum-domains]
 ---
 
 # Curriculum Grouping Patterns: KU, PS, LP + MOC Organization

@@ -6,6 +6,7 @@ category: architecture
 version: 2.0.0
 tags: [architecture, relationships, unified-service, infrastructure, lateral-relationships]
 related: [UNIFIED_RELATIONSHIP_SERVICE.md, ADR-028]
+related_skills: [vis-network]
 ---
 
 # Relationships Architecture

@@ -4,6 +4,7 @@ updated: 2026-01-29
 category: patterns
 related_skills:
 - python
+- docs-skills-evolution
 related_docs: []
 ---
 # Docstring Standards

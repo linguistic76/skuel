@@ -4,6 +4,7 @@ updated: 2026-05-09
 status: current
 category: architecture
 version: 8.1.0
+related_skills: [activity-domains]
 tags:
 - architecture
 - entity-types
