@@ -1940,8 +1940,7 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 
 | Skill | Why Required | Use For |
 |-------|-------------|---------|
-| **js-alpine** | Alpine.js component integration | `relationshipGraph()` component, reactive state |
-| **html-htmx** | Lazy loading, server communication | HTMX `hx-trigger="intersect once"` pattern |
+| **ui-browser** | Alpine.js + HTMX integration | `relationshipGraph()` component, reactive state, lazy loading (`hx-trigger="intersect once"`) |
 | **neo4j-cypher-patterns** | Graph queries | Cypher queries for lateral relationships |
 
 **Recommended:**
@@ -1950,7 +1949,7 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 |-------|----------|---------|
 | **python** | Service layer | Service methods, API routes |
 | **fasthtml** | Web framework | Route definitions, FastHTML components |
-| **tailwind-css** | Styling | Container styling, responsive layout |
+| **ui-css** | Styling | Container styling, responsive layout |
 
 ---
 
@@ -1962,8 +1961,7 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 |-------|----------|---------|
 | **activity-domains** | Activity domains use lateral relationships | Tasks, Goals, Habits, Events, Choices, Principles |
 | **curriculum-domains** | Curriculum domains use lateral relationships | KU, PS, LP (prerequisites, alternatives) |
-| **base-page-architecture** | Page layout | BasePage wrapper for detail pages |
-| **skuel-component-composition** | UI patterns | Component hierarchy, reusable patterns |
+| **skuel-ui** | Page layout + UI patterns | BasePage wrapper for detail pages, component hierarchy, reusable patterns |
 
 ---
 
@@ -2184,6 +2182,6 @@ const options = {
 
 ---
 
-**Related Skills:** @js-alpine @html-htmx @neo4j-cypher-patterns @activity-domains @curriculum-domains
+**Related Skills:** @ui-browser @neo4j-cypher-patterns @activity-domains @curriculum-domains
 
 **Deep Dive:** `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md`

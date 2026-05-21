@@ -359,13 +359,12 @@ SKUEL also includes:
 
 ## Related Skills
 
-- **[js-alpine](../js-alpine/SKILL.md)** - `chartVis()` Alpine component for chart state management
-- **[monsterui](../monsterui/SKILL.md)** - Card containers for chart dashboards
-- **[daisyui](../ui-css/SKILL.md)** - Loading spinners, error states
+- **[ui-browser](../ui-browser/SKILL.md)** - `chartVis()` Alpine component for chart state management
+- **[ui-css](../ui-css/SKILL.md)** - Card containers, loading spinners, error states
 
 ## Foundation
 
-- **[js-alpine](../js-alpine/SKILL.md)** - Understanding Alpine.data() components
+- **[ui-browser](../ui-browser/SKILL.md)** - Understanding Alpine.data() components
 
 ## See Also
 

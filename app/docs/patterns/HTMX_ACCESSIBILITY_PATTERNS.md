@@ -3,7 +3,6 @@ title: HTMX Accessibility Patterns
 updated: '2026-02-26'
 category: patterns
 related_skills:
-- html-htmx
 - accessibility-guide
 - ui-browser
 related_docs: []

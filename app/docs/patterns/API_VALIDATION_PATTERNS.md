@@ -4,7 +4,7 @@ updated: 2026-03-23
 category: patterns
 related_skills:
 - pydantic
-- skuel-form-patterns
+- skuel-ui
 related_docs:
 - /docs/patterns/three_tier_type_system.md
 - /docs/patterns/ROUTE_FACTORIES.md
@@ -17,11 +17,11 @@ related_docs:
 
 ## Quick Start
 
-**Skills:** [@pydantic](../../.claude/skills/pydantic/SKILL.md), [@skuel-form-patterns](../../.claude/skills/skuel-form-patterns/SKILL.md)
+**Skills:** [@pydantic](../../.claude/skills/pydantic/SKILL.md), [@skuel-ui](../../.claude/skills/skuel-ui/SKILL.md)
 
 For hands-on implementation:
 1. Invoke `@pydantic` for request model validation patterns
-2. Invoke `@skuel-form-patterns` for form handling and error display
+2. Invoke `@skuel-ui` for form handling and error display
 3. See [QUICK_REFERENCE.md](../../.claude/skills/pydantic/QUICK_REFERENCE.md) for validation examples
 4. Continue below for complete validation strategy
 

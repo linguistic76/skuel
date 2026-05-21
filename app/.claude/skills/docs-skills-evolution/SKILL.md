@@ -91,8 +91,8 @@ Doc evolution has two equally important triggers:
 📦 python-fasthtml: 0.12.21 → 0.12.39
    Skills potentially affected:
    - @fasthtml
-   - @html-htmx
-   - @skuel-form-patterns
+   - @ui-browser
+   - @skuel-ui
 
    Changelog: https://github.com/AnswerDotAI/fasthtml/releases
 ```
@@ -623,7 +623,7 @@ $ git pull
 📦 python-fasthtml: 0.12.21 → 0.12.39
    Skills potentially affected:
    - @fasthtml (primary)
-   - @html-htmx (depends on fasthtml)
+   - @ui-browser (depends on fasthtml)
 
    Workflow: See @docs-skills-evolution "Library Upgrade Workflow"
    Changelog: https://github.com/AnswerDotAI/fasthtml/releases
