@@ -313,6 +313,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
 
         Accepts form data and returns HTML fragment for status display.
         """
+        user_uid = require_authenticated_user(request)
         try:
             form_data = await request.form()
 
@@ -339,6 +340,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
 
             # Create the item
             result = await calendar_service.quick_create(
+                user_uid=user_uid,
                 item_type=item_type,
                 title=title,
                 start_time=start_time,
@@ -387,6 +389,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             habit_uid: The habit UID
             status: One of 'done', 'skipped', 'missed'
         """
+        user_uid = require_authenticated_user(request)
         try:
             form_data = await request.form()
             notes = safe_form_string(form_data.get("notes"))
@@ -404,6 +407,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
 
             # Record the occurrence via calendar service
             result = await calendar_service.record_habit_occurrence(
+                user_uid=user_uid,
                 habit_uid=habit_uid,
                 on_date=today,
                 status=status.upper(),
@@ -441,13 +445,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             )
 
     @rt("/events/calendar/item-details/{item_id}")
-    async def calendar_item_details_modal(_request: Request, item_id: str) -> Any:
+    async def calendar_item_details_modal(request: Request, item_id: str) -> Any:
         """
         HTMX endpoint for calendar item details modal.
 
         Returns HTML fragment instead of JSON for direct DOM insertion.
         """
-        result = await calendar_service.get_item(item_id)
+        user_uid = require_authenticated_user(request)
+        result = await calendar_service.get_item(user_uid, item_id)
 
         if result.is_ok and result.value:
             return create_item_details_modal(result.value)

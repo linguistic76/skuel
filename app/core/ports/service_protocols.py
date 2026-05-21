@@ -90,36 +90,39 @@ class CalendarServiceOperations(Protocol):
         """Get calendar view for a date range. Returns Result[CalendarData]."""
         ...
 
-    async def get_item(self, item_uid: str) -> "Result[CalendarItem | None]":
-        """Get a calendar item by UID. Returns Result[CalendarItem | None]."""
+    async def get_item(self, user_uid: UserUID, item_uid: str) -> "Result[CalendarItem | None]":
+        """Get a calendar item by UID, scoped to its owner. Returns Result[CalendarItem | None]."""
         ...
 
     async def quick_create(
         self,
+        user_uid: UserUID,
         item_type: str,
         title: str,
         start_time: datetime,
         **kwargs: Any,
     ) -> "Result[CalendarItem]":
-        """Quick-create a calendar item. Returns Result[CalendarItem]."""
+        """Quick-create a calendar item owned by user_uid. Returns Result[CalendarItem]."""
         ...
 
     async def reschedule_item(
         self,
+        user_uid: UserUID,
         item_uid: str,
         new_start: datetime,
     ) -> "Result[CalendarItem]":
-        """Reschedule a calendar item. Returns Result[CalendarItem]."""
+        """Reschedule a calendar item the user owns. Returns Result[CalendarItem]."""
         ...
 
     async def record_habit_occurrence(
         self,
+        user_uid: UserUID,
         habit_uid: str,
         on_date: str,
         status: str,
         notes: str | None = None,
     ) -> "Result[HabitCompletion]":
-        """Record a habit occurrence from the calendar view."""
+        """Record a habit occurrence (verifies habit ownership) from the calendar view."""
         ...
 
 

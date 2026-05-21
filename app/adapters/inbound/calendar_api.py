@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
 
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
@@ -37,13 +38,15 @@ def create_calendar_api_routes(
     @csrf_protected
     @boundary_handler(success_status=201)
     async def quick_create(request: Request) -> Result[dict[str, Any]]:
-        """Quick create a calendar item."""
+        """Quick create a calendar item owned by the authenticated user."""
+        user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, CalendarQuickCreateRequest)
         if parsed.is_error:
             return parsed  # type: ignore[return-value]
         req = parsed.value
 
         result = await calendar_service.quick_create(
+            user_uid=user_uid,
             item_type=req.type,
             title=req.title,
             start_time=datetime.fromisoformat(req.start_time),
@@ -56,9 +59,10 @@ def create_calendar_api_routes(
 
     @rt("/api/v2/calendar/items/{item_id}")
     @boundary_handler()
-    async def get_calendar_item(_request, item_id: str) -> Result[dict[str, Any]]:
-        """Get details for a specific calendar item."""
-        result = await calendar_service.get_item(item_id)
+    async def get_calendar_item(request: Request, item_id: str) -> Result[dict[str, Any]]:
+        """Get details for a specific calendar item (scoped to the owner)."""
+        user_uid = require_authenticated_user(request)
+        result = await calendar_service.get_item(user_uid, item_id)
 
         if result.is_ok and result.value:
             item = result.value
@@ -111,6 +115,7 @@ def create_calendar_api_routes(
         """
         from starlette.responses import Response
 
+        user_uid = require_authenticated_user(request)
         form_data = await request.form()
         uid = safe_form_string(form_data.get("uid"))
         new_start_str = safe_form_string(form_data.get("new_start"))
@@ -122,6 +127,7 @@ def create_calendar_api_routes(
             return Div(render_inline_error("Missing new_start in request"), id="reschedule-error")
 
         result = await calendar_service.reschedule_item(
+            user_uid=user_uid,
             item_uid=uid,
             new_start=datetime.fromisoformat(new_start_str),
         )

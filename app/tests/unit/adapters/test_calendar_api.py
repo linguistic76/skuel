@@ -83,6 +83,7 @@ def _make_request(json_body=None, form_data=None):
     if form_data is not None:
         request.form = AsyncMock(return_value=form_data)
     request.method = "POST"
+    request.session = {"user_uid": "user_test"}  # routes now require an authenticated session
     return request
 
 
@@ -174,7 +175,7 @@ class TestGetCalendarItem:
         service.get_item = AsyncMock(return_value=Result.ok(item))
 
         handler = registry.get("/api/v2/calendar/items/{item_id}", "GET")
-        response = await handler(None, item_id="cal_event_1")
+        response = await handler(_make_request(), item_id="cal_event_1")
         assert response.status_code == 200
 
         # JSONResponse — read its body directly
@@ -196,7 +197,7 @@ class TestGetCalendarItem:
         service.get_item = AsyncMock(return_value=Result.ok(None))
 
         handler = registry.get("/api/v2/calendar/items/{item_id}", "GET")
-        response = await handler(None, item_id="missing")
+        response = await handler(_make_request(), item_id="missing")
         assert response.status_code == 404
 
     @pytest.mark.asyncio
@@ -205,7 +206,7 @@ class TestGetCalendarItem:
         service.get_item = AsyncMock(return_value=Result.fail(Errors.database("get_item", "boom")))
 
         handler = registry.get("/api/v2/calendar/items/{item_id}", "GET")
-        response = await handler(None, item_id="cal_event_1")
+        response = await handler(_make_request(), item_id="cal_event_1")
         # The handler treats any non-ok-with-value as not_found
         assert response.status_code == 404
 
@@ -229,6 +230,7 @@ class TestRescheduleItem:
         response = await handler(request)
         assert response.headers.get("HX-Refresh") == "true"
         service.reschedule_item.assert_awaited_once_with(
+            user_uid="user_test",
             item_uid="cal_event_1",
             new_start=datetime(2026, 5, 21, 9, 0),
         )
