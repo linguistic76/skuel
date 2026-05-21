@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from core.models.entity_converters import entity_to_response
 from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_submission_request import (
@@ -40,6 +41,7 @@ def create_form_submissions_api_routes(
     # ========================================================================
 
     @rt("/api/form-submissions/submit", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def submit_form(request: Request) -> Result[dict[str, Any]]:
         """Submit a form response."""
@@ -91,6 +93,7 @@ def create_form_submissions_api_routes(
     # ========================================================================
 
     @rt("/api/form-submissions/delete", methods=["DELETE"])
+    @csrf_protected
     @boundary_handler()
     async def delete_form_submission(request: Request) -> Result[bool]:
         """Delete a user's form submission (ownership-verified)."""
@@ -105,6 +108,7 @@ def create_form_submissions_api_routes(
     # ========================================================================
 
     @rt("/api/form-submissions/share", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def share_form_submission(request: Request) -> Result[bool]:
         """Share an existing form submission with groups/users/admin."""

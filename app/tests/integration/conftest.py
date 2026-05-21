@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock
 import pytest
 import pytest_asyncio
 from neo4j import AsyncGraphDatabase
-from testcontainers.neo4j import Neo4jContainer
+from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
@@ -114,7 +114,8 @@ async def ensure_test_users(neo4j_driver):
                 result = await session.run(
                     """
                     MERGE (u:User {uid: $user_uid})
-                    ON CREATE SET u.created_at = datetime($created_at)
+                    ON CREATE SET u.title = $user_uid,
+                                  u.created_at = datetime($created_at)
                     """,
                     user_uid=user_uid,
                     created_at=datetime.now().isoformat(),
@@ -330,7 +331,8 @@ async def create_test_users(neo4j_driver):
         await session.run(
             """
             MERGE (u:User {uid: $user_uid})
-            ON CREATE SET u.created_at = datetime($created_at)
+            ON CREATE SET u.title = $user_uid,
+                          u.created_at = datetime($created_at)
             RETURN u
             """,
             user_uid="user_test_123",
@@ -339,7 +341,8 @@ async def create_test_users(neo4j_driver):
         await session.run(
             """
             MERGE (u:User {uid: $user_uid})
-            ON CREATE SET u.created_at = datetime($created_at)
+            ON CREATE SET u.title = $user_uid,
+                          u.created_at = datetime($created_at)
             RETURN u
             """,
             user_uid="user_test_456",
@@ -405,7 +408,6 @@ async def services(neo4j_driver):
 
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.entity import Entity
-    from core.models.entity_dto import EntityDTO
     from core.models.user.user import User
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
@@ -457,7 +459,7 @@ async def services(neo4j_driver):
                 if dataclasses.is_dataclass(self.model_class):
                     valid_fields = {f.name for f in dataclasses.fields(self.model_class)}
                     filtered_dict = {k: v for k, v in entity.items() if k in valid_fields}
-                    entity = self.model_class(**filtered_dict)
+                    entity = self.model_class(**filtered_dict)  # type: ignore[operator]
                 else:
                     entity = self.model_class(**entity)
 
@@ -562,10 +564,11 @@ async def services(neo4j_driver):
         graph_intel=mock_graph_intel,
     )
 
-    # Create Tasks service
+    # Create Tasks service (requires graph_intel + cross_domain_query)
     tasks_service = TasksService(
         backend=tasks_backend,
         cross_domain_query=cross_domain_query,
+        graph_intel=mock_graph_intel,
     )
 
     # Create Goals service (requires graph_intel + cross_domain_query)
@@ -595,21 +598,6 @@ async def services(neo4j_driver):
     ps_service.core.backend = ps_backend
     lp_service.core.backend = lp_backend
     principles_service.core.backend = principles_backend
-
-    # PATCH: Set _dto_class and _model_class on core services
-    # The context_operations_mixin reads self._dto_class directly (class attribute),
-    # which is None on BaseService. Setting instance attributes ensures
-    # get_with_context() works correctly via the mixin.
-    for core_service in [
-        tasks_service.core,
-        goals_service.core,
-        events_service.core,
-        principles_service.core,
-        ps_service.core,
-        lp_service.core,
-    ]:
-        core_service._dto_class = EntityDTO
-        core_service._model_class = Entity
 
     services_container = TestServices(
         choices=choices_service,
@@ -828,16 +816,18 @@ async def populated_test_data(skuel_app):
 
 
 @pytest.fixture
-def embeddings_service():
+def embeddings_service(monkeypatch):
     """Create embeddings service with mock driver for integration tests.
 
     Tests that use this fixture immediately override service methods (e.g.,
     create_batch_embeddings) with AsyncMock, so the mock driver is sufficient.
+    HF_API_TOKEN is set so the constructor's fail-fast check passes.
     """
     from unittest.mock import AsyncMock, MagicMock
 
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
+    monkeypatch.setenv("HF_API_TOKEN", "test-token")
     mock_backend = MagicMock()
     mock_backend.store_embedding_metadata = AsyncMock()
     mock_backend.get_embedding_metadata = AsyncMock()

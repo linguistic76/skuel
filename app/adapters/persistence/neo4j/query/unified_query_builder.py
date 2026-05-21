@@ -608,17 +608,16 @@ class UnifiedQueryBuilder:
         if self._template_library_cache is None:
             # Access _template_library directly (contains TemplateSpec objects)
             # Note: get_template_library() returns a different structure (dict[category -> list])
-            self._template_library_cache = getattr(qb, "_template_library", {})
+            self._template_library_cache = getattr(qb, "_template_library", {}) or {}
+        # Local binding — pyright doesn't narrow self.X attribute access across
+        # statements (the assignment in the if-block doesn't carry over).
+        cache: dict[str, Any] = self._template_library_cache or {}
 
         # Filter by category if requested
         if category:
-            return {
-                name: spec
-                for name, spec in self._template_library_cache.items()
-                if spec.category == category
-            }
+            return {name: spec for name, spec in cache.items() if spec.category == category}
 
-        return self._template_library_cache
+        return cache
 
     def template(self, name: str) -> TemplateQueryBuilder:
         """
@@ -699,9 +698,7 @@ class UnifiedQueryBuilder:
         qb = self._ensure_query_builder()
         return await qb.validate_and_optimize(cypher)
 
-    async def validate_query(
-        self, cypher: str, context: dict[str, Any] | None = None
-    ) -> Result[Any]:
+    async def validate_query(self, cypher: str, strict_mode: bool = True) -> Result[Any]:
         """
         Validate a Cypher query without executing it.
 
@@ -710,7 +707,7 @@ class UnifiedQueryBuilder:
 
         Args:
             cypher: Cypher query to validate
-            context: Optional context for validation
+            strict_mode: If True, treat warnings as errors
 
         Returns:
             Result containing ValidationResult with issues and warnings
@@ -728,7 +725,7 @@ class UnifiedQueryBuilder:
                         print(f"{issue.severity}: {issue.message}")
         """
         qb = self._ensure_query_builder()
-        return await qb.validate_only(cypher, context)
+        return await qb.validate_only(cypher, strict_mode)
 
     def explain_query(self, cypher: str) -> str:
         """

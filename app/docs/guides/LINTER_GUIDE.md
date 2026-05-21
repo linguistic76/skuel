@@ -30,7 +30,7 @@ SKUEL enforces code quality through three linting layers, all run via `uv run` u
 | Layer | Tool | Scope | Config |
 |-------|------|-------|--------|
 | **Standard Python** | Ruff | 33 rule families (F, E, W, I, N, UP, B, SIM, RET, PERF, etc.) | `pyproject.toml` `[tool.ruff]` |
-| **SKUEL Patterns** | `scripts/lint_skuel.py` | 17 architectural rules (SKUEL001-SKUEL017) | Inline in script |
+| **SKUEL Patterns** | `scripts/lint_skuel.py` | 19 architectural rules (SKUEL001-SKUEL019) | Inline in script |
 | **Cypher Queries** | `scripts/cypher_linter.py` | 10 Neo4j query rules (CYP001-CYP010) | Inline in script |
 
 Additional type checkers run during `./dev quality`:
@@ -58,7 +58,7 @@ Configured in `pyproject.toml` under `[tool.ruff]`:
 - **All rules auto-fixable:** `fixable = ["ALL"]`
 - **Per-file ignores:** Extensive config for tests, UI, routes, scripts (see `[tool.ruff.lint.per-file-ignores]`)
 
-## SKUEL Pattern Rules (SKUEL001-SKUEL017)
+## SKUEL Pattern Rules (SKUEL001-SKUEL019)
 
 These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 
@@ -74,6 +74,7 @@ These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 |------|---------|-------------|
 | **SKUEL002** | Magic semantic strings | Use `SemanticRelationshipType` enum |
 | **SKUEL003** | `.is_err` usage | Use `.is_error` instead [auto-fix] |
+| **SKUEL019** | Catalog credential read via env | Use `get_credential()` — ERROR for catalog keys, WARNING for credential-shape names |
 
 ### WARNING
 
@@ -92,6 +93,7 @@ These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
 | **SKUEL016** | Stale Poetry references | SKUEL uses uv, not Poetry |
 | **SKUEL017** | Bare `except Exception` | Use specific types from `exception_types.py` |
+| **SKUEL018** | Direct read of `RichUserContext` rich-only fields | Use `get_X()` / `X_or_empty()` accessors |
 
 ### INFO
 
@@ -130,7 +132,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019.
 
 **SKUEL017 additional markers:**
 ```python
@@ -165,18 +167,20 @@ uv run python scripts/lint_skuel.py --strict    # Treat warnings as errors
 
 ## Adding a New SKUEL Rule
 
-1. **Choose a rule ID** — next available `SKUELXXX` number
+1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: SKUEL019)
 2. **Add a check method** in `scripts/lint_skuel.py` — follow the pattern of existing `_check_skuelXXX()` methods
-3. **Register the rule** in the `RULES` dict with severity, description, and the check function
-4. **Add unit tests** in `tests/unit/scripts/test_lint_skuel.py`
-5. **Document the rule** in `docs/patterns/linter_rules.md` with good/bad examples and rationale
-6. **Update CLAUDE.md** — add the rule to the "Key SKUEL Linter Rules" list
+3. **Register the rule** in the `RULE_DOCS` dict with severity, description, and good/bad examples (used by `--explain`)
+4. **Wire it into `_lint_file`** with the correct context gate (e.g. `not is_test`, `is_service`)
+5. **Add unit tests** in `tests/unit/scripts/test_lint_skuel.py`
+6. **Document the rule** in `docs/patterns/linter_rules.md` with good/bad examples and rationale
+7. **Update both lists in `CLAUDE.md`** — the "Key SKUEL Linter Rules" line *and* the supported inline-suppression list
+8. **Update this guide** — both the WARNING/ERROR table and the "next available" hint above
 
 ## Unit Tests
 
 Both custom linters have comprehensive test coverage:
 
-- `tests/unit/scripts/test_lint_skuel.py` — 83 tests covering all 17 SKUEL rules
+- `tests/unit/scripts/test_lint_skuel.py` — 141 tests covering all 19 SKUEL rules
 - `tests/unit/scripts/test_cypher_linter.py` — 35 tests covering Cypher rules
 
 ## Key Files
@@ -185,7 +189,7 @@ Both custom linters have comprehensive test coverage:
 |------|---------|
 | `dev` | CLI wrapper — `./dev lint`, `./dev quality`, etc. |
 | `pyproject.toml` | Ruff, MyPy, Pyright configuration |
-| `scripts/lint_skuel.py` | SKUEL pattern linter (17 rules) |
+| `scripts/lint_skuel.py` | SKUEL pattern linter (19 rules) |
 | `scripts/cypher_linter.py` | Cypher query linter (10 rules) |
 | `scripts/run_quality_checks.py` | Quality check orchestrator |
 | `docs/patterns/linter_rules.md` | Detailed rule documentation |

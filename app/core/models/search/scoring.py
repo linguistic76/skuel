@@ -105,6 +105,7 @@ class ScoringComponent(StrEnum):
     # Cross-domain
     CONTEXT_ALIGNMENT = "context_alignment"
     LEARNING_ALIGNMENT = "learning_alignment"
+    KNOWLEDGE_ALIGNMENT = "knowledge_alignment"
     IMPACT_POTENTIAL = "impact_potential"
 
 
@@ -277,13 +278,13 @@ def score_deadline_proximity(
 
 
 def score_priority_level(
-    priority: "Priority | None",
+    priority: "Priority | str | None",
 ) -> ComponentScore:
     """
     Score based on explicit Priority enum value.
 
     Args:
-        priority: Priority enum value or None
+        priority: Priority enum, raw string value (as stored on UserOwnedEntity), or None
 
     Returns:
         ComponentScore for priority level
@@ -299,7 +300,18 @@ def score_priority_level(
             reason="No priority set",
         )
 
-    # Type-safe scoring based on Priority enum
+    if isinstance(priority, str):
+        try:
+            priority = Priority(priority)
+        except ValueError:
+            return ComponentScore(
+                component=ScoringComponent.PRIORITY_LEVEL,
+                raw_value=0.0,
+                weight=1.0,
+                normalized=0.5,
+                reason=f"Priority: {priority}",
+            )
+
     score_map = {
         Priority.CRITICAL: (1.0, "Critical priority"),
         Priority.HIGH: (0.8, "High priority"),
@@ -307,7 +319,7 @@ def score_priority_level(
         Priority.LOW: (0.25, "Low priority"),
     }
 
-    normalized, reason = score_map.get(priority, (0.5, f"Priority: {priority.value}"))
+    normalized, reason = score_map[priority]
 
     return ComponentScore(
         component=ScoringComponent.PRIORITY_LEVEL,
@@ -482,10 +494,13 @@ def score_streak_protection(
 
 def score_task(task: "Task", context: "UserContext") -> PriorityScore:
     """
-    Calculate priority score for a task.
+    Calculate priority score for a task using full-graph context.
 
-    Uses task's existing impact_score() for compatibility,
-    wrapped in the unified PriorityScore structure.
+    Mirrors the component-weighted pattern used by score_goal / score_habit /
+    score_event / score_choice / score_principle so tasks are ranked by the
+    same cross-domain signals: goal alignment (Goals), habit streak
+    protection (Habits), knowledge mastery gaps (KU graph), learning path
+    alignment (Curriculum), and the user's current focus (UserContext).
 
     Args:
         task: Task to score
@@ -494,68 +509,124 @@ def score_task(task: "Task", context: "UserContext") -> PriorityScore:
     Returns:
         PriorityScore with breakdown
     """
-    # Leverage task's existing impact_score method
-    impact = task.impact_score()
-
-    # Build component scores for transparency
     components: list[ComponentScore] = []
 
-    # Deadline component
-    deadline_score = score_deadline_proximity(task.due_date)
-    if deadline_score.normalized > 0:
+    # Deadline proximity (weight: 0.25)
+    deadline = score_deadline_proximity(task.due_date)
+    if deadline.normalized > 0:
         components.append(
             ComponentScore(
                 component=ScoringComponent.DEADLINE_PROXIMITY,
-                raw_value=deadline_score.raw_value,
-                weight=0.4,
-                normalized=deadline_score.normalized,
-                reason=deadline_score.reason,
+                raw_value=deadline.raw_value,
+                weight=0.25,
+                normalized=deadline.normalized,
+                reason=deadline.reason,
             )
         )
 
-    # Priority component
-    priority_score = score_priority_level(task.priority)
+    # Priority level (weight: 0.15)
+    priority = score_priority_level(task.priority)
     components.append(
         ComponentScore(
             component=ScoringComponent.PRIORITY_LEVEL,
-            raw_value=priority_score.raw_value,
-            weight=0.3,
-            normalized=priority_score.normalized,
-            reason=priority_score.reason,
+            raw_value=priority.raw_value,
+            weight=0.15,
+            normalized=priority.normalized,
+            reason=priority.reason,
         )
     )
 
-    # Goal alignment component
-    goal_score = score_goal_alignment(
+    # Goal alignment (weight: 0.15) — Tasks → Goals insight
+    goal_alignment = score_goal_alignment(
         task.fulfills_goal_uid,
         context.active_goal_uids,
     )
-    if goal_score.normalized > 0:
+    if goal_alignment.normalized > 0:
         components.append(
             ComponentScore(
                 component=ScoringComponent.GOAL_ALIGNMENT,
-                raw_value=goal_score.raw_value,
-                weight=0.2,
-                normalized=goal_score.normalized,
-                reason=goal_score.reason,
+                raw_value=goal_alignment.raw_value,
+                weight=0.15,
+                normalized=goal_alignment.normalized,
+                reason=goal_alignment.reason,
             )
         )
 
-    # Learning alignment (from task model)
+    # Streak protection (weight: 0.15) — Tasks → Habits insight
+    if task.reinforces_habit_uid:
+        habit_streaks = context.habit_streaks or {}
+        streak = habit_streaks.get(task.reinforces_habit_uid, 0)
+        if task.habit_streak_maintainer and streak > 0:
+            streak_normalized = 1.0
+            streak_reason = f"Maintains {streak}-day streak"
+        elif streak > 0:
+            streak_normalized = 0.8
+            streak_reason = f"Reinforces {streak}-day streak"
+        elif task.reinforces_habit_uid in (context.active_habit_uids or []):
+            streak_normalized = 0.5
+            streak_reason = "Reinforces active habit"
+        else:
+            streak_normalized = 0.3
+            streak_reason = "Has habit relationship"
+        components.append(
+            ComponentScore(
+                component=ScoringComponent.STREAK_PROTECTION,
+                raw_value=float(streak),
+                weight=0.15,
+                normalized=streak_normalized,
+                reason=streak_reason,
+            )
+        )
+
+    # Knowledge alignment (weight: 0.10) — Tasks → KU insight
+    # Highest score when the task covers KUs the user is weakest in (gap-filling).
+    task_knowledge = task.knowledge_confidence_scores or {}
+    user_mastery = context.knowledge_mastery or {}
+    if task_knowledge:
+        gaps = [
+            max(0.0, task_conf - user_mastery.get(ku_uid, 0.0))
+            for ku_uid, task_conf in task_knowledge.items()
+        ]
+        if gaps:
+            mean_gap = sum(gaps) / len(gaps)
+            components.append(
+                ComponentScore(
+                    component=ScoringComponent.KNOWLEDGE_ALIGNMENT,
+                    raw_value=mean_gap,
+                    weight=0.10,
+                    normalized=mean_gap,
+                    reason=f"Covers knowledge gaps ({mean_gap:.0%})",
+                )
+            )
+
+    # Learning alignment (weight: 0.10) — Tasks → Curriculum insight
     learning = task.learning_alignment_score()
     if learning > 0:
         components.append(
             ComponentScore(
                 component=ScoringComponent.LEARNING_ALIGNMENT,
                 raw_value=learning,
-                weight=0.1,
+                weight=0.10,
                 normalized=learning,
                 reason=f"Learning alignment: {learning:.0%}",
             )
         )
 
+    # Context alignment (weight: 0.10) — task already in user's active focus
+    if context.active_task_uids and task.uid in context.active_task_uids:
+        components.append(
+            ComponentScore(
+                component=ScoringComponent.CONTEXT_ALIGNMENT,
+                raw_value=1.0,
+                weight=0.10,
+                normalized=1.0,
+                reason="Currently in active focus",
+            )
+        )
+
+    total = sum(c.weighted for c in components)
     return PriorityScore(
-        total=impact,
+        total=total,
         components=tuple(components),
         entity_uid=task.uid,
         entity_type="task",
@@ -816,12 +887,15 @@ def score_event(event: "Event", context: "UserContext") -> PriorityScore:
         )
     )
 
-    # Goal support (weight: 0.25) - use milestone_celebration_for_goal field
-    # Note: supports_goal_uid is graph-native (SUPPORTS_GOAL relationship)
-    goal_alignment = score_goal_alignment(
-        event.milestone_celebration_for_goal,  # Use existing field for goal connection
-        context.active_goal_uids,
-    )
+    # Goal support (weight: 0.25).
+    # TODO(goal-alignment-scoring): event→goal alignment needs the event's real
+    # goal-edge set (SUPPORTS_GOAL / CONTRIBUTES_TO_GOAL / CELEBRATES_GOAL) loaded
+    # for scoring. The previous code used `milestone_celebration_for_goal` as a
+    # stand-in, which conflated "celebrates a milestone" with "supports a goal" —
+    # a different relationship. That property is now the (Event)-[:CELEBRATES_GOAL]
+    # ->(Goal) edge; this pure scorer can't traverse it. Until events are enriched
+    # with their goal-edge uids at fetch time, goal-alignment contributes no signal.
+    goal_alignment = score_goal_alignment(None, context.active_goal_uids)
     components.append(
         ComponentScore(
             component=ScoringComponent.GOAL_ALIGNMENT,
@@ -931,9 +1005,12 @@ def score_choice(choice: "Choice", context: "UserContext") -> PriorityScore:
         "medium": (0.5, "Medium priority"),
         "low": (0.25, "Low priority"),
     }
-    priority_normalized, priority_reason = priority_scores.get(
-        priority_value, (0.5, "No priority set")
-    )
+    if priority_value is None:
+        priority_normalized, priority_reason = (0.5, "No priority set")
+    else:
+        priority_normalized, priority_reason = priority_scores.get(
+            priority_value, (0.5, "No priority set")
+        )
 
     components.append(
         ComponentScore(
@@ -1007,9 +1084,12 @@ def score_principle(principle: "Principle", context: "UserContext") -> PriorityS
         PrincipleStrength.DEVELOPING: (0.4, "Developing principle"),
         PrincipleStrength.EXPLORING: (0.2, "Exploring principle"),
     }
-    strength_normalized, strength_reason = strength_scores.get(
-        principle.strength, (0.5, "Unknown strength")
-    )
+    if principle.strength is None:
+        strength_normalized, strength_reason = (0.5, "Unknown strength")
+    else:
+        strength_normalized, strength_reason = strength_scores.get(
+            principle.strength, (0.5, "Unknown strength")
+        )
 
     components.append(
         ComponentScore(

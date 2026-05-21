@@ -33,11 +33,11 @@ from core.events.habit_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import parse_neo4j_json
+from core.utils.neo4j_mapper import coerce_int, parse_neo4j_json
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -291,7 +291,9 @@ class HabitEventHandlerService:
             hours_hist[hour_key] = hours_hist.get(hour_key, 0) + 1
 
             # 3. Calculate preferred hour (mode of histogram)
-            preferred_hour = int(max(hours_hist, key=hours_hist.get))  # type: ignore[arg-type]
+            from core.utils.sort_functions import make_dict_value_getter
+
+            preferred_hour = int(max(hours_hist, key=make_dict_value_getter(hours_hist)))
 
             # 4. EMA on-time rate
             old_on_time_rate = getattr(habit, "learned_on_time_rate", None)
@@ -373,7 +375,7 @@ class HabitEventHandlerService:
             if self.relationships is not None:
                 rel_result = await self.relationships.get_related_uids(
                     RelationshipName.REINFORCES_KNOWLEDGE.value,
-                    event.habit_uid,
+                    EntityUID(event.habit_uid),
                 )
                 if rel_result.is_ok:
                     knowledge_uids = rel_result.value
@@ -527,7 +529,7 @@ class HabitEventHandlerService:
                     impact = InsightImpact.HIGH if is_very_difficult else InsightImpact.MEDIUM
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.DIFFICULTY_PATTERN, event.habit_uid
+                            InsightType.DIFFICULTY_PATTERN, EntityUID(event.habit_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.DIFFICULTY_PATTERN,
@@ -536,7 +538,7 @@ class HabitEventHandlerService:
                         description=f"You've missed this habit {consecutive_misses} times in a row.",
                         confidence=0.85,
                         impact=impact,
-                        entity_uid=event.habit_uid,
+                        entity_uid=EntityUID(event.habit_uid),
                         recommended_actions=[
                             {"action": "Adjust frequency", "rationale": suggestion}
                         ]
@@ -770,7 +772,7 @@ class HabitEventHandlerService:
 
         # 2. Check each aggregate badge threshold
         for badge_id, name, description, tier, stat_key, threshold in self.AGGREGATE_BADGES:
-            current_value = int(stats.get(stat_key, 0) or 0)
+            current_value = coerce_int(stats.get(stat_key))
             if current_value < threshold:
                 continue
 

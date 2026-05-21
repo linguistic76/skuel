@@ -393,7 +393,7 @@ class TestActivityAggregation:
         ]
 
         # Sort by timestamp (most recent first)
-        activities.sort(key=lambda x: x["timestamp"], reverse=True)
+        activities.sort(key=lambda x: str(x["timestamp"]), reverse=True)
 
         assert activities[0]["type"] == "recent"
         assert activities[1]["type"] == "middle"
@@ -413,7 +413,7 @@ class TestActivityAggregation:
         ]
 
         # Sort and limit to 10
-        activities.sort(key=lambda x: x["timestamp"], reverse=True)
+        activities.sort(key=lambda x: str(x["timestamp"]), reverse=True)
         limited = activities[:10]
 
         assert len(limited) == 10

@@ -31,7 +31,7 @@ Usage:
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
 
 from core.models.enums import EntityStatus, Priority
 from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
@@ -251,7 +251,7 @@ class VisualizationService:
             return Result.fail(Errors.validation("Data cannot be empty"))
 
         labels = list(data.keys())
-        values = list(data.values())
+        values: list[float | int] = [float(v) for v in data.values()]
 
         color_cycle = SemanticColor.ALL
         colors = [color_cycle[i % len(color_cycle)] for i in range(len(labels))]
@@ -656,42 +656,51 @@ class VisualizationService:
     # Serialization Helpers
     # =========================================================================
 
-    def _chart_config_to_dict(self, config: ChartConfig) -> dict[str, Any]:
-        """Convert ChartConfig to dict for JSON serialization."""
-        return {
-            "type": config.type,
-            "data": {
-                "labels": config.data.labels,
-                "datasets": [
-                    {
-                        "label": ds.label,
-                        "data": ds.data,
-                        "backgroundColor": ds.backgroundColor,
-                        "borderColor": ds.borderColor,
-                        "borderWidth": ds.borderWidth,
-                        "fill": ds.fill,
-                        "tension": ds.tension,
-                    }
-                    for ds in config.data.datasets
-                ],
+    def _chart_config_to_dict(self, config: ChartConfig) -> ChartJsConfig:
+        """Convert ChartConfig to a ChartJsConfig TypedDict for JSON serialization."""
+        return cast(
+            "ChartJsConfig",
+            {
+                "type": config.type,
+                "data": {
+                    "labels": config.data.labels,
+                    "datasets": [
+                        {
+                            "label": ds.label,
+                            "data": ds.data,
+                            "backgroundColor": ds.backgroundColor,
+                            "borderColor": ds.borderColor,
+                            "borderWidth": ds.borderWidth,
+                            "fill": ds.fill,
+                            "tension": ds.tension,
+                        }
+                        for ds in config.data.datasets
+                    ],
+                },
+                "options": config.options,
             },
-            "options": config.options,
-        }
+        )
 
-    def _visjs_data_to_dict(self, data: VisTimelineData) -> dict[str, Any]:
-        """Convert VisTimelineData to dict for JSON serialization."""
-        return {
-            "items": [asdict(item) for item in data.items],
-            "groups": [asdict(group) for group in data.groups],
-            "options": data.options,
-        }
+    def _visjs_data_to_dict(self, data: VisTimelineData) -> VisTimelineConfig:
+        """Convert VisTimelineData to a VisTimelineConfig TypedDict for JSON serialization."""
+        return cast(
+            "VisTimelineConfig",
+            {
+                "items": [asdict(item) for item in data.items],
+                "groups": [asdict(group) for group in data.groups],
+                "options": data.options,
+            },
+        )
 
-    def _gantt_data_to_dict(self, data: GanttData) -> dict[str, Any]:
-        """Convert GanttData to dict for JSON serialization."""
-        return {
-            "tasks": [asdict(task) for task in data.tasks],
-            "options": data.options,
-        }
+    def _gantt_data_to_dict(self, data: GanttData) -> GanttConfig:
+        """Convert GanttData to a GanttConfig TypedDict for JSON serialization."""
+        return cast(
+            "GanttConfig",
+            {
+                "tasks": [asdict(task) for task in data.tasks],
+                "options": data.options,
+            },
+        )
 
     # =========================================================================
     # Calendar / Group Conversion Helpers

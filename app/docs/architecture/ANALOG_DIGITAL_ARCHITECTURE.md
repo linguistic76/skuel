@@ -49,7 +49,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 | **Intelligence** | UserContextIntelligence — daily planning, life path alignment, schedule-aware recommendations |
 | **Relationships** | Lateral relationships, ORGANIZES hierarchy, SERVES_LIFE_PATH |
 | **Ingestion** | Markdown/YAML -> Neo4j pipeline with chunking (chunks stored, not embedded) |
-| **Learning Loop** | PathStep -> Exercise -> Submission -> Report -> RevisedExercise (manual feedback) |
+| **Learning Loop** | Exercise -> UserEntry -> ExerciseReport -> RevisedExercise (4 phases, manual feedback; PathStep anchors via RELATED_TO) |
 | **Calendar** | Schedule aggregation across Tasks, Events, Habits, Goals |
 
 ### Digital Layer (opt-in, requires `INTELLIGENCE_TIER=full`)

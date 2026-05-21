@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined"
 """
 Unit tests for UnifiedRelationshipService orchestration methods.
 
@@ -10,11 +11,15 @@ DomainRelationshipConfig, RelationshipCreator, etc.). Sub-attributes are mocked
 directly — the same pattern used for LessonService in Phase 2.
 """
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 # ---------------------------------------------------------------------------
 # Helpers — build a minimal UnifiedRelationshipService without __init__
@@ -36,7 +41,7 @@ def _make_service(
     get_related_uids_return: Result | None = None,
     count_related_return: Result | None = None,
     create_relationship_return: Result | None = None,
-) -> object:
+) -> "UnifiedRelationshipService":
     """
     Build a UnifiedRelationshipService instance without calling __init__.
 

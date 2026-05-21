@@ -86,10 +86,10 @@ FULLTEXT_INDEX_DEFINITIONS = {
         "fields": ["title", "instructions"],
         "description": "Revised Exercises - title and instructions",
     },
-    "ExerciseSubmission": {
-        "index_name": "exercise_submission_fulltext_idx",
-        "fields": ["title", "processed_content"],
-        "description": "Exercise Submissions - title and processed content",
+    "UserEntry": {
+        "index_name": "user_entry_fulltext_idx",
+        "fields": ["title", "processed_content", "content"],
+        "description": "User entries — title, processed content, and content",
     },
     # Forms (2)
     "FormTemplate": {
@@ -192,14 +192,14 @@ async def create_all_fulltext_indexes(driver: Any, recreate: bool = False) -> di
     Returns:
         Dict mapping index_name -> success status
     """
-    results = {}
+    results: dict[str, bool] = {}
 
     logger.info("=" * 70)
     logger.info("Creating Full-Text Indexes for Hybrid Search")
     logger.info("=" * 70)
 
     for label, config in FULLTEXT_INDEX_DEFINITIONS.items():
-        index_name = config["index_name"]
+        index_name = str(config["index_name"])
         fields = config["fields"]
         description = config["description"]
 
@@ -248,14 +248,14 @@ async def verify_fulltext_indexes(driver: Any) -> dict[str, bool]:
     Returns:
         Dict mapping index_name -> exists status
     """
-    results = {}
+    results: dict[str, bool] = {}
 
     logger.info("\n" + "=" * 70)
     logger.info("Verifying Full-Text Indexes")
     logger.info("=" * 70)
 
     for label, config in FULLTEXT_INDEX_DEFINITIONS.items():
-        index_name = config["index_name"]
+        index_name = str(config["index_name"])
         exists = await check_index_exists(driver, index_name)
         results[index_name] = exists
 
@@ -305,8 +305,7 @@ Examples:
     args = parser.parse_args()
 
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         await driver.verify_connectivity()

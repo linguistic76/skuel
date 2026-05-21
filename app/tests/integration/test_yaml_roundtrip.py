@@ -1,3 +1,4 @@
+# mypy: disable-error-code="union-attr"
 """
 YAML Round-Trip Integration Tests
 ==================================

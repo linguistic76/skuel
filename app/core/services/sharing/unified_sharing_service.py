@@ -22,11 +22,11 @@ See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
+from core.models.entity_dto import EntityDTO
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
-from core.models.submissions.submission_dto import SubmissionDTO
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -48,6 +48,19 @@ _ACTIVITY_ENTITY_TYPES = frozenset(
         "revised_exercise",
     }
 )
+
+# Curriculum entity types — teachers share these with groups at assignment time,
+# well before they reach a "completed" state. Allow any non-archived status.
+_CURRICULUM_ENTITY_TYPES = frozenset(
+    {
+        "exercise",
+        "path_step",
+        "learning_path",
+    }
+)
+
+# User-authored content — shareable in any status except archived.
+_USER_ENTRY_TYPES = frozenset({EntityType.USER_ENTRY.value})
 
 
 class UnifiedSharingService:
@@ -203,7 +216,7 @@ class UnifiedSharingService:
         record = records[0]
         owner_uid_val = record["owner_uid"]
         visibility = (
-            Visibility(record["visibility"]) if record["visibility"] else Visibility.PRIVATE
+            Visibility(str(record["visibility"])) if record["visibility"] else Visibility.PRIVATE
         )
         entity_type = record["entity_type"]
         has_share = record["has_direct_share"] or record["has_group_share"]
@@ -236,8 +249,8 @@ class UnifiedSharingService:
         if not records:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
 
-        status = records[0]["status"]
-        entity_type = records[0]["entity_type"]
+        status = str(records[0]["status"] or "")
+        entity_type = str(records[0]["entity_type"] or "")
         return self._check_shareable(status, entity_type)
 
     # =========================================================================
@@ -258,12 +271,15 @@ class UnifiedSharingService:
         self,
         user_uid: UserUID,
         limit: int = 50,
-    ) -> Result[list[SubmissionDTO]]:
+    ) -> Result[list[EntityDTO]]:
         """Get entities shared with a specific user."""
         result = await self.backend.query_shared_with_me(user_uid=user_uid, limit=limit)
         if result.is_error:
             return Result.fail(result)
-        entities = [SubmissionDTO.from_dict(record["ku"]) for record in (result.value or [])]
+        entities = [
+            EntityDTO.from_dict(cast("dict[str, Any]", record["ku"]))
+            for record in (result.value or [])
+        ]
         return Result.ok(entities)
 
     # =========================================================================
@@ -277,13 +293,22 @@ class UnifiedSharingService:
         group_uid: str,
         share_version: str = "original",
     ) -> Result[bool]:
-        """Share an entity with all members of a group."""
+        """Share an entity with all members of a group.
+
+        The owner must either OWN the target group (teacher sharing curriculum
+        with their class) or be MEMBER_OF it (student sharing their UserEntry
+        with a group they belong to). The backend Cypher enforces this. An
+        empty result covers all miss cases (missing entity/group OR no
+        qualifying relationship); we treat it as a ``forbidden`` error so
+        callers can surface the real reason rather than a generic 404.
+        """
         check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
         if check.is_error:
             return check
 
         result = await self.backend.create_group_share(
             entity_uid=entity_uid,
+            owner_uid=UserUID(owner_uid),
             group_uid=group_uid,
             share_version=share_version,
             shared_at=datetime.now().isoformat(),
@@ -292,7 +317,14 @@ class UnifiedSharingService:
             return Result.fail(result)
         if not result.value:
             return Result.fail(
-                Errors.not_found(f"Entity {entity_uid} or Group {group_uid} not found")
+                Errors.forbidden(
+                    action="share with group",
+                    reason=(
+                        f"Cannot share {entity_uid} with group {group_uid}: "
+                        "you must own or be a member of the group, "
+                        "or the group does not exist."
+                    ),
+                )
             )
         logger.info(f"Entity {entity_uid} shared with group {group_uid}")
         return Result.ok(True)
@@ -347,9 +379,9 @@ class UnifiedSharingService:
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
-        entities = [
+        entities: list[dict[str, Any]] = [
             {
-                "entity": dict(r["entity"]),
+                "entity": dict(cast("dict[str, Any]", r["entity"])),
                 "group_uid": r["group_uid"],
                 "group_name": r["group_name"],
                 "share_version": r["share_version"],
@@ -358,6 +390,66 @@ class UnifiedSharingService:
             for r in records
         ]
         return Result.ok(entities)
+
+    async def get_user_entries_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        limit: int = 20,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get UserEntries shared with a specific group the user belongs to.
+
+        Empty list if the user is not a member of the group (query guards on
+        MEMBER_OF). Own entries are excluded.
+        """
+        result = await self.backend.query_user_entries_shared_with_group(
+            user_uid=user_uid, group_uid=group_uid, limit=limit
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        return Result.ok(
+            [
+                {
+                    "entity": dict(cast("dict[str, Any]", r["entry"])),
+                    "author_name": r["author_name"],
+                    "share_version": r["share_version"],
+                    "shared_at": r["shared_at"],
+                }
+                for r in records
+            ]
+        )
+
+    async def get_user_entry_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        entry_uid: EntityUID,
+    ) -> Result[dict[str, Any] | None]:
+        """Read-only peer fetch for a single UserEntry, gated by group membership.
+
+        Returns ``Result.ok(None)`` when the entry is not visible to the viewer
+        via this group — callers should render a 404-equivalent view so we do
+        not leak whether the entry or group exists.
+        """
+        result = await self.backend.query_user_entry_shared_with_group(
+            user_uid=user_uid, group_uid=group_uid, entry_uid=entry_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        record = records[0]
+        return Result.ok(
+            {
+                "entity": dict(cast("dict[str, Any]", record["entry"])),
+                "group_name": record["group_name"],
+                "author_name": record["author_name"],
+                "share_version": record["share_version"],
+                "shared_at": record["shared_at"],
+            }
+        )
 
     # =========================================================================
     # PRIVATE HELPERS
@@ -392,11 +484,19 @@ class UnifiedSharingService:
         if not require_shareable:
             return Result.ok(True)
 
-        return self._check_shareable(record["status"], record["entity_type"])
+        return self._check_shareable(str(record["status"] or ""), str(record["entity_type"] or ""))
 
     @staticmethod
     def _check_shareable(status: str, entity_type: str) -> Result[bool]:
         """Evaluate whether an entity with given status/entity_type can be shared."""
+        if entity_type in _USER_ENTRY_TYPES:
+            if status == "archived":
+                return Result.fail(
+                    Errors.validation(
+                        f"Archived user entries cannot be shared. Current status: {status}"
+                    )
+                )
+            return Result.ok(True)
         if entity_type in _ACTIVITY_ENTITY_TYPES:
             if status in ("active", "completed"):
                 return Result.ok(True)
@@ -404,6 +504,12 @@ class UnifiedSharingService:
                 Errors.validation(
                     f"Activity Ku can be shared when active or completed. Current status: {status}"
                 )
+            )
+        if entity_type in _CURRICULUM_ENTITY_TYPES:
+            if status != "archived":
+                return Result.ok(True)
+            return Result.fail(
+                Errors.validation(f"Archived curriculum cannot be shared. Current status: {status}")
             )
         if status != "completed":
             return Result.fail(

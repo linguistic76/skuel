@@ -271,7 +271,7 @@ class SchemaMigrationHistory:
 
     def get_breaking_changes(self) -> list[SchemaChange]:
         """Get all breaking changes from history"""
-        breaking_changes = []
+        breaking_changes: list[SchemaChange] = []
         for report in self.change_history:
             breaking_changes.extend(
                 change for change in report.changes if change.impact == ChangeImpact.CRITICAL
@@ -303,12 +303,12 @@ class SchemaEvolutionStats:
             return cls(total_changes=0)
 
         # Count by type
-        changes_by_type = {}
+        changes_by_type: dict[SchemaChangeType, int] = {}
         for change in all_changes:
             changes_by_type[change.change_type] = changes_by_type.get(change.change_type, 0) + 1
 
         # Count by impact
-        changes_by_impact = {}
+        changes_by_impact: dict[ChangeImpact, int] = {}
         for change in all_changes:
             changes_by_impact[change.impact] = changes_by_impact.get(change.impact, 0) + 1
 

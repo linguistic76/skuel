@@ -24,59 +24,40 @@ See: `/docs/decisions/ADR-030-usercontext-file-consolidation.md`
 
 UserContext Layers (Mental Map)
 -------------------------------
-Navigation guide for this ~240-field read model:
+Navigation guide for this ~250-field read model. Each entry points at the
+section banner ("# CORE IDENTITY", etc.) used in the class body below —
+grep for the banner to jump. Line numbers are deliberately omitted; they
+drift as fields are added.
 
-1. **Identity & Session** (lines ~55-72)
-   - user_uid, username, email, display_name
-   - session_id, session_start, last_activity
-   - context_version, cache_ttl, is_rich_context
+Field blocks (data):
 
-2. **Activity Domain Awareness** (lines ~74-240)
-   - Tasks: active, priorities, blocked, today/week scheduling
-   - Events: upcoming, recurring, attendance, streaks
-   - Goals: active, progress, deadlines, categorization
-   - Habits: active, streaks, completion rates, keystone
+ 1. Identity & session        → CORE IDENTITY
+ 2. Activity domains          → TASK / EVENT / GOAL / HABIT AWARENESS
+ 3. Curriculum & learning     → KNOWLEDGE & LEARNING PATH AWARENESS
+ 4. Graph-sourced metadata    → GRAPH-SOURCED RELATIONSHIP METADATA
+ 5. Principles & choices      → PRINCIPLE AWARENESS, CHOICE AWARENESS
+ 6. Latest activity report    → FEEDBACK DOMAIN
+ 7. ZPD capstone              → ZPD AWARENESS
+                                (rich-only; computed last, reads all prior
+                                 fields; None at standard depth or when
+                                 INTELLIGENCE_TIER=core)
+ 8. Learning-loop engagement  → SUBMISSION & FEEDBACK AWARENESS
+ 9. Progress & capacity       → PROGRESS AWARENESS, WORKLOAD & CAPACITY
+10. Facets & preferences      → FACET AWARENESS, USER PREFERENCES & STATE
+11. Groups                    → GROUP AWARENESS
+12. Rich entity data          → RICH GRAPH CONTEXT
+                                (entities_rich; rich-only via build_rich())
+13. MOCs                      → MOC (MAP OF CONTENT) AWARENESS
 
-3. **Curriculum Domain Awareness** (lines ~145-175)
-   - Learning paths, enrolled/completed paths
-   - Life path, alignment score, milestones
-   - Knowledge mastery, prerequisites, recommendations
+Method blocks (read API):
 
-4. **Graph-Sourced Metadata** (lines ~177-207)
-   - Relationship data extracted from Neo4j edges
-   - Task dependencies/blockers, goal-knowledge mappings
-   - Habit reinforcement patterns
-
-5. **Principles & Choices** (lines ~209-240)
-   - Core principles, priorities, conflicts
-   - Principle-choice integration tracking
-   - Pending/resolved choices
-
-5.5. **ZPD Awareness** (after submissions, before progress)
-   - zpd_assessment: ZPDAssessment — capstone of build_rich()
-   - Computed last, reads all prior fields
-   - None in standard build() or INTELLIGENCE_TIER=core
-
-6. **Progress & Capacity** (lines ~242-301)
-   - Overall progress, domain progress
-   - Velocity, acceleration, consistency
-   - Workload score, capacity by domain
-
-7. **Rich Entity Data** (lines ~303-420) - Optional
-   - Full entity objects with graph neighborhoods
-   - Only populated via build_rich() path
-
-8. **Query Helpers** (lines ~480-730)
-   - Read-only, deterministic query methods
-   - Facet evaluation and recommendations
-
-9. **Derived/Cache-Local Mutations** (lines ~737-786)
-   - Facet tracking (acceptable mutations)
-   - See MUTATION GOVERNANCE in class docstring
-
-10. **Convenience Properties** (lines ~976-1021)
-    - Derived properties with multiple call sites
-    - Per "One Path Forward": properties with 0-1 usages removed
+14. Validation                → CONTEXT VALIDATION METHODS
+                                (_as_rich, get_rich_entities)
+15. Per-domain queries        → TASK / EVENT / GOAL / HABIT / KNOWLEDGE /
+                                PRINCIPLE / WORKLOAD / MOC / FACET QUERY METHODS
+16. Cache-local mutations     → DERIVED / CACHE-LOCAL MUTATIONS (SAFE)
+                                (see MUTATION GOVERNANCE in class docstring)
+17. Convenience properties    → CONVENIENCE PROPERTIES
 """
 
 from __future__ import annotations
@@ -84,7 +65,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard, cast
 
 from core.models.enums import (
     Domain,
@@ -104,6 +85,7 @@ if TYPE_CHECKING:
         CrossDomainInsightsData,
         CurrentPathStepItem,
         FacetInteractionItem,
+        GroupSummary,
         PendingRevisedExerciseItem,
         RichEntityItem,
         RichKnowledgeUnitItem,
@@ -112,6 +94,7 @@ if TYPE_CHECKING:
         RichPathStepItem,
         UnsubmittedExerciseItem,
     )
+    from core.services.ps_engagement.engagement import Engagement
 
 
 @dataclass
@@ -170,6 +153,12 @@ class UserContext:
     # Standard (build) = UIDs only, Rich (build_rich) = UIDs + full entities + graph neighborhoods
     is_rich_context: bool = False  # Set to True by build_rich() path
 
+    # Rich-only derived fields. None at standard depth — populated only by
+    # build_rich() via populate_derived_fields() / populate_principle_choice_integration().
+    # Reading these at standard depth should raise RichContextRequiredError; the
+    # public accessor methods enforce that. The canonical set lives on
+    # `RichUserContext.RICH_ONLY_FIELDS`.
+
     # =========================================================================
     # TASK AWARENESS - Complete task state understanding
     # =========================================================================
@@ -177,11 +166,13 @@ class UserContext:
     current_task_focus: str | None = None
     task_priorities: dict[str, float] = field(default_factory=dict)  # uid -> priority (0-1)
     completed_task_uids: set[str] = field(default_factory=set)
-    blocked_task_uids: set[str] = field(default_factory=set)
+    blocked_task_uids: set[str] | None = field(
+        default=None
+    )  # RICH-ONLY (see RichUserContext.RICH_ONLY_FIELDS)
     task_progress: dict[str, float] = field(default_factory=dict)  # uid -> completion %
 
-    # Task-Goal relationships
-    tasks_by_goal: dict[str, list[str]] = field(default_factory=dict)  # goal_uid -> task_uids
+    # Task-Goal relationships (RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS)
+    tasks_by_goal: dict[str, list[str]] | None = field(default=None)  # goal_uid -> task_uids
     milestone_tasks: list[str] = field(default_factory=list)
 
     # Task scheduling
@@ -231,15 +222,17 @@ class UserContext:
     active_habit_uids: list[str] = field(default_factory=list)
     habit_streaks: dict[str, int] = field(default_factory=dict)  # uid -> current streak
     habit_completion_rates: dict[str, float] = field(default_factory=dict)  # uid -> rate
-    at_risk_habits: list[str] = field(default_factory=list)  # Need attention
+    at_risk_habits: list[str] | None = field(
+        default=None
+    )  # RICH-ONLY (see RichUserContext.RICH_ONLY_FIELDS)
 
     # Habit categorization
     keystone_habits: list[str] = field(default_factory=list)
     daily_habits: list[str] = field(default_factory=list)
     weekly_habits: list[str] = field(default_factory=list)
 
-    # Habit-Goal relationships
-    habits_by_goal: dict[str, list[str]] = field(default_factory=dict)  # goal_uid -> habit_uids
+    # Habit-Goal relationships (RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS)
+    habits_by_goal: dict[str, list[str]] | None = field(default=None)  # goal_uid -> habit_uids
 
     # =========================================================================
     # KNOWLEDGE & LEARNING PATH AWARENESS
@@ -261,6 +254,20 @@ class UserContext:
     current_path_steps: list[CurrentPathStepItem] = field(
         default_factory=list
     )  # {uid, title} for path steps with IN_PROGRESS relationship
+
+    # PS engagement state (per ADR-059) — ps_uid -> Engagement projection of the
+    # (User)-[:ENGAGED_WITH]->(PathStep) edge. Populated by build_rich() via
+    # PsEngagementService.list_engaged(). None in standard build() path or when
+    # list_engaged fails. Consumers must null-check before reading.
+    active_ps_engagements: dict[str, Engagement] | None = None
+
+    # Reverse index over active_ps_engagements: spawned instance UID -> ps_uid.
+    # Flat lookup so intelligence consumers can ask "did this activity come from
+    # a PS engagement?" without scanning every engagement's spawned tuple.
+    # Each instance UID is unique to one engagement (engage_pathstep mints fresh
+    # `_template_uid` suffixes per spawn), so the mapping is single-valued.
+    # Empty dict when active_ps_engagements is None/empty.
+    spawned_uid_to_ps_uid: dict[str, str] = field(default_factory=dict)
 
     # KU interaction tracking (Phase B)
     ku_view_counts: dict[str, int] = field(default_factory=dict)  # uid -> total view count
@@ -348,15 +355,19 @@ class UserContext:
     decisions_against_principles: int = 0
 
     # Principle-choice integration tracking (January 2026)
-    principle_guided_choice_counts: dict[str, int] = field(
-        default_factory=dict
+    # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS
+    principle_guided_choice_counts: dict[str, int] | None = field(
+        default=None
     )  # principle_uid -> count of guided choices
     principle_choice_satisfaction_avg: dict[str, float] = field(
         default_factory=dict
     )  # principle_uid -> avg satisfaction (0.0-1.0)
-    principle_integration_score: float = 0.0  # Overall principle-choice integration (0.0-1.0)
-    recent_principle_aligned_choices: list[str] = field(
-        default_factory=list
+    # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS. None at standard depth distinguishes
+    # "not computed" from a legitimate rich-depth 0.0 ("no alignment").
+    principle_integration_score: float | None = field(default=None)  # 0.0-1.0 at rich depth
+    # RICH-ONLY — see RichUserContext.RICH_ONLY_FIELDS
+    recent_principle_aligned_choices: list[str] | None = field(
+        default=None
     )  # Last 10 principle-aligned choice UIDs
 
     # =========================================================================
@@ -469,6 +480,25 @@ class UserContext:
     recommended_daily_tasks: int = 3
     recommended_daily_events: int = 2
     capacity_by_domain: dict[Domain, float] = field(default_factory=dict)
+
+    # =========================================================================
+    # GROUP AWARENESS — Teacher-student group membership
+    # =========================================================================
+    # Groups the user belongs to as a member (student role).
+    # Populated from (user)-[:MEMBER_OF]->(g:Group).
+    user_groups: list[GroupSummary] = field(default_factory=list)
+
+    # Groups the user owns as a teacher. Populated from (user)-[:OWNS]->(g:Group).
+    # Empty for non-teachers.
+    teacher_groups: list[GroupSummary] = field(default_factory=list)
+
+    # Curriculum shared with this user's groups via SHARED_WITH_GROUP.
+    # Populated by the MEGA-QUERY from
+    # (user)-[:MEMBER_OF]->(g)<-[:SHARED_WITH_GROUP]-(entity:Entity)
+    # filtered by entity_type.
+    group_assigned_exercise_uids: list[str] = field(default_factory=list)
+    group_assigned_path_step_uids: list[str] = field(default_factory=list)
+    group_assigned_learning_path_uids: list[str] = field(default_factory=list)
 
     # =========================================================================
     # RICH GRAPH CONTEXT (Optional - November 22, 2025)
@@ -592,28 +622,19 @@ class UserContext:
     # CONTEXT VALIDATION METHODS
     # =========================================================================
 
-    def require_rich_context(self, operation: str) -> None:
-        """
-        Validate this context was built with rich data (build_rich path).
+    def _as_rich(self, operation: str) -> RichUserContext:
+        """Guard + cast chokepoint for strict rich-only accessors.
 
-        Some operations require full entity data + graph neighborhoods, not just UIDs.
-        Call this at the start of such operations to fail fast with a clear message.
-
-        Args:
-            operation: Name of the operation requiring rich context
-
-        Raises:
-            RichContextRequiredError: If context is not rich (built via build() not build_rich())
-
-        Example:
-            def get_advancing_goals_for_user(self, context: UserContext) -> Result[...]:
-                context.require_rich_context("get_advancing_goals_for_user")
-                # Now safe to access context.entities_rich["goals"]
+        Raises ``RichContextRequiredError`` on a standard-depth context,
+        otherwise returns ``self`` narrowed to ``RichUserContext`` so callers
+        read the ``RICH_ONLY_FIELDS`` as non-Optional without a separate
+        ``assert``. ``cast()`` is a runtime no-op — identity, not a copy.
         """
         if not self.is_rich_context:
             from core.errors import RichContextRequiredError
 
             raise RichContextRequiredError(operation)
+        return cast("RichUserContext", self)
 
     def get_rich_entities(
         self,
@@ -646,12 +667,24 @@ class UserContext:
         return self.today_task_uids
 
     def get_tasks_for_goal(self, goal_uid: str) -> list[str]:
-        """Get all tasks contributing to a specific goal"""
-        return self.tasks_by_goal.get(goal_uid, [])
+        """Get all tasks contributing to a specific goal. Requires rich context."""
+        return self._as_rich("get_tasks_for_goal").tasks_by_goal.get(goal_uid, [])
 
-    def get_blocked_tasks(self) -> list[str]:
-        """Get tasks blocked by prerequisites"""
-        return list(self.blocked_task_uids)
+    def get_tasks_by_goal(self) -> dict[str, list[str]]:
+        """Full goal_uid -> task_uids mapping. Requires rich context."""
+        return self._as_rich("get_tasks_by_goal").tasks_by_goal
+
+    def tasks_by_goal_or_empty(self) -> dict[str, list[str]]:
+        """tasks_by_goal with graceful fallback — empty dict at standard depth."""
+        return self.tasks_by_goal if self.tasks_by_goal is not None else {}
+
+    def get_blocked_tasks(self) -> set[str]:
+        """Get tasks blocked by prerequisites. Requires rich context."""
+        return self._as_rich("get_blocked_tasks").blocked_task_uids
+
+    def blocked_task_uids_or_empty(self) -> set[str]:
+        """blocked_task_uids with graceful fallback — empty set at standard depth."""
+        return self.blocked_task_uids if self.blocked_task_uids is not None else set()
 
     def get_high_impact_tasks(self, threshold: float = 0.7) -> list[str]:
         """Get tasks with high goal contribution"""
@@ -706,12 +739,24 @@ class UserContext:
     # =========================================================================
 
     def get_habits_needing_reinforcement(self) -> list[str]:
-        """Get habits that need attention to maintain streaks"""
-        return self.at_risk_habits
+        """Get habits that need attention to maintain streaks. Requires rich context."""
+        return self._as_rich("get_habits_needing_reinforcement").at_risk_habits
+
+    def at_risk_habits_or_empty(self) -> list[str]:
+        """at_risk_habits with graceful fallback — empty list at standard depth."""
+        return self.at_risk_habits if self.at_risk_habits is not None else []
 
     def get_habits_for_goal(self, goal_uid: str) -> list[str]:
-        """Get habits supporting a specific goal"""
-        return self.habits_by_goal.get(goal_uid, [])
+        """Get habits supporting a specific goal. Requires rich context."""
+        return self._as_rich("get_habits_for_goal").habits_by_goal.get(goal_uid, [])
+
+    def get_habits_by_goal(self) -> dict[str, list[str]]:
+        """Full goal_uid -> habit_uids mapping. Requires rich context."""
+        return self._as_rich("get_habits_by_goal").habits_by_goal
+
+    def habits_by_goal_or_empty(self) -> dict[str, list[str]]:
+        """habits_by_goal with graceful fallback — empty dict at standard depth."""
+        return self.habits_by_goal if self.habits_by_goal is not None else {}
 
     def get_high_impact_habits(self) -> list[str]:
         """Get keystone habits that affect multiple goals"""
@@ -729,6 +774,18 @@ class UserContext:
             if all(p in self.prerequisites_completed for p in prereqs):
                 ready.append(knowledge_uid)
         return ready
+
+    def known_or_engaged_ku_uids(self) -> set[str]:
+        """All KUs the user has any relationship with (mastered, in-progress, or blocked).
+
+        Used by entity extraction to scope fuzzy-matching to KUs the user actually
+        touches, rather than the full graph.
+        """
+        return (
+            self.mastered_knowledge_uids
+            | self.in_progress_knowledge_uids
+            | self.blocked_knowledge_uids
+        )
 
     def get_knowledge_gaps_for_goal(self, _goal_uid: str) -> list[str]:
         """Get missing knowledge for a goal"""
@@ -981,6 +1038,41 @@ class UserContext:
         alignment = self.principle_alignment_by_domain.get(action_domain, 1.0)
         return alignment < 0.5
 
+    def get_principle_guided_choice_counts(self) -> dict[str, int]:
+        """Counts of principle-guided choices by principle uid. Requires rich context."""
+        return self._as_rich("get_principle_guided_choice_counts").principle_guided_choice_counts
+
+    def principle_guided_choice_counts_or_empty(self) -> dict[str, int]:
+        """principle_guided_choice_counts with graceful fallback — empty dict at standard depth."""
+        return (
+            self.principle_guided_choice_counts
+            if self.principle_guided_choice_counts is not None
+            else {}
+        )
+
+    def get_recent_principle_aligned_choices(self) -> list[str]:
+        """Up to 10 recently principle-aligned choice uids. Requires rich context."""
+        return self._as_rich(
+            "get_recent_principle_aligned_choices"
+        ).recent_principle_aligned_choices
+
+    def recent_principle_aligned_choices_or_empty(self) -> list[str]:
+        """recent_principle_aligned_choices with graceful fallback — empty list at standard depth."""
+        return (
+            self.recent_principle_aligned_choices
+            if self.recent_principle_aligned_choices is not None
+            else []
+        )
+
+    def get_principle_integration_score(self) -> float:
+        """Overall principle-choice integration score (0.0-1.0). Requires rich context.
+
+        No graceful accessor: a standard-depth read is a bug, not a degraded path —
+        0.0 at rich depth is a legitimate "no alignment" signal and must not be
+        conflated with "not computed" at standard depth.
+        """
+        return self._as_rich("get_principle_integration_score").principle_integration_score
+
     # =========================================================================
     # WORKLOAD QUERY METHODS
     # =========================================================================
@@ -1035,12 +1127,12 @@ class UserContext:
                 "action": "complete_prerequisites",
                 "items": list(self.prerequisites_needed.keys())[:3],
             }
-        elif self.at_risk_habits:
-            # Maintain streaks
+        elif at_risk := self.at_risk_habits_or_empty():
+            # Maintain streaks (empty at standard depth — accessor handles the gate)
             return {
                 "type": "maintain",
                 "action": "reinforce_habits",
-                "items": self.at_risk_habits[:2],
+                "items": at_risk[:2],
             }
         elif self.overdue_task_uids:
             # Catch up on overdue
@@ -1108,9 +1200,109 @@ class UserContext:
 
 
 # =========================================================================
+# RICH USER CONTEXT — static-type split (ADR-like Step B, 2026-04-21)
+# =========================================================================
+
+
+@dataclass
+class RichUserContext(UserContext):
+    """
+    UserContext subclass whose type narrows the seven RICH_ONLY_FIELDS
+    to their populated container types (no `| None`).
+
+    `is_rich_context` is pinned `True`, so the runtime `_as_rich()` guard
+    is effectively compile-time enforced for any code typed against
+    `RichUserContext`.
+
+    **When to use:**
+    - Builder `build_rich()` / `build_rich_user_context()` return this.
+    - Intelligence services that require rich data declare `context: RichUserContext`.
+    - Planning methods that need rich-only fields take `context: RichUserContext`.
+
+    **Relationship to rich-only accessors (important):**
+
+    `RichUserContext` is the *compile-time* guard. The `get_X()` /
+    `X_or_empty()` accessors on `UserContext` are the *read path*. They serve
+    different jobs and both stay in use:
+
+    - The type prevents None-unsafety — mypy sees the narrowed field and
+      every method on a `RichUserContext`-typed consumer is provably called
+      with rich data.
+    - The accessors are the uniform read path for ALL consumers, including
+      ones typed against plain `UserContext` that branch on `is_rich()`.
+      They also act as the single audit chokepoint if the rich/standard
+      contract ever changes.
+
+    Narrowing the parameter type does **not** license inlining
+    `self.context.habits_by_goal` in place of `self.context.get_habits_by_goal()`.
+    SKUEL018 is name-based by design — it flags direct rich-only field reads
+    regardless of receiver type so the read path stays uniform across
+    consumers with different static context types. Files typed against
+    `RichUserContext` are still expected to go through the accessors; the
+    lint whitelist exists only for the accessor definitions themselves and
+    for the populator.
+
+    **Internal chokepoint:** strict accessors on ``UserContext`` delegate to
+    ``_as_rich(operation)``, which raises ``RichContextRequiredError`` on a
+    standard-depth context and otherwise returns ``self`` typed as
+    ``RichUserContext``. This collapses the former guard + ``assert`` pair
+    into a single expression whose return type carries the invariant.
+    ``is_rich()`` remains the external ``TypeGuard``.
+    """
+
+    # Narrow rich-only containers from `X | None` to `X`.
+    # mypy flags the override as incompatible because `default_factory=...`
+    # changes the effective default from None → empty container.
+    tasks_by_goal: dict[str, list[str]] = field(default_factory=dict)
+    habits_by_goal: dict[str, list[str]] = field(default_factory=dict)
+    at_risk_habits: list[str] = field(default_factory=list)
+    blocked_task_uids: set[str] = field(default_factory=set)
+    principle_guided_choice_counts: dict[str, int] = field(default_factory=dict)
+    recent_principle_aligned_choices: list[str] = field(default_factory=list)
+    principle_integration_score: float = 0.0
+
+    # Pinned: every RichUserContext is — by construction — a rich context.
+    is_rich_context: bool = True
+
+    # Canonical set of fields this subclass narrows. Populated only by the
+    # rich build path; every entry has a matching `get_X()` strict accessor
+    # and (except `principle_integration_score`) a matching `X_or_empty()`
+    # graceful accessor on `UserContext`. SKUEL018 references this set by
+    # name for its direct-access lint. Living on the subclass matches its
+    # role as metadata about what `RichUserContext` itself narrows.
+    RICH_ONLY_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "tasks_by_goal",
+            "habits_by_goal",
+            "at_risk_habits",
+            "blocked_task_uids",
+            "principle_guided_choice_counts",
+            "recent_principle_aligned_choices",
+            "principle_integration_score",
+        }
+    )
+
+
+def is_rich(ctx: UserContext) -> TypeGuard[RichUserContext]:
+    """
+    Type guard for opportunistic narrowing.
+
+    Use when you hold a `UserContext` and want to call rich-required methods
+    when the context happens to be rich, without a cast:
+
+        if is_rich(ctx):
+            # ctx is narrowed to RichUserContext in this block
+            plan = await intelligence_factory.create(ctx).get_ready_to_work_on_today()
+    """
+    return ctx.is_rich_context
+
+
+# =========================================================================
 # EXPORTS
 # =========================================================================
 
 __all__ = [
     "UserContext",
+    "RichUserContext",
+    "is_rich",
 ]

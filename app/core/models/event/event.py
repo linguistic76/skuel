@@ -10,10 +10,9 @@ Inherits common fields from UserOwnedEntity. Adds 26 event-specific fields:
 - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
 - Reminders (2): reminder_minutes, reminder_sent
 - Attendees (2): attendee_emails, max_attendees
-- Cross-domain links (3): reinforces_habit_uid, source_path_step_uid,
-  source_learning_path_uid
-- Curriculum/milestone integration (4): milestone_celebration_for_goal,
-  is_milestone_event, milestone_type, curriculum_week
+- Cross-domain links (1): source_path_step_uid (Habit link is the REINFORCES_HABIT edge)
+- Curriculum/milestone integration (3): is_milestone_event, milestone_type,
+  curriculum_week (goal-celebration linkage is the CELEBRATES_GOAL graph edge)
 - Quality tracking (4): habit_completion_quality, knowledge_retention_check,
   recurrence_maintains_habit, skip_breaks_habit_streak
 
@@ -26,13 +25,14 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.event.event_dto import EventDTO
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -73,7 +73,7 @@ class Event(UserOwnedEntity):
     # =========================================================================
     # RECURRENCE
     # =========================================================================
-    recurrence_pattern: str | None = None  # RecurrencePattern enum value
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
 
@@ -92,14 +92,19 @@ class Event(UserOwnedEntity):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
-    reinforces_habit_uid: str | None = None  # EVENT -> HABIT
     source_path_step_uid: str | None = None  # EVENT -> PS
-    source_learning_path_uid: str | None = None  # EVENT -> LP
+    # DERIVED FROM EDGE — never persisted. The Event↔Habit link is the graph edge
+    # (Event)-[:REINFORCES_HABIT]->(Habit); this field is absent from EventDTO so
+    # it is never written to Neo4j. It is populated at fetch time (scoring,
+    # analytics, grouping) from the edge via enrich_events_with_habit_links so
+    # pure readers can use it. The edge is the single source of truth.
+    reinforces_habit_uid: str | None = None  # DERIVED — see note above
 
     # =========================================================================
     # CURRICULUM / MILESTONE INTEGRATION
     # =========================================================================
-    milestone_celebration_for_goal: str | None = None  # EVENT -> GOAL milestone
+    # Event -> Goal milestone linkage lives in the graph as
+    # (Event)-[:CELEBRATES_GOAL]->(Goal). Use EventsService.get_celebrated_goal().
     is_milestone_event: bool = False
     milestone_type: str | None = None
     curriculum_week: int | None = None
@@ -111,6 +116,12 @@ class Event(UserOwnedEntity):
     knowledge_retention_check: bool = False
     recurrence_maintains_habit: bool = False
     skip_breaks_habit_streak: bool = False
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    # Back-reference is (Event)-[:SPAWNED_FROM]->(EventTemplate).
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # EVENT-SPECIFIC METHODS
@@ -169,11 +180,6 @@ class Event(UserOwnedEntity):
         """Check if this event originated from a path step."""
         return self.source_path_step_uid is not None
 
-    @property
-    def fulfills_path_step(self) -> bool:
-        """Check if this event fulfills a path step."""
-        return self.source_path_step_uid is not None
-
     def get_summary(self, max_length: int = 200) -> str:
         """Get a summary of the event."""
         text = self.description or self.content or self.summary or ""
@@ -194,25 +200,13 @@ class Event(UserOwnedEntity):
         """Create Event from an EntityDTO or EventDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "EventDTO":  # type: ignore[override]
+    def to_dto(self) -> "EventDTO":
         """Convert Event to domain-specific EventDTO."""
-        import dataclasses
-        from typing import Any
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.event.event_dto import EventDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(EventDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return EventDTO(**kwargs)
+        return domain_to_dto(self, EventDTO)
 
     def __str__(self) -> str:
         return f"Event(uid={self.uid}, title='{self.title}', date={self.event_date})"

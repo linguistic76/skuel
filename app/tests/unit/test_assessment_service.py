@@ -3,9 +3,10 @@ Unit Tests for Assessment Service Methods
 ============================================
 
 Tests create_assessment, get_assessments_for_student,
-and get_assessments_by_teacher on SubmissionsCoreService.
+and get_assessments_by_teacher on AssessmentService (ADR-054 Commit 6a).
 """
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -16,7 +17,7 @@ from core.utils.result_simplified import Errors, Result
 
 # Helpers for mocking execute_query call sequence (returns Result[list[dict]])
 AUTHORITY_MATCH = Result.ok([{"group_uid": "group_abc"}])
-AUTHORITY_NO_MATCH = Result.ok([])
+AUTHORITY_NO_MATCH: Result[list[dict[str, Any]]] = Result.ok([])
 RELATIONSHIP_SUCCESS = Result.ok([{"success": True}])
 
 
@@ -51,13 +52,12 @@ def mock_sharing_service():
 
 @pytest.fixture
 def core_service(mock_backend, mock_event_bus, mock_sharing_service):
-    """Create SubmissionsCoreService with mocked deps."""
-    from core.services.submissions.submissions_core_service import SubmissionsCoreService
+    """Create AssessmentService with mocked deps."""
+    from core.services.user_entry.assessment_service import AssessmentService
 
-    return SubmissionsCoreService(
+    return AssessmentService(
         backend=mock_backend,
         event_bus=mock_event_bus,
-        sharing_service=mock_sharing_service,
     )
 
 

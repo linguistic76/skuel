@@ -25,8 +25,7 @@ if TYPE_CHECKING:
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, MasteryImpact, SELCategory
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.submissions_enums import ExerciseScope, SubmissionModality
-from core.ports import get_enum_value
+from core.models.enums.user_entry_enums import ExerciseScope, SubmissionModality
 
 
 @dataclass
@@ -70,37 +69,33 @@ class ExerciseDTO(CurriculumDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including exercise-specific fields."""
-        from core.models.dto_helpers import convert_dates_to_iso
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                "path_step_uid": self.path_step_uid,
-                "exercise_number": self.exercise_number,
-                "instructions": self.instructions,
-                "model": self.model,
-                "scope": get_enum_value(self.scope),
-                "due_date": self.due_date,
-                "group_uid": self.group_uid,
-                "enrichment_mode": self.enrichment_mode,
-                "context_notes": list(self.context_notes) if self.context_notes else [],
-                "form_schema": self.form_schema,
-                "expected_modality": get_enum_value(self.expected_modality),
-                "mastery_impact": get_enum_value(self.mastery_impact),
-                "scoring_rubric": self.scoring_rubric,
-                "pass_threshold": self.pass_threshold,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "scope",
+                "expected_modality",
+                "mastery_impact",
+            ],
+            date_fields=["due_date"],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "last_applied_date",
+                "last_practiced_date",
+                "last_built_into_habit_date",
+                "last_reflected_date",
+                "last_choice_informed_date",
+            ],
         )
-
-        convert_dates_to_iso(data, ["due_date"])
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExerciseDTO:

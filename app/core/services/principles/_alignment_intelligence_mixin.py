@@ -88,7 +88,7 @@ class _AlignmentIntelligenceMixin:
         metrics = analysis["metrics"]
 
         # Extract activities from typed context
-        recent_tasks = []  # Principles don't directly relate to tasks
+        recent_tasks: list[dict[str, Any]] = []  # Principles don't directly relate to tasks
         recent_choices = [{"uid": uid} for uid in context.choice_uids]
         recent_habits = [{"uid": uid} for uid in context.habit_uids]
         guided_goals = [{"uid": uid} for uid in context.goal_uids]

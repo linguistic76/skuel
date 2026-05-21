@@ -279,18 +279,22 @@ class CRUDRouteFactory[T]:
 
         (January 2026): Integrated HTTP instrumentation + boundary handling
         """
+        from adapters.inbound.csrf import csrf_protected
+
         if not self.prometheus_metrics:
             # No metrics - just apply boundary handler
             from adapters.inbound.boundary import boundary_handler
 
-            return boundary_handler(success_status=success_status)(handler)
+            return csrf_protected(boundary_handler(success_status=success_status)(handler))
 
         # Apply combined instrumentation + boundary handling
         from adapters.inbound.boundary import instrument_with_boundary_handler
 
-        return instrument_with_boundary_handler(
-            self.prometheus_metrics, endpoint, success_status=success_status
-        )(handler)
+        return csrf_protected(
+            instrument_with_boundary_handler(
+                self.prometheus_metrics, endpoint, success_status=success_status
+            )(handler)
+        )
 
     def register_routes(self, _app, rt):
         """

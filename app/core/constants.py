@@ -535,6 +535,25 @@ class LearningLoop:
 
 
 # ============================================================================
+# EXERCISE TIME ESTIMATES (daily planning)
+# ============================================================================
+
+
+class ExerciseTimeEstimate:
+    """Default per-exercise time budgets used by DailyPlanningMixin via
+    ExerciseService.get_actionable_exercises_for_user /
+    get_pending_revisions_for_user.
+
+    Revisions are tighter than fresh submissions because the teacher has
+    already narrowed the gap — the student responds to specific feedback
+    rather than constructing a full answer from scratch.
+    """
+
+    FRESH_SUBMISSION_MINUTES: Final = 60
+    REVISION_MINUTES: Final = 45
+
+
+# ============================================================================
 # PRIORITY SCORING WEIGHTS (analytics_engine.py)
 # ============================================================================
 

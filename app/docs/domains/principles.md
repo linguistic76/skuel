@@ -217,7 +217,9 @@ The `CONFLICTS_WITH_PRINCIPLE` relationship helps identify when principles may b
 | `get_inspiring_habits(principle_uid, user_uid)` | Habits inspired by principle |
 | `get_for_choice(choice_uid, user_uid)` | Relevant principles for decision |
 | `get_for_goal(goal_uid, user_uid)` | Principles aligned with goal |
-| `get_active_principles(user_uid)` | Active principles only |
+| `get_active(user_uid)` | Override of `TimeQueryMixin.get_active` — filters on the `is_active` flag and sorts by strength |
+| `get_upcoming(days_ahead, user_uid)` | Override — principles approaching the 90-day review threshold |
+| `get_overdue(user_uid)` | Override — thin delegation to `get_needing_review(days_threshold=90)` |
 | `get_needing_review(user_uid, days=90)` | Principles not reviewed recently |
 | `get_related_principles(principle_uid, user_uid)` | Related principles |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
@@ -407,14 +409,15 @@ Read-focused UI at `/principles` is planned. API routes remain active.
 
 ```python
 from core.models.enums.principle_enums import PrincipleCategory
+from core.models.principle.principle_request import PrincipleCreateRequest
 
-result = await principles_service.create_principle(
-    label="Continuous Learning",
-    description="Commit to lifelong learning and growth",
+request = PrincipleCreateRequest(
+    title="Continuous Learning",
+    statement="Commit to lifelong learning and growth",
     category=PrincipleCategory.INTELLECTUAL,
-    why_matters="Knowledge compounds over time, leading to wisdom",
-    user_uid=user_uid,
+    why_important="Knowledge compounds over time, leading to wisdom",
 )
+result = await principles_service.create_principle(request, user_uid)
 principle = result.value
 ```
 

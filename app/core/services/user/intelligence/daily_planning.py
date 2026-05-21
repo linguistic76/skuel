@@ -7,20 +7,33 @@ Method 5 of UserContextIntelligence:
 
 This is the core value proposition: "What should I work on next?"
 
-**Synthesizes 10 domains:**
-- Activity Domains (6): tasks, habits, goals, events, choices, principles
-- Curriculum Domains (3): ku, ls, lp
-- Submissions Domain (1): context.unsubmitted_exercises — Priority 2.5
-- Revised Exercises (1): context.pending_revised_exercises — Priority 2.3
+Two data sources, kept distinct so callers don't confuse "service queried at
+plan time" with "context field already resolved by the MEGA-QUERY":
+
+**Domain service queries (8 required + 1 optional):**
+- Activity (6): tasks, habits, goals, events, choices, principles
+- Curriculum (2): ps (P5 learning), exercises (P2.3 revisions + P2.5 assignments)
+- Optional: vector_search (semantic enhancement of P5 learning recommendations)
+
+Each query returns enriched Contextual* objects with readiness signals —
+prerequisite mastery, blocking dependencies, urgency math.
+
+**Already-resolved context fields (read directly, no query):**
+- available_minutes_daily, daily_habits, zpd_assessment,
+  estimated_time_to_mastery, learning_goals, primary_goal_focus,
+  life_path_uid, latest_activity_report_*, active_ps_engagements
+
+These are pre-computed by UserContextBuilder.MEGA-QUERY. The mixin reads
+them as-is; it does NOT treat them as "domains" in the service sense.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from core.models.context_types import ContextualExercise, DailyWorkPlan
+from core.models.context_types import ContextualExercise, DailyWorkPlan, EngagedPsGroup
+from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -30,32 +43,32 @@ if TYPE_CHECKING:
         ContextualKnowledge,
         ContextualTask,
     )
-    from core.ports.filtered_context_protocols import FilteredContextProvider
-    from core.services.user.unified_user_context import UserContext
+    from core.services.ps_engagement.engagement import Engagement
+    from core.services.user.unified_user_context import RichUserContext
 
 
-class DailyPlanningMixin:
+class DailyPlanningMixin(IntelligenceMixinBase):
     """
     Mixin providing daily planning methods.
 
-    Requires self.context (UserContext) and domain relationship services:
-    - self.tasks, self.habits, self.goals, self.events
-    - self.choices, self.principles
-    - self.ps
-    - self.report  (ReportRelationshipService — for unsubmitted exercises)
-    Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
+    Requires self.context (RichUserContext) and 8 domain services that
+    get_ready_to_work_on_today() actually queries:
+    - Activity: self.tasks, self.habits, self.goals, self.events,
+      self.choices, self.principles
+    - Curriculum: self.ps (learning readiness), self.exercises (actionable
+      exercises + pending revisions with prerequisite-mastery enrichment)
+    Optional: self.vector_search (Neo4jVectorSearchService) for semantic
+    enhancement of the P5 learning block.
+
+    Other services on UserContextIntelligence (lp, user_entries, report,
+    analytics, calendar, zpd_service) are used by sibling mixins — this
+    mixin does not call them.
     """
 
-    context: UserContext
-    tasks: Any  # UnifiedRelationshipService
-    habits: Any  # UnifiedRelationshipService
-    goals: Any  # UnifiedRelationshipService
-    events: Any  # UnifiedRelationshipService
-    choices: Any  # UnifiedRelationshipService
-    principles: Any  # UnifiedRelationshipService
-    ps: Any  # PsService facade
-
-    # Stubs for methods provided by TemporalMomentumMixin in the composed class.
+    # Forward declarations of TemporalMomentumMixin methods used here. These
+    # methods live on a sibling mixin; the composed UserContextIntelligence
+    # class brings them in, but mypy needs the surface to type-check call sites
+    # inside this file.
     if TYPE_CHECKING:
 
         def compute_momentum_signals(self) -> dict[str, Any]: ...
@@ -63,10 +76,6 @@ class DailyPlanningMixin:
         def _momentum_warnings(self, signals: dict[str, Any]) -> list[str]: ...
 
         def _momentum_rationale(self, signals: dict[str, Any]) -> str | None: ...
-
-    feedback: Any  # ReportRelationshipService
-    vector_search: Any = None  # Neo4jVectorSearchService (optional)
-    filtered_providers: dict[str, FilteredContextProvider]
 
     # =========================================================================
     # METHOD 5: Ready to Work on Today - THE FLAGSHIP METHOD
@@ -107,6 +116,7 @@ class DailyPlanningMixin:
         Returns:
             Result[DailyWorkPlan] with rationale and priorities
         """
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         available_time = self.context.available_minutes_daily
 
         # Accumulators for frozen DailyWorkPlan construction
@@ -148,62 +158,56 @@ class DailyPlanningMixin:
         # =====================================================================
         # PRIORITY 2.3: Pending revised exercises (teacher-created revisions)
         # Higher priority than regular exercises — teacher wrote targeted feedback.
+        # Service-routed via ExerciseService: enriches with prereq readiness so
+        # blocked revisions surface in warnings.
         # =====================================================================
-        if self.context.pending_revised_exercises:
-            for rev_dict in self.context.pending_revised_exercises[:3]:
-                est_time = 45  # ~45 min to address a revision (shorter than fresh exercise)
-                if not respect_capacity or estimated_time + est_time <= available_time:
-                    contextual_ex = ContextualExercise(
-                        uid=rev_dict["uid"],
-                        title=rev_dict.get("title", "Revision"),
-                        due_date=None,  # Revised exercises don't have due dates
-                        is_overdue=False,
-                        days_until_due=None,
-                    )
-                    exercises_uids.append(rev_dict["uid"])
-                    contextual_exercises_list.append(contextual_ex)
-                    estimated_time += est_time
+        revisions_result = await self.exercises.get_pending_revisions_for_user(self.context)
+        if revisions_result.is_ok and revisions_result.value:
+            for contextual_rev in revisions_result.value:
+                if (
+                    not respect_capacity
+                    or estimated_time + contextual_rev.est_time_minutes <= available_time
+                ):
+                    exercises_uids.append(contextual_rev.uid)
+                    contextual_exercises_list.append(contextual_rev)
+                    estimated_time += contextual_rev.est_time_minutes
 
-            if len(self.context.pending_revised_exercises) > 0:
-                count = len(self.context.pending_revised_exercises)
+            total_revisions = len(self.context.pending_revised_exercises)
+            if total_revisions > 0:
                 warnings_list.append(
-                    f"{count} pending revision{'s' if count > 1 else ''} from teacher feedback"
+                    f"{total_revisions} pending revision{'s' if total_revisions > 1 else ''} from teacher feedback"
+                )
+            blocked_revs = [r for r in revisions_result.value if r.is_blocked]
+            if blocked_revs:
+                warnings_list.append(
+                    f"{len(blocked_revs)} revision{'s' if len(blocked_revs) > 1 else ''} blocked by unmastered prerequisites"
                 )
 
         # =====================================================================
-        # PRIORITY 2.5: Unsubmitted exercises (from UserContext — no extra query)
+        # PRIORITY 2.5: Unsubmitted exercises
+        # Service-routed via ExerciseService: prereq readiness drives ordering
+        # ("blocked by N unmastered KUs") and feeds the blocked-count warning.
         # =====================================================================
-        if self.context.unsubmitted_exercises:
-            today = date.today()
-            overdue_count = 0
-            for ex_dict in self.context.unsubmitted_exercises[:3]:
-                est_time = 60  # ~60 min to complete an exercise submission
-                if not respect_capacity or estimated_time + est_time <= available_time:
-                    due_date: date | None = None
-                    days_until_due: int | None = None
-                    is_overdue = False
-                    if ex_dict.get("due_date"):
-                        due_date = date.fromisoformat(ex_dict["due_date"])
-                        delta = (due_date - today).days
-                        days_until_due = delta
-                        is_overdue = delta < 0
-                        if is_overdue:
-                            overdue_count += 1
-
-                    contextual_ex = ContextualExercise(
-                        uid=ex_dict["uid"],
-                        title=ex_dict.get("title", "Untitled Exercise"),
-                        due_date=due_date,
-                        is_overdue=is_overdue,
-                        days_until_due=days_until_due,
-                    )
-                    exercises_uids.append(ex_dict["uid"])
+        exercises_result = await self.exercises.get_actionable_exercises_for_user(self.context)
+        if exercises_result.is_ok and exercises_result.value:
+            for contextual_ex in exercises_result.value:
+                if (
+                    not respect_capacity
+                    or estimated_time + contextual_ex.est_time_minutes <= available_time
+                ):
+                    exercises_uids.append(contextual_ex.uid)
                     contextual_exercises_list.append(contextual_ex)
-                    estimated_time += est_time
+                    estimated_time += contextual_ex.est_time_minutes
 
+            overdue_count = sum(1 for ex in exercises_result.value if ex.is_overdue)
             if overdue_count:
                 warnings_list.append(
                     f"{overdue_count} exercise submission{'s' if overdue_count > 1 else ''} overdue"
+                )
+            blocked_assignments = sum(1 for ex in exercises_result.value if ex.is_blocked)
+            if blocked_assignments:
+                warnings_list.append(
+                    f"{blocked_assignments} exercise{'s' if blocked_assignments > 1 else ''} blocked by unmastered prerequisites"
                 )
 
         # =====================================================================
@@ -355,6 +359,17 @@ class DailyPlanningMixin:
         rationale = self._generate_daily_rationale(plan, prioritize_life_path, momentum)
         plan = replace(plan, priorities=tuple(priorities), rationale=rationale)
 
+        # ADR-059 bucketing — fold PS engagement state into the plan. The
+        # engagement data lives on context.active_ps_engagements (populated
+        # by UserContextBuilder via PsEngagementService.list_engaged). When
+        # None or empty, the plan is returned with the default empty buckets.
+        engagements_map = self.context.active_ps_engagements
+        if engagements_map:
+            engagements = list(engagements_map.values())
+            groups = _build_engaged_groups(plan, engagements)
+            available = _compute_available_to_start(self.context, engagements)
+            plan = replace(plan, engaged_ps_groups=groups, available_to_start=available)
+
         return Result.ok(plan)
 
     def _build_priority_list(self, plan: DailyWorkPlan) -> list[str]:
@@ -372,17 +387,23 @@ class DailyPlanningMixin:
             priorities.append(f"Attend {len(plan.events)} scheduled events")
 
         if plan.exercises:
-            revision_count = len(self.context.pending_revised_exercises)
-            overdue_ex = [e for e in plan.contextual_exercises if e.is_overdue]
-            if revision_count > 0:
+            # Derive counts from the plan itself (subtype field on each
+            # ContextualExercise) so totals are internally consistent — the
+            # previous version mixed plan counts with full context totals,
+            # which made `remaining` potentially negative when context had
+            # more revisions than fit in the plan.
+            revisions = [e for e in plan.contextual_exercises if e.subtype == "revision"]
+            assignments = [e for e in plan.contextual_exercises if e.subtype == "assignment"]
+            overdue_ex = [e for e in assignments if e.is_overdue]
+            if revisions:
                 priorities.append(
-                    f"Address {revision_count} pending revision{'s' if revision_count > 1 else ''} from teacher feedback"
+                    f"Address {len(revisions)} pending revision{'s' if len(revisions) > 1 else ''} from teacher feedback"
                 )
             if overdue_ex:
                 priorities.append(
                     f"Submit {len(overdue_ex)} overdue exercise{'s' if len(overdue_ex) > 1 else ''} (teacher assignment)"
                 )
-            remaining = len(plan.exercises) - revision_count - len(overdue_ex)
+            remaining = len(assignments) - len(overdue_ex)
             if remaining > 0:
                 priorities.append(
                     f"Complete {remaining} exercise submission{'s' if remaining > 1 else ''}"
@@ -418,9 +439,10 @@ class DailyPlanningMixin:
         if len(plan.habits) >= 3:
             rationale_parts.append("Strong focus on habit consistency")
 
-        # Exercise focus
+        # Exercise focus — derived from the plan (subtype on each ContextualExercise)
         if plan.exercises:
-            if self.context.pending_revised_exercises:
+            has_revision = any(e.subtype == "revision" for e in plan.contextual_exercises)
+            if has_revision:
                 rationale_parts.append("Teacher revision feedback to address")
             else:
                 rationale_parts.append("Teacher assignment submissions due")
@@ -612,6 +634,67 @@ class DailyPlanningMixin:
                 warnings.append("Many tasks but no goals — work lacks strategic direction")
 
         return warnings
+
+
+# =========================================================================
+# ADR-059 Bucketing Helpers — pure data transformations on the assembled
+# DailyWorkPlan. Module-level (not methods) so they have no implicit self
+# coupling and are trivially testable. Lifted from askesis_service.py
+# (where the code was dead — Askesis is uncalled) to live in the mixin
+# that actually produces the plan.
+# =========================================================================
+
+
+def _build_engaged_groups(
+    plan: DailyWorkPlan,
+    engagements: list[Engagement],
+) -> tuple[EngagedPsGroup, ...]:
+    """Intersect each engagement's spawned UIDs with the plan's per-domain lists."""
+    if not engagements:
+        return ()
+
+    groups: list[EngagedPsGroup] = []
+    for engagement in engagements:
+        spawned = set(engagement.spawned_instance_uids)
+        if not spawned:
+            # Engagement carries no instance UIDs — still surface the
+            # engagement itself so the consumer can render "you're engaged
+            # with X" even when no spawned activity is on today's plan.
+            groups.append(EngagedPsGroup(ps_uid=engagement.ps_uid, engagement=engagement))
+            continue
+        groups.append(
+            EngagedPsGroup(
+                ps_uid=engagement.ps_uid,
+                engagement=engagement,
+                pending_task_uids=tuple(uid for uid in plan.tasks if uid in spawned),
+                pending_habit_uids=tuple(uid for uid in plan.habits if uid in spawned),
+                pending_event_uids=tuple(uid for uid in plan.events if uid in spawned),
+                pending_goal_uids=tuple(uid for uid in plan.goals if uid in spawned),
+                pending_choice_uids=tuple(uid for uid in plan.choices if uid in spawned),
+                pending_principle_uids=tuple(uid for uid in plan.principles if uid in spawned),
+            )
+        )
+    return tuple(groups)
+
+
+def _compute_available_to_start(
+    user_context: RichUserContext,
+    engagements: list[Engagement],
+) -> tuple[str, ...]:
+    """PS UIDs the user has touched but has not engaged with yet."""
+    engaged_ps_uids = {e.ps_uid for e in engagements}
+    touched: list[str] = []
+    seen: set[str] = set()
+    for item in user_context.active_path_steps_rich:
+        step = item.get("step") if isinstance(item, dict) else None
+        if not isinstance(step, dict):
+            continue
+        uid = step.get("uid")
+        if not isinstance(uid, str) or uid in seen or uid in engaged_ps_uids:
+            continue
+        seen.add(uid)
+        touched.append(uid)
+    return tuple(touched)
 
 
 __all__ = ["DailyPlanningMixin"]

@@ -85,7 +85,7 @@ QueryExecutor — the most common focused protocol:
     #          HuggingFaceEmbeddingsService, UserProgressService
     #
     # Note: LateralRelationshipService and TeacherReviewService migrated to
-    # typed backends (LateralRelationshipBackend, SubmissionsBackend, etc.)
+    # typed backends (LateralRelationshipBackend, UserEntryBackend, etc.)
 
     from typing import TYPE_CHECKING
 

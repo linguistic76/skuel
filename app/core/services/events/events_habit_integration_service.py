@@ -17,19 +17,22 @@ entities and their habit-related lifecycle.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
 from core.models.enums import RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.services.context_first_mixin import parse_date_field
+from core.models.relationship_names import RelationshipName
+from core.models.type_hints import FilterParams, Neo4jProperties
+from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import parse_date_field
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -107,26 +110,40 @@ class EventsHabitIntegrationService:
         """
         return user_context.entities_rich.get("events", [])
 
+    @staticmethod
+    def _reinforced_habit_uid(event_data: RichEntityItem) -> str | None:
+        """Extract the reinforced habit uid from a rich event's graph context.
+
+        Graph-native: reads ``graph_context.reinforced_habits`` (loaded from the
+        (Event)-[:REINFORCES_HABIT]->(Habit) edge by the MEGA-QUERY) rather than a
+        property. An event reinforces at most one habit, so returns the first.
+        """
+        graph_ctx = event_data.get("graph_context", {}) or {}
+        reinforced = graph_ctx.get("reinforced_habits") or []
+        if reinforced and isinstance(reinforced[0], dict):
+            return reinforced[0].get("uid")
+        return None
+
     def _filter_events_by_habit(
         self, events_rich: list[RichEntityItem], habit_uid: str
     ) -> list[Event]:
         """
-        Filter rich event data by reinforces_habit_uid.
+        Filter rich event data by the REINFORCES_HABIT edge.
 
         Args:
             events_rich: List of rich event dicts from context
             habit_uid: UID of habit to filter by
 
         Returns:
-            List of Event domain models that reinforce the habit
+            List of Event domain models that reinforce the habit (with the derived
+            reinforces_habit_uid populated from the graph context).
         """
         result = []
         for event_data in events_rich:
-            event_dict = event_data.get("entity", {})
-            if event_dict.get("reinforces_habit_uid") == habit_uid:
-                event = self._dict_to_event(event_dict)
+            if self._reinforced_habit_uid(event_data) == habit_uid:
+                event = self._dict_to_event(event_data.get("entity", {}))
                 if event:
-                    result.append(event)
+                    result.append(replace(event, reinforces_habit_uid=habit_uid))
         return result
 
     def _filter_events_by_date_range(
@@ -176,6 +193,14 @@ class EventsHabitIntegrationService:
 
         return Event.from_dto(EventDTO.from_dict(event_dict))
 
+    async def _enrich_with_habit_links(self, events: list[Event]) -> list[Event]:
+        """Populate the derived ``reinforces_habit_uid`` from REINFORCES_HABIT edges.
+
+        Used on fallback (non-rich-context) paths where events come from a plain
+        backend query that doesn't load the edge.
+        """
+        return await enrich_events_with_habit_links(self.backend, events)
+
     def _filter_events_by_criteria(
         self,
         user_context: UserContext,
@@ -212,8 +237,8 @@ class EventsHabitIntegrationService:
         for event_data in events_rich:
             event_dict = event_data.get("entity", {})
 
-            # Filter by habit_uid
-            event_habit_uid = event_dict.get("reinforces_habit_uid")
+            # Filter by habit_uid (graph-native: from REINFORCES_HABIT edge context)
+            event_habit_uid = self._reinforced_habit_uid(event_data)
             if criteria.habit_uid and event_habit_uid != criteria.habit_uid:
                 continue
             if criteria.require_habit and not event_habit_uid:
@@ -230,9 +255,11 @@ class EventsHabitIntegrationService:
             if criteria.status_filter and event_dict.get("status") != criteria.status_filter:
                 continue
 
-            event = self._dict_to_event(event_dict)
-            if not event:
+            built = self._dict_to_event(event_dict)
+            if not built:
                 continue
+            # Populate the derived field from the graph-context habit link.
+            event = replace(built, reinforces_habit_uid=event_habit_uid)
 
             # Handle different output modes
             if criteria.find_earliest_per_habit and event_habit_uid:
@@ -293,21 +320,19 @@ class EventsHabitIntegrationService:
             )
             return Result.ok(events)
 
-        # Fallback: Query Neo4j
+        # Fallback: graph traversal of (Event)-[:REINFORCES_HABIT]->(Habit)
         self.logger.debug(f"No rich context, querying Neo4j for habit {habit_uid} events")
-        filters = {
-            "reinforces_habit_uid": habit_uid,
-            "user_uid": user_context.user_uid,
-            "event_date__gte": start_date,
-            "event_date__lte": end_date,
-        }
-
-        result = await self.backend.list(filters=filters)
+        result = await self.backend.get_events_reinforcing_habit(habit_uid, user_context.user_uid)
         if result.is_error:
             return Result.fail(result)
 
-        # Unpack tuple: backend.list() returns (events, total_count)
-        events_list, _ = result.value
+        events_list: list[Event] = []
+        for event_dict in result.value:
+            event = self._dict_to_event(event_dict)
+            if not event or not event.event_date:
+                continue
+            if start_date <= event.event_date <= end_date:
+                events_list.append(replace(event, reinforces_habit_uid=habit_uid))
         return Result.ok(events_list)
 
     async def get_habit_reinforcement_events(
@@ -341,14 +366,15 @@ class EventsHabitIntegrationService:
                 f"Context-first: Found events for {len(events_by_habit)} habits "
                 f"from rich context (no Neo4j query)"
             )
-            return Result.ok(events_by_habit)
+            # criteria.group_by_habit=True -> dict[str, list[Event]] variant
+            return Result.ok(cast("dict[str, list[Event]]", events_by_habit))
 
         # Fallback: Query Neo4j
         self.logger.debug("No rich context, querying Neo4j for habit reinforcement events")
-        filters = {
+        filters: FilterParams = {
             "user_uid": user_context.user_uid,
-            "event_date__gte": start_date,
-            "event_date__lte": end_date,
+            "event_date__gte": start_date.isoformat(),
+            "event_date__lte": end_date.isoformat(),
         }
 
         result = await self.backend.list(filters=filters)
@@ -357,6 +383,8 @@ class EventsHabitIntegrationService:
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events, _ = result.value
+        # Enrich with habit links from the REINFORCES_HABIT edge (derived field).
+        events = await self._enrich_with_habit_links(events)
 
         # Group by habit
         events_by_habit_fallback: dict[str, list[Event]] = {}
@@ -401,10 +429,10 @@ class EventsHabitIntegrationService:
 
         # Fallback: Query Neo4j
         self.logger.debug("No rich context, querying Neo4j for at-risk habit events")
-        filters = {
+        filters: FilterParams = {
             "user_uid": user_context.user_uid,
-            "event_date__gte": start_date,
-            "event_date__lte": end_date,
+            "event_date__gte": start_date.isoformat(),
+            "event_date__lte": end_date.isoformat(),
             "status": "scheduled",
         }
 
@@ -414,6 +442,8 @@ class EventsHabitIntegrationService:
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events_list, _ = result.value
+        # Enrich with habit links from the REINFORCES_HABIT edge (derived field).
+        events_list = await self._enrich_with_habit_links(events_list)
 
         # Filter events that reinforce habits
         habit_events = [event for event in events_list if event.reinforces_habit_uid]
@@ -451,12 +481,10 @@ class EventsHabitIntegrationService:
         if not result.value:
             return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
 
-        event = to_domain_model(result.value, EventDTO, Event)
-
         # Update event
-        updates = {
+        updates: Neo4jProperties = {
             "status": "completed",
-            "completed_at": completion_date or date.today(),
+            "completed_at": (completion_date or date.today()).isoformat(),
             "quality_score": quality_score,
         }
 
@@ -475,13 +503,14 @@ class EventsHabitIntegrationService:
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
-        # If event reinforces habit, cascade effects happen via events
-        if event.reinforces_habit_uid:
+        # If event reinforces a habit (REINFORCES_HABIT edge), cascade effects
+        # happen via the published CalendarEventCompleted event → habit service.
+        habit_links = await self.backend.get_habit_links_for_events([event_uid])
+        linked_habit = habit_links.value.get(event_uid) if habit_links.is_ok else None
+        if linked_habit:
             self.logger.info(
-                f"Event {event_uid} reinforces habit {event.reinforces_habit_uid}, "
-                f"quality={quality_score}"
+                f"Event {event_uid} reinforces habit {linked_habit}, quality={quality_score}"
             )
-            # Cascade effects handled by CalendarEventCompleted event → habit service
 
         # Fetch and return updated event
         updated_result = await self.backend.get(event_uid)
@@ -505,7 +534,10 @@ class EventsHabitIntegrationService:
         Returns:
             Result containing updated event
         """
-        updates = {"status": "cancelled", "notes": f"Missed: {reason}" if reason else "Missed"}
+        updates: Neo4jProperties = {
+            "status": "cancelled",
+            "notes": f"Missed: {reason}" if reason else "Missed",
+        }
 
         result = await self.backend.update(event_uid, updates)
         if result.is_error:
@@ -577,18 +609,21 @@ class EventsHabitIntegrationService:
                 "title": title or f"Practice: {habit_uid}",
                 "event_date": current_date,
                 "duration_minutes": duration_minutes,
-                "reinforces_habit_uid": habit_uid,
                 "status": "scheduled",
                 "recurrence_pattern": pattern.value,
             }
 
-            result = await self.backend.create(event_data)
+            result = await self.backend.create(Event.from_dto(EventDTO.from_dict(event_data)))
             if result.is_error:
                 self.logger.error(f"Failed to create recurring event: {result.error}")
                 continue
 
             event = to_domain_model(result.value, EventDTO, Event)
             events.append(event)
+            # Habit reinforcement is a graph edge, not a property.
+            await self.backend.create_relationship(
+                event.uid, habit_uid, RelationshipName.REINFORCES_HABIT.value
+            )
 
             # Publish CalendarEventCreated event (event-driven architecture)
             from core.events import CalendarEventCreated
@@ -598,7 +633,7 @@ class EventsHabitIntegrationService:
                 event_uid=event.uid,
                 user_uid=user_context.user_uid,
                 title=event.title,
-                event_date=event.event_date,
+                event_date=event.event_date or date.today(),
                 calendar_event_type=get_enum_value(event.event_type),
             )
             await publish_event(self.event_bus, event_obj, self.logger)
@@ -637,13 +672,15 @@ class EventsHabitIntegrationService:
                 f"Context-first: Found next events for {len(next_events)} habits "
                 f"from rich context (no Neo4j query)"
             )
-            return Result.ok(next_events)
+            # criteria.find_earliest_per_habit=True -> dict[str, Event] variant;
+            # widen to Event | None for the public contract.
+            return Result.ok(cast("dict[str, Event | None]", next_events))
 
         # Fallback: Query Neo4j
         self.logger.debug("No rich context, querying Neo4j for next habit events")
-        filters = {
+        filters: FilterParams = {
             "user_uid": user_context.user_uid,
-            "event_date__gte": today,
+            "event_date__gte": today.isoformat(),
             "status": "scheduled",
         }
 
@@ -653,6 +690,8 @@ class EventsHabitIntegrationService:
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events, _ = result.value
+        # Enrich with habit links from the REINFORCES_HABIT edge (derived field).
+        events = await self._enrich_with_habit_links(events)
 
         # Find next event for each habit
         next_events_fallback: dict[str, Event] = {}
@@ -673,4 +712,6 @@ class EventsHabitIntegrationService:
             ):
                 next_events_fallback[habit_uid] = event
 
-        return Result.ok(next_events_fallback)
+        # Widen to match the Result[dict[str, Event | None]] public contract
+        # (our local dict only ever contains Event values, never None).
+        return Result.ok(cast("dict[str, Event | None]", next_events_fallback))

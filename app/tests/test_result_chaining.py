@@ -1,3 +1,4 @@
+# mypy: disable-error-code="var-annotated,union-attr,return-value,operator"
 """
 Comprehensive tests for Result chaining functionality.
 

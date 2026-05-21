@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from datetime import date
+    from datetime import date, datetime
 
 
 @runtime_checkable
@@ -77,6 +77,10 @@ class CrossDomainBackendOperations(Protocol):
 
     async def get_principle_alignment_evidence(
         self, principle_uid: str, user_uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_embodiment_rates_7d(
+        self, principle_uids: list[str], user_uid: str, cutoff: datetime
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_tasks_applying_knowledge(

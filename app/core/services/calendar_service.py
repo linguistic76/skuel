@@ -188,7 +188,7 @@ class CalendarService:
         return Result.ok(calendar_data)
 
     @with_error_handling("get_item", error_type="system", uid_param="item_uid")
-    async def get_item(self, item_uid: str) -> Result[CalendarItem | None]:
+    async def get_item(self, user_uid: UserUID, item_uid: str) -> Result[CalendarItem | None]:
         """
         Get a specific calendar item by UID.
 
@@ -203,25 +203,31 @@ class CalendarService:
             source_uid = item_uid[5:]  # Remove "task-" prefix
             task_result = await self.tasks_service.get(source_uid)
             if task_result.is_ok and task_result.value:
+                if task_result.value.user_uid != user_uid:
+                    return Result.ok(None)  # not the requester's — treat as not found
                 return Result.ok(self._task_to_calendar_item(task_result.value))
 
         elif item_uid.startswith("event-"):
             source_uid = item_uid[6:]  # Remove "event-" prefix
             event_result = await self.events_service.get(source_uid)
             if event_result.is_ok and event_result.value:
+                if event_result.value.user_uid != user_uid:
+                    return Result.ok(None)  # not the requester's — treat as not found
                 return Result.ok(self._event_to_calendar_item(event_result.value))
 
         elif item_uid.startswith("habit-"):
             source_uid = item_uid[6:]  # Remove "habit-" prefix
             habit_result = await self.habits_service.get(source_uid)
             if habit_result.is_ok and habit_result.value:
+                if habit_result.value.user_uid != user_uid:
+                    return Result.ok(None)  # not the requester's — treat as not found
                 return Result.ok(self._habit_to_calendar_item(habit_result.value))
 
         return Result.ok(None)
 
     @with_error_handling("quick_create", error_type="system")
     async def quick_create(
-        self, item_type: str, title: str, start_time: datetime, **kwargs: Any
+        self, user_uid: UserUID, item_type: str, title: str, start_time: datetime, **kwargs: Any
     ) -> Result[CalendarItem]:
         """
         Quick create a calendar item.
@@ -242,7 +248,7 @@ class CalendarService:
             # Create task
             task_dto = TaskDTO(
                 uid="",  # Will be generated
-                user_uid=kwargs.get("user_uid", ""),
+                user_uid=user_uid,
                 title=title,
                 description=kwargs.get("description", ""),
                 scheduled_date=start_time.date(),
@@ -260,7 +266,7 @@ class CalendarService:
             # Create event
             event_dto = EventDTO(
                 uid="",  # Will be generated
-                user_uid=kwargs.get("user_uid", ""),
+                user_uid=user_uid,
                 title=title,
                 description=kwargs.get("description", ""),
                 event_date=start_time.date(),
@@ -278,7 +284,7 @@ class CalendarService:
             # Create habit
             habit_dto = HabitDTO(
                 uid="",  # Will be generated
-                user_uid=kwargs.get("user_uid", ""),
+                user_uid=user_uid,
                 title=title,
                 description=kwargs.get("description", ""),
                 target_days_per_week=kwargs.get("frequency", 7),
@@ -293,7 +299,9 @@ class CalendarService:
         return Result.fail(Errors.validation(f"Unknown item type: {item_type}", field="item_type"))
 
     @with_error_handling("reschedule_item", error_type="system", uid_param="item_uid")
-    async def reschedule_item(self, item_uid: str, new_start: datetime) -> Result[CalendarItem]:
+    async def reschedule_item(
+        self, user_uid: UserUID, item_uid: str, new_start: datetime
+    ) -> Result[CalendarItem]:
         """
         Reschedule a calendar item.
 
@@ -310,6 +318,9 @@ class CalendarService:
             task_get = await self.tasks_service.get(source_uid)
             if task_get.is_ok and task_get.value:
                 task = task_get.value
+                if task.user_uid != user_uid:
+                    # Not the requester's task — 'not found', no UID oracle.
+                    return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
                 updated_task_dto = TaskDTO(
                     uid=task.uid,
                     user_uid=task.user_uid,
@@ -330,6 +341,9 @@ class CalendarService:
             event_get = await self.events_service.get(source_uid)
             if event_get.is_ok and event_get.value:
                 event: Event = event_get.value  # Type hint for MyPy protocol inference
+                if event.user_uid != user_uid:
+                    # Not the requester's event — 'not found', no UID oracle.
+                    return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
                 start_dt = event.start_datetime()
                 end_dt = event.end_datetime()
                 if start_dt is None or end_dt is None:
@@ -352,7 +366,7 @@ class CalendarService:
                     end_time=new_end.time(),
                     status=event.status,
                 )
-                event_update = await self.events_service.update(source_uid, updated_event_dto)
+                event_update = await self.events_service.update_event(source_uid, updated_event_dto)
                 if event_update.is_ok:
                     return Result.ok(self._event_to_calendar_item(event_update.value))
                 return Result.fail(event_update)
@@ -770,9 +784,9 @@ class CalendarService:
 
     def _format_recurrence_pattern(self, habit: Habit) -> str:
         """Format recurrence pattern for display."""
-        pattern = getattr(habit, "recurrence_pattern", "daily")
+        raw_pattern = getattr(habit, "recurrence_pattern", "daily")
         # Extract value if it's an enum, otherwise use as-is (handles both enum and string)
-        pattern = get_enum_value(pattern)
+        pattern = str(get_enum_value(raw_pattern))
 
         pattern_labels = {
             "none": "One-time",
@@ -794,6 +808,7 @@ class CalendarService:
 
     async def record_habit_occurrence(
         self,
+        user_uid: UserUID,
         habit_uid: str,
         on_date: str,
         status: str,
@@ -802,9 +817,15 @@ class CalendarService:
         """
         Record a habit occurrence from the calendar view.
 
-        Delegates to habits_service.record_occurrence. Returns a not-found
-        error when habits_service is unavailable.
+        Verifies the requester owns the habit (returns not-found otherwise, no
+        UID oracle), then delegates to habits_service.track_habit.
         """
+        habit_get = await self.habits_service.get(habit_uid)
+        if habit_get.is_error:
+            # Propagate genuine backend failures — don't mask them as not-found.
+            return Result.fail(habit_get)
+        if not habit_get.value or habit_get.value.user_uid != user_uid:
+            return Result.fail(Errors.not_found(f"Habit not found: {habit_uid}"))
         request = TrackHabitRequest(
             habit_uid=habit_uid,
             completion_date=on_date,

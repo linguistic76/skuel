@@ -21,6 +21,7 @@ from typing import Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.route_factories import (
     parse_int_query_param,
     parse_pagination_params,
@@ -61,6 +62,7 @@ def create_transcription_api_routes(
     # ========================================================================
 
     @rt("/api/transcriptions", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def create_transcription(request) -> Result[dict[str, Any]]:
         """Create a new transcription."""
@@ -86,6 +88,7 @@ def create_transcription_api_routes(
         return Result.ok(ownership.value.to_dict())
 
     @rt("/api/transcriptions/delete", methods=["DELETE"])
+    @csrf_protected
     @boundary_handler()
     async def delete_transcription(request, uid: str) -> Result[bool]:
         """Delete transcription. Requires ownership."""
@@ -127,6 +130,7 @@ def create_transcription_api_routes(
     # ========================================================================
 
     @rt("/api/transcriptions/process", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def process_transcription(request, uid: str) -> Result[dict[str, Any]]:
         """Process transcription with Deepgram. Requires ownership."""
@@ -147,6 +151,7 @@ def create_transcription_api_routes(
         return Result.fail(result)
 
     @rt("/api/transcriptions/retry", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def retry_transcription(request, uid: str) -> Result[dict[str, Any]]:
         """Retry a failed transcription. Requires ownership."""

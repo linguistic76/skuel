@@ -25,6 +25,7 @@ from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.search.scoring import score_habit
 from core.models.type_hints import Metadata, UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
@@ -49,7 +50,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
-    - get_due_soon() - Habits due within N days (based on frequency)
+    - get_upcoming() - Habits due within N days (based on frequency)
     - get_overdue() - Overdue habits
 
     Habit-Specific Methods:
@@ -130,14 +131,8 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         """
         Get habits prioritized for the user's current context.
 
-        Uses Cypher WHERE clause to filter at database level for efficiency.
-        Then applies UserContext-aware scoring in Python.
-
-        Uses UserContext to determine relevance:
-        - Streak status (at-risk habits get priority)
-        - Goal alignment
-        - Time since last completion
-        - Frequency requirements
+        Uses Cypher WHERE clause to filter terminal statuses at the database
+        level, then delegates to the unified ``score_habit`` scorer.
 
         Args:
             user_context: User's current context (~240 fields)
@@ -146,7 +141,6 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing habits sorted by priority/relevance
         """
-        # Use backend method to filter active habits at database level
         result = await self.backend.get_active_habits_prioritized(
             user_uid=user_context.user_uid,
             terminal_statuses=list(self._TERMINAL_STATUSES),
@@ -155,106 +149,27 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
-
-        # Apply fine-grained scoring that uses UserContext
-        scored_habits = []
-        for habit in habits:
-            score = self._calculate_priority_score(habit, user_context)
-            scored_habits.append((habit, score))
-
-        # Sort by score descending
-        scored_habits.sort(key=get_result_score, reverse=True)
-
-        # Return top N
-        prioritized = [habit for habit, _ in scored_habits[:limit]]
+        scored = [(habit, score_habit(habit, user_context).total) for habit in habits]
+        scored.sort(key=get_result_score, reverse=True)
+        prioritized = [habit for habit, _ in scored[:limit]]
 
         self.logger.info(f"Prioritized {len(prioritized)} habits for user {user_context.user_uid}")
         return Result.ok(prioritized)
 
-    def _calculate_priority_score(self, habit: Habit, user_context: UserContext) -> float:
-        """
-        Calculate priority score for a habit based on user context.
-
-        Factors:
-        - Streak at risk (highest priority if about to break)
-        - Time since last completion
-        - Goal support (supporting active goals)
-        - Frequency alignment
-        """
-        score = 0.0
-        today = date.today()
-
-        # Streak at risk (0-40 points)
-        if habit.current_streak and habit.current_streak > 0:
-            if habit.last_completed:
-                # last_completed is typed as datetime | None, so .date() is safe here
-                last_date = habit.last_completed.date()
-                days_since = (today - last_date).days
-
-                # Daily habits at risk after 1 day
-                if days_since >= 1:
-                    score += 40  # At risk - highest priority
-                elif habit.current_streak >= 7:
-                    score += 30  # Protect long streaks
-                elif habit.current_streak >= 3:
-                    score += 20
-                else:
-                    score += 10
-            else:
-                score += 35  # Never completed but has streak data - priority
-
-        # Time since last completion (0-25 points)
-        if habit.last_completed:
-            # last_completed is typed as datetime | None, so .date() is safe here
-            last_date = habit.last_completed.date()
-            days_since = (today - last_date).days
-            if days_since >= 3:
-                score += 25  # Overdue
-            elif days_since >= 2:
-                score += 20
-            elif days_since >= 1:
-                score += 15
-            else:
-                score += 5  # Done today
-        else:
-            score += 20  # Never done - needs attention
-
-        # Goal support (0-20 points)
-        # Habits supporting active goals get priority
-        if user_context.active_goal_uids and habit.uid:
-            # Check if habit supports any active goals via context
-            habit_streaks = user_context.habit_streaks or {}
-            if habit.uid in habit_streaks:
-                score += 15  # Tracked habit supporting goals
-
-        # Frequency alignment (0-15 points)
-        # recurrence_pattern is stored as plain string
-        if habit.recurrence_pattern:
-            freq_value = habit.recurrence_pattern
-            if freq_value == "daily":
-                score += 15  # Daily habits need daily attention
-            elif freq_value == "weekly":
-                score += 10
-            else:
-                score += 5
-
-        return score
-
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
 
-    @with_error_handling("get_due_soon", error_type="database")
-    async def get_due_soon(
+    @with_error_handling("get_upcoming", error_type="database")
+    async def get_upcoming(
         self,
         days_ahead: int = 7,
         user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[Habit]]:
         """
-        Get habits due within specified number of days based on frequency.
+        Get habits upcoming within specified number of days based on frequency.
 
-        For habits, "due soon" means habits that need completion based on their
+        For habits, "upcoming" means habits that need completion based on their
         frequency pattern within the time window.
 
         Args:
@@ -263,7 +178,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
             limit: Maximum results to return
 
         Returns:
-            Result containing habits due soon
+            Result containing habits upcoming
         """
         today = date.today()
         end_date = today + timedelta(days=days_ahead)
@@ -276,8 +191,8 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
 
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
-        # Filter to active habits due within window
-        due_soon = []
+        # Filter to active habits upcoming within window
+        upcoming = []
         for habit in habits:
             # Skip inactive (including paused)
             if not self._is_active(habit):
@@ -286,13 +201,13 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
             # Check if due based on frequency
             is_due = self._is_habit_due_in_window(habit, today, end_date)
             if is_due:
-                due_soon.append(habit)
+                upcoming.append(habit)
 
-            if len(due_soon) >= limit:
+            if len(upcoming) >= limit:
                 break
 
-        self.logger.debug(f"Found {len(due_soon)} habits due within {days_ahead} days")
-        return Result.ok(due_soon)
+        self.logger.debug(f"Found {len(upcoming)} habits upcoming within {days_ahead} days")
+        return Result.ok(upcoming)
 
     def _is_habit_due_in_window(self, habit: Habit, start_date: date, _end_date: date) -> bool:
         """Check if habit is due within the date window based on frequency."""
@@ -578,13 +493,17 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
 
     # get_by_category() and list_categories() - inherited from BaseService
 
-    @with_error_handling("get_active_habits", error_type="database", uid_param="user_uid")
-    async def get_active_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
+    @with_error_handling("get_active", error_type="database", uid_param="user_uid")
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
         """
         Get active (non-archived, non-completed) habits for a user.
 
+        Override of TimeQueryMixin.get_active — habits include paused entries
+        (paused habits are still "alive", just temporarily suspended).
+
         Args:
             user_uid: User identifier
+            limit: Maximum results to return
 
         Returns:
             Result with list of active habits
@@ -597,7 +516,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         # Filter to active habits (exclude archived, completed, cancelled but include paused)
-        active_habits = [h for h in habits if self._is_active(h, include_paused=True)]
+        active_habits = [h for h in habits if self._is_active(h, include_paused=True)][:limit]
 
         self.logger.debug(f"Found {len(active_habits)} active habits for user {user_uid}")
         return Result.ok(active_habits)

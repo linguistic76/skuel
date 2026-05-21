@@ -20,6 +20,7 @@ Philosophy:
 
 from __future__ import annotations
 
+import json
 import time
 from typing import TYPE_CHECKING
 
@@ -229,8 +230,6 @@ Focus on actionable aspirations, not generic words."""
                 )
 
             # Parse LLM response
-            import json
-
             themes_data = json.loads(response.content)
             themes = []
             for t in themes_data:

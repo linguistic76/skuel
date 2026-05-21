@@ -12,7 +12,7 @@ from typing import Any
 
 from core.models.entity import Entity
 from core.models.report.exercise_report import ExerciseReport
-from core.models.submissions.submission import Submission
+from core.models.user_entry.user_entry import UserEntry
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -20,7 +20,7 @@ def entity_to_response(entity: Entity) -> dict[str, Any]:
     """
     Convert any Entity subclass to API response format.
 
-    Uses isinstance checks for subclass-specific fields (Submission, ExerciseReport).
+    Uses isinstance checks for subclass-specific fields (UserEntry, ExerciseReport).
     user_uid and priority only exist on UserOwnedEntity subclasses.
     """
     response: dict[str, Any] = {
@@ -45,14 +45,14 @@ def entity_to_response(entity: Entity) -> dict[str, Any]:
         "is_recent": entity.is_recent(),
     }
 
-    # Submission-specific fields (file uploads, processing)
-    if isinstance(entity, Submission):
+    # UserEntry-specific fields (file uploads, processing)
+    if isinstance(entity, UserEntry):
         response.update(
             {
                 "original_filename": entity.original_filename,
                 "file_size": entity.file_size,
                 "file_type": entity.file_type,
-                "processor_type": entity.processor_type.value if entity.processor_type else None,
+                "pipeline": entity.pipeline.value if entity.pipeline else None,
                 "processing_started_at": entity.processing_started_at.isoformat()
                 if entity.processing_started_at
                 else None,

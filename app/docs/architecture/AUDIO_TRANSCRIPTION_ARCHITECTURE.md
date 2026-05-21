@@ -139,7 +139,7 @@ TranscriptionResult stored in Neo4j
 TranscriptionCompleted event published
        |
        v
-JournalOutputService processes transcribed text into JeOutput (standalone journal domain)
+UserEntryProcessingService processes transcribed text into UserEntry
 ```
 
 **TranscriptionProcessOptions** (Pydantic model) provides per-call overrides via the REST API:

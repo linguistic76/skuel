@@ -10,7 +10,7 @@ Sub-Services:
 - EventsHabitIntegrationService: Cross-domain habits integration
 - EventsLearningService: Learning path integration
 - UnifiedRelationshipService (EVENTS_CONFIG): Graph relationships and semantic connections
-- EventsEventHandlerService: Event-driven reactive logic (attendance patterns, rescheduling, density)
+- EventEventHandlerService: Event-driven reactive logic (attendance patterns, rescheduling, density)
 - EventsIntelligenceService: Pure Cypher analytics
 
 Facade Mixins (extracted April 2026):
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.event.event_request import EventCreateRequest
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_attr_str
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -38,8 +39,8 @@ from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services
 from core.services.events import (
+    EventEventHandlerService,
     EventsCoreService,
-    EventsEventHandlerService,
     EventsHabitIntegrationService,
     EventsIntelligenceService,
     EventsLearningService,
@@ -152,8 +153,8 @@ class EventsService(
     Delegations (explicit methods):
     - Core CRUD: get_event, get_user_events, find_events, count_events
     - Habits: get_events_for_habit, get_habit_reinforcement_events, etc.
-    - Learning: get_learning_events, create_study_session, etc.
-    - Search: search_events, get_calendar_events, get_event_history, etc.
+    - Learning: get_learning_events, create_study_session, create_learning_path_schedule
+    - Search: get_calendar_events, get_event_history, get_upcoming, get_overdue, etc.
     - Intelligence: get_event_with_context, analyze_event_performance, etc.
     - Scheduling: optimize_recurring_schedule, create_recurring_events
 
@@ -178,7 +179,6 @@ class EventsService(
     _config = create_activity_domain_config(
         dto_class=EventDTO,
         model_class=Event,
-        entity_label="Entity",
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
@@ -194,7 +194,7 @@ class EventsService(
     progress: EventsProgressService
     scheduling: EventsSchedulingService
     relationships: UnifiedRelationshipService
-    event_handler: EventsEventHandlerService
+    event_handler: EventEventHandlerService
     intelligence: EventsIntelligenceService
 
     # ========================================================================
@@ -221,8 +221,124 @@ class EventsService(
     async def count_events(self, filters: dict[str, Any] | None = None) -> Result[int]:
         return await self.core.count_events(filters)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
-        return await self.core.update(uid, updates)
+    async def create_event(self, request: EventCreateRequest, user_uid: UserUID) -> Result[Event]:
+        """Create an event from a validated request."""
+        validation = self.core._validate_required_user_uid(user_uid, "event creation")
+        if validation:
+            return Result.fail(validation)
+
+        from core.utils.uid_generator import UIDGenerator
+
+        event = Event(
+            uid=UIDGenerator.generate_uid("event", request.title),
+            user_uid=user_uid,
+            title=request.title,
+            description=request.description,
+            event_date=request.event_date,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            event_type=request.event_type,
+            visibility=request.visibility,
+            location=request.location,
+            is_online=request.is_online,
+            meeting_url=request.meeting_url,
+            tags=tuple(request.tags),
+            priority=request.priority,
+            attendee_emails=tuple(request.attendee_emails),
+            max_attendees=request.max_attendees,
+            recurrence_pattern=request.recurrence_pattern,
+            recurrence_end_date=request.recurrence_end_date,
+            reminder_minutes=request.reminder_minutes,
+            habit_completion_quality=request.habit_completion_quality,
+            knowledge_retention_check=request.knowledge_retention_check,
+        )
+        created = await self.core.create(event)
+        if created.is_error:
+            return created
+
+        # Cross-domain linkages are graph edges, not properties — write them
+        # after node creation: (Event)-[:CELEBRATES_GOAL]->(Goal) and
+        # (Event)-[:REINFORCES_HABIT]->(Habit).
+        if request.milestone_celebration_for_goal:
+            edge = await self.relationships.create_relationship(
+                "celebrated_goals", created.value.uid, request.milestone_celebration_for_goal
+            )
+            if edge.is_error:
+                return Result.fail(edge)
+        if request.reinforces_habit_uid:
+            edge = await self.relationships.create_relationship(
+                "habits", created.value.uid, request.reinforces_habit_uid
+            )
+            if edge.is_error:
+                return Result.fail(edge)
+        return created
+
+    async def update_event(self, event_uid: str, updates: dict[str, Any]) -> Result[Event]:
+        # Cross-domain linkages are graph edges, not properties — pull them out of
+        # the property updates and apply as edge mutations (replace existing):
+        #   milestone_celebration_for_goal → (Event)-[:CELEBRATES_GOAL]->(Goal)
+        #   reinforces_habit_uid           → (Event)-[:REINFORCES_HABIT]->(Habit)
+        goal_uid = updates.pop("milestone_celebration_for_goal", None)
+        habit_uid = updates.pop("reinforces_habit_uid", None)
+
+        result = await self.core.update(event_uid, updates)
+        if result.is_error:
+            return result
+
+        if goal_uid is not None:
+            replaced = await self._replace_edge("celebrated_goals", event_uid, goal_uid)
+            if replaced.is_error:
+                return Result.fail(replaced)
+        if habit_uid is not None:
+            replaced = await self._replace_edge("habits", event_uid, habit_uid)
+            if replaced.is_error:
+                return Result.fail(replaced)
+        return result
+
+    async def _replace_edge(
+        self, relationship_key: str, event_uid: str, target_uid: str
+    ) -> Result[bool]:
+        """Replace the single outbound edge of ``relationship_key`` with ``target_uid``.
+
+        Empty ``target_uid`` clears the edge (delete only). Used by update_event to
+        route cross-domain field updates to graph-edge mutations.
+        """
+        existing = await self.relationships.get_related_uids(relationship_key, EntityUID(event_uid))
+        if existing.is_ok:
+            for old_uid in existing.value or []:
+                await self.relationships.delete_relationship(relationship_key, event_uid, old_uid)
+        if target_uid:  # non-empty → create the new edge (empty string = cleared)
+            return await self.relationships.create_relationship(
+                relationship_key, event_uid, target_uid
+            )
+        return Result.ok(True)
+
+    async def get_celebrated_goal(self, event_uid: str) -> Result[str | None]:
+        """Return the goal uid this event celebrates via (Event)-[:CELEBRATES_GOAL]->(Goal).
+
+        An event celebrates at most one goal milestone, so this returns the first
+        linked goal uid or ``None``. Graph-native — the linkage is the edge, not a
+        property on the event.
+        """
+        related = await self.relationships.get_related_uids(
+            "celebrated_goals", EntityUID(event_uid)
+        )
+        if related.is_error:
+            return Result.fail(related)
+        uids = related.value or []
+        return Result.ok(uids[0] if uids else None)
+
+    async def get_reinforced_habit(self, event_uid: str) -> Result[str | None]:
+        """Return the habit uid this event reinforces via (Event)-[:REINFORCES_HABIT]->(Habit).
+
+        An event reinforces at most one habit, so this returns the first linked
+        habit uid or ``None``. Graph-native — the linkage is the edge, not a property.
+        """
+        related = await self.relationships.get_related_uids("habits", EntityUID(event_uid))
+        if related.is_error:
+            return Result.fail(related)
+        uids = related.value or []
+        return Result.ok(uids[0] if uids else None)
 
     async def get_user_items_in_range(
         self,
@@ -294,11 +410,6 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.learning.get_learning_events(user_uid, days_ahead)
 
-    async def get_events_for_learning_path(
-        self, learning_path_uid: str, user_uid: UserUID
-    ) -> Result[list[Event]]:
-        return await self.learning.get_events_for_learning_path(learning_path_uid, user_uid)
-
     async def create_study_session(
         self,
         user_uid: UserUID,
@@ -306,10 +417,9 @@ class EventsService(
         event_date: date,
         duration_minutes: int = 60,
         title: str | None = None,
-        learning_path_uid: str | None = None,
     ) -> Result[Event]:
         return await self.learning.create_study_session(
-            user_uid, knowledge_uids, event_date, duration_minutes, title, learning_path_uid
+            user_uid, knowledge_uids, event_date, duration_minutes, title
         )
 
     async def suggest_spaced_repetition_events(
@@ -335,11 +445,6 @@ class EventsService(
         )
 
     # Search delegations
-    async def search_events(
-        self, query: str, limit: int = 50, user_uid: UserUID | None = None
-    ) -> Result[list[Event]]:
-        return await self.search.search(query, limit, user_uid)
-
     async def get_calendar_events(
         self,
         user_uid: UserUID,
@@ -354,15 +459,18 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.search.get_history(user_uid, days_back, limit)
 
-    async def get_events_due_soon(
+    async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
-    async def get_overdue_events(
+    async def get_overdue(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
         return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Event]]:
+        return await self.search.get_active(user_uid, limit)
 
     async def get_events_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
@@ -510,12 +618,14 @@ class EventsService(
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: EventsAIService | None = ai_service
-        self.logger = get_logger("skuel.services.events")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.events")  # structlog BoundLogger
 
         # Initialize core, search, relationships, event_handler, learning, and
         # knowledge_intelligence via factory; intelligence is created manually
         # to pass cross_domain_query.
-        common: CommonSubServices[EventsIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            EventsCoreService, EventsSearchOperations, EventsIntelligenceService
+        ] = create_common_sub_services(
             domain="events",
             backend=backend,
             graph_intel=graph_intel,
@@ -524,13 +634,16 @@ class EventsService(
             skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
-        self.search: EventsSearchOperations = common.search
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.search: EventsSearchOperations = common.search  # type: ignore[assignment]  # class-level attr declared as concrete EventsSearchService, local var matches protocol
+        self.relationships: UnifiedRelationshipService = common.relationships
         self.intelligence: EventsIntelligenceService = EventsIntelligenceService(
             backend=backend,
             graph_intel=graph_intel,
-            relationship_service=self.relationships,  # type: ignore[arg-type]  # UnifiedRelationshipService satisfies protocol
+            relationship_service=self.relationships,  # UnifiedRelationshipService satisfies protocol
             cross_domain_query=cross_domain_query,
             insight_store=insight_store,
         )
@@ -542,25 +655,16 @@ class EventsService(
         self.scheduling = EventsSchedulingService(backend=backend, event_bus=event_bus)
 
         # Event-driven handler from factory
-        self.event_handler: EventsEventHandlerService = common.event_handler
+        self.event_handler: EventEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "EventsService facade initialized with 10 sub-services: "
             "core, search, habits, learning, progress, scheduling, relationships, "
             "event_handler, intelligence, knowledge_intelligence"
         )
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Event entities."""
-        return "Entity"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
@@ -573,10 +677,10 @@ class EventsService(
     # - Habits: get_events_for_habit, get_habit_reinforcement_events, get_at_risk_habit_events,
     # complete_event_with_quality, miss_habit_event, create_recurring_events_for_habit,
     # get_next_habit_events
-    # - Learning: get_learning_events, get_events_for_learning_path,
-    # create_study_session, suggest_spaced_repetition_events, create_learning_path_schedule
-    # - Search: search_events, get_calendar_events, get_event_history, get_events_due_soon,
-    # get_overdue_events, get_events_by_status, get_events_in_range, get_prioritized_events
+    # - Learning: get_learning_events, create_study_session,
+    # suggest_spaced_repetition_events, create_learning_path_schedule
+    # - Search: get_calendar_events, get_event_history, get_upcoming, get_overdue,
+    # get_active, get_events_by_status, get_events_in_range, get_prioritized_events
     # - Relationships: get_event_cross_domain_context, get_event_with_semantic_context, analyze_event_impact
     # - Intelligence: get_event_with_context, analyze_event_performance, analyze_upcoming_events
     # ========================================================================

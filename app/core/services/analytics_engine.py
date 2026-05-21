@@ -545,7 +545,7 @@ class AnalyticsEngine:
 
         GRAPH-NATIVE: Fetches relationships from graph for all tasks in parallel.
         """
-        patterns = []
+        patterns: list[LearningPattern] = []
 
         if not tasks or not self.relationship_service:
             return patterns
@@ -605,7 +605,7 @@ class AnalyticsEngine:
 
     async def _detect_mastery_validation_patterns(self, tasks: list[Task]) -> list[LearningPattern]:
         """Detect mastery validation patterns."""
-        patterns = []
+        patterns: list[LearningPattern] = []
 
         if not tasks or not self.relationship_service:
             return patterns
@@ -763,7 +763,7 @@ class AnalyticsEngine:
 
     async def _detect_knowledge_bridging_patterns(self, tasks: list[Task]) -> list[LearningPattern]:
         """Detect knowledge bridging patterns (connecting different knowledge areas)."""
-        patterns = []
+        patterns: list[LearningPattern] = []
 
         if not tasks or not self.relationship_service:
             return patterns
@@ -1138,7 +1138,7 @@ class AnalyticsEngine:
 
     async def _generate_knowledge_area_insights(self, tasks: list[Task]) -> list[TaskInsight]:
         """Generate insights about knowledge area usage patterns."""
-        insights = []
+        insights: list[TaskInsight] = []
 
         if not tasks or not self.relationship_service:
             return insights
@@ -1277,7 +1277,7 @@ class AnalyticsEngine:
         self, tasks: list[Task]
     ) -> list[TaskInsight]:
         """Generate insights about knowledge application effectiveness."""
-        insights = []
+        insights: list[TaskInsight] = []
 
         if not tasks or not self.relationship_service:
             return insights

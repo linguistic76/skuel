@@ -5,15 +5,15 @@ SKUEL Enums - Centralized Enumeration Types
 This module provides unified access to all SKUEL enumerations.
 
 Module Organization:
-- entity_enums: EntityType, EntityStatus, ContentOrigin, ProcessorType,
+- entity_enums: EntityType, EntityStatus, ContentOrigin,
                 Domain, NonKuDomain, DomainIdentifier, AnalyticsDomain, ContentScope, Context
 - activity_enums: Priority, Confidence, ActivityType, dual-track assessment levels
 - goal_enums: GoalType, GoalTimeframe, MeasurementType, HabitEssentiality
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- submissions_enums: SubmissionModality, ExerciseScope, EnrichmentMode, FormattingStyle, AnalysisDepth,
-                     ContextEnrichmentLevel, ScheduleType, ProgressDepth
+- user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, FormattingStyle, AnalysisDepth,
+                    ContextEnrichmentLevel, ScheduleType, ProgressDepth
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
@@ -26,7 +26,7 @@ Module Organization:
 
 Usage:
     from core.models.enums import Priority, EntityStatus, EntityType
-    from core.models.enums import EntityType, EntityStatus, ProcessorType, ExerciseScope
+    from core.models.enums import EntityType, EntityStatus, ReportSource, ExerciseScope
 """
 
 # Askesis enums - pedagogical companion interaction styles
@@ -60,7 +60,6 @@ from .entity_enums import (
     EntityStatus,
     EntityType,
     NonKuDomain,
-    ProcessorType,
 )
 
 # Finance enums (RecurrencePattern intentionally excluded — conflicts with scheduling_enums)
@@ -121,6 +120,9 @@ from .metadata_enums import (
 # Neo4j labels - single source of truth for node labels
 from .neo_labels import NeoLabel
 
+# Pipeline + ReportSource (ADR-054) — replaces ProcessorType
+from .pipeline import Pipeline, ReportSource
+
 # Principle enums
 from .principle_enums import (
     AlignmentLevel,
@@ -137,8 +139,11 @@ from .scheduling_enums import (
     TimeOfDay,
 )
 
-# Submissions enums - processing and scheduling
-from .submissions_enums import (
+# Transcription enums
+from .transcription_enums import TranscriptionStatus
+
+# User entry enums - processing and scheduling (renamed from submissions_enums)
+from .user_entry_enums import (
     AnalysisDepth,
     ContextEnrichmentLevel,
     EnrichmentMode,
@@ -149,11 +154,8 @@ from .submissions_enums import (
     SubmissionModality,
 )
 
-# Transcription enums
-from .transcription_enums import TranscriptionStatus
-
 # User enums - roles, health scoring, and account management
-from .user_enums import ContextHealthScore, UserRole
+from .user_enums import ContextHealthScore, UserRole, UserStatus
 
 __all__ = [
     "DOMAIN_SEL_MAPPING",
@@ -217,13 +219,15 @@ __all__ = [
     "NonKuDomain",
     "PaymentMethod",
     "Personality",
+    "Pipeline",
+    "ReportSource",
     "PracticeLevel",
     "PrincipleCategory",
     "PrincipleSource",
     "PrincipleStrength",
     "Priority",
     "TriggerType",
-    "ProcessorType",
+    "ReportSource",
     "QueryComplexity",
     "ProductivityLevel",
     "ProgressDepth",
@@ -244,5 +248,6 @@ __all__ = [
     "TranscriptionStatus",
     "TrendDirection",
     "UserRole",
+    "UserStatus",
     "Visibility",
 ]

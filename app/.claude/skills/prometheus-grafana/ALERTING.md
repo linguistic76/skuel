@@ -28,7 +28,7 @@ curl http://localhost:9090/api/v1/alerts | jq '.data.alerts[] | select(.labels.a
 ./scripts/validate_prometheus_config.sh
 
 # Simulate high error rate (fire HighErrorRate alert)
-for i in {1..100}; do curl http://localhost:5001/nonexistent; done
+for i in {1..100}; do curl http://localhost:8000/nonexistent; done
 
 # Watch alert fire (wait 5 minutes for threshold)
 watch -n 10 'curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | select(.labels.alertname == \"HighErrorRate\")"'
@@ -38,7 +38,7 @@ watch -n 10 'curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | 
 
 ## Alert Categories
 
-SKUEL has **14 production alerts** across 5 categories:
+SKUEL has **11 production alerts** across 5 categories:
 
 ### 1. HTTP / API Health (2 alerts)
 
@@ -65,19 +65,15 @@ SKUEL has **14 production alerts** across 5 categories:
 
 ---
 
-### 2. Database Health (3 alerts)
+### 2. Database Health (2 alerts)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
-| **Neo4jDown** | critical | 0 (down) | 1m | Neo4j connection unavailable for 1+ minute |
 | **SlowDatabaseQueries** | warning | >2s | 5m | p95 query latency exceeds 2 seconds |
 | **HighDatabaseErrorRate** | warning | >10% | 5m | Database error rate exceeds 10% |
 
 **Example PromQL**:
 ```promql
-# Neo4jDown (simple gauge check)
-skuel_neo4j_connected == 0
-
 # SlowDatabaseQueries (histogram quantile)
 histogram_quantile(0.95,
   rate(skuel_neo4j_query_duration_seconds_bucket[5m])
@@ -85,7 +81,6 @@ histogram_quantile(0.95,
 ```
 
 **Runbook**:
-- **Neo4jDown**: Check Neo4j service status, verify network connectivity, check credentials
 - **SlowDatabaseQueries**: Review slow queries in Neo4j Browser, check indexes, review APOC usage
 - **HighDatabaseErrorRate**: Check Neo4j logs, verify schema constraints, review recent migrations
 
@@ -115,25 +110,20 @@ histogram_quantile(0.95,
 
 ---
 
-### 4. Graph Health (2 alerts)
+### 4. Graph Health (1 alert)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
 | **HighOrphanedEntityCount** | warning | >100 | 10m | Entities with no relationships exceed 100 |
-| **LongDependencyChains** | warning | >10 | 10m | BLOCKS→BLOCKED_BY chains exceed 10 levels |
 
 **Example PromQL**:
 ```promql
 # HighOrphanedEntityCount (simple gauge)
 skuel_orphaned_entities_count > 100
-
-# LongDependencyChains
-skuel_dependency_chain_max_length > 10
 ```
 
 **Runbook**:
 - **HighOrphanedEntityCount**: Review entity creation logic, check relationship service
-- **LongDependencyChains**: Review task/goal dependency structure, check for circular dependencies
 
 ---
 
@@ -188,13 +178,11 @@ SKUEL uses 2 severity levels:
 
 **Decision Tree**:
 ```
-Is this a service availability issue? (e.g., database down)
-├─ YES → Use Gauge with threshold (skuel_neo4j_connected == 0)
-└─ NO  → Is this a rate/percentage metric?
-    ├─ YES → Use Counter ratio (errors / total requests)
-    └─ NO  → Is this a latency metric?
-        ├─ YES → Use Histogram quantile (p95/p99)
-        └─ NO  → Use Gauge with threshold (queue size, entity count)
+Is this a rate/percentage metric?
+├─ YES → Use Counter ratio (errors / total requests)
+└─ NO  → Is this a latency metric?
+    ├─ YES → Use Histogram quantile (p95/p99)
+    └─ NO  → Use Gauge with threshold (queue size, entity count)
 ```
 
 ### 2. Write the Alert Rule
@@ -237,7 +225,7 @@ curl http://localhost:9090/api/v1/rules | jq '.data.groups[].rules[] | select(.n
 ```bash
 # Trigger the condition (e.g., generate errors)
 # Example: Simulate high error rate
-for i in {1..100}; do curl http://localhost:5001/nonexistent; done
+for i in {1..100}; do curl http://localhost:8000/nonexistent; done
 
 # Watch alert state change (inactive → pending → firing)
 watch -n 10 'curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | select(.labels.alertname == \"YourAlertName\")"'
@@ -294,11 +282,11 @@ annotations:
 **Avoid high-cardinality labels in alerts**:
 
 ```yaml
-# BAD: user_uid creates thousands of alerts
-expr: skuel_active_entities_count{user_uid="user_123"} > 100  # ❌
+# BAD: per-endpoint alerts create one alert per route
+expr: skuel_http_request_duration_seconds{endpoint="/api/tasks"} > 2.0  # ❌
 
-# GOOD: Aggregate across all users
-expr: sum(skuel_active_entities_count) > 10000  # ✅
+# GOOD: aggregate across endpoints
+expr: histogram_quantile(0.95, sum by (le) (rate(skuel_http_request_duration_seconds_bucket[5m]))) > 2.0  # ✅
 ```
 
 ---
@@ -424,15 +412,15 @@ alerting:
 ### 4. Absence Alerts (Service Down)
 
 ```yaml
-- alert: Neo4jDown
-  expr: skuel_neo4j_connected == 0
+- alert: AppDown
+  expr: up{job="skuel-app"} == 0
   for: 1m
 ```
 
 **Key Points**:
-- Gauge metric (1 = up, 0 = down)
+- The Prometheus-injected `up` metric is 1 when scrape succeeds, 0 when it fails
 - Short `for` duration (1m) for critical services
-- Can also use `up == 0` for Prometheus targets
+- Use `up == 0` rather than custom heartbeat gauges
 
 ---
 
@@ -479,7 +467,7 @@ curl http://localhost:9090/api/v1/rules | jq '.data.groups[].rules[] | select(.n
 curl -G http://localhost:9090/api/v1/query --data-urlencode 'query=skuel_your_metric > threshold'
 
 # 3. Check data exists
-curl http://localhost:5001/metrics | grep skuel_your_metric
+curl http://localhost:8000/metrics | grep skuel_your_metric
 
 # 4. Check Prometheus logs
 docker logs skuel-prometheus | grep -i error
@@ -512,7 +500,7 @@ expr: metric > 20  # Buffer zone
 
 ```bash
 # Check current metric value
-curl http://localhost:5001/metrics | grep skuel_your_metric
+curl http://localhost:8000/metrics | grep skuel_your_metric
 
 # Check alert state
 curl http://localhost:9090/api/v1/alerts | jq '.data.alerts[] | select(.labels.alertname == "YourAlert")'

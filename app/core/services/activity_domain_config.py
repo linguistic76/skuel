@@ -46,6 +46,8 @@ from core.services.relationships import UnifiedRelationshipService
 # Type vars for generics
 T = TypeVar("T")  # Domain model type
 B = TypeVar("B")  # Backend operations protocol
+T_Core = TypeVar("T_Core")  # Core service type (domain-specific)
+T_Search = TypeVar("T_Search")  # Search service/protocol type (domain-specific)
 T_Intelligence = TypeVar("T_Intelligence")  # Intelligence service type
 
 
@@ -65,9 +67,9 @@ class ActivityDomainConfig:
     event_handler_module: str
     event_handler_class: str
 
-    # Learning service (None for Tasks, which uses learning_metrics instead)
-    learning_module: str | None
-    learning_class: str | None
+    # Learning service (required for all 6 domains)
+    learning_module: str
+    learning_class: str
 
     # Relationship config
     relationship_config: Any
@@ -88,8 +90,8 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         intelligence_class="TasksIntelligenceService",
         event_handler_module="core.services.tasks.task_event_handler_service",
         event_handler_class="TaskEventHandlerService",
-        learning_module=None,
-        learning_class=None,
+        learning_module="core.services.tasks.tasks_learning_service",
+        learning_class="TasksLearningService",
         relationship_config=TASKS_CONFIG,
         domain_name="tasks",
         entity_label="Task",
@@ -131,8 +133,8 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="EventsSearchService",
         intelligence_module="core.services.events",
         intelligence_class="EventsIntelligenceService",
-        event_handler_module="core.services.events.events_event_handler_service",
-        event_handler_class="EventsEventHandlerService",
+        event_handler_module="core.services.events.event_event_handler_service",
+        event_handler_class="EventEventHandlerService",
         learning_module="core.services.events.events_learning_service",
         learning_class="EventsLearningService",
         relationship_config=EVENTS_CONFIG,
@@ -161,7 +163,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="PrinciplesSearchService",
         intelligence_module="core.services.principles",
         intelligence_class="PrinciplesIntelligenceService",
-        event_handler_module="core.services.principles.principles_event_handler_service",
+        event_handler_module="core.services.principles.principle_event_handler_service",
         event_handler_class="PrincipleEventHandlerService",
         learning_module="core.services.principles.principles_learning_service",
         learning_class="PrinciplesLearningService",
@@ -173,27 +175,39 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
 
 
 @dataclass
-class CommonSubServices(Generic[T_Intelligence]):
+class CommonSubServices(Generic[T_Core, T_Search, T_Intelligence]):
     """
     Container for common sub-services created by the factory.
 
-    Generic over T_Intelligence to preserve the concrete intelligence service type.
-    Facades should annotate the assignment to get proper type checking:
+    Generic over T_Core, T_Search, and T_Intelligence to preserve concrete
+    service/protocol types — so wiring mismatches (e.g., the registry returning
+    the wrong class for a given domain key) are caught by mypy.
 
-        common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(...)
-        self.intelligence = common.intelligence # MyPy knows this is TasksIntelligenceService
+    Facades annotate the full three-arg form:
+
+        common: CommonSubServices[
+            TasksCoreService, TasksSearchOperations, TasksIntelligenceService
+        ] = create_common_sub_services(...)
+
+        self.search = common.search          # typed as TasksSearchOperations
+        self.intelligence = common.intelligence  # typed as TasksIntelligenceService
+
+    ``event_handler``, ``learning``, and ``knowledge_intelligence`` stay ``Any``
+    for now — parametrizing every slot would require five more type vars with
+    marginal benefit; the two most-called slots (``core``, ``search``) are
+    where silent-cast bugs would hurt most.
 
     Fields may be None when the corresponding service name is in the ``skip`` set.
     ``event_handler`` and ``learning`` are always built (not skippable via ``skip``).
     ``knowledge_intelligence`` is None unless passed to the factory.
     """
 
-    core: Any
-    search: Any
+    core: T_Core | None
+    search: T_Search | None
     relationships: UnifiedRelationshipService | None
     intelligence: T_Intelligence | None
     event_handler: Any
-    learning: Any  # None for Tasks (no learning service)
+    learning: Any
     knowledge_intelligence: Any  # None unless passed via activity_knowledge_intelligence
 
 
@@ -208,7 +222,7 @@ def create_common_sub_services(
     insight_store: Any = None,
     skip: set[str] | None = None,
     activity_knowledge_intelligence: Any = None,
-) -> CommonSubServices[Any]:
+) -> CommonSubServices[Any, Any, Any]:
     """
     Factory function to create common sub-services for Activity Domain facades.
 
@@ -229,21 +243,25 @@ def create_common_sub_services(
     Returns:
         CommonSubServices dataclass. Skipped fields are None.
         ``event_handler`` and ``learning`` are always built (not in skip set).
-        Callers should annotate with specific intelligence type for type safety:
+        Callers annotate with the three-arg generic for type safety:
 
-            common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(...)
+            common: CommonSubServices[
+                TasksCoreService, TasksSearchOperations, TasksIntelligenceService
+            ] = create_common_sub_services(...)
 
     Example:
-        common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            TasksCoreService, TasksSearchOperations, TasksIntelligenceService
+        ] = create_common_sub_services(
             "tasks", backend, graph_intel, event_bus, insight_store,
             activity_knowledge_intelligence=knowledge_intelligence,
         )
-        self.core = common.core
-        self.search = common.search
+        self.core = common.core                  # TasksCoreService
+        self.search = common.search              # TasksSearchOperations
         self.relationships = common.relationships
-        self.intelligence = common.intelligence  # Typed as TasksIntelligenceService
+        self.intelligence = common.intelligence  # TasksIntelligenceService
         self.event_handler = common.event_handler
-        self.learning = common.learning        # None for Tasks
+        self.learning = common.learning
         self.knowledge_intelligence = common.knowledge_intelligence
     """
     import importlib
@@ -270,7 +288,7 @@ def create_common_sub_services(
         search_class = getattr(search_module, config.search_class)
         search = search_class(backend=backend)
 
-    relationships = None
+    relationships: UnifiedRelationshipService[Any, Any, Any] | None = None
     if "relationships" not in skip:
         relationships = UnifiedRelationshipService(
             backend=backend,
@@ -299,16 +317,14 @@ def create_common_sub_services(
         event_bus=event_bus,
     )
 
-    # learning — 5 domains have one; Tasks (learning_module=None) skips
-    learning = None
-    if config.learning_module is not None:
-        learn_module = importlib.import_module(config.learning_module)
-        learn_class = getattr(learn_module, config.learning_class)
-        learning = learn_class(
-            backend=backend,
-            event_bus=event_bus,
-            relationship_service=relationships,
-        )
+    # learning — all 6 domains have one
+    learn_module = importlib.import_module(config.learning_module)
+    learn_class = getattr(learn_module, config.learning_class)
+    learning = learn_class(
+        backend=backend,
+        event_bus=event_bus,
+        relationship_service=relationships,
+    )
 
     return CommonSubServices(
         core=core,

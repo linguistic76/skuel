@@ -10,7 +10,7 @@ Usage:
 
     items = [
         SidebarItem("Submit", "/submit", "submit", icon="..."),
-        SidebarItem("Browse", "/gradebook", "browse", icon="..."),
+        SidebarItem("Browse", "/profile?tab=gradebook", "browse", icon="..."),
     ]
 
     return await SidebarPage(

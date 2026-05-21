@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 from adapters.inbound.auth import require_authenticated_user
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext, UserContext
 from core.utils.logging import get_logger
 from ui.cards import Card, CardBody
 from ui.enum_helpers import get_submission_status_badge_class
@@ -150,7 +150,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     async def _get_context(
         user_uid: UserUID,
-    ) -> UserContext:
+    ) -> RichUserContext:
         """
         Get rich UserContext — single call, includes user identity + role.
 
@@ -158,7 +158,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             user_uid: Authenticated user's UID
 
         Returns:
-            UserContext with ~250 fields including user_role, display_name, username
+            RichUserContext with ~250 fields including user_role, display_name, username
 
         Raises:
             ValueError: If context cannot be loaded
@@ -170,7 +170,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile")
     async def profile_hub(request: Request) -> Any:
-        """Profile hub — Activity Domains + Knowledge + Path Steps + Exercises + Reports."""
+        """Profile hub — 3 tabs (Submissions / GradeBook / Library).
+
+        The active tab is selected by `?tab=` (submissions | gradebook | library),
+        defaulting to "submissions".
+        """
         user_uid = require_authenticated_user(request)
         try:
             context = await _get_context(user_uid)
@@ -182,16 +186,18 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             )
 
         from ui.patterns.personal_header import personal_header
-        from ui.profile.hub import ProfileHubView
+        from ui.profile.hub import ProfileHubView, normalize_tab
+
+        active_tab = normalize_tab(request.query_params.get("tab"))
 
         return await BasePage(
             content=Div(
                 personal_header(context),
-                ProfileHubView(context),
+                ProfileHubView(active_tab=active_tab),
             ),
             title="Profile",
             request=request,
-            active_page="activity",
+            active_page="profile",
         )
 
     @rt("/api/profile/{slug}/preview")
@@ -336,7 +342,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             if not exercises_result.is_error and exercises_result.value:
                 assigned_exercises = exercises_result.value
 
-            from ui.submissions.forms import render_upload_form, upload_form_script
+            from ui.user_entry.forms import render_upload_form, upload_form_script
 
             return Div(
                 render_upload_form(assigned_exercises),

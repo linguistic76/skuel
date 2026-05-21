@@ -1,7 +1,8 @@
 # Intelligence Backlog
 
-Deferred intelligence gaps identified during the Context Awareness Protocol adoption (2026-03-05).
-Each item has a clear trigger condition and implementation guide.
+Deferred intelligence gaps. Each item has a clear trigger condition and implementation guide.
+
+> **History note (2026-05-11):** This backlog was originally framed around extending an ISP-protocol adoption (the 11 "awareness slices" of UserContext). Those protocols were retired in commit `a82faaba` — `UserContext` is now the single source of truth. The remaining backlog items below are real intelligence gaps that survived the consolidation.
 
 ---
 
@@ -95,17 +96,7 @@ probability scores.
 
 ---
 
-## Broader Protocol Adoption (future)
+<!-- "Broader Protocol Adoption" section removed 2026-05-11 — the awareness-slice
+     protocols were retired in commit a82faaba in favor of UserContext as the
+     single source of truth. There is no protocol-narrowing work to schedule. -->
 
-The planning mixins (adopted 2026-03-05) cover the highest-leverage adoption. The remaining
-~40 files and ~60 method signatures can be narrowed incrementally. Priority order:
-
-1. Askesis services (`user_state_analyzer.py`, `action_recommendation_engine.py`) — use `CrossDomainAwareness` / `FullAwareness`
-2. Domain intelligence services (tasks, goals, habits, choices, principles, events) — per-domain narrowing
-3. Domain planning/progress services — same pattern as mixins
-4. Domain scheduling and learning services
-
-All follow the same zero-risk pattern: add `TYPE_CHECKING` import, narrow the type annotation,
-no body changes.
-
-**See:** `core/ports/context_awareness_protocols.py` for protocol definitions.

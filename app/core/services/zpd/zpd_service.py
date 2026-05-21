@@ -42,7 +42,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAction, ZPDAssessment
 from core.utils.result_simplified import Result
 
@@ -351,7 +351,7 @@ class ZPDService:
         for gap_uid in blocking_gaps or []:
             actions.append(
                 ZPDAction(
-                    entity_uid=gap_uid,
+                    entity_uid=EntityUID(gap_uid),
                     entity_type="path_step",
                     action_type="unblock",
                     priority=0.9,
@@ -378,7 +378,7 @@ class ZPDService:
 
             actions.append(
                 ZPDAction(
-                    entity_uid=ku_uid,
+                    entity_uid=EntityUID(ku_uid),
                     entity_type="path_step",
                     action_type="learn",
                     priority=priority,
@@ -401,7 +401,7 @@ class ZPDService:
                 )
                 actions.append(
                     ZPDAction(
-                        entity_uid=ku_uid,
+                        entity_uid=EntityUID(ku_uid),
                         entity_type="path_step",
                         action_type="reinforce",
                         priority=priority,

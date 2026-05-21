@@ -78,8 +78,9 @@ class DomainSearchOperations(Protocol[T]):
     - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
-    - get_due_soon() - Time-based filtering
-    - get_overdue() - Past-due items
+    - get_upcoming() - Entities with upcoming dates / work still to do
+    - get_overdue() - Past-due entities
+    - get_active() - Non-terminal entities owned by the user
 
     Domain-Specific Methods (examples):
     - TaskSearchService: get_tasks_for_goal(), get_curriculum_tasks()
@@ -102,6 +103,52 @@ class DomainSearchOperations(Protocol[T]):
 
         Returns:
             Result containing matching entities sorted by relevance
+        """
+        ...
+
+    async def list_recent_for_user(
+        self,
+        user_uid: UserUID,
+        limit: int = 10,
+        exclude: set[str] | None = None,
+    ) -> Result[list[T]]:
+        """
+        List a user's most-recently-updated entities, with optional exclusions.
+
+        Used by the entity-picker UI (``ui/patterns/entity_picker.py``) to populate
+        the dropdown when no query has been typed yet.
+
+        Args:
+            user_uid: Owner of the entities.
+            limit: Maximum entries to return.
+            exclude: UIDs to filter out of the result.
+
+        Returns:
+            Result containing the user's entities sorted by ``updated_at`` desc.
+        """
+        ...
+
+    async def search_for_user(
+        self,
+        query: str,
+        user_uid: UserUID,
+        limit: int = 10,
+        exclude: set[str] | None = None,
+    ) -> Result[list[T]]:
+        """
+        User-scoped title/description search with optional UID exclusions.
+
+        Used by the entity-picker UI for live typeahead. Wraps ``search()`` with
+        a non-optional ``user_uid`` and post-filters excluded UIDs.
+
+        Args:
+            query: Search string (case-insensitive).
+            user_uid: Owner of the entities.
+            limit: Maximum entries to return.
+            exclude: UIDs to filter out of the result.
+
+        Returns:
+            Result containing matching entities sorted by ``_search_order_by`` desc.
         """
         ...
 
@@ -276,14 +323,14 @@ class DomainSearchOperations(Protocol[T]):
         """
         ...
 
-    async def get_due_soon(
+    async def get_upcoming(
         self,
         days_ahead: int = 7,
         user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[T]]:
         """
-        Get entities due within specified number of days.
+        Get entities upcoming within specified number of days.
 
         Args:
             days_ahead: Number of days to look ahead (default 7)
@@ -291,7 +338,7 @@ class DomainSearchOperations(Protocol[T]):
             limit: Maximum results to return
 
         Returns:
-            Result containing entities due soon, sorted by due date
+            Result containing upcoming entities, sorted by date
         """
         ...
 
@@ -312,6 +359,27 @@ class DomainSearchOperations(Protocol[T]):
         """
         ...
 
+    async def get_active(
+        self,
+        user_uid: UserUID,
+        limit: int = 100,
+    ) -> Result[list[T]]:
+        """
+        Get active (non-terminal) entities for a user.
+
+        Active means not in a terminal state (completed, failed, cancelled, archived).
+        Domains with different liveness semantics (e.g., Habits' frequency window,
+        Principles' is_active flag) may override.
+
+        Args:
+            user_uid: User UID to filter by ownership
+            limit: Maximum results to return
+
+        Returns:
+            Result containing active entities
+        """
+        ...
+
 
 # =============================================================================
 # DOMAIN-SPECIFIC SEARCH PROTOCOLS
@@ -329,7 +397,7 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
     Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
-    - get_by_relationship(), get_due_soon(), get_overdue()
+    - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds event-specific methods:
     - Calendar and date range queries
@@ -371,12 +439,6 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
         """Get events by event type."""
         ...
 
-    async def get_upcoming(
-        self, user_uid: UserUID, days_ahead: int = 30, limit: int = 100
-    ) -> Result[list["Event"]]:
-        """Get upcoming events for a user."""
-        ...
-
     async def get_history(
         self, user_uid: UserUID, days_back: int = 90, limit: int = 100
     ) -> Result[list["Event"]]:
@@ -408,7 +470,7 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
     Inherits all methods from DomainSearchOperations[Habit]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
-    - get_by_relationship(), get_due_soon(), get_overdue()
+    - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds habit-specific methods:
     - Frequency-based filtering
@@ -458,10 +520,6 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
         """List all habit categories (admin use)."""
         ...
 
-    async def get_active_habits(self, user_uid: UserUID) -> Result[list["Habit"]]:
-        """Get all active habits for a user."""
-        ...
-
 
 @runtime_checkable
 class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
@@ -471,7 +529,7 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
     Inherits all methods from DomainSearchOperations[Task]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
-    - get_by_relationship(), get_due_soon(), get_overdue()
+    - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds task-specific methods:
     - Goal/Habit relationship queries
@@ -495,18 +553,6 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
 
     async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list["Task"]]:
         """Get tasks blocked by unfulfilled prerequisites."""
-        ...
-
-    async def get_prioritized_tasks(
-        self, user_context: "UserContext", limit: int = 10
-    ) -> Result[list["Task"]]:
-        """Get tasks prioritized for user context (alias for get_prioritized)."""
-        ...
-
-    async def get_learning_relevant_tasks(
-        self, user_uid: UserUID, learning_path_uid: str | None = None, limit: int = 20
-    ) -> Result[list["Task"]]:
-        """Get tasks relevant to current learning."""
         ...
 
     async def get_curriculum_tasks(self) -> Result[list["Task"]]:
@@ -538,7 +584,7 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
     Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
-    - get_by_relationship(), get_due_soon(), get_overdue()
+    - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds goal-specific methods:
     - Timeframe-based filtering
@@ -588,7 +634,7 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
     Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
-    - get_by_relationship(), get_due_soon(), get_overdue()
+    - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds choice-specific methods:
     - Pending/urgent choice filtering
@@ -636,7 +682,7 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
     Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
     - get_by_status(), get_by_domain(), get_prioritized()
-    - get_by_relationship(), get_due_soon(), get_overdue()
+    - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds principle-specific methods:
     - Strength and category filtering
@@ -677,12 +723,6 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
         """Get principles guiding a goal."""
         ...
 
-    async def get_active_principles(
-        self, user_uid: UserUID, limit: int = 100
-    ) -> Result[list["Principle"]]:
-        """Get active principles for a user."""
-        ...
-
     async def list_user_categories(self, user_uid: UserUID) -> Result[list[str]]:
         """List principle categories for a specific user."""
         ...
@@ -692,7 +732,7 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
         ...
 
     async def get_needing_review(
-        self, user_uid: UserUID, days_since_review: int = 30, limit: int = 20
+        self, user_uid: UserUID | None = None, days_since_review: int = 30, limit: int = 20
     ) -> Result[list["Principle"]]:
         """Get principles needing review."""
         ...

@@ -8,16 +8,21 @@ Architecture: Shell delegates to 3 focused mixins in this directory:
   _core_intelligence_mixin.py    — get_task_with_context, categorize_cross_domain_context
   _analytics_mixin.py            — get_behavioral_insights, performance helpers
   _productivity_mixin.py         — analyze_learning_patterns, calculate_knowledge_aware_priorities,
-                                   generate_task_insights, track_knowledge_mastery_progression
+                                   generate_task_insights, track_knowledge_mastery_progression,
+                                   analyze_task_learning_metrics, generate_task_knowledge_insights
 
 Created: Original November 2025
 Updated: January 2026 - Migrated to BaseAnalyticsService (ADR-030)
 Updated: April 2026 - Decomposed into focused mixins
+Updated: April 2026 - Absorbed TasksLearningMetricsService (symmetry refactor):
+  its two methods were task-level analytics mis-labeled as a "learning" service;
+  folded back into _productivity_mixin alongside sibling analytics methods.
 
 Provides:
 - Behavioral insights and patterns (task-specific)
 - Performance analytics and optimization (task-specific)
 - Cross-domain context categorization (task-specific)
+- Task-level learning metrics (knowledge complexity, bridge detection, mastery)
 
 Domain-agnostic knowledge intelligence (knowledge suggestions, prerequisites,
 learning opportunities) was extracted to ActivityKnowledgeIntelligenceService
@@ -25,7 +30,6 @@ learning opportunities) was extracted to ActivityKnowledgeIntelligenceService
 
 Related sub-services (extracted March 2026):
 - TasksProductivityService: Dual-track productivity assessment (ADR-030)
-- TasksLearningMetricsService: Task-level learning metrics via Task model
 - ActivityKnowledgeIntelligenceService: Knowledge intelligence (all domains)
 
 NOTE: This service does NOT use AI (LLM/embeddings).
@@ -42,7 +46,7 @@ from core.constants import GraphDepth, LearningLoop
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -156,7 +160,7 @@ class TasksIntelligenceService(
         from core.utils.intelligence_queries import get_knowledge_prerequisites
 
         prereq_result = await get_knowledge_prerequisites(
-            graph=self.graph_intel, entity_uid=uid, depth=GraphDepth.DEFAULT
+            graph=self.graph_intel, entity_uid=EntityUID(uid), depth=GraphDepth.DEFAULT
         )
         prerequisites = prereq_result.value if prereq_result.is_ok else {}
 

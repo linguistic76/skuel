@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -60,11 +61,6 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
         """
         super().__init__(backend, "events.scheduling")
         self.event_bus = event_bus
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Entity nodes."""
-        return "Entity"
 
     # ========================================================================
     # RECURRING EVENT OPTIMIZATION
@@ -198,13 +194,18 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
                 event_type="RECURRING",
             )
             dto.recurrence_pattern = pattern
-            if reinforces_habit_uid:
-                dto.reinforces_habit_uid = reinforces_habit_uid
 
             create_result = await self.backend.create(dto.to_dict())
             if create_result.is_ok:
                 event = self._to_domain_model(create_result.value, EventDTO, Event)
                 created_events.append(event)
+                # Habit reinforcement is a graph edge, not a property.
+                if reinforces_habit_uid:
+                    await self.backend.create_relationship(
+                        event.uid,
+                        reinforces_habit_uid,
+                        RelationshipName.REINFORCES_HABIT.value,
+                    )
 
         self.logger.info(f"Created {len(created_events)} recurring events")
 

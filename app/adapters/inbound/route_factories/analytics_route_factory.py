@@ -170,7 +170,9 @@ class AnalyticsRouteFactory:
             Async route handler function
         """
         factory = self  # Capture self for nested function
+        from adapters.inbound.csrf import csrf_protected
 
+        @csrf_protected
         @boundary_handler()
         async def route_handler(request) -> Result[Any]:
             """Auto-generated analytics endpoint handler"""

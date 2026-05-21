@@ -93,7 +93,6 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
     RootOrganizerResult,
-    SemanticSearchChunkResult,
     SubstantiationSummaryResult,
     UserMasteryResult,
     UserProgressResult,
@@ -104,12 +103,16 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 if TYPE_CHECKING:
     from datetime import date
 
+    from core.infrastructure.relationships.semantic_relationships import (
+        SemanticRelationshipType,
+    )
     from core.models.enums.neo_labels import NeoLabel
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.ku.ku import Ku  # noqa: F401 — used in BackendOperations["Ku"]
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
+    from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
     from core.services.ps.ps_organization_service import StepOrganizationView
     from core.utils.result_simplified import Result
@@ -121,7 +124,9 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations, Protocol):
+class CurriculumOperations[T: "DomainModelProtocol"](
+    BackendOperations[T], GraphRelationshipOperations, Protocol
+):
     """
     Base protocol for all curriculum domain backends (KU, PS, LP).
 
@@ -760,16 +765,9 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Increment practice count and update last_practiced_date."""
         ...
 
-    async def semantic_search_chunks(
-        self,
-        query_embedding: list[float],
-        limit: int,
-        threshold: float,
-        chunk_types: list[str] | None = None,
-        ku_uid: str | None = None,
-    ) -> Result[list[SemanticSearchChunkResult]]:
-        """Vector search across ContentChunk nodes for precise RAG retrieval."""
-        ...
+    # Chunk-level vector search lives on VectorSearchBackend, not on the
+    # PathStep backend — see core/ports/vector_search_protocols.py
+    # (semantic_search_chunks) and adapters/persistence/neo4j/vector_search_backend.py.
 
     # =========================================================================
     # SEARCH    # =========================================================================
@@ -846,7 +844,11 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     async def query_semantic_neighborhood(
-        self, uid: str, semantic_types: list[Any] | None, depth: int, min_confidence: float
+        self,
+        uid: str,
+        semantic_types: list[SemanticRelationshipType],
+        depth: int,
+        min_confidence: float,
     ) -> Result[list[dict[str, Any]]]:  # boundary: variable-depth graph traversal
         """Query semantic neighborhood."""
         ...
@@ -1524,7 +1526,7 @@ class ExerciseOperations(Protocol):
 
 
 class RevisedExerciseOperations(Protocol):
-    """Revised exercise operations for the five-phase learning loop.
+    """Revised exercise operations for the four-phase learning loop.
 
     RevisedExercise is a UserOwnedEntity (teacher-owned, student-targeted)
     that provides targeted revision instructions after ExerciseReport.

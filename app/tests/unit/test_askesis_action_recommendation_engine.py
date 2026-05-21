@@ -41,6 +41,8 @@ def create_mock_user_context(
     """Create mock UserContext with actual field names from unified_user_context.py."""
     context = Mock()
     context.user_uid = "test_user"
+    # Rich-only fields (at_risk_habits, blocked_task_uids) require rich context
+    context.is_rich_context = True
 
     # Task UIDs
     context.active_task_uids = [f"task_{i}" for i in range(active_tasks)]
@@ -73,9 +75,19 @@ def create_mock_user_context(
     # Domain progress (for state_scoring functions)
     context.domain_progress = {"tech": 0.5, "personal": 0.5}
 
+    # Goal-task graph (rich-only) — empty by default; overlap tests set explicitly
+    context.tasks_by_goal = {}
+    context.entities_rich = {}
+
     # Methods
     context.calculate_learning_velocity = Mock(return_value=learning_velocity)
     context.get_ready_to_learn = Mock(return_value=["ku.ready_1", "ku.ready_2"])
+    # Rich-only accessors — return containers matching the rich fields above
+    context.get_blocked_tasks = Mock(return_value=set(context.blocked_task_uids))
+    context.get_habits_needing_reinforcement = Mock(return_value=list(context.at_risk_habits))
+    context.blocked_task_uids_or_empty = Mock(return_value=set(context.blocked_task_uids))
+    context.at_risk_habits_or_empty = Mock(return_value=list(context.at_risk_habits))
+    context.tasks_by_goal_or_empty = Mock(return_value=context.tasks_by_goal)
 
     # Workload
     context.current_workload_score = current_workload_score
@@ -116,6 +128,8 @@ def critical_context():
     # Override at_risk_habits to include a habit with long streak (must be > 14)
     context.at_risk_habits = ["habit_0"]
     context.habit_streaks = {"habit_0": 15, "habit_1": 5}
+    # Rewire _or_empty accessor to match the overridden at_risk_habits
+    context.at_risk_habits_or_empty = Mock(return_value=list(context.at_risk_habits))
     return context
 
 
@@ -232,6 +246,46 @@ class TestWorkflowOptimization:
         assert result.is_ok
         optimizations = result.value
         assert isinstance(optimizations, list)
+
+    @pytest.mark.asyncio
+    async def test_optimize_workflow_overlapping_goals(self, engine):
+        """Detects shared tasks across goals and suggests alignment."""
+        context = create_mock_user_context(active_goals=3)
+        context.tasks_by_goal = {
+            "goal_0": ["task_a", "task_b", "task_c"],
+            "goal_1": ["task_b", "task_c", "task_d"],  # shares b, c with goal_0
+            "goal_2": ["task_e"],  # disjoint
+        }
+        context.tasks_by_goal_or_empty = Mock(return_value=context.tasks_by_goal)
+        context.entities_rich = {
+            "goals": [
+                {"entity": {"uid": "goal_0", "title": "Ship API"}},
+                {"entity": {"uid": "goal_1", "title": "Refactor backend"}},
+                {"entity": {"uid": "goal_2", "title": "Write docs"}},
+            ]
+        }
+
+        overlaps = engine._find_overlapping_goals(context)
+
+        assert {o["uid"] for o in overlaps} == {"goal_0", "goal_1"}
+        assert "goal_2" not in {o["uid"] for o in overlaps}
+        first = overlaps[0]
+        assert first["title"] in {"Ship API", "Refactor backend"}
+        assert set(first["shared_tasks"]) == {"task_b", "task_c"}
+
+        result = await engine.optimize_workflow(context)
+        assert result.is_ok
+        types = {opt["type"] for opt in result.value}
+        assert "alignment" in types
+
+    @pytest.mark.asyncio
+    async def test_optimize_workflow_no_goal_overlap(self, engine):
+        """Single goal or disjoint task sets produce no alignment suggestion."""
+        context = create_mock_user_context(active_goals=1)
+        context.tasks_by_goal = {"goal_0": ["task_a"]}
+        context.tasks_by_goal_or_empty = Mock(return_value=context.tasks_by_goal)
+
+        assert engine._find_overlapping_goals(context) == []
 
 
 # ============================================================================

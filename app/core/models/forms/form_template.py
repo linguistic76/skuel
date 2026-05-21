@@ -24,6 +24,7 @@ from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
 
 if TYPE_CHECKING:
+    from core.models.entity_dto import EntityDTO
     from core.models.forms.form_template_dto import FormTemplateDTO
 
 
@@ -185,29 +186,17 @@ class FormTemplate(Entity):
     # CONVERSION
     # =========================================================================
 
+    @classmethod
+    def from_dto(cls, dto: "EntityDTO | FormTemplateDTO") -> "FormTemplate":
+        """Create FormTemplate from an EntityDTO or FormTemplateDTO."""
+        return cls._from_dto(dto)
+
     def to_dto(self) -> "FormTemplateDTO":
         """Convert to FormTemplateDTO."""
+        from core.models.dto_helpers import domain_to_dto
         from core.models.forms.form_template_dto import FormTemplateDTO
 
-        return FormTemplateDTO(
-            uid=self.uid,
-            title=self.title,
-            entity_type=self.entity_type,
-            parent_entity_uid=self.parent_entity_uid,
-            domain=self.domain,
-            created_by=self.created_by,
-            content=self.content,
-            summary=self.summary,
-            description=self.description,
-            word_count=self.word_count,
-            status=self.status,
-            tags=list(self.tags),
-            created_at=self.created_at,
-            updated_at=self.updated_at,
-            metadata=dict(self.metadata) if self.metadata else {},
-            form_schema=list(self.form_schema) if self.form_schema else None,
-            instructions=self.instructions,
-        )
+        return domain_to_dto(self, FormTemplateDTO)
 
     # =========================================================================
     # DISPLAY

@@ -14,12 +14,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from neo4j.exceptions import ServiceUnavailable
 
-from core.events.submission_events import (
-    ReportSubmitted,
-    SubmissionApproved,
-    SubmissionCreated,
-)
-from core.services.submissions.learning_loop_event_handler_service import (
+from core.events.learning_loop_events import ReportSubmitted, UserEntryApproved
+from core.events.user_entry_events import UserEntryCreated
+from core.services.user_entry.learning_loop_handler import (
     LearningLoopEventHandlerService,
     _classify_iteration_count,
     _classify_mastery_velocity,
@@ -36,9 +33,9 @@ from core.utils.result_simplified import Errors, Result
 def mock_backend() -> Mock:
     backend = Mock()
     backend.get = AsyncMock(return_value=Result.ok(None))
-    backend.count_submissions_for_exercise = AsyncMock(return_value=Result.ok(1))
-    backend.get_first_submission_for_exercise = AsyncMock(return_value=Result.ok(None))
-    backend.get_exercise_for_submission = AsyncMock(return_value=Result.ok(None))
+    backend.count_entries_for_exercise = AsyncMock(return_value=Result.ok(1))
+    backend.get_first_entry_for_exercise = AsyncMock(return_value=Result.ok(None))
+    backend.get_exercise_for_entry = AsyncMock(return_value=Result.ok(None))
     backend.get_teacher_feedback_state = AsyncMock(return_value=Result.ok({}))
     backend.update_teacher_feedback_state = AsyncMock(return_value=Result.ok(True))
     return backend
@@ -67,11 +64,11 @@ def _make_submission_created(
     submission_uid: str = "es_test_abc",
     user_uid: str = "user.test",
     fulfills_exercise_uid: str | None = "exercise_abc",
-) -> SubmissionCreated:
-    return SubmissionCreated(
-        submission_uid=submission_uid,
+) -> UserEntryCreated:
+    return UserEntryCreated(
+        entity_uid=submission_uid,
         user_uid=user_uid,
-        entity_type="exercise_submission",
+        pipeline="none",
         occurred_at=datetime.now(),
         fulfills_exercise_uid=fulfills_exercise_uid,
     )
@@ -99,9 +96,9 @@ def _make_submission_approved(
     student_uid: str = "user.student",
     mastered_ku_count: int = 2,
     occurred_at: datetime | None = None,
-) -> SubmissionApproved:
-    return SubmissionApproved(
-        submission_uid=submission_uid,
+) -> UserEntryApproved:
+    return UserEntryApproved(
+        entity_uid=submission_uid,
         teacher_uid=teacher_uid,
         student_uid=student_uid,
         occurred_at=occurred_at or datetime.now(),
@@ -178,7 +175,7 @@ class TestHandleSubmissionCreated:
     ):
         event = _make_submission_created(fulfills_exercise_uid=None)
         await service.handle_submission_created(event)
-        mock_backend.count_submissions_for_exercise.assert_not_called()
+        mock_backend.count_entries_for_exercise.assert_not_called()
 
     @pytest.mark.anyio
     async def test_first_attempt_no_insight(
@@ -187,7 +184,7 @@ class TestHandleSubmissionCreated:
         mock_backend: Mock,
         mock_insight_store: AsyncMock,
     ):
-        mock_backend.count_submissions_for_exercise.return_value = Result.ok(1)
+        mock_backend.count_entries_for_exercise.return_value = Result.ok(1)
         event = _make_submission_created()
         await service_with_insights.handle_submission_created(event)
         mock_insight_store.create_insight.assert_not_called()
@@ -199,19 +196,19 @@ class TestHandleSubmissionCreated:
         mock_backend: Mock,
         mock_insight_store: AsyncMock,
     ):
-        mock_backend.count_submissions_for_exercise.return_value = Result.ok(3)
+        mock_backend.count_entries_for_exercise.return_value = Result.ok(3)
         event = _make_submission_created()
         await service_with_insights.handle_submission_created(event)
         mock_insight_store.create_insight.assert_called_once()
         insight = mock_insight_store.create_insight.call_args[0][0]
-        assert insight.domain == "submissions"
+        assert insight.domain == "user_entry"
         assert insight.supporting_data["iteration_count"] == 3
         assert insight.supporting_data["classification"] == "persistent"
 
     @pytest.mark.anyio
     async def test_error_isolation(self, mock_backend: Mock):
         """Errors are logged, never propagated."""
-        mock_backend.count_submissions_for_exercise.side_effect = ServiceUnavailable("boom")
+        mock_backend.count_entries_for_exercise.side_effect = ServiceUnavailable("boom")
         svc = LearningLoopEventHandlerService(backend=mock_backend)
         event = _make_submission_created()
         # Should not raise
@@ -222,7 +219,7 @@ class TestHandleSubmissionCreated:
         self, service: LearningLoopEventHandlerService, mock_backend: Mock
     ):
         """Works without insight_store — just logs."""
-        mock_backend.count_submissions_for_exercise.return_value = Result.ok(3)
+        mock_backend.count_entries_for_exercise.return_value = Result.ok(3)
         event = _make_submission_created()
         await service.handle_submission_created(event)
         # No error, no insight persisted (no store)
@@ -359,7 +356,7 @@ class TestHandleSubmissionApproved:
     ):
         event = _make_submission_approved(mastered_ku_count=0)
         await service_with_insights.handle_submission_approved(event)
-        mock_backend.get_exercise_for_submission.assert_not_called()
+        mock_backend.get_exercise_for_entry.assert_not_called()
 
     @pytest.mark.anyio
     async def test_quick_mastery_insight(
@@ -369,9 +366,9 @@ class TestHandleSubmissionApproved:
         mock_insight_store: AsyncMock,
     ):
         now = datetime.now()
-        mock_backend.get_exercise_for_submission.return_value = Result.ok("exercise_abc")
-        mock_backend.count_submissions_for_exercise.return_value = Result.ok(1)
-        mock_backend.get_first_submission_for_exercise.return_value = Result.ok(
+        mock_backend.get_exercise_for_entry.return_value = Result.ok("exercise_abc")
+        mock_backend.count_entries_for_exercise.return_value = Result.ok(1)
+        mock_backend.get_first_entry_for_exercise.return_value = Result.ok(
             {
                 "uid": "es_test_abc",
                 "created_at": now - timedelta(hours=12),
@@ -395,9 +392,9 @@ class TestHandleSubmissionApproved:
         mock_insight_store: AsyncMock,
     ):
         now = datetime.now()
-        mock_backend.get_exercise_for_submission.return_value = Result.ok("exercise_abc")
-        mock_backend.count_submissions_for_exercise.return_value = Result.ok(5)
-        mock_backend.get_first_submission_for_exercise.return_value = Result.ok(
+        mock_backend.get_exercise_for_entry.return_value = Result.ok("exercise_abc")
+        mock_backend.count_entries_for_exercise.return_value = Result.ok(5)
+        mock_backend.get_first_entry_for_exercise.return_value = Result.ok(
             {
                 "uid": "es_first",
                 "created_at": now - timedelta(hours=200),
@@ -419,7 +416,7 @@ class TestHandleSubmissionApproved:
         mock_backend: Mock,
         mock_insight_store: AsyncMock,
     ):
-        mock_backend.get_exercise_for_submission.return_value = Result.ok(None)
+        mock_backend.get_exercise_for_entry.return_value = Result.ok(None)
         event = _make_submission_approved(mastered_ku_count=2)
         await service_with_insights.handle_submission_approved(event)
         mock_insight_store.create_insight.assert_not_called()
@@ -427,7 +424,7 @@ class TestHandleSubmissionApproved:
     @pytest.mark.anyio
     async def test_error_isolation(self, mock_backend: Mock):
         """Errors are logged, never propagated."""
-        mock_backend.get_exercise_for_submission.side_effect = ServiceUnavailable("boom")
+        mock_backend.get_exercise_for_entry.side_effect = ServiceUnavailable("boom")
         svc = LearningLoopEventHandlerService(backend=mock_backend)
         event = _make_submission_approved(mastered_ku_count=2)
         # Should not raise

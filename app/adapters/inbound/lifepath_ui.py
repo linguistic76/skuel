@@ -18,6 +18,7 @@ from fasthtml.common import Div
 from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
 from core.utils.logging import get_logger
@@ -116,6 +117,7 @@ def create_lifepath_ui_routes(
         return await lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/vision", methods=["POST"])
+    @csrf_protected
     async def process_vision_capture(request: Request) -> Any:
         """Process vision capture and show recommendations."""
         user_uid = require_authenticated_user(request)
@@ -137,6 +139,7 @@ def create_lifepath_ui_routes(
         return await lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/designate", methods=["POST"])
+    @csrf_protected
     async def designate_life_path(request: Request) -> Any:
         """Designate an LP as the user's life path."""
         user_uid = require_authenticated_user(request)

@@ -28,9 +28,11 @@ async def main():
     print("=" * 60)
     print()
 
-    # Get environment variables
+    # Get configuration — NEO4J_PASSWORD via credential store; URI is non-secret env.
+    from core.config.credential_store import get_credential
+
     neo4j_uri = os.getenv("NEO4J_URI")
-    neo4j_password = os.getenv("NEO4J_PASSWORD")
+    neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
 
     if not neo4j_uri or not neo4j_password:
         print("❌ Environment variables not configured")
@@ -42,7 +44,7 @@ async def main():
     try:
         # Step 1: Verify HuggingFace embeddings service
         print("[1/5] Verifying HuggingFace embeddings service...")
-        hf_token = os.getenv("HF_API_TOKEN")
+        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True)
         intelligence_tier = os.getenv("INTELLIGENCE_TIER", "core")
         if not hf_token:
             print("  ❌ HF_API_TOKEN not set")

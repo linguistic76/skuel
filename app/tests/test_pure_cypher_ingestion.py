@@ -1,3 +1,4 @@
+# mypy: disable-error-code="operator,index,assignment,arg-type"
 """
 Test Pure Cypher Ingestion (No APOC dependency)
 

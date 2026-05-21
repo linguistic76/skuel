@@ -50,8 +50,8 @@ if TYPE_CHECKING:
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
-    from core.services.submissions import SubmissionsRelationshipService
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
+    from core.services.user_entry import UserEntryRelationshipService
 
 
 class UserContextIntelligenceFactory:
@@ -99,11 +99,12 @@ class UserContextIntelligenceFactory:
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (2) - REQUIRED
+        # Curriculum Domains (3) - REQUIRED
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
+        exercises: Any,  # ExerciseService facade — get_actionable_exercises_for_user / get_pending_revisions_for_user
         # Processing Domains (3) - REQUIRED
-        submissions: SubmissionsRelationshipService,
+        user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
@@ -148,7 +149,11 @@ class UserContextIntelligenceFactory:
         Raises:
             ValueError: If any required service is None
         """
-        required = {
+        # Single source of truth for the 13 required services. Both validation
+        # and forwarding to UserContextIntelligence read from this dict — adding
+        # a 14th service means one entry here (plus the matching __init__ param
+        # and the matching UserContextIntelligence.__init__ param).
+        self._required_services: dict[str, Any] = {
             # Activity Domains (6)
             "tasks": tasks,
             "goals": goals,
@@ -156,81 +161,47 @@ class UserContextIntelligenceFactory:
             "events": events,
             "choices": choices,
             "principles": principles,
-            # Curriculum Domains (2)
+            # Curriculum Domains (3)
             "ps": ps,
             "lp": lp,
+            "exercises": exercises,
             # Processing Domains (3)
-            "submissions": submissions,
+            "user_entries": user_entries,
             "report": report,
             "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
         }
 
-        missing = [name for name, service in required.items() if service is None]
+        missing = [name for name, service in self._required_services.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligenceFactory requires all 12 domain services. "
+                f"UserContextIntelligenceFactory requires all "
+                f"{len(self._required_services)} domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
-        # Store services for creating intelligence instances
-        # Activity domains (6)
-        self._tasks = tasks
-        self._goals = goals
-        self._habits = habits
-        self._events = events
-        self._choices = choices
-        self._principles = principles
-        # Curriculum domains (2)
-        self._ps = ps
-        self._lp = lp
-        # Processing domains (3)
-        self._submissions = submissions
-        self._report = report
-        self._analytics = analytics
-        # Temporal domain (1)
-        self._calendar = calendar
-        # Optional: Vector search for semantic enhancements
         self._vector_search = vector_search_service
-        # Optional: ZPD service for curriculum-graph-aware path step ranking
         self._zpd_service = zpd_service
-        # Optional: FilteredContextProvider dict for on-demand domain queries
         self._filtered_providers = filtered_providers or {}
 
-    def create(self, context: UserContext) -> UserContextIntelligence:
+    def create(self, context: RichUserContext) -> UserContextIntelligence:
         """
         Create a UserContextIntelligence instance for the given context.
 
         Args:
-            context: UserContext snapshot for a specific user
+            context: RichUserContext snapshot for a specific user. Must be rich —
+                the intelligence mixins consume rich-only fields that the standard
+                UserContext does not expose.
 
         Returns:
             UserContextIntelligence instance bound to the context
         """
         return UserContextIntelligence(
             context=context,
-            # Activity domains (6)
-            tasks=self._tasks,
-            goals=self._goals,
-            habits=self._habits,
-            events=self._events,
-            choices=self._choices,
-            principles=self._principles,
-            # Curriculum domains (2)
-            ps=self._ps,
-            lp=self._lp,
-            # Processing domains (3)
-            submissions=self._submissions,
-            report=self._report,
-            analytics=self._analytics,
-            # Temporal domain (1)
-            calendar=self._calendar,
-            # Optional: Vector search for semantic enhancements
+            **self._required_services,
             vector_search=self._vector_search,
-            # Optional: ZPD service for curriculum-graph-aware path step ranking
             zpd_service=self._zpd_service,
-            # Optional: FilteredContextProvider dict for on-demand domain queries
             filtered_providers=self._filtered_providers,
         )
 

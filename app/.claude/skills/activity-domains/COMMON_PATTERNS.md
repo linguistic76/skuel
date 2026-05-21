@@ -55,18 +55,29 @@ async def complete_task(self, uid: str) -> Result[Task]:
 
 **Event files**: `/core/events/{domain}_events.py`
 
-## Read-Focused UI Pattern
+## UI Pattern
 
-Activity Domains use a read-focused UI — no CRUD forms, data enters via `/upload`. All 6 domains share a collapsible Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`) linking back to `/profile`. Activity Domains content is embedded inline in `/profile` via `ActivityHubView()`.
+Activity Domains support both bulk ingestion (`/upload` of YAML) and direct
+authoring through per-domain create/edit forms. All 6 domains share a collapsible
+Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`)
+linking back to `/profile`. Activity Domains content is embedded inline in
+`/profile` via `ActivityHubView()`.
 
 ```
 /profile                   # Activity Domains embedded inline (6 HTMX lazy-loaded blocks)
 /domain                    # Main page — stats, filters, list (with Activity sidebar)
 /domain/list-fragment      # HTMX fragment for filter updates
 /domain/detail?uid=...     # Detail page with EntityRelationshipsSection (with Activity sidebar)
+/domain/create             # FormGenerator-rendered create form (GET render, POST submit)
+/domain/edit?uid=...       # FormGenerator-rendered edit form prefilled from existing entity
 
 /api/{domain}/{uid}/status # HTMX status toggle (POST)
 ```
+
+Forms live in `ui/activities/{domain}_form.py` and are appended inside the
+`create_{domain}_ui_routes` factory (so they ride along with DomainRouteConfig).
+List-typed cross-domain fields and free-text list fields are intentionally
+omitted from forms — assign those via the detail-page relationship picker.
 
 **Cross-domain connections** (`core/utils/connection_fetcher.py`):
 - `fetch_entity_connections(backend, config, entity_uids)` — unified batch query for cross-domain relationships. Each domain has a `ConnectionConfig` constant (e.g. `TASK_CONNECTION_CONFIG`) specifying entity label, direction (`outgoing` or `incoming` for gravity wells), and relationship types.

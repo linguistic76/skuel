@@ -18,6 +18,7 @@ from core.config.unified_config import (
     AskesisConfig,
     CacheConfig,
     DatabaseConfig,
+    EmbeddingConfig,
     Environment,
     KnowledgeConfig,
     SearchConfig,
@@ -196,12 +197,31 @@ def validate_knowledge_config(_config: KnowledgeConfig) -> list[str]:
 
     Returns:
         List of validation errors (empty until validation rules are implemented)
-
-    TODO(deferred): Add validation when embedding_model and embedding_dimension fields are added to KnowledgeConfig
     """
     # For now, knowledge config has no fields that need validation
     # (domains, mastery_levels, and boolean flags are valid by default)
     return []
+
+
+def validate_embedding_config(config: EmbeddingConfig) -> list[str]:
+    """Validate embedding configuration"""
+    errors = []
+
+    if config.enabled:
+        if not config.embedding_model:
+            errors.append("Embedding model is required when embeddings are enabled")
+
+        error = ConfigValidator.validate_positive_int(
+            config.embedding_dimension, "Embedding dimension"
+        )
+        if error:
+            errors.append(error)
+
+        error = ConfigValidator.validate_positive_int(config.batch_size, "Embedding batch size")
+        if error:
+            errors.append(error)
+
+    return errors
 
 
 def validate_config(config: UnifiedConfig) -> list[str]:
@@ -245,6 +265,9 @@ def validate_config(config: UnifiedConfig) -> list[str]:
 
     # Validate knowledge configuration
     errors.extend(validate_knowledge_config(config.knowledge))
+
+    # Validate embedding configuration
+    errors.extend(validate_embedding_config(config.genai))
 
     return errors
 

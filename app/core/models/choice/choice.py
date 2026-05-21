@@ -20,7 +20,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from core.models.choice.choice_dto import ChoiceDTO
@@ -79,6 +79,17 @@ class Choice(UserOwnedEntity):
     # =========================================================================
     inspiration_type: str | None = None
     expands_possibilities: bool = False
+
+    # =========================================================================
+    # CROSS-DOMAIN LINKS
+    # =========================================================================
+    source_path_step_uid: str | None = None  # CHOICE -> PS
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    # Back-reference is (Choice)-[:SPAWNED_FROM]->(ChoiceTemplate).
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # CHOICE-SPECIFIC METHODS
@@ -149,25 +160,13 @@ class Choice(UserOwnedEntity):
         """Create Choice from an EntityDTO or ChoiceDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ChoiceDTO":  # type: ignore[override]
+    def to_dto(self) -> "ChoiceDTO":
         """Convert Choice to domain-specific ChoiceDTO."""
-        import dataclasses
-        from typing import Any
 
         from core.models.choice.choice_dto import ChoiceDTO
+        from core.models.dto_helpers import domain_to_dto
 
-        dto_field_names = {f.name for f in dataclasses.fields(ChoiceDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return ChoiceDTO(**kwargs)
+        return domain_to_dto(self, ChoiceDTO)
 
     def __str__(self) -> str:
         return f"Choice(uid={self.uid}, title='{self.title}', type={self.choice_type})"

@@ -115,7 +115,7 @@ async def benchmark_cache_first(
     uncached_latency = 0.0
     errors = 0
 
-    by_label = defaultdict(lambda: {"hits": 0, "misses": 0})
+    by_label: dict[str, dict[str, int]] = defaultdict(lambda: {"hits": 0, "misses": 0})
 
     for i, node in enumerate(nodes, 1):
         uid = node["uid"]
@@ -413,8 +413,7 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
     args = parser.parse_args()
 
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         await driver.verify_connectivity()
@@ -424,7 +423,7 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
         service = HuggingFaceEmbeddingsService(driver)
 
         # Check embeddings service availability
-        plugin_available = await service._check_plugin_availability()
+        plugin_available = await service._check_plugin_availability()  # type: ignore[attr-defined]
         if not plugin_available:
             logger.error("❌ Embeddings service not available")
             logger.error(

@@ -28,7 +28,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.base_models_consolidated import BaseEntity
 from core.models.enums import EnergyLevel, LearningLevel, TimeOfDay, UserRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID, UserUID
@@ -88,20 +87,20 @@ class UserPreferences:
 
 
 @dataclass(frozen=True, kw_only=True)
-class User(BaseEntity):
+class User:
     """
     Core user domain model.
 
     This immutable model focuses on identity and preferences, delegating:
     - Activity management to UserOwnedEntity types
     - Relationships to the unified relationship system
-
-    Inherits from BaseEntity for consistency with other domain models.
     """
 
-    # Core identity (uid, title, description inherited from BaseEntity)
-    # We'll use title as username for consistency
-    email: str = ""  # Must have default since BaseEntity has defaults
+    # Core identity
+    uid: str
+    title: str  # We'll use title as username for consistency
+    description: str = ""
+    email: str = ""
     display_name: str = ""
     password_hash: str = ""  # Bcrypt password hash (graph-native authentication)
 
@@ -130,6 +129,7 @@ class User(BaseEntity):
 
     # Account metadata
     created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     last_active_at: datetime | None = None
     last_login_at: datetime | None = None
 
@@ -307,7 +307,7 @@ class UserServiceContext:
         Use UserRelationshipService.get_current_goals(user_uid) to populate.
         """
         return cls(
-            user_uid=user.uid,
+            user_uid=UserUID(user.uid),
             username=user.title,  # Username stored in title field
             learning_level=user.preferences.learning_level,
             active_entity_uids=user.active_entity_uids,

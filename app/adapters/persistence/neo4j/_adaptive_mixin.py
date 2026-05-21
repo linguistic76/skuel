@@ -76,53 +76,9 @@ class _AdaptiveMixin:
     # SEARCH OPERATIONS
     # ========================================================================
 
-    async def semantic_search_chunks(
-        self,
-        query_embedding: list[float],
-        limit: int,
-        threshold: float,
-        chunk_types: list[str] | None = None,
-        ku_uid: str | None = None,
-    ) -> Result[list[Neo4jProperties]]:
-        """Vector search across ContentChunk nodes for precise RAG retrieval."""
-        parts = [
-            """CALL db.index.vector.queryNodes(
-            'contentchunk_embedding_idx',
-            $limit * 2,
-            $query_embedding
-        ) YIELD node AS chunk, score
-        WHERE score >= $threshold"""
-        ]
-        if chunk_types:
-            parts.append("AND chunk.chunk_type IN $chunk_types")
-        if ku_uid:
-            parts.append(
-                """AND EXISTS {
-                MATCH (chunk)<-[:HAS_CHUNK]-(content:Content {uid: $ku_uid})
-            }"""
-            )
-        parts.append(
-            """MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(ku:Entity)
-        RETURN
-            chunk.uid as chunk_uid,
-            chunk.chunk_type as chunk_type,
-            chunk.text as text,
-            chunk.context_window as context_window,
-            score as similarity_score,
-            ku.uid as parent_entity_uid,
-            ku.title as parent_ku_title
-        ORDER BY score DESC
-        LIMIT $limit"""
-        )
-        cypher = "\n".join(parts)
-        params: dict[str, Any] = {
-            "query_embedding": query_embedding,
-            "limit": limit,
-            "threshold": threshold,
-            "chunk_types": chunk_types,
-            "ku_uid": ku_uid,
-        }
-        return await self.execute_query(cypher, params)
+    # semantic_search_chunks lives on VectorSearchBackend (chunk retrieval is a
+    # vector-index concern, not a domain backend concern). See
+    # adapters/persistence/neo4j/vector_search_backend.py.
 
     async def find_similar_by_keywords(self, uid: str, limit: int) -> Result[list[Neo4jProperties]]:
         """Find similar entities using keyword matching and structural similarity."""

@@ -1,3 +1,4 @@
+# mypy: disable-error-code="assignment"
 """
 Test Suite for BaseService
 ==========================
@@ -25,6 +26,8 @@ from unittest.mock import AsyncMock, Mock
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from core.ports.base_protocols import BackendOperations  # noqa: F401
 
 import pytest
 
@@ -466,18 +469,16 @@ class TestRelationshipOperations:
     @pytest.mark.asyncio
     async def test_get_relationships_with_direction(self, service, mock_backend):
         """Get relationships respects direction parameter."""
-        from neo4j import EagerResult
-
-        mock_backend.driver.execute_query = AsyncMock(
-            return_value=EagerResult(records=[], summary=None, keys=[])
-        )
+        mock_backend.get_relationships = AsyncMock(return_value=Result.ok([]))
 
         result = await service.get_relationships(
-            "test_001", "REQUIRES_KNOWLEDGE", direction="outgoing"
+            "test_001", RelationshipName.REQUIRES_KNOWLEDGE, direction="outgoing"
         )
 
-        # Returns Result - may use backend or Cypher
-        assert hasattr(result, "is_ok")
+        assert result.is_ok
+        mock_backend.get_relationships.assert_called_once_with(
+            "test_001", RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
+        )
 
     @pytest.mark.asyncio
     async def test_traverse_depth_limited(self, service, mock_backend):

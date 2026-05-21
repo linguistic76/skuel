@@ -2,25 +2,12 @@
 Prometheus metrics registry for SKUEL.
 
 This module defines all Prometheus metrics (Counter, Gauge, Histogram) used across the application.
-Metrics are organized into logical groups: System, HTTP, Database, Events, Relationships, Search.
+Metrics are organized into logical groups: HTTP, Database, Events, Domains, Relationships, Queries, AI.
 
-See: /docs/observability/PROMETHEUS_METRICS.md (to be created in )
+See: /docs/observability/PROMETHEUS_METRICS.md
 """
 
 from prometheus_client import Counter, Gauge, Histogram
-
-
-class SystemMetrics:
-    """System-level health metrics."""
-
-    def __init__(self) -> None:
-        self.cpu_usage = Gauge("skuel_cpu_usage_percent", "CPU usage percentage")
-
-        self.memory_usage = Gauge("skuel_memory_usage_bytes", "Memory usage in bytes")
-
-        self.neo4j_connected = Gauge(
-            "skuel_neo4j_connected", "Neo4j connection status (1=up, 0=down)"
-        )
 
 
 class HttpMetrics:
@@ -130,12 +117,6 @@ class DomainMetrics:
             ["entity_type"],
         )
 
-        self.active_entities = Gauge(
-            "skuel_active_entities_count",
-            "Current active entities by type",
-            ["entity_type"],
-        )
-
 
 class RelationshipMetrics:
     """
@@ -199,11 +180,6 @@ class RelationshipMetrics:
             "Active ENABLES relationships",
         )
 
-        self.dependency_chain_length = Gauge(
-            "skuel_dependency_chain_max_length",
-            "Maximum dependency chain length (BLOCKS → BLOCKED_BY)",
-        )
-
         # Hierarchical patterns
         self.contains_relationships = Gauge(
             "skuel_contains_relationships_count",
@@ -213,51 +189,6 @@ class RelationshipMetrics:
         self.organizes_relationships = Gauge(
             "skuel_organizes_relationships_count",
             "ORGANIZES relationships (MOC → KU)",
-        )
-
-        # Semantic tier activation
-        self.semantic_relationships = Gauge(
-            "skuel_semantic_relationships_count",
-            "Semantic relationships count",
-            ["tier"],  # tier: 1/2/3
-        )
-
-        # Cross-domain connections
-        self.cross_domain_relationships = Gauge(
-            "skuel_cross_domain_relationships_count",
-            "Relationships crossing domain boundaries",
-            ["from_domain", "to_domain"],
-        )
-
-        # Graph traversal performance
-        self.graph_traversal_depth = Gauge(
-            "skuel_graph_traversal_avg_depth",
-            "Average graph traversal depth in queries",
-        )
-
-
-class SearchMetrics:
-    """Search and query metrics."""
-
-    def __init__(self) -> None:
-        self.searches_total = Counter(
-            "skuel_searches_total",
-            "Total searches by type",
-            ["search_type"],  # vector/fulltext/hybrid
-        )
-
-        self.search_duration = Histogram(
-            "skuel_search_duration_seconds",
-            "Search query latency",
-            ["search_type"],
-            buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
-        )
-
-        self.search_similarity = Histogram(
-            "skuel_search_similarity_score",
-            "Search result similarity scores",
-            ["search_type"],
-            buckets=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
         )
 
 
@@ -313,12 +244,6 @@ class AiMetrics:
             buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
         )
 
-        self.ai_tokens_used = Counter(
-            "skuel_ai_tokens_total",
-            "Total AI tokens consumed",
-            ["operation", "model", "token_type"],  # token_type: prompt/completion
-        )
-
         self.ai_errors_total = Counter(
             "skuel_ai_errors_total",
             "Total AI API errors",
@@ -342,19 +267,6 @@ class AiMetrics:
             "skuel_embedding_batch_size",
             "Embedding batch size distribution",
             buckets=(1, 5, 10, 25, 50, 100),
-        )
-
-        # Deepgram transcription
-        self.transcription_requests_total = Counter(
-            "skuel_transcription_requests_total",
-            "Total transcription requests",
-            ["status"],
-        )
-
-        self.transcription_duration_seconds = Histogram(
-            "skuel_transcription_duration_seconds",
-            "Transcription processing time",
-            buckets=(0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
         )
 
 
@@ -386,12 +298,10 @@ class PrometheusMetrics:
     """
 
     def __init__(self) -> None:
-        self.system = SystemMetrics()
         self.http = HttpMetrics()
         self.db = DatabaseMetrics()
         self.events = EventMetrics()
         self.domains = DomainMetrics()
         self.relationships = RelationshipMetrics()
-        self.search = SearchMetrics()
         self.queries = QueryMetrics()
-        self.ai = AiMetrics()  # January 2026
+        self.ai = AiMetrics()

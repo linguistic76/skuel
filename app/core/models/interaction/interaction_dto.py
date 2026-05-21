@@ -22,7 +22,6 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.interaction_enums import InteractionResult, InteractionType
 from core.models.enums.metadata_enums import Visibility
 from core.models.user_owned_dto import UserOwnedDTO
-from core.ports import get_enum_value
 
 
 @dataclass
@@ -59,23 +58,20 @@ class InteractionDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including interaction-specific fields."""
-        data = super().to_dict()
-        data.update(
-            {
-                "interaction_type": get_enum_value(self.interaction_type),
-                "target_uid": self.target_uid,
-                "context_path_step_uid": self.context_path_step_uid,
-                "context_learning_path_uid": self.context_learning_path_uid,
-                "source_entity_uid": self.source_entity_uid,
-                "result_status": get_enum_value(self.result_status),
-            }
-        )
-        return data
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
+        return dto_to_dict(
+            self,
+            enum_fields=[
+                "entity_type",
+                "status",
+                "visibility",
+                "interaction_type",
+                "result_status",
+            ],
+            datetime_fields=["created_at", "updated_at"],
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> InteractionDTO:

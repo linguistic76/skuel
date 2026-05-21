@@ -11,6 +11,37 @@
 - Understanding cross-domain relationships
 - Debugging domain-specific issues
 
+## Design Principle: Harmony Without Over-Generalization
+
+The 6 Activity Domains share one shape — seven common sub-services produced by `create_common_sub_services()`: `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`. Every domain answers to all seven. None opts out.
+
+**The shared shape is a contract for interconnectivity, not a cage.** What flows across domains — unified search, user context aggregation, cross-domain relationship queries, the knowledge substance pipeline, the ZPD assessment that ties curriculum to lived activity — works *because* every domain exposes the same surface in the same place. When the system asks "what is this user working on today," the answer doesn't care whether it comes from Tasks, Habits, or Events; each is addressable the same way.
+
+**Inside that shape, each domain keeps its voice.** Habits has `completions` and `patterns` because streaks and ritual cadence aren't universal concerns. Events has `habit_integration` because materializing a recurring habit as discrete calendar events is an Events problem. Principles has `alignment` because gravity-well scoring is unique to values. Tasks has `progress`, `scheduling`, and `planning` because dependency graphs and due-date juggling are specific to work items. Facade mixins organize domain-specific delegation methods the same way: Goals's `_OrchestrationMixin` is about goal mechanics, Principles's `_GravityMixin` about incoming-connection scoring — they do not belong on any other domain.
+
+**The harmony enables the uniqueness.** Without the shared shape, every cross-domain operation would fragment into a case statement. Without the domain-specific sub-services, the model would collapse into a generic "thing with a status" — exactly the over-generalization the principle is named against. The pattern: one shape for what a domain owes the rest of the system, total freedom for what it owes itself.
+
+**When adding a capability, ask in this order:**
+1. Does it fit in the existing shared shape? (new method on `core` / `search` / `intelligence` / etc.)
+2. Is it cross-domain infrastructure all 6 will benefit from? (extend `create_common_sub_services()` — raises the floor for every domain at once, as the April 2026 Tasks learning extraction did)
+3. Is it genuinely domain-specific? (new domain-specific sub-service or facade mixin — keep it out of the shared layer)
+
+**Never** promote a capability only one domain uses into a common sub-service. **Never** push a genuinely domain-specific concern into a shared sub-service to save a file. The seven common services earn their universality by actually being universal; the domain-specific services earn their specialness by actually being specific.
+
+### Two labels, two jobs — `entity_label` + `config_lookup_label`
+
+Each service surfaces **two** label attributes via `DomainConfig`, with distinct responsibilities:
+
+1. **`entity_label`** — Neo4j base-label for multi-label Cypher matching. All 6 Activity Domains set this to `"Entity"` (matches `:Entity:Task`, `:Entity:Habit`, … via the unified `:Entity` base label). Curriculum domains similarly use `"Entity"` (PathStep, LearningPath, Exercise, RevisedExercise) or `"Ku"`.
+2. **`config_lookup_label`** — key for `LABEL_CONFIGS` registry lookup. Defaults to `model_class.__name__` (`"Task"`, `"Goal"`, `"Habit"`, …) and is used by `context_operations_mixin.get_with_context()` to fetch the domain-specific `DomainRelationshipConfig`. Also used by factory functions (`create_activity_domain_config`, `create_curriculum_domain_config`) to generate `graph_enrichment_patterns`, `prerequisite_relationships`, and `enables_relationships`.
+
+The split replaced an earlier overload where both jobs rode on `entity_label`, with a `LABEL_CONFIGS["Entity"] → PS_CONFIG` backward-compat alias papering over the ambiguity. That alias was removed: Activity Domains now get their own registry config (not PathStep's curriculum patterns), and the factories raise `ValueError` if a `config_lookup_label` is missing from `LABEL_CONFIGS`. Full decision record: [ADR-056 Service-Layer Label Split](../../../docs/decisions/ADR-056-service-layer-label-split.md).
+
+**When building a new domain:**
+- Set `entity_label="Entity"` (or `"Ku"`) — the Neo4j base label.
+- Let `config_lookup_label` default to `model_class.__name__`, or pass it explicitly if your model name diverges from the registry key.
+- Ensure `LABEL_CONFIGS` has an entry keyed by your `config_lookup_label` before calling the factory.
+
 ## The 6 Activity Domains
 
 All 6 follow **identical architecture** - learn one, know all:
@@ -51,10 +82,10 @@ ActivityReport UI ← Service Facade (read path)
 **Each domain has:**
 - **Facade Service** - Single entry point (`{domain}_service.py`)
 - **7-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.).
-  `create_common_sub_services()` auto-wires 7 of these: core, search, relationships, intelligence
-  (skippable via `skip={}`), plus event_handler, learning (Tasks omits), and knowledge_intelligence.
-  New facades don't need to build these manually.
-- **0-3 Facade Mixins** - Group related delegation methods by concern (April 2026). Goals (2: `_OrchestrationMixin`, `_RelationshipMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (3: `_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). Tasks and Events have no facade mixins.
+  `create_common_sub_services()` auto-wires **all 7 common sub-services uniformly for every domain**:
+  core, search, relationships, intelligence (skippable via `skip={}`), plus event_handler, learning,
+  and knowledge_intelligence. No domain opts out — the shared shape is the contract.
+- **0-3 Facade Mixins** - Group related delegation methods by concern (April 2026). Tasks (2: `_OrchestrationMixin`, `_RelationshipMixin`), Goals (2: `_OrchestrationMixin`, `_RelationshipMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (3: `_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). Events has no facade mixins.
 - **Domain Events** - Cross-service communication
 - **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.). The Learning Loop has a parallel handler (`LearningLoopEventHandlerService`) tracking submission iterations, feedback turnaround, and mastery velocity.
 - **Read-Focused UI** — All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection`, sharing a collapsible Activity sidebar (`ui/activities/nav.py`). Activity Domains are embedded inline in `/profile` via `ActivityHubView()`. Activity data also viewable via ActivityReport UI at `/activity-reports`.

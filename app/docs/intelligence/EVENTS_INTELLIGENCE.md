@@ -24,7 +24,7 @@ class EventsIntelligenceService(
 **Related Services:**
 - `EventsProgressService` - Progress tracking, completion, attendance metrics
 - `EventsSchedulingService` - Recurring event creation and date optimization (Events-domain only). Cross-domain scheduling intelligence — busy times, slot suggestions, conflict detection, calendar density — lives in `CalendarOptimizationOrchestrator`.
-- `EventsEventHandlerService` - Fire-and-forget reactive handlers: attendance patterns, rescheduling detection, scheduling density; persists `IMBALANCE_DETECTED` insights for chronic rescheduling and overcommitment to InsightStore (March 2026)
+- `EventEventHandlerService` - Fire-and-forget reactive handlers: attendance patterns, rescheduling detection, scheduling density; persists `IMBALANCE_DETECTED` insights for chronic rescheduling and overcommitment to InsightStore (March 2026)
 - `CrossDomainQueryService` - Cross-domain reads spanning 2+ domain labels (replaced per-event N+1 queries, April 2026). Methods removed from EventsIntelligenceService: `get_event_goal_support()`, `get_event_knowledge_reinforcement()`.
 
 ---

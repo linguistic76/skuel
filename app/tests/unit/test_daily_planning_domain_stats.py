@@ -25,6 +25,8 @@ Covers:
 12. Tasks without goals cross-domain → warning
 """
 
+from dataclasses import dataclass, field
+from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -34,6 +36,29 @@ from core.services.user.intelligence.daily_planning import DailyPlanningMixin
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 from core.utils.result_simplified import Errors, Result
 
+
+@dataclass
+class _StubContext:
+    user_uid: str = "user_test"
+    available_minutes_daily: int = 480
+    is_rich_context: bool = True
+    daily_habits: list[Any] = field(default_factory=list)
+    primary_goal_focus: Any = None
+    learning_goals: list[Any] = field(default_factory=list)
+    life_path_uid: str | None = None
+    estimated_time_to_mastery: dict[str, Any] = field(default_factory=dict)
+    knowledge_mastery: dict[str, Any] = field(default_factory=dict)
+    current_workload_score: float = 0.5
+    current_energy_level: str = "moderate"
+    latest_activity_report_uid: str | None = None
+    latest_activity_report_period: str | None = None
+    entities_rich: dict[str, Any] = field(default_factory=dict)
+    unsubmitted_exercises: list[Any] = field(default_factory=list)
+    pending_revised_exercises: list[Any] = field(default_factory=list)
+    zpd_assessment: Any = None
+    active_ps_engagements: Any = None
+
+
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -42,30 +67,9 @@ from core.utils.result_simplified import Errors, Result
 def make_context(
     available_minutes: int = 480,
     user_uid: str = "user_test",
-) -> object:
+) -> _StubContext:
     """Minimal UserContext stand-in for DailyPlanningMixin."""
-
-    class _Context:
-        pass
-
-    ctx = _Context()
-    ctx.user_uid = user_uid
-    ctx.available_minutes_daily = available_minutes
-    ctx.daily_habits = []
-    ctx.primary_goal_focus = None
-    ctx.learning_goals = []
-    ctx.life_path_uid = None
-    ctx.estimated_time_to_mastery = {}
-    ctx.knowledge_mastery = {}
-    ctx.current_workload_score = 0.5
-    ctx.current_energy_level = "moderate"
-    ctx.latest_activity_report_uid = None
-    ctx.latest_activity_report_period = None
-    ctx.entities_rich = {}
-    ctx.unsubmitted_exercises = []
-    ctx.pending_revised_exercises = []
-    ctx.zpd_assessment = None
-    return ctx
+    return _StubContext(user_uid=user_uid, available_minutes_daily=available_minutes)
 
 
 def make_no_op_service() -> AsyncMock:
@@ -78,6 +82,8 @@ def make_no_op_service() -> AsyncMock:
     mock.get_advancing_goals_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_pending_decisions_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_aligned_principles_for_user = AsyncMock(return_value=Result.ok([]))
+    mock.get_actionable_exercises_for_user = AsyncMock(return_value=Result.ok([]))
+    mock.get_pending_revisions_for_user = AsyncMock(return_value=Result.ok([]))
     return mock
 
 
@@ -96,7 +102,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         context: object,
         filtered_providers: dict[str, object] | None = None,
     ) -> None:
-        self.context = context
+        self.context = cast("Any", context)
         no_op = make_no_op_service()
         self.tasks = no_op
         self.habits = no_op
@@ -105,9 +111,10 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.choices = no_op
         self.principles = no_op
         self.ps = no_op
-        self.report = no_op
+        self.exercises = no_op
+        self.report = cast("Any", no_op)
         self.vector_search = None
-        self.filtered_providers = filtered_providers or {}
+        self.filtered_providers = cast("Any", filtered_providers or {})
 
 
 def build_service(

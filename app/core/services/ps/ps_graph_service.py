@@ -573,8 +573,8 @@ class PsGraphService:
                         if uid:
                             node_uids.append(uid)
                 except (AttributeError, TypeError):
-                    # If node doesn't have .get(), skip it
-                    self.logger.warning(f"Unexpected path node structure: {type(node)}")
+                    # path_nodes is neither a Neo4j Path nor an iterable of dict-like nodes
+                    self.logger.warning(f"Unexpected path node structure: {type(path_nodes)}")
                     continue
 
             # Fetch full DTOs for each node

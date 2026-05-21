@@ -34,7 +34,7 @@ Events additionally has an integration sub-service (`EventsHabitIntegrationServi
 | Learning Service | `/core/services/events/events_learning_service.py` |
 | Progress Service | `/core/services/events/events_progress_service.py` |
 | Scheduling Service | `/core/services/events/events_scheduling_service.py` |
-| Event Handler Service | `/core/services/events/events_event_handler_service.py` |
+| Event Handler Service | `/core/services/events/event_event_handler_service.py` |
 | Intelligence Service | `/core/services/events/events_intelligence_service.py` |
 | Facade | `/core/services/events_service.py` |
 | Config | `EVENTS_CONFIG` in `/core/models/relationship_registry.py` |
@@ -67,7 +67,7 @@ class EventsService(BaseService[EventsOperations, Event]):
     progress: EventsProgressService
     scheduling: EventsSchedulingService
     relationships: UnifiedRelationshipService
-    event_handler: EventsEventHandlerService
+    event_handler: EventEventHandlerService
     intelligence: EventsIntelligenceService
     knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
 
@@ -89,7 +89,7 @@ class EventsService(BaseService[EventsOperations, Event]):
 
 ## Event Handler — Insight Persistence (March 2026)
 
-`EventsEventHandlerService` handles fire-and-forget reactive logic and persists structured insights to `InsightStore`:
+`EventEventHandlerService` handles fire-and-forget reactive logic and persists structured insights to `InsightStore`:
 
 | Handler | Trigger | InsightType | Impact |
 |---------|---------|------------|--------|

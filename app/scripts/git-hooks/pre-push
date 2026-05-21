@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# SKUEL pre-push hook — backstop secret-leak scan over the push range.
+#
+# WHY THIS EXISTS:
+# The pre-commit hook can be bypassed with `git commit --no-verify`, and a
+# rushed dev who skipped commit-time checks will usually push next. This hook
+# scans the actual diff being pushed, so credentials caught at push time
+# never leave the local machine.
+#
+# Cross-reference validation deliberately does NOT run here — it's a quality
+# concern, not a security one, and adding it would slow down every push.
+#
+# Git invokes this hook with:
+#   $1 = remote name (e.g. "origin")
+#   $2 = remote URL
+# and on stdin: lines of  "<local_ref> <local_sha> <remote_ref> <remote_sha>"
+#
+# Bypass:
+#   SKUEL_ALLOW_SECRETS=1 git push ...     # skip secret scan
+#   git push --no-verify ...               # skip ALL pre-push checks
+#
+# Install (idempotent):  app/scripts/install_git_hooks.sh
+# See:                    app/scripts/git-hooks/README.md
+
+set -uo pipefail
+
+if [[ "${SKUEL_ALLOW_SECRETS:-0}" == "1" ]]; then
+  printf '\033[33m⚠ SKUEL_ALLOW_SECRETS=1 set — skipping push-time secret scan.\033[0m\n' >&2
+  exit 0
+fi
+
+red()    { printf '\033[31m%s\033[0m\n' "$*"; }
+yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
+green()  { printf '\033[32m%s\033[0m\n' "$*"; }
+
+# All-zeros = ref is being deleted; no diff to scan.
+zero_sha="0000000000000000000000000000000000000000"
+
+fail=0
+commit_count=0
+
+# Build the combined diff across every ref being pushed, and count commits
+# so we can print a meaningful summary on success.
+diff_text=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "$local_sha" ]] && continue
+  [[ "$local_sha" == "$zero_sha" ]] && continue  # branch deletion
+
+  if [[ "$remote_sha" == "$zero_sha" ]]; then
+    # New branch — no prior commits on the remote. Scan everything reachable
+    # from local_sha that isn't reachable from any other remote ref. This
+    # avoids re-scanning history that other branches have already pushed.
+    range_args=("$local_sha" "--not" "--remotes=$1")
+  else
+    range_args=("${remote_sha}..${local_sha}")
+  fi
+
+  # Count commits in this ref's push range (used in the success summary).
+  this_count=$(git rev-list --count "${range_args[@]}" 2>/dev/null || echo 0)
+  commit_count=$((commit_count + this_count))
+
+  # -U0 = only the changed lines themselves.
+  this_diff=$(git diff -U0 "${range_args[@]}" -- \
+    ':(exclude)*.lock' ':(exclude)*.lock.json' 2>/dev/null || true)
+  diff_text+="$this_diff"$'\n'
+done
+
+if [[ -z "${diff_text// }" ]]; then
+  exit 0
+fi
+
+# Same pattern set as the pre-commit hook. Kept in sync by hand because
+# bash doesn't have a clean way to share arrays between scripts without
+# `source`-ing, and a sourced helper adds more moving parts than two
+# small in-file lists.
+patterns=(
+  'OpenAI key|sk-(proj|live|test|or)-[A-Za-z0-9_-]{40,}'
+  'AWS access key|\bAKIA[0-9A-Z]{16}\b'
+  'Stripe webhook secret|\bwhsec_[A-Za-z0-9]{30,}\b'
+  'Stripe live key|\bsk_live_[A-Za-z0-9]{20,}\b'
+  'GitHub PAT|\bghp_[A-Za-z0-9]{36}\b'
+  'GitHub fine-grained PAT|\bgithub_pat_[A-Za-z0-9_]{60,}\b'
+  'HuggingFace token|\bhf_[A-Za-z0-9]{30,}\b'
+  'Slack token|\bxox[abprs]-[A-Za-z0-9-]{20,}\b'
+  'Google API key|\bAIza[0-9A-Za-z_-]{35}\b'
+  'Private key block|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
+)
+
+added_lines=$(printf '%s\n' "$diff_text" | grep -E '^\+[^+]' || true)
+
+for entry in "${patterns[@]}"; do
+  label="${entry%%|*}"
+  regex="${entry#*|}"
+  matches=$(printf '%s\n' "$added_lines" | grep -E -- "$regex" || true)
+  if [[ -n "$matches" ]]; then
+    red "✗ Possible $label in commits being pushed:"
+    printf '%s\n' "$matches" | sed -E -e 's/'"$regex"'/[REDACTED]/g' \
+      | head -5 | sed 's/^/    /' >&2
+    fail=1
+  fi
+done
+
+if [[ $fail -ne 0 ]]; then
+  echo
+  yellow "Push blocked — credentials detected in commits being pushed."
+  yellow "These commits were never blocked at commit time (likely --no-verify)."
+  yellow "Options:"
+  yellow "  • Rotate the leaked key, then  git reset / git rebase  to remove it from history."
+  yellow "  • If a false positive: SKUEL_ALLOW_SECRETS=1 git push ..."
+  yellow "Do NOT push and rotate after — push history is permanent on most remotes."
+  exit 1
+fi
+
+# Confirm the hook ran. Otherwise a silent pass is indistinguishable from a
+# hook that's not installed — and we want operators to see the seatbelt
+# clicking on each push.
+commit_word=$([[ "$commit_count" == "1" ]] && echo "commit" || echo "commits")
+green "✓ pre-push: scanned ${commit_count} ${commit_word}; no credential patterns detected."
+exit 0

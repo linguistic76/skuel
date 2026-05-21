@@ -27,7 +27,7 @@ SKUEL's report system is a unified response infrastructure covering two distinct
 1. **Curriculum work** — a student submits against an Exercise; teacher or AI responds
 2. **Activity Domains** — a user's Tasks, Goals, Habits, Events, Choices, and Principles; AI or admin responds
 
-Both paths produce report entities. The `EntityType` and `ProcessorType` fields discriminate them.
+Both paths produce report entities. The `EntityType` and `ReportSource` fields discriminate them.
 
 ---
 ## Related Skills
@@ -38,14 +38,14 @@ For implementation guidance, see:
 
 ## The EntityTypes
 
-| EntityType | Who Creates | Purpose | ProcessorType |
+| EntityType | Who Creates | Purpose | ReportSource |
 |------------|-------------|---------|---------------|
 | `EXERCISE_SUBMISSION` | Student uploads file | Raw student work (audio, text, images) | `HUMAN` |
 | `EXERCISE_REPORT` | Teacher **or** AI | Assessment with `subject_uid` pointing to a submission | `HUMAN` (teacher) or `LLM` (AI) |
 | `ACTIVITY_REPORT` | System **or** Admin | Activity-level feedback (not tied to artifact) | `AUTOMATIC`, `LLM`, or `HUMAN` |
 
 **Hierarchy:**
-- `ExerciseSubmission` extends `Submission(UserOwnedEntity)` — file/processing fields
+- `UserEntry` extends `UserOwnedEntity` — file/processing fields
 - `ExerciseReport` extends `UserOwnedEntity` — report fields only (NOT Submission)
 - `ActivityReport` extends `UserOwnedEntity` directly — no file fields, responds to aggregate activity patterns
 
@@ -177,7 +177,7 @@ Curriculum Work                 Activity Domains
 
 **Two sources — same entity type:**
 
-| Source | Service | ProcessorType | Trigger |
+| Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
 | Teacher writes feedback | `AssessmentService.create_assessment()` | `HUMAN` | Teacher reviews submission in queue |
 | AI evaluates via Exercise | `ExerciseReportService.generate_report()` | `LLM` | Exercise has `instructions`; AI generates response |
@@ -209,7 +209,7 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 
 **Three sources — same entity type:**
 
-| Source | Service | ProcessorType | Trigger |
+| Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
 | Scheduled system | `ProgressReportWorker` → `ProgressReportGenerator` | `AUTOMATIC` | `ProgressSchedule` cron |
 | On-demand AI | `ProgressReportGenerator.generate()` | `LLM` | `POST /api/reports/progress/generate` |
@@ -229,7 +229,7 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 ```python
 @dataclass(frozen=True)
 class ActivityReport(UserOwnedEntity):
-    processor_type: ProcessorType | None = None
+    processor_type: ReportSource | None = None
     subject_uid: str | None = None        # user whose activity was reviewed
     time_period: str | None = None        # "7d" | "14d" | "30d" | "90d"
     period_start: datetime | None = None
@@ -248,11 +248,11 @@ class ActivityReport(UserOwnedEntity):
 
 ---
 
-## ProcessorType Taxonomy
+## ReportSource Taxonomy
 
-`ProcessorType` discriminates the **source** of feedback, not the entity type:
+`ReportSource` discriminates the **source** of feedback, not the entity type:
 
-| ProcessorType | Who | Applies To |
+| ReportSource | Who | Applies To |
 |---------------|-----|-----------|
 | `HUMAN` | Teacher writes | `SUBMISSION_REPORT` (teacher assessment) |
 | `HUMAN` | Admin writes | `ACTIVITY_REPORT` (activity review) |
@@ -311,7 +311,7 @@ Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report
 
 ## Where Reports Sit in the 4-Layer Architecture
 
-The 5-phase learning loop is: **PathStep → Exercise → Submission → Report → RevisedExercise**
+The 4-phase learning loop is: **Exercise → UserEntry → ExerciseReport → RevisedExercise**. PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)`.
 
 The first three stages are **leaf domains** — each owns its own Neo4j nodes and fits the standard 4-layer pattern:
 
@@ -408,7 +408,7 @@ Admin writes qualitative assessment
         ↓
 POST /api/activity-review/submit → ActivityReportService.submit_report()
         ↓  (calls ActivityReportService.persist() — all writes converge here)
-ActivityReport(ProcessorType.HUMAN) created in Neo4j
+ActivityReport(ReportSource.HUMAN) created in Neo4j
 ```
 
 ### User-Initiated
@@ -439,7 +439,7 @@ When `openai_service` is available, the generator:
 6. LLM returns qualitative analysis with patterns, trends, recommendations
 7. Creates `ActivityReport` with `processed_content = LLM output`, `metadata = raw stats`
 
-**Graceful fallback:** If LLM call fails, falls back to programmatic markdown with `ProcessorType.AUTOMATIC` and logs `processing_error`. If no prior annotation exists, the prompt is unchanged.
+**Graceful fallback:** If LLM call fails, falls back to programmatic markdown with `ReportSource.AUTOMATIC` and logs `processing_error`. If no prior annotation exists, the prompt is unchanged.
 
 **Annotation feedback loop:** User annotations flow back into the next report's LLM prompt via `_fetch_previous_annotation()`. The field is also surfaced in `UserContext.latest_activity_report_user_annotation` and included in Askesis's `build_llm_context()` when the query mentions feedback/patterns/reflection keywords.
 
@@ -492,7 +492,7 @@ When `openai_service` is available, the generator:
     created_at, updated_at
 })
 // subject_uid is NOT stored as a node property — it is projected from the
-// REPORT_FOR edge on read by ExerciseReportBackend.get_by_uid / list_for_submission:
+// REPORT_FOR edge on read by ExerciseReportBackend.get / list_for_submission:
 //   OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}
 (:Entity:ExerciseReport)-[:REPORT_FOR]->(:Entity {entity_type: 'exercise_submission'})
 (:Entity:ExerciseReport)-[:SHARES_WITH]->(:User)  // submission owner — makes content visible to the student
@@ -541,7 +541,7 @@ ProgressReportGenerator.generate(user_uid, time_period="7d")
     → Checks cooldown (ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES)
     → Fetches prior annotation via _fetch_previous_annotation()
     → Sends to LLM via activity_feedback.md prompt template
-    → Fallback: programmatic markdown with ProcessorType.AUTOMATIC
+    → Fallback: programmatic markdown with ReportSource.AUTOMATIC
     │
     ▼
 ActivityReportService.persist(report: ActivityReport)

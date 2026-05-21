@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-03-26
+updated: 2026-05-16
 category: patterns
 related_skills:
 - python
@@ -12,12 +12,12 @@ related_docs:
 ---
 # MyPy Type Safety Patterns - Systematic Error Reduction
 
-**Last Updated:** March 26, 2026
-**Status:** Production - 227 → 0 errors (March 2026 full resolution)
+**Last Updated:** May 16, 2026
+**Status:** Production - 227 → 0 errors (March 2026 full resolution); `warn_return_any` enabled for `core.ports.*` + `core.auth.*` (May 2026, +Pattern 8).
 
 ## Overview
 
-This guide documents proven patterns for systematically reducing mypy errors by addressing root causes rather than symptoms. These patterns emerged from reducing SKUEL's mypy errors from 183 to 114 (38% reduction) in an initial systematic pass, then fully resolving all remaining errors to reach **0 MyPy errors** in March 2026 (227 → 0). The original five root causes remain valid educational content; sections 6 and 7 document additional patterns discovered during the final resolution.
+This guide documents proven patterns for systematically reducing mypy errors by addressing root causes rather than symptoms. These patterns emerged from reducing SKUEL's mypy errors from 183 to 114 (38% reduction) in an initial systematic pass, then fully resolving all remaining errors to reach **0 MyPy errors** in March 2026 (227 → 0). The original five root causes remain valid educational content; sections 6–8 document additional patterns discovered during the final resolution and the subsequent `warn_return_any` tightening on `core.ports.*` + `core.auth.*` (May 2026).
 
 ## Related Skills
 
@@ -655,6 +655,70 @@ class HabitsCompletionService(BaseService[HabitsOperations, Habit]):
 - If the method should be on the protocol — add it to the protocol instead
 - If multiple domains need the method — consider adding it to `BackendOperations[T]`
 - If the method is a typo or does not exist — fix the call site
+
+---
+
+## 8. `cast()` for getattr-Style Adapters
+
+**Problem:** Adapter classes that wrap arbitrary input (`Any`) and expose typed properties via `getattr(self._content, "name", default)` will trigger `no-any-return` once `warn_return_any` is enabled on the module, because `getattr(any_obj, ...)` returns `Any` and the property declares a concrete type like `-> str`.
+
+**Solution:** Wrap the return in `typing.cast(<declared_type>, value)`. `cast` is a runtime no-op — it tells MyPy "trust me, this is `T`" without inserting an `isinstance` check or widening the function signature to `Any`.
+
+### Before (silent Any leak)
+
+```python
+from typing import Any
+
+@dataclass
+class ContentAdapter:
+    def __init__(self, content: Any) -> None:
+        self._content = content
+
+    @property
+    def title(self) -> str:
+        title = getattr(self._content, "title", None)
+        if title is not None:
+            return title  # ← returns Any, leaks past the `-> str` contract
+        return str(self._content)
+```
+
+### After (cast at the boundary)
+
+```python
+from typing import Any, cast
+
+@dataclass
+class ContentAdapter:
+    def __init__(self, content: Any) -> None:
+        self._content = content
+
+    @property
+    def title(self) -> str:
+        title = getattr(self._content, "title", None)
+        if title is not None:
+            return cast(str, title)  # honest about the contract
+        return str(self._content)
+```
+
+### When to Use `cast()` vs. Alternatives
+
+| Situation | Use |
+|-----------|-----|
+| Adapter wraps `Any`; runtime guarantees the attribute is `T` | `cast(T, value)` |
+| The function genuinely returns `Any` (mixed shapes, dynamic dispatch) | `# boundary: <reason>` comment on `-> Any` |
+| Source value might NOT be `T` (untrusted external input) | `isinstance(value, T)` check |
+| Method exists at runtime but not on the declared protocol | `# type: ignore[attr-defined]` (see Pattern 7) |
+
+### When NOT to Use `cast()`
+
+- **Don't use it to silence a real type mismatch.** If the value is actually a `dict` and you cast it to `str`, downstream `.upper()` calls will crash at runtime. Reserve `cast()` for cases where you genuinely know the runtime type.
+- **Don't use it to skip writing a proper `isinstance` check on untrusted input.** Adapter boundaries (where the source comes from internal, trusted code) are the right place; HTTP request bodies and file ingestion are not.
+
+### Impact
+
+In SKUEL's codebase (May 2026):
+- **10 errors fixed** in `core/ports/content_protocols.py::ContentAdapter`
+- Enabled `warn_return_any = true` for the whole `core.ports.*` module — protocols now catch silent Any leaks at the most type-critical boundary.
 
 ---
 

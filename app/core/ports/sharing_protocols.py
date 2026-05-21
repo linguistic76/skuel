@@ -127,3 +127,24 @@ class SharingOperations(Protocol):
     ) -> Result[list[Any]]:
         """Get entities shared via group membership. Returns Result[list[dict]]."""
         ...
+
+    async def get_user_entries_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        limit: int = 20,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get UserEntries shared with one specific group the user belongs to."""
+        ...
+
+    async def get_user_entry_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        entry_uid: EntityUID,
+    ) -> Result[dict[str, Any] | None]:
+        """Read-only peer fetch for one UserEntry, gated by group membership.
+
+        Returns Result.ok(None) when not visible to the viewer via this group.
+        """
+        ...

@@ -72,8 +72,14 @@ class GroupOperations(Protocol):
         ...
 
     # Domain-specific (manual routes)
-    async def get_user_groups(self, user_uid: UserUID) -> "Result[builtins.list[Group]]":
-        """List groups the user is a member of. Returns Result[list[Group]]."""
+    async def get_user_groups(
+        self, user_uid: UserUID, role: str | None = None
+    ) -> "Result[builtins.list[Group]]":
+        """List groups the user is a member of, optionally filtered by MEMBER_OF role.
+
+        Pass role="student" to count only student-role memberships.
+        Returns Result[list[Group]].
+        """
         ...
 
     async def add_member(

@@ -97,6 +97,7 @@ class Askesis:
 
     # Metadata
     created_at: datetime = field(default_factory=_utcnow)  # Fixed: field, not tuple-wrapped
+    updated_at: datetime = field(default_factory=_utcnow)
     last_interaction: datetime | None = None
     last_intelligence_update: datetime | None = None
 
@@ -193,30 +194,9 @@ class Askesis:
 
     def to_dto(self) -> "AskesisDTO":
         """Convert from immutable domain model to mutable DTO."""
-        return AskesisDTO(
-            uid=self.uid,
-            user_uid=self.user_uid,
-            name=self.name,
-            version=self.version,
-            intelligence_confidence=self.intelligence_confidence,
-            total_conversations=self.total_conversations,
-            total_domain_integrations=self.total_domain_integrations,
-            integration_success_rate=self.integration_success_rate,
-            pattern_recognition_accuracy=self.pattern_recognition_accuracy,
-            proactive_guidance_success_rate=self.proactive_guidance_success_rate,
-            preferred_guidance_mode=self.preferred_guidance_mode.value,
-            preferred_complexity_level=self.preferred_complexity_level.value,
-            response_preferences=dict(self.response_preferences),
-            domain_expertise_levels=dict(self.domain_expertise_levels),
-            domain_usage_patterns=dict(self.domain_usage_patterns),
-            cross_domain_synergies=dict(self.cross_domain_synergies),
-            active_learning_areas=list(self.active_learning_areas),
-            knowledge_gaps=list(self.knowledge_gaps),
-            optimization_opportunities=list(self.optimization_opportunities),
-            created_at=self.created_at,
-            last_interaction=self.last_interaction,
-            last_intelligence_update=self.last_intelligence_update,
-        )
+        from core.models.dto_helpers import domain_to_dto
+
+        return domain_to_dto(self, AskesisDTO)
 
 
 # ============================================================================
@@ -434,7 +414,8 @@ class AskesisResponse:
         # NOTE: Uses getattr for optional to_summary() on SearchResultDTO
         to_summary = getattr(self.search_results, "to_summary", None)
         if callable(to_summary):
-            return to_summary()
+            summary = to_summary()
+            return str(summary) if summary is not None else None
         return f"Found {getattr(self.search_results, 'total_results', 0)} results"
 
     def should_show_prerequisites(self) -> bool:

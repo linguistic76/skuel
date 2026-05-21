@@ -14,8 +14,8 @@ Hierarchy:
     Entity (~19 fields: identity, content, status, visibility, meta, embedding)
     ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
     │   ├── Task, Goal, Habit, Event, Choice, Principle
-    │   ├── Submission → ExerciseSubmission, ExerciseReport
-    │   ├── ActivityReport (activity-level feedback — no file fields)
+    │   ├── UserEntry (ADR-054 — replaces ExerciseSubmission/JeInput/JeOutput)
+    │   ├── ExerciseReport, ActivityReport (activity-level feedback — no file fields)
     │   └── LifePath
     ├── Curriculum(Entity) → PathStep, LearningPath, Exercise
     └── Resource(Entity)
@@ -44,7 +44,9 @@ class UserOwnedEntity(Entity):
     # =========================================================================
     # USER OWNERSHIP
     # =========================================================================
-    user_uid: UserUID | None = None  # Owner user UID (e.g. "user_john")
+    user_uid: (
+        UserUID  # Owner user UID (e.g. "user_john") — required on every persisted UserOwnedEntity
+    )
     priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
 
     # =========================================================================

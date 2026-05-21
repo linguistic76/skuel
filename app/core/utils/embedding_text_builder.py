@@ -13,16 +13,9 @@ Usage:
 See: /docs/patterns/EMBEDDING_ARCHITECTURE.md
 """
 
-from typing import Any, Protocol, overload
+from typing import Any, overload
 
 from core.models.enums.entity_enums import EntityType
-
-
-class HasAttributes(Protocol):
-    """Protocol for objects with getattr support (domain models)."""
-
-    def __getattribute__(self, name: str) -> Any: ...
-
 
 # Single source of truth for embedding field mappings
 EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
@@ -38,10 +31,8 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.REVISED_EXERCISE: ("title", "instructions", "revision_rationale"),
     EntityType.EXERCISE: ("title", "instructions", "description"),
     EntityType.LEARNING_PATH: ("title", "description", "outcomes"),
-    EntityType.EXERCISE_SUBMISSION: ("title", "original_filename", "processed_content"),
-    EntityType.JE_INPUT: ("title", "original_filename", "processed_content"),
+    EntityType.USER_ENTRY: ("title", "original_filename", "processed_content"),
     EntityType.EXERCISE_REPORT: ("title", "content", "summary"),
-    EntityType.JE_OUTPUT: ("title", "output_content", "summary"),
     EntityType.FORM_TEMPLATE: ("title", "instructions", "description"),
     EntityType.FORM_SUBMISSION: ("title", "processed_content", "description"),
 }
@@ -52,12 +43,12 @@ def build_embedding_text(entity_type: EntityType, source: dict[str, Any]) -> str
 
 
 @overload
-def build_embedding_text(entity_type: EntityType, source: HasAttributes) -> str: ...
+def build_embedding_text(entity_type: EntityType, source: object) -> str: ...
 
 
 def build_embedding_text(
     entity_type: EntityType,
-    source: dict[str, Any] | HasAttributes,
+    source: dict[str, Any] | object,
 ) -> str:
     """
     Build embedding text from entity data.
@@ -130,7 +121,7 @@ def build_embedding_text(
     return separator.join(parts)
 
 
-def _get_field_value(source: dict[str, Any] | HasAttributes, field: str) -> Any:
+def _get_field_value(source: dict[str, Any] | object, field: str) -> Any:
     """
     Extract field value from dict or object.
 

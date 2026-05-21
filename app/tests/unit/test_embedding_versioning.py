@@ -33,8 +33,13 @@ def mock_backend():
 
 
 @pytest.fixture
-def embeddings_service(mock_backend):
-    """Create embeddings service with mock backend."""
+def embeddings_service(mock_backend, monkeypatch):
+    """Create embeddings service with mock backend.
+
+    HF_API_TOKEN is set so the constructor's fail-fast check passes; the real
+    AsyncInferenceClient is never called because tests patch service methods.
+    """
+    monkeypatch.setenv("HF_API_TOKEN", "test-token")
     return HuggingFaceEmbeddingsService(mock_backend)
 
 

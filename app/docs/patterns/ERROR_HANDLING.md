@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-03-18
+updated: 2026-05-16
 category: patterns
 related_skills:
 - result-pattern
@@ -119,22 +119,27 @@ async def create(self, report: Report) -> Result[Report]:
 # Services use Result[T] throughout
 class ReportService:
     async def create_report(self, data: dict) -> Result[Report]:
-        # Validation returns Result
+        # Validation returns a Result of a DIFFERENT type (e.g. Result[ValidatedData]).
+        # Use Result.fail(...) to propagate across the type boundary —
+        # bare `return validation_result` would leak Result[ValidatedData]
+        # through a function declaring Result[Report], which mypy's
+        # warn_return_any catches in strict modules (core.auth.*, core.ports.*).
         validation_result = self._validate_create(data)
-        if not validation_result.is_ok:
-            return validation_result
+        if validation_result.is_error:
+            return Result.fail(validation_result)
 
-        # Backend also returns Result
+        # Backend returns Result[Report] — same generic, so direct return is fine.
         report = Report(**data)
         create_result = await self.backend.create(report)
 
-        # Chain operations without try/catch
         if create_result.is_ok:
             # Additional business logic
             await self._send_notification(create_result.value)
 
-        return create_result  # Propagate Result
+        return create_result  # Same Result[Report] type — direct return OK
 ```
+
+> **Rule:** if the sub-call's `Result[X]` matches the function's `Result[X]`, `return sub_result` is fine. If the generics differ (`Result[Other]` → `Result[X]`), wrap with `Result.fail(sub_result)`. See [result-pattern Pattern 3 — Cross-Type Error Propagation](../../.claude/skills/result-pattern/SKILL.md#pattern-3-cross-type-error-propagation).
 
 ### Layer 3: Routes (System Boundary)
 ```python

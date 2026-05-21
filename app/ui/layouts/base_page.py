@@ -33,17 +33,25 @@ from ui.layouts.navbar import (
     create_navbar_for_request,
 )
 from ui.layouts.page_types import PAGE_CONFIG, PageType
-from ui.theme import ALPINE_VERSION, BRAND_THEME, HTMX_VERSION, pwa_headers
+from ui.theme import (
+    ALPINE_VERSION,
+    BRAND_THEME,
+    HTMX_VERSION,
+    _local_headers_offline_safe,
+    pwa_headers,
+)
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from adapters.inbound.fasthtml_types import Request
 
-# Cache MonsterUI headers at import time — local_headers() downloads vendor files from CDN
-# on every call (httpx.get per file). Caching here means the download happens once at
-# module import, not on every page render.
-_MU_HEADERS = BRAND_THEME.local_headers(static_dir="static/vendor/monsterui", radii="sm")
+# Cache MonsterUI headers at import time. Use the offline-safe helper so startup
+# doesn't hit the CDN when vendor files are already on disk (upstream local_headers()
+# re-downloads every call and crashes when DNS is unreachable).
+_MU_HEADERS = _local_headers_offline_safe(
+    BRAND_THEME, static_dir="static/vendor/monsterui", radii="sm"
+)
 
 
 def build_head(
@@ -76,8 +84,8 @@ def build_head(
         Title(f"{title} - SKUEL"),
         # MonsterUI headers (FrankenUI CSS/JS + Tailwind + Lucide icons) — cached at import
         *_MU_HEADERS,
-        # HTMX for hypermedia
-        Script(src=f"https://unpkg.com/htmx.org@{HTMX_VERSION}"),
+        # HTMX for hypermedia (self-hosted — see ui/theme.py:monster_headers)
+        Script(src=f"/static/vendor/htmx.org/htmx.{HTMX_VERSION}.min.js"),
         # Alpine.js (self-hosted, version-pinned)
         Script(src=f"/static/vendor/alpinejs/alpine.{ALPINE_VERSION}.min.js", defer=True),
         # Vis.js Network (self-hosted, v9.1.9) - Lateral Relationships

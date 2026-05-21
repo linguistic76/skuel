@@ -20,16 +20,16 @@ This document explains *why* SKUEL values type safety and *when* to apply it. Fo
 
 ## Types as Ontology
 
-SKUEL is built on a developing ontology — 22 entity types, behavioral traits, relationship patterns, and cross-cutting systems that together describe a learner's world. The type system is how that ontology becomes executable:
+SKUEL is built on a developing ontology — 20 entity types, behavioral traits, relationship patterns, and cross-cutting systems that together describe a learner's world. The type system is how that ontology becomes executable:
 
 | Ontological Concept | Type Expression |
 |---------------------|-----------------|
-| "There are 21 kinds of things" | `EntityType` enum with 21 values |
+| "There are 20 kinds of things" | `EntityType` enum with 20 values |
 | "Some things are owned by users" | `UserOwnedEntity(Entity)` base class |
 | "Entities have behavioral traits" | `is_activity()`, `is_processable()`, `requires_user_uid()` methods |
 | "Services have defined contracts" | 65+ protocols in `core/ports/` |
 | "Query results have known shapes" | 159 TypedDicts in `core/ports/query_types.py` |
-| "The learning loop has phases" | `PathStep -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise` type chain |
+| "The learning loop has 4 phases" | `Exercise -> UserEntry -> ExerciseReport -> RevisedExercise` type chain (anchored to PathStep via `Exercise.path_step_uid`) |
 
 When the ontology evolves — a new entity type, a new relationship, a new behavioral trait — the type system evolves with it. A MyPy error after such a change is not noise; it's the system telling you where the old ontology assumptions no longer hold. This is why SKUEL's core principle for type safety is: *"A type error from MyPy reveals a real design problem, not an annotation oversight."*
 
@@ -137,13 +137,13 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | Milestone | Status |
 |-----------|--------|
 | 0 MyPy errors baseline | Achieved March 2026 (down from 2,247) |
-| Three-tier type system | Enforced across all 22 entity types |
+| Three-tier type system | Enforced across all 20 entity types |
 | Protocol-based DI | 65+ protocols, 100% protocol-mixin alignment |
 | Typed protocol returns | ~170 methods return specific models/TypedDicts, 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed to concrete types |
 | Query type coverage | 159 TypedDicts (21 input, 138 output) |
 | Any usage policy | Three categories with enforcement |
 | Security NewTypes | `UserUID` propagated to ~1,930 annotations across 313 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`). All layers enforce `UserUID` — auth, REST, GraphQL, services, backends, ingestion |
-| Enum-enforced boundaries | `UserRole`, `ExerciseScope`, `EntityStatus`, `ProcessorType`, `Visibility`, `SubmissionModality`, `FeedbackCategory`, `MasteryImpact`, `EnrichmentMode` — zero raw string comparisons for roles, scopes, status checks, processor types, visibility levels, modalities, feedback categorization, mastery scoring, enrichment modes |
+| Enum-enforced boundaries | `UserRole`, `ExerciseScope`, `EntityStatus`, `Pipeline`, `ReportSource`, `Visibility`, `SubmissionModality`, `FeedbackCategory`, `MasteryImpact`, `EnrichmentMode` — zero raw string comparisons for roles, scopes, status checks, pipeline, visibility levels, modalities, feedback categorization, mastery scoring, enrichment modes |
 | Search protocol generics | All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, `Choice`, `Principle`, `Task`, `Habit`), not `Entity` |
 
 This foundation is valued and allowed to evolve. As the ontology grows — new entity types, new relationships, new cross-cutting systems — the type system grows with it. The goal is not perfection frozen in place, but a living system where types track the domain as it reveals itself.
@@ -163,4 +163,4 @@ This foundation is valued and allowed to evolve. As the ontology grows — new e
 ### Related Philosophy (the *why*)
 - [Knowledge Substance Philosophy](knowledge_substance_philosophy.md) — ontological hierarchy and applied knowledge
 - [Activity DSL Specification](../dsl/DSL_SPECIFICATION.md) — the raw-to-typed lifecycle in action
-- [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md) — the 22 entity types and behavioral traits
+- [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md) — the 20 entity types and behavioral traits

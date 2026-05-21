@@ -67,6 +67,7 @@ class TestKuThreeTierRoundTrip:
         """CurriculumDTO → Entity.from_dto() must carry all 26 fields."""
         dto = self._make_full_dto()
         ku = Entity.from_dto(dto)
+        assert isinstance(ku, Curriculum)
 
         assert ku.uid == dto.uid
         assert ku.title == dto.title
@@ -101,7 +102,9 @@ class TestKuThreeTierRoundTrip:
         """Ku.to_dto() must carry all 26 fields back to CurriculumDTO."""
         dto = self._make_full_dto()
         ku = Entity.from_dto(dto)
+        assert isinstance(ku, Curriculum)
         dto2 = ku.to_dto()
+        assert isinstance(dto2, CurriculumDTO)
 
         assert dto2.uid == dto.uid
         assert dto2.title == dto.title
@@ -142,9 +145,11 @@ class TestKuThreeTierRoundTrip:
             sel_category=None,
         )
         ku = Entity.from_dto(dto)
+        assert isinstance(ku, Curriculum)
         assert ku.sel_category is None
 
         dto2 = ku.to_dto()
+        assert isinstance(dto2, CurriculumDTO)
         assert dto2.sel_category is None
 
 
@@ -305,7 +310,12 @@ class TestKuTypeDispatch:
 
     def test_task_dispatches_to_task_ku(self):
         """EntityType.TASK dispatches to Task, not Curriculum."""
-        dto = TaskDTO(uid="task_test_abc", title="Test Task", entity_type=EntityType.TASK)
+        dto = TaskDTO(
+            uid="task_test_abc",
+            title="Test Task",
+            entity_type=EntityType.TASK,
+            user_uid="user_test",
+        )
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Task)
         assert not isinstance(ku, Curriculum)
@@ -379,7 +389,7 @@ class TestCurriculumFieldSeparation:
 
     def test_kubase_stubs_return_defaults(self):
         """Entity stubs return 0.0 and False for non-curriculum types."""
-        task = Task(uid="task_test", title="Test Task")
+        task = Task(uid="task_test", title="Test Task", user_uid="user_test")
         assert task.substance_score() == 0.0
         assert task.needs_review() is False
 
@@ -406,6 +416,7 @@ class TestCurriculumFieldSeparation:
             uid="task_test_rt",
             title="Task RT",
             entity_type=EntityType.TASK,
+            user_uid="user_test",
         )
         ku = Entity.from_dto(dto)
         assert isinstance(ku, Task)

@@ -110,7 +110,7 @@ class Neo4jSchemaManager:
             )
 
         label = label or entity_class.__name__
-        results = {"created": [], "existing": [], "failed": []}
+        results: dict[str, list[str]] = {"created": [], "existing": [], "failed": []}
 
         try:
             for field_info in fields(entity_class):
@@ -132,10 +132,10 @@ class Neo4jSchemaManager:
                     status = result.value
                     if status == "created":
                         results["created"].append(f"{label}.{field_name}")
-                        (self.logger.info(f"Created index: {label}.{field_name}"),)
+                        self.logger.info(f"Created index: {label}.{field_name}")
                     else:
                         results["existing"].append(f"{label}.{field_name}")
-                        (self.logger.debug(f"Index already exists: {label}.{field_name}"),)
+                        self.logger.debug(f"Index already exists: {label}.{field_name}")
                 else:
                     results["failed"].append(f"{label}.{field_name}")
                     self.logger.error(
@@ -440,7 +440,7 @@ class Neo4jSchemaManager:
         Returns:
             Result with summary of created indexes
         """
-        results = {"created": [], "failed": []}
+        results: dict[str, list[str]] = {"created": [], "failed": []}
 
         # Rate limiting index: AuthEvent(email, event_type, timestamp)
         # Used by count_recent_failed_attempts() query
@@ -502,7 +502,7 @@ class Neo4jSchemaManager:
                 similarity="cosine"
             )
         """
-        results = {"created": [], "failed": []}
+        results: dict[str, list[str]] = {"created": [], "failed": []}
 
         for label in entity_labels:
             result = await self.create_vector_index(
@@ -598,8 +598,8 @@ class Neo4jSchemaManager:
             # Learning Loop (2)
             ("revised_exercise_fulltext_idx", "RevisedExercise", ["title", "instructions"]),
             (
-                "exercise_submission_fulltext_idx",
-                "ExerciseSubmission",
+                "user_entry_fulltext_idx",
+                "UserEntry",
                 ["title", "processed_content"],
             ),
             # Forms (2)
@@ -696,10 +696,14 @@ class Neo4jSchemaManager:
         Drop indexes that reference labels no longer in use.
 
         Stale indexes:
-        - ai_report_uid_idx (label AiReport — reports use ExerciseReport/JeOutput)
+        - ai_report_uid_idx (label AiReport — reports use ExerciseReport)
         - lpstep_embedding_idx (label LpStep — current label is PathStep)
-        - journal_submission_* (label JournalSubmission — renamed to JeInput)
-        - journal_report_* (label JournalReport — renamed to JeOutput)
+        - journal_submission_* (label JournalSubmission — predecessor of JeInput)
+        - journal_report_* (label JournalReport — predecessor of JeOutput)
+        - submission_uid_idx (label Submission — abstract base removed in ADR-054)
+        - exercise_submission_* (label ExerciseSubmission — collapsed into UserEntry, ADR-054)
+        - je_input_* (label JeInput — collapsed into UserEntry, ADR-054)
+        - je_output_* (label JeOutput — collapsed into UserEntry, ADR-054)
         - knowledge_fulltext (legacy — label Entity with old field set)
         - tasks_fulltext (legacy — replaced by task_fulltext_idx)
         - journals_fulltext (legacy — label Document no longer exists)
@@ -713,6 +717,17 @@ class Neo4jSchemaManager:
             "journal_submission_user_uid_idx",
             "journal_report_uid_idx",
             "journal_report_user_uid_idx",
+            # ADR-054: Submission/ExerciseSubmission/JeInput/JeOutput collapsed into UserEntry
+            "submission_uid_idx",
+            "exercise_submission_uid_idx",
+            "exercise_submission_user_uid_idx",
+            "exercise_submission_fulltext_idx",
+            "je_input_uid_idx",
+            "je_input_user_uid_idx",
+            "je_input_fulltext_idx",
+            "je_output_uid_idx",
+            "je_output_user_uid_idx",
+            "je_output_fulltext_idx",
             # Legacy fulltext indexes (replaced by sync_fulltext_indexes)
             "knowledge_fulltext",
             "tasks_fulltext",
@@ -784,11 +799,8 @@ class Neo4jSchemaManager:
             ("path_step_uid_idx", "PathStep"),
             ("life_path_uid_idx", "LifePath"),
             ("resource_uid_idx", "Resource"),
-            ("submission_uid_idx", "Submission"),
-            ("exercise_submission_uid_idx", "ExerciseSubmission"),
-            ("je_input_uid_idx", "JeInput"),
+            ("user_entry_uid_idx", "UserEntry"),
             ("exercise_report_uid_idx", "ExerciseReport"),
-            ("je_output_uid_idx", "JeOutput"),
             ("activity_report_uid_idx", "ActivityReport"),
             ("form_template_uid_idx", "FormTemplate"),
             ("form_submission_uid_idx", "FormSubmission"),
@@ -805,10 +817,8 @@ class Neo4jSchemaManager:
             ("event_user_uid_idx", "Event"),
             ("choice_user_uid_idx", "Choice"),
             ("principle_user_uid_idx", "Principle"),
-            ("exercise_submission_user_uid_idx", "ExerciseSubmission"),
-            ("je_input_user_uid_idx", "JeInput"),
+            ("user_entry_user_uid_idx", "UserEntry"),
             ("exercise_report_user_uid_idx", "ExerciseReport"),
-            ("je_output_user_uid_idx", "JeOutput"),
             ("activity_report_user_uid_idx", "ActivityReport"),
             ("form_submission_user_uid_idx", "FormSubmission"),
             ("revised_exercise_user_uid_idx", "RevisedExercise"),

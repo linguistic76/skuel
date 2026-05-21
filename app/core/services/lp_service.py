@@ -570,7 +570,7 @@ class LpService:
 
     async def create(self, entity: LearningPath) -> Result[LearningPath]:
         """Create method for CRUDRouteFactory compatibility."""
-        user_uid = getattr(entity, "user_uid", "demo_user")
+        user_uid = UserUID(str(getattr(entity, "user_uid", "demo_user")))
         steps = entity.metadata.get("steps", []) if entity.metadata else []
         return await self.create_path(
             user_uid=user_uid,

@@ -16,7 +16,7 @@ Hierarchy:
     Entity (~19 fields)
     ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
     │   ├── Task, Goal, Habit, Event, Choice, Principle
-    │   ├── Submission, ExerciseReport, ActivityReport, JeInput, JeOutput
+    │   ├── UserEntry (ADR-054), ExerciseReport, ActivityReport
     │   └── LifePath
     ├── Curriculum(Entity) → PathStep, LearningPath, Exercise
     └── Resource(Entity)
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID
 
 
@@ -60,7 +61,7 @@ class Entity:
     # =========================================================================
     # IDENTITY
     # =========================================================================
-    uid: str
+    uid: EntityUID
     title: str
     entity_type: EntityType = EntityType.KU
     parent_entity_uid: EntityUID | None = None  # Derivation chain — what Entity this was based on
@@ -122,20 +123,10 @@ class Entity:
             object.__setattr__(self, "metadata", MappingProxyType(self.metadata))
 
     # =========================================================================
-    # USER OWNERSHIP COMPATIBILITY
-    # Properties for backward compatibility with code accessing user_uid/priority
-    # on any Entity subclass. UserOwnedEntity overrides with real fields.
+    # USER OWNERSHIP
+    # user_uid / priority live on UserOwnedEntity as real fields. Callers
+    # accessing them on a bare Entity should gate with isinstance(e, UserOwnedEntity).
     # =========================================================================
-
-    @property
-    def user_uid(self) -> str | None:
-        """Shared types have no owner. UserOwnedEntity overrides with a field."""
-        return None
-
-    @property
-    def priority(self) -> str | None:
-        """Shared types have no priority. UserOwnedEntity overrides with a field."""
-        return None
 
     @property
     def is_user_owned(self) -> bool:
@@ -236,18 +227,12 @@ class Entity:
         return False
 
     # =========================================================================
-    # DISPLAY
+    # GRAPH INTELLIGENCE (Intent Suggestion)
     # =========================================================================
 
-    @property
-    def name(self) -> str:
-        """Alias for title — backward compat for code referencing old domain models."""
-        return self.title
-
-    @property
-    def key_topics(self) -> tuple[str, ...]:
-        """Key topics — alias for tags."""
-        return self.tags
+    def get_suggested_query_intent(self) -> QueryIntent:
+        """Default intent for graph-context queries. Override in subclass for specialized routing."""
+        return QueryIntent.EXPLORATORY
 
     # =========================================================================
     # CONVERSION — DISPATCHER + GENERIC EXTRACTION
@@ -279,6 +264,17 @@ class Entity:
         ensuring each subclass only gets its own fields + inherited Entity fields.
         Converts lists to tuples for frozen dataclass compatibility.
         """
+        from core.models.user_owned_entity import UserOwnedEntity
+
+        # Fail-fast at the DTO→Entity boundary: a user-owned entity cannot exist
+        # without an owner. Every create path (services, ingestion, bulk upload)
+        # sets user_uid; a None here means a caller built the DTO partially.
+        if issubclass(cls, UserOwnedEntity) and getattr(dto, "user_uid", None) is None:
+            raise ValueError(
+                f"{cls.__name__}._from_dto: dto.user_uid is None — user-owned "
+                f"entities require an owner (uid={getattr(dto, 'uid', '?')})"
+            )
+
         field_names = {f.name for f in dataclasses.fields(cls) if not f.name.startswith("_")}
         kwargs: dict[str, Any] = {}
         for name in field_names:
@@ -286,6 +282,9 @@ class Entity:
             if isinstance(value, list):
                 value = tuple(value)
             kwargs[name] = value
+        # Wrap uid as EntityUID at the DTO→Entity boundary (DTOs store uid as str).
+        if "uid" in kwargs and kwargs["uid"] is not None:
+            kwargs["uid"] = EntityUID(str(kwargs["uid"]))
         return cls(**kwargs)
 
     def to_dto(self) -> "EntityDTO":
@@ -298,22 +297,10 @@ class Entity:
 
         Converts tuples back to lists for DTO mutability.
         """
+        from core.models.dto_helpers import domain_to_dto
         from core.models.entity_dto import EntityDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(EntityDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, MappingProxyType):
-                value = dict(value)
-            elif isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return EntityDTO(**kwargs)
+        return domain_to_dto(self, EntityDTO)
 
     # =========================================================================
     # DISPLAY

@@ -62,7 +62,7 @@ class MockGraphContext:
     origin_uid: str
     total_nodes: int = 5
     total_relationships: int = 3
-    domains_involved: list = None
+    domains_involved: list | None = None
 
     def __post_init__(self):
         if self.domains_involved is None:
@@ -74,7 +74,7 @@ class MockGraphContext:
             "origin": f"goals:{self.origin_uid}",
             "total_nodes": self.total_nodes,
             "total_relationships": self.total_relationships,
-            "domains": [d.value for d in self.domains_involved],
+            "domains": [d.value for d in (self.domains_involved or [])],
         }
 
 
@@ -470,7 +470,7 @@ class MockOwnershipService:
 
     def __init__(self, owned_uids: set | None = None):
         self.owned_uids = owned_uids or {"goal:owned123"}
-        self.verify_calls = []
+        self.verify_calls: list[tuple[str, str]] = []
 
     async def verify_ownership(self, uid: str, user_uid: str) -> Result[MockGoal]:
         """Verify ownership - returns entity if owned, NotFound otherwise."""

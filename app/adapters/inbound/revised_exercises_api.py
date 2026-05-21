@@ -1,5 +1,5 @@
 """
-Revised Exercises API - Five-Phase Learning Loop
+Revised Exercises API - Four-Phase Learning Loop
 ==================================================
 
 Domain-specific API routes for RevisedExercise operations. CRUD routes
@@ -96,6 +96,6 @@ def create_revised_exercises_api_routes(
             return Result.fail(Errors.not_found(resource="RevisedExercise", identifier=uid))
         return result
 
-    logger.info("Revised Exercises API routes registered (five-phase learning loop)")
+    logger.info("Revised Exercises API routes registered (four-phase learning loop)")
 
     return []

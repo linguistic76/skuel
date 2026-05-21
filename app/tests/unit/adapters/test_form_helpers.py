@@ -16,16 +16,22 @@ Tests cover:
 
 from datetime import date, datetime, time
 from enum import Enum
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+from pydantic import BaseModel
 
 from adapters.inbound.form_helpers import (
     ActivityFilters,
     PrincipleFilters,
     TaskFilters,
+    _list_field_names,
+    _split_list_input,
     parse_activity_filters,
     parse_date_safe,
     parse_datetime_safe,
     parse_enum_safe,
+    parse_form_body,
     parse_principle_filters,
     parse_task_filters,
     parse_time_safe,
@@ -317,3 +323,65 @@ class TestParsePrincipleFilters:
         result = parse_principle_filters(request)
         assert isinstance(result, PrincipleFilters)
         assert isinstance(result, ActivityFilters)
+
+
+# ============================================================================
+# _list_field_names / _split_list_input / parse_form_body list handling
+# ============================================================================
+
+
+class _SchemaWithLists(BaseModel):
+    title: str
+    tags: list[str] = []
+    aliases: list[str] | None = None
+    count: int = 0
+
+
+class TestListFieldNames:
+    def test_detects_plain_and_optional_lists(self):
+        assert _list_field_names(_SchemaWithLists) == {"tags", "aliases"}
+
+    def test_ignores_non_list_fields(self):
+        names = _list_field_names(_SchemaWithLists)
+        assert "title" not in names and "count" not in names
+
+
+class TestSplitListInput:
+    def test_splits_on_newlines(self):
+        assert _split_list_input("a\nb\n c ") == ["a", "b", "c"]
+
+    def test_falls_back_to_commas(self):
+        assert _split_list_input("a, b ,c") == ["a", "b", "c"]
+
+    def test_empty_returns_empty_list(self):
+        assert _split_list_input("") == []
+
+    def test_whitespace_only_items_dropped(self):
+        assert _split_list_input("a\n\n  \nb") == ["a", "b"]
+
+
+@pytest.mark.asyncio
+class TestParseFormBodyListFields:
+    async def _post(self, fields: dict[str, str]) -> _SchemaWithLists:
+        request = Mock()
+        request.form = AsyncMock(return_value=fields)
+        result = await parse_form_body(request, _SchemaWithLists)
+        assert not result.is_error, result.expect_error()
+        return result.value
+
+    async def test_textarea_newlines_become_list(self):
+        model = await self._post({"title": "T", "tags": "a\nb\nc"})
+        assert model.tags == ["a", "b", "c"]
+
+    async def test_optional_list_accepts_comma_separated(self):
+        model = await self._post({"title": "T", "aliases": "x, y, z"})
+        assert model.aliases == ["x", "y", "z"]
+
+    async def test_empty_list_field_yields_empty_list(self):
+        model = await self._post({"title": "T", "tags": ""})
+        assert model.tags == []
+
+    async def test_non_list_field_unchanged(self):
+        model = await self._post({"title": "Hello", "count": "5"})
+        assert model.title == "Hello"
+        assert model.count == 5

@@ -145,7 +145,7 @@ class TaskDTO(UserOwnedDTO):
 # Tier 3: Domain Model (Core) — per-domain frozen dataclass hierarchy
 @dataclass(frozen=True)
 class Entity:
-    """~19 common fields. Base for all 15 EntityType domains."""
+    """~19 common fields. Base for all 25 EntityType domains."""
     uid: str
     title: str
     ...
@@ -174,9 +174,8 @@ Entity (~19 fields)
 ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle
 │   ├── ActivityReport                           (activity feedback — no file fields)
-│   ├── Submission → ExerciseSubmission
-│   ├── ExerciseReport(UserOwnedEntity)  (NOT Submission — report fields only)
-│   ├── JeInput, JeOutput  (standalone journal domain)
+│   ├── UserEntry
+│   ├── ExerciseReport(UserOwnedEntity)
 │   └── LifePath
 ├── Curriculum(Entity) +21 fields → PathStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields
@@ -188,9 +187,8 @@ Entity (~19 fields)
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 fields → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
 ├── UserOwnedDTO → ActivityReportDTO              (activity feedback — no file fields)
-├── UserOwnedDTO → SubmissionDTO → ExerciseSubmissionDTO
-├── UserOwnedDTO → ExerciseReportDTO
-├── UserOwnedDTO → JeInputDTO, JeOutputDTO  (standalone journal domain)
+├── UserOwnedDTO -> UserEntryDTO
+├── UserOwnedDTO -> ExerciseReportDTO
 ├── CurriculumDTO(EntityDTO) → PathStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
@@ -221,7 +219,7 @@ core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
 ├── choice.py / choice_dto.py      # Choice domain
 ├── principle.py / principle_dto.py # Principle domain
 ├── life_path.py / life_path_dto.py # LifePath domain
-├── submission.py / submission_dto.py # Submission base
+├── user_entry.py / user_entry_dto.py # UserEntry(UserOwnedEntity)
 ├── activity_report.py / activity_report_dto.py # ActivityReport(UserOwnedEntity) — no file fields
 ├── exercise_report.py / exercise_report_dto.py  # ExerciseReport(UserOwnedEntity)
 ├── curriculum.py / curriculum_dto.py # Curriculum base
@@ -501,8 +499,10 @@ class Task(UserOwnedEntity):
 
     def to_dto(self) -> "TaskDTO":  # type: ignore[override]
         """Convert Task to domain-specific TaskDTO."""
-        from core.models.ku.task_dto import TaskDTO
-        ...
+        from core.models.dto_helpers import domain_to_dto
+        from core.models.task.task_dto import TaskDTO
+        
+        return domain_to_dto(self, TaskDTO)
 ```
 
 **Note:** The `# type: ignore[override]` on `to_dto()` is expected -- child classes return a more specific DTO type (covariant return), which is correct at runtime but requires suppression for MyPy.
@@ -570,8 +570,7 @@ As of February 2026 (domain-first architecture complete):
 - All 6 Activity domains: Task, Goal, Habit, Event, Choice, Principle (extend `UserOwnedEntity`)
 - All 3 Curriculum domains: PathStep, LearningPath, Exercise (extend `Curriculum`)
 - Resource domain (extends `Entity`)
-- Submissions: ExerciseSubmission (extends `Submission(UserOwnedEntity)`)
-- Journal: JeInput, JeOutput (extend `UserOwnedEntity` directly — standalone domain)
+- Submissions/Journal: UserEntry (extends `UserOwnedEntity`)
 - Feedback: ActivityReport (extends `UserOwnedEntity` directly — no file fields)
 - LifePath (extends `UserOwnedEntity`)
 - Each domain has a corresponding per-domain DTO (e.g., `TaskDTO`, `GoalDTO`)
@@ -734,7 +733,7 @@ The `total=False` makes all fields optional, matching the partial update semanti
 | `/core/models/protocols/domain_model_protocol.py` | Protocol definition |
 | `/core/models/enums/entity_enums.py` | EntityType, EntityStatus enums |
 | `/adapters/persistence/neo4j/universal_backend.py` | Generic backend with multi-label support |
-| `/adapters/persistence/neo4j/neo_label.py` | NeoLabel enum (ENTITY + 22 entity type labels) |
+| `/adapters/persistence/neo4j/neo_label.py` | NeoLabel enum (ENTITY + 20 entity type labels) |
 | `/adapters/persistence/neo4j/user_backend.py` | User backend |
 | `/core/services/base_service.py` | Base service |
 | `/core/ports/query_types.py` | TypedDict definitions |
@@ -793,7 +792,7 @@ The `total=False` makes all fields optional, matching the partial update semanti
 **Mitigation**: The domain-first hierarchy reduces boilerplate:
 - `to_dict()` chains via `super()` -- EntityDTO serializes 18 fields, UserOwnedDTO adds 3, TaskDTO adds 25
 - `from_dict()` uses `dto_from_dict()` generic helper that filters data to only fields on the dataclass
-- `to_dto()` / `from_dto()` methods on domain models handle the Domain-to-DTO conversion directly
+- `to_dto()` / `from_dto()` methods on domain models utilize the `domain_to_dto()` generic helper. This eliminates repetitive field mapping, automatically handles deep immutability unwrapping (like `MappingProxyType`), and enforces structural integrity.
 
 ## Complete Example: Following a Request
 

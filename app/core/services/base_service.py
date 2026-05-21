@@ -73,7 +73,7 @@ RelationshipOperationsMixin:
 
 TimeQueryMixin:
     get_user_items_in_range_base, get_user_items_in_range,
-    get_due_soon, get_overdue
+    get_upcoming, get_overdue, get_active
 
 UserProgressMixin:
     get_user_progress, update_user_mastery, get_user_curriculum
@@ -195,6 +195,17 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         self.service_name = service_name or self._service_name or self.__class__.__name__
         self.logger = get_logger(f"skuel.services.{self.service_name}")  # type: ignore[assignment]  # structlog BoundLogger
 
+        # Sync DomainConfig values onto the instance so mixins that read
+        # self._dto_class / self._model_class see the configured classes.
+        # Without this, services configured via _config (the modern pattern)
+        # fall through to the None class-level defaults at runtime.
+        config = self._get_config_cls()
+        if config is not None:
+            if getattr(config, "dto_class", None) is not None:
+                self._dto_class = config.dto_class
+            if getattr(config, "model_class", None) is not None:
+                self._model_class = config.model_class
+
         # Log initialization
         self.logger.debug(f"{self.service_name} initialized with BackendOperations backend")
 
@@ -282,20 +293,22 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     # Optional: Override entity label if different from model class name
     # Set to a string like "Expense" if the Neo4j label differs from _model_class.__name__
     _entity_label: ClassVar[str | None] = None
+    _config_lookup_label: ClassVar[str | None] = None
 
     @cached_property
     def entity_label(self) -> str:
         """
-        Return the graph label for this entity type.
+        Return the Neo4j base-label for multi-label Cypher matching.
 
-        **AUTO-INFERENCE (January 2026):** By default, infers from _model_class.__name__.
-        Services only need to override via _entity_label class attribute when the
-        Neo4j label differs from the model class name.
+        For the unified :Entity scheme, this is ``"Entity"`` for all domain entities
+        (Tasks, Goals, Habits, …, PathSteps). Standalone entities like Ku and Finance
+        override this to their own Neo4j label.
 
-        **OPTIMIZATION (2026-01-31):** Cached property for 50-100x faster access.
+        For the **registry-lookup key** (domain-specific: ``"Task"``, ``"Goal"``, …),
+        use :attr:`config_lookup_label` instead.
 
         Priority:
-            1. _config.entity_label (from DomainConfig, )
+            1. _config.entity_label (from DomainConfig)
             2. _entity_label class attribute (explicit override)
             3. _config.model_class.__name__ (from DomainConfig)
             4. _model_class.__name__ (auto-inferred)
@@ -325,6 +338,37 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
             if class_name.endswith(suffix):
                 return class_name[: -len(suffix)]
         return class_name
+
+    @cached_property
+    def config_lookup_label(self) -> str:
+        """
+        Return the LABEL_CONFIGS registry key for this service.
+
+        Distinct from :attr:`entity_label` (the Neo4j base-label). The lookup label is
+        the domain-specific key (``"Task"``, ``"Goal"``, ``"PathStep"``, …) used by
+        ``context_operations_mixin`` to fetch the ``DomainRelationshipConfig``.
+
+        Priority:
+            1. _config.config_lookup_label (from DomainConfig)
+            2. _config_lookup_label class attribute (explicit override)
+            3. _config.model_class.__name__
+            4. _model_class.__name__
+            5. entity_label (last-resort fallback)
+        """
+        config = self._get_config_cls()
+        if config and config.config_lookup_label:
+            return config.config_lookup_label
+
+        if self._config_lookup_label:
+            return self._config_lookup_label
+
+        if config and config.model_class:
+            return config.model_class.__name__
+
+        if self._model_class is not None:
+            return self._model_class.__name__
+
+        return self.entity_label
 
     def _get_config_value(self, attr_name: str, default: Any = None) -> Any:
         """

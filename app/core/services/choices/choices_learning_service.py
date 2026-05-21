@@ -69,7 +69,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
             service=self,
             backend_get=self.backend.get,
             backend_get_user=self.backend.get_user_choices,
-            backend_create=self.backend.create,
+            backend_create=self.backend.create_choice,
             domain=Domain.CHOICES,
             entity_name="choice",
         )
@@ -203,15 +203,6 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
 
         return Result.ok(enhanced_guidance)
 
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Choice entities."""
-        return "Entity"
-
     def _analyze_option_learning_impact(
         self, option: str, learning_position: LpPosition
     ) -> dict[str, Any]:
@@ -241,7 +232,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
             path_domain = str(path.domain.value)
 
             # Simple keyword matching for demonstration
-            if any(word in option_lower for word in path.name.lower().split()):
+            if any(word in option_lower for word in path.title.lower().split()):
                 path_alignment += 0.5
 
             if path_domain.lower() in option_lower:
@@ -258,9 +249,9 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
             if path_alignment > 0.3:
                 supporting_paths.append(
                     {
-                        "path": path.name,
+                        "path": path.title,
                         "alignment": path_alignment,
-                        "reason": f"Option aligns with {path.name} learning objectives",
+                        "reason": f"Option aligns with {path.title} learning objectives",
                     }
                 )
                 alignment_score += path_alignment
@@ -352,7 +343,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
 
             # Check if choice affected this path
             choice_text = f"{choice.title} {choice.description}".lower()
-            if path.name.lower() in choice_text:
+            if path.title.lower() in choice_text:
                 path_impact += 0.5
 
             # Check current step relevance
@@ -369,9 +360,9 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
 
                 path_advancement.append(
                     {
-                        "path": path.name,
+                        "path": path.title,
                         "impact_score": path_impact,
-                        "advancement": f"Choice supported progression in {path.name}",
+                        "advancement": f"Choice supported progression in {path.title}",
                     }
                 )
 

@@ -30,7 +30,7 @@ Usage:
 """
 
 from datetime import UTC, date, datetime, time, timedelta
-from typing import TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -289,6 +289,30 @@ def parse_datetime_field(
         return parse_datetime(value)
     except (ValueError, TypeError):
         return default
+
+
+def parse_date_field(value: Any) -> date | None:
+    """
+    Parse a date value from Neo4j (string, date, or neo4j.time.Date).
+
+    Neo4j returns dates as neo4j.time.Date objects; this helper normalizes
+    them alongside strings and native date objects.
+
+    Args:
+        value: Date value in various formats
+
+    Returns:
+        Python date object or None
+    """
+    if value is None:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    if getattr(type(value), "__module__", "") == "neo4j.time":
+        return date(value.year, value.month, value.day)
+    return None
 
 
 # =============================================================================

@@ -3,10 +3,10 @@ Phase 3: ExerciseReport — Student-Facing Feedback Pages
 =========================================================
 
 Student view of exercise feedback. An ExerciseReport is created when a teacher
-or AI evaluates a submission (Phase 2: ExerciseSubmission):
+or AI evaluates a submission (Phase 2: UserEntry):
 
-    ExerciseSubmission → ExerciseReport  (teacher: ProcessorType.HUMAN)
-                      → ExerciseReport  (AI: ProcessorType.LLM)
+    UserEntry → ExerciseReport  (teacher: ReportSource.HUMAN)
+              → ExerciseReport  (AI: ReportSource.LLM)
 
 assessment_outcome drives what the student sees:
     APPROVED        — work accepted; loop closes for this exercise
@@ -38,14 +38,14 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.cards import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
+from ui.learning_loop.report import (
+    render_exercise_report_detail,
+    render_received_report_list,
+)
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
-from ui.submissions.report import (
-    render_exercise_report_detail,
-    render_received_report_list,
-)
 
 logger = get_logger("skuel.routes.exercise_reports")
 

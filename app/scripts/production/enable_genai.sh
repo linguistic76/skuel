@@ -33,13 +33,14 @@ echo ""
 echo "Checking current status..."
 PLUGIN_STATUS=$(uv run python -c "
 import asyncio
-from neo4j import AsyncGraphDatabase
 import os
+from neo4j import AsyncGraphDatabase
+from core.config.credential_store import get_credential
 
 async def check():
     driver = AsyncGraphDatabase.driver(
         os.getenv('NEO4J_URI'),
-        auth=('neo4j', os.getenv('NEO4J_PASSWORD'))
+        auth=('neo4j', get_credential('NEO4J_PASSWORD', fallback_to_env=True))
     )
     try:
         async with driver.session() as session:
@@ -130,13 +131,14 @@ echo "Verifying plugin is working..."
 
 VERIFICATION=$(uv run python -c "
 import asyncio
-from neo4j import AsyncGraphDatabase
 import os
+from neo4j import AsyncGraphDatabase
+from core.config.credential_store import get_credential
 
 async def verify():
     driver = AsyncGraphDatabase.driver(
         os.getenv('NEO4J_URI'),
-        auth=('neo4j', os.getenv('NEO4J_PASSWORD'))
+        auth=('neo4j', get_credential('NEO4J_PASSWORD', fallback_to_env=True))
     )
     try:
         async with driver.session() as session:

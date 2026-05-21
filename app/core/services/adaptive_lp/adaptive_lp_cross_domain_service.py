@@ -23,6 +23,7 @@ from core.services.adaptive_lp.adaptive_lp_models import CrossDomainOpportunity
 from core.services.adaptive_lp_types import KnowledgeState
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_float
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -256,8 +257,8 @@ class AdaptiveLpCrossDomainService:
                 source_knowledge_uids=source_knowledge,
                 target_knowledge_uids=target_knowledge,
                 estimated_difficulty=5.0 + (min_depth * 0.5),  # Base difficulty + complexity
-                estimated_value=float(synergy["skill_transfer"])
-                * float(synergy["innovation_potential"]),
+                estimated_value=coerce_float(synergy["skill_transfer"])
+                * coerce_float(synergy["innovation_potential"]),
                 supporting_examples=await self._find_real_world_examples(
                     source_domain, target_domain
                 ),
@@ -280,7 +281,7 @@ class AdaptiveLpCrossDomainService:
         self, domain_knowledge: dict[str, list[str]], _user_uid: UserUID
     ) -> list[CrossDomainOpportunity]:
         """Discover innovation opportunities combining 3+ domains."""
-        opportunities = []
+        opportunities: list[CrossDomainOpportunity] = []
 
         if len(domain_knowledge) < 3:
             return opportunities
@@ -329,7 +330,7 @@ class AdaptiveLpCrossDomainService:
                     description=str(pattern["description"]),
                     source_domain=self._string_to_domain(str(pattern["domains"][0])),
                     target_domain=self._string_to_domain(str(pattern["domains"][1])),
-                    bridging_knowledge=pattern["bridging_concepts"],  # type: ignore[arg-type]
+                    bridging_knowledge=pattern["bridging_concepts"],
                     application_type="Multi-Domain Innovation",
                     practical_projects=[
                         f"Prototype a {pattern_title_lower} solution",

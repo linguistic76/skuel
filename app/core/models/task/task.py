@@ -4,14 +4,14 @@ Task - Task Domain Model
 
 Frozen dataclass for task entities (EntityType.TASK).
 
-Inherits common fields from UserOwnedEntity. Adds 25 task-specific fields:
+Inherits common fields from UserOwnedEntity. Adds task-specific fields:
 - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
 - Hierarchy (3): parent_uid, project, assignee
-- Cross-domain links (4): goal, habit, path step/path references
-- Progress impact (6): goal contribution, knowledge mastery, habit streak
+- Cross-domain links (3): goal, habit, path step references
+- Progress impact (5): goal contribution, knowledge mastery, habit streak
 - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
 
-Task-specific methods: impact_score, learning_alignment_score, is_overdue,
+Task-specific methods: learning_alignment_score, is_overdue,
 days_remaining, get_summary, category, parent_goal_uid.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
@@ -21,13 +21,14 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from dataclasses import dataclass
 from datetime import date
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.task.task_dto import TaskDTO
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -39,7 +40,7 @@ class Task(UserOwnedEntity):
     Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
-    Adds 25 task-specific fields for scheduling, hierarchy, cross-domain
+    Adds task-specific fields for scheduling, hierarchy, cross-domain
     links, progress impact, and knowledge intelligence.
     """
 
@@ -72,7 +73,7 @@ class Task(UserOwnedEntity):
     actual_minutes: int | None = None  # Actual time spent
 
     # Recurrence
-    recurrence_pattern: str | None = None  # RecurrencePattern enum value
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
 
@@ -90,9 +91,13 @@ class Task(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     fulfills_goal_uid: str | None = None  # TASK -> GOAL
-    reinforces_habit_uid: str | None = None  # TASK -> HABIT
     source_path_step_uid: str | None = None  # TASK -> PS
-    source_learning_path_uid: str | None = None  # TASK -> LP
+    # DERIVED FROM EDGE — never persisted. The Task↔Habit link is the graph edge
+    # (Task)-[:REINFORCES_HABIT]->(Habit); this field is absent from TaskDTO so it
+    # is never written to Neo4j. It is populated at fetch time (e.g. by the
+    # prioritization path) from the edge so pure scorers can read it. Writing it
+    # has no persistent effect — the edge is the single source of truth.
+    reinforces_habit_uid: str | None = None  # DERIVED — see note above
 
     # =========================================================================
     # PROGRESS IMPACT
@@ -101,7 +106,6 @@ class Task(UserOwnedEntity):
     knowledge_mastery_check: bool = False  # Verify knowledge mastery on completion
     habit_streak_maintainer: bool = False  # Maintains habit streak
     completion_updates_goal: bool = False  # Completion updates GOAL progress
-    curriculum_driven: bool = False  # Derived from curriculum
     curriculum_practice_type: str | None = None  # Curriculum connection type
 
     # =========================================================================
@@ -112,32 +116,27 @@ class Task(UserOwnedEntity):
     learning_opportunities_count: int = 0
 
     # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    # Back-reference to the spawning template lives in the graph as
+    # (Task)-[:SPAWNED_FROM]->(TaskTemplate); no property on this node.
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
+
+    # =========================================================================
     # TASK-SPECIFIC METHODS
     # =========================================================================
 
-    def impact_score(self) -> float:
-        """Calculate task impact score based on priority and knowledge connections."""
-        from contextlib import suppress
-
-        from core.models.enums.activity_enums import Priority
-
-        base = 0.5
-        if self.priority:
-            with suppress(ValueError, KeyError):
-                base = Priority(self.priority).to_numeric() / 4.0
-        if self.fulfills_goal_uid:
-            base = min(1.0, base + 0.2)
-        return base
-
     def learning_alignment_score(self) -> float:
-        """Score for how well a task aligns with learning paths."""
+        """Score for how well a task aligns with learning paths.
+
+        PS link is sufficient signal — LP is reachable via PS via
+        (PS)-[:IS_STEP_OF]->(LP), so a separate LP weight is redundant.
+        """
         score = 0.0
         if self.source_path_step_uid:
-            score += 0.5
-        if self.source_learning_path_uid:
-            score += 0.3
+            score += 0.7
         if self.knowledge_mastery_check:
-            score += 0.2
+            score += 0.3
         return min(1.0, score)
 
     def is_overdue(self) -> bool:
@@ -217,21 +216,19 @@ class Task(UserOwnedEntity):
     def calculate_learning_impact(self) -> float:
         """Calculate learning impact score (0.0-1.0).
 
-        Derived from curriculum linkage fields already present on the Task:
-        path step / learning path references, mastery check flag, curriculum
-        origin, and breadth of knowledge confidence scores.
+        Derived from curriculum linkage fields on the Task: path step
+        reference, mastery check flag, template origin (curriculum-spawned),
+        and breadth of knowledge confidence scores.
         """
         score = 0.0
         if self.source_path_step_uid:
-            score += 0.30
-        if self.source_learning_path_uid:
-            score += 0.20
+            score += 0.40
         if self.knowledge_mastery_check:
             score += 0.20
-        if self.curriculum_driven:
-            score += 0.15
+        if self.engagement_state is not None:
+            score += 0.20
         if self.knowledge_confidence_scores:
-            score += min(0.15, len(self.knowledge_confidence_scores) * 0.03)
+            score += min(0.20, len(self.knowledge_confidence_scores) * 0.04)
         return min(1.0, score)
 
     @property
@@ -249,11 +246,6 @@ class Task(UserOwnedEntity):
         """Check if this task originated from a path step."""
         return self.source_path_step_uid is not None
 
-    @property
-    def fulfills_path_step(self) -> bool:
-        """Check if this task fulfills a path step."""
-        return self.source_path_step_uid is not None
-
     # =========================================================================
     # CONVERSION
     # =========================================================================
@@ -263,26 +255,13 @@ class Task(UserOwnedEntity):
         """Create Task from an EntityDTO or TaskDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "TaskDTO":  # type: ignore[override]
+    def to_dto(self) -> "TaskDTO":
         """Convert Task to domain-specific TaskDTO."""
-        import dataclasses
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.task.task_dto import TaskDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(TaskDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, MappingProxyType):
-                value = dict(value)
-            elif isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return TaskDTO(**kwargs)
+        return domain_to_dto(self, TaskDTO)
 
     def __str__(self) -> str:
         return f"Task(uid={self.uid}, title='{self.title}', due={self.due_date})"

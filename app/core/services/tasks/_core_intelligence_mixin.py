@@ -54,7 +54,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
                     operation="get_task_with_context",
                 )
             )
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)  # type: ignore[return-value]
+        return await self.context_loader.get_with_context(uid=uid, depth=depth)
 
     @with_error_handling(
         "categorize_cross_domain_context", error_type="system", uid_param="task_uid"

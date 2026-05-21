@@ -225,13 +225,10 @@ def main():
         print("Error: neo4j package not installed. Run: pip install neo4j", file=sys.stderr)
         sys.exit(1)
 
-    # Get connection info - use SKUEL's credential store
-    try:
-        from core.config.credential_store import get_credential
+    # Get connection info — credential store with env fallback handled internally
+    from core.config.credential_store import get_credential
 
-        password = get_credential("NEO4J_PASSWORD")
-    except ImportError:
-        password = os.getenv("NEO4J_PASSWORD")
+    password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
 
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     username = os.getenv("NEO4J_USERNAME", "neo4j")

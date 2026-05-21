@@ -141,7 +141,7 @@ class IntelligenceMixin:
                         break  # Only add to one category
 
         # Step 3: Build response
-        response = {f"{self.config.domain.value.rstrip('s')}_uid": entity_uid}
+        response: dict[str, Any] = {f"{self.config.domain.value.rstrip('s')}_uid": entity_uid}
         response.update(categorized)
 
         return Result.ok(response)

@@ -21,10 +21,12 @@ class TrackQueryRequest(BaseModel):
     result_count: int = Field(..., description="Number of results returned")
 
     intent: str | None = Field(
-        None, description="Detected query intent (e.g., 'search', 'filter', 'aggregate')"
+        default=None, description="Detected query intent (e.g., 'search', 'filter', 'aggregate')"
     )
 
-    cache_hit: bool = Field(False, description="Whether the query result was served from cache")
+    cache_hit: bool = Field(
+        default=False, description="Whether the query result was served from cache"
+    )
 
     results_metadata: dict[str, Any] | None = Field(
         default_factory=dict,

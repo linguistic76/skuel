@@ -307,13 +307,10 @@ async def get_entity_neighborhood(
         for rel in relationships:
             connected_uids.add(rel.start_node_uid)
             connected_uids.add(rel.end_node_uid)
-        filtered_nodes = [node for node in context.all_nodes if node.uid in connected_uids]
-        domains = {label for node in filtered_nodes for label in (node.labels or [])}
+        output_nodes = [node for node in context.all_nodes if node.uid in connected_uids]
     else:
-        domains = {label for node in context.all_nodes for label in (node.labels or [])}
-
-    # Use filtered nodes if relationship_types specified, otherwise all nodes
-    output_nodes = filtered_nodes if relationship_types else context.all_nodes
+        output_nodes = context.all_nodes
+    domains = {label for node in output_nodes for label in (node.labels or [])}
 
     return Result.ok(
         {

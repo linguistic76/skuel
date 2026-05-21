@@ -12,25 +12,23 @@ No I/O — pure Python analysis of already-loaded UserContext data.
 See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 """
 
-from typing import TYPE_CHECKING, Any
+from __future__ import annotations
+
+from typing import Any
 
 from core.models.enums import EntityStatus
-
-if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
+from core.services.user.intelligence._base import IntelligenceMixinBase
 
 _ACTIVITY_DOMAINS = ("tasks", "goals", "habits", "events", "choices", "principles")
 
 
-class TemporalMomentumMixin:
+class TemporalMomentumMixin(IntelligenceMixinBase):
     """
     Mixin providing temporal momentum analysis for daily planning.
 
-    Requires self.context (UserContext) with entities_rich populated.
+    Requires self.context (RichUserContext — entities_rich is rich-only).
     compute_momentum_signals() is synchronous — no await needed.
     """
-
-    context: "UserContext"
 
     def compute_momentum_signals(self) -> dict[str, Any]:
         """

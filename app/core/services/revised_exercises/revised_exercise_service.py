@@ -3,15 +3,15 @@ RevisedExercise Service
 ========================
 
 CRUD operations for RevisedExercises — targeted revision instructions that
-address specific feedback gaps in the five-phase learning loop.
+address specific feedback gaps in the four-phase learning loop.
 
 The flow:
-    Exercise → Submission → ExerciseReport → RevisedExercise → Submission v2 → ...
+    Exercise → UserEntry → ExerciseReport → RevisedExercise → UserEntry v2 → ...
 
 A teacher creates a RevisedExercise after reviewing ExerciseReport, providing
 targeted instructions for the student to address specific gaps. The student
-submits against the RevisedExercise via FULFILLS_EXERCISE (same relationship
-as regular Exercise submissions).
+submits a new UserEntry against the RevisedExercise via FULFILLS_EXERCISE
+(anchored to the root Exercise) plus FULFILLS_REVISED_EXERCISE.
 
 Implements CRUDOperations via BaseService inheritance (CrudOperationsMixin).
 Overrides create/delete to add authority checks, relationships, events, and cascade.
@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
 from core.events import RevisedExerciseEmbeddingRequested, publish_event
-from core.events.submission_events import RevisedExerciseCreated
+from core.events.learning_loop_events import RevisedExerciseCreated
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.revised_exercise import RevisedExercise
@@ -96,11 +96,6 @@ class RevisedExerciseService(BaseService):
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("RevisedExerciseService initialized")
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for RevisedExercise entities."""
-        return "Entity"
-
     # ========================================================================
     # CRUD OVERRIDES (authority checks, relationships, events)
     # ========================================================================
@@ -140,7 +135,7 @@ class RevisedExerciseService(BaseService):
         if not expected_modality and entity.original_exercise_uid:
             exercise_result = await self.backend.get(entity.original_exercise_uid)
             if exercise_result.is_ok and exercise_result.value:
-                from core.models.enums.submissions_enums import SubmissionModality
+                from core.models.enums.user_entry_enums import SubmissionModality
 
                 raw_modality = exercise_result.value.get("expected_modality")
                 if raw_modality:
@@ -252,8 +247,8 @@ class RevisedExerciseService(BaseService):
         """Verify the teacher has review authority over the feedback.
 
         Checks the graph path (OWNS-based, per ADR-040):
-        - (ExerciseReport)-[:REPORT_FOR]->(Submission) exists
-        - (Student)-[:OWNS]->(Submission)
+        - (ExerciseReport)-[:REPORT_FOR]->(UserEntry) exists
+        - (Student)-[:OWNS]->(UserEntry)
         Teacher identity is role-gated at the route level.
 
         Returns the matched records (including submission_uid) on success.

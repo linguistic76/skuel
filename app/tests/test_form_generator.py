@@ -8,7 +8,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-from ui.patterns.form_generator import FormGenerator
+from ui.patterns.form_generator import FieldWidgetMapper, FormGenerator
 
 # ============================================================================
 # Test fixtures — minimal Pydantic models
@@ -293,7 +293,7 @@ class TestSections:
         assert 'name="title"' in html
         assert 'name="priority"' in html
 
-    def test_sections_have_dividers_except_last(self):
+    def test_sections_render_as_cards(self):
         form = FormGenerator.from_model(
             SampleCreateRequest,
             action="/test",
@@ -304,11 +304,10 @@ class TestSections:
             },
         )
         html = get_form_html(form)
-        # First and second sections should have border-b divider
-        # Last section should not
-        assert "border-b" in html
-        # Count occurrences: 2 sections with border, 1 without
-        assert html.count("border-b border-border") == 2
+        # Each section is a bordered card with a header underline.
+        # 3 sections x (1 outer card border + 1 header underline) = 6 border-b/border tokens.
+        assert html.count("rounded-lg border border-border bg-card") == 3
+        assert html.count("border-b border-border") == 3
 
     def test_sections_with_exclude_fields(self):
         form = FormGenerator.from_model(
@@ -627,3 +626,35 @@ class TestAlpineIntegration:
         )
         html = get_form_html(result)
         assert "formValidator" not in html
+
+
+# ============================================================================
+# Tests: widget mapping for list / Optional[list] fields
+# ============================================================================
+
+
+class _SchemaWithListFields(BaseModel):
+    tags: list[str] = []
+    aliases: list[str] | None = None
+
+
+class TestListWidgetMapping:
+    """list[T] and Optional[list[T]] both map to textarea (regression: origin
+    was previously not recomputed after unwrapping Optional)."""
+
+    def test_plain_list_maps_to_textarea(self):
+        field = _SchemaWithListFields.model_fields["tags"]
+        widget = FieldWidgetMapper.get_widget_type("tags", field, field.annotation)
+        assert widget == "textarea"
+
+    def test_optional_list_maps_to_textarea(self):
+        field = _SchemaWithListFields.model_fields["aliases"]
+        widget = FieldWidgetMapper.get_widget_type("aliases", field, field.annotation)
+        assert widget == "textarea"
+
+    def test_optional_list_renders_textarea_in_form(self):
+        form = FormGenerator.from_model(
+            _SchemaWithListFields, action="/test", include_fields=["aliases"]
+        )
+        html = get_form_html(form)
+        assert "<textarea" in html and 'name="aliases"' in html

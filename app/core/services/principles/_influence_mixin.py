@@ -156,7 +156,7 @@ class _InfluenceMixin:
 
         Returns (severity, high_count, medium_count, low_count)
         """
-        from core.services.principles.principles_event_handler_service import (
+        from core.services.principles.principle_event_handler_service import (
             _determine_conflict_severity_from_strengths,
         )
 

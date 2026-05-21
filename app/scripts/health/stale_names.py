@@ -47,17 +47,17 @@ RENAMED: dict[str, str] = {
     "EntityType.ARTICLE": "EntityType.PATH_STEP",
     "EntityType.AI_FEEDBACK": "EntityType.ACTIVITY_REPORT",
     "EntityType.FEEDBACK_REPORT": "EntityType.EXERCISE_REPORT",
-    # Submission/Report hierarchy refactoring (Mar 2026)
-    "EntityType.SUBMISSION": "EntityType.EXERCISE_SUBMISSION",
-    "EntityType.JOURNAL": "EntityType.JE_INPUT",
+    # Submission/Report hierarchy refactoring (Mar 2026) → UserEntry collapse (Apr 2026)
+    "EntityType.SUBMISSION": "EntityType.USER_ENTRY",
+    "EntityType.JOURNAL": "EntityType.USER_ENTRY",
     "EntityType.SUBMISSION_REPORT": "EntityType.EXERCISE_REPORT",
-    # Journal domain extraction (Mar 2026)
-    "EntityType.JOURNAL_SUBMISSION": "EntityType.JE_INPUT",
-    "EntityType.JOURNAL_REPORT": "EntityType.JE_OUTPUT",
-    "JournalSubmission": "JeInput",
-    "JournalReport": "JeOutput (or ExerciseReport if not journal)",
-    "JournalSubmissionDTO": "JeInputDTO",
-    "JournalReportDTO": "JeOutputDTO",
+    # Journal domain extraction (Mar 2026) → UserEntry collapse (Apr 2026)
+    "EntityType.JOURNAL_SUBMISSION": "EntityType.USER_ENTRY",
+    "EntityType.JOURNAL_REPORT": "EntityType.USER_ENTRY",
+    "JournalSubmission": "UserEntry (pipeline=transcribe_and_structure)",
+    "JournalReport": "UserEntry (TRANSFORMS output)",
+    "JournalSubmissionDTO": "UserEntryDTO",
+    "JournalReportDTO": "UserEntryDTO",
     # Class renames (Feb–Mar 2026)
     "AiFeedback": "ActivityReport",
     "KuTaskCreateRequest": "TaskCreateRequest",
@@ -88,8 +88,8 @@ RENAMED: dict[str, str] = {
     "from core.models.ku.ku_enums import": "from core.models.enums.entity_enums import (or domain-specific enums file)",
     "from core.models.ku import": "from core.models.<domain> import  (ku/ monolith deleted)",
     # Old report domain imports (Reports→Submissions, Feb 2026)
-    "from core.services.reports": "from core.services.submissions or core.services.report",
-    "from core.models.reports": "from core.models.submissions or core.models.report",
+    "from core.services.reports": "from core.services.report or core.services.user_entry",
+    "from core.models.reports": "from core.models.report or core.models.user_entry",
     # Old ActivityDataReader (absorbed into UserContext, Mar 2026)
     "ActivityDataReader": "UserContextBuilder.build_rich() — ActivityDataReader absorbed",
     "ActivityData(": "ActivityData frozen dataclass deleted — data now in UserContext",
@@ -109,6 +109,22 @@ RENAMED: dict[str, str] = {
     "ProgressFeedbackWorker": "ProgressReportWorker",
     "progress_feedback_worker": "progress_report_worker",
     "progress_feedback_generator": "progress_report_generator",
+    # UserEntry collapse (ADR-054, April 2026) — SKUEL018
+    "EntityType.EXERCISE_SUBMISSION": "EntityType.USER_ENTRY (pipeline=teacher_review)",
+    "EntityType.JE_INPUT": "EntityType.USER_ENTRY (pipeline=transcribe_and_structure)",
+    "EntityType.JE_OUTPUT": "EntityType.USER_ENTRY (produced via TRANSFORMS edge)",
+    "NeoLabel.EXERCISE_SUBMISSION": "NeoLabel.USER_ENTRY",
+    "NeoLabel.JE_INPUT": "NeoLabel.USER_ENTRY",
+    "NeoLabel.JE_OUTPUT": "NeoLabel.USER_ENTRY",
+    "ProcessorType": "Pipeline (core/models/enums/pipeline.py)",
+    "JournalOutputService": "UserEntryProcessingService",
+    "SubmissionsProcessingService": "UserEntryProcessingService",
+    "from core.services.submissions": "from core.services.user_entry",
+    "from core.services.journal": "from core.services.user_entry",
+    "from core.models.submissions": "from core.models.user_entry",
+    "from core.models.journal": "from core.models.user_entry",
+    "from core.events.submission_events": "from core.events.learning_loop_events",
+    "from core.events.journal_events": "from core.events.learning_loop_events",
 }
 
 # ── Deleted identifiers ──────────────────────────────────────────────────────

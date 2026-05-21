@@ -34,18 +34,18 @@ class FormSubmissionDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for database operations."""
-        data = super().to_dict()
-        data["form_template_uid"] = self.form_template_uid
-        # Store form_data as JSON string in Neo4j
-        data["form_data"] = json.dumps(self.form_data) if self.form_data else None
-        data["processed_content"] = self.processed_content
-        data["template_schema_hash"] = self.template_schema_hash
-        return data
+        """Convert to dictionary using generic helper."""
+        import json
 
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
+        from core.models.dto_helpers import dto_to_dict
+
+        data = dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility"],
+            datetime_fields=["created_at", "updated_at"],
+        )
+        data["form_data"] = json.dumps(self.form_data) if self.form_data else None
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FormSubmissionDTO:

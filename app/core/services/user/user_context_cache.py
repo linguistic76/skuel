@@ -77,24 +77,30 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from core.models.type_hints import UserUID
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext
 
 
 @dataclass
 class UserContextCache:
     """
-    Manages cached user contexts for performance.
+    Manages cached rich user contexts for performance.
+
+    Only ``RichUserContext`` instances are cached — standard-depth builds
+    are cheap by comparison and callers of the MEGA-QUERY always hand back
+    rich contexts. Narrowing the cache to ``RichUserContext`` prevents a
+    standard-depth context from being silently served where rich-only
+    fields are expected.
 
     Usage:
         cache = UserContextCache()
         context = cache.get(user_uid)
         if not context:
-            context = await builder.build_complete_context(user_uid)
+            context = await builder.build_rich(user_uid)
             cache.set(user_uid, context)
     """
 
-    # Cache storage: user_uid -> UserContext
-    _cache: dict[str, UserContext] = field(default_factory=dict)
+    # Cache storage: user_uid -> RichUserContext (only rich contexts are cached)
+    _cache: dict[str, RichUserContext] = field(default_factory=dict)
 
     # Last update timestamps for monitoring
     _last_update: dict[str, datetime] = field(default_factory=dict)
@@ -104,15 +110,15 @@ class UserContextCache:
     # See module docstring for full caching policy documentation
     default_ttl: int = 300
 
-    def get(self, user_uid: UserUID) -> UserContext | None:
+    def get(self, user_uid: UserUID) -> RichUserContext | None:
         """
-        Get cached context if valid.
+        Get cached rich context if valid.
 
         Args:
             user_uid: User's unique identifier
 
         Returns:
-            Cached context if valid, None otherwise
+            Cached rich context if valid, None otherwise
         """
         if user_uid in self._cache:
             context = self._cache[user_uid]
@@ -120,13 +126,13 @@ class UserContextCache:
                 return context
         return None
 
-    def set(self, user_uid: UserUID, context: UserContext) -> None:
+    def set(self, user_uid: UserUID, context: RichUserContext) -> None:
         """
-        Cache a context.
+        Cache a rich context.
 
         Args:
             user_uid: User's unique identifier
-            context: Context to cache
+            context: RichUserContext to cache
         """
         context.last_refresh = datetime.now()
         self._cache[user_uid] = context

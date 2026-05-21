@@ -13,8 +13,7 @@ ARCHITECTURE (December 2025):
 Total: ~450 lines (was 1843 lines)
 """
 
-from core.services.transcription.batch_processing_service import BatchProcessingService
 from core.services.transcription.batch_transcription_service import BatchTranscriptionService
 from core.services.transcription.transcription_service import TranscriptionService
 
-__all__ = ["BatchProcessingService", "BatchTranscriptionService", "TranscriptionService"]
+__all__ = ["BatchTranscriptionService", "TranscriptionService"]

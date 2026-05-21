@@ -2,15 +2,15 @@
 Phase 3: ExerciseReport — The Loop's Response
 ==============================================
 
-The evaluation entity. When a student submits work (Phase 2: ExerciseSubmission),
+The evaluation entity. When a student submits work (Phase 2: UserEntry, ADR-054),
 a teacher or AI responds with an ExerciseReport:
 
-    Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → ...
+    Exercise → UserEntry → ExerciseReport → RevisedExercise → ...
 
-Two sources, same EntityType, different ProcessorType:
+Two sources, same EntityType, different ReportSource:
 
-    ProcessorType.HUMAN  → teacher uploads a .md file via TeacherReviewService
-    ProcessorType.LLM    → AI generates feedback via ExerciseReportService
+    ReportSource.HUMAN  → teacher uploads a .md file via TeacherReviewService
+    ReportSource.LLM    → AI generates feedback via ExerciseReportService
 
 assessment_outcome records the decision made:
     APPROVED        — teacher accepted the work; loop closes for this exercise
@@ -19,7 +19,7 @@ assessment_outcome records the decision made:
 
 Graph pattern:
     (teacher:User)-[:OWNS]->(report:Entity:ExerciseReport)
-    (report)-[:REPORT_FOR]->(submission:Entity:ExerciseSubmission)
+    (report)-[:REPORT_FOR]->(entry:Entity:UserEntry)
     (report)-[:SHARES_WITH]->(student:User)  ← grants student read access
 
 Note: subject_uid is GRAPH-NATIVE — projected from REPORT_FOR on read, not stored
@@ -42,8 +42,9 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.report.exercise_report_dto import ExerciseReportDTO
 
-from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import AssessmentOutcome
+from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -83,11 +84,11 @@ class ExerciseReport(UserOwnedEntity):
     processed_content: str | None = None
     report_generated_at: datetime | None = None
     # GRAPH-NATIVE: projected from the REPORT_FOR edge on read by
-    # ExerciseReportBackend.get_by_uid / list_for_submission, not stored as a
+    # ExerciseReportBackend.get / list_for_submission, not stored as a
     # Neo4j node property. create_report_node writes the REPORT_FOR relationship;
     # reads hydrate this field via `RETURN n{.*, subject_uid: sub.uid}`.
     subject_uid: str | None = None  # UID of the submission this report is about
-    processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC
+    processor_type: ReportSource | None = None  # HUMAN/LLM/AUTOMATIC
     assessment_outcome: AssessmentOutcome | None = None  # APPROVED/NEEDS_REVISION/AI_EVALUATED
     report_file_path: str | None = None  # Generated output file path
     assessment_score: float | None = None  # 0.0-1.0 score for ASSESSMENT-scope exercises
@@ -101,29 +102,17 @@ class ExerciseReport(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | ExerciseReportDTO") -> "ExerciseReport":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | ExerciseReportDTO") -> "ExerciseReport":
         """Create ExerciseReport from an EntityDTO or ExerciseReportDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ExerciseReportDTO":  # type: ignore[override]
+    def to_dto(self) -> "ExerciseReportDTO":
         """Convert to ExerciseReportDTO."""
-        import dataclasses
-        from typing import Any
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.report.exercise_report_dto import ExerciseReportDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(ExerciseReportDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return ExerciseReportDTO(**kwargs)
+        return domain_to_dto(self, ExerciseReportDTO)
 
     def __str__(self) -> str:
         return f"ExerciseReport(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"

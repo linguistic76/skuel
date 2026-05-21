@@ -15,6 +15,7 @@ from fasthtml.common import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import verify_entity_ownership
 from core.models.group.group import Group
@@ -58,6 +59,7 @@ def create_groups_api_routes(
     # ========================================================================
 
     @rt("/api/groups/{uid}/members/add", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def add_member(request: Request, uid: str, current_user: Any) -> Result[bool]:
@@ -80,6 +82,7 @@ def create_groups_api_routes(
         )
 
     @rt("/api/groups/{uid}/members/remove", methods=["POST"])
+    @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def remove_member(request: Request, uid: str, current_user: Any) -> Result[bool]:

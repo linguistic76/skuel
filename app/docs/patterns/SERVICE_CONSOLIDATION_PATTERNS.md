@@ -33,6 +33,29 @@ For hands-on implementation:
 
 ---
 
+## Foundational Principle: Harmony Without Over-Generalization
+
+The tactical patterns below (DomainConfig, explicit delegation, factory-created sub-services, etc.) exist in service of one design decision: **all 6 Activity Domains share the same seven common sub-services, and no domain opts out.** `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence` — every facade has all seven, produced by `create_common_sub_services()`.
+
+**The shared shape is a contract for interconnectivity, not a cage.** Unified search, user context aggregation, cross-domain relationship queries, the knowledge substance pipeline, ZPD assessment — these all work because every domain exposes the same surface in the same place. When the system asks "what is this user working on today," the answer doesn't care whether it comes from Tasks, Habits, or Events.
+
+**Inside the shape, each domain keeps its voice.** Habits's `completions`/`patterns`, Events's `habit_integration`, Principles's `alignment`, Tasks's `progress`/`scheduling`/`planning` are specific to their domain and belong nowhere else. Facade mixins (`_OrchestrationMixin`, `_GravityMixin`, etc.) organize domain-specific delegation methods by concern without leaking them into the shared layer.
+
+**The harmony enables the uniqueness.** Without the shared shape, every cross-domain operation fragments into a case statement. Without the domain-specific sub-services, the model collapses into a generic "thing with a status" — exactly the over-generalization to avoid. One shape for what a domain owes the system, total freedom for what it owes itself.
+
+**When adding a capability, ask in this order:**
+1. Does it fit in the existing shared shape? (new method on an existing common sub-service)
+2. Is it cross-domain infrastructure all 6 will benefit from? (extend `create_common_sub_services()` — raises the floor for every domain, as the April 2026 Tasks learning extraction did)
+3. Is it genuinely domain-specific? (new domain-specific sub-service or facade mixin — keep it out of the shared layer)
+
+Never promote a capability only one domain uses into a common sub-service. Never push a genuinely domain-specific concern into a shared sub-service.
+
+**See:** `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization" for the canonical statement with examples.
+
+**Structural contract vs. consultation contract.** Service Consolidation describes the *structural contract* — which 7 sub-services every facade owns and how they are composed. The [Shared Signal Pattern](SHARED_SIGNAL_PATTERN.md) describes the orthogonal *consultation contract* — how a cross-cutting concern (Knowledge today; Calendar and user-capacity next) is injected into each facade as a narrow protocol + delegation mixin. Together, they answer two different questions: "what does a facade own?" and "what does a facade consult?" The `knowledge_intelligence` sub-service sits at the intersection — structurally a common sub-service, functionally the first realization of Shared Signal.
+
+---
+
 ## 1. DomainConfig Dataclass
 
 **Status:** ✅ Production (January 2026)
@@ -125,7 +148,8 @@ _config = create_curriculum_domain_config(
 |-------|------|---------|---------|
 | `dto_class` | `type` | Required | DTO class for this domain |
 | `model_class` | `type` | Required | Domain model class |
-| `entity_label` | `str \| None` | Auto-inferred | Neo4j label |
+| `entity_label` | `str \| None` | Auto-inferred | Neo4j base-label for multi-label Cypher matching (e.g., `"Entity"`, `"Ku"`) |
+| `config_lookup_label` | `str \| None` | `model_class.__name__` | `LABEL_CONFIGS` registry key (e.g., `"Task"`, `"PathStep"`). Split from `entity_label` on 2026-04-21 — separates Neo4j-match concerns from registry-lookup concerns |
 | `service_name` | `str \| None` | Auto-inferred | Logger name prefix |
 | `date_field` | `str` | `"created_at"` | Field for date range queries |
 | `completed_statuses` | `tuple[str, ...]` | `()` | Status values indicating completion |
@@ -186,7 +210,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 | `CrudOperationsMixin` | `mixins/crud_operations_mixin.py` | `create`, `get`, `update`, `delete`, `verify_ownership` + pre-validation hooks (`_validate_create`, `_validate_update`) + post-lifecycle hooks (`_post_create`, `_post_update`, `_post_delete`) |
 | `SearchOperationsMixin` | `mixins/search_operations_mixin.py` | `search`, `get_by_status`, `graph_aware_faceted_search` |
 | `RelationshipOperationsMixin` | `mixins/relationship_operations_mixin.py` | `add_relationship`, `traverse`, `get_prerequisites` |
-| `TimeQueryMixin` | `mixins/time_query_mixin.py` | `get_user_items_in_range`, `get_due_soon`, `get_overdue` (config-driven via `temporal_exclude_statuses` + `temporal_secondary_sort`) |
+| `TimeQueryMixin` | `mixins/time_query_mixin.py` | `get_user_items_in_range`, `get_upcoming`, `get_overdue`, `get_active` (config-driven via `date_field` + `temporal_exclude_statuses` + `temporal_secondary_sort` + `completed_statuses`) |
 | `UserProgressMixin` | `mixins/user_progress_mixin.py` | `get_user_progress`, `update_user_mastery` |
 | `ContextOperationsMixin` | `mixins/context_operations_mixin.py` | `get_with_context`, `get_with_content` |
 

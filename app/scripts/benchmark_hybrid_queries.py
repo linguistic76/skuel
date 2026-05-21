@@ -331,8 +331,7 @@ class QueryBenchmark:
 async def main() -> None:
     """Run benchmarks and display results."""
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         # Create benchmark

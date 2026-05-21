@@ -12,6 +12,8 @@
 
 ---
 
+> **Note (2026-05-11):** This ADR refers to "EntityType (17 values)" — the count at decision time (2026-03-07). The enum has since grown to 25 (added the 6 Activity Templates and others). See [`architecture/ENTITY_TYPE_ARCHITECTURE.md`](../architecture/ENTITY_TYPE_ARCHITECTURE.md) for the current count. The decision in this ADR (EntityType + traits replaces domain categories) is unchanged by the count drift.
+
 ## Context
 
 SKUEL's architecture documentation described "14 domains in 7 categories" — Activity (5), Scheduling (1), Finance (1), Curriculum (4), Content (1), Organizational (2), Destination (1). This framing imposed a rigid taxonomy on entity types that contradicts SKUEL's core philosophy of decentralization, emergence, and learner-directed exploration.

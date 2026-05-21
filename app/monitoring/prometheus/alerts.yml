@@ -52,16 +52,6 @@ groups:
       # Database Health
       # ==================================================================
 
-      - alert: Neo4jDown
-        expr: skuel_neo4j_connected == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Neo4j database unavailable"
-          description: "Neo4j connection is down for over 1 minute"
-          runbook: "Check Neo4j service status, verify network connectivity, check credentials"
-
       - alert: SlowDatabaseQueries
         expr: |
           histogram_quantile(0.95,
@@ -136,18 +126,8 @@ groups:
           description: "Entities with no relationships (isolated nodes)"
           runbook: "Review entity creation logic, check relationship service"
 
-      - alert: LongDependencyChains
-        expr: skuel_dependency_chain_max_length > 10
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Dependency chain length is {{ $value }}"
-          description: "Maximum BLOCKS → BLOCKED_BY chain exceeds 10 levels"
-          runbook: "Review task/goal dependency structure, check for circular dependencies"
-
       # ==================================================================
-      # AI Services (Phase 1 - January 2026)
+      # AI Services
       # ==================================================================
 
       - alert: HighAIErrorRate

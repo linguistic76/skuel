@@ -10,13 +10,13 @@ related:
 
 # RevisedExercise: AI + Student Collaboration Mode
 
-> Deferred idea from the Five-Phase Learning Loop design session (2026-03-07).
+> Deferred idea from the learning loop design session (2026-03-07).
 > MVP uses teacher-created RevisedExercise only. This doc captures the richer
 > collaboration model for future implementation.
 
 ## Context
 
-The Five-Phase Learning Loop adds `REVISED_EXERCISE` as a teacher-created entity
+The four-phase Learning Loop adds `REVISED_EXERCISE` as a teacher-created entity
 between ExerciseReport and the next Submission. In the MVP, only the teacher
 creates RevisedExercises manually.
 
@@ -62,7 +62,7 @@ ExerciseReport arrives
 
 ## Implementation Notes (When Ready)
 
-- `ProcessorType.HYBRID` already exists — fits this three-role model
+- `ReportSource.HYBRID` already exists — fits this three-role model
 - AI generation could use the same LLM infrastructure as ExerciseReport
   (Exercise instructions as prompt, Feedback as context)
 - Student draft could use annotation fields similar to ActivityReport

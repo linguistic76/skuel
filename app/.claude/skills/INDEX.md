@@ -75,7 +75,7 @@ updated: 2026-02-01
 
 | Skill | Purpose | Foundation |
 |-------|---------|------------|
-| [learning-loop](learning-loop/SKILL.md) | Five-Phased Learning Loop — base layer of the system | All architecture skills |
+| [learning-loop](learning-loop/SKILL.md) | Four-Phase Learning Loop — base layer of the system | All architecture skills |
 
 ### Security
 

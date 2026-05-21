@@ -153,8 +153,9 @@ class HubBlockData:
     slug: str
     icon: str  # Feather icon name (UkIcon)
     color: str  # hex color for header
-    href: str  # "View all" link
+    href: str  # Target for the header label link (primary action)
     preview_url: str | None = None  # HTMX endpoint; None = OOB-populated by a combined endpoint
+    view_all_href: str | None = None  # Override for "View all →"; falls back to href
 
 
 def HubPreviewCard(title: str, href: str, badge: FT | None = None) -> A:
@@ -208,7 +209,7 @@ def HubDomainBlock(block: HubBlockData) -> Div:
             ),
             ButtonLink(
                 "View all \u2192",
-                href=block.href,
+                href=block.view_all_href or block.href,
                 variant=ButtonT.ghost,
                 size=Size.xs,
             ),

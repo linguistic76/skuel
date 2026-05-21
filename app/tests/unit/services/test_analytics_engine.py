@@ -33,7 +33,7 @@ from core.utils.result_simplified import Result
 
 def make_task(uid: str = "task_abc123", title: str = "Test Task", priority: str = "medium") -> Task:
     """Construct a minimal Task with sensible defaults for analytics tests."""
-    return Task(uid=uid, title=title, priority=priority)
+    return Task(uid=uid, title=title, priority=priority, user_uid="user_test")
 
 
 def make_learning_pattern(
@@ -130,6 +130,7 @@ class TestAnalyzeLearningPatterns:
         old_task = Task(
             uid="task_old",
             title="Old Task",
+            user_uid="user_test",
             created_at=datetime.now() - timedelta(days=60),
         )
         recent_task = make_task("task_recent")

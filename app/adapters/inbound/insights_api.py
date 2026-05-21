@@ -8,13 +8,14 @@ API routes for managing event-driven insights (dismiss, mark as actioned).
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
+from fasthtml.common import FT, Request
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.entity_requests import SmartDismissRequest
 from core.models.insight_request import BulkInsightUidsRequest, SnoozeInsightRequest
@@ -42,10 +43,9 @@ def create_insights_api_routes(
     """
 
     @rt("/api/insights/{uid}/dismiss", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
-    async def dismiss_insight(
-        request: Request, uid: str
-    ) -> Result[Any]:  # boundary: FastHTML FT component
+    async def dismiss_insight(request: Request, uid: str) -> Result[FT]:
         """Dismiss an insight (mark as dismissed).
 
         , Task 17: Now accepts optional notes parameter.
@@ -83,10 +83,9 @@ def create_insights_api_routes(
         return Result.ok(DismissedInsightMessage())
 
     @rt("/api/insights/{uid}/action", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
-    async def mark_insight_actioned(
-        request: Request, uid: str
-    ) -> Result[Any]:  # boundary: FastHTML FT component
+    async def mark_insight_actioned(request: Request, uid: str) -> Result[FT]:
         """Mark an insight as actioned.
 
         , Task 17: Now accepts optional notes parameter.
@@ -138,6 +137,7 @@ def create_insights_api_routes(
     # ========================================
 
     @rt("/api/insights/bulk/dismiss", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def bulk_dismiss_insights(request: Request) -> Result[dict[str, Any]]:
         """Bulk dismiss multiple insights."""
@@ -150,6 +150,7 @@ def create_insights_api_routes(
         return await insight_store.bulk_dismiss(parsed.value.uids, user_uid)
 
     @rt("/api/insights/bulk/action", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def bulk_action_insights(request: Request) -> Result[dict[str, Any]]:
         """Bulk mark insights as actioned."""
@@ -162,6 +163,7 @@ def create_insights_api_routes(
         return await insight_store.bulk_mark_actioned(parsed.value.uids, user_uid)
 
     @rt("/api/insights/bulk/smart-dismiss", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def smart_dismiss_insights(request: Request) -> Result[dict[str, Any]]:
         """Smart bulk dismiss — dismiss all insights matching a filter."""
@@ -316,6 +318,7 @@ def create_insights_api_routes(
         return Result.ok(insight_data)
 
     @rt("/api/insights/{uid}/snooze", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def snooze_insight(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Snooze an insight for a specified number of days.

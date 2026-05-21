@@ -20,7 +20,7 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.pathways.lp_position import LpPosition
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -92,15 +92,6 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Goal entities."""
-        return "Entity"
-
-    # ========================================================================
     # LEARNING-AWARE GOAL CREATION
     # ========================================================================
 
@@ -158,7 +149,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         """
         # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.assess_learning_alignment(
-            entity_uid=goal_uid, learning_position=learning_position
+            entity_uid=EntityUID(goal_uid), learning_position=learning_position
         )
 
     # ========================================================================
@@ -241,7 +232,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
             path_support = 0.0
             goal_text = f"{goal.title} {goal.description}".lower()
 
-            if path.name.lower() in goal_text:
+            if path.title.lower() in goal_text:
                 path_support += 0.5
 
             # NOTE: Knowledge alignment check removed - goal.linked_knowledge_uids
@@ -260,7 +251,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
 
                 # Build PathProgressData frozen dataclass
                 path_data = PathProgressData(
-                    path=path.name,
+                    path=path.title,
                     support_score=path_support,
                     progress=path_progress,
                     completed_steps=completed_steps,

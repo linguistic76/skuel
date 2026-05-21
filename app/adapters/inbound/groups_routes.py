@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.groups_api import create_groups_api_routes
-from adapters.inbound.groups_ui import create_groups_ui_routes
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
     DomainRouteConfig,
@@ -31,7 +30,6 @@ GROUPS_CONFIG = DomainRouteConfig(
     domain_name="groups",
     primary_service_attr="groups",
     api_factory=create_groups_api_routes,
-    ui_factory=create_groups_ui_routes,
     api_related_services={
         "user_service": "user",
     },

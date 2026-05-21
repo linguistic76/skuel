@@ -191,26 +191,37 @@ Askesis already follows the patterns we're moving toward:
 - ✅ Uses domain-specific models (transcription)
 - ✅ Doesn't mix concerns (no deprecated search imports)
 
-## Semantic Search Implementation (March 2026)
+## Semantic Search Implementation (May 2026)
 
 ### Architecture
 
-Askesis semantic search uses `Neo4jVectorSearchService` with native vector indexes
-(`db.index.vector.queryNodes()`). The service is wired through `AskesisDeps.vector_search_service`
-into `ContextRetriever`.
+Askesis semantic search targets `:ContentChunk` (not `:Entity`) via
+`Neo4jVectorSearchService.find_similar_chunks_by_text()`, which hits the
+`contentchunk_embedding_idx` native index. The service is wired through
+`AskesisDeps.vector_search_service` into `ContextRetriever`.
 
 ```python
-# ContextRetriever._find_similar_knowledge()
-async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tuple[str, float, str]]:
-    # Single call handles embedding creation + native vector index search
-    result = await self.vector_search_service.find_similar_by_text(
-        "Entity", query, limit=5, min_score=0.6
+# ContextRetriever._find_similar_chunks()
+async def _find_similar_chunks(
+    self,
+    query: str,
+    _user_uid: UserUID,
+    chunk_types: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    result = await self.vector_search_service.find_similar_chunks_by_text(
+        text=query,
+        chunk_types=chunk_types,  # intent-aware filter (e.g. ["DEFINITION"])
+        limit=5,
+        min_score=0.6,
     )
-    # Returns list of (uid, score, title) tuples
+    # Each hit carries: chunk_uid, chunk_type, text, context_window,
+    # similarity_score, parent_uid, parent_title (the owning PathStep).
 ```
 
-Semantic search runs for **all queries** when `vector_search_service` is available — no keyword
-gate. The `min_score=0.6` threshold handles relevance filtering.
+Semantic search runs for **all queries** when `vector_search_service` is
+available — no keyword gate. The `min_score=0.6` threshold handles relevance
+filtering. Returning chunks (not parent KUs) lets the LLM ground answers in the
+actual matching passage while still surfacing the parent for citation.
 
 ### Knowledge Gap Analysis
 

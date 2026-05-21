@@ -25,6 +25,9 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
+    from core.infrastructure.relationships.semantic_relationships import (
+        SemanticRelationshipType,
+    )
     from core.models.type_hints import Neo4jProperties
 
 
@@ -57,7 +60,11 @@ class _SemanticMixin:
         return await self.execute_query(cypher, params)
 
     async def query_semantic_neighborhood(
-        self, uid: str, semantic_types: list[Any] | None, depth: int, min_confidence: float
+        self,
+        uid: str,
+        semantic_types: list[SemanticRelationshipType],
+        depth: int,
+        min_confidence: float,
     ) -> Result[list[Neo4jProperties]]:
         """Query semantic neighborhood using build_semantic_context helper."""
         from adapters.persistence.neo4j.query import build_semantic_context

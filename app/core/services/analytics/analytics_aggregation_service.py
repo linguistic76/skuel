@@ -604,7 +604,7 @@ class AnalyticsAggregationService:
         # Identify highest-contributing domain
         from core.utils.sort_functions import get_contribution_estimate
 
-        top_driver = max(
+        top_driver: tuple[str | None, dict[str, Any]] = max(
             substance_drivers.items(), key=get_contribution_estimate, default=(None, {})
         )
 

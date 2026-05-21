@@ -16,6 +16,23 @@ allowed-tools: Read, Grep, Glob
 
 > "Knowledge is learned by doing, evaluated by responding, and refined by reflecting."
 
+> **ADR-054 update (2026-04-17).** `ExerciseSubmission`, `JeInput`, and `JeOutput` were
+> collapsed into a single `UserEntry(UserOwnedEntity)` entity type discriminated by the
+> `Pipeline` enum (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`,
+> `TRANSCRIBE_AND_STRUCTURE`). Revision count moved onto the edge:
+> `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Reports use a new
+> `ReportSource` enum (`HUMAN`, `LLM`, `AUTOMATIC`) in place of `ProcessorType`. The
+> journal track is now a *pipeline*, not a domain: audio uploads create a source
+> `UserEntry` with `pipeline=TRANSCRIBE_AND_STRUCTURE`, which is then transformed into a
+> structured second `UserEntry` via `(structured)-[:TRANSFORMS]->(source)`. Activity
+> extraction from journals (DSL auto-creating Tasks/Goals) was **dropped**.
+> Services live in `core/services/user_entry/`; the legacy `core/services/submissions/`
+> and `core/services/journal/` packages are shelved. Historical references to
+> `ExerciseSubmission`, `JeInput`, `JeOutput`, `ProcessorType`,
+> `SubmissionsBackend`, `submission_protocols.py`, and `process_exercise_submission()`
+> in this file now point to their `UserEntry` / `UserEntryBackend` /
+> `user_entry_protocols.py` / `UserEntryProcessingService` counterparts.
+
 The Learning Loop is the **gravitational center of SKUEL**. Every feature either feeds
 this loop, supports its infrastructure, or should be questioned. Understanding the loop
 is the prerequisite for all architectural decisions.
@@ -23,7 +40,7 @@ is the prerequisite for all architectural decisions.
 **The loop, in its narrowest form:**
 
 ```
-Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → repeat
+Exercise → UserEntry → ExerciseReport → RevisedExercise → repeat
 ```
 
 These four entity types ARE the learning loop. Everything else is substrate (Ku, PathStep),
@@ -46,16 +63,16 @@ The cycle repeats until the teacher approves or the student reaches mastery.
 ║                                                                          ║
 ║  THE LOOP (iterates until mastered)                                      ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Exercise] → [ExerciseSubmission] → [ExerciseReport]                   ║
-║   Phase 1      Phase 2                Phase 3                            ║
-║   directive    student's work         teacher/AI response                ║
-║                                           ↓                              ║
-║                                   [RevisedExercise]  (optional)          ║
-║                                    Phase 4                               ║
-║                                    targeted revision                     ║
-║                                           ↓                              ║
-║                                   [ExerciseSubmission v2] → ...          ║
-║                  ↑_____________________________________↓                 ║
+║  [Exercise] → [UserEntry] → [ExerciseReport]                             ║
+║   Phase 1      Phase 2        Phase 3                                    ║
+║   directive    student's work teacher/AI response                        ║
+║                                    ↓                                     ║
+║                             [RevisedExercise]  (optional)                ║
+║                              Phase 4                                     ║
+║                              targeted revision                           ║
+║                                    ↓                                     ║
+║                             [UserEntry v2, revision=2] → ...             ║
+║                  ↑__________________________________________↓            ║
 ║                                                                          ║
 ║  PARALLEL REPORTING (sibling system — same feedback philosophy,          ║
 ║  structurally separate)                                                  ║
@@ -64,9 +81,10 @@ The cycle repeats until the teacher approves or the student reaches mastery.
 ║                    ↓ (over time window)                                   ║
 ║             [ActivityReport] ←── AI or Admin                            ║
 ║                                                                          ║
-║  JOURNAL TRACK (self-directed, standalone domain)                        ║
+║  JOURNAL TRACK (self-directed pipeline on UserEntry)                     ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [JeInput] → Deepgram/text → LLM → [JeOutput] → user downloads         ║
+║  [UserEntry(source, pipeline=TRANSCRIBE_AND_STRUCTURE)] → Deepgram       ║
+║    → LLM → [UserEntry(structured)] -[:TRANSFORMS]-> source               ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 ```
@@ -207,7 +225,7 @@ expected_modality: SubmissionModality  # FILE_UPLOAD or STRUCTURED_FORM (auto-de
 
 `expected_modality` is auto-derived in `__post_init__`: if `form_schema` is set → `STRUCTURED_FORM`,
 else → `FILE_UPLOAD`. The corresponding `Submission.modality` field records which path was actually used.
-Both modes create `ExerciseSubmission` and trigger the same event pipeline (`FULFILLS_EXERCISE` /
+Both modes create `UserEntry` and trigger the same event pipeline (`FULFILLS_EXERCISE` /
 `FULFILLS_REVISED_EXERCISE`, auto-share with teacher).
 
 **Three scopes and their constraints (`is_valid()` enforces these):**
@@ -261,7 +279,7 @@ Unauthenticated visitors see simple exercise links (no status, no submissions/fe
 
 | Path | Relationship | Scope | Trigger |
 |------|-------------|-------|---------|
-| Group exercise | `(exercise)-[:FOR_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher assigns to group |
+| Group exercise | `(exercise)-[:SHARED_WITH_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher shares to group (ADR-053) |
 | PathStep enrollment | `(ps)-[:RELATED_TO]->(exercise)` + `(user)-[:IN_PROGRESS]->(ps)` | `PERSONAL` | User enrolls in PathStep |
 
 `ExerciseService.get_student_exercises_with_status()` merges both paths and deduplicates by UID. The Library Exercises page calls this method via `GET /library/exercises` (the Library hub at `/library` links to this child page).
@@ -270,7 +288,7 @@ Unauthenticated visitors see simple exercise links (no status, no submissions/fe
 ```cypher
 // Assigned exercise (classroom)
 (teacher:User)-[:OWNS]->(exercise:Entity:Exercise {scope: 'assigned'})
-(exercise)-[:FOR_GROUP]->(group:Group)
+(exercise)-[:SHARED_WITH_GROUP]->(group:Group)
 (exercise)-[:REQUIRES_KNOWLEDGE]->(ku:Entity:Ku)
 
 // Personal exercise linked to PathStep (self-directed)
@@ -317,15 +335,15 @@ the AI when generating feedback. This is the bridge between knowledge and evalua
 
 ---
 
-## Phase 2: ExerciseSubmission — The Student's Work
+## Phase 2: UserEntry — The Student's Work
 
 **What it is:** The student's artifact. An uploaded file (audio, text, image) that is
 processed and then evaluated. Two leaf types share the same base model.
 
 **EntityType:** `EntityType.EXERCISE_SUBMISSION`
-**Model:** `ExerciseSubmission(Submission)` — frozen dataclass
+**Model:** `UserEntry(UserOwnedEntity)` — frozen dataclass
 **Base:** `core/models/submissions/submission.py` — `Submission(UserOwnedEntity)`
-**Neo4j labels:** `:Entity:ExerciseSubmission:Submission`
+**Neo4j labels:** `:Entity:UserEntry`
 **UID prefix:** `es_` (e.g. `es_a1b2c3d4`)
 
 > **Note:** Journals (JE_INPUT/JE_OUTPUT) were extracted to a standalone domain in March 2026.
@@ -340,7 +358,7 @@ file_size: int | None
 file_type: str | None             # MIME type: "audio/mpeg", "text/plain"
 
 # Processing pipeline
-processor_type: ProcessorType | None   # HUMAN | LLM
+pipeline: Pipeline | None   # NONE | TEACHER_REVIEW | TRANSCRIBE | LLM_SUMMARY
 processing_started_at: datetime | None
 processing_completed_at: datetime | None
 processing_error: str | None
@@ -364,15 +382,15 @@ revision_number: int             # Which attempt against this exercise (1 = firs
                                   # Default: 1 (for submissions not linked to an exercise).
 ```
 
-**SubmissionModality vs ProcessorType:** `SubmissionModality` records *how* the submission was
-created (file upload vs structured form). `ProcessorType` records *who/what* processes it
-(HUMAN, LLM, AUTOMATIC). They are orthogonal — a form submission can still be processed by an LLM.
+**SubmissionModality vs Pipeline:** `SubmissionModality` records *how* the submission was
+created (file upload vs structured form). `Pipeline` records *what* happens to it.
+They are orthogonal — a form submission can still be part of a pipeline.
 
 **Two leaf types:**
 
-| EntityType | Created by | ProcessorType | Processing |
+| EntityType | Created by | Pipeline | Processing |
 |-----------|-----------|---------------|-----------|
-| `EXERCISE_SUBMISSION` | Student uploads | `HUMAN` (then LLM feedback) | Transcription if audio |
+| `USER_ENTRY` | Student uploads | `TEACHER_REVIEW` | Transcription if audio |
 
 **Processing pipeline (two entry points, typed by `SubmissionModality`):**
 ```
@@ -418,7 +436,7 @@ SubmissionCreated event fires:          → FULFILLS_EXERCISE (Submission → ro
 `can_transition_to(new_status, entity_type)` before persisting. Invalid transitions
 return `Errors.validation()`. This is the chokepoint for all pipeline status changes.
 
-Valid transitions for ExerciseSubmission:
+Valid transitions for UserEntry:
 ```
 DRAFT → SUBMITTED → QUEUED → PROCESSING → COMPLETED / FAILED
                ↑                               |          |
@@ -461,7 +479,7 @@ Without Submission, the loop has no student voice.
 
 ## The Interaction Contract — Curriculum Context at Submission Time
 
-When `SubmissionsService.submit_file()` or `submit_form()` creates an ExerciseSubmission,
+When `SubmissionsService.submit_file()` or `submit_form()` creates a UserEntry,
 it immediately calls `_create_interaction_record()` which persists an **Interaction** node
 capturing the user's curriculum position at that exact moment.
 
@@ -490,7 +508,7 @@ When `from_ps` is absent (standalone submission), `_get_learning_context` falls 
 - `target_uid`: The Exercise UID being submitted against
 - `context_path_step_uid`: PathStep UID from explicit `from_ps` navigation (or UserContext fallback)
 - `context_learning_path_uid`: The LearningPath the user was enrolled in (from UserContext)
-- `source_entity_uid`: Back-pointer to the ExerciseSubmission UID
+- `source_entity_uid`: Back-pointer to the UserEntry UID
 - `result_status`: Processing outcome (starts PENDING, updated as pipeline progresses)
 
 **Graph relationships created:**
@@ -500,10 +518,10 @@ When `from_ps` is absent (standalone submission), `_get_learning_context` falls 
 (interaction)-[:INTERACTION_WITHIN]->(lp)        // path enrollment (if set)
 ```
 
-**Why a separate node, not fields on ExerciseSubmission?** Interaction is queryable as
+**Why a separate node, not fields on UserEntry?** Interaction is queryable as
 a first-class graph node — you can traverse all interactions for a PathStep, or find
 every student who submitted while enrolled in a given LearningPath. Embedding those
-fields in ExerciseSubmission would bury them.
+fields in UserEntry would bury them.
 
 **Phase 2 (deferred):** ZPD and Askesis will query Interaction nodes to reason about
 *situated learning trajectories* — not just what a student submitted but where in the
@@ -533,10 +551,10 @@ logs a warning rather than failing the request.
 processed_content: str | None                         # LLM/teacher-generated feedback (written by create_report_node as processed_content: $feedback)
 report_generated_at: datetime | None
 # GRAPH-NATIVE: projected from the REPORT_FOR edge on read (not a stored node property).
-# ExerciseReportBackend.get_by_uid / list_for_submission hydrate it via
+# ExerciseReportBackend.get / list_for_submission hydrate it via
 # `OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}`.
 subject_uid: str | None                           # UID of the submission being evaluated
-processor_type: ProcessorType | None              # HUMAN (teacher) | LLM (AI)
+processor_type: ReportSource | None              # HUMAN (teacher) | LLM (AI)
 assessment_outcome: AssessmentOutcome | None       # APPROVED | NEEDS_REVISION | AI_EVALUATED
 report_file_path: str | None                       # Path to uploaded .md file (HUMAN) or generated output (LLM)
 assessment_score: float | None                     # 0.0-1.0 for ASSESSMENT-scope exercises
@@ -545,9 +563,9 @@ assessment_score: float | None                     # 0.0-1.0 for ASSESSMENT-scop
 `assessment_outcome` (`AssessmentOutcome` enum from `learning_enums.py`) makes each report
 self-describing — the report records what decision was made, not just feedback text.
 
-**Two sources — same EntityType, different ProcessorType:**
+**Two sources — same EntityType, different ReportSource:**
 
-| Source | Service | ProcessorType | AssessmentOutcome | Trigger |
+| Source | Service | ReportSource | AssessmentOutcome | Trigger |
 |--------|---------|---------------|-------------------|---------|
 | Teacher submits `.md` file | `TeacherReviewService.submit_report()` | `HUMAN` | `APPROVED` | Teacher uploads feedback file at `/teaching/review/{uid}` |
 | Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher fills structured revision form (instructions + categorized feedback points via Alpine.js dynamic list + rationale) |
@@ -566,12 +584,12 @@ self-describing — the report records what decision was made, not just feedback
     visibility: 'shared',               // set at create so SHARES_WITH is honored by UnifiedSharingService
     processed_content: 'Your analysis shows...'  // LLM/teacher-generated feedback body
 })
-(report)-[:REPORT_FOR]->(submission:Entity:ExerciseSubmission)  // subject_uid is projected from this edge on read
+(report)-[:REPORT_FOR]->(submission:Entity:UserEntry)  // subject_uid is projected from this edge on read
 (report)-[:SHARES_WITH]->(submitter:User)                       // grants read access via UnifiedSharingService
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.
-Reads go through `ExerciseReportBackend` (typed fetches — `get_by_uid`, `list_for_submission`);
+Reads go through `ExerciseReportBackend` (typed fetches — `get`, `list_for_submission`);
 writes (teacher + AI) go through `SubmissionsBackend.create_report_node`. Both are reached via
 `ExerciseReportService`, the single service entry point.
 
@@ -592,7 +610,7 @@ in `core/ports/report_protocols.py`):
 atomically in the database via `WHERE submission.status IN $allowed_from_statuses`.
 The service passes the allowed source statuses; if the guard rejects, the query
 returns empty results and the service returns a validation error (not "not found",
-since `_verify_teacher_access` already confirmed existence). This is race-safe —
+since `_verify_teacher_has_group_access` already confirmed existence). This is race-safe —
 no gap between read and write.
 
 Each feedback round creates a new `ExerciseReport` entity via `REPORT_FOR` —
@@ -622,7 +640,7 @@ activity feed to discover new reports.
 
 **Key fields:**
 ```python
-processor_type: ProcessorType | None    # AUTOMATIC | LLM | HUMAN
+processor_type: ReportSource | None    # AUTOMATIC | LLM | HUMAN
 subject_uid: str | None                 # user whose activity was reviewed
 time_period: str | None                 # "7d" | "14d" | "30d" | "90d"
 period_start: datetime | None
@@ -641,7 +659,7 @@ annotation_updated_at: datetime | None
 
 **Three sources — same EntityType:**
 
-| Source | Service | ProcessorType | Trigger |
+| Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
 | Scheduled system | `ProgressReportWorker` → `ProgressReportGenerator` | `AUTOMATIC` | Cron schedule |
 | On-demand AI | `ProgressReportGenerator.generate()` | `LLM` | User requests via API |
@@ -665,7 +683,7 @@ the same method.
 3. Send stats as JSON context to LLM via activity_feedback.md prompt template
 4. LLM returns qualitative analysis with patterns, trends, recommendations
 5. Create ActivityReport with processed_content = LLM output
-6. Graceful fallback: if LLM fails → ProcessorType.AUTOMATIC + programmatic markdown
+6. Graceful fallback: if LLM fails → ReportSource.AUTOMATIC + programmatic markdown
 ```
 
 **Prompt template:** `core/prompts/templates/activity_feedback.md`
@@ -741,7 +759,7 @@ enables student notification and learning loop progression tracking.
 - **Create:** `create()` (overrides `CrudOperationsMixin.create`; for pre-operation guards, prefer `_validate_create` hook or `_post_create` hook for events — see `/docs/patterns/DOMAIN_SPECIFIC_HOOKS.md`) verifies the `student_uid`
   owns the submission linked to the report (OWNS-based, per ADR-040). Teacher identity is
   role-gated at the route level. Graph path checked:
-  `(Report)-[:REPORT_FOR]->(Submission)<-[:OWNS]-(Student)`.
+  `(Report)-[:REPORT_FOR]->(UserEntry)<-[:OWNS]-(Student)`.
   Prevents teachers from creating revisions targeting arbitrary students' feedback.
 - **CRUD routes:** Generated by `CRUDRouteFactory` with `require_role=UserRole.TEACHER`. Ownership
   verification ensures only the creating teacher can access their revised exercises.
@@ -773,12 +791,40 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 
 ---
 
+## Why `RevisedExercise` Is Object-Language (Not a Naming Drift)
+
+`RevisedExercise` occasionally raises the question "is this process-language?" — it isn't.
+"Revised" here is a past-participle acting as an adjective, and the name reads as "a revised
+exercise" (a kind of thing), parallel to `FrozenDataclass`, `CompiledQuery`,
+`DerivedAttribute`. The process verb would be `RevisingExercise` or `ExerciseRevision(act of)`
+— neither of which is what SKUEL means.
+
+RevisedExercise stays a distinct EntityType (not collapsed into `Exercise` with a kind field)
+because it differs from `Exercise` on five structural axes:
+
+- **Hierarchy:** `Entity → UserOwnedEntity → RevisedExercise` vs. `Entity → Curriculum → Exercise`
+- **Ownership:** `user_uid = teacher_uid` vs. `user_uid = None` (shared curriculum)
+- **Targeting:** individual `student_uid` vs. group (`group_uid`) or personal curriculum (`path_step_uid`)
+- **ContentOrigin:** `USER_CREATED` vs. `CURRICULUM`
+- **Feedback typing:** `tuple[FeedbackPoint, ...]` with `FeedbackCategory` enum vs. plain `instructions` text
+
+The verb lives on the edge: `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`. Type name =
+noun; edge name = verb; variant = enum field. Applied throughout the loop: `UserEntry` uses
+`pipeline: Pipeline` to distinguish what would once have been three separate types (ADR-054),
+and `ExerciseReport` uses `report_source: ReportSource` + `assessment_outcome:
+AssessmentOutcome` to cover both initial and revision cycles without spawning a
+`RevisedExerciseReport` type.
+
+**See:** [`/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md § Naming Convention`](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md#naming-convention) for the rule, the two-part test, and additional worked examples. ADR-054 is the reference for the `UserEntry` collapse rationale.
+
+---
+
 ## The Binding Graph Relationships
 
 | Relationship | Connects | Purpose |
 |---|---|---|
 | `REQUIRES_KNOWLEDGE` | `Exercise` → `Ku` | Exercise is grounded in this knowledge |
-| `FOR_GROUP` | `Exercise` → `Group` | ASSIGNED exercise targets this classroom |
+| `SHARED_WITH_GROUP` | `Exercise` → `Group` | ASSIGNED exercise shared to this classroom (ADR-053) |
 | `MEMBER_OF` | `User` → `Group` | Student enrolled in a group (auto-created on PathStep IN_PROGRESS via `PathStepEnrolled` event → admin default group) |
 | `FULFILLS_EXERCISE` | `Submission` → `Exercise` (root) | Always anchors to the original Exercise, across all revision iterations |
 | `FULFILLS_REVISED_EXERCISE` | `Submission` → `RevisedExercise` | Created alongside FULFILLS_EXERCISE for revision-cycle submissions only |
@@ -792,7 +838,7 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 from core.models.relationship_names import RelationshipName
 
 RelationshipName.REQUIRES_KNOWLEDGE      # Exercise → Ku
-RelationshipName.FOR_GROUP               # Exercise → Group
+RelationshipName.SHARED_WITH_GROUP       # Exercise/PathStep/LearningPath → Group (ADR-053)
 RelationshipName.FULFILLS_EXERCISE          # Submission → root Exercise (always)
 RelationshipName.FULFILLS_REVISED_EXERCISE  # Submission → RevisedExercise (revision-cycle only)
 RelationshipName.REPORT_FOR              # ExerciseReport → Submission
@@ -816,14 +862,14 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission report** | `ExerciseReportService` + `AssessmentService` | `ExerciseReportOperations` (service) + `ExerciseReportBackendOperations` (backend) | `ExerciseReportBackend` (typed reads) + `SubmissionsBackend` (create via `create_report_node`) | `generate_report` (via `UnifiedLLMCaller`), `list_for_submission` → typed `list[ExerciseReport]`, `create_assessment`. Writes land as `:Entity:ExerciseReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
 | **Journal output** | `JournalOutputService` | `JournalOutputOperations` | `JournalOutputBackend` | `process_je_input`, `generate_output`, `get_je_output`, `cleanup_date_range` (standalone domain — not under submissions) |
 | **Learning Loop Intelligence (write)** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
-| **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `SubmissionsBackend` | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.EXERCISE_SUBMISSION.value`. New learning-loop reads land here, not on `SubmissionsSearchService` |
+| **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `SubmissionsBackend` | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.USER_ENTRY.value`. New learning-loop reads land here, not on `SubmissionsSearchService` |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `SubmissionsBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing moved:** use `ExerciseReportService.list_for_submission()` for typed report reads (not `get_report_history`, which was deleted) |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |
 | **Activity Report (human)** | `ActivityReportService` | `ActivityReportOperations` | `ActivityReportBackend` + `UserContextBuilder` | `create_snapshot`, `submit_report`, `persist`, `get_history`, `annotate` |
 
-**Protocols location:** `core/ports/report_protocols.py` (7 protocols: all report + teacher review + review queue + report relationships), `core/ports/submission_protocols.py` (3 protocols — typed enum params: `EntityType`, `ProcessorType`, `EntityStatus`, `Visibility`), `core/ports/group_protocols.py` (group CRUD only)
+**Protocols location:** `core/ports/report_protocols.py` (7 protocols: all report + teacher review + review queue + report relationships), `core/ports/submission_protocols.py` (3 protocols — typed enum params: `EntityType`, `Pipeline`, `EntityStatus`, `Visibility`), `core/ports/group_protocols.py` (group CRUD only)
 
 ---
 
@@ -898,7 +944,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
    - Strengthens a phase: Better AI feedback, richer Ku content, cleaner submission UI
    - Improves a transition: Faster Ku→Exercise linking, auto-share on submission, annotation tools
 
-3. **If it touches none of the five phases, why does it exist?**
+3. **If it touches none of the four phases, why does it exist?**
    - Is it genuinely cross-cutting infrastructure (auth, search, calendar)?
    - Or is it isolated logic that accumulated without serving the loop?
    - Per One Path Forward: isolated logic with no loop connection is a deletion candidate.
@@ -934,13 +980,13 @@ that never closes the loop.
 
 ---
 
-## ProcessorType Taxonomy
+## ReportSource Taxonomy
 
-`ProcessorType` discriminates who produced a report entity.
+`ReportSource` discriminates who produced a report entity.
 
-**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md#processortype-taxonomy) for the canonical table.
+**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md#reportsource-taxonomy) for the canonical table.
 
-**Import:** `from core.models.enums.entity_enums import ProcessorType`
+**Import:** `from core.models.enums.pipeline import ReportSource`
 
 ---
 
@@ -952,7 +998,7 @@ that never closes the loop.
 | `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% (491/625 lines) |
 | `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD only |
 
-**TeacherReviewService tests cover:** access control (`_verify_teacher_access`), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
+**TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — requires teacher and student share an active group), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
 **SubmissionsCoreService tests cover:** retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export. (Journal tests were removed — journal is now a standalone domain with `JournalOutputService`.)
 
@@ -973,7 +1019,7 @@ that never closes the loop.
 | `ui/submissions/report.py` | 4 | ExerciseReport renderers (detail page with outcome/processor badges) |
 | `ui/patterns/modal.py` | support | AlpineModal — standardized Alpine.js modal wrapper |
 | `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
-| `core/models/submissions/submission.py` | 3 | Submission base (ExerciseSubmission) |
+| `core/models/submissions/submission.py` | 3 | Submission base (UserEntry) |
 | `core/models/report/exercise_report.py` | 4 | ExerciseReport model |
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
 | `core/services/submissions/submissions_core_service.py` | 3+4 | Facade — delegates assessment to sub-services |
@@ -991,7 +1037,7 @@ that never closes the loop.
 | `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
 | `core/services/report/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
 | `core/services/background/progress_report_worker.py` | 4 | Scheduled activity report background worker |
-| `core/ports/submission_protocols.py` | 3 | Submission protocols — typed enum params (`EntityType`, `ProcessorType`, `EntityStatus`, `Visibility`) |
+| `core/ports/submission_protocols.py` | 3 | Submission protocols — typed enum params (`EntityType`, `Pipeline`, `EntityStatus`, `Visibility`) |
 | `core/ports/report_protocols.py` | 7 | All report protocols incl. `TeacherReviewOperations`, `ReviewQueueOperations`, `ReportRelationshipOperations` — typed returns (`ReviewRequestResult`, `PendingReviewItem`, `GroupMemberProgress`) |
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
@@ -1025,7 +1071,7 @@ that never closes the loop.
 3. Student submits file
    SubmissionsService.submit_file()                 → core/services/submissions/submissions_service.py
    Creates Entity with entity_type='exercise_submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
-   (For journals: standalone domain — JournalOutputService.process_je_input() handles LLM → JeOutput)
+   (For journals: processed via UserEntry TRANSCRIBE_AND_STRUCTURE pipeline)
        ↓
 4. FULFILLS_EXERCISE relationship created (always → root Exercise)
    FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
@@ -1036,9 +1082,9 @@ that never closes the loop.
    exercise_submissions joined to exercises via FULFILLS_EXERCISE)
        ↓
 6. TeacherReviewService.submit_report()             → core/services/report/teacher_review_service.py
-   Creates ExerciseReport with ProcessorType.HUMAN
+   Creates ExerciseReport with ReportSource.HUMAN
    OR ExerciseReportService.generate_report()     → core/services/report/exercise_report_service.py
-   Creates ExerciseReport with ProcessorType.LLM (via Exercise instructions)
+   Creates ExerciseReport with ReportSource.LLM (via Exercise instructions)
        ↓
 7. Student sees feedback, optionally resubmits (revision cycle)
 ```
@@ -1106,24 +1152,24 @@ if exercise.scope == ExerciseScope.ASSIGNED:
     assert exercise.group_uid is not None
 ```
 
-### Don't let ProcessorType drift
+### Don't let ReportSource drift
 
 ```python
 # WRONG — new report source creates a new EntityType
 class AdminSummary(UserOwnedEntity):  # New entity for admin-written reports?
     admin_notes: str
 
-# CORRECT — new report sources are new ProcessorType values on existing entities
-# ActivityReport with processor_type=HUMAN covers all admin-written activity reports
+# CORRECT — new report sources are new ReportSource values on existing entities
+# ActivityReport with processor_type=ReportSource.HUMAN covers all admin-written activity reports
 ```
 
 ---
 
 ## Deep Dive Resources
 
-- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — entry-point overview: two tracks, five phases, how MEGA_QUERY feeds the loop
+- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
 - [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference
-- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference — all services, APIs, graph patterns, ProcessorType taxonomy, Exercise pipeline
+- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference — all services, APIs, graph patterns, ReportSource taxonomy, Exercise pipeline
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Exercise Workflow](/docs/decisions/ADR-040-teacher-exercise-workflow.md)
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md)

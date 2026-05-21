@@ -11,20 +11,17 @@ This service handles:
 - Knowledge-based task search
 - Blocked task discovery
 - Prioritized task recommendations
-- Learning-relevant task discovery
 - Curriculum task filtering
 """
 
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import Domain, EntityStatus, Priority
-from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.lp_position import LpPosition
-from core.models.pathways.path_step import PathStep
+from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
 from core.services.tasks.tasks_search_service import TasksSearchService
@@ -50,8 +47,15 @@ def mock_backend() -> Any:
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     backend.create_relationship = AsyncMock(return_value=Result.ok(True))
+    # Graph-native habit linkage (REINFORCES_HABIT edge)
+    backend.get_tasks_reinforcing_habit = AsyncMock(return_value=Result.ok([]))
+    backend.get_habit_links_for_tasks = AsyncMock(return_value=Result.ok({}))
     # count_related returns Result[int] for relationship counting
     backend.count_related = AsyncMock(return_value=Result.ok(0))
+    # Temporal raw helpers used by TimeQueryMixin (get_upcoming/get_overdue/get_active)
+    backend.upcoming_raw = AsyncMock(return_value=Result.ok([]))
+    backend.overdue_raw = AsyncMock(return_value=Result.ok([]))
+    backend.active_raw = AsyncMock(return_value=Result.ok([]))
     return backend
 
 
@@ -82,22 +86,24 @@ def sample_tasks() -> list[Any]:
                 priority=Priority.HIGH.value,
                 status=EntityStatus.ACTIVE.value,
                 fulfills_goal_uid="goal:learn_python",
-                reinforces_habit_uid=None,
                 goal_progress_contribution=0.2,
                 created_at=now,
             )
         ),
-        Task.from_dto(
-            TaskDTO(
-                uid="task:2",
-                user_uid="user:demo",
-                title="Daily coding practice",
-                priority=Priority.MEDIUM.value,
-                status=EntityStatus.SCHEDULED.value,
-                fulfills_goal_uid=None,
-                reinforces_habit_uid="habit:daily_code",
-                created_at=now,
-            )
+        # reinforces_habit_uid is a DERIVED field (graph edge), set after from_dto.
+        replace(
+            Task.from_dto(
+                TaskDTO(
+                    uid="task:2",
+                    user_uid="user:demo",
+                    title="Daily coding practice",
+                    priority=Priority.MEDIUM.value,
+                    status=EntityStatus.SCHEDULED.value,
+                    fulfills_goal_uid=None,
+                    created_at=now,
+                )
+            ),
+            reinforces_habit_uid="habit:daily_code",
         ),
         Task.from_dto(
             TaskDTO(
@@ -134,45 +140,6 @@ def user_context() -> UserContext:
         completed_task_uids={"task:completed_1", "task:completed_2"},
         active_goal_uids={"goal:learn_python"},
         active_habit_uids={"habit:daily_code"},
-    )
-
-
-@pytest.fixture
-def learning_position() -> LpPosition:
-    """Create sample learning position."""
-    step1 = PathStep(
-        uid="ps:python_fundamentals",
-        title="Python Fundamentals",
-        intent="Learn Python basics",
-        knowledge_uids=("ku.python.basics",),
-        mastery_threshold=0.8,
-        estimated_hours=10.0,
-    )
-    step2 = PathStep(
-        uid="ps:python_advanced",
-        title="Python Advanced",
-        intent="Master advanced Python concepts",
-        knowledge_uids=("ku.python.advanced",),
-        mastery_threshold=0.85,
-        estimated_hours=20.0,
-    )
-
-    path = LearningPath(
-        uid="lp:python_mastery",
-        title="Python Mastery",
-        description="Master Python programming",
-        domain=Domain.TECH,
-        metadata={"steps": [step1, step2]},
-    )
-
-    return LpPosition(
-        user_uid="user:123",
-        active_paths=[path],
-        current_steps={"lp:python_mastery": step1},
-        completed_step_uids=set(),
-        next_recommended=["ps:python_advanced"],
-        generated_at=datetime.now(),
-        readiness_scores={"ps:python_advanced": 0.8},
     )
 
 
@@ -240,11 +207,12 @@ async def test_get_tasks_for_goal_empty(search_service, mock_backend):
 
 @pytest.mark.asyncio
 async def test_get_tasks_for_habit_success(search_service, mock_backend, sample_tasks):
-    """Test successful retrieval of tasks for a specific habit."""
-    # Setup
-    habit_tasks = [t for t in sample_tasks if t.reinforces_habit_uid == "habit:daily_code"]
-    # Service now uses find_by() instead of list_tasks()
-    mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in habit_tasks])
+    """Test successful retrieval of tasks for a specific habit (graph traversal)."""
+    # Setup — service traverses (Task)-[:REINFORCES_HABIT]->(Habit) via the backend.
+    habit_tasks = [t for t in sample_tasks if t.uid == "task:2"]
+    mock_backend.get_tasks_reinforcing_habit.return_value = Result.ok(
+        [t.to_dto().to_dict() for t in habit_tasks]
+    )
 
     # Execute
     result = await search_service.get_tasks_for_habit("habit:daily_code")
@@ -253,7 +221,8 @@ async def test_get_tasks_for_habit_success(search_service, mock_backend, sample_
     assert result.is_ok
     tasks = result.value
     assert len(tasks) == 1
-    assert tasks[0].reinforces_habit_uid == "habit:daily_code"
+    assert tasks[0].uid == "task:2"
+    mock_backend.get_tasks_reinforcing_habit.assert_awaited_once_with("habit:daily_code")
 
 
 # ============================================================================
@@ -354,29 +323,29 @@ async def test_get_blocked_tasks_empty(search_service, mock_backend):
 
 
 @pytest.mark.asyncio
-async def test_get_prioritized_tasks_success(
-    search_service, mock_backend, sample_tasks, user_context
-):
-    """Test retrieval of prioritized tasks based on impact score."""
+async def test_get_prioritized_success(search_service, mock_backend, sample_tasks, user_context):
+    """Test retrieval of prioritized tasks using unified score_task."""
+    from core.models.search.scoring import score_task
+
     # Setup - get_user_entities returns (entities, total_count) tuple
     task_data = [t.to_dto().to_dict() for t in sample_tasks]
     mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
 
     # Execute
-    result = await search_service.get_prioritized_tasks(user_context, limit=2)
+    result = await search_service.get_prioritized(user_context, limit=2)
 
     # Verify
     assert result.is_ok
     tasks = result.value
     assert len(tasks) <= 2
 
-    # Verify sorted by impact score (descending)
+    # Verify sorted by unified score_task total (descending)
     if len(tasks) > 1:
-        assert tasks[0].impact_score() >= tasks[1].impact_score()
+        assert score_task(tasks[0], user_context).total >= score_task(tasks[1], user_context).total
 
 
 @pytest.mark.asyncio
-async def test_get_prioritized_tasks_respects_limit(
+async def test_get_prioritized_respects_limit(
     search_service, mock_backend, sample_tasks, user_context
 ):
     """Test that prioritized tasks respects the limit parameter."""
@@ -385,39 +354,11 @@ async def test_get_prioritized_tasks_respects_limit(
     mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
 
     # Execute with limit 1
-    result = await search_service.get_prioritized_tasks(user_context, limit=1)
+    result = await search_service.get_prioritized(user_context, limit=1)
 
     # Verify
     assert result.is_ok
     assert len(result.value) == 1
-
-
-# ============================================================================
-# LEARNING-RELEVANT TASKS TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_get_learning_relevant_tasks(
-    search_service, mock_backend, sample_tasks, learning_position
-):
-    """Test retrieval of tasks relevant to learning position."""
-    # Setup - get_user_entities returns (entities, total_count) tuple
-    task_data = [t.to_dto().to_dict() for t in sample_tasks]
-    mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
-
-    # Execute
-    result = await search_service.get_learning_relevant_tasks(
-        "user:123", learning_position, limit=3
-    )
-
-    # Verify
-    assert result.is_ok
-    tasks = result.value
-    assert len(tasks) <= 3
-
-    # NOTE: Knowledge alignment verification removed - requires backend queries
-    # Tasks are sorted by relevance score calculated via backend.get_related_uids()
 
 
 # ============================================================================
@@ -510,6 +451,130 @@ async def test_search_with_backend_error(search_service, mock_backend):
     result = await search_service.get_tasks_for_goal("goal:test")
 
     # Verify
+    assert result.is_error
+
+
+# ============================================================================
+# HARMONIZED TIME-QUERY SURFACE TESTS (get_upcoming / get_overdue / get_active)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_upcoming_success(search_service, mock_backend, sample_tasks):
+    """get_upcoming forwards date_field + exclusions to backend.upcoming_raw."""
+    # Tasks use due_date as the date_field (DomainConfig).
+    tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
+    mock_backend.upcoming_raw.return_value = Result.ok(tasks_data)
+
+    result = await search_service.get_upcoming(days_ahead=14, user_uid="user:demo", limit=50)
+
+    assert result.is_ok
+    assert len(result.value) == len(sample_tasks)
+    mock_backend.upcoming_raw.assert_awaited_once()
+    kwargs = mock_backend.upcoming_raw.call_args.kwargs
+    assert kwargs["date_field"] == "due_date"
+    assert kwargs["days_ahead"] == 14
+    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["limit"] == 50
+    # Terminal statuses are excluded by default via temporal_exclude_statuses
+    assert set(kwargs["exclude_statuses"]) >= {"completed", "failed", "cancelled", "archived"}
+
+
+@pytest.mark.asyncio
+async def test_get_upcoming_empty(search_service, mock_backend):
+    """get_upcoming returns empty list when backend finds nothing."""
+    mock_backend.upcoming_raw.return_value = Result.ok([])
+
+    result = await search_service.get_upcoming(user_uid="user:demo")
+
+    assert result.is_ok
+    assert result.value == []
+
+
+@pytest.mark.asyncio
+async def test_get_upcoming_error_propagates(search_service, mock_backend):
+    """Backend failure surfaces as Result.fail."""
+    mock_backend.upcoming_raw.return_value = Result.fail(
+        Errors.database("upcoming_raw", "backend down")
+    )
+
+    result = await search_service.get_upcoming()
+
+    assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_success(search_service, mock_backend, sample_tasks):
+    """get_overdue forwards date_field to backend.overdue_raw."""
+    tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
+    mock_backend.overdue_raw.return_value = Result.ok(tasks_data)
+
+    result = await search_service.get_overdue(user_uid="user:demo", limit=25)
+
+    assert result.is_ok
+    assert len(result.value) == len(sample_tasks)
+    mock_backend.overdue_raw.assert_awaited_once()
+    kwargs = mock_backend.overdue_raw.call_args.kwargs
+    assert kwargs["date_field"] == "due_date"
+    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["limit"] == 25
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_admin_path(search_service, mock_backend):
+    """get_overdue allows user_uid=None for admin/system queries."""
+    mock_backend.overdue_raw.return_value = Result.ok([])
+
+    result = await search_service.get_overdue()
+
+    assert result.is_ok
+    kwargs = mock_backend.overdue_raw.call_args.kwargs
+    assert kwargs["user_uid"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_overdue_error_propagates(search_service, mock_backend):
+    """Backend failure on overdue surfaces cleanly."""
+    mock_backend.overdue_raw.return_value = Result.fail(Errors.database("overdue_raw", "boom"))
+
+    result = await search_service.get_overdue(user_uid="user:demo")
+
+    assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_get_active_success(search_service, mock_backend, sample_tasks):
+    """get_active delegates to backend.active_raw with terminal exclusions."""
+    tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
+    mock_backend.active_raw.return_value = Result.ok(tasks_data)
+
+    result = await search_service.get_active(user_uid="user:demo", limit=10)
+
+    assert result.is_ok
+    assert len(result.value) == len(sample_tasks)
+    mock_backend.active_raw.assert_awaited_once()
+    kwargs = mock_backend.active_raw.call_args.kwargs
+    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["limit"] == 10
+    assert set(kwargs["exclude_statuses"]) >= {"completed", "failed", "cancelled", "archived"}
+
+
+@pytest.mark.asyncio
+async def test_get_active_requires_user_uid(search_service, mock_backend):
+    """get_active rejects empty user_uid — there is no 'active for nobody' query."""
+    result = await search_service.get_active(user_uid="")
+
+    assert result.is_error
+    mock_backend.active_raw.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_active_error_propagates(search_service, mock_backend):
+    """Backend failure on active surfaces cleanly."""
+    mock_backend.active_raw.return_value = Result.fail(Errors.database("active_raw", "kaput"))
+
+    result = await search_service.get_active(user_uid="user:demo")
+
     assert result.is_error
 
 

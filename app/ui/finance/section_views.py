@@ -293,7 +293,7 @@ class FinanceSectionViews:
                     ),
                     cls="flex flex-wrap gap-3 items-center",
                 ),
-                hx_post="/api/expenses",
+                hx_post="/finance/expenses/create",
                 hx_target="#expense-list",
                 hx_swap="afterbegin",
             ),
@@ -339,6 +339,7 @@ class FinanceSectionViews:
                     expense_table,
                     cls="bg-background border border-border rounded-lg overflow-hidden",
                 ),
+                id="expense-list",
             )
         else:
             list_section = Div(
@@ -442,7 +443,7 @@ class FinanceSectionViews:
                     ),
                     cls="flex flex-wrap gap-3 items-center",
                 ),
-                hx_post="/api/budgets",
+                hx_post="/finance/budgets/create",
                 hx_target="#budget-list",
                 hx_swap="afterbegin",
             ),

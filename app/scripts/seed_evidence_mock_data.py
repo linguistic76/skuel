@@ -489,8 +489,7 @@ async def main():
             sys.exit(1)
 
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         await seed_mock_data(driver, dry_run=dry_run)

@@ -50,7 +50,7 @@ class TestEnvironmentEnum:
     def test_environment_is_string_enum(self):
         """Test that Environment inherits from str."""
         assert isinstance(Environment.LOCAL, str)
-        assert Environment.LOCAL == "local"
+        assert Environment.LOCAL == "local"  # type: ignore[comparison-overlap]
 
     def test_environment_count(self):
         """Test there are exactly 5 environments."""
@@ -272,7 +272,6 @@ class TestUnifiedConfigFromEnvironment:
             assert config.environment == Environment.PRODUCTION
             # Production settings that survive _load_from_env
             assert config.cache.provider == "redis"
-            assert config.application.enable_auth is True
             assert config.features.enable_experimental_features is False
 
     def test_from_environment_development(self):

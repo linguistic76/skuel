@@ -15,7 +15,7 @@ NEO4J GENAI INTEGRATION (January 2026):
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import UserUID
@@ -134,7 +134,7 @@ def _prepare_core(
     # Only set body content if it's non-empty — an empty body means all content
     # is in the frontmatter (e.g. content: | in the YAML), and overwriting with ""
     # would erase the frontmatter-provided content before chunking.
-    if body and entity_type in (EntityType.PATH_STEP, EntityType.EXERCISE_SUBMISSION):
+    if body and entity_type in (EntityType.PATH_STEP, EntityType.USER_ENTRY):
         entity_data["content"] = body
 
     # PathStep: normalize USES_KU UIDs and activity domain UIDs
@@ -180,13 +180,18 @@ def _prepare_core(
             if field in entity_data and isinstance(entity_data[field], list):
                 entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
 
-    # Normalize name → title: YAML files may use `name:` but the domain model uses `title`
-    if "name" in entity_data and "title" not in entity_data:
-        entity_data["title"] = entity_data.pop("name")
+    # Normalize name → title: most domain models use `title`, but a few
+    # (Group) keep `name` as their primary field. Skip rename for those.
+    _keeps_name_field = entity_type == NonKuDomain.GROUP
+    if not _keeps_name_field:
+        if "name" in entity_data and "title" not in entity_data:
+            entity_data["title"] = entity_data.pop("name")
 
-    # Handle title fallback from filename
-    if "title" not in entity_data:
-        entity_data["title"] = file_path.stem.replace("-", " ").title()
+        # Handle title fallback from filename
+        if "title" not in entity_data:
+            entity_data["title"] = file_path.stem.replace("-", " ").title()
+    elif "name" not in entity_data:
+        entity_data["name"] = file_path.stem.replace("-", " ").title()
 
     # Apply default values
     if config.default_values:
@@ -198,6 +203,15 @@ def _prepare_core(
     # Uses explicit user_uid from data if present, otherwise falls back to default
     if config.requires_user_uid and "user_uid" not in entity_data:
         entity_data["user_uid"] = default_user_uid
+
+    # Group uses `owner_uid` (teacher), not `user_uid`. The upload flow injects
+    # the uploader's UID as user_uid above; translate that to owner_uid here so
+    # the teacher who uploads a group YAML becomes its owner.
+    if entity_type == NonKuDomain.GROUP:
+        owner_uid = entity_data.pop("owner_uid", None) or entity_data.pop("user_uid", None)
+        if owner_uid:
+            entity_data["owner_uid"] = owner_uid
+        entity_data.setdefault("is_active", True)
 
     # Flatten relationship data for BulkIngestionEngine
     # Format: "connections.requires" -> flat key in metadata
@@ -292,13 +306,16 @@ async def prepare_entity_data_async(
     return entity_data
 
 
-def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
+def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> TypeGuard[EntityType]:
     """
     Determine if entity type should have embeddings.
 
     All content-bearing entity types receive embeddings for semantic search:
     - Curriculum: PathStep, Ku, Exercise, LearningPath, Resource, RevisedExercise
     - Activity: Task, Goal, Habit, Event, Choice, Principle
+
+    TypeGuard narrows the union to EntityType in the True branch — only
+    EntityType values can be embeddable.
     """
     embeddable_types = {
         # Curriculum

@@ -20,7 +20,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
+    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
     from core.services.ps.ps_mastery_service import PsMasteryService
 
 logger = get_logger("skuel.services.report.mastery")
@@ -31,10 +31,10 @@ class ReportMasteryService:
 
     def __init__(
         self,
-        submissions_backend: "SubmissionsBackend",
+        user_entry_backend: "UserEntryBackend",
         ku_interaction_service: "PsMasteryService | None",
     ) -> None:
-        self.submissions_backend = submissions_backend
+        self.user_entry_backend = user_entry_backend
         self.ku_interaction_service = ku_interaction_service
 
     async def propagate_mastery(
@@ -72,9 +72,7 @@ class ReportMasteryService:
             score = mastery_impact.get_teacher_score()
 
         # 2. Update Submission `score` explicitly so ZPD queries track correct value
-        update_result = await self.submissions_backend.update_submission_score(
-            submission_uid, score
-        )
+        update_result = await self.user_entry_backend.update_submission_score(submission_uid, score)
         if update_result.is_error:
             logger.warning(
                 f"Failed to update submission score for {submission_uid}: {update_result.error}"

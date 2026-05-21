@@ -4,25 +4,25 @@ This guide covers setting up SKUEL for local development.
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - uv (package manager)
 - Neo4j database running locally
-- OpenAI API key
-- Deepgram API key
+- OpenAI API key (required at `INTELLIGENCE_TIER=full`)
+- Deepgram API key (optional — voice journal transcription)
 
 ## Database Setup
 
 ### Neo4j
 
-SKUEL requires Neo4j as its primary database. All dependencies are REQUIRED - no graceful degradation.
+SKUEL requires Neo4j as its primary database. All dependencies are REQUIRED — no graceful degradation; tier-gated services fail boot when their credentials are missing (commit `fed4287f`).
 
-1. Install and start Neo4j (default: `bolt://localhost:7687`)
-2. Set credentials in environment variables:
-   ```bash
-   export NEO4J_URI="bolt://localhost:7687"
-   export NEO4J_USER="neo4j"
-   export NEO4J_PASSWORD="your_password"
+1. Install and start Neo4j (default: `bolt://localhost:7687`).
+2. Put non-secret connection bits in `app/.env`:
    ```
+   NEO4J_URI=bolt://localhost:7687
+   NEO4J_USERNAME=neo4j
+   ```
+3. Load `NEO4J_PASSWORD` into the active credential backend (the keychain by default — `SKUEL_CREDENTIAL_BACKEND=keyring` in `app/.env`). See `app/README.md` § "Configure Environment" for the three supported shapes and the `python -m core.config` entry point.
 
 ### Development Users
 
@@ -66,21 +66,19 @@ If you see authentication errors:
 
 ## Environment Variables
 
-Required environment variables for development:
+`app/.env` (gitignored) holds non-secret config — see `app/.env.example` for the full inventory:
 
-```bash
-# Database
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_USER="neo4j"
-export NEO4J_PASSWORD="your_password"
-
-# AI Services
-export OPENAI_API_KEY="your_openai_key"
-export DEEPGRAM_API_KEY="your_deepgram_key"
-
-# Application
-export ENV="development"
 ```
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USERNAME=neo4j
+SKUEL_CREDENTIAL_BACKEND=keyring
+SKUEL_ENVIRONMENT=local
+INTELLIGENCE_TIER=full
+APP_PORT=8000
+LOG_LEVEL=INFO
+```
+
+Credentials (`NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, …) are read via `get_credential()` from the backend selected above — do **not** `export` them as shell env or paste them into `.env`. Load them once with `uv run python -m core.config` (interactive) or `uv run python scripts/migrate_secrets_to_keychain.py`. The full inventory of credential keys lives in `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
 
 ## Running the Application
 

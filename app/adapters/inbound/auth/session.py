@@ -699,8 +699,11 @@ def get_session_middleware_config() -> dict[str, Any]:
     import os
     import secrets
 
-    # Get secret key from environment or generate one (dev only)
-    secret_key = os.getenv(SESSION_SECRET_KEY_ENV)
+    from core.config.credential_store import get_credential
+
+    # Get secret key from credential store (falls back to env), or generate one (dev only)
+    secret_key = get_credential(SESSION_SECRET_KEY_ENV, fallback_to_env=True)
+    secret_from_store = secret_key is not None
     env = os.getenv("SKUEL_ENVIRONMENT", "local")
 
     if not secret_key:
@@ -710,10 +713,10 @@ def get_session_middleware_config() -> dict[str, Any]:
         secret_key = secrets.token_urlsafe(32)
         logger.warning(
             f"Using generated session secret (dev mode). "
-            f"Set {SESSION_SECRET_KEY_ENV} environment variable for production."
+            f"Set {SESSION_SECRET_KEY_ENV} via credential store for production."
         )
     else:
-        logger.info(f"Using session secret from {SESSION_SECRET_KEY_ENV}")
+        logger.info(f"Using session secret from credential store ({SESSION_SECRET_KEY_ENV})")
 
     config = {
         "secret_key": secret_key,
@@ -723,7 +726,7 @@ def get_session_middleware_config() -> dict[str, Any]:
         "same_site": "strict",  # Strict CSRF protection (January 2026 hardening)
     }
 
-    secret_source = "environment" if os.getenv(SESSION_SECRET_KEY_ENV) else "generated"
+    secret_source = "credential_store" if secret_from_store else "generated"
     logger.info(
         "Session security posture: environment=%s, https_only=%s, same_site=%s, "
         "secret_source=%s, dev_fallback_enabled=%s",

@@ -25,7 +25,8 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from core.models.enums.submissions_enums import ExerciseScope
+from adapters.inbound.csrf import csrf_protected
+from core.models.enums.user_entry_enums import ExerciseScope
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.exercises.inline_form import render_inline_exercise_form
@@ -170,6 +171,7 @@ def create_ku_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/api/ku/{uid}/mark-studying", methods=["POST"])
+    @csrf_protected
     async def mark_ku_as_studying(request: Request, uid: str) -> Any:
         """Mark Ku as studying. Returns updated learning buttons for HTMX swap.
 
@@ -192,6 +194,7 @@ def create_ku_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/api/ku/{uid}/mark-understood", methods=["POST"])
+    @csrf_protected
     async def mark_ku_as_understood(request: Request, uid: str) -> Any:
         """Mark Ku as understood. Returns updated learning buttons for HTMX swap."""
         user_uid = require_authenticated_user(request)

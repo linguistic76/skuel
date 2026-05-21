@@ -3,7 +3,7 @@ Inline Exercise Form Renderer
 ===============================
 
 Renders an Exercise's form_schema as an embeddable HTMX form.
-When submitted, creates an ExerciseSubmission via POST /api/submissions/form.
+When submitted, creates a UserEntry via POST /api/submissions/form.
 
 Supported field types: text, textarea, select, checkbox, number, date.
 
@@ -93,7 +93,7 @@ def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
         f"submitting = true; "
         f"document.getElementById('form-feedback-{exercise_uid}').innerHTML = ''; "
         f"let formData = {{{field_extractions}}}; "
-        f"let res = await fetch('/api/submissions/form', {{"
+        f"let res = await fetch('/api/user-entries/form', {{"
         f"method: 'POST', "
         f"headers: {{'Content-Type': 'application/json'}}, "
         f"body: JSON.stringify({{exercise_uid: '{exercise_uid}', form_data: formData}})"
@@ -104,7 +104,7 @@ def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
         f"let data = await res.json(); "
         f"$el.innerHTML = '<div class=\"space-y-3\">' "
         f"+ '<div class=\"p-4 rounded-lg bg-green-50 text-green-800 border border-green-200\">Submitted successfully.</div>' "
-        f'+ \'<a href="/gradebook" class="text-primary underline text-sm">View Your GradeBook</a>\' '
+        f'+ \'<a href="/profile?tab=gradebook" class="text-primary underline text-sm">View Your GradeBook</a>\' '
         f'+ \' <button onclick="location.reload()" class="text-sm text-muted-foreground underline ml-2">Submit Another</button>\' '
         f"+ '</div>'; "
         f"}} else {{ "

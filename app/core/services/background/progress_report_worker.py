@@ -118,7 +118,7 @@ class ProgressReportWorker:
     @staticmethod
     def _schedule_type_to_period(schedule_type: Any) -> str:
         """Map schedule type to time period string."""
-        from core.models.enums.submissions_enums import ScheduleType
+        from core.models.enums.user_entry_enums import ScheduleType
 
         mapping = {
             ScheduleType.WEEKLY: "7d",

@@ -17,24 +17,20 @@ Renamed from ContentEnrichmentService to ContentEnrichmentService
 """
 
 from dataclasses import asdict
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
-from core.events import publish_event
 from core.models.entity import Entity
-from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.journal.je_input import JeInput
+from core.models.entity_dto import EntityDTO
 from core.models.relationship_names import RelationshipName
-from core.models.submissions.submission import Submission
-from core.models.submissions.submission_dto import SubmissionDTO
 from core.models.type_hints import UserUID
-from core.ports import BackendOperations, BaseUpdatePayload
+from core.ports import BackendOperations
 from core.services.base_service import BaseService
-from core.services.domain_config import DomainConfig
-from core.services.submissions.submission_processing_types import (
-    SubmissionAIInsights,
-    SubmissionProcessingContext,
+from core.services.content_enrichment.types import (
+    EnrichmentContext,
+    EnrichmentInsights,
 )
+from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import parse_neo4j_json
@@ -72,7 +68,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     # DomainConfig (January 2026)
     # =========================================================================
     _config = DomainConfig(
-        dto_class=SubmissionDTO,
+        dto_class=EntityDTO,
         model_class=Entity,
         entity_label="Entity",
         search_fields=("title", "content", "processed_content"),
@@ -103,15 +99,6 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         self.logger = get_logger("skuel.services.content_enrichment")  # type: ignore[assignment]  # structlog BoundLogger
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Entity nodes."""
-        return "Entity"
-
-    # ========================================================================
     # CORE PURPOSE: TRANSCRIPT PROCESSING
     # ========================================================================
 
@@ -121,7 +108,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         raw_transcript: str,
         instructions_uid: str | None = None,
         user_uid: UserUID | None = None,
-    ) -> Result[SubmissionAIInsights]:
+    ) -> Result[EnrichmentInsights]:
         """
         Process raw transcript into formatted journal using Neo4j context.
 
@@ -129,7 +116,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         REFACTORED (November 10, 2025) - Option A Implementation:
         - No longer creates or stores entities directly
-        - Returns SubmissionAIInsights (formatted data only)
+        - Returns EnrichmentInsights (formatted data only)
         - SubmissionsProcessingService stores insights in Report.processed_content
         - SubmissionsRelationshipService creates graph relationships
 
@@ -145,7 +132,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier (optional, enables context-aware processing)
 
         Returns:
-            Result containing SubmissionAIInsights (formatted content, title, summary, themes, actions)
+            Result containing EnrichmentInsights (formatted content, title, summary, themes, actions)
         """
         # Step 1: Pull context from Neo4j (optional, but improves quality)
         context_obj = await self._gather_context(user_uid) if user_uid else None
@@ -179,11 +166,11 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         audio_file_path: str,
         instructions_uid: str | None = None,
         user_uid: UserUID | None = None,
-    ) -> Result[SubmissionAIInsights]:
+    ) -> Result[EnrichmentInsights]:
         """
         Process audio file into formatted journal insights (full pipeline).
 
-        Pipeline: Audio → Transcription → Processing → SubmissionAIInsights
+        Pipeline: Audio → Transcription → Processing → EnrichmentInsights
 
         Args:
             audio_file_path: Path to audio file,
@@ -191,7 +178,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier (REQUIRED for context-aware processing)
 
         Returns:
-            Result containing SubmissionAIInsights (formatted content, title, summary, themes)
+            Result containing EnrichmentInsights (formatted content, title, summary, themes)
         """
         if not user_uid:
             return Result.fail(
@@ -233,7 +220,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     )
     async def get_journal_context_for_processing(
         self, user_uid: UserUID
-    ) -> Result[SubmissionProcessingContext]:
+    ) -> Result[EnrichmentContext]:
         """
         Get comprehensive context for intelligent journal processing.
 
@@ -252,7 +239,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: User identifier
 
         Returns:
-            Result containing SubmissionProcessingContext with all contextual data
+            Result containing EnrichmentContext with all contextual data
         """
         query_result = await self.backend.get_journal_processing_context(user_uid)  # type: ignore[attr-defined]
 
@@ -263,7 +250,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if not records:
             # No data found - return empty context
             return Result.ok(
-                SubmissionProcessingContext(
+                EnrichmentContext(
                     user_uid=user_uid,
                     gathered_at=datetime.now().isoformat(),
                     recent_journals=[],
@@ -354,7 +341,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         }
 
         return Result.ok(
-            SubmissionProcessingContext(
+            EnrichmentContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
                 recent_journals=recent_journals_list,
@@ -364,14 +351,14 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             )
         )
 
-    async def _gather_context(self, user_uid: UserUID) -> SubmissionProcessingContext:
+    async def _gather_context(self, user_uid: UserUID) -> EnrichmentContext:
         """
         Gather relevant context from Neo4j for intelligent editing.
 
         Step 3 Implementation (November 2025): Uses optimized single-query approach
         via get_journal_context_for_processing() instead of multiple separate queries.
 
-        This is a convenience wrapper that returns SubmissionProcessingContext directly (not Result[T])
+        This is a convenience wrapper that returns EnrichmentContext directly (not Result[T])
         for backward compatibility with existing code.
 
         Legacy multi-query helpers (_get_recent_journals, etc.) are kept for
@@ -388,7 +375,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if result.is_error:
             self.logger.warning(f"Failed to gather context: {result.error}")
             # Return empty context on error
-            return SubmissionProcessingContext(
+            return EnrichmentContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
                 recent_journals=[],
@@ -518,11 +505,11 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if not journals:
             return {"average_energy": 0, "recent_moods": [], "trend": "insufficient data"}
 
-        # Extract energy levels and moods
-        energy_levels = [j["energy_level"] for j in journals if j["energy_level"]]
+        # Extract energy levels and moods (energy_level stored as numeric string)
+        energy_levels: list[int] = [int(j["energy_level"]) for j in journals if j["energy_level"]]
         moods = [j["mood"] for j in journals if j["mood"] and j["mood"] != "not specified"]
 
-        avg_energy = sum(energy_levels) / len(energy_levels) if energy_levels else 0
+        avg_energy: float = sum(energy_levels) / len(energy_levels) if energy_levels else 0
 
         # Simple trend detection
         trend = "stable"
@@ -544,120 +531,6 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             "trend": trend,
             "data_points": len(journals),
         }
-
-    # ========================================================================
-    # GRAPH RELATIONSHIP CREATION (Step 2 - November 2025)
-    # ========================================================================
-
-    @with_error_handling("create_journal_relationships", error_type="database")
-    async def _create_journal_relationships(
-        self, journal: JeInput, context: SubmissionProcessingContext | None
-    ) -> Result[dict[str, int]]:
-        """
-        Create graph relationships connecting journal to context.
-
-        Step 2 Implementation (November 2025): Graph-Native Context Layer
-
-        Creates relationships:
-        1. FOLLOWS → Previous journal (temporal continuity)
-        2. RELATED_TO → Journals with shared topics (thematic connections)
-        3. SUPPORTS_GOAL → Goals mentioned in content (goal progress tracking)
-
-        Args:
-            journal: The newly created Journal
-            context: SubmissionProcessingContext with recent data
-
-        Returns:
-            Result containing counts of relationships created
-        """
-        relationships_created = {"temporal": 0, "thematic": 0, "goal_support": 0}
-
-        # 1. Temporal Relationship: FOLLOWS (previous journal)
-        temporal_result = await self._create_temporal_relationship(journal.uid, journal.user_uid)
-        relationships_created["temporal"] = temporal_result
-
-        # 2. Thematic Relationships: RELATED_TO (shared topics)
-        if context and context.recent_topics:
-            thematic_result = await self._create_thematic_relationships(
-                journal, context.recent_topics
-            )
-            relationships_created["thematic"] = thematic_result
-
-        # 3. Goal Support Relationships: SUPPORTS_GOAL
-        if context and context.active_goals:
-            goal_result = await self._create_goal_relationships(journal, context.active_goals)
-            relationships_created["goal_support"] = goal_result
-
-        self.logger.info(
-            f"Created journal relationships: {relationships_created['temporal']} temporal, "
-            f"{relationships_created['thematic']} thematic, {relationships_created['goal_support']} goal_support"
-        )
-
-        return Result.ok(relationships_created)
-
-    async def _create_temporal_relationship(self, journal_uid: str, user_uid: UserUID) -> int:
-        """Create FOLLOWS relationship to most recent previous journal-type report."""
-        result = await self.backend.create_journal_temporal_link(  # type: ignore[attr-defined]
-            journal_uid=journal_uid, user_uid=user_uid
-        )
-        if result.is_error:
-            return 0
-        records = result.value or []
-        return records[0]["count"] if records else 0
-
-    async def _create_thematic_relationships(
-        self, journal: JeInput, recent_topics: list[str]
-    ) -> int:
-        """Create RELATED_TO relationships for journal reports sharing topics."""
-
-        # Get journal's topics (key_topics is only on Submission)
-        journal_topics = getattr(journal, "key_topics", None) or []
-        if not journal_topics:
-            return 0
-
-        # Find overlap with recent topics
-        shared_topics = [t for t in journal_topics if t in recent_topics[:10]]
-        if not shared_topics:
-            return 0
-
-        result = await self.backend.create_journal_thematic_links(  # type: ignore[attr-defined]
-            journal_uid=journal.uid,
-            user_uid=journal.user_uid,
-            shared_topics=shared_topics,
-            shared_topics_str=", ".join(shared_topics[:3]),
-        )
-        if result.is_error:
-            return 0
-        records = result.value or []
-        return records[0]["count"] if records else 0
-
-    async def _create_goal_relationships(
-        self, journal: JeInput, active_goals: list[dict[str, str]]
-    ) -> int:
-        """Create SUPPORTS_GOAL relationships for mentioned goals."""
-        # Extract goal mentions from journal content
-        content_text = journal.content or getattr(journal, "processed_content", None) or ""
-        if not content_text:
-            return 0
-        content_lower = content_text.lower()
-        mentioned_goal_uids = []
-
-        for goal in active_goals:
-            goal_title_lower = goal["title"].lower()
-            # Check if goal title appears in content
-            if goal_title_lower in content_lower:
-                mentioned_goal_uids.append(goal["uid"])
-
-        if not mentioned_goal_uids:
-            return 0
-
-        result = await self.backend.create_journal_goal_links(  # type: ignore[attr-defined]
-            journal_uid=journal.uid, goal_uids=mentioned_goal_uids
-        )
-        if result.is_error:
-            return 0
-        records = result.value or []
-        return records[0]["count"] if records else 0
 
     # ========================================================================
     # INSTRUCTION SET MANAGEMENT
@@ -781,7 +654,7 @@ Preserve the author's voice and authenticity while improving readability.
     @with_error_handling("apply_intelligent_editing", error_type="integration")
     async def _apply_intelligent_editing(
         self, raw_transcript: str, instructions: str, context: dict[str, Any] | None = None
-    ) -> Result[SubmissionAIInsights]:
+    ) -> Result[EnrichmentInsights]:
         """
         Apply AI-powered editing with context awareness.
 
@@ -791,7 +664,7 @@ Preserve the author's voice and authenticity while improving readability.
         3. Returns formatted, context-aware insights
 
         REFACTORED (November 10, 2025) - Option A Implementation:
-        - Returns SubmissionAIInsights directly (not dict)
+        - Returns EnrichmentInsights directly (not dict)
         - No entity creation
 
         Args:
@@ -800,7 +673,7 @@ Preserve the author's voice and authenticity while improving readability.
             context: Neo4j context (goals, tasks, recent journals)
 
         Returns:
-            Result containing SubmissionAIInsights (formatted content, metadata)
+            Result containing EnrichmentInsights (formatted content, metadata)
         """
         # Fail-fast: AI service is required for journal formatting
         if not self.ai_service:
@@ -839,7 +712,7 @@ Preserve the author's voice and authenticity while improving readability.
             f"Parsed AI response: title={insights.title[:50] if insights.title else 'None'}"
         )
 
-        # Return SubmissionAIInsights directly (not dict)
+        # Return EnrichmentInsights directly (not dict)
         return Result.ok(insights)
 
     def _build_editing_prompt(
@@ -942,6 +815,7 @@ Preserve the author's voice and authenticity while improving readability.
                     )
                     recent_themes = "none"
 
+                mood_trends_data: Any = {}
                 try:
                     mood_trends_data = context.get("mood_trends") or {}
                     trend_text = (
@@ -955,6 +829,7 @@ Preserve the author's voice and authenticity while improving readability.
                     )
                     trend_text = "stable"
 
+                active_goals_list: Any = []
                 try:
                     active_goals_list = context.get("active_goals", []) or []
                     goal_titles = ", ".join(
@@ -1057,7 +932,7 @@ Return ONLY Markdown in this structure:
 - [ ] Action 1
 """
 
-    def _parse_ai_response(self, ai_response: str) -> SubmissionAIInsights:
+    def _parse_ai_response(self, ai_response: str) -> EnrichmentInsights:
         """
         Parse AI response from Markdown format into structured format.
 
@@ -1076,7 +951,7 @@ Return ONLY Markdown in this structure:
         # Defensive check: handle None or empty response
         if not ai_response:
             self.logger.warning("AI response is None or empty")
-            return SubmissionAIInsights(
+            return EnrichmentInsights(
                 title="Journal Entry",
                 formatted_content="",
                 summary="AI response was empty",
@@ -1145,7 +1020,7 @@ Return ONLY Markdown in this structure:
                 f"Parsed Markdown: title='{title[:50]}', themes={len(themes)}, actions={len(action_items)}"
             )
 
-            return SubmissionAIInsights(
+            return EnrichmentInsights(
                 title=title,
                 formatted_content=formatted_content,
                 summary=summary if summary else formatted_content[:200] + "...",
@@ -1158,7 +1033,7 @@ Return ONLY Markdown in this structure:
         except (ValueError, TypeError, AttributeError, KeyError, IndexError) as e:
             self.logger.error(f"Error parsing Markdown response: {e}", exc_info=True)
             # Fallback: treat entire response as formatted content
-            return SubmissionAIInsights(
+            return EnrichmentInsights(
                 title="Journal Entry",
                 formatted_content=ai_response,
                 summary=ai_response[:200] + "..." if len(ai_response) > 200 else ai_response,
@@ -1169,222 +1044,9 @@ Return ONLY Markdown in this structure:
             )
 
     # ========================================================================
-    # BASIC CRUD (Minimal - for storing processed journals)
+    # NOTE: CRUD methods removed (ADR-054 Commit 6a, Step 10). CES is now a
+    # pure stateless enrichment processor — persistence of enriched output is
+    # the responsibility of UserEntryService / UserEntryProcessingService.
+    # BaseService still exposes .get() via the CRUD mixin for callers that
+    # need to fetch an Entity by UID (e.g. adapters.inbound.exercises_api).
     # ========================================================================
-
-    async def create(self, ku: Entity) -> Result[Entity]:
-        """Create Entity and publish event."""
-        result = await super().create(ku)
-
-        if result.is_ok:
-            from core.events.submission_events import SubmissionCreated
-
-            ku_created = result.value
-            event = SubmissionCreated(
-                submission_uid=ku_created.uid,
-                user_uid=ku_created.user_uid,
-                entity_type=ku_created.entity_type.value,
-            )
-            await publish_event(self.event_bus, event, self.logger)
-
-        return result
-
-    async def get(self, uid: str) -> Result[Entity]:
-        """Get Entity by UID."""
-        return await super().get(uid)
-
-    async def update(self, uid: str, updates: BaseUpdatePayload | dict[str, Any]) -> Result[Entity]:
-        """Update entity."""
-        return await super().update(uid, updates)
-
-    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
-        """Delete Entity and publish event."""
-        # Get entity before deletion for event data
-        ku_result = await self.get(uid)
-        ku_user_uid = "unknown"
-
-        if ku_result.is_ok:
-            ku = ku_result.value
-            from core.models.user_owned_entity import UserOwnedEntity
-
-            ku_user_uid = (
-                (ku.user_uid or "unknown") if isinstance(ku, UserOwnedEntity) else "unknown"
-            )
-
-        result = await super().delete(uid, cascade=cascade)
-
-        if result.is_ok:
-            from core.events.submission_events import SubmissionDeleted
-
-            event = SubmissionDeleted(
-                submission_uid=uid,
-                user_uid=ku_user_uid,
-                entity_type="exercise_submission",
-            )
-            await publish_event(self.event_bus, event, self.logger)
-
-        return result
-
-    async def list_kus(self, limit: int = 100, offset: int = 0) -> Result[list[Entity]]:
-        """List entities with pagination."""
-        result = await self.backend.list(
-            limit=limit, offset=offset, sort_by="entry_date", sort_order="desc"
-        )
-        # backend.list() returns tuple[list, int], extract just the list
-        if result.is_error:
-            return Result.fail(result)
-        reports, _total = result.value
-        return Result.ok(reports)
-
-    # ========================================================================
-    # ESSENTIAL QUERY METHODS
-    # ========================================================================
-
-    async def process_raw_transcript(
-        self,
-        raw_transcript: str,
-        user_uid: UserUID,
-        instructions_uid: str | None = None,
-        store_result: bool = True,
-    ) -> Result[Entity]:
-        """
-        Process raw transcript text into a formatted journal report.
-
-        This is a convenience wrapper around process_transcript that also
-        creates and stores the report entity.
-
-        Args:
-            raw_transcript: Raw text from transcription
-            user_uid: User identifier (REQUIRED)
-            instructions_uid: Optional instruction set UID
-            store_result: Whether to store the result (default: True)
-
-        Returns:
-            Result containing the created Report entity
-        """
-        # Process transcript to get insights
-        insights_result = await self.process_transcript(
-            raw_transcript=raw_transcript,
-            instructions_uid=instructions_uid,
-            user_uid=user_uid,
-        )
-
-        if insights_result.is_error:
-            return Result.fail(insights_result)
-
-        insights = insights_result.value
-
-        from core.utils.uid_generator import UIDGenerator
-
-        ku = Submission(
-            uid=UIDGenerator.generate_uid("sub"),
-            user_uid=user_uid,
-            entity_type=EntityType.EXERCISE_SUBMISSION,
-            status=EntityStatus.PROCESSING,
-            title=insights.title,
-            content=insights.formatted_content,
-            metadata={
-                "summary": insights.summary,
-                "content_type": "audio_transcript",
-                "key_topics": insights.themes,
-                "entry_date": date.today().isoformat(),
-                "source_type": "transcript",
-            },
-        )
-
-        if store_result:
-            return await self.create(ku)
-
-        return Result.ok(ku)
-
-    async def search_journal_reports(
-        self,
-        query: str,
-        user_uid: UserUID | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> Result[tuple[list[Entity], int]]:
-        """
-        Search journal-type reports by content text.
-
-        Args:
-            query: Search query string
-            user_uid: Optional user filter
-            limit: Max results
-            offset: Pagination offset
-
-        Returns:
-            Tuple of (matching reports, total_count)
-        """
-        # Get journal-type reports
-        filters: dict[str, Any] = {"entity_type": EntityType.EXERCISE_SUBMISSION.value}
-        if user_uid:
-            filters["user_uid"] = user_uid
-
-        result = await self.backend.find_by(**filters, limit=1000)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        reports = result.value or []
-
-        # Filter by query string (case-insensitive)
-        query_lower = query.lower()
-
-        def _get_summary(r: Entity) -> str:
-            fn = getattr(r, "get_summary", None)
-            return fn().lower() if fn else ""
-
-        matching = [
-            r
-            for r in reports
-            if query_lower in (r.title or "").lower()
-            or query_lower in (r.content or "").lower()
-            or query_lower in _get_summary(r)
-        ]
-
-        # Apply pagination
-        total_count = len(matching)
-        paginated = matching[offset : offset + limit]
-
-        return Result.ok((paginated, total_count))
-
-    async def create_report_from_transcription(
-        self,
-        transcription_result: dict[str, Any],
-        user_uid: UserUID,
-        instructions_uid: str | None = None,
-    ) -> Result[Entity]:
-        """
-        Create a journal report from a transcription result.
-
-        This processes the transcription through the AI formatter
-        and stores the resulting report.
-
-        Args:
-            transcription_result: Dict with 'text' or 'transcript' key
-            user_uid: User identifier
-            instructions_uid: Optional instruction set UID
-
-        Returns:
-            Result containing the created report
-        """
-        # Extract transcript text
-        raw_transcript = transcription_result.get("text") or transcription_result.get(
-            "transcript", ""
-        )
-
-        if not raw_transcript:
-            return Result.fail(
-                Errors.validation(
-                    "Transcription result must contain 'text' or 'transcript' field",
-                    field="transcription_result",
-                )
-            )
-
-        return await self.process_raw_transcript(
-            raw_transcript=raw_transcript,
-            user_uid=user_uid,
-            instructions_uid=instructions_uid,
-            store_result=True,
-        )

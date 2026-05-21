@@ -189,8 +189,8 @@ class UserStatsAggregator:
                 }
             )
 
-        # Habits recommendations
-        at_risk_count = len(context.at_risk_habits)
+        # Habits recommendations (rich-context only; silent at standard depth)
+        at_risk_count = len(context.at_risk_habits_or_empty())
         if at_risk_count > 0:
             recommendations.append(
                 {

@@ -35,7 +35,7 @@ def _make_service_checker(
             )
 
     check.__name__ = f"check_{attr}"
-    return check  # type: ignore[return-value]
+    return check
 
 
 async def initialize_system_service(system_service: SystemService, services: Any) -> Result[None]:

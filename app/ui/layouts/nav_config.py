@@ -57,6 +57,8 @@ class IconNavItem:
     requires_auth: bool = True
     has_dropdown: bool = False
     icon: str = ""  # Lucide icon name — when set, renders UkIcon instead of letter
+    hide_for_teacher: bool = False
+    hide_for_admin: bool = False
 
 
 @dataclass(frozen=True)
@@ -71,11 +73,11 @@ class DropdownItem:
 # Activity domain dropdown items — used in mobile menu and avatar dropdown
 ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
     DropdownItem("Tasks", "/tasks", icon="check-square"),
+    DropdownItem("Events", "/events", icon="calendar"),
     DropdownItem("Goals", "/goals", icon="target"),
     DropdownItem("Habits", "/habits", icon="repeat"),
-    DropdownItem("Events", "/events", icon="calendar"),
-    DropdownItem("Choices", "/choices", icon="git-branch"),
     DropdownItem("Principles", "/principles", icon="compass"),
+    DropdownItem("Choices", "/choices", icon="git-branch"),
 )
 
 
@@ -84,13 +86,13 @@ ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
 # requires_auth=True  → visible only when authenticated (ContentScope.USER_OWNED pages)
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem(
-        "Hub",
+        "Today",
         "",
-        "/home",
-        "home",
+        "/today",
+        "today",
         requires_auth=True,
         has_dropdown=False,
-        icon="home",
+        icon="sun",
     ),
     IconNavItem(
         "Tasks+",
@@ -109,6 +111,15 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         requires_auth=False,
         has_dropdown=False,
         icon="compass",
+    ),
+    IconNavItem(
+        "PathSteps",
+        "",
+        "/path-steps",
+        "path-steps",
+        requires_auth=False,
+        has_dropdown=False,
+        icon="map",
     ),
 )
 

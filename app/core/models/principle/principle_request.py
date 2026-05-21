@@ -32,7 +32,7 @@ class PrincipleExpressionRequest(BaseModel):
 
     context: str = Field(min_length=1, max_length=500, description="Life situation")
     behavior: str = Field(min_length=1, max_length=500, description="Expected behavior")
-    example: str | None = Field(None, max_length=500, description="Concrete example")
+    example: str | None = Field(default=None, max_length=500, description="Concrete example")
 
 
 # =============================================================================
@@ -41,28 +41,42 @@ class PrincipleExpressionRequest(BaseModel):
 
 
 class PrincipleCreateRequest(CreateRequestBase):
-    """Create a Principle entity (knowledge about what you believe)."""
+    """Create a Principle entity (knowledge about what you believe).
+
+    Field names mirror the ``Principle`` domain model 1:1 so the form layer
+    auto-prefills via ``FormGenerator.from_instance``. The one exception is
+    ``why_important``: it has no dedicated model column and is folded into
+    ``description`` with the canonical marker via ``merge_why_important``.
+    """
 
     title: str = Field(min_length=1, max_length=100, description="Principle title")
     statement: str = Field(min_length=1, max_length=500, description="Core statement")
-    description: str | None = Field(None, max_length=1000, description="Full description")
+    description: str | None = Field(default=None, max_length=1000, description="Full description")
 
     # Classification
-    category: PrincipleCategory = Field(default=PrincipleCategory.PERSONAL, description="Category")
-    source: PrincipleSource = Field(default=PrincipleSource.PERSONAL, description="Source")
+    principle_category: PrincipleCategory = Field(
+        default=PrincipleCategory.PERSONAL, description="Category"
+    )
+    principle_source: PrincipleSource = Field(
+        default=PrincipleSource.PERSONAL, description="Source"
+    )
     strength: PrincipleStrength = Field(default=PrincipleStrength.MODERATE, description="Strength")
 
     # Origin
-    tradition: str | None = Field(None, max_length=100, description="Tradition/school of thought")
-    original_source: str | None = Field(None, max_length=200, description="Original source text")
+    tradition: str | None = Field(
+        default=None, max_length=100, description="Tradition/school of thought"
+    )
+    original_source: str | None = Field(
+        default=None, max_length=200, description="Original source text"
+    )
     personal_interpretation: str | None = Field(
-        None, max_length=1000, description="Personal interpretation"
+        default=None, max_length=1000, description="Personal interpretation"
     )
     why_important: str | None = Field(
-        None, max_length=1000, description="Why this principle matters"
+        default=None, max_length=1000, description="Why this principle matters"
     )
     origin_story: str | None = Field(
-        None, max_length=2000, description="How you came to this principle"
+        default=None, max_length=2000, description="How you came to this principle"
     )
 
     # Behavioral expression
@@ -82,25 +96,34 @@ class PrincipleCreateRequest(CreateRequestBase):
 
 
 class PrincipleUpdateRequest(UpdateRequestBase):
-    """Update a Principle entity."""
+    """Update a Principle entity.
 
-    title: str | None = Field(None, min_length=1, max_length=100, description="Principle title")
-    statement: str | None = Field(None, min_length=1, max_length=500, description="Core statement")
-    description: str | None = Field(None, max_length=1000, description="Full description")
-    category: PrincipleCategory | None = Field(None, description="Category")
-    source: PrincipleSource | None = Field(None, description="Source")
-    strength: PrincipleStrength | None = Field(None, description="Strength")
-    tradition: str | None = Field(None, max_length=100, description="Tradition/school of thought")
+    Field names mirror the ``Principle`` domain model 1:1 (see PrincipleCreateRequest).
+    """
+
+    title: str | None = Field(
+        default=None, min_length=1, max_length=100, description="Principle title"
+    )
+    statement: str | None = Field(
+        default=None, min_length=1, max_length=500, description="Core statement"
+    )
+    description: str | None = Field(default=None, max_length=1000, description="Full description")
+    principle_category: PrincipleCategory | None = Field(default=None, description="Category")
+    principle_source: PrincipleSource | None = Field(default=None, description="Source")
+    strength: PrincipleStrength | None = Field(default=None, description="Strength")
+    tradition: str | None = Field(
+        default=None, max_length=100, description="Tradition/school of thought"
+    )
     personal_interpretation: str | None = Field(
-        None, max_length=1000, description="Personal interpretation"
+        default=None, max_length=1000, description="Personal interpretation"
     )
     why_important: str | None = Field(
-        None, max_length=1000, description="Why this principle matters"
+        default=None, max_length=1000, description="Why this principle matters"
     )
-    key_behaviors: list[str] | None = Field(None, description="Key behaviors")
-    decision_criteria: list[str] | None = Field(None, description="Decision criteria")
-    priority: Priority | None = Field(None, description="Principle priority")
-    tags: list[str] | None = Field(None, description="Tags")
+    key_behaviors: list[str] | None = Field(default=None, description="Key behaviors")
+    decision_criteria: list[str] | None = Field(default=None, description="Decision criteria")
+    priority: Priority | None = Field(default=None, description="Principle priority")
+    tags: list[str] | None = Field(default=None, description="Tags")
 
 
 class AlignmentAssessmentRequest(BaseModel):
@@ -108,7 +131,7 @@ class AlignmentAssessmentRequest(BaseModel):
 
     alignment_level: AlignmentLevel = Field(...)
     evidence: str = Field(..., min_length=1, max_length=1000)
-    reflection: str | None = Field(None, max_length=1000)
+    reflection: str | None = Field(default=None, max_length=1000)
     assessed_date: date | None = Field(default_factory=date.today)
 
 
@@ -117,7 +140,7 @@ class PrincipleLinkRequest(BaseModel):
 
     link_type: str = Field(..., pattern="^(goal|habit|knowledge|principle)$")
     uid: str = Field(..., min_length=1)
-    bidirectional: bool = Field(False, description="Create reverse link")
+    bidirectional: bool = Field(default=False, description="Create reverse link")
 
 
 class PrincipleFilterRequest(BaseModel):

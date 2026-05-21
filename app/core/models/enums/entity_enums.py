@@ -5,9 +5,9 @@ Entity Enums - Core Identity, Lifecycle, and Domain Classification
 Core enums for entity type discrimination, processing lifecycle,
 content origin, and domain classification.
 
-Organized in 5 sections:
-1. Core Identity: EntityType (20 values), ContentOrigin (4 tiers)
-2. Processing Lifecycle: EntityStatus (14 values), ProcessorType (4 values)
+Organized in 4 sections:
+1. Core Identity: EntityType (19 values), ContentOrigin (4 tiers)
+2. Processing Lifecycle: EntityStatus (14 values)
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier
 4. Analytics: AnalyticsDomain
 5. Access Control: ContentScope, Context
@@ -24,45 +24,53 @@ from enum import StrEnum
 
 class EntityType(StrEnum):
     """
-    Type of Entity — 22 entity types in SKUEL.
+    Type of Entity — 25 entity types in SKUEL.
 
     Discriminator for the `entity_type` field on Entity.
 
     Entity types (alphabetical):
         ACTIVITY_REPORT      → AI/human feedback about activity patterns
         CHOICE               → Knowledge about decisions you make
+        CHOICE_TEMPLATE      → PS-owned template that spawns Choice instances on engagement
         EVENT                → Knowledge about what you attend
+        EVENT_TEMPLATE       → PS-owned template that spawns Event instances on engagement
         EXERCISE             → Instruction template for practicing curriculum
         EXERCISE_REPORT      → Teacher or AI report on an exercise submission
-        EXERCISE_SUBMISSION  → Student-uploaded work against an Exercise
         FORM_SUBMISSION      → User response to a FormTemplate
         FORM_TEMPLATE        → General-purpose form definition (admin-created)
         GOAL                 → Knowledge about where you're heading
+        GOAL_TEMPLATE        → PS-owned template that spawns Goal instances on engagement
         HABIT                → Knowledge about what you practice
+        HABIT_TEMPLATE       → PS-owned template that spawns Habit instances on engagement
         INTERACTION          → Situated learning-loop event (User Interaction Contract)
-        JE_INPUT             → Raw journal entry (audio or text, user-initiated)
-        JE_OUTPUT            → LLM-processed transformation of a je_input
         KU                   → Atomic knowledge unit (concept, state, principle)
         LEARNING_PATH        → Ordered sequence of path steps
         PATH_STEP            → THE curriculum content entity (composes Kus, sits in learning paths)
         LIFE_PATH            → Knowledge about your life direction
         PRINCIPLE            → Knowledge about what you believe
+        PRINCIPLE_TEMPLATE   → PS-owned template that spawns Principle instances on engagement
         RESOURCE             → Books, talks, films, music (admin-only)
         REVISED_EXERCISE     → Targeted revision instructions after feedback
         TASK                 → Knowledge about what needs doing
+        TASK_TEMPLATE        → PS-owned template that spawns Task instances on engagement
+        USER_ENTRY           → Unified user-authored content (ADR-054)
 
     Any PathStep can organize other PathSteps via ORGANIZES relationships (emergent
     identity — no separate MOC type needed).
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
-        C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JE_INPUT, JE_OUTPUT, LIFE_PATH,
+        B  CURRICULUM   → KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE,
+                          Activity Templates (6: TASK_TEMPLATE, GOAL_TEMPLATE,
+                          HABIT_TEMPLATE, EVENT_TEMPLATE, CHOICE_TEMPLATE,
+                          PRINCIPLE_TEMPLATE)
+        C  USER_CREATED → Activities (6), USER_ENTRY, LIFE_PATH,
                           FORM_SUBMISSION, INTERACTION
         D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT
 
     Ownership rules:
-        Curriculum (KU, PS, LP, Exercise) + Resource + FormTemplate: user_uid = None (shared content, admin-created)
+        Curriculum (KU, PS, LP, Exercise) + Activity Templates (6) + Resource +
+            FormTemplate:      user_uid = None (shared content, admin/teacher-created)
         Content processing:    user_uid = student/teacher (user-owned)
         Activity (6):          user_uid = student (user-owned)
         Destination:           user_uid = student (user-owned)
@@ -87,13 +95,13 @@ class EntityType(StrEnum):
     RESOURCE = "resource"
 
     # Content processing (user-owned, derivation chain)
-    EXERCISE_SUBMISSION = "exercise_submission"
     ACTIVITY_REPORT = "activity_report"
     EXERCISE_REPORT = "exercise_report"
 
-    # Journal (standalone, user-owned — NOT submission, NOT report)
-    JE_INPUT = "je_input"  # Raw journal entry: audio or text
-    JE_OUTPUT = "je_output"  # LLM-processed transformation of a je_input
+    # Unified user-authored content (ADR-054) — collapses the former
+    # EXERCISE_SUBMISSION, JE_INPUT, JE_OUTPUT into one type. Dispatch
+    # driven by `Pipeline` field, not entity_type.
+    USER_ENTRY = "user_entry"
 
     # Activity (user-owned)
     TASK = "task"
@@ -102,6 +110,14 @@ class EntityType(StrEnum):
     EVENT = "event"
     CHOICE = "choice"
     PRINCIPLE = "principle"
+
+    # Activity Templates (PS-owned, admin/teacher-authored, spawn Activity instances on engagement)
+    TASK_TEMPLATE = "task_template"
+    GOAL_TEMPLATE = "goal_template"
+    HABIT_TEMPLATE = "habit_template"
+    EVENT_TEMPLATE = "event_template"
+    CHOICE_TEMPLATE = "choice_template"
+    PRINCIPLE_TEMPLATE = "principle_template"
 
     # Interaction audit (user-owned, situated learning-loop event)
     INTERACTION = "interaction"
@@ -142,8 +158,8 @@ class EntityType(StrEnum):
         return self in _CONTENT_PROCESSING_TYPES
 
     def is_journal(self) -> bool:
-        """Check if this is a journal entity type (JE_INPUT or JE_OUTPUT)."""
-        return self in _JOURNAL_TYPES
+        """Check if this is a journal-pipeline user entry."""
+        return False
 
     def content_origin(self) -> ContentOrigin:
         """Return the content origin tier (A-D) for this EntityType."""
@@ -166,14 +182,9 @@ class EntityType(StrEnum):
     # -------------------------------------------------------------------------
 
     def is_derived(self) -> bool:
-        """Check if this EntityType is derived from another Entity (has parent).
-
-        Note: JE_INPUT is NOT derived (self-initiated, no prompt triggers it).
-        JE_OUTPUT IS derived (transforms a JE_INPUT).
-        """
+        """Check if this EntityType is derived from another Entity (has parent)."""
         return self in {
-            EntityType.EXERCISE_SUBMISSION,
-            EntityType.JE_OUTPUT,
+            EntityType.USER_ENTRY,
             EntityType.FORM_SUBMISSION,
             EntityType.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT,
@@ -181,14 +192,9 @@ class EntityType(StrEnum):
         }
 
     def is_processable(self) -> bool:
-        """Check if this EntityType goes through a processing pipeline.
-
-        JE_INPUT is processable (Deepgram transcription + LLM formatting).
-        JE_OUTPUT is NOT (it is the output of processing).
-        """
+        """Check if this EntityType goes through a processing pipeline."""
         return self in {
-            EntityType.EXERCISE_SUBMISSION,
-            EntityType.JE_INPUT,
+            EntityType.USER_ENTRY,
             EntityType.ACTIVITY_REPORT,
         }
 
@@ -228,11 +234,8 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.RESOURCE: "Resource",
     EntityType.PATH_STEP: "PathStep",
     EntityType.LEARNING_PATH: "Learning Path",
-    EntityType.EXERCISE_SUBMISSION: "Exercise Submission",
     EntityType.ACTIVITY_REPORT: "Activity Report",
     EntityType.EXERCISE_REPORT: "Exercise Report",
-    EntityType.JE_INPUT: "Journal Entry",
-    EntityType.JE_OUTPUT: "Journal Output",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",
@@ -245,21 +248,22 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.FORM_SUBMISSION: "Form Submission",
     EntityType.INTERACTION: "Interaction",
     EntityType.LIFE_PATH: "Life Path",
+    EntityType.USER_ENTRY: "User Entry",
+    EntityType.TASK_TEMPLATE: "Task Template",
+    EntityType.GOAL_TEMPLATE: "Goal Template",
+    EntityType.HABIT_TEMPLATE: "Habit Template",
+    EntityType.EVENT_TEMPLATE: "Event Template",
+    EntityType.CHOICE_TEMPLATE: "Choice Template",
+    EntityType.PRINCIPLE_TEMPLATE: "Principle Template",
 }
 
 _KNOWLEDGE_TYPES = frozenset({EntityType.PATH_STEP, EntityType.KU})
 _CURRICULUM_STRUCTURE_TYPES = frozenset({EntityType.LEARNING_PATH, EntityType.EXERCISE})
 _CONTENT_PROCESSING_TYPES = frozenset(
     {
-        EntityType.EXERCISE_SUBMISSION,
+        EntityType.USER_ENTRY,
         EntityType.ACTIVITY_REPORT,
         EntityType.EXERCISE_REPORT,
-    }
-)
-_JOURNAL_TYPES = frozenset(
-    {
-        EntityType.JE_INPUT,
-        EntityType.JE_OUTPUT,
     }
 )
 _ACTIVITY_TYPES = frozenset(
@@ -280,6 +284,13 @@ _SHARED_TYPES = frozenset(
         EntityType.LEARNING_PATH,
         EntityType.EXERCISE,
         EntityType.FORM_TEMPLATE,
+        # Activity Templates (PS-owned curriculum content; spawn user-owned instances)
+        EntityType.TASK_TEMPLATE,
+        EntityType.GOAL_TEMPLATE,
+        EntityType.HABIT_TEMPLATE,
+        EntityType.EVENT_TEMPLATE,
+        EntityType.CHOICE_TEMPLATE,
+        EntityType.PRINCIPLE_TEMPLATE,
     }
 )
 
@@ -312,6 +323,13 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
     EntityType.EXERCISE: ContentOrigin.CURRICULUM,
     EntityType.REVISED_EXERCISE: ContentOrigin.USER_CREATED,
+    # Activity Templates — PS-owned curriculum content authored by admin/teacher
+    EntityType.TASK_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.GOAL_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.HABIT_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.EVENT_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.CHOICE_TEMPLATE: ContentOrigin.CURRICULUM,
+    EntityType.PRINCIPLE_TEMPLATE: ContentOrigin.CURRICULUM,
     # C — User-generated content
     EntityType.TASK: ContentOrigin.USER_CREATED,
     EntityType.GOAL: ContentOrigin.USER_CREATED,
@@ -319,12 +337,10 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.EVENT: ContentOrigin.USER_CREATED,
     EntityType.CHOICE: ContentOrigin.USER_CREATED,
     EntityType.PRINCIPLE: ContentOrigin.USER_CREATED,
-    EntityType.EXERCISE_SUBMISSION: ContentOrigin.USER_CREATED,
-    EntityType.JE_INPUT: ContentOrigin.USER_CREATED,
-    EntityType.JE_OUTPUT: ContentOrigin.USER_CREATED,  # Transformation, not interpretation
     EntityType.FORM_SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.INTERACTION: ContentOrigin.USER_CREATED,
     EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
+    EntityType.USER_ENTRY: ContentOrigin.USER_CREATED,  # ADR-054
     # D — Reports that act on user content
     EntityType.ACTIVITY_REPORT: ContentOrigin.REPORT,
     EntityType.EXERCISE_REPORT: ContentOrigin.REPORT,
@@ -336,9 +352,6 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "resource": EntityType.RESOURCE,
     "path_step": EntityType.PATH_STEP,
     "learning_path": EntityType.LEARNING_PATH,
-    "exercise_submission": EntityType.EXERCISE_SUBMISSION,
-    "je_input": EntityType.JE_INPUT,
-    "je_output": EntityType.JE_OUTPUT,
     "activity_report": EntityType.ACTIVITY_REPORT,
     "exercise_report": EntityType.EXERCISE_REPORT,
     "task": EntityType.TASK,
@@ -364,6 +377,19 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "interaction": EntityType.INTERACTION,
     "ia": EntityType.INTERACTION,  # UID prefix alias
     "lifepath": EntityType.LIFE_PATH,
+    # ADR-054 unified user-authored content — pre-collapse strings redirect to USER_ENTRY
+    "user_entry": EntityType.USER_ENTRY,
+    "ue": EntityType.USER_ENTRY,
+    "exercise_submission": EntityType.USER_ENTRY,
+    "je_input": EntityType.USER_ENTRY,
+    "je_output": EntityType.USER_ENTRY,
+    # Activity Templates
+    "task_template": EntityType.TASK_TEMPLATE,
+    "goal_template": EntityType.GOAL_TEMPLATE,
+    "habit_template": EntityType.HABIT_TEMPLATE,
+    "event_template": EntityType.EVENT_TEMPLATE,
+    "choice_template": EntityType.CHOICE_TEMPLATE,
+    "principle_template": EntityType.PRINCIPLE_TEMPLATE,
 }
 
 
@@ -711,6 +737,15 @@ _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
     EntityStatus.ARCHIVED: set(),
 }
 
+# Activity Templates share the same minimal authoring lifecycle.
+_TEMPLATE_STATUSES: frozenset[EntityStatus] = frozenset(
+    {
+        EntityStatus.DRAFT,
+        EntityStatus.ACTIVE,
+        EntityStatus.ARCHIVED,
+    }
+)
+
 # Valid statuses per EntityType (from plan specification)
 _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
     EntityType.KU: frozenset(
@@ -743,29 +778,6 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.EXERCISE_SUBMISSION: frozenset(
-        {
-            EntityStatus.DRAFT,
-            EntityStatus.SUBMITTED,
-            EntityStatus.QUEUED,
-            EntityStatus.PROCESSING,
-            EntityStatus.COMPLETED,
-            EntityStatus.FAILED,
-            EntityStatus.REVISION_REQUESTED,
-            EntityStatus.ARCHIVED,
-        }
-    ),
-    EntityType.JE_INPUT: frozenset(
-        {
-            EntityStatus.DRAFT,
-            EntityStatus.SUBMITTED,
-            EntityStatus.QUEUED,
-            EntityStatus.PROCESSING,
-            EntityStatus.COMPLETED,
-            EntityStatus.FAILED,
-            EntityStatus.ARCHIVED,
-        }
-    ),
     EntityType.ACTIVITY_REPORT: frozenset(
         {
             EntityStatus.DRAFT,
@@ -776,13 +788,6 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
         }
     ),
     EntityType.EXERCISE_REPORT: frozenset(
-        {
-            EntityStatus.DRAFT,
-            EntityStatus.COMPLETED,
-            EntityStatus.ARCHIVED,
-        }
-    ),
-    EntityType.JE_OUTPUT: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.COMPLETED,
@@ -882,6 +887,29 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
+    # ADR-054: UserEntry covers the full content-processing lifecycle —
+    # draft submission, queued/processing for pipeline work, teacher-review
+    # revision loop, terminal completed/failed/archived.
+    EntityType.USER_ENTRY: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.SUBMITTED,
+            EntityStatus.QUEUED,
+            EntityStatus.PROCESSING,
+            EntityStatus.COMPLETED,
+            EntityStatus.FAILED,
+            EntityStatus.REVISION_REQUESTED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
+    # Activity Templates: authoring lifecycle is publish-and-engage.
+    # Templates are not "completed" — instances spawned from them are.
+    EntityType.TASK_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.GOAL_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.HABIT_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.EVENT_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.CHOICE_TEMPLATE: _TEMPLATE_STATUSES,
+    EntityType.PRINCIPLE_TEMPLATE: _TEMPLATE_STATUSES,
 }
 
 _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
@@ -891,9 +919,6 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.LEARNING_PATH: EntityStatus.DRAFT,
     EntityType.EXERCISE: EntityStatus.DRAFT,
     EntityType.REVISED_EXERCISE: EntityStatus.DRAFT,
-    EntityType.EXERCISE_SUBMISSION: EntityStatus.DRAFT,
-    EntityType.JE_INPUT: EntityStatus.DRAFT,
-    EntityType.JE_OUTPUT: EntityStatus.DRAFT,
     EntityType.ACTIVITY_REPORT: EntityStatus.DRAFT,
     EntityType.EXERCISE_REPORT: EntityStatus.DRAFT,
     EntityType.TASK: EntityStatus.DRAFT,
@@ -905,33 +930,15 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.FORM_TEMPLATE: EntityStatus.DRAFT,
     EntityType.FORM_SUBMISSION: EntityStatus.COMPLETED,
     EntityType.LIFE_PATH: EntityStatus.ACTIVE,
+    EntityType.USER_ENTRY: EntityStatus.DRAFT,  # ADR-054
+    EntityType.INTERACTION: EntityStatus.ACTIVE,
+    EntityType.TASK_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.GOAL_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.HABIT_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.EVENT_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.CHOICE_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.PRINCIPLE_TEMPLATE: EntityStatus.DRAFT,
 }
-
-
-class ProcessorType(StrEnum):
-    """
-    Type of processor used for content processing.
-
-    Determines the processing pipeline:
-        LLM: AI/LLM processing (OpenAI, etc.)
-        HUMAN: Manual human review (teacher feedback)
-        HYBRID: LLM + human review
-        AUTOMATIC: System-determined processor
-    """
-
-    LLM = "llm"
-    HUMAN = "human"
-    HYBRID = "hybrid"
-    AUTOMATIC = "automatic"
-
-    def get_display_name(self) -> str:
-        """Get human-readable display name for UI."""
-        return {
-            ProcessorType.LLM: "AI Processing",
-            ProcessorType.HUMAN: "Human Review",
-            ProcessorType.HYBRID: "Hybrid (AI + Human)",
-            ProcessorType.AUTOMATIC: "Automatic",
-        }[self]
 
 
 # =============================================================================
@@ -1035,7 +1042,7 @@ class NonKuDomain(StrEnum):
 
 
 # Union type for any domain identifier in SKUEL.
-# EntityType covers all 20 entity types; NonKuDomain covers the 4 non-entity domains.
+# EntityType covers all 25 entity types; NonKuDomain covers the 4 non-entity domains.
 DomainIdentifier = EntityType | NonKuDomain
 
 

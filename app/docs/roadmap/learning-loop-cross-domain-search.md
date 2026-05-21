@@ -38,8 +38,8 @@ Two methods on `ReportRelationshipService` for multi-hop graph traversal:
 Teacher/admin view: "show me everything related to this exercise."
 
 ```
-(Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-(ExerciseReport)-[:REPORT_FOR]->(Submission)
+(UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
+(ExerciseReport)-[:REPORT_FOR]->(UserEntry)
 (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
 ```
 
@@ -50,8 +50,8 @@ Returns: `{exercise, submissions, feedback, revised_exercises}`
 Student view: "what happened after I submitted?"
 
 ```
-(Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-(ExerciseReport)-[:REPORT_FOR]->(Submission)
+(UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
+(ExerciseReport)-[:REPORT_FOR]->(UserEntry)
 (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
 ```
 

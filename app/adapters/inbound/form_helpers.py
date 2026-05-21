@@ -8,10 +8,11 @@ Also provides shared parsing primitives for enum, date, time, and datetime
 values used across activity domain UI files.
 """
 
+import types
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from enum import Enum
-from typing import Any
+from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
 from starlette.datastructures import UploadFile
@@ -176,6 +177,42 @@ async def parse_json_body[T: BaseModel](
         return Result.fail(Errors.validation(str(e), field="body"))
 
 
+def _list_field_names(schema: type[BaseModel]) -> set[str]:
+    """Field names whose annotation is ``list[T]`` or ``Optional[list[T]]``.
+
+    Mirrors FormGenerator's textarea-for-list mapping so list values posted as
+    a single newline-delimited string can be split back into a list before
+    Pydantic validation.
+    """
+    names: set[str] = set()
+    for name, field in schema.model_fields.items():
+        ann = field.annotation
+        if ann is None:
+            continue
+        if get_origin(ann) is list:
+            names.add(name)
+            continue
+        origin = get_origin(ann)
+        if origin is Union or origin is types.UnionType:
+            for arg in get_args(ann):
+                if get_origin(arg) is list:
+                    names.add(name)
+                    break
+    return names
+
+
+def _split_list_input(value: str) -> list[str]:
+    """Split a textarea string into trimmed, non-empty items.
+
+    Splits on newlines (FormGenerator's render format); falls back to commas
+    for inputs typed on a single line.
+    """
+    if not value:
+        return []
+    parts = value.splitlines() if "\n" in value else value.split(",")
+    return [p.strip() for p in parts if p.strip()]
+
+
 async def parse_form_body[T: BaseModel](
     request: Request,
     schema: type[T],
@@ -184,7 +221,8 @@ async def parse_form_body[T: BaseModel](
 
     Converts form fields to a dict (stripping strings, passing UploadFile through)
     then validates via Pydantic. Empty strings become None so optional fields work
-    naturally.
+    naturally. Fields declared as ``list[T]`` (or ``Optional[list[T]]``) are split
+    from the textarea string back into a list.
 
     Args:
         request: Starlette/FastHTML request
@@ -201,6 +239,7 @@ async def parse_form_body[T: BaseModel](
         req = result.value
     """
     form = await request.form()
+    list_fields = _list_field_names(schema)
     data: dict[str, Any] = {}
     for key in form:
         value = form[key]
@@ -208,7 +247,10 @@ async def parse_form_body[T: BaseModel](
             data[key] = value
         elif isinstance(value, str):
             stripped = value.strip()
-            data[key] = stripped if stripped else None
+            if key in list_fields:
+                data[key] = _split_list_input(stripped)
+            else:
+                data[key] = stripped if stripped else None
         else:
             data[key] = value
 

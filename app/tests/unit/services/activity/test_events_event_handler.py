@@ -1,5 +1,5 @@
 """
-Unit tests for EventsEventHandlerService.
+Unit tests for EventEventHandlerService.
 
 Tests cover:
 - handle_event_completed: attendance tracking, goal alignment
@@ -20,8 +20,8 @@ from core.events.calendar_event_events import (
     CalendarEventRescheduled,
 )
 from core.models.event.event import Event
-from core.services.events.events_event_handler_service import (
-    EventsEventHandlerService,
+from core.services.events.event_event_handler_service import (
+    EventEventHandlerService,
     _assess_scheduling_density,
     _classify_rescheduling_pattern,
 )
@@ -58,22 +58,22 @@ def mock_insight_store() -> AsyncMock:
 
 
 @pytest.fixture
-def service(mock_backend: Mock) -> EventsEventHandlerService:
-    return EventsEventHandlerService(backend=mock_backend)
+def service(mock_backend: Mock) -> EventEventHandlerService:
+    return EventEventHandlerService(backend=mock_backend)
 
 
 @pytest.fixture
 def service_with_rels(
     mock_backend: Mock, mock_relationships: AsyncMock
-) -> EventsEventHandlerService:
-    return EventsEventHandlerService(backend=mock_backend, relationship_service=mock_relationships)
+) -> EventEventHandlerService:
+    return EventEventHandlerService(backend=mock_backend, relationship_service=mock_relationships)
 
 
 @pytest.fixture
 def service_full(
     mock_backend: Mock, mock_relationships: AsyncMock, mock_insight_store: AsyncMock
-) -> EventsEventHandlerService:
-    return EventsEventHandlerService(
+) -> EventEventHandlerService:
+    return EventEventHandlerService(
         backend=mock_backend,
         relationship_service=mock_relationships,
         insight_store=mock_insight_store,
@@ -151,7 +151,7 @@ class TestAssessSchedulingDensity:
 
 class TestHandleEventCompleted:
     @pytest.mark.asyncio
-    async def test_attendance_tracking_logged(self, service: EventsEventHandlerService):
+    async def test_attendance_tracking_logged(self, service: EventEventHandlerService):
         """Attendance time-of-day pattern is logged."""
         event = CalendarEventCompleted(
             event_uid="event_test_abc",
@@ -167,7 +167,7 @@ class TestHandleEventCompleted:
             assert len(log_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_morning_time_slot(self, service: EventsEventHandlerService):
+    async def test_morning_time_slot(self, service: EventEventHandlerService):
         """Morning events are classified correctly."""
         event = CalendarEventCompleted(
             event_uid="event_test_abc",
@@ -185,7 +185,7 @@ class TestHandleEventCompleted:
     @pytest.mark.asyncio
     async def test_goal_alignment_with_relationships(
         self,
-        service_with_rels: EventsEventHandlerService,
+        service_with_rels: EventEventHandlerService,
         mock_relationships: AsyncMock,
     ):
         """Goal alignment is checked when relationship service available."""
@@ -205,7 +205,7 @@ class TestHandleEventCompleted:
             assert len(log_calls) >= 1
 
     @pytest.mark.asyncio
-    async def test_goal_alignment_without_relationships(self, service: EventsEventHandlerService):
+    async def test_goal_alignment_without_relationships(self, service: EventEventHandlerService):
         """No goal check when relationship service absent."""
         event = CalendarEventCompleted(
             event_uid="event_test_abc",
@@ -220,7 +220,7 @@ class TestHandleEventCompleted:
 
     @pytest.mark.asyncio
     async def test_fire_and_forget_contract(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Exceptions are logged, never propagated."""
         from neo4j.exceptions import ServiceUnavailable
@@ -247,7 +247,7 @@ class TestHandleEventCompleted:
 class TestHandleEventRescheduled:
     @pytest.mark.asyncio
     async def test_rescheduling_pattern_logged(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Rescheduling pattern is detected and logged."""
         mock_backend.count_recent_reschedules.return_value = Result.ok(2)
@@ -267,7 +267,7 @@ class TestHandleEventRescheduled:
 
     @pytest.mark.asyncio
     async def test_chronic_rescheduling_warning(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Chronic rescheduling triggers a warning."""
         mock_backend.count_recent_reschedules.return_value = Result.ok(5)
@@ -287,7 +287,7 @@ class TestHandleEventRescheduled:
 
     @pytest.mark.asyncio
     async def test_rare_rescheduling_no_warning(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Rare rescheduling does not trigger a warning."""
         mock_backend.count_recent_reschedules.return_value = Result.ok(1)
@@ -306,7 +306,7 @@ class TestHandleEventRescheduled:
 
     @pytest.mark.asyncio
     async def test_fire_and_forget_contract(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Exceptions are logged, never propagated."""
         from neo4j.exceptions import ServiceUnavailable
@@ -333,7 +333,7 @@ class TestHandleEventRescheduled:
 class TestHandleEventCreated:
     @pytest.mark.asyncio
     async def test_scheduling_density_logged(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Scheduling density is assessed and logged."""
         mock_backend.count_events_in_date_range.return_value = Result.ok(5)
@@ -354,7 +354,7 @@ class TestHandleEventCreated:
 
     @pytest.mark.asyncio
     async def test_overcommitment_warning(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Overcommitment triggers a warning."""
         mock_backend.count_events_in_date_range.return_value = Result.ok(15)
@@ -375,7 +375,7 @@ class TestHandleEventCreated:
 
     @pytest.mark.asyncio
     async def test_light_density_no_warning(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Light scheduling does not trigger a warning."""
         mock_backend.count_events_in_date_range.return_value = Result.ok(2)
@@ -395,7 +395,7 @@ class TestHandleEventCreated:
 
     @pytest.mark.asyncio
     async def test_fire_and_forget_contract(
-        self, service: EventsEventHandlerService, mock_backend: Mock
+        self, service: EventEventHandlerService, mock_backend: Mock
     ):
         """Exceptions are logged, never propagated."""
         from neo4j.exceptions import ServiceUnavailable
@@ -424,7 +424,7 @@ class TestInsightPersistence:
     @pytest.mark.asyncio
     async def test_chronic_rescheduling_persists_insight(
         self,
-        service_full: EventsEventHandlerService,
+        service_full: EventEventHandlerService,
         mock_backend: Mock,
         mock_insight_store: AsyncMock,
     ):
@@ -450,7 +450,7 @@ class TestInsightPersistence:
     @pytest.mark.asyncio
     async def test_no_insight_for_rare_rescheduling(
         self,
-        service_full: EventsEventHandlerService,
+        service_full: EventEventHandlerService,
         mock_backend: Mock,
         mock_insight_store: AsyncMock,
     ):
@@ -472,7 +472,7 @@ class TestInsightPersistence:
     @pytest.mark.asyncio
     async def test_overcommitment_persists_insight(
         self,
-        service_full: EventsEventHandlerService,
+        service_full: EventEventHandlerService,
         mock_backend: Mock,
         mock_insight_store: AsyncMock,
     ):
@@ -498,7 +498,7 @@ class TestInsightPersistence:
     @pytest.mark.asyncio
     async def test_insight_failure_does_not_propagate(
         self,
-        service_full: EventsEventHandlerService,
+        service_full: EventEventHandlerService,
         mock_backend: Mock,
         mock_insight_store: AsyncMock,
     ):

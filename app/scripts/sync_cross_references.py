@@ -282,7 +282,7 @@ def get_docs_to_process(base_path: Path, category: str | None, file_path: str | 
         return [doc_path]
 
     # Process by category
-    docs = []
+    docs: list[Path] = []
 
     if category in ("patterns", None):
         patterns_dir = base_path / "docs" / "patterns"

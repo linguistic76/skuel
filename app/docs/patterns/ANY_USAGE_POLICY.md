@@ -22,7 +22,7 @@ They provide no value and actively undermine type safety.
 - `UserOperations` return types — Were `Result[Any]`, now `Result[User]` / `Result[UserContext]` (no circular import existed)
 - `get_active_learners` — Was `Result[list[Any]]`, now `Result[list[User]]`
 - `bookmark_knowledge` `tags` param — Was `list | None`, now `list[str] | None`
-- `SubmissionOperations.submit_file()` params — Were `entity_type: Any`, `processor_type: Any`, now `EntityType`, `ProcessorType`
+- `UserEntryOperations.submit_file()` params — Were `entity_type: Any`, `pipeline: Any`, now `EntityType`, `Pipeline`
 - `SubmissionOperations.list_submissions()` params — Were `entity_type: Any`, `status: Any`, now `EntityType`, `EntityStatus`
 - `SubmissionOperations.set_visibility()` — Was `visibility: Any`, now `Visibility`
 - `ExerciseReportOperations.generate_report()` — Were `entry: Any`, `exercise: Any`, now `Submission`, `Exercise`
@@ -113,7 +113,7 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 **Phase 4 — Return types:** ~170 protocol methods migrated from `Result[Any]` to specific types (0 `Result[Any]` remain in protocols, 2 intentional: `base_service_interface.py` and `OwnershipVerifier.verify_ownership` in `service_protocols.py` — the latter is a narrow internal callback protocol used by `LateralRelationshipService` and `LateralRelationshipsOrchestrator` to accept any domain facade's `verify_ownership(uid, user_uid) -> Result[T]`; `Result[T]` is invariant, each facade returns a different concrete `T`, and callers only branch on `.is_error`):
 
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
-  `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
+  `Result[CalendarData]`, `Result[Group]`, `Result[UserEntry]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
 - **110 output TypedDicts** in `query_types.py` for structured dict returns:
 
@@ -158,22 +158,35 @@ handles conversions that require type narrowing with `Any`.
 node_data: dict[str, Any]  # boundary: neo4j-primitives — raw record from driver.data()
 ```
 
-### `# boundary: fasthtml-elements`
+### FastHTML boundary surfaces
 
-FastHTML HTML element factories (`Div`, `Span`, `CardBody`, etc.) accept variadic children
-and arbitrary HTML attributes. HTML structure is inherently dynamic; a complete TypedDict
-for all HTML attributes would be impractical.
+FastHTML/fastcore present four distinct surfaces, and `Any` is justified at only two of them. The other two have typed alternatives — `Result[Any]` and `app: Any` / `rt: Any` show up there as regressions, not boundaries.
+
+| Surface | Typed alternative | `# boundary:` tag |
+|---------|-------------------|--------------------|
+| `app` / `rt` route-factory params | `FastHTMLApp` / `RouteDecorator` protocols | *none — protocol IS the boundary* |
+| Route handler return | `Result[FT]` for HTML fragments; `Result[Goal]` etc. for models | *none — the concrete type IS the contract* |
+| FT element internals (`*c`, `**kwargs`) | none — HTML is structurally heterogeneous | `# boundary: fasthtml-elements` |
+| ASGI plumbing (`scope/receive/send`) | none — Starlette doesn't export usable types | `# boundary: fasthtml-app` |
+
+#### `# boundary: fasthtml-elements`
+
+FastHTML HTML element factories (`Div`, `Span`, `CardBody`, etc.) accept variadic children and arbitrary HTML attributes. HTML structure is inherently dynamic; a complete TypedDict for all HTML attributes would be impractical.
 
 ```python
 def CardBody(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     # boundary: fasthtml-elements — html children and attrs are structurally dynamic
 ```
 
-### `# boundary: fasthtml-app`
+#### `# boundary: fasthtml-app`
 
-The FastHTML `app` object's type hierarchy is not exported by the library. The `FastHTMLApp`
-protocol in `adapters/inbound/fasthtml_types.py` captures the minimal interface SKUEL uses.
-The `Any` in its `__call__` signature (ASGI scope/receive/send) is a framework boundary.
+The `FastHTMLApp` protocol in `adapters/inbound/fasthtml_types.py` captures the minimal interface SKUEL calls. The `Any` in its `__call__(scope, receive, send)` signature is the ASGI boundary — Starlette doesn't expose usable types for those three parameters.
+
+#### What does NOT need a `# boundary:` tag
+
+- **`app` / `rt` parameters in route factories.** Use the protocols from `fasthtml_types.py`. Lifting `app: Any` to `app: FastHTMLApp` is migration work, not a boundary.
+- **Route handler returns rendering HTML.** `from fasthtml.common import FT` gives a real class (`fastcore.xml.FT`) that type-checks. `Result[FT]` is correct; `Result[Any]` with `# boundary: fasthtml FT component` is now obsolete framing.
+- **Route handlers that delegate to a typed service.** `events_service.update_event(...)` returns `Result[Event]` — the route wrapper should too. Using `Result[Any]` here is Category A (lazy), not Category C.
 
 ### `# boundary: error-metadata`
 
@@ -213,6 +226,8 @@ _tasks_service: Any = None  # boundary: placeholder — TasksService not yet thr
 | Generic callable | `Callable[[Any], bool]` | `EntityFilter[T]` |
 | Protocol return (model) | `Result[Any]` | `Result[Task]`, `Result[Askesis]`, etc. |
 | Protocol return (dict) | `Result[dict[str, Any]]` | TypedDict from `query_types.py` |
+| Route handler returning fragment | `Result[Any]` (with `# boundary:`) | `Result[FT]` (import from `fasthtml.common`) |
+| Route handler delegating to service | `Result[Any]` | `Result[Event]` / `Result[Task]` / etc. — match the facade |
 | HTML children | `*c: Any` | *keep — Category C boundary* |
 | Error details | `dict[str, Any]` | *keep — Category C boundary* |
 

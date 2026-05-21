@@ -39,9 +39,9 @@ Architecture Notes:
 - Uses UnifiedRelationshipService for all relationship operations
 """
 
+from core.services.principles.principle_event_handler_service import PrincipleEventHandlerService
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService
 from core.services.principles.principles_core_service import PrinciplesCoreService
-from core.services.principles.principles_event_handler_service import PrincipleEventHandlerService
 from core.services.principles.principles_intelligence_service import PrinciplesIntelligenceService
 from core.services.principles.principles_learning_service import PrinciplesLearningService
 from core.services.principles.principles_planning_service import PrinciplesPlanningService

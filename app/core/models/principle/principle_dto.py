@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.type_hints import UserUID
 
@@ -104,6 +104,17 @@ class PrincipleDTO(UserOwnedDTO):
     adopted_date: date | None = None
 
     # =========================================================================
+    # CROSS-DOMAIN LINKS
+    # =========================================================================
+    source_path_step_uid: str | None = None
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    # Back-reference is (Principle)-[:SPAWNED_FROM]->(PrincipleTemplate).
+    engagement_state: Literal["engaged", "owned"] | None = None
+
+    # =========================================================================
     # FACTORY METHOD
     # =========================================================================
 
@@ -135,57 +146,24 @@ class PrincipleDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including principle-specific fields."""
-        from core.models.dto_helpers import convert_dates_to_iso
-        from core.ports import get_enum_value
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                # Statement
-                "statement": self.statement,
-                # Classification
-                "principle_category": get_enum_value(self.principle_category),
-                "principle_source": get_enum_value(self.principle_source),
-                "strength": get_enum_value(self.strength),
-                # Philosophical
-                "tradition": self.tradition,
-                "original_source": self.original_source,
-                "personal_interpretation": self.personal_interpretation,
-                # Expressions
-                "expressions": list(self.expressions) if self.expressions else [],
-                "key_behaviors": list(self.key_behaviors) if self.key_behaviors else [],
-                # Alignment
-                "current_alignment": get_enum_value(self.current_alignment),
-                "alignment_history": list(self.alignment_history) if self.alignment_history else [],
-                "last_review_date": self.last_review_date,
-                # Conflicts
-                "potential_conflicts": list(self.potential_conflicts)
-                if self.potential_conflicts
-                else [],
-                "conflicting_principles": list(self.conflicting_principles)
-                if self.conflicting_principles
-                else [],
-                "resolution_strategies": list(self.resolution_strategies)
-                if self.resolution_strategies
-                else [],
-                # Reflection
-                "origin_story": self.origin_story,
-                "evolution_notes": self.evolution_notes,
-                # Status
-                "is_active": self.is_active,
-                "adopted_date": self.adopted_date,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "principle_category",
+                "principle_source",
+                "strength",
+                "current_alignment",
+            ],
+            date_fields=["last_review_date", "adopted_date"],
+            datetime_fields=["created_at", "updated_at"],
         )
-
-        convert_dates_to_iso(data, ["last_review_date", "adopted_date"])
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PrincipleDTO:
@@ -264,6 +242,8 @@ class PrincipleDTO(UserOwnedDTO):
                 "evolution_notes",
                 "is_active",
                 "adopted_date",
+                "source_path_step_uid",
+                "engagement_state",
             },
             enum_mappings={
                 "entity_type": EntityType,

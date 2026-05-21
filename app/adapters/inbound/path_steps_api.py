@@ -14,10 +14,12 @@ from fasthtml.common import Div, P, Request
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
+from core.models.pathways.learning_progress import LearningJourney
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
     PathStepPathRequest,
@@ -26,6 +28,7 @@ from core.models.pathways.pathways_request import (
     StepRelationshipCreateRequest,
     StepReorderRequest,
 )
+from core.models.type_hints import EntityUID
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
@@ -58,9 +61,13 @@ def create_path_steps_api_routes(
     # ========================================================================
 
     @rt("/api/path-steps/attach-to-path", methods=["POST"])
+    @csrf_protected
+    @require_admin(get_user_service)
     @boundary_handler()
-    async def attach_step_to_path_route(request: Request, step_uid: str) -> Result[bool]:
-        """Attach a path step to a learning path."""
+    async def attach_step_to_path_route(
+        request: Request, current_user: Any, step_uid: str
+    ) -> Result[bool]:
+        """Attach a path step to a learning path. Requires ADMIN role (curriculum write)."""
         result = await parse_json_body(request, PathStepPathRequest)
         if result.is_error:
             return result  # type: ignore[return-value]
@@ -70,9 +77,13 @@ def create_path_steps_api_routes(
         )
 
     @rt("/api/path-steps/detach-from-path", methods=["POST"])
+    @csrf_protected
+    @require_admin(get_user_service)
     @boundary_handler()
-    async def detach_step_from_path_route(request: Request, step_uid: str) -> Result[bool]:
-        """Detach a path step from a learning path."""
+    async def detach_step_from_path_route(
+        request: Request, current_user: Any, step_uid: str
+    ) -> Result[bool]:
+        """Detach a path step from a learning path. Requires ADMIN role (curriculum write)."""
         result = await parse_json_body(request, PathStepPathRequest)
         if result.is_error:
             return result  # type: ignore[return-value]
@@ -88,11 +99,12 @@ def create_path_steps_api_routes(
         request: Request, step_uid: str
     ) -> Result[dict[str, Any]]:
         """Get prerequisites for a path step."""
+        step_uid_typed = EntityUID(step_uid)
         prereq_steps_result = await ps_service.relationships.get_related_uids(
-            "prerequisite_steps", step_uid
+            "prerequisite_steps", step_uid_typed
         )
         prereq_knowledge_result = await ps_service.relationships.get_related_uids(
-            "prerequisite_knowledge", step_uid
+            "prerequisite_knowledge", step_uid_typed
         )
 
         prereq_steps = prereq_steps_result.value if prereq_steps_result.is_ok else []
@@ -112,6 +124,7 @@ def create_path_steps_api_routes(
     # ========================================================================
 
     @rt("/api/path-steps/relationships", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def create_step_relationship_route(
@@ -123,8 +136,16 @@ def create_path_steps_api_routes(
             return result  # type: ignore[return-value]
         req = result.value
 
+        # Keyword args: req.description maps to `notes`; `confidence` keeps
+        # the service default. The prior positional call passed strength as
+        # confidence and description as strength — a real bug, latent only
+        # because the endpoint was rarely exercised.
         return await ps_service.create_step_relationship(
-            uid, req.target_uid, req.type, req.strength, req.description
+            source_uid=uid,
+            target_uid=req.target_uid,
+            relationship_type=req.type,
+            strength=req.strength,
+            notes=req.description or None,
         )
 
     @rt("/api/path-steps/relationships", methods=["GET"])
@@ -149,6 +170,7 @@ def create_path_steps_api_routes(
     # ========================================================================
 
     @rt("/api/path-steps/content", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def update_step_content_route(
@@ -162,6 +184,7 @@ def create_path_steps_api_routes(
         return await ps_service.update_step_content(uid, result.value.content, result.value.title)
 
     @rt("/api/path-steps/tags", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def add_step_tags_route(
@@ -175,6 +198,7 @@ def create_path_steps_api_routes(
         return await ps_service.add_step_tags(uid, result.value.tags)
 
     @rt("/api/path-steps/tags", methods=["DELETE"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def remove_step_tags_route(
@@ -287,7 +311,7 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/journey")
     @boundary_handler()
-    async def get_step_journey(request: Request) -> Result[Any]:
+    async def get_step_journey(request: Request) -> Result[LearningJourney]:
         """Get user's SEL learning journey — progress across all 5 categories."""
         user_uid = require_authenticated_user(request)
         return await ps_service.get_sel_journey(user_uid)
@@ -430,6 +454,7 @@ def create_path_steps_api_routes(
     # -------------------------------------
 
     @rt("/api/path-steps/organize", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
     async def organize_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:
@@ -447,6 +472,7 @@ def create_path_steps_api_routes(
         )
 
     @rt("/api/path-steps/unorganize", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def unorganize_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:
@@ -462,6 +488,7 @@ def create_path_steps_api_routes(
         return Result.ok({"success": result.value})
 
     @rt("/api/path-steps/reorder", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def reorder_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:

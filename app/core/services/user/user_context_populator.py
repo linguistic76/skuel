@@ -367,6 +367,14 @@ class UserContextPopulator:
         context.upcoming_event_uids = events_data.get("upcoming_uids", [])
         context.today_event_uids = events_data.get("today_uids", [])
 
+        # Principles (active) — drive daily alignment decisions
+        principles_data = data.get("principles", {})
+        context.core_principle_uids = [uid for uid in principles_data.get("core_uids", []) if uid]
+
+        # Choices (pending) — block forward motion until resolved
+        choices_data = data.get("choices", {})
+        context.pending_choice_uids = [uid for uid in choices_data.get("pending_uids", []) if uid]
+
         # MOCs (Maps of Content)
         mocs_data = data.get("mocs", {})
         context.active_moc_uids = mocs_data.get("active_uids", [])
@@ -451,6 +459,22 @@ class UserContextPopulator:
         # Alignment score
         if alignment_score := life_path_data.get("alignment_score"):
             context.life_path_alignment_score = float(alignment_score)
+
+    def populate_group_awareness(self, context: UserContext, data: dict[str, Any]) -> None:
+        """Populate group membership, ownership, and group-assigned curriculum fields.
+
+        data: dict from UserContextQueryExecutor.fetch_user_groups() with keys
+        user_groups, teacher_groups, group_assigned_{exercise,path_step,learning_path}_uids.
+        """
+        context.user_groups = list(data.get("user_groups") or [])
+        context.teacher_groups = list(data.get("teacher_groups") or [])
+        context.group_assigned_exercise_uids = list(data.get("group_assigned_exercise_uids") or [])
+        context.group_assigned_path_step_uids = list(
+            data.get("group_assigned_path_step_uids") or []
+        )
+        context.group_assigned_learning_path_uids = list(
+            data.get("group_assigned_learning_path_uids") or []
+        )
 
     def populate_activity_report(self, context: UserContext, record: dict[str, Any] | None) -> None:
         """Populate latest activity report reference fields.

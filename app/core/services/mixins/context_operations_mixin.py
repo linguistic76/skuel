@@ -51,7 +51,8 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     Required attributes from composing class:
         backend: B - Backend implementation
         logger: Logger - For logging
-        entity_label: str - Neo4j node label
+        entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
+        config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep")
         _content_field: str - Field containing content
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
@@ -70,7 +71,13 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     @property
     @abstractmethod
     def entity_label(self) -> str:
-        """Entity label - must be provided by composing class."""
+        """Neo4j base-label (e.g., ``"Entity"``, ``"Ku"``) - provided by composing class."""
+        ...
+
+    @property
+    @abstractmethod
+    def config_lookup_label(self) -> str:
+        """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
         ...
 
     @abstractmethod
@@ -105,7 +112,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         entity = entity_result.value
         if entity is None:
-            return Result.fail(Errors.not_found(resource=self.entity_label, identifier=uid))
+            return Result.fail(Errors.not_found(resource=self.config_lookup_label, identifier=uid))
 
         # Check if content is already populated in entity
         content: str | None = getattr(entity, self._content_field, None)
@@ -155,7 +162,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Check registry before attempting query generation (avoid exception for control flow)
         from core.models.relationship_registry import LABEL_CONFIGS
 
-        if self.entity_label not in LABEL_CONFIGS:
+        if self.config_lookup_label not in LABEL_CONFIGS:
             # Entity not in registry - use basic 3-relationship pattern
             return await self._basic_get_with_context(uid, depth, min_confidence)
 
@@ -170,10 +177,10 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         records = result.value
         if not records or len(records) == 0:
-            return Result.fail(Errors.not_found(resource=self.entity_label, identifier=uid))
+            return Result.fail(Errors.not_found(resource=self.config_lookup_label, identifier=uid))
 
         record = records[0]
-        return self._parse_context_result(record, LABEL_CONFIGS.get(self.entity_label))
+        return self._parse_context_result(record, LABEL_CONFIGS.get(self.config_lookup_label))
 
     async def _basic_get_with_context(
         self,
@@ -203,16 +210,16 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         records = result.value
         if not records or len(records) == 0:
-            return Result.fail(Errors.not_found(resource=self.entity_label, identifier=uid))
+            return Result.fail(Errors.not_found(resource=self.config_lookup_label, identifier=uid))
 
         record = records[0]
-        node_data = record.get(self.entity_label.lower(), record.get("n", {}))
+        node_data = record.get(self.config_lookup_label.lower(), record.get("n", {}))
 
         # Build entity with context - fail-fast if not configured
         if not self._dto_class or not self._model_class:
             return Result.fail(
                 Errors.system(
-                    message=f"{self.entity_label} service must configure _dto_class and _model_class",
+                    message=f"{self.config_lookup_label} service must configure _dto_class and _model_class",
                     operation="_basic_get_with_context",
                 )
             )
@@ -248,7 +255,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Get entity data
         node_data = record.get("entity", {})
         if not node_data:
-            node_data = record.get(self.entity_label.lower(), record.get("n", {}))
+            node_data = record.get(self.config_lookup_label.lower(), record.get("n", {}))
 
         if not self._dto_class or not self._model_class:
             return Result.fail(Errors.system(message="Missing DTO or model class configuration"))
@@ -307,4 +314,4 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import ContextOperations
 
-    _protocol_check: type[ContextOperations[Any]] = ContextOperationsMixin  # type: ignore[type-arg, type-abstract]
+    _protocol_check: type[ContextOperations[Any]] = ContextOperationsMixin  # type: ignore[type-abstract]

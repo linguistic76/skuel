@@ -31,7 +31,7 @@ from core.events.goal_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -239,7 +239,7 @@ class GoalEventHandlerService:
                 )
                 insight = PersistedInsight(
                     uid=PersistedInsight.generate_uid(
-                        InsightType.COMPLETION_PATTERN, event.goal_uid
+                        InsightType.COMPLETION_PATTERN, EntityUID(event.goal_uid)
                     ),
                     user_uid=event.user_uid,
                     insight_type=InsightType.COMPLETION_PATTERN,
@@ -248,7 +248,7 @@ class GoalEventHandlerService:
                     description=f"Goal abandoned at {event.progress_at_abandonment:.0%} progress after {event.days_active} days.",
                     confidence=0.85,
                     impact=impact,
-                    entity_uid=event.goal_uid,
+                    entity_uid=EntityUID(event.goal_uid),
                     recommended_actions=[
                         {
                             "action": "Review goal scope and break into smaller milestones",
@@ -312,7 +312,7 @@ class GoalEventHandlerService:
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.IMBALANCE_DETECTED, event.goal_uid
+                            InsightType.IMBALANCE_DETECTED, EntityUID(event.goal_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.IMBALANCE_DETECTED,
@@ -321,7 +321,7 @@ class GoalEventHandlerService:
                         description=f"Goal at {event.new_progress:.0%} with negligible recent progress.",
                         confidence=0.8,
                         impact=InsightImpact.MEDIUM,
-                        entity_uid=event.goal_uid,
+                        entity_uid=EntityUID(event.goal_uid),
                         recommended_actions=[
                             {
                                 "action": "Break the goal into smaller actionable tasks",
@@ -357,7 +357,7 @@ class GoalEventHandlerService:
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.COMPLETION_PATTERN, event.goal_uid
+                            InsightType.COMPLETION_PATTERN, EntityUID(event.goal_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.COMPLETION_PATTERN,
@@ -366,7 +366,7 @@ class GoalEventHandlerService:
                         description=f"Goal is within 5% of the {milestone}% milestone — keep pushing!",
                         confidence=0.9,
                         impact=InsightImpact.LOW,
-                        entity_uid=event.goal_uid,
+                        entity_uid=EntityUID(event.goal_uid),
                         supporting_data={
                             "new_progress": event.new_progress,
                             "approaching_milestone": milestone,
@@ -590,7 +590,7 @@ class GoalEventHandlerService:
             return
 
         aligned_result = await self.relationships.get_related_uids(
-            RelationshipName.ALIGNED_WITH_PRINCIPLE.value, event.goal_uid
+            RelationshipName.ALIGNED_WITH_PRINCIPLE.value, EntityUID(event.goal_uid)
         )
         if aligned_result.is_ok and aligned_result.value:
             principle_uids = aligned_result.value

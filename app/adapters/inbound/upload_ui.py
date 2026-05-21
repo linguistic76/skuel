@@ -26,7 +26,11 @@ from fasthtml.common import (
 from starlette.datastructures import UploadFile
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth.roles import get_user_role
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.rate_limit import rate_limited
+from core.models.enums.user_enums import UserRole
 from core.services.ingestion.user_upload_service import MAX_FILES_PER_REQUEST
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
@@ -42,45 +46,46 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.upload")
 
 
-def _supported_types_section() -> Div:
+def _supported_types_section(is_teacher: bool = False) -> Div:
     """Inline documentation about supported YAML types."""
+    items = [
+        Li(Span("Task", cls="font-bold"), " — required field: ", Code("title")),
+        Li(Span("Goal", cls="font-bold"), " — required field: ", Code("title")),
+        Li(Span("Habit", cls="font-bold"), " — required field: ", Code("title")),
+        Li(Span("Event", cls="font-bold"), " — required field: ", Code("title")),
+        Li(Span("Choice", cls="font-bold"), " — required field: ", Code("title")),
+        Li(
+            Span("Principle", cls="font-bold"),
+            " — required fields: ",
+            Code("name"),
+            ", ",
+            Code("statement"),
+        ),
+        Li(
+            Span("UserEntry", cls="font-bold"),
+            " — required field: ",
+            Code("pipeline"),
+            " (one of ",
+            Code("none"),
+            ", ",
+            Code("teacher_review"),
+            ", ",
+            Code("llm_summary"),
+            "). Audio pipelines use the audio-upload flow.",
+        ),
+    ]
+    if is_teacher:
+        items.append(
+            Li(
+                Span("Group", cls="font-bold"),
+                " — required field: ",
+                Code("name"),
+                " (teachers only; uploader becomes owner)",
+            )
+        )
     return Div(
         H3("Supported Types", cls="text-lg font-semibold mb-2"),
-        Ul(
-            Li(
-                Span("Task", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Goal", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Habit", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Event", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Choice", cls="font-bold"),
-                " — required field: ",
-                Code("title"),
-            ),
-            Li(
-                Span("Principle", cls="font-bold"),
-                " — required fields: ",
-                Code("name"),
-                ", ",
-                Code("statement"),
-            ),
-            cls="list-disc pl-6 mt-2",
-        ),
+        Ul(*items, cls="list-disc pl-6 mt-2"),
         P(
             "Each YAML file must include a ",
             Code("type"),
@@ -95,6 +100,32 @@ def _supported_types_section() -> Div:
             ),
             " for examples.",
             cls="text-muted-foreground mt-2",
+        ),
+        cls="mb-6",
+    )
+
+
+def _audience_section() -> Div:
+    """Document the UserEntry ``audience:`` field."""
+    return Div(
+        H3("UserEntry Audience", cls="text-lg font-semibold mb-2"),
+        P(
+            "UserEntry files may declare who sees the submission via an ",
+            Code("audience"),
+            " field. Defaults to ",
+            Code("teachers"),
+            " when omitted.",
+            cls="text-muted-foreground mb-2",
+        ),
+        Ul(
+            Li(
+                Code("teachers"),
+                " — shares with every group you belong to as a student (default).",
+            ),
+            Li(Code("group:<group_uid>"), " — shares with one specific group."),
+            Li(Code("public"), " — publishes to your portfolio."),
+            Li(Code("private"), " — keeps the entry unshared."),
+            cls="list-disc pl-6 mt-2",
         ),
         cls="mb-6",
     )
@@ -166,12 +197,19 @@ def create_upload_ui_routes(
         """Render the upload page."""
         require_authenticated_user(request)
 
+        is_teacher = False
+        if user_service is not None:
+            resolved_role = await get_user_role(request, user_service)
+            if resolved_role is not None:
+                is_teacher = resolved_role.has_permission(UserRole.TEACHER)
+
         content = Div(
             PageHeader(
                 "Upload Activity Data",
                 subtitle="Bulk upload YAML files for Tasks, Goals, Habits, Events, Choices, and Principles.",
             ),
-            _supported_types_section(),
+            _supported_types_section(is_teacher=is_teacher),
+            _audience_section(),
             _upload_form(),
             _results_area(),
             cls="max-w-3xl mx-auto px-4",
@@ -184,6 +222,8 @@ def create_upload_ui_routes(
         )
 
     @rt("/upload/files", methods=["POST"])
+    @csrf_protected
+    @rate_limited(per_user=10, window_s=60)
     async def upload_files_htmx(request: Request) -> Any:
         """HTMX endpoint: upload YAML files and return HTML results fragment."""
         try:
@@ -215,7 +255,15 @@ def create_upload_ui_routes(
             if not file_pairs:
                 return UploadError("No valid files found in upload")
 
-            result = await upload_service.upload_and_ingest(user_uid, file_pairs)
+            user_role = UserRole.REGISTERED
+            if user_service is not None:
+                resolved_role = await get_user_role(request, user_service)
+                if resolved_role is not None:
+                    user_role = resolved_role
+
+            result = await upload_service.upload_and_ingest(
+                user_uid, file_pairs, user_role=user_role
+            )
 
             if result.is_error:
                 return UploadError(str(result.expect_error()))

@@ -228,7 +228,7 @@ class CreateTeachingExerciseRequest(BaseModel):
     scope: ExerciseScope = ExerciseScope.PERSONAL
     group_uid: str | None = None
     due_date: date | None = None
-    processor_type: ProcessorType = ProcessorType.LLM
+    processor_type: ReportSource = ReportSource.LLM
 
     @model_validator(mode="after")
     def assigned_scope_requires_group(self) -> "CreateTeachingExerciseRequest":

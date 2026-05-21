@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep
     from core.models.resource.resource import Resource
     from core.ports.query_types import RichPathStepItem
+    from core.services.ps_engagement.engagement import Engagement
     from core.services.user import UserContext
 
 
@@ -67,6 +68,34 @@ class EntityLookup(Protocol):
 logger = get_logger(__name__)
 
 _SENTINEL = object()
+
+
+# Intent → preferred ContentChunk types. The chunker classifies passages into
+# semantic types (DEFINITION, EXAMPLE, EXERCISE, ...) — different question
+# intents are best answered by different passage types. An absent key means
+# 'no filter' (search all chunk types).
+#
+# Unmapped on purpose:
+#   AGGREGATION       — pure graph/count query; chunk text doesn't help.
+#   SPECIFIC          — catch-all default; any chunk type may answer.
+#   GOAL_ACHIEVEMENT, PRINCIPLE_EMBODIMENT, PRINCIPLE_ALIGNMENT, SCHEDULED_ACTION
+#                     — domain queries served from user activity data, not curriculum.
+_INTENT_CHUNK_TYPES: dict[QueryIntent, list[str]] = {
+    QueryIntent.PREREQUISITE: ["DEFINITION", "EXPLANATION"],
+    QueryIntent.PRACTICE: ["EXERCISE", "EXAMPLE"],
+    QueryIntent.HIERARCHICAL: ["DEFINITION", "EXPLANATION"],
+    QueryIntent.EXPLORATORY: ["INTRODUCTION", "SUMMARY", "DEFINITION"],
+    QueryIntent.RELATIONSHIP: ["EXPLANATION", "DEFINITION"],
+}
+
+
+def _intent_to_chunk_types(intent: QueryIntent) -> list[str] | None:
+    """Pick the chunk types most likely to answer a given intent.
+
+    Returning None means 'no filter' — used for catch-all (SPECIFIC),
+    aggregate, or user-data queries where any chunk type is fair game.
+    """
+    return _INTENT_CHUNK_TYPES.get(intent)
 
 
 class ContextRetriever:
@@ -94,7 +123,7 @@ class ContextRetriever:
         self,
         graph_intel: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
-        vector_search_service: Any | None = None,  # boundary: Neo4jVectorSearchService
+        vector_search_service: Any,  # boundary: Neo4jVectorSearchService
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: EntityLookup | None = None,
         ku_service: EntityLookup | None = None,
@@ -106,6 +135,10 @@ class ContextRetriever:
         # Backends for graph queries (migrated from inline Cypher)
         ku_backend: Any | None = None,  # boundary: KuBackend
         ps_backend: Any | None = None,  # boundary: PsBackend
+        # Engagement service — None falls back to legacy (unengaged) selection.
+        # Always wired in production (FULL tier); optional only for unit-test
+        # construction without a full engagement-service mock.
+        ps_engagement_service: Any | None = None,  # boundary: PsEngagementService
     ) -> None:
         """
         Initialize context retriever.
@@ -145,6 +178,9 @@ class ContextRetriever:
         # Backends for graph queries
         self.ku_backend = ku_backend
         self.ps_backend = ps_backend
+
+        # Engagement service for lifecycle-aware bundle loading (ADR-059)
+        self.ps_engagement_service = ps_engagement_service
 
         logger.info("ContextRetriever initialized")
 
@@ -212,108 +248,114 @@ class ContextRetriever:
                 "recently_viewed": user_context.recently_viewed_moc_uids[:3],
             }
 
-        # Always include immediate recommendations
-        if user_context.at_risk_habits or user_context.overdue_task_uids:
+        # Always include immediate recommendations (at_risk_habits is rich-context only)
+        at_risk = user_context.at_risk_habits_or_empty()
+        if at_risk or user_context.overdue_task_uids:
             context["immediate_attention"] = {
-                "at_risk_habits": len(user_context.at_risk_habits),
+                "at_risk_habits": len(at_risk),
                 "overdue_tasks": len(user_context.overdue_task_uids),
             }
 
-        # PHASE 2: Semantic search enrichment via Neo4j native vector indexes
-        # Always attempt when vector_search_service is available — the min_score
-        # threshold (0.6) already filters irrelevant results without a keyword gate.
-        if self.vector_search_service:
-            similar_knowledge = await self._find_similar_knowledge(query, user_context.user_uid)
-            if similar_knowledge:
-                context["semantically_similar_knowledge"] = [
-                    {"uid": uid, "similarity": score, "title": title}
-                    for uid, score, title in similar_knowledge[:3]  # Top 3
-                ]
-                context["semantic_search_enabled"] = True
-            else:
-                context["semantic_search_enabled"] = False
-        else:
-            context["semantic_search_enabled"] = False
+        # PHASE 2: Chunk-level semantic search via Neo4j native vector indexes.
+        # We target :ContentChunk (not :Entity) so the LLM grounds answers in the
+        # actual passage that matched, with the owning PathStep surfaced via the
+        # chunk → content → entity join for citation.
+        chunk_types = _intent_to_chunk_types(intent)
+        relevant_chunks = await self._find_similar_chunks(
+            query, user_context.user_uid, chunk_types=chunk_types
+        )
+        if relevant_chunks:
+            context["relevant_chunks"] = relevant_chunks[:3]  # Top 3
 
         return context
 
-    @with_error_handling("get_learning_context", error_type="system", uid_param="user_uid")
+    @with_error_handling("get_learning_context", error_type="system", uid_param="user_context")
     async def get_learning_context(
-        self, user_uid: UserUID, depth: int = 2
+        self, user_context: UserContext, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """
-        Get user's complete learning context
+        Get user's complete learning context, served from UserContext.
 
-        Retrieves in single query via PsBackend:
-        - Current knowledge state (mastered, learning, blocked)
-        - Active learning paths with progress
-        - Related tasks and goals
-        - Knowledge prerequisites and relationships
+        UserContext (built once via MEGA-QUERY) already carries every field this
+        method previously re-queried via PsBackend. Serving from it eliminates
+        one Cypher round-trip per Askesis turn.
+
+        Returns the same dict shape as before so existing consumers
+        (query_processor, analyze_knowledge_gaps) keep working without change.
 
         Args:
-            user_uid: Unique identifier of the user
-            depth: Graph traversal depth (default: 2, unused — backend query uses fixed depth)
+            user_context: Rich UserContext (entities_rich/knowledge_units_rich
+                populated). Standard-depth contexts produce empty lists.
+            depth: Graph traversal depth (kept for signature compatibility; the
+                MEGA-QUERY upstream chose the depth).
 
         Returns:
             Result containing complete learning context
         """
-        if not self.ps_backend:
-            return Result.fail(
-                Errors.system(
-                    message="PsBackend not available — learning context queries disabled",
-                    operation="get_learning_context",
-                )
+        del depth  # honored upstream by the MEGA-QUERY; preserved for signature stability
+
+        knowledge_units = [
+            {"uid": uid, "title": item.get("ku", {}).get("title", ""), "mastery_level": level}
+            for uids, level in (
+                (user_context.mastered_knowledge_uids, 1.0),
+                (user_context.in_progress_knowledge_uids, 0.5),
+                (user_context.blocked_knowledge_uids, 0.0),
             )
+            for uid in uids
+            for item in (user_context.knowledge_units_rich.get(uid, {}),)
+        ]
 
-        result = await self.ps_backend.get_user_learning_context(user_uid)
+        learning_paths = [
+            {"uid": item["path"].get("uid", ""), "title": item["path"].get("title", "")}
+            for item in user_context.enrolled_paths_rich
+            if "path" in item
+        ]
 
-        if result.is_error:
-            return Result.fail(result)
+        related_tasks = [
+            {
+                "uid": item["entity"].get("uid", ""),
+                "title": item["entity"].get("title", ""),
+                "status": item["entity"].get("status", ""),
+            }
+            for item in user_context.entities_rich.get("tasks", [])
+            if "entity" in item
+        ]
 
-        records = result.value or []
-        if not records:
-            return Result.ok(
-                {
-                    "user_uid": user_uid,
-                    "knowledge_units": [],
-                    "learning_paths": [],
-                    "related_tasks": [],
-                    "related_goals": [],
-                    "knowledge_by_status": {"mastered": [], "learning": [], "blocked": []},
-                    "graph_context": {},
-                }
-            )
+        related_goals = [
+            {
+                "uid": item["entity"].get("uid", ""),
+                "title": item["entity"].get("title", ""),
+                "status": item["entity"].get("status", ""),
+            }
+            for item in user_context.entities_rich.get("goals", [])
+            if "entity" in item
+        ]
 
-        context = records[0].get("context", {})
-
-        # Extract categorized knowledge (query pre-categorizes by mastery level)
-        mastered = context.get("mastered_knowledge", [])
-        learning_knowledge = context.get("learning_knowledge", [])
-        blocked = context.get("blocked_knowledge", [])
-
-        # Combine all knowledge units for the flat list
-        knowledge_units = mastered + learning_knowledge + blocked
+        # Partition knowledge_units by mastery level for the by-status view.
+        # Compare against the float we set above so this stays in lock-step
+        # with the projection (no string status to drift).
+        knowledge_by_status = {
+            "mastered": [k for k in knowledge_units if k["mastery_level"] == 1.0],
+            "in_progress": [k for k in knowledge_units if k["mastery_level"] == 0.5],
+            "blocked": [k for k in knowledge_units if k["mastery_level"] == 0.0],
+        }
 
         return Result.ok(
             {
-                "user_uid": user_uid,
+                "user_uid": user_context.user_uid,
                 "knowledge_units": knowledge_units,
-                "learning_paths": context.get("learning_paths", []),
-                "related_tasks": context.get("active_tasks", []),
-                "related_goals": context.get("active_goals", []),
-                "knowledge_by_status": {
-                    "mastered": mastered,
-                    "learning": learning_knowledge,
-                    "blocked": blocked,
-                },
-                "graph_context": context,
+                "learning_paths": learning_paths,
+                "related_tasks": related_tasks,
+                "related_goals": related_goals,
+                "knowledge_by_status": knowledge_by_status,
+                "graph_context": {},
             }
         )
 
-    @with_error_handling("analyze_knowledge_gaps", error_type="system", uid_param="user_uid")
-    async def analyze_knowledge_gaps(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    @with_error_handling("analyze_knowledge_gaps", error_type="system", uid_param="user_context")
+    async def analyze_knowledge_gaps(self, user_context: UserContext) -> Result[dict[str, Any]]:
         """
-        Analyze user's knowledge gaps and prerequisite chains
+        Analyze user's knowledge gaps and prerequisite chains.
 
         Identifies:
         - Blocked knowledge areas
@@ -323,16 +365,12 @@ class ContextRetriever:
         - High-impact gaps (blocking many items)
 
         Args:
-            user_uid: Unique identifier of the user
+            user_context: Rich UserContext
 
         Returns:
             Result containing gap analysis with actionable insights
-
-        Performance: 200ms -> 25ms (8x faster)
         """
-        # Step 1: Get learning context
-        context_result = await self.get_learning_context(user_uid, GraphDepth.DEFAULT)
-
+        context_result = await self.get_learning_context(user_context, GraphDepth.DEFAULT)
         if context_result.is_error:
             return context_result
 
@@ -340,18 +378,15 @@ class ContextRetriever:
         blocked_knowledge = context_data["knowledge_by_status"]["blocked"]
         knowledge_units = context_data["knowledge_units"]
 
-        # Step 2: Analyze prerequisite chains for blocked knowledge
         gap_analysis = await self._analyze_blocked_knowledge_prerequisites(
-            blocked_knowledge, user_uid, knowledge_units
+            blocked_knowledge, user_context.user_uid, knowledge_units
         )
 
-        # Step 3: Identify quick wins and high-impact gaps
         quick_wins, high_impact = self._identify_quick_wins_and_high_impact(gap_analysis)
 
-        # Step 4: Build and return result
         return Result.ok(
             {
-                "user_uid": user_uid,
+                "user_uid": user_context.user_uid,
                 "total_gaps": len(gap_analysis),
                 "gaps": gap_analysis,
                 "quick_wins": quick_wins,
@@ -384,13 +419,13 @@ class ContextRetriever:
         Returns:
             Result[PsBundle] — the complete bundle, or not_found error
         """
-        # Step 1: Find active PathStep from rich context
-        ps_rich = self._find_active_ps(user_context)
+        # Step 1: Find active PathStep from rich context (engagement-aware)
+        ps_rich, engagement = await self._find_active_ps(user_uid, user_context)
         if ps_rich is None:
             return Result.fail(Errors.not_found("path_step", "no_active_ps"))
 
         step_data: dict[str, Any] = dict(ps_rich.get("step") or ps_rich.get("entity", {}))  # type: ignore[call-overload]
-        graph_context: dict[str, Any] = dict(ps_rich.get("graph_context", {}))  # type: ignore[call-overload]
+        graph_context: dict[str, Any] = dict(ps_rich.get("graph_context", {}))
 
         # Step 2: Build the PathStep domain model
         path_step = self._build_path_step(step_data)
@@ -467,6 +502,7 @@ class ContextRetriever:
         bundle = PsBundle(
             path_step=path_step,
             learning_path=learning_path,
+            engagement=engagement,
             related_steps=tuple(related_ps),
             kus=tuple(kus),
             resources=tuple(resources),
@@ -489,27 +525,76 @@ class ContextRetriever:
     # PRIVATE - PS BUNDLE HELPERS
     # ========================================================================
 
-    def _find_active_ps(self, user_context: UserContext) -> RichPathStepItem | None:
-        """Find the first active (non-mastered) PathStep from rich context.
+    async def _find_active_ps(
+        self, user_uid: UserUID, user_context: UserContext
+    ) -> tuple[RichPathStepItem | None, Engagement | None]:
+        """Find the active (non-mastered) PathStep, preferring engaged candidates.
 
         UserContext.active_path_steps_rich contains PathStep items with:
         - entity/step: Full PathStep properties
         - graph_context: {prerequisite_steps, practice_habits, practice_tasks,
                           knowledge_relationships, learning_path}
+
+        Selection rule (ADR-059):
+        1. Walk the non-mastered candidates in order.
+        2. If `ps_engagement_service` is available, prefer the first whose
+           ``ENGAGED_WITH`` edge has ``state == "engaged"``.
+        3. Fall back to the first non-mastered candidate without an engagement
+           (published-but-not-engaged) so Askesis still works pre-engagement.
+
+        Returns:
+            (ps_item, engagement) — engagement is None when the chosen PS has
+            no active engagement edge.
         """
+        candidates: list[tuple[RichPathStepItem, dict[str, Any]]] = []
         for ps_item in user_context.active_path_steps_rich:
             step_data: dict[str, Any] = dict(ps_item.get("step") or ps_item.get("entity", {}))  # type: ignore[call-overload]
             if not step_data:
                 continue
-
-            # Check the PathStep is not already mastered
             current_mastery = step_data.get("current_mastery", 0.0) or 0.0
             mastery_threshold = step_data.get("mastery_threshold", 0.7) or 0.7
-            if current_mastery < mastery_threshold:
-                return ps_item
+            if current_mastery >= mastery_threshold:
+                continue
+            candidates.append((ps_item, step_data))
 
-        # All steps mastered or no steps available
-        return None
+        if not candidates:
+            return None, None
+
+        # Legacy path (unit tests construct without engagement service)
+        if self.ps_engagement_service is None:
+            return candidates[0][0], None
+
+        # Look up engagement for each candidate in parallel — single edge
+        # lookup per candidate, indexed on (user_uid, ps_uid).
+        results = await asyncio.gather(
+            *[
+                self.ps_engagement_service.find_active(user_uid, step_data["uid"])
+                for _, step_data in candidates
+            ],
+            return_exceptions=True,
+        )
+
+        engaged_match: tuple[RichPathStepItem, Engagement] | None = None
+        unengaged_match: RichPathStepItem | None = None
+        for (ps_item, step_data), res in zip(candidates, results, strict=True):
+            if isinstance(res, BaseException):
+                logger.warning(
+                    "Engagement lookup failed for ps=%s user=%s: %s",
+                    step_data.get("uid"),
+                    user_uid,
+                    res,
+                )
+                continue
+            engagement = res.value if not res.is_error else None
+            if engagement is not None and engagement.state == "engaged":
+                if engaged_match is None:
+                    engaged_match = (ps_item, engagement)
+            elif engagement is None and unengaged_match is None:
+                unengaged_match = ps_item
+
+        if engaged_match is not None:
+            return engaged_match[0], engaged_match[1]
+        return unengaged_match, None
 
     def _build_path_step(self, step_data: dict[str, Any]) -> PathStep | None:
         """Build a PathStep from MEGA-QUERY properties dict."""
@@ -697,37 +782,52 @@ class ContextRetriever:
     # PRIVATE - HELPER METHODS
     # ========================================================================
 
-    async def _find_similar_knowledge(
-        self, query: str, _user_uid: UserUID
-    ) -> list[tuple[str, float, str]]:
+    async def _find_similar_chunks(
+        self,
+        query: str,
+        _user_uid: UserUID,
+        chunk_types: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """
-        Find semantically similar knowledge using Neo4j native vector indexes.
+        Find the most relevant :ContentChunk nodes for the user's question.
 
-        Uses Neo4jVectorSearchService.find_similar_by_text() which handles
-        embedding creation + db.index.vector.queryNodes() in one call.
+        Returns the chunk_uid, chunk_type, text, context_window (the 100-word
+        pre/post buffer designed for LLM grounding), similarity score, and the
+        owning entity's uid + title — so a downstream prompt can both quote the
+        passage AND cite the PathStep it came from.
 
         Args:
             query: User's question
-            _user_uid: User identifier (unused - for future personalization)
+            _user_uid: User identifier (unused — reserved for future personalization)
+            chunk_types: Optional filter (e.g. ["DEFINITION", "EXAMPLE"]) derived
+                from the classified intent.
 
         Returns:
-            List of (uid, similarity_score, title) tuples
+            List of dicts shaped like SemanticSearchChunkResult; empty on search error.
         """
-        if not self.vector_search_service:
-            return []
-
-        result = await self.vector_search_service.find_similar_by_text(
-            "Entity", query, limit=5, min_score=0.6
+        result = await self.vector_search_service.find_similar_chunks_by_text(
+            text=query,
+            chunk_types=chunk_types,
+            limit=5,
+            min_score=0.6,
         )
 
         if result.is_error:
-            logger.warning("Semantic search failed: %s", result.expect_error())
+            logger.warning("Chunk semantic search failed: %s", result.expect_error())
             return []
 
         return [
-            (item["node"].get("uid", ""), item["score"], item["node"].get("title", "Unknown"))
-            for item in result.value
-            if item.get("node", {}).get("uid")
+            {
+                "chunk_uid": hit.get("chunk_uid", ""),
+                "chunk_type": hit.get("chunk_type", ""),
+                "text": hit.get("text", ""),
+                "context_window": hit.get("context_window") or hit.get("text", ""),
+                "similarity": hit.get("similarity_score", 0.0),
+                "parent_uid": hit.get("parent_uid", ""),
+                "parent_title": hit.get("parent_title") or "Unknown",
+            }
+            for hit in result.value
+            if hit.get("chunk_uid")
         ]
 
     async def _analyze_blocked_knowledge_prerequisites(

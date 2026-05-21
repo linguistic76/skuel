@@ -10,6 +10,8 @@ All dependencies are required — bootstrap raises if any are missing
 (Fail-Fast Dependency Philosophy).
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +22,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.calendar_optimization_service import (
+        CalendarOptimization,
         CalendarOptimizationService,
         SchedulingStrategy,
     )
@@ -43,9 +46,9 @@ class CalendarOptimizationOrchestrator:
 
     def __init__(
         self,
-        calendar_service: "CalendarOptimizationService",
-        tasks_service: "TasksService",
-        events_service: "EventsService",
+        calendar_service: CalendarOptimizationService,
+        tasks_service: TasksService,
+        events_service: EventsService,
     ) -> None:
         self._calendar = calendar_service
         self._tasks = tasks_service
@@ -55,8 +58,8 @@ class CalendarOptimizationOrchestrator:
         self,
         user_uid: UserUID,
         target_date: date,
-        strategy: "SchedulingStrategy",
-    ) -> "Result[Any]":
+        strategy: SchedulingStrategy,
+    ) -> Result[CalendarOptimization]:
         """Fetch tasks and events for the date, then run scheduling optimisation.
 
         Partial failures (tasks or events unavailable) degrade gracefully — the

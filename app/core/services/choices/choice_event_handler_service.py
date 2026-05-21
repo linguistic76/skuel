@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
+from core.models.type_hints import EntityUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -157,7 +158,7 @@ class ChoiceEventHandlerService:
             if self.relationships:
                 rel_result = await self.relationships.get_related_uids(
                     "principles",
-                    event.choice_uid,
+                    EntityUID(event.choice_uid),
                 )
                 if rel_result.is_ok:
                     aligned_principles = rel_result.value
@@ -258,7 +259,7 @@ class ChoiceEventHandlerService:
             if self.relationships:
                 rel_result = await self.relationships.get_related_uids(
                     "principles",
-                    event.choice_uid,
+                    EntityUID(event.choice_uid),
                 )
                 if rel_result.is_ok:
                     aligned_principles = rel_result.value
@@ -309,7 +310,7 @@ class ChoiceEventHandlerService:
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.DECISION_PATTERN, event.choice_uid
+                            InsightType.DECISION_PATTERN, EntityUID(event.choice_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.DECISION_PATTERN,
@@ -318,7 +319,7 @@ class ChoiceEventHandlerService:
                         description=f"You made a high-confidence decision aligned with {len(aligned_principles)} principle(s).",
                         confidence=0.9,
                         impact=InsightImpact.LOW,  # Positive pattern, not urgent
-                        entity_uid=event.choice_uid,
+                        entity_uid=EntityUID(event.choice_uid),
                         recommended_actions=[],
                         supporting_data={
                             "confidence": round(confidence, 2),
@@ -347,7 +348,7 @@ class ChoiceEventHandlerService:
                 if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
-                            InsightType.PRINCIPLE_ALIGNMENT, event.choice_uid
+                            InsightType.PRINCIPLE_ALIGNMENT, EntityUID(event.choice_uid)
                         ),
                         user_uid=event.user_uid,
                         insight_type=InsightType.PRINCIPLE_ALIGNMENT,
@@ -356,7 +357,7 @@ class ChoiceEventHandlerService:
                         description=f"This complex decision (complexity: {round(complexity, 1)}) wasn't aligned with any principles.",
                         confidence=0.8,
                         impact=InsightImpact.MEDIUM,
-                        entity_uid=event.choice_uid,
+                        entity_uid=EntityUID(event.choice_uid),
                         recommended_actions=[
                             {
                                 "action": "Link principles to guide future decisions",

@@ -1,10 +1,10 @@
 ---
 title: "Design Principle: Fail Fast"
-updated: 2026-03-28
+updated: 2026-05-16
 status: current
 category: design-principles
 tags: [design, principles, error-handling, dependencies]
-related: [docs/patterns/ERROR_HANDLING.md, docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md]
+related: [docs/patterns/ERROR_HANDLING.md, docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md, docs/roadmap/secrets-out-of-worktree.md]
 ---
 
 # Fail Fast
@@ -22,6 +22,7 @@ Silent failures compound. A service that silently returns empty results when its
 ## In Practice
 
 - **Bootstrap validation:** `services_bootstrap/compose.py` verifies all service dependencies at application startup
+- **Credential validation at boot:** Tier-gated services (HuggingFace embeddings, OpenAI, email) raise on missing credentials during bootstrap rather than logging a warning and continuing (commit `fed4287f`). If the app starts, every credential the active tier needs is present.
 - **`Result[T]` error handling:** Errors propagate as typed values with category, message, and context — never swallowed
 - **`require_found()` pattern:** Fetch + not-found guard in one call; returns 404 immediately rather than passing `None` downstream
 - **No fallback Cypher:** `FormSubmissionService` requires `form_template_service` as a dependency. If it's `None`, the app crashes — it doesn't fall back to raw queries
@@ -30,6 +31,7 @@ Silent failures compound. A service that silently returns empty results when its
 ## Enforcement
 
 - **SKUEL017:** No bare `except Exception` — use specific exception types from `core/utils/exception_types.py`
+- **SKUEL019:** Credential reads must go through `get_credential()` — raw `os.getenv` on a catalog credential is an ERROR, on a credential-shape name a WARNING. Backs up the boot-time fail-fast: if a key is silently read from env (skipping the keychain), the failure surfaces at request time instead of at boot.
 - **SKUEL007:** Use `Errors` factory for consistent error creation
 - **SKUEL003:** Use `.is_error` (not `.is_err`) for failure checks
 - **MyPy:** `Result[T]` return types force callers to handle the error path

@@ -69,23 +69,20 @@ class TestUnifiedRegistry:
             "Exercise",
             "RevisedExercise",
             # Backward-compat aliases (old label keys)
-            "Entity",
             "Lesson",  # backward-compat alias -> PS_CONFIG
             "Ls",
             "Lp",
             # Other entities
             "User",
             "PrincipleReflection",
+            "UserEntry",
         }
         assert set(LABEL_CONFIGS.keys()) == expected_labels
 
     def test_each_config_is_domain_relationship_config(self):
         """Verify all configs are DomainRelationshipConfig instances."""
-        for label, config in LABEL_CONFIGS.items():
+        for config in LABEL_CONFIGS.values():
             assert isinstance(config, DomainRelationshipConfig)
-            # entity_label may be "Entity" for unified domains while dict key keeps
-            # the logical name (e.g. "Habit") for lookup purposes
-            assert config.entity_label in (label, "Entity")
 
 
 class TestUnifiedRelationshipDefinition:
@@ -225,8 +222,8 @@ class TestCurriculumDomains:
     """Test curriculum domain configurations."""
 
     def test_ku_config_is_shared_content(self):
-        """Verify KU config has shared content settings."""
-        config = get_config_by_label("Entity")
+        """Verify PathStep (curriculum content) has shared content settings."""
+        config = get_config_by_label("PathStep")
         assert config is not None
         assert config.is_shared_content is True
         assert config.ownership_relationship is None
@@ -234,6 +231,7 @@ class TestCurriculumDomains:
     def test_ls_has_knowledge_relationships(self):
         """Verify PS config has knowledge and step relationships (activity wiring moved to Lessons)."""
         config = get_config_by_label("Ls")
+        assert config is not None
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.CONTAINS_KNOWLEDGE in rel_names
         assert RelationshipName.TRAINS_KU in rel_names
@@ -242,16 +240,19 @@ class TestCurriculumDomains:
     def test_lp_has_milestone_relationship(self):
         """Verify LP config has milestone event relationship."""
         config = get_config_by_label("Lp")
+        assert config is not None
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.HAS_MILESTONE_EVENT in rel_names
 
-    def test_ku_has_organizes_relationship(self):
-        """Verify KU config has ORGANIZES relationship for MOC navigation.
+    def test_pathstep_has_organizes_relationship(self):
+        """Verify PathStep config has ORGANIZES relationship for MOC navigation.
 
-        January 2026: MOC is now KU-based. A KU "is" a MOC when it has
-        outgoing ORGANIZES relationships (emergent identity).
+        An Entity "is" a MOC when it has outgoing ORGANIZES relationships
+        (emergent identity). PathStep is the curriculum content entity that
+        wires this up in the registry.
         """
-        config = get_config_by_label("Entity")
+        config = get_config_by_label("PathStep")
+        assert config is not None
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.ORGANIZES in rel_names
 
@@ -273,7 +274,6 @@ class TestNamedUnifiedConfigs:
         assert PS_CONFIG is LABEL_CONFIGS["PathStep"]
         assert LP_CONFIG is LABEL_CONFIGS["LearningPath"]
         # Backward-compat aliases still work
-        assert PS_CONFIG is LABEL_CONFIGS["Entity"]
         assert PS_CONFIG is LABEL_CONFIGS["Lesson"]  # Lesson merged into PathStep
         assert PS_CONFIG is LABEL_CONFIGS["Ls"]
         assert LP_CONFIG is LABEL_CONFIGS["Lp"]
@@ -305,9 +305,9 @@ class TestRegistryIntegration:
         assert len(generate_enables_relationships("Task")) > 0
 
         # Curriculum domains should also have generated patterns
-        assert len(generate_graph_enrichment("Entity")) > 0
-        assert len(generate_prerequisite_relationships("Entity")) > 0
-        assert len(generate_enables_relationships("Entity")) > 0
+        assert len(generate_graph_enrichment("PathStep")) > 0
+        assert len(generate_prerequisite_relationships("PathStep")) > 0
+        assert len(generate_enables_relationships("PathStep")) > 0
 
         # All 9 domains should have enrichment patterns
         all_labels = [
@@ -317,9 +317,9 @@ class TestRegistryIntegration:
             "Event",
             "Choice",
             "Principle",
-            "Entity",
-            "Ls",
-            "Lp",
+            "PathStep",
+            "LearningPath",
+            "Ku",
         ]
         for label in all_labels:
             assert len(generate_graph_enrichment(label)) > 0, f"{label} missing enrichment"
@@ -340,10 +340,10 @@ class TestRegistryIntegration:
         """Verify KU config has organizes in bidirectional relationships."""
         organizes_rel = None
         for rel in KU_CONFIG.bidirectional_relationships:
-            if rel.method_key == "organizes":
+            if rel.method_key == "organizes":  # type: ignore[attr-defined]
                 organizes_rel = rel
                 break
         assert organizes_rel is not None
-        assert organizes_rel.relationship == RelationshipName.ORGANIZES
-        assert organizes_rel.target_label == "Ku"
-        assert organizes_rel.direction == "outgoing"
+        assert organizes_rel.relationship == RelationshipName.ORGANIZES  # type: ignore[attr-defined]
+        assert organizes_rel.target_label == "Ku"  # type: ignore[attr-defined]
+        assert organizes_rel.direction == "outgoing"  # type: ignore[attr-defined]

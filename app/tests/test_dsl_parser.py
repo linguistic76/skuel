@@ -1,3 +1,4 @@
+# mypy: disable-error-code="index"
 """
 Tests for SKUEL Activity DSL Parser
 ===================================

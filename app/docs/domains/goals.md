@@ -225,7 +225,9 @@ Goals track which habits are essential for achievement:
 | `get_by_priority(priority, user_uid)` | Filter by priority |
 | `get_by_progress(min, max, user_uid)` | Filter by progress range |
 | `get_by_milestone_status(status, user_uid)` | Filter by milestone status |
-| `get_active_goals(user_uid)` | Active goals only |
+| `get_active(user_uid)` | Active goals — inherited from `TimeQueryMixin`; excludes `completed` + `cancelled` via `completed_statuses` config |
+| `get_upcoming(days_ahead, user_uid)` | Goals with `target_date` approaching — inherited |
+| `get_overdue(user_uid)` | Goals past `target_date` — inherited |
 | `get_goals_needing_attention(user_uid)` | Stalled or at-risk goals |
 | `get_goals_with_tasks(user_uid)` | Goals with linked tasks |
 | `get_aligned_with_principle(principle_uid, user_uid)` | Goals aligned with principle |

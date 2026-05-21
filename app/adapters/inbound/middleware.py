@@ -87,7 +87,7 @@ class RequestIDMiddleware:
                 await send(message)
 
             try:
-                (await self.app(scope, receive, send_wrapper),)
+                await self.app(scope, receive, send_wrapper)
             finally:
                 request_id_context.reset(token)
         else:

@@ -51,5 +51,5 @@ async def render_submissions_sidebar_page(
         storage_key=SUBMISSIONS_STORAGE_KEY,
         request=request,
         active_page="submissions",
-        title_href="/submissions",
+        title_href="/profile?tab=submissions",
     )

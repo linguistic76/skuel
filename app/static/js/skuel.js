@@ -65,6 +65,53 @@
     document.addEventListener('DOMContentLoaded', function() {
         var body = document.body;
 
+        // -------------------------------------------------------------------
+        // CSRF double-submit: attach X-CSRF-Token on every mutating HTMX call.
+        // Paired with adapters/inbound/csrf.py (the cookie is set by
+        // CSRFMiddleware and readable because HttpOnly=False).
+        // -------------------------------------------------------------------
+        function readCsrfCookie() {
+            var match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : null;
+        }
+
+        body.addEventListener('htmx:configRequest', function(event) {
+            var method = (event.detail.verb || '').toUpperCase();
+            if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+                return;
+            }
+            var token = readCsrfCookie();
+            if (token) {
+                event.detail.headers['X-CSRF-Token'] = token;
+            }
+        });
+
+        // Native form submissions (non-HTMX) — guarantee the hidden csrf_token
+        // input exists and carries the current cookie value. Fires on capture
+        // so we run before any other submit handler and before serialization.
+        body.addEventListener('submit', function(event) {
+            var form = event.target;
+            if (!form || form.tagName !== 'FORM') return;
+            var method = (form.method || 'GET').toUpperCase();
+            if (method === 'GET' || method === 'HEAD') return;
+            if (form.hasAttribute('hx-post') || form.hasAttribute('hx-put') ||
+                form.hasAttribute('hx-delete') || form.hasAttribute('hx-patch')) {
+                return;
+            }
+            var token = readCsrfCookie();
+            if (!token) return;
+            var existing = form.querySelector('input[name="csrf_token"]');
+            if (existing) {
+                existing.value = token;
+            } else {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'csrf_token';
+                input.value = token;
+                form.appendChild(input);
+            }
+        }, true);
+
         // Before HTMX request - announce loading state
         body.addEventListener('htmx:beforeRequest', function(event) {
             var target = event.detail.target;
@@ -710,6 +757,110 @@
         // Form Validator Component
         // ---------------------------------------------------------------------
         // Client-side form validation with accessible error display
+        Alpine.data('entityPicker', function() {
+            // Searchable cross-domain UID picker — paired with EntityPicker
+            // (ui/patterns/entity_picker.py) and GET /api/picker/search.
+            // Hidden input ($refs.hidden) carries the form value; visible
+            // input ($refs.search) is for human search and is unnamed so
+            // the parent form never sees it.
+            return {
+                open: false,
+                highlight: -1,
+
+                init: function() {
+                    var self = this;
+                    // Reset highlight whenever HTMX swaps in new results.
+                    this.$el.addEventListener('htmx:afterSwap', function() {
+                        self.highlight = -1;
+                        // If results came back and the input is focused, open.
+                        if (document.activeElement === self.$refs.search) {
+                            self.open = true;
+                        }
+                    });
+                },
+
+                onFocus: function() {
+                    this.open = true;
+                },
+
+                onInput: function() {
+                    this.open = true;
+                    this.highlight = -1;
+                },
+
+                _items: function() {
+                    var ul = this.$el.querySelector('ul[role="listbox"]');
+                    return ul ? ul.querySelectorAll('li[role="option"]') : [];
+                },
+
+                onKeydown: function(event) {
+                    var items = this._items();
+                    if (event.key === 'ArrowDown') {
+                        if (items.length === 0) return;
+                        event.preventDefault();
+                        this.open = true;
+                        this.highlight = (this.highlight + 1) % items.length;
+                        this._applyHighlight(items);
+                    } else if (event.key === 'ArrowUp') {
+                        if (items.length === 0) return;
+                        event.preventDefault();
+                        this.open = true;
+                        this.highlight = (this.highlight - 1 + items.length) % items.length;
+                        this._applyHighlight(items);
+                    } else if (event.key === 'Enter') {
+                        if (this.open && this.highlight >= 0 && items[this.highlight]) {
+                            event.preventDefault();
+                            this._pick(items[this.highlight]);
+                        }
+                    } else if (event.key === 'Escape') {
+                        this.open = false;
+                    }
+                },
+
+                _applyHighlight: function(items) {
+                    var self = this;
+                    items.forEach(function(li, idx) {
+                        if (idx === self.highlight) {
+                            li.setAttribute('aria-selected', 'true');
+                            li.classList.add('bg-accent');
+                            li.scrollIntoView({ block: 'nearest' });
+                        } else {
+                            li.removeAttribute('aria-selected');
+                            li.classList.remove('bg-accent');
+                        }
+                    });
+                },
+
+                select: function(event) {
+                    var li = event.target.closest('li[role="option"]');
+                    if (!li) return;
+                    this._pick(li);
+                },
+
+                _pick: function(li) {
+                    var uid = li.getAttribute('data-uid') || '';
+                    var title = li.getAttribute('data-title') || li.textContent.trim();
+                    this.$refs.hidden.value = uid;
+                    this.$refs.search.value = title;
+                    // Notify FormGenerator's clearError() listener.
+                    this.$refs.hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                    this.open = false;
+                    this.highlight = -1;
+                },
+
+                clear: function() {
+                    this.$refs.hidden.value = '';
+                    this.$refs.search.value = '';
+                    this.$refs.hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                    this.$refs.search.focus();
+                },
+
+                hasValue: function() {
+                    return Boolean(this.$refs.hidden && this.$refs.hidden.value);
+                }
+            };
+        });
+
         Alpine.data('formValidator', function() {
             return {
                 errors: {},

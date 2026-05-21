@@ -39,16 +39,13 @@ def _get_neo4j_password() -> str:
     """
     Get Neo4j password from encrypted credential store.
 
-    Falls back to environment variable for migration support.
+    `get_credential(..., fallback_to_env=True)` already handles the
+    missing-master-key case internally by falling back to `os.getenv`,
+    so we don't need a second layer of fallback here.
     """
-    try:
-        from core.config.credential_store import get_credential
+    from core.config.credential_store import get_credential
 
-        password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-        return password or ""
-    except (ImportError, ValueError, OSError):
-        # Fallback to env if credential store fails
-        return os.getenv("NEO4J_PASSWORD", "")
+    return get_credential("NEO4J_PASSWORD", fallback_to_env=True) or ""
 
 
 # ============================================================================
@@ -95,10 +92,6 @@ class APIConfig:
     rate_limit_enabled: bool = True
     rate_limit_requests: int = 100
     rate_limit_period: int = 60  # seconds
-
-    # Security
-    api_key_enabled: bool = False
-    api_key_header: str = "X-API-Key"
 
     @classmethod
     def from_env(cls) -> "APIConfig":
@@ -566,12 +559,6 @@ class ApplicationConfig:
     tracing_enabled: bool = False
     health_check_enabled: bool = True
 
-    # Security
-    enable_auth: bool = False
-    jwt_secret: str = os.getenv("JWT_SECRET", "change-me-in-production")
-    jwt_algorithm: str = "HS256"
-    jwt_expiry_minutes: int = 1440  # 24 hours
-
     # Feature flags (simple dict for now)
     features: dict[str, Any] = field(default_factory=_default_features)
 
@@ -785,7 +772,6 @@ class UnifiedConfig:
         self.api.debug = False
         self.api.reload = False
         self.api.rate_limit_enabled = True
-        self.api.api_key_enabled = True
 
         self.database.enable_query_logging = False
         self.database.encrypted = True
@@ -794,7 +780,6 @@ class UnifiedConfig:
         self.cache.provider = "redis"
 
         self.application.log_level = "WARNING"
-        self.application.enable_auth = True
 
         self.features.enable_experimental_features = False
 
@@ -988,7 +973,7 @@ def validate_environment_config() -> bool:
     # Add production requirements
     env = os.getenv("SKUEL_ENVIRONMENT", "local")
     if env == "production":
-        required_vars.extend(["NEO4J_PASSWORD", "JWT_SECRET", "API_KEY"])
+        required_vars.append("NEO4J_PASSWORD")
 
     missing = [var for var in required_vars if not os.getenv(var)]
 

@@ -15,15 +15,14 @@ if TYPE_CHECKING:
         CalendarOptimizationOrchestrator,
     )
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
-    from core.orchestrator.journal_orchestrator import JournalOrchestrator
     from core.orchestrator.lateral_relationships_orchestrator import (
         LateralRelationshipsOrchestrator,
     )
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
     from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
-    from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
+    from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
@@ -36,6 +35,7 @@ if TYPE_CHECKING:
 
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
+    from core.services.chunks.batch_chunking_service import BatchChunkingService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
@@ -45,7 +45,6 @@ if TYPE_CHECKING:
     from core.services.ingestion.user_upload_service import UserUploadService
     from core.services.insight.insight_store import InsightStore
     from core.services.interaction.interaction_service import InteractionService
-    from core.services.journal import JournalInputService, JournalOutputService
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.knowledge_domain_service import KnowledgeDomainService
@@ -55,6 +54,7 @@ if TYPE_CHECKING:
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.principles_service import PrinciplesService
+    from core.services.ps_engagement import PsEngagementService
     from core.services.ps_service import PsService
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
@@ -63,15 +63,28 @@ if TYPE_CHECKING:
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.resource_service import ResourceService
     from core.services.tasks_service import TasksService
-    from core.services.transcription.batch_processing_service import BatchProcessingService
+    from core.services.templates import (
+        ChoiceTemplateService,
+        EventTemplateService,
+        GoalTemplateService,
+        HabitTemplateService,
+        PrincipleTemplateService,
+        TaskTemplateService,
+    )
     from core.services.transcription.batch_transcription_service import BatchTranscriptionService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
+    from core.services.user_entry.assessment_service import AssessmentService
+    from core.services.user_entry.user_entry_processing_service import (
+        UserEntryProcessingService,
+    )
+    from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
     from core.services.user_service import UserService
+    from ui.today.orchestrator import TodayOrchestrator
 
 from core.ports import (
     AskesisCoreOperations,
@@ -97,9 +110,6 @@ from core.ports import (
     RevisedExerciseOperations,
     SearchOperations,
     SharingOperations,
-    SubmissionOperations,
-    SubmissionProcessingOperations,
-    SubmissionSearchOperations,
     SystemServiceOperations,
     TeacherReviewOperations,
     UserContextOperations,
@@ -169,39 +179,28 @@ class Services:
         None  # ExerciseService - Reusable LLM instruction templates
     )
     revised_exercises: RevisedExerciseOperations | None = (
-        None  # RevisedExerciseService - Five-phase learning loop revision cycle
+        None  # RevisedExerciseService - Four-phase learning loop revision cycle
     )
 
     # General-purpose forms (March 2026)
     form_templates: "FormTemplateOperations | None" = None
     form_submissions: "FormSubmissionOperations | None" = None
 
-    # Journal services
-    journal_input: "JournalInputService | None" = None
-    journal_generator: "JournalOutputService | None" = None
-
-    # Batch transcription/processing services (March 2026)
+    # Batch transcription service (Tier 1: audio → txt).
+    # Tier 2 (BatchProcessingService) retired with ADR-054 Commit 6a — the
+    # LLM-driven txt→md path lives inside UserEntryProcessingService now.
     batch_transcription: "BatchTranscriptionService | None" = None
-    batch_processing: "BatchProcessingService | None" = None
 
-    # Submission pipeline services
-    submissions: SubmissionOperations | None = (
-        None  # SubmissionsService - File upload and submission content management
-    )
-    submissions_core: SubmissionOperations | None = (
-        None  # SubmissionsCoreService - Content management (categories, tags, bulk operations)
-    )
+    # Sharing (cross-domain)
     sharing: SharingOperations | None = (
         None  # UnifiedSharingService - Cross-domain sharing and visibility control
     )
-    submissions_processor: SubmissionProcessingOperations | None = (
-        None  # SubmissionsProcessingService - Orchestrates processing (LLM enrichment, transcription)
-    )
 
-    # Submission search service (unified query interface)
-    submissions_search: SubmissionSearchOperations | None = (
-        None  # SubmissionsSearchService - Query all submission types (journals, essays, projects, etc.)
-    )
+    # UserEntry (ADR-054) — unified user-authored content facade.
+    # Replaces the legacy submission + journal services.
+    user_entry: "UserEntryService | None" = None
+    user_entry_processor: "UserEntryProcessingService | None" = None
+    user_entry_assessment: "AssessmentService | None" = None
 
     # ========================================================================
     # GROUP & TEACHING (ADR-040) - Teacher exercise workflow
@@ -242,6 +241,19 @@ class Services:
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
     lp: "LpService | None" = None  # LpService - All path management
     ps: "PsService | None" = None  # PsService - Dedicated path step management
+    # PS+Activity Templates lifecycle facade (Phase 4 — May 2026)
+    # Owns 4 transitions: publish/engage/complete/abandon over PS templates.
+    ps_engagement: "PsEngagementService | None" = None
+
+    # PS+Activity Templates CRUD services (Phase 5 — May 2026).
+    # PS-owned curriculum (no per-user state). Routes wire SHARED scope +
+    # TEACHER role gate. Each service exposes attach/detach/list_for_pathstep.
+    task_templates: "TaskTemplateService | None" = None
+    goal_templates: "GoalTemplateService | None" = None
+    habit_templates: "HabitTemplateService | None" = None
+    event_templates: "EventTemplateService | None" = None
+    choice_templates: "ChoiceTemplateService | None" = None
+    principle_templates: "PrincipleTemplateService | None" = None
     learning_intelligence: IntelligenceOperations | None = (
         None  # LpIntelligenceService - analysis and recommendations
     )
@@ -273,6 +285,10 @@ class Services:
     )
     # Per-user bulk upload service (wraps UnifiedIngestionService)
     user_upload_service: "UserUploadService | None" = None
+    # Batch chunk regeneration (Phase 2, May 2026) — admin tool for rechunking
+    # existing :Content when CHUNKING_ALGORITHM_VERSION changes. event_bus is
+    # wired only in FULL tier; CORE tier gets a regen-only instance.
+    batch_chunking_service: "BatchChunkingService | None" = None
 
     # The Destination - LifePath (Domain #14)
     # "Everything flows toward the life path"
@@ -301,15 +317,15 @@ class Services:
     # Orchestrators (Application Layer)
     admin_orchestrator: "AdminOrchestrator | None" = None
     profile_orchestrator: "ProfileOrchestrator | None" = None
-    submissions_orchestrator: "SubmissionsOrchestrator | None" = None
+    user_entry_orchestrator: "UserEntryOrchestrator | None" = None
     explore_orchestrator: "ExploreOrchestrator | None" = None
     library_orchestrator: "LibraryOrchestrator | None" = None
     teacher_orchestrator: "TeacherOrchestrator | None" = None
-    journal_orchestrator: "JournalOrchestrator | None" = None
     activity_review_orchestrator: "ActivityReviewOrchestrator | None" = None
     pathways_orchestrator: "PathwaysOrchestrator | None" = None
     lateral_orchestrator: "LateralRelationshipsOrchestrator | None" = None
     calendar_optimization_orchestrator: "CalendarOptimizationOrchestrator | None" = None
+    today_orchestrator: "TodayOrchestrator | None" = None
 
     # Advanced services
     jupyter_sync: "JupyterNeo4jSync | None" = None
@@ -364,8 +380,6 @@ class Services:
                 logger.info("Closing graph adapter...")
                 if isinstance(adapter, AsyncCloseable):
                     await adapter.close()
-                elif isinstance(adapter, Closeable):
-                    adapter.close()
                 logger.info("Graph adapter closed")
             except (
                 Exception
@@ -380,8 +394,6 @@ class Services:
                 logger.info("Closing event bus...")
                 if isinstance(bus, AsyncCloseable):
                     await bus.close()
-                elif isinstance(bus, Closeable):
-                    bus.close()
                 logger.info("Event bus closed")
             except (
                 Exception

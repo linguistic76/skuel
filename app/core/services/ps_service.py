@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth, QueryLimit
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.base_protocols import HasUID
 from core.ports.query_types import (
     ListContext,
@@ -778,7 +778,7 @@ class PsService:
 
     async def get_step_paths(self, step_uid: str, limit: int = 100) -> Result[builtins.list[str]]:
         """Get all learning paths that contain a specific step."""
-        return await self.relationships.get_related_uids("in_paths", step_uid)
+        return await self.relationships.get_related_uids("in_paths", EntityUID(step_uid))
 
     # ============================================================================
     # KU COMPOSITION (PathStep → atomic Ku via USES_KU)

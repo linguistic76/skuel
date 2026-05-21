@@ -19,6 +19,7 @@ from core.events.learning_events import KnowledgeMastered, PathStepProgressUpdat
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
@@ -65,7 +66,7 @@ class PsProgressService:
                 return
 
             # Find PathSteps that contain this KU
-            result = await self.backend.find_path_steps_for_ku(event.ku_uid)  # type: ignore[attr-defined]
+            result = await self.backend.find_path_steps_for_ku(event.ku_uid)
             if result.is_error:
                 self.logger.error(f"Failed to query path steps for KU: {result.error}")
                 return
@@ -107,8 +108,8 @@ class PsProgressService:
             return
 
         progress_data = result.value or {}
-        total_kus = int(progress_data.get("total_kus", 0))
-        mastered_kus = int(progress_data.get("mastered_kus", 0))
+        total_kus = coerce_int(progress_data.get("total_kus"))
+        mastered_kus = coerce_int(progress_data.get("mastered_kus"))
 
         if total_kus == 0:
             self.logger.debug(f"No KUs found for path step {ps_uid}")

@@ -49,7 +49,6 @@ Services with **both** a root-level facade AND a subfolder of sub-services.
     tasks_planning_service.py
     tasks_ai_service.py
     tasks_productivity_service.py
-    tasks_learning_metrics_service.py
     task_relationships.py   # Relationship config (not a service)
 ```
 
@@ -105,7 +104,7 @@ Standalone services without subfolders.
 | **User Secondary** | `user_progress_service.py`, `user_relationship_service.py` |
 | **System** | `system_service.py`, `schema_service.py`, `performance_optimization_service.py` |
 | **Visualization** | `core/services/visualization_service.py` (pure formatter — no domain deps) + `core/services/analytics/visualization_aggregation_service.py` (data fetching + aggregation — delegates formatting to VisualizationService) |
-| **Config/Helpers** | `domain_config.py`, `query_builder.py`, `entity_timestamp_mixin.py`, `context_first_mixin.py` |
+| **Config/Helpers** | `domain_config.py`, `query_builder.py`, `entity_timestamp_mixin.py` |
 
 ---
 
@@ -187,7 +186,7 @@ BaseService[B: BackendOperations, T: DomainModelProtocol]
     │                get_prerequisites(), get_enables()
     │
     ├─ TimeQueryMixin               ← Depends on ConversionHelpersMixin
-    │   └─ Methods: get_user_items_in_range(), get_due_soon(), get_overdue()
+    │   └─ Methods: get_user_items_in_range(), get_upcoming(), get_overdue(), get_active()
     │
     ├─ UserProgressMixin            ← Depends on ConversionHelpersMixin
     │   └─ Methods: get_user_progress(), update_user_mastery()
@@ -232,7 +231,7 @@ TasksService (Facade)
     │   ├─ Extends: BaseService[TasksOperations, Task]
     │   ├─ Responsibility: Search and discovery
     │   ├─ Config: _config = create_activity_domain_config(...)
-    │   └─ Methods: search(), get_tasks_for_goal(), get_prioritized_tasks()
+    │   └─ Methods: search(), get_tasks_for_goal(), get_prioritized()
     │
     ├─ self.progress: TasksProgressService
     │   ├─ Extends: BaseService[TasksOperations, Task]
@@ -265,11 +264,6 @@ TasksService (Facade)
     │   ├─ Responsibility: Dual-track productivity assessment (ADR-030)
     │   └─ Methods: assess_productivity_dual_track()
     │
-    ├─ self.learning_metrics: TasksLearningMetricsService
-    │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
-    │   ├─ Responsibility: Task-level learning metrics via Task model
-    │   └─ Methods: analyze_task_learning_metrics(), generate_task_knowledge_insights()
-    │
     └─ self.event_handler: TaskEventHandlerService
         ├─ Extends: N/A (standalone service)
         ├─ Responsibility: Event-driven reactive handlers (fire-and-forget)
@@ -282,8 +276,8 @@ TasksService (Facade)
 Activity Domain Facades (6 total)
 │
 ├─ TasksService     (9 sub-services + 2 facade mixins)
-│   └─ core, search, progress, scheduling, planning, intelligence,
-│      learning_metrics, event_handler, knowledge_intelligence
+│   └─ core, search, progress, scheduling, planning, learning, intelligence,
+│      event_handler, knowledge_intelligence
 │   └─ mixins: _OrchestrationMixin, _RelationshipMixin
 │
 ├─ GoalsService      (10 sub-services + 2 facade mixins)
@@ -307,10 +301,12 @@ Activity Domain Facades (6 total)
     └─ mixins: _EmbodimentMixin, _GravityMixin, _EnrichmentMixin
 ```
 
-**Pattern:** All 6 domains share up to 7 common sub-services via factory: core, search, relationships,
-intelligence (skippable via `skip={}`) + event_handler, learning (Tasks omits), knowledge_intelligence
-(always auto-wired when conditions met). `KnowledgeIntelligenceDelegationMixin` remains for the 4
+**Pattern:** All 6 domains share the same 7 common sub-services via factory: core, search, relationships,
+intelligence (skippable via `skip={}`) + event_handler, learning, knowledge_intelligence
+(always auto-wired). The shape is uniform — no domain opts out. `KnowledgeIntelligenceDelegationMixin` remains for the 4
 delegation method shortcuts but is no longer the wiring path for `knowledge_intelligence`. Cross-domain reads spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), injected as a constructor dependency into facades that need it (Goals, Habits, Choices, Principles). Activity domain stat computation centralized in `core/utils/activity_stats.py` (April 2026).
+
+The shared `knowledge_intelligence` wiring is the first production realization of the [Shared Signal pattern](../patterns/SHARED_SIGNAL_PATTERN.md) — one singleton producer, narrow protocol, delegation mixin on every Activity Domain facade.
 
 **Shared Knowledge Intelligence (singleton):**
 ```
@@ -638,8 +634,7 @@ Routes / Application Code
 │   └─ learning_loop_query_service.py          (read-side: Interaction/Report traversals)
 │
 ├─ journal/
-│   ├─ journal_input_service.py     (JeInput CRUD + file upload — JournalInputOperations)
-│   └─ journal_output_service.py    (LLM processing → JeOutput — JournalOutputOperations)
+│   ├─ user_entry_processing_service.py     (LLM processing → UserEntry)
 │
 ├─ output/
 │   └─ instruction_resolver.py        (unified instruction resolution)
@@ -684,7 +679,7 @@ ACTIVITY_DOMAIN_CONFIGS["events"]  ← Registry lookup
     ├─ core_class: "EventsCoreService"
     ├─ search_class: "EventsSearchService"
     ├─ intelligence_class: "EventsIntelligenceService"
-    ├─ event_handler_class: "EventsEventHandlerService"
+    ├─ event_handler_class: "EventEventHandlerService"
     ├─ learning_class: "EventsLearningService"
     └─ relationship_config: EVENTS_CONFIG
     │
@@ -695,7 +690,7 @@ Dynamic imports + instantiation (skipping names in skip set)
     ├─ search = EventsSearchService(backend=backend, ...)
     ├─ intel = None  (skipped)
     ├─ rels = UnifiedRelationshipService(backend=backend, config=EVENTS_CONFIG)
-    ├─ event_handler = EventsEventHandlerService(...)  (always built)
+    ├─ event_handler = EventEventHandlerService(...)  (always built)
     ├─ learning = EventsLearningService(...)           (always built when class configured)
     └─ knowledge_intelligence = <passed-in singleton>  (always set)
     │
@@ -705,7 +700,7 @@ CommonSubServices[EventsIntelligenceService]
     ├─ search: EventsSearchService
     ├─ relationships: UnifiedRelationshipService
     ├─ intelligence: None
-    ├─ event_handler: EventsEventHandlerService
+    ├─ event_handler: EventEventHandlerService
     ├─ learning: EventsLearningService
     └─ knowledge_intelligence: ActivityKnowledgeIntelligenceService
 ```
@@ -715,7 +710,7 @@ CommonSubServices[EventsIntelligenceService]
 - Centralized configuration via `ACTIVITY_DOMAIN_CONFIGS` registry
 - Generic type parameter for intelligence service
 - `skip` parameter covers the first 4 (core/search/relationships/intelligence); event_handler, learning,
-  and knowledge_intelligence are always auto-wired (Tasks omits learning)
+  and knowledge_intelligence are always auto-wired for every domain
 
 ---
 
@@ -765,7 +760,7 @@ BaseService._get_config_value("search_fields")
 1. **Mixin Composition** — 7 focused mixins provide 100+ methods to `BaseService`
 2. **Facade Pattern** — 1 facade per domain delegates to 7–14 specialized sub-services
 3. **Explicit Delegation** — Facade services have explicit `async def` delegation methods (not dynamic generation)
-4. **Factory Pattern** — `create_common_sub_services()` creates up to 7 sub-services from registry: core/search/relationships/intelligence (skippable via `skip={}`) + event_handler, learning (Tasks omits), knowledge_intelligence (always auto-wired when conditions met)
+4. **Factory Pattern** — `create_common_sub_services()` creates the same 7 sub-services for every Activity Domain from the registry: core/search/relationships/intelligence (skippable via `skip={}`) + event_handler, learning, knowledge_intelligence (always auto-wired). The shared shape is the contract for interconnectivity — see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization".
 5. **Configuration Pattern** — `DomainConfig` dataclass is single source of truth
 6. **Event-Driven** — Domain events published for side effects (analytics, achievements, etc.)
 

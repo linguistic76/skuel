@@ -184,8 +184,44 @@ Graph (Neo4j) → MEGA-QUERY → UserContext → UserContextIntelligence → Rec
 
 ```python
 context.is_rich_context      # bool — False for standard, True for rich
-context.require_rich_context("operation_name")  # raises RichContextRequiredError if standard
 ```
+
+### Rich-Only Fields — Two Mechanisms, Different Jobs
+
+Seven fields on `UserContext` default to `None` at standard depth and are populated only by `build_rich()`:
+
+```
+tasks_by_goal, habits_by_goal, at_risk_habits, blocked_task_uids,
+principle_guided_choice_counts, recent_principle_aligned_choices,
+principle_integration_score
+```
+
+These are listed on `RichUserContext.RICH_ONLY_FIELDS` — metadata about what the subclass narrows. Reading them at standard depth is a bug, not a degraded path — so the codebase applies **two independent mechanisms**:
+
+| Mechanism | What it is | What it protects against |
+|-----------|------------|--------------------------|
+| **Compile-time guard** | `RichUserContext(UserContext)` — subclass that narrows the seven fields from `X \| None` to `X` and pins `is_rich_context=True`. Consumers that require rich data type their `context: RichUserContext`. | Calling rich-requiring methods with a standard context. mypy rejects it before runtime. |
+| **Uniform read path** | `get_X()` / `X_or_empty()` accessors on `UserContext`. `get_X()` raises `RichContextRequiredError` at standard depth; `X_or_empty()` returns an empty container. SKUEL018 (lint) forbids direct `.<rich_only_field>` reads outside accessor-definition files. | Runtime None-leaks and inconsistent read shapes across consumers. |
+
+**They stack; they do not substitute.** Narrowing to `RichUserContext` does not license inlining `self.context.habits_by_goal` in place of `self.context.get_habits_by_goal()`. The reason is consistency: not every consumer is typed against `RichUserContext` (some take plain `UserContext` and branch on `is_rich()`), and SKUEL018 is name-based by design so the read path stays uniform across both. The accessor call is the single audit chokepoint if the rich/standard contract ever changes; the type is the static safety net.
+
+```python
+# Intelligence / planning service — rich is required
+class SynergyIntelligenceMixin:
+    context: RichUserContext  # compile-time guard: mypy rejects a standard context
+
+    def _detect_habit_goal_synergies(self):
+        habits_by_goal = self.context.get_habits_by_goal()  # uniform read path
+        ...
+
+# Consumer that tolerates either depth — branch, then accessor
+if is_rich(context):
+    habits_by_goal = context.get_habits_by_goal()
+else:
+    habits_by_goal = context.habits_by_goal_or_empty()
+```
+
+The strict accessors delegate through `_as_rich("operation_name")`, a private helper on `UserContext` that guards with `RichContextRequiredError` on standard-depth contexts and returns `self` narrowed to `RichUserContext`. This is a runtime backstop — with `RichUserContext`-typed code, it never raises in practice.
 
 ### When to Use UserContext vs Domain Services
 
@@ -342,8 +378,7 @@ These fields are separate from `entities_rich` — they are scalar/list fields o
 
 ```python
 # ✅ CORRECT
-async def get_advancing_goals(self, context: UserContext) -> Result[list[ContextualGoal]]:
-    context.require_rich_context("get_advancing_goals")
+async def get_advancing_goals(self, context: RichUserContext) -> Result[list[ContextualGoal]]:
     goals_data = context.entities_rich["goals"]
     ...
 
@@ -359,69 +394,43 @@ context = await context_builder.build_rich(user_uid)  # ONE query
 result = await service.some_method(context)            # zero re-queries
 ```
 
-### ISP Narrowing — Context Awareness Protocols
+### UserContext as Single Source of Truth
 
-UserContext has ~250 fields. Most services only need 5-10. **Context awareness protocols** are ISP-compliant slices that let services declare the minimum context they actually use:
+Services that need a user-state parameter take `UserContext` directly:
 
 ```python
-from core.ports import TaskAwareness, KnowledgeAwareness, LearningPathAwareness
-
-# ✅ ADOPTION TARGET — explicit, testable, mockable with 5 fields
-async def get_ready_to_work_on_today(self, context: TaskAwareness) -> Result[DailyWorkPlan]:
-    # MyPy enforces only TaskAwareness fields are accessed
-    ...
-
-# Currently — works but opaque: which of the 240 fields does this actually use?
 async def get_ready_to_work_on_today(self, context: UserContext) -> Result[DailyWorkPlan]:
     ...
 ```
 
-`UserContext` implements **all 11 protocols**, so call sites are unchanged — only service signatures narrow.
+There is no parallel layer of ISP "awareness slice" protocols. `UserContext` is the contract.
 
-**The 11 awareness slices** (`core/ports/context_awareness_protocols.py`):
+**Why not narrower protocols.** An earlier design (retired 2026-05-11, commit `a82faaba`, [ADR-060](/docs/decisions/ADR-060-userctx-single-source-of-truth.md)) defined 11 awareness protocols — `TaskAwareness`, `KnowledgeAwareness`, `CrossDomainAwareness`, `FullAwareness`, etc. — so callees could declare a minimum dependency surface. In practice the protocols re-declared ~25 fields that already lived on `UserContext`, creating two sources of truth that drifted by hand. Adding a field to `UserContext` did not widen the protocol surface, and the MyPy-enforced "this service only reads task state" guarantee was theoretical — anyone needing a new field could just widen the slice. The two-file maintenance burden outweighed the type-level minimization benefit, so the slices were collapsed into `UserContext`.
 
-| Protocol | Fields | Primary consumer |
-|----------|--------|-----------------|
-| `CoreIdentity` | user_uid, username | Every context-aware service |
-| `TaskAwareness` | active/blocked/overdue tasks, `knowledge_mastery` | `TasksPlanningService`, `DailyPlanningMixin` |
-| `KnowledgeAwareness` | mastery, in-progress KUs, active path steps, prerequisites, velocity | `ZPDService`, Askesis, `PlanningMixin` |
-| `HabitAwareness` | streaks, at-risk habits | `HabitsIntelligenceService` |
-| `GoalAwareness` | progress, milestones, `at_risk_goals` | `GoalsPlanningService` |
-| `EventAwareness` | upcoming events, schedule | `EventsCoreService` / `EventsSearchService` |
-| `PrincipleAwareness` | core principles, integrity | `PrinciplesIntelligenceService` |
-| `ChoiceAwareness` | pending choices | `ChoicesIntelligenceService` |
-| `LearningPathAwareness` | enrolled paths, current steps, ZPD position | `ZPDService`, `AskesisQueryService` |
-| `CrossDomainAwareness` | multi-domain subset (incl. in-progress KUs, active path steps) | `UserContextIntelligence` cross-domain methods, `PlanningMixin` |
-| `FullAwareness` | all fields | Askesis dialogue, admin dashboard |
+**What this means in practice.**
+- A service taking `UserContext` can in principle reach into any of ~250 fields. Trust the function's docstring (or its body) for what it actually reads — not the parameter type.
+- Don't reintroduce slice protocols. If a service needs only one field, take that field as a primitive parameter instead of a wrapping protocol.
+- Adding a new context field is a one-file change: `unified_user_context.py`.
 
-**Cross-protocol fields** — all 7 domain-facing protocols share two fields that `DomainPlanningMixin` relies on:
+**Cross-cutting fields used by `DomainPlanningMixin`:**
 - `is_rich_context: bool` — `True` only when built via `build_rich()`. Domain planning methods return `Result.fail()` immediately if `False`.
-- `get_rich_entities(domain, filter_uids=None)` — canonical accessor for `entities_rich[domain]` with optional UID filtering; eliminates the repeated extraction loop pattern.
+- `get_rich_entities(domain, filter_uids=None)` — canonical accessor for `entities_rich[domain]` with optional UID filtering.
 
-**Testing benefit** — mock the narrow slice instead of 240 fields:
+**Testing.** `UserContext` is a frozen dataclass with `default_factory` defaults on almost every field, so a minimal fixture is one line:
+
 ```python
-class MockTaskContext:
-    user_uid = "user_alice"
-    is_rich_context = True
-    active_task_uids = ["task_abc"]
-    blocked_task_uids = set()
-    completed_task_uids = set()
-    overdue_task_uids = ["task_xyz"]
-    task_priorities = {"task_abc": 0.8}
-    tasks_by_goal = {}
-    knowledge_mastery = {}
-    entities_rich = {"tasks": [{"entity": {"uid": "task_abc", "title": "Fix bug"}, "graph_context": {}}]}
-
-    def get_rich_entities(self, domain, filter_uids=None):
-        entities = self.entities_rich.get(domain, [])
-        if filter_uids is None:
-            return entities
-        return [e for e in entities if e.get("entity", {}).get("uid") in filter_uids]
-
-result = await planning_service.get_actionable_tasks_for_user(MockTaskContext())
+ctx = UserContext(user_uid="user_alice", username="alice")
+ctx_with_tasks = UserContext(
+    user_uid="user_alice",
+    username="alice",
+    is_rich_context=True,
+    active_task_uids=["task_abc"],
+    overdue_task_uids=["task_xyz"],
+    entities_rich={"tasks": [{"entity": {"uid": "task_abc", "title": "Fix bug"}, "graph_context": {}}]},
+)
 ```
 
-**See:** `/core/ports/context_awareness_protocols.py`, `/docs/architecture/INTELLIGENCE_BACKLOG.md` — remaining adoption backlog
+No slice-conforming stubs needed.
 
 ### Mutation Rules
 

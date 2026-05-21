@@ -519,8 +519,6 @@ class CrossDomainAnalyticsService:
         Returns:
             Result containing spending pattern analysis
         """
-        datetime.now() - timedelta(days=days_back)
-
         result = await self.backend.get_spending_by_category(user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)

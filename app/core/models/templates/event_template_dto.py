@@ -1,0 +1,184 @@
+"""EventTemplateDTO — Transfer tier for EventTemplate."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from datetime import (
+    time,  # noqa: TC003 -- runtime import; keeps `time` resolvable for any get_type_hints() consumer
+)
+from typing import Any
+
+from core.models.entity_dto import EntityDTO
+from core.models.enums import Domain
+from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.templates.relative_offset import RelativeOffset
+
+_OFFSET_FIELDS: tuple[str, ...] = ("event_offset", "recurrence_end_offset")
+
+
+def _offset_to_jsonable(offset: RelativeOffset | None) -> dict[str, int] | None:
+    if offset is None:
+        return None
+    return {"days": offset.days, "hours": offset.hours, "minutes": offset.minutes}
+
+
+def _jsonable_to_offset(raw: object) -> RelativeOffset | None:
+    if raw is None:
+        return None
+    if isinstance(raw, RelativeOffset):
+        return raw
+    data: object = raw
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    if not isinstance(data, dict):
+        return None
+    return RelativeOffset(
+        days=int(data.get("days", 0) or 0),
+        hours=int(data.get("hours", 0) or 0),
+        minutes=int(data.get("minutes", 0) or 0),
+    )
+
+
+@dataclass
+class EventTemplateDTO(EntityDTO):
+    """Mutable DTO for EventTemplate entities."""
+
+    # Scheduling
+    event_offset: RelativeOffset | None = None
+    start_time: time | None = None
+    end_time: time | None = None
+    duration_minutes: int | None = None
+
+    # Logistics
+    event_type: str | None = None
+    location: str | None = None
+    is_online: bool = False
+    meeting_url: str | None = None
+
+    # Recurrence
+    recurrence_pattern: str | None = None
+    recurrence_end_offset: RelativeOffset | None = None
+
+    # Reminders
+    reminder_minutes: int | None = None
+
+    # Attendees cap
+    max_attendees: int | None = None
+
+    # Cross-template refs
+    reinforces_habit_template_uid: str | None = None
+    milestone_celebration_for_goal_template_uid: str | None = None
+
+    # Milestone/curriculum
+    is_milestone_event: bool = False
+    milestone_type: str | None = None
+    curriculum_week: int | None = None
+
+    # Quality tracking defaults
+    knowledge_retention_check: bool = False
+    recurrence_maintains_habit: bool = False
+    skip_breaks_habit_streak: bool = False
+
+    # =========================================================================
+    # SERIALIZATION
+    # =========================================================================
+
+    def to_dict(self) -> dict[str, Any]:
+        from core.models.dto_helpers import dto_to_dict
+
+        data = dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain"],
+            datetime_fields=["created_at", "updated_at"],
+            time_fields=["start_time", "end_time"],
+        )
+        for name in _OFFSET_FIELDS:
+            offset_value = getattr(self, name)
+            data[name] = (
+                json.dumps(_offset_to_jsonable(offset_value)) if offset_value is not None else None
+            )
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> EventTemplateDTO:
+        from core.models.dto_helpers import dto_from_dict
+
+        for name in _OFFSET_FIELDS:
+            if name in data:
+                data[name] = _jsonable_to_offset(data[name])
+        return dto_from_dict(
+            cls,
+            data,
+            enum_fields={
+                "entity_type": EntityType,
+                "status": EntityStatus,
+                "domain": Domain,
+            },
+            datetime_fields=["created_at", "updated_at"],
+            time_fields=["start_time", "end_time"],
+            list_fields=["tags"],
+            dict_fields=["metadata"],
+        )
+
+    # =========================================================================
+    # UPDATE
+    # =========================================================================
+
+    def update_from(self, updates: dict[str, Any]) -> None:
+        from core.models.dto_helpers import update_from_dict
+
+        coerced: dict[str, Any] = dict(updates)
+        for name in _OFFSET_FIELDS:
+            if name in coerced and not isinstance(coerced[name], RelativeOffset):
+                coerced[name] = _jsonable_to_offset(coerced[name])
+
+        update_from_dict(
+            self,
+            coerced,
+            allowed_fields={
+                "title",
+                "content",
+                "summary",
+                "description",
+                "word_count",
+                "domain",
+                "status",
+                "tags",
+                "metadata",
+                # EventTemplate-specific
+                "event_offset",
+                "start_time",
+                "end_time",
+                "duration_minutes",
+                "event_type",
+                "location",
+                "is_online",
+                "meeting_url",
+                "recurrence_pattern",
+                "recurrence_end_offset",
+                "reminder_minutes",
+                "max_attendees",
+                "reinforces_habit_template_uid",
+                "milestone_celebration_for_goal_template_uid",
+                "is_milestone_event",
+                "milestone_type",
+                "curriculum_week",
+                "knowledge_retention_check",
+                "recurrence_maintains_habit",
+                "skip_breaks_habit_streak",
+            },
+            enum_mappings={
+                "entity_type": EntityType,
+                "status": EntityStatus,
+                "domain": Domain,
+            },
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, EventTemplateDTO):
+            return False
+        return self.uid == other.uid

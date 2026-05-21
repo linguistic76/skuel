@@ -14,7 +14,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator  # noqa: F401
     from core.ports import (
         ExerciseReportOperations,
         SharingOperations,
@@ -29,7 +28,7 @@ if TYPE_CHECKING:
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.tasks_service import TasksService
     from core.services.user.intelligence.factory import UserContextIntelligenceFactory
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 logger = get_logger("skuel.orchestrators.profile")
@@ -69,9 +68,10 @@ class ProfileOrchestrator:
     orchestrator. All service dependencies are required — bootstrap raises if
     any are missing (Fail-Fast Dependency Philosophy).
 
-    ``context_intelligence`` is the one legitimate optional: it is ``None``
-    when ``INTELLIGENCE_TIER=core``, and the orchestrator degrades to basic
-    mode transparently.
+    ``context_intelligence`` is post-wired by compose_services after
+    ``_create_intelligence_hub`` runs (the factory does not exist at
+    construction time). The ``None`` guard in ``get_intelligence_data`` is a
+    defensive backstop for tests/misuse, not the expected production path.
     """
 
     def __init__(
@@ -100,7 +100,9 @@ class ProfileOrchestrator:
         self._sharing_service = sharing_service
         self._ps_service = ps_service
         self._exercises_service = exercises_service
-        self._context_intelligence = context_intelligence
+        # Public so compose_services can post-wire it after the intelligence hub
+        # is built (mirrors progress_generator.analytics_service post-wiring).
+        self.context_intelligence = context_intelligence
 
     async def get_assigned_exercises(self, user_uid: UserUID) -> Result[list[Any]]:
         """Get exercises assigned to this student."""
@@ -163,7 +165,7 @@ class ProfileOrchestrator:
         return await self._ps_service.get_all_user_knowledge_status(user_uid)
 
     async def get_intelligence_data(
-        self, context: "UserContext"
+        self, context: "RichUserContext"
     ) -> "Result[dict[str, Any] | None]":
         """Gather cross-domain intelligence for the Profile Hub.
 
@@ -175,16 +177,17 @@ class ProfileOrchestrator:
         Returns:
             - ``Result.ok(dict)`` — intelligence data (some values may be ``None``
               on partial failure)
-            - ``Result.ok(None)`` — intelligence not available (CORE tier or
-              factory not configured); UI renders in basic mode
+            - ``Result.ok(None)`` — intelligence factory not wired (defensive
+              backstop; compose_services post-wires this so production should
+              never hit it)
             - ``Result.fail()`` — all intelligence calls failed
         """
-        if not self._context_intelligence:
+        if not self.context_intelligence:
             logger.info("Intelligence factory not configured — using basic mode")
             return Result.ok(None)
 
         try:
-            intelligence = self._context_intelligence.create(context)
+            intelligence = self.context_intelligence.create(context)
         except (AttributeError, TypeError, KeyError) as e:
             logger.warning(
                 "Intelligence services not properly configured — using basic mode",

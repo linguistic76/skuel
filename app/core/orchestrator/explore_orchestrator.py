@@ -15,13 +15,14 @@ All service dependencies are required — bootstrap raises if any are missing
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
     from core.services.ps_service import PsService
-    from core.services.submissions.learning_loop_query_service import LearningLoopQueryService
+    from core.services.user_entry.learning_loop_query import LearningLoopQueryService
     from core.services.user_relationship_service import UserRelationshipService
 
 
@@ -55,7 +56,7 @@ class ExploreOrchestrator:
         """Fetch a Knowledge Unit by UID."""
         return await self._ku.get_ku(uid)
 
-    async def get_ku_learning_state(self, user_uid: str, ku_uid: str) -> Result[dict]:
+    async def get_ku_learning_state(self, user_uid: UserUID, ku_uid: str) -> Result[dict]:
         """Get a user's learning state for a specific KU."""
         return await self._ku.get_ku_learning_state(user_uid, ku_uid)
 
@@ -63,7 +64,7 @@ class ExploreOrchestrator:
         """Get exercises associated with a KU."""
         return await self._exercises.get_exercises_for_curriculum(ku_uid)
 
-    async def get_pinned_entities(self, user_uid: str) -> Result[Any]:
+    async def get_pinned_entities(self, user_uid: UserUID) -> Result[Any]:
         """Get UIDs of entities pinned by the user."""
         return await self._user_relationships.get_pinned_entities(user_uid)
 
@@ -75,11 +76,11 @@ class ExploreOrchestrator:
         """Fetch a PathStep with its full content body."""
         return await self._ps.get_with_content(uid)
 
-    async def record_ps_view(self, user_uid: str, ps_uid: str) -> None:
+    async def record_ps_view(self, user_uid: UserUID, ps_uid: str) -> None:
         """Record that a user viewed a PathStep (best-effort)."""
         await self._ps.mastery.record_view(user_uid, ps_uid)
 
-    async def get_ps_learning_state(self, user_uid: str, ps_uid: str) -> Result[Any]:
+    async def get_ps_learning_state(self, user_uid: UserUID, ps_uid: str) -> Result[Any]:
         """Get learning mastery state for a specific PathStep."""
         return await self._ps.mastery.get_learning_state(user_uid, ps_uid)
 
@@ -88,12 +89,12 @@ class ExploreOrchestrator:
         return await self._ps.get_exercises_for_path_step(ps_uid)
 
     async def get_exercises_for_path_step_with_status(
-        self, ps_uid: str, user_uid: str
+        self, ps_uid: str, user_uid: UserUID
     ) -> Result[list]:
         """Get exercises for a PathStep with per-user submission/feedback status."""
         return await self._exercises.get_exercises_for_path_step_with_status(ps_uid, user_uid)
 
-    async def get_submissions_for_path_step(self, user_uid: str, ps_uid: str) -> Result[list]:
+    async def get_submissions_for_path_step(self, user_uid: UserUID, ps_uid: str) -> Result[list]:
         """Get a user's submissions + feedback for a specific PathStep."""
         return await self._learning_loop_queries.get_submissions_for_path_step(user_uid, ps_uid)
 
@@ -102,7 +103,7 @@ class ExploreOrchestrator:
     # ------------------------------------------------------------------
 
     async def load_explore_index(
-        self, user_uid: str | None
+        self, user_uid: UserUID | None
     ) -> tuple[list[tuple[Any, str]], set[str], dict[str, str]]:
         """Load all Ku + PS items, pins, and learning states for the index page.
 
@@ -189,7 +190,7 @@ class ExploreOrchestrator:
     # ------------------------------------------------------------------
 
     async def generate_learning_graph(
-        self, user_uid: str | None
+        self, user_uid: UserUID | None
     ) -> dict[str, list[dict[str, Any]]]:
         """Build the Vis.js {nodes, edges} JSON for the learning universe.
 
@@ -277,7 +278,7 @@ class ExploreOrchestrator:
     # Sidebar data aggregation (was _fetch_sidebar_data in ui/explore/nav.py)
     # ------------------------------------------------------------------
 
-    async def get_sidebar_data(self, user_uid: str) -> dict[str, Any]:
+    async def get_sidebar_data(self, user_uid: UserUID) -> dict[str, Any]:
         """Fetch learning states, pins, and in-progress items for the Explore sidebar.
 
         Runs independent queries concurrently via asyncio.gather.

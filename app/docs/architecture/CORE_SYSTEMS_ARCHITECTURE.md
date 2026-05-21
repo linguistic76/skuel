@@ -123,7 +123,7 @@ from ui.layouts.base_page import BasePage
 
 @rt("/ku/{uid}")
 async def ku_detail(request: Request, uid: str):
-    ku = await ku_service.get_by_uid(uid)
+    ku = await ku_service.get(uid)
 
     return BasePage(
         content=Div(

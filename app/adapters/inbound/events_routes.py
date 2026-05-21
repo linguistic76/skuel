@@ -38,6 +38,11 @@ EVENTS_CONFIG = create_activity_domain_route_config(
     api_related_services={
         "habits_service": "habits",
     },
+    ui_related_services={
+        "user_service": "user",
+        "goals_service": "goals",
+        "habits_service": "habits",
+    },
     prometheus_metrics_attr="prometheus_metrics",
 )
 

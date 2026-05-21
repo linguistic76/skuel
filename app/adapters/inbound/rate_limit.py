@@ -1,0 +1,108 @@
+"""
+Per-user rate limiting — minimal in-memory token bucket.
+
+Adapter-level concern. Keyed on ``UserUID`` (not IP), so each authenticated
+user gets their own bucket regardless of how many processes share the host.
+
+Process-local only. A multi-worker deployment gets one bucket per worker —
+acceptable for the coarse "don't hammer /upload" guard this module provides.
+A shared backend (Redis) is the upgrade path when we need a cluster-wide cap.
+
+See: /home/mike/.claude/plans/user-entry-upload-security-review.md (Finding 7)
+"""
+
+from __future__ import annotations
+
+import time
+from collections import deque
+from functools import wraps
+from typing import TYPE_CHECKING, Any
+
+from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from adapters.inbound.fasthtml_types import Request
+
+logger = get_logger("skuel.adapters.rate_limit")
+
+# Process-local store: user_uid → timestamps of recent hits.
+_BUCKETS: dict[str, deque[float]] = {}
+
+
+def _check_and_record(user_uid: str, limit: int, window_s: float) -> bool:
+    """Return True if the call is within the limit; False if rate-limited.
+
+    Sliding window: drop timestamps older than ``window_s`` from the user's
+    bucket, then reject if the remaining count is at or above ``limit``.
+    """
+    now = time.monotonic()
+    cutoff = now - window_s
+    bucket = _BUCKETS.setdefault(user_uid, deque())
+    while bucket and bucket[0] < cutoff:
+        bucket.popleft()
+    if len(bucket) >= limit:
+        return False
+    bucket.append(now)
+    return True
+
+
+def rate_limited(
+    *,
+    per_user: int,
+    window_s: float,
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+    """Decorate an async route handler with a per-user sliding-window limit.
+
+    The wrapped handler must accept ``request`` as its first parameter and
+    ``request.session`` must carry ``user_uid`` (standard SKUEL auth state).
+    Unauthenticated requests are let through so ``require_authenticated_user``
+    inside the handler remains the single source of auth errors.
+
+    On limit exceeded, returns HTTP 429 via starlette's ``Response`` with a
+    plain-text body — suitable for HTMX fragments (the client just swaps in
+    the message) and JSON clients alike.
+    """
+    from starlette.responses import Response  # local import — adapter-only
+
+    def decorator(handler: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        @wraps(handler)
+        async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
+            user_uid = _extract_user_uid(request)
+            if user_uid is not None and not _check_and_record(user_uid, per_user, window_s):
+                logger.warning(
+                    "Rate limit exceeded for user %s on %s (limit=%d, window=%ss)",
+                    user_uid,
+                    getattr(request, "url", "<unknown>"),
+                    per_user,
+                    window_s,
+                )
+                retry_after = max(1, int(window_s))
+                return Response(
+                    f"Rate limit exceeded: max {per_user} requests per {int(window_s)}s",
+                    status_code=429,
+                    headers={"Retry-After": str(retry_after)},
+                )
+            return await handler(request, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _extract_user_uid(request: Request) -> str | None:
+    """Read ``user_uid`` from the session without throwing for unauth requests."""
+    session = getattr(request, "session", None)
+    if not isinstance(session, dict):
+        return None
+    uid = session.get("user_uid")
+    return str(uid) if uid else None
+
+
+def reset_buckets_for_testing() -> None:
+    """Clear the module-level bucket store. Tests only."""
+    _BUCKETS.clear()
+
+
+__all__ = ["rate_limited", "reset_buckets_for_testing"]

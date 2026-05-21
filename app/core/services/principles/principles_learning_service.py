@@ -23,6 +23,7 @@ from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
+from core.models.type_hints import EntityUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -156,7 +157,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
             service=self,
             backend_get=self.backend.get,
             backend_get_user=self.backend.get_user_principles,
-            backend_create=self.backend.create,
+            backend_create=self.backend.create_principle,
             domain=Domain.PRINCIPLES,
             entity_name="principle",
             alignment_scorer=_calculate_virtue_embodiment_score,
@@ -208,7 +209,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
             if current_step:
                 enhanced_frame["mastery_indicators"].append(
                     {
-                        "path": path.name,
+                        "path": path.title,
                         "indicator": f"Apply {principle_category} while mastering {current_step.title}",
                         "success_metric": f"Demonstrate {principle_category} in {current_step.title} application",
                     }
@@ -218,9 +219,9 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         for path in learning_position.active_paths:
             enhanced_frame["learning_path_integration"].append(
                 {
-                    "path": path.name,
-                    "integration": f"Practice {principle_category} throughout {path.name} learning journey",
-                    "milestone": f"Embody {principle_category} in {path.name} outcomes",
+                    "path": path.title,
+                    "integration": f"Practice {principle_category} throughout {path.title} learning journey",
+                    "milestone": f"Embody {principle_category} in {path.title} outcomes",
                 }
             )
 
@@ -256,7 +257,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         """
         # Use LearningAlignmentBridge with custom scorers (consolidation)
         return await self.learning_helper.assess_learning_alignment(
-            entity_uid=principle_uid, learning_position=learning_position
+            entity_uid=EntityUID(principle_uid), learning_position=learning_position
         )
 
     async def suggest_learning_supported_principles(
@@ -327,7 +328,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
 
                 if path_support > 0.4:
                     learning_support_score += path_support
-                    supporting_paths.append(path.name)
+                    supporting_paths.append(path.title)
 
             # Create suggestion if well-supported
             if learning_support_score > 0.5:
@@ -417,10 +418,10 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
 
                 learning_path_embodiment.append(
                     {
-                        "path": path.name,
+                        "path": path.title,
                         "embodiment_score": path_embodiment,
                         "progress": path_progress,
-                        "development_evidence": f"Demonstrating {principle_category} through {path.name} progression",
+                        "development_evidence": f"Demonstrating {principle_category} through {path.title} progression",
                     }
                 )
 

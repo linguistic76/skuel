@@ -14,10 +14,8 @@ if TYPE_CHECKING:
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
-    from core.models.journal.je_input import JeInput  # noqa: F401
-    from core.models.journal.je_output import JeOutput  # noqa: F401
+    from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
-    from core.models.submissions.report_schedule import ReportSchedule  # noqa: F401
 
 
 class SharingBackend(UniversalNeo4jBackend[Entity]):
@@ -211,22 +209,39 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     async def create_group_share(
         self,
         entity_uid: EntityUID,
+        owner_uid: UserUID,
         group_uid: str,
         share_version: str,
         shared_at: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Create SHARED_WITH_GROUP relationship from entity to group."""
+        """Create SHARED_WITH_GROUP relationship, guarded by owner relationship.
+
+        The sharer must either OWN the target group (teacher sharing curriculum
+        with their own class) or be MEMBER_OF it (student sharing a
+        UserEntry with a group they belong to). Without either edge the
+        ``OPTIONAL MATCH`` collapses and the ``WHERE`` predicate rejects the
+        row — callers translate the empty result into a forbidden error,
+        preventing users from sharing to groups they have no relationship to.
+        """
         result = await self.execute_query(
             """
             MATCH (entity:Entity {uid: $entity_uid})
             MATCH (group:Group {uid: $group_uid})
+            WHERE coalesce(group.is_active, true) = true
+            OPTIONAL MATCH (owner:User {uid: $owner_uid})-[:MEMBER_OF]->(group)
+              WHERE coalesce(owner.is_active, true) = true
+            OPTIONAL MATCH (owner2:User {uid: $owner_uid})-[:OWNS]->(group)
+              WHERE coalesce(owner2.is_active, true) = true
+            WITH entity, group, owner, owner2
+            WHERE owner IS NOT NULL OR owner2 IS NOT NULL
             MERGE (entity)-[r:SHARED_WITH_GROUP]->(group)
-            SET r.shared_at = datetime($shared_at),
-                r.share_version = $share_version
+              ON CREATE SET r.shared_at = datetime($shared_at),
+                            r.share_version = $share_version
             RETURN true as success
             """,
             {
                 "entity_uid": entity_uid,
+                "owner_uid": owner_uid,
                 "group_uid": group_uid,
                 "shared_at": shared_at,
                 "share_version": share_version,
@@ -235,6 +250,85 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])
+
+    async def query_exercise_groups_for_member(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[list[Neo4jProperties]]:
+        """Return the groups the exercise is shared with AND the user belongs to.
+
+        Used for auto-share scoping: when a submission fulfills an exercise
+        that was assigned to multiple groups, only fan out to the ones the
+        submitter is actually in.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (ex:Entity {uid: $exercise_uid})-[:SHARED_WITH_GROUP]->(g:Group)
+            WHERE coalesce(g.is_active, true) = true
+            MATCH (u:User {uid: $user_uid})-[:MEMBER_OF]->(g)
+            WHERE coalesce(u.is_active, true) = true
+            RETURN g.uid AS group_uid
+            """,
+            {"exercise_uid": exercise_uid, "user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_user_can_use_exercise(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[bool]:
+        """Verify the user has a legitimate relationship to an exercise.
+
+        True if any hold:
+          - user owns the exercise (teacher previewing their own)
+          - exercise is SHARED_WITH_GROUP with a group the user is a member of
+          - exercise is linked to a PathStep the user is currently in progress on
+
+        Prevents YAML uploads from smuggling ``fulfills_exercise_uid`` values
+        for exercises the uploader has no legitimate tie to.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (ex:Entity {uid: $exercise_uid})
+            OPTIONAL MATCH (ex)-[:SHARED_WITH_GROUP]->(g:Group)<-[:MEMBER_OF]-(:User {uid: $user_uid})
+            OPTIONAL MATCH (ex)-[:RELATED_TO]->(ps:Entity)<-[:IN_PROGRESS]-(:User {uid: $user_uid})
+            WITH ex.user_uid = $user_uid AS is_owner,
+                 count(g) > 0 AS via_group,
+                 count(ps) > 0 AS via_progress
+            RETURN (is_owner OR via_group OR via_progress) AS allowed
+            """,
+            {"exercise_uid": exercise_uid, "user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(False)
+        return Result.ok(bool(records[0].get("allowed")))
+
+    async def query_entity_owner(
+        self,
+        entity_uid: EntityUID,
+    ) -> Result[str | None]:
+        """Return the ``user_uid`` of an entity's owner, or None if missing."""
+        result = await self.execute_query(
+            """
+            MATCH (e:Entity {uid: $entity_uid})
+            RETURN e.user_uid AS owner_uid
+            """,
+            {"entity_uid": entity_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        owner = records[0].get("owner_uid")
+        return Result.ok(str(owner) if owner is not None else None)
 
     async def delete_group_share(
         self,
@@ -294,6 +388,82 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             LIMIT $limit
             """,
             {"user_uid": user_uid, "limit": limit},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_user_entries_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get UserEntries shared with a specific group the user belongs to.
+
+        The first MATCH is also the membership guard — if the user is not in
+        the group, no rows are returned (empty result, not an error). Own
+        entries are excluded so students see peer work, not their own. The
+        `group.is_active = true` predicate keeps deactivated groups from
+        leaking peer content to a still-MEMBER_OF viewer who URL-types the
+        old group UID.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group {uid: $group_uid})
+            WHERE group.is_active = true
+            MATCH (entry:UserEntry)-[r:SHARED_WITH_GROUP]->(group)
+            WHERE entry.user_uid <> $user_uid
+            OPTIONAL MATCH (author:User {uid: entry.user_uid})
+            RETURN entry,
+                   coalesce(author.display_name, author.username) AS author_name,
+                   r.share_version as share_version,
+                   r.shared_at as shared_at
+            ORDER BY r.shared_at DESC
+            LIMIT $limit
+            """,
+            {"user_uid": user_uid, "group_uid": group_uid, "limit": limit},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_user_entry_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        entry_uid: EntityUID,
+    ) -> Result[list[Neo4jProperties]]:
+        """Fetch a single peer UserEntry iff the viewer can see it via this group.
+
+        Access is granted only when all three hold:
+        - viewer is MEMBER_OF the group
+        - entry is SHARED_WITH_GROUP with the group
+        - viewer is not the entry's owner (this is the peer-view surface;
+          owners read their own entries via /gradebook/{uid})
+
+        Any mismatch returns an empty list — no partial data, no oracle for
+        UID enumeration.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group {uid: $group_uid})
+            WHERE group.is_active = true
+            MATCH (entry:UserEntry {uid: $entry_uid})-[r:SHARED_WITH_GROUP]->(group)
+            WHERE entry.user_uid <> $user_uid
+            OPTIONAL MATCH (author:User {uid: entry.user_uid})
+            RETURN entry,
+                   group.name AS group_name,
+                   coalesce(author.display_name, author.username) AS author_name,
+                   r.share_version AS share_version,
+                   r.shared_at AS shared_at
+            LIMIT 1
+            """,
+            {
+                "user_uid": user_uid,
+                "group_uid": group_uid,
+                "entry_uid": entry_uid,
+            },
         )
         if result.is_error:
             return Result.fail(result)

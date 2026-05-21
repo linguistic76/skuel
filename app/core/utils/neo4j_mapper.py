@@ -621,6 +621,54 @@ class Neo4jGenericMapper:
 _mapper = Neo4jGenericMapper()
 
 
+def coerce_int(value: object, default: int = 0) -> int:
+    """Coerce a Neo4j property (or any heterogeneous value) to ``int``.
+
+    Neo4j records expose values as ``str | int | float | bool | list | datetime | None``.
+    Passing such a value directly to ``int()`` trips mypy (``datetime`` / ``list``
+    don't satisfy ``SupportsInt``) and can crash at runtime. This helper narrows
+    the input and falls back to ``default`` for non-numeric shapes.
+
+    Args:
+        value: Raw value from a record / mixed-type dict.
+        default: Fallback when ``value`` is ``None`` or non-numeric.
+
+    Returns:
+        Integer representation, or ``default``.
+    """
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
+    return default
+
+
+def coerce_float(value: object, default: float = 0.0) -> float:
+    """Coerce a Neo4j property (or any heterogeneous value) to ``float``.
+
+    Counterpart to :func:`coerce_int` for ``float`` conversion — see that
+    function's docstring for rationale.
+
+    Args:
+        value: Raw value from a record / mixed-type dict.
+        default: Fallback when ``value`` is ``None`` or non-numeric.
+
+    Returns:
+        Float representation, or ``default``.
+    """
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+    return default
+
+
 def parse_neo4j_json(value: Any, default: Any = None) -> Any:
     """Parse a JSON-encoded value from a Neo4j node property.
 

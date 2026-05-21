@@ -653,7 +653,7 @@ async def seed_sel_content(ku_backend):
     for ku_data in EXAMPLE_SEL_KUS:
         try:
             # Create entity object (prerequisites and enables are graph relationships, not fields)
-            content_body = ku_data.get("content", "")
+            content_body: str = ku_data.get("content", "")  # type: ignore[assignment]
             ku = Curriculum(
                 uid=ku_data["uid"],
                 title=ku_data["title"],
@@ -706,7 +706,7 @@ async def create_enables_relationships(driver):
     async with driver.session() as session:
         for ku_data in EXAMPLE_SEL_KUS:
             uid = ku_data["uid"]
-            enables_list = ku_data.get("enables", [])
+            enables_list: list[str] = ku_data.get("enables", [])  # type: ignore[assignment]
 
             for target_uid in enables_list:
                 try:
@@ -742,10 +742,14 @@ async def main():
     """Main execution function"""
     logger.info("Starting SEL content seeding...")
 
-    # Get Neo4j connection details from environment
+    from core.config.credential_store import get_credential
+
+    # Get Neo4j connection details — password via credential store
     neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
+    # Default "password" used to silently mask config errors. Letting the
+    # connection fail loudly is more diagnostic.
+    neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True) or ""
 
     # Connect to Neo4j
     try:

@@ -10,8 +10,9 @@ REQUIRES (Mixin Dependencies):
 PROVIDES (Methods for Calendar/Scheduling):
     - get_user_items_in_range_base: Generic date range query
     - get_user_items_in_range: Configured date range query
-    - get_due_soon: Get entities due within N days
+    - get_upcoming: Get entities upcoming within N days
     - get_overdue: Get entities past their due date
+    - get_active: Get user's non-terminal entities
 """
 
 from __future__ import annotations
@@ -41,7 +42,9 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
     Required attributes from composing class:
         backend: B - Backend implementation
         logger: Logger - For debug logging
-        entity_label: str - Neo4j node label
+        entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
+        config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep"),
+            used for domain-specific logs.
         service_name: str - For error messages
         _date_field: str - Date field for range queries
         _completed_statuses: list[str] - Statuses to exclude
@@ -63,7 +66,13 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
     @property
     @abstractmethod
     def entity_label(self) -> str:
-        """Entity label - must be provided by composing class."""
+        """Neo4j base-label (e.g., ``"Entity"``, ``"Ku"``) - provided by composing class."""
+        ...
+
+    @property
+    @abstractmethod
+    def config_lookup_label(self) -> str:
+        """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
         ...
 
     @abstractmethod
@@ -132,7 +141,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         items = self._to_domain_models(results.value, dto_class, model_class)
 
         self.logger.debug(
-            f"Found {len(items)} {self.entity_label}(s) for user {user_uid} "
+            f"Found {len(items)} {self.config_lookup_label}(s) for user {user_uid} "
             f"in range {start_date} to {end_date}"
         )
 
@@ -193,14 +202,14 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
     # TIME-BASED QUERIES (January 2026)
     # ========================================================================
 
-    async def get_due_soon(
+    async def get_upcoming(
         self,
         days_ahead: int = 7,
         user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[builtins.list[T]]:
         """
-        Get entities due within specified number of days.
+        Get entities upcoming within specified number of days.
 
         Args:
             days_ahead: Number of days to look ahead (default 7)
@@ -208,13 +217,13 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             limit: Maximum results to return
 
         Returns:
-            Result containing entities due soon, sorted by date
+            Result containing upcoming entities, sorted by date
         """
         date_field = self._get_config_value("date_field", "created_at")
 
         if date_field == "created_at":
             self.logger.debug(
-                f"{self.service_name}: get_due_soon() not meaningful for this domain "
+                f"{self.service_name}: get_upcoming() not meaningful for this domain "
                 f"(date_field={date_field}). Override if custom logic needed."
             )
             return Result.ok([])
@@ -223,13 +232,13 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(
                 Errors.system(
                     message=f"{self.service_name} must configure _dto_class and _model_class",
-                    operation="get_due_soon",
+                    operation="get_upcoming",
                 )
             )
 
         exclude_statuses = list(self._get_config_value("temporal_exclude_statuses", []))
 
-        result = await self.backend.due_soon_raw(
+        result = await self.backend.upcoming_raw(
             date_field=date_field,
             days_ahead=days_ahead,
             exclude_statuses=exclude_statuses if exclude_statuses else None,
@@ -242,7 +251,9 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
-        self.logger.debug(f"Found {len(items)} {self.entity_label}(s) due within {days_ahead} days")
+        self.logger.debug(
+            f"Found {len(items)} {self.config_lookup_label}(s) upcoming within {days_ahead} days"
+        )
 
         return Result.ok(items)
 
@@ -292,7 +303,55 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
-        self.logger.debug(f"Found {len(items)} overdue {self.entity_label}(s)")
+        self.logger.debug(f"Found {len(items)} overdue {self.config_lookup_label}(s)")
+
+        return Result.ok(items)
+
+    async def get_active(
+        self,
+        user_uid: UserUID,
+        limit: int = 100,
+    ) -> Result[builtins.list[T]]:
+        """
+        Get user's active (non-terminal) entities.
+
+        Active = status NOT IN temporal_exclude_statuses (terminal states).
+        Domains with different liveness semantics (e.g., Habits' frequency
+        window, Principles' is_active flag) override this method.
+
+        Args:
+            user_uid: User UID — required (always user-scoped)
+            limit: Maximum results to return
+
+        Returns:
+            Result containing active entities
+        """
+        if not user_uid:
+            return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
+
+        if self._dto_class is None or self._model_class is None:
+            return Result.fail(
+                Errors.system(
+                    message=f"{self.service_name} must configure _dto_class and _model_class",
+                    operation="get_active",
+                )
+            )
+
+        exclude_statuses = list(self._get_config_value("temporal_exclude_statuses", []))
+
+        result = await self.backend.active_raw(
+            user_uid=user_uid,
+            exclude_statuses=exclude_statuses if exclude_statuses else None,
+            limit=limit,
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        items = self._to_domain_models(result.value, self._dto_class, self._model_class)
+
+        self.logger.debug(
+            f"Found {len(items)} active {self.config_lookup_label}(s) for user {user_uid}"
+        )
 
         return Result.ok(items)
 
@@ -303,4 +362,4 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import TimeQueryOperations
 
-    _protocol_check: type[TimeQueryOperations[Any]] = TimeQueryMixin  # type: ignore[type-arg, type-abstract]
+    _protocol_check: type[TimeQueryOperations[Any]] = TimeQueryMixin  # type: ignore[type-abstract]

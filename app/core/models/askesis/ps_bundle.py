@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from core.models.principle.principle import Principle
     from core.models.resource.resource import Resource
     from core.models.task.task import Task
+    from core.services.ps_engagement.engagement import Engagement
 
 
 @dataclass(frozen=True)
@@ -38,12 +39,19 @@ class PsBundle:
     relationships: related PathSteps, trained KUs, linked Habits,
     Tasks, Events, Principles, and semantic edges between bundle entities.
 
+    Also carries the lifecycle ``engagement`` snapshot when an
+    ``ENGAGED_WITH`` edge exists for (user, PathStep) — None when the PS is
+    merely published but not engaged.
+
     All collection fields are tuples (immutable). The bundle is built once
     per Socratic turn and passed through the pipeline — never mutated.
     """
 
     path_step: PathStep
     learning_path: LearningPath | None = None
+
+    # Lifecycle state — None when PS is published but not engaged
+    engagement: Engagement | None = None
 
     # Curriculum content
     related_steps: tuple[PathStep, ...] = ()  # supporting PathSteps in context

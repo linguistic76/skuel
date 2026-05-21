@@ -9,7 +9,7 @@ from fasthtml.common import Div
 from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
 
-_ACTIVITY_BLOCKS: list[HubBlockData] = [
+ACTIVITY_BLOCKS: list[HubBlockData] = [
     HubBlockData(
         "Tasks", "tasks", "check-square", "#3B82F6", "/tasks", "/api/profile/tasks/preview"
     ),
@@ -39,5 +39,5 @@ def ActivityHubView() -> Div:
             "Activity Domains",
             subtitle="Your tasks, goals, habits, events, choices, and principles",
         ),
-        HubDomainBlockList(_ACTIVITY_BLOCKS),
+        HubDomainBlockList(ACTIVITY_BLOCKS),
     )

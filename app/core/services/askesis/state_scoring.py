@@ -53,13 +53,14 @@ def score_current_state(user_context: UserContext) -> float:
         score += 0.1
     if user_context.current_workload_score < 0.7:
         score += 0.1
-    if len(user_context.at_risk_habits) == 0:
+    # at_risk_habits is rich-context only; treat absence as "nothing at risk"
+    if not user_context.at_risk_habits_or_empty():
         score += 0.2
 
     # Negative factors
     if user_context.has_overdue_items:
         score -= 0.2
-    if len(user_context.blocked_task_uids) > 5:
+    if len(user_context.blocked_task_uids_or_empty()) > 5:
         score -= 0.1
 
     return max(0.0, min(1.0, score))

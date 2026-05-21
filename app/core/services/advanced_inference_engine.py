@@ -72,7 +72,7 @@ class AdvancedInferenceEngine:
         self.logger = get_logger("skuel.inference.advanced")
         self._initialize_knowledge_mappings()
         self._initialize_cross_domain_relationships()
-        self._validation_feedback = defaultdict(list)
+        self._validation_feedback: defaultdict[str, list[float]] = defaultdict(list)
 
     def _initialize_knowledge_mappings(self) -> None:
         """Initialize comprehensive knowledge detection mappings."""
@@ -455,7 +455,7 @@ class AdvancedInferenceEngine:
         def _pattern_dict_factory() -> Any:
             return {"evidence": [], "confidences": []}
 
-        pattern_map = defaultdict(_pattern_dict_factory)
+        pattern_map: defaultdict[str, dict[str, Any]] = defaultdict(_pattern_dict_factory)
 
         for pattern in patterns:
             key = pattern.knowledge_uid

@@ -15,8 +15,8 @@ Inherits common fields from UserOwnedEntity. Adds 31 habit-specific fields:
 - Scheduling (6): duration_minutes, recurrence_pattern, recurrence_end_date,
   recurrence_parent_uid, target_days_per_week, preferred_time
 - Reminders (3): reminder_time, reminder_days, reminder_enabled
-- Cross-domain links (2): source_path_step_uid, source_learning_path_uid
-- Flags (1): curriculum_driven
+- Cross-domain links (1): source_path_step_uid
+- Flags (1): curriculum_practice_type
 
 Habit-specific methods: calculate_consistency_score, is_keystone, should_do_today,
 get_effort_score, is_identity_based, predict_goal_impact, get_atomic_habits_analysis,
@@ -28,7 +28,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -100,7 +101,7 @@ class Habit(UserOwnedEntity):
     # SCHEDULING
     # =========================================================================
     duration_minutes: int | None = None  # Expected duration
-    recurrence_pattern: str | None = None  # RecurrencePattern enum value
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
     target_days_per_week: int | None = None  # Habit frequency
@@ -117,13 +118,17 @@ class Habit(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     source_path_step_uid: str | None = None  # HABIT -> PS
-    source_learning_path_uid: str | None = None  # HABIT -> LP
 
     # =========================================================================
     # FLAGS
     # =========================================================================
-    curriculum_driven: bool = False
     curriculum_practice_type: str | None = None  # Curriculum connection type
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    # Back-reference is (Habit)-[:SPAWNED_FROM]->(HabitTemplate).
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # HABIT-SPECIFIC METHODS
@@ -260,24 +265,13 @@ class Habit(UserOwnedEntity):
         """Create Habit from an EntityDTO or HabitDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "HabitDTO":  # type: ignore[override]
+    def to_dto(self) -> "HabitDTO":
         """Convert Habit to domain-specific HabitDTO."""
-        import dataclasses
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.habit.habit_dto import HabitDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(HabitDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return HabitDTO(**kwargs)
+        return domain_to_dto(self, HabitDTO)
 
     def __str__(self) -> str:
         return f"Habit(uid={self.uid}, title='{self.title}', streak={self.current_streak})"

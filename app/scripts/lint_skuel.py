@@ -26,6 +26,8 @@ WARNING (reported, doesn't block):
   SKUEL015: print() in production code - use logger instead
   SKUEL016: Stale Poetry references - SKUEL uses uv
   SKUEL017: Bare except Exception - use specific exception types
+  SKUEL018: Direct access to RichUserContext RICH_ONLY_FIELDS - use accessors
+  SKUEL019: Credential-shaped env reads bypassing get_credential()
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -354,6 +356,92 @@ except NEO4J_EXCEPTIONS as e:
 except Exception as e:  # Too broad — masks non-database bugs
     return Result.fail(Errors.database(operation="get", message=str(e)))""",
     },
+    "SKUEL018": {
+        "title": "No Direct Access to RichUserContext RICH_ONLY_FIELDS",
+        "severity": "WARNING",
+        "description": """RichUserContext.RICH_ONLY_FIELDS default to None at standard depth and
+are populated only by build_rich(). Direct attribute reads silently leak None
+into call sites and defeat the accessor contract.
+
+Use accessors from UserContext:
+  Strict (raises at standard depth):   get_X() / get_tasks_by_goal() / get_blocked_tasks()
+  Graceful (empty fallback):           X_or_empty() / tasks_by_goal_or_empty() /
+                                       blocked_task_uids_or_empty()
+
+Rich-only fields:
+  tasks_by_goal, habits_by_goal, at_risk_habits, blocked_task_uids,
+  principle_guided_choice_counts, recent_principle_aligned_choices
+
+Relationship to RichUserContext (design note):
+  RichUserContext narrows these fields to non-None at the type level. That
+  guard is about static None-safety, not about bypassing this rule. This
+  check is intentionally name-based (not type-aware) so every consumer uses
+  the same read path — accessors — regardless of whether its local context
+  is typed as UserContext or RichUserContext. The two mechanisms stack:
+  narrow the type for compile-time safety, call the accessor at the read site.
+
+Whitelisted files (direct access allowed):
+  core/services/user/unified_user_context.py   — accessor definitions
+  core/services/user/user_context_populator.py — rich-build writes
+  tests/**                                     — fixtures and assertions
+  (RichUserContext-typed consumers are NOT whitelisted — they still go
+  through accessors.)""",
+        "good": """# Strict: crash if not rich (intelligence services)
+habits = self.context.get_habits_by_goal()
+
+# Graceful: empty fallback (UI, stats)
+at_risk = context.at_risk_habits_or_empty()
+if at_risk := context.at_risk_habits_or_empty():
+    ...""",
+        "bad": """# Silent None leak at standard depth
+if user_context.at_risk_habits:
+    ...
+
+# Asserts only fire in debug builds
+assert self.context.habits_by_goal is not None
+for goal_uid in self.context.habits_by_goal:
+    ...""",
+    },
+    "SKUEL019": {
+        "title": "Credential Reads Must Go Through get_credential()",
+        "severity": "ERROR / WARNING",
+        "description": """Credential-shaped env reads (`os.getenv`, `os.environ.get`,
+`os.environ[K]`) must route through `get_credential()` from
+`core.config.credential_store`. The funnel dispatches to the active backend
+(`SKUEL_CREDENTIAL_BACKEND=keyring` → OS keychain, unset → Fernet-encrypted JSON)
+and falls back to env when neither has the value. Raw `os.getenv` reads silently
+skip the keychain under Stage 3 and only happen to work if the user runs through
+the `with-secrets` wrapper — fragile and inconsistent.
+
+Severity is decided by name:
+  ERROR    — Name matches the credential catalog mirrored from
+             `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`
+             (e.g. NEO4J_PASSWORD, OPENAI_API_KEY, RESEND_API_KEY).
+  WARNING  — Name matches the credential-shape regex (`*_PASSWORD`, `*_TOKEN`,
+             `*_API_KEY`, `*_SECRET`, `*_AUTH`, `*_PAT_*`) but isn't yet in
+             the catalog — likely a new credential that should be added.
+
+Exempt files (raw env reads are the implementation):
+  core/config/credential_store.py        — defines get_credential()
+  core/config/credential_setup.py        — checks SKUEL_MASTER_KEY
+  scripts/migrate_secrets_to_homedir.py  — Stage 2 migration source
+  scripts/migrate_secrets_to_keychain.py — Stage 3 migration source
+  Test files                             — fixtures often poke env directly
+
+Suppress: # skuel-lint: disable=SKUEL019 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL019 -- <reason>""",
+        "good": """from core.config.credential_store import get_credential
+
+api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+if not api_key:
+    raise RuntimeError("OPENAI_API_KEY missing — set via `uv run python -m core.config`")""",
+        "bad": """import os
+
+api_key = os.environ.get("OPENAI_API_KEY")              # ERROR — in catalog
+hf_token = os.getenv("HF_API_TOKEN")                    # ERROR — in catalog
+neo4j_auth = os.environ["NEO4J_AUTH"]                   # WARNING — matches *_AUTH regex
+stripe = os.getenv("CUSTOM_INTEGRATION_TOKEN")          # WARNING — matches *_TOKEN regex""",
+    },
 }
 
 
@@ -446,6 +534,99 @@ class SkuelLinter:
     CURRICULUM_BACKENDS: ClassVar[list[str]] = [
         "neo4j/backends/",  # All 27 domain backends live in the backends/ cluster package
     ]
+
+    # SKUEL018: UserContext fields that default to None at standard depth and are
+    # populated only by build_rich(). Direct reads must route through accessors
+    # (get_X() strict / X_or_empty() graceful). Scalar rich-only fields have no
+    # graceful accessor — a standard-depth read is a bug, not a degraded path.
+    #
+    # Canonical source of truth: `RichUserContext.RICH_ONLY_FIELDS` in
+    # `core/services/user/unified_user_context.py`. Mirrored here because the
+    # linter deliberately has no runtime dependency on `core/`. Keep both in
+    # sync — `test_user_context_rich_only_drift.py` pins the contract.
+    RICH_ONLY_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "tasks_by_goal",
+            "habits_by_goal",
+            "at_risk_habits",
+            "blocked_task_uids",
+            "principle_guided_choice_counts",
+            "recent_principle_aligned_choices",
+            "principle_integration_score",
+        }
+    )
+
+    RICH_ONLY_WHITELIST: ClassVar[tuple[str, ...]] = (
+        "core/services/user/unified_user_context.py",
+        "core/services/user/user_context_populator.py",
+    )
+
+    # SKUEL019: Credential keys that must route through get_credential().
+    #
+    # Mirrored from `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
+    # The linter deliberately has no runtime dependency on `core/`, so the catalog
+    # is duplicated here and pinned by `test_credential_catalog_drift.py`.
+    # Keep both in sync — add a new credential to CREDENTIALS and the test will
+    # tell you to mirror it here.
+    CREDENTIAL_CATALOG: ClassVar[frozenset[str]] = frozenset(
+        {
+            "NEO4J_PASSWORD",
+            "SESSION_SECRET_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "HF_API_TOKEN",
+            "DEEPGRAM_API_KEY",
+            "FIREFLY_APP_KEY",
+            "FIREFLY_DB_PASSWORD",
+            "FIREFLY_PAT_PERSONAL",
+            "FIREFLY_PAT_SKUEL",
+            "STRIPE_WEBHOOK_SECRET",
+            "RESEND_API_KEY",
+            "TEST_ADMIN_PASSWORD",
+            "TEST_USER_PASSWORD",
+        }
+    )
+
+    # SKUEL019: Names that match this regex but aren't in CREDENTIAL_CATALOG are
+    # flagged as warnings — they're credential-shaped and probably belong in the
+    # catalog. Matches `_(PASSWORD|TOKEN|API_KEY|SECRET|AUTH|PAT)` followed by
+    # end-of-string or another underscore. So `SESSION_SECRET_KEY` matches via
+    # `_SECRET_`, `FIREFLY_PAT_PERSONAL` matches via `_PAT_`, while `SKUEL_MASTER_KEY`
+    # and `INGESTION_PATH` don't match anything.
+    CREDENTIAL_SHAPE_RE: ClassVar[str] = r"_(PASSWORD|TOKEN|API_KEY|SECRET|AUTH|PAT)(?:_|$)"
+
+    # SKUEL019: Files where raw env reads ARE the implementation. The funnel reads
+    # env internally; the migration scripts parse env-shaped files; everything else
+    # routes through get_credential().
+    CREDENTIAL_PLUMBING_FILES: ClassVar[tuple[str, ...]] = (
+        "core/config/credential_store.py",
+        "core/config/credential_setup.py",
+        "scripts/migrate_secrets_to_homedir.py",
+        "scripts/migrate_secrets_to_keychain.py",
+    )
+
+    # Field → (strict_accessor, graceful_accessor). Strict raises at standard depth;
+    # graceful returns an empty container. Fields with per-key accessors (e.g.
+    # get_tasks_for_goal(uid)) also have dict-level strict accessors listed here.
+    # graceful=None for scalar fields where a standard-depth read is a bug.
+    RICH_ONLY_ACCESSORS: ClassVar[dict[str, tuple[str, str | None]]] = {
+        "tasks_by_goal": ("get_tasks_by_goal()", "tasks_by_goal_or_empty()"),
+        "habits_by_goal": ("get_habits_by_goal()", "habits_by_goal_or_empty()"),
+        "at_risk_habits": (
+            "get_habits_needing_reinforcement()",
+            "at_risk_habits_or_empty()",
+        ),
+        "blocked_task_uids": ("get_blocked_tasks()", "blocked_task_uids_or_empty()"),
+        "principle_guided_choice_counts": (
+            "get_principle_guided_choice_counts()",
+            "principle_guided_choice_counts_or_empty()",
+        ),
+        "recent_principle_aligned_choices": (
+            "get_recent_principle_aligned_choices()",
+            "recent_principle_aligned_choices_or_empty()",
+        ),
+        "principle_integration_score": ("get_principle_integration_score()", None),
+    }
 
     def __init__(
         self,
@@ -568,6 +749,10 @@ class SkuelLinter:
                 self._check_poetry_references(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL017") and not is_test:
                 self._check_broad_exception_catches(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL018") and not is_test:
+                self._check_rich_only_field_access(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL019") and not is_test:
+                self._check_credential_env_reads(file_path, rel_path, content, lines)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -1054,7 +1239,6 @@ class SkuelLinter:
             "SHARES_WITH",
             "SHARED_WITH_GROUP",
             "MEMBER_OF",
-            "FOR_GROUP",
             # Ownership
             "OWNS",
         ]
@@ -1453,6 +1637,198 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    def _check_rich_only_field_access(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL018 [WARNING]: Direct access to RichUserContext RICH_ONLY_FIELDS.
+
+        Flags `.<rich_field>` attribute reads outside whitelisted files. Writes
+        (assignment targets) and the accessor methods (`.get_X()`, `.X_or_empty()`)
+        are not flagged. The word boundary `\\b` anchors rejection of
+        `.at_risk_habits_or_empty` (underscore is a word character).
+
+        Whitelist: unified_user_context.py (accessor bodies),
+        user_context_populator.py (rich-build writes), and all test files.
+        """
+        if self._is_file_suppressed(content, "SKUEL018"):
+            return
+
+        rel_str = str(rel_path).replace("\\", "/")
+        if any(rel_str.endswith(w) for w in self.RICH_ONLY_WHITELIST):
+            return
+
+        field_alternatives = "|".join(sorted(self.RICH_ONLY_FIELDS))
+        pattern = re.compile(rf"\.({field_alternatives})\b")
+
+        in_docstring = False
+        docstring_delim: str | None = None
+
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+
+            # Track docstring boundaries (skip doc examples)
+            for delim in ('"""', "'''"):
+                count = stripped.count(delim)
+                if count >= 2:
+                    pass
+                elif count == 1:
+                    if not in_docstring:
+                        in_docstring = True
+                        docstring_delim = delim
+                    elif docstring_delim == delim:
+                        in_docstring = False
+                        docstring_delim = None
+
+            if in_docstring:
+                continue
+            if stripped.startswith("#"):
+                continue
+
+            for match in pattern.finditer(line):
+                field_name = match.group(1)
+                col = match.start()
+
+                # Skip writes: `.field =` (but not `==`). Look forward past whitespace.
+                rest = line[match.end() :]
+                rest_stripped = rest.lstrip()
+                if rest_stripped.startswith("=") and not rest_stripped.startswith("=="):
+                    continue
+
+                if self._is_line_suppressed(line, "SKUEL018"):
+                    continue
+
+                strict, graceful = self.RICH_ONLY_ACCESSORS[field_name]
+                if graceful is None:
+                    suggestion = (
+                        f"Use `{strict}` (strict, raises at standard depth). "
+                        f"No graceful accessor — standard-depth read is a bug. "
+                        f"See RichUserContext.RICH_ONLY_FIELDS."
+                    )
+                else:
+                    suggestion = (
+                        f"Use `{strict}` (strict, raises at standard depth) "
+                        f"or `{graceful}` (graceful fallback). "
+                        f"See RichUserContext.RICH_ONLY_FIELDS."
+                    )
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=line_num,
+                        column=col,
+                        severity=Severity.WARNING,
+                        rule_id="SKUEL018",
+                        message=(
+                            f"Direct read of UserContext rich-only field "
+                            f"`.{field_name}` — use accessor"
+                        ),
+                        suggestion=suggestion,
+                        line_content=line.strip(),
+                    )
+                )
+
+    def _check_credential_env_reads(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL019 [ERROR / WARNING]: Credential-shaped env reads must route
+        through ``get_credential()``.
+
+        Detects three call shapes:
+          os.getenv("KEY")              and  os.getenv("KEY", default)
+          os.environ.get("KEY")         and  os.environ.get("KEY", default)
+          os.environ["KEY"]             (subscript form)
+
+        Severity is decided by name:
+          ERROR    — key is in ``CREDENTIAL_CATALOG`` (mirrored from
+                     credential_setup.py).
+          WARNING  — key matches ``CREDENTIAL_SHAPE_RE`` but isn't catalogued
+                     yet (probably belongs in the catalog).
+
+        Exempt files: the credential plumbing in ``CREDENTIAL_PLUMBING_FILES``
+        (env reads ARE the implementation) and the linter itself. Tests are
+        already filtered out by the caller in ``_lint_file``.
+        """
+        if self._is_file_suppressed(content, "SKUEL019"):
+            return
+
+        rel_str = str(rel_path).replace("\\", "/")
+        if rel_str in self.CREDENTIAL_PLUMBING_FILES or rel_str.endswith("scripts/lint_skuel.py"):
+            return
+
+        shape_re = re.compile(self.CREDENTIAL_SHAPE_RE)
+        # Match the three call forms in one pass. Group 1 captures the key for
+        # os.getenv / os.environ.get; group 2 captures the key for os.environ[K].
+        call_re = re.compile(
+            r"""os\.(?:getenv|environ\.get)\s*\(\s*['"]([A-Z_][A-Z_0-9]*)['"]"""
+            r"""|os\.environ\s*\[\s*['"]([A-Z_][A-Z_0-9]*)['"]\s*\]"""
+        )
+
+        in_docstring = False
+        docstring_delim: str | None = None
+
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+
+            # Track docstring boundaries (skip doc examples)
+            for delim in ('"""', "'''"):
+                count = stripped.count(delim)
+                if count >= 2:
+                    pass
+                elif count == 1:
+                    if not in_docstring:
+                        in_docstring = True
+                        docstring_delim = delim
+                    elif docstring_delim == delim:
+                        in_docstring = False
+                        docstring_delim = None
+
+            if in_docstring:
+                continue
+            if stripped.startswith("#"):
+                continue
+            if self._is_line_suppressed(line, "SKUEL019"):
+                continue
+
+            for match in call_re.finditer(line):
+                key = match.group(1) or match.group(2)
+                if not key:
+                    continue
+
+                in_catalog = key in self.CREDENTIAL_CATALOG
+                shape_match = bool(shape_re.search(key))
+
+                if not in_catalog and not shape_match:
+                    continue
+
+                severity = Severity.ERROR if in_catalog else Severity.WARNING
+                if in_catalog:
+                    message = (
+                        f"Credential `{key}` read via env — must go through "
+                        f"`get_credential()` so SKUEL_CREDENTIAL_BACKEND is honored"
+                    )
+                else:
+                    message = (
+                        f"`{key}` looks credential-shaped — read it via "
+                        f"`get_credential()` and add it to the catalog if needed"
+                    )
+
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=line_num,
+                        column=match.start(),
+                        severity=severity,
+                        rule_id="SKUEL019",
+                        message=message,
+                        suggestion=(
+                            f"from core.config.credential_store import get_credential\n"
+                            f'    value = get_credential("{key}", fallback_to_env=True)'
+                        ),
+                        line_content=line.strip(),
+                    )
+                )
 
     # =========================================================================
     # INFO RULES (visibility only)

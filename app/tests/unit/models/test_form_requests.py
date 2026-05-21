@@ -21,7 +21,7 @@ class TestFormTemplateCreateRequest:
 
     def test_missing_title(self):
         with pytest.raises(ValidationError):
-            FormTemplateCreateRequest(
+            FormTemplateCreateRequest(  # type: ignore[call-arg]
                 form_schema=[{"name": "q1", "type": "text", "label": "Q1"}],
             )
 
@@ -34,7 +34,7 @@ class TestFormTemplateCreateRequest:
 
     def test_missing_form_schema(self):
         with pytest.raises(ValidationError):
-            FormTemplateCreateRequest(title="Test")
+            FormTemplateCreateRequest(title="Test")  # type: ignore[call-arg]
 
     def test_empty_form_schema(self):
         with pytest.raises(ValidationError):
@@ -119,11 +119,11 @@ class TestFormSubmissionCreateRequest:
 
     def test_missing_template_uid(self):
         with pytest.raises(ValidationError):
-            FormSubmissionCreateRequest(form_data={"q1": "answer"})
+            FormSubmissionCreateRequest(form_data={"q1": "answer"})  # type: ignore[call-arg]
 
     def test_missing_form_data(self):
         with pytest.raises(ValidationError):
-            FormSubmissionCreateRequest(form_template_uid="ft_123")
+            FormSubmissionCreateRequest(form_template_uid="ft_123")  # type: ignore[call-arg]
 
     def test_with_sharing_options(self):
         req = FormSubmissionCreateRequest(

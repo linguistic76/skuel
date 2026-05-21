@@ -425,6 +425,50 @@ def update_from_dict(
 # =============================================================================
 
 
+def domain_to_dto[T](domain_obj: Any, dto_class: type[T]) -> T:
+    """
+    Convert a domain model to its DTO equivalent.
+
+    Replaces boilerplate iteration across dataclass fields in every domain model's to_dto() method.
+    Automatically handles unwrapping MappingProxyType and tuple conversions for deep immutability.
+
+    Args:
+        domain_obj: The frozen dataclass domain model
+        dto_class: The DTO class to instantiate
+
+    Returns:
+        Instance of dto_class
+    """
+    import dataclasses
+    from types import MappingProxyType
+
+    if not dataclasses.is_dataclass(domain_obj):
+        raise ValueError("Domain object must be a dataclass")
+    if not dataclasses.is_dataclass(dto_class):
+        raise ValueError("DTO class must be a dataclass")
+
+    dto_field_names = {f.name for f in dataclasses.fields(dto_class)}
+    kwargs: dict[str, Any] = {}
+
+    for f in dataclasses.fields(domain_obj):
+        if f.name.startswith("_"):
+            continue
+        if f.name not in dto_field_names:
+            continue
+
+        value = getattr(domain_obj, f.name)
+
+        # Unwrap deep immutability types
+        if isinstance(value, MappingProxyType):
+            value = dict(value)
+        elif isinstance(value, tuple):
+            value = list(value)
+
+        kwargs[f.name] = value
+
+    return dto_class(**kwargs)
+
+
 def dto_to_dict(
     obj: Any,
     *,

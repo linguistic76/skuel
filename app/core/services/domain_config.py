@@ -56,6 +56,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from core.models.protocols.domain_model_protocol import (
+    DomainModelProtocol,
+    DTOProtocol,
+)
 from core.models.relationship_names import RelationshipName
 
 
@@ -76,7 +80,12 @@ class DomainConfig:
         model_class: The domain model class (e.g., Task)
 
     Optional Fields (with sensible defaults):
-        entity_label: Neo4j label (auto-inferred from model_class if None)
+        entity_label: Neo4j base-label for Cypher matching (e.g., "Entity", "Ku").
+            Auto-inferred from ``model_class.__name__`` as a last resort.
+        config_lookup_label: LABEL_CONFIGS registry key (e.g., "Task", "PathStep").
+            Defaults to ``model_class.__name__``. Distinct from ``entity_label``:
+            the registry key identifies the domain, the Neo4j label identifies
+            how to match in Cypher.
         service_name: Logger name prefix (e.g., "tasks.search")
         date_field: Field for date range queries (default: "created_at")
         completed_statuses: Status values indicating completion
@@ -117,11 +126,14 @@ class DomainConfig:
     """
 
     # Required: DTO and Model classes
-    dto_class: type[Any]  # type[DTOProtocol] - relaxed for compatibility
-    model_class: type[Any]  # type[DomainModelProtocol] - relaxed for compatibility
+    dto_class: type[DTOProtocol]
+    model_class: type[DomainModelProtocol]
 
     # Entity Identity
-    entity_label: str | None = None  # Auto-inferred from model_class.__name__ if None
+    entity_label: str | None = (
+        None  # Neo4j base-label for multi-label Cypher matching (e.g., "Entity" or "Ku")
+    )
+    config_lookup_label: str | None = None  # LABEL_CONFIGS registry key (e.g., "Task", "PathStep")
     service_name: str | None = None  # Logger name prefix
 
     # Date Range Queries
@@ -137,7 +149,7 @@ class DomainConfig:
     graph_enrichment_patterns: tuple[tuple[str, str, str, str], ...] = ()
     user_ownership_relationship: str | None = RelationshipName.OWNS  # None for shared content (KU)
 
-    # Temporal queries (get_due_soon / get_overdue)
+    # Temporal queries (get_upcoming / get_overdue / get_active)
     temporal_exclude_statuses: tuple[str, ...] = (
         "completed",
         "failed",
@@ -206,16 +218,40 @@ class DomainConfig:
 
     def get_entity_label(self) -> str:
         """
-        Get entity label, inferring from model_class if not set.
+        Get Neo4j base-label for Cypher matching.
 
         Returns:
-            Entity label string (e.g., "Task", "Goal")
+            Neo4j label (e.g., "Entity", "Ku")
         """
         if self.entity_label:
             return self.entity_label
         if self.model_class:
             return self.model_class.__name__
         return "Entity"
+
+    def get_config_lookup_label(self) -> str:
+        """
+        Get the LABEL_CONFIGS registry key (domain-specific).
+
+        Distinct from ``entity_label``: the Neo4j base-label is ``"Entity"`` for the
+        unified scheme, but the registry key is the domain name (``"Task"``, etc.).
+
+        Returns:
+            Config lookup label (e.g., "Task", "Goal", "PathStep")
+
+        Raises:
+            ValueError: If no ``config_lookup_label`` is set and no ``model_class``
+                is available to infer one from. The factories fail-fast at
+                construction time; this guards services that bypass the factories.
+        """
+        if self.config_lookup_label:
+            return self.config_lookup_label
+        if self.model_class:
+            return self.model_class.__name__
+        raise ValueError(
+            "DomainConfig.config_lookup_label is unresolvable: "
+            "pass config_lookup_label explicitly or set model_class."
+        )
 
     def get_service_name(self) -> str:
         """
@@ -248,6 +284,7 @@ def create_activity_domain_config(
     search_fields: tuple[str, ...] | None = None,
     search_order_by: str | None = None,
     entity_label: str | None = None,
+    config_lookup_label: str | None = None,
     temporal_secondary_sort: str | None = None,
 ) -> DomainConfig:
     """
@@ -266,10 +303,12 @@ def create_activity_domain_config(
         category_field: Field for category filtering
         search_fields: Fields for text search (default: ["title", "description"])
         search_order_by: Default sort field (default: "created_at")
-        entity_label: Neo4j node label override (default: model_class.__name__).
-            Use when model_class is a domain subclass (e.g., Task) but the
-            Neo4j label remains the base type (e.g., "Entity").
-        temporal_secondary_sort: Secondary sort field for get_due_soon/get_overdue
+        entity_label: Neo4j base-label for multi-label Cypher matching. Defaults to
+            ``"Entity"`` for the unified :Entity scheme.
+        config_lookup_label: LABEL_CONFIGS registry key. Defaults to ``model_class.__name__``
+            (e.g., ``"Task"``). This is the domain-specific key — distinct from ``entity_label``,
+            which is the Neo4j base-label.
+        temporal_secondary_sort: Secondary sort field for get_upcoming/get_overdue
             (e.g., "start_time" for Events)
 
     Returns:
@@ -286,14 +325,13 @@ def create_activity_domain_config(
         generate_prerequisite_relationships,
     )
 
-    entity_label = (
-        entity_label or getattr(model_class, "_neo4j_label", None) or model_class.__name__
-    )
+    entity_label = entity_label or "Entity"
+    config_lookup_label = config_lookup_label or model_class.__name__
 
-    # FAIL-FAST: Validate entity exists in unified registry
-    if entity_label not in LABEL_CONFIGS:
+    # FAIL-FAST: Validate lookup key exists in unified registry
+    if config_lookup_label not in LABEL_CONFIGS:
         raise ValueError(
-            f"Entity '{entity_label}' not found in LABEL_CONFIGS. "
+            f"Entity '{config_lookup_label}' not found in LABEL_CONFIGS. "
             f"Add to /core/models/relationship_registry.py before creating DomainConfig."
         )
 
@@ -301,15 +339,16 @@ def create_activity_domain_config(
         dto_class=dto_class,
         model_class=model_class,
         entity_label=entity_label,
+        config_lookup_label=config_lookup_label,
         service_name=f"{domain_name}.search",
         date_field=date_field,
         completed_statuses=completed_statuses,
         category_field=category_field,
         search_fields=search_fields or ("title", "description"),
         search_order_by=search_order_by or "created_at",
-        graph_enrichment_patterns=tuple(generate_graph_enrichment(entity_label)),
-        prerequisite_relationships=tuple(generate_prerequisite_relationships(entity_label)),
-        enables_relationships=tuple(generate_enables_relationships(entity_label)),
+        graph_enrichment_patterns=tuple(generate_graph_enrichment(config_lookup_label)),
+        prerequisite_relationships=tuple(generate_prerequisite_relationships(config_lookup_label)),
+        enables_relationships=tuple(generate_enables_relationships(config_lookup_label)),
         user_ownership_relationship=RelationshipName.OWNS,
         supports_user_progress=True,
         temporal_secondary_sort=temporal_secondary_sort,
@@ -329,6 +368,7 @@ def create_curriculum_domain_config(
     prerequisite_relationships: tuple[str, ...] | None = None,
     enables_relationships: tuple[str, ...] | None = None,
     entity_label: str | None = None,
+    config_lookup_label: str | None = None,
 ) -> DomainConfig:
     """
     Factory for creating Curriculum Domain configurations.
@@ -349,9 +389,10 @@ def create_curriculum_domain_config(
         user_ownership_relationship: Ownership relationship type (default: None for shared)
         prerequisite_relationships: Override relationship types for prerequisites (default: from registry)
         enables_relationships: Override relationship types for enables (default: from registry)
-        entity_label: Neo4j node label override (default: model_class.__name__).
-            Use when model_class is a domain subclass but the Neo4j label
-            remains the base type.
+        entity_label: Neo4j base-label for Cypher matching (defaults to ``"Entity"``,
+            or ``"Ku"`` for Ku which has its own Neo4j label).
+        config_lookup_label: LABEL_CONFIGS registry key. Defaults to ``model_class.__name__``
+            (e.g., ``"PathStep"``, ``"LearningPath"``, ``"Ku"``).
 
     Returns:
         Configured DomainConfig for the curriculum domain
@@ -366,14 +407,13 @@ def create_curriculum_domain_config(
         generate_prerequisite_relationships,
     )
 
-    entity_label = (
-        entity_label or getattr(model_class, "_neo4j_label", None) or model_class.__name__
-    )
+    entity_label = entity_label or "Entity"
+    config_lookup_label = config_lookup_label or model_class.__name__
 
-    # FAIL-FAST: Validate entity exists in unified registry
-    if entity_label not in LABEL_CONFIGS:
+    # FAIL-FAST: Validate lookup key exists in unified registry
+    if config_lookup_label not in LABEL_CONFIGS:
         raise ValueError(
-            f"Entity '{entity_label}' not found in LABEL_CONFIGS. "
+            f"Entity '{config_lookup_label}' not found in LABEL_CONFIGS. "
             f"Add to /core/models/relationship_registry.py before creating DomainConfig."
         )
 
@@ -381,24 +421,25 @@ def create_curriculum_domain_config(
     final_prerequisite_relationships = (
         prerequisite_relationships
         if prerequisite_relationships is not None
-        else tuple(generate_prerequisite_relationships(entity_label))
+        else tuple(generate_prerequisite_relationships(config_lookup_label))
     )
     final_enables_relationships = (
         enables_relationships
         if enables_relationships is not None
-        else tuple(generate_enables_relationships(entity_label))
+        else tuple(generate_enables_relationships(config_lookup_label))
     )
 
     return DomainConfig(
         dto_class=dto_class,
         model_class=model_class,
         entity_label=entity_label,
+        config_lookup_label=config_lookup_label,
         service_name=f"{domain_name}.search",
         search_fields=search_fields or ("title", "description"),
         search_order_by=search_order_by,
         category_field=category_field,
         content_field=content_field,
-        graph_enrichment_patterns=tuple(generate_graph_enrichment(entity_label)),
+        graph_enrichment_patterns=tuple(generate_graph_enrichment(config_lookup_label)),
         prerequisite_relationships=final_prerequisite_relationships,
         enables_relationships=final_enables_relationships,
         user_ownership_relationship=user_ownership_relationship,

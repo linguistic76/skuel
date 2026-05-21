@@ -26,8 +26,9 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_dto import UserOwnedDTO
 
 
@@ -43,7 +44,7 @@ class ActivityReportDTO(UserOwnedDTO):
     # =========================================================================
     # PROCESSOR
     # =========================================================================
-    processor_type: ProcessorType | None = None
+    processor_type: ReportSource | None = None
 
     # =========================================================================
     # SUBJECT
@@ -87,33 +88,20 @@ class ActivityReportDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including ActivityReport-specific fields."""
-        data = super().to_dict()
-        if self.processor_type is not None:
-            from core.ports import get_enum_value
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-            data["processor_type"] = get_enum_value(self.processor_type)
-        data["subject_uid"] = self.subject_uid
-        data["time_period"] = self.time_period
-        if self.period_start is not None:
-            data["period_start"] = self.period_start.isoformat()
-        if self.period_end is not None:
-            data["period_end"] = self.period_end.isoformat()
-        data["domains_covered"] = self.domains_covered
-        data["depth"] = self.depth
-        data["processed_content"] = self.processed_content
-        data["processing_error"] = self.processing_error
-        data["insights_referenced"] = self.insights_referenced
-        data["user_annotation"] = self.user_annotation
-        data["user_revision"] = self.user_revision
-        data["annotation_mode"] = self.annotation_mode
-        if self.annotation_updated_at is not None:
-            data["annotation_updated_at"] = self.annotation_updated_at.isoformat()
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility", "processor_type"],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "period_start",
+                "period_end",
+                "annotation_updated_at",
+            ],
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ActivityReportDTO:
@@ -128,7 +116,7 @@ class ActivityReportDTO(UserOwnedDTO):
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
-                "processor_type": ProcessorType,
+                "processor_type": ReportSource,
             },
             datetime_fields=[
                 "created_at",

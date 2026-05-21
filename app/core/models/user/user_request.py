@@ -110,7 +110,7 @@ class UserCreateSchema(BaseModel):
 class UserUpdateSchema(BaseModel):
     """Schema for updating a user"""
 
-    display_name: str | None = Field(None, max_length=100)
+    display_name: str | None = Field(default=None, max_length=100)
 
     # Preferences update
     preferences: UserPreferencesSchema | None = None
@@ -121,9 +121,9 @@ class UserUpdateSchema(BaseModel):
     archived_entity_uids: set[str] | None = None
 
     # Interests and goals
-    interests: list[str] | None = Field(None, max_length=20)
-    current_goals: list[str] | None = Field(None, max_length=10)
-    achievements: list[str] | None = Field(None, max_length=50)
+    interests: list[str] | None = Field(default=None, max_length=20)
+    current_goals: list[str] | None = Field(default=None, max_length=10)
+    achievements: list[str] | None = Field(default=None, max_length=50)
 
     # Settings
     settings: dict[str, Any] | None = None
@@ -248,7 +248,7 @@ class UserStatisticsSchema(BaseModel):
 
     # Time patterns
     most_active_time: TimeOfDay | None = None
-    most_productive_day: str | None = Field(None, description="Day of week")
+    most_productive_day: str | None = Field(default=None, description="Day of week")
 
 
 class UserCapacityCheckSchema(BaseModel):
@@ -285,12 +285,12 @@ class UserFilterSchema(BaseModel):
     last_active_after: datetime | None = None
     last_active_before: datetime | None = None
     has_goals: bool | None = None
-    min_completion_rate: float | None = Field(None, ge=0, le=100)
-    max_completion_rate: float | None = Field(None, ge=0, le=100)
+    min_completion_rate: float | None = Field(default=None, ge=0, le=100)
+    max_completion_rate: float | None = Field(default=None, ge=0, le=100)
     interests: list[str] | None = None
     teams: list[str] | None = None
     search_text: str | None = Field(
-        None, min_length=1, description="Search in username/display_name"
+        default=None, min_length=1, description="Search in username/display_name"
     )
 
 

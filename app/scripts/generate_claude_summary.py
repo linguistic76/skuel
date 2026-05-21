@@ -20,6 +20,7 @@ Features:
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from core.utils.frontmatter import parse_frontmatter
 
@@ -168,7 +169,7 @@ def generate_quick_reference(docs: list[DocSummary]) -> str:
     ]
 
     # Group by category
-    by_category = {}
+    by_category: dict[str, list[Any]] = {}
     for doc in docs:
         if doc.category not in by_category:
             by_category[doc.category] = []
@@ -227,7 +228,7 @@ def main():
             docs.append(summary)
 
     # Group by category
-    by_category = {}
+    by_category: dict[str, list[Any]] = {}
     for doc in docs:
         if doc.category not in by_category:
             by_category[doc.category] = []

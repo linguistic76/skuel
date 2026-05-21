@@ -11,6 +11,8 @@ use it degrade gracefully (zero progress data returned).
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
@@ -37,7 +39,7 @@ class PathwaysOrchestrator:
 
     # --- Dashboard ---
 
-    async def get_dashboard_summary(self, user_uid: str) -> "Result[dict[str, Any]]":
+    async def get_dashboard_summary(self, user_uid: UserUID) -> "Result[dict[str, Any]]":
         """Build pathways dashboard summary with active paths and learning stats."""
         return await self._lp.get_dashboard_summary(user_uid, self._user_progress)
 
@@ -69,7 +71,7 @@ class PathwaysOrchestrator:
     # --- Detail ---
 
     async def get_path_detail_progress(
-        self, path_uid: str, user_uid: str
+        self, path_uid: str, user_uid: UserUID
     ) -> "Result[dict[str, Any]]":
         """Get a learning path with per-user progress and mastery info."""
         return await self._lp.get_path_detail_progress(path_uid, self._user_progress, user_uid)
@@ -80,6 +82,6 @@ class PathwaysOrchestrator:
 
     # --- Analytics ---
 
-    async def get_learning_analytics(self, user_uid: str) -> "Result[dict[str, Any]]":
+    async def get_learning_analytics(self, user_uid: UserUID) -> "Result[dict[str, Any]]":
         """Get learning analytics data from user's knowledge profile."""
         return await self._lp.get_learning_analytics(user_uid, self._user_progress)

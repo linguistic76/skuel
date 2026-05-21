@@ -54,5 +54,5 @@ async def render_gradebook_sidebar_page(
         storage_key=GRADEBOOK_STORAGE_KEY,
         request=request,
         active_page="gradebook",
-        title_href="/gradebook",
+        title_href="/profile?tab=gradebook",
     )

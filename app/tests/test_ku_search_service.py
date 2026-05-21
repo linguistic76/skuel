@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined"
 """
 Test KU Search Service
 ======================

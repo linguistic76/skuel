@@ -17,7 +17,7 @@ related: []
 *Updated: 2026-03-20*
 *Total: ~200 documents*
 
-> **New here? Read [START_HERE.md](START_HERE.md) first.** It covers what SKUEL is, the 22 entity types, how a request flows, and the key patterns — in 5 minutes.
+> **New here? Read [START_HERE.md](START_HERE.md) first.** It covers what SKUEL is, the 20 entity types, how a request flows, and the key patterns — in 5 minutes.
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -65,7 +65,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Domains
 
-*17 Entity Types with behavioral traits — see [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)*
+*20 Entity Types with behavioral traits — see [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)*
 
 | Document | Description |
 |----------|-------------|
@@ -80,7 +80,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
 | [PS (Path Step)](domains/ps.md) | THE curriculum content entity — composes Kus (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
-| [Submissions + Reports](domains/submissions.md) | PathStep→Exercise→Submission→Report→RevisedExercise learning loop |
+| [Submissions + Reports](domains/submissions.md) | Exercise→UserEntry→ExerciseReport→RevisedExercise (4-phase learning loop, anchored to PathStep via RELATED_TO) |
 | [Journals](domains/journals.md) | Standalone journal domain (JE_INPUT → JE_OUTPUT, AI-processed) |
 | Groups | Teacher-student class management (ADR-040) — doc pending |
 | [MOC (Map of Content)](domains/moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
@@ -108,6 +108,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | **[Report Architecture](architecture/REPORT_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | [SKUEL Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md) | 2026-03-07 | — |
+| **[The 7 Subsystems — Functional Organization](architecture/SEVEN_SUBSYSTEMS.md)** | **2026-04-19** | **Ku / Curriculum / Activity / Learning Loop / User / Groups / Askesis — Object·Context·Meta split + 7×3 MVP matrix** |
+| **[The 3-Layer Lens — A Cross-Cutting View](architecture/THREE_LAYER_LENS.md)** | **2026-04-19** | **Curriculum → Action → Feedback; how to read SKUEL operationally (Model B, companion to Entity Types = Model A)** |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |
 | [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-03-03 | — |
 | [Service Architecture: File Organization & Topology](architecture/SERVICE_TOPOLOGY.md) | 2026-03-03 | — |
@@ -190,6 +192,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[UI Component Patterns](patterns/UI_COMPONENT_PATTERNS.md)** | **2026-02-03** | **1395** |
 | **[Shell-First Page Loading Pattern](patterns/SHELL_FIRST_PAGE_PATTERN.md)** | **2026-04-07** | **—** |
 | **[FormGenerator Guide](patterns/FORM_GENERATOR_GUIDE.md)** | **2026-03-08** | **—** |
+| **[Sibling Signal Pattern](patterns/SIBLING_SIGNAL_PATTERN.md)** | **2026-04-21** | **Peer-to-peer cross-domain intelligence consultation between the 6 Activity Domains (companion to ADR-057; proposed shape, no code yet)** |
+| **[Shared Signal Pattern](patterns/SHARED_SIGNAL_PATTERN.md)** | **2026-04-21** | **Cross-cutting infrastructure → every-peer consultation (companion to Sibling Signal; the `ActivityKnowledgeIntelligenceService` precedent already productionizes this shape)** |
 
 ## Dsl
 
@@ -255,6 +259,13 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-047: Entity Types Replace Domain Categories](decisions/ADR-047-entity-types-replace-domain-categories.md)** | **2026-03-07** | **—** |
 | **[ADR-048: Adaptive Learning Loop Architecture](decisions/ADR-048-adaptive-learning-loop.md)** | **2026-03-09** | **—** |
 | **[ADR-052: Firefly III Replaces SKUEL Expense/Budget/Reporting](decisions/ADR-052-firefly-iii-finance-integration.md)** | **2026-04-12** | **—** |
+| **[ADR-053: Groups First-Class + Unified Sharing](decisions/ADR-053-groups-first-class-and-unified-sharing.md)** | **2026-04-14** | **—** |
+| **[ADR-054: UserEntry — Unified User-Authored Content](decisions/ADR-054-user-entry-unified-submissions.md)** | **2026-04-14** | **—** |
+| **[ADR-055: Architectural Lenses — Subsystems + 3-Layer Lens](decisions/ADR-055-architectural-lenses.md)** | **2026-04-19** | **Model A (7 Subsystems / 20 EntityTypes) + Model B (3-Layer Lens); adopts "Subsystems" vocabulary** |
+| **[ADR-056: Service-Layer Label Split — entity_label + config_lookup_label](decisions/ADR-056-service-layer-label-split.md)** | **2026-04-21** | **DomainConfig.entity_label split into Neo4j base-label + LABEL_CONFIGS registry key; LABEL_CONFIGS["Entity"] → PS_CONFIG alias deleted; factories fail-fast on missing keys** |
+| **[ADR-057: Activity-Domain Sibling Signals](decisions/ADR-057-activity-domain-sibling-signals.md)** | **2026-04-21** | **Design-only (Proposed): narrow ISP protocols in core/ports/ for cross-domain intelligence consultation at judgment time; 6 ways-of-acting, 3 mutual axes + 7 diagonals; companion Shared Signal pattern for cross-cutting infrastructure → peer consultation** |
+| **[ADR-060: UserContext as Single Source of Truth — Awareness Slice Protocols Retired](decisions/ADR-060-userctx-single-source-of-truth.md)** | **2026-05-11** | **11 ISP "awareness slice" protocols (`TaskAwareness`, `KnowledgeAwareness`, `FullAwareness`, etc.) deleted; UserContext is the contract; 751 lines removed; type-level minimum-context guarantee was theoretical and outweighed by drift cost** |
+| **[ADR-061: Spawn-Layer Consolidation — DomainSpawnSpec Registry](decisions/ADR-061-spawn-layer-consolidation.md)** | **2026-05-20** | **Accepted/implemented: affirm the template/instance two-entity split; collapsed the six `_build_*` builders + scattered per-domain spawn tables into one `DomainSpawnSpec` registry + generic `_build` with import-time fail-fast validation (near-zero type cost — `_persist` already `Any`-typed); document `source_path_step_uid` vs `SPAWNED_FROM` authority; explicitly reject an authoring-fields mixin** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Tools

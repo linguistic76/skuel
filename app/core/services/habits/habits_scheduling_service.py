@@ -49,7 +49,7 @@ from core.services.infrastructure import LearningAlignmentBridge
 from core.utils.decorators import with_error_handling
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import make_dict_count_getter
+from core.utils.sort_functions import make_dict_value_getter
 
 if TYPE_CHECKING:
     from core.models.pathways.lp_position import LpPosition
@@ -144,11 +144,6 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             domain=Domain.HABITS,
             entity_name="habit",
         )
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Habit"
 
     # ========================================================================
     # CAPACITY MANAGEMENT
@@ -285,7 +280,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             return "morning"
 
         # Return least loaded time slot
-        return min(timed_slots, key=make_dict_count_getter(timed_slots))
+        return min(timed_slots, key=make_dict_value_getter(timed_slots))
 
     # ========================================================================
     # SMART SCHEDULING
@@ -319,7 +314,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         if check_capacity:
             capacity_result = await self.check_habit_capacity(
                 user_uid=user_context.user_uid,
-                proposed_difficulty=habit_data.difficulty,
+                proposed_difficulty=habit_data.habit_difficulty,
                 proposed_duration=habit_data.duration_minutes,
             )
             if capacity_result.is_error:
@@ -411,7 +406,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         # Check capacity first
         capacity_result = await self.check_habit_capacity(
             user_uid=user_context.user_uid,
-            proposed_difficulty=habit_data.difficulty,
+            proposed_difficulty=habit_data.habit_difficulty,
             proposed_duration=habit_data.duration_minutes,
         )
         if capacity_result.is_error:
@@ -594,7 +589,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                         hour_counts[hour] = hour_counts.get(hour, 0) + 1
 
                 if day_counts:
-                    best_day_num = max(day_counts, key=make_dict_count_getter(day_counts))
+                    best_day_num = max(day_counts, key=make_dict_value_getter(day_counts))
                     days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                     completion_patterns["best_day"] = days[best_day_num]
                     completion_patterns["completion_by_day"] = {
@@ -602,7 +597,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                     }
 
                 if hour_counts:
-                    best_hour = max(hour_counts, key=make_dict_count_getter(hour_counts))
+                    best_hour = max(hour_counts, key=make_dict_value_getter(hour_counts))
                     if best_hour < 12:
                         completion_patterns["best_time"] = "morning"
                     elif best_hour < 17:
@@ -887,12 +882,12 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                     load_by_day[day] += effort
             elif habit.recurrence_pattern == RecurrencePattern.WEEKLY:
                 # Add to target_days_per_week days (assume first N days)
-                for i in range(min(habit.target_days_per_week, 7)):
+                for i in range(min(habit.target_days_per_week or 7, 7)):
                     load_by_day[days[i]] += effort
 
         # Find peak and light days
-        peak_day = max(load_by_day, key=make_dict_count_getter(load_by_day))
-        light_day = min(load_by_day, key=make_dict_count_getter(load_by_day))
+        peak_day = max(load_by_day, key=make_dict_value_getter(load_by_day))
+        light_day = min(load_by_day, key=make_dict_value_getter(load_by_day))
         avg_load = sum(load_by_day.values()) / 7
 
         return Result.ok(

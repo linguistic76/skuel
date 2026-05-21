@@ -125,13 +125,9 @@ tasks_result = await search.get_tasks_for_goal(goal_uid)
 
 **Example:**
 ```python
-from core.services.tasks import TasksLearningMetricsService
-
-learning_metrics = TasksLearningMetricsService(
-    backend=backend,
-    relationship_service=rels,
-)
-metrics_result = await learning_metrics.analyze_task_learning_metrics(user_uid)
+# analyze_task_learning_metrics lives on TasksIntelligenceService (April 2026:
+# TasksLearningMetricsService retired, methods folded into _productivity_mixin).
+metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 ```
 
 ---
@@ -291,7 +287,7 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 ### EventHandlerService
 
 **Domains:** Tasks, Goals, Habits, Events, Choices, Principles + Learning Loop
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`, `learning_loop_event_handler_service.py`
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `event_event_handler_service.py`, `choice_event_handler_service.py`, `principle_event_handler_service.py`, `learning_loop_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive logic (fire-and-forget handlers) with insight persistence to InsightStore
 
@@ -347,7 +343,7 @@ handler = TaskEventHandlerService(
 # Subscribed via event_bus in bootstrap — not called directly
 
 # Learning Loop handler — wired directly (not part of a facade)
-from core.services.submissions import LearningLoopEventHandlerService
+from core.services.user_entry import LearningLoopEventHandlerService
 
 handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_store=insight_store)
 # Subscribes to: SubmissionCreated, ReportSubmitted, SubmissionApproved
@@ -361,7 +357,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 **File:** `learning_loop_query_service.py`
 **Package:** `core/services/submissions/`
 
-**Responsibility:** Read-only queries that traverse the five-phase learning loop graph (Exercise → Submission → Interaction → Report → RevisedExercise). Read-side peer of `LearningLoopEventHandlerService`.
+**Responsibility:** Read-only queries that traverse the four-phase learning loop graph (Exercise → UserEntry → ExerciseReport → RevisedExercise). Interaction nodes provide situated context for each UserEntry. Read-side peer of `LearningLoopEventHandlerService`.
 
 **Rationale:** Keeps generic submission search (`SubmissionsSearchService`) free of Cypher that traverses Interaction/Exercise/Report edges. New learning-loop reads land here.
 
@@ -372,7 +368,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 
 **Usage:**
 ```python
-from core.services.submissions import LearningLoopQueryService
+from core.services.user_entry import LearningLoopQueryService
 
 service = LearningLoopQueryService(submissions_backend=submissions_backend)
 result = await service.get_submissions_for_path_step(user_uid, ps_uid)
@@ -408,7 +404,7 @@ result = await service.get_submissions_for_path_step(user_uid, ps_uid)
 
 **Usage:**
 ```python
-from core.services.submissions.submissions_search_service import SubmissionsSearchService
+from core.services.user_entry.user_entry_search_service import UserEntrySearchService
 
 service = SubmissionsSearchService(submissions_backend=submissions_backend)
 result = await service.list_reports_by_date_range(
@@ -483,7 +479,7 @@ result = await service.list_reports_by_date_range(
 ### EventHandlerService
 
 **Domains:** Tasks, Goals, Habits, Events, Choices, Principles
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `event_event_handler_service.py`, `choice_event_handler_service.py`, `principle_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive handlers (fire-and-forget)
 
@@ -640,7 +636,7 @@ self.event_handler = TaskEventHandlerService(
     insight_store=insight_store, event_bus=event_bus,
     ku_generation_service=ku_generation_service,  # triggers knowledge gen on TaskCompleted
 )
-self.learning = common.learning                        # auto-wired (None for Tasks, which has no learning service)
+self.learning = common.learning                        # auto-wired (TasksLearningService — uniform across all 6 domains)
 self.knowledge_intelligence = common.knowledge_intelligence  # auto-wired (was via mixin only)
 # core and intelligence created manually when they need domain-specific params
 ```
@@ -664,18 +660,16 @@ config includes a learning class; singleton is passed in).
 
 | Domain | Sub-services | Facade Mixins | Common (factory) | Domain-Specific |
 |--------|-------------|---------------|-----------------|-----------------|
-| Tasks | 9 | 2 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | learning_metrics, progress, scheduling, planning |
-| Goals | 10 | 2 | 7 (+ learning) | progress, scheduling, planning |
-| Habits | 12 | 3 | 7 (+ learning) | progress, scheduling, planning, completions, patterns |
-| Events | 10 | 0 | 7 (+ learning) | progress, scheduling, habit_integration |
-| Choices | 7 | 3 | 7 (+ learning) | — |
-| Principles | 10 | 3 | 7 (+ learning) | alignment, planning, reflection |
+| Tasks | 10 | 2 | 7 (core, search, rels, intel, event_handler, learning, knowledge_intelligence) | progress, scheduling, planning |
+| Goals | 10 | 2 | 7 | progress, scheduling, planning |
+| Habits | 12 | 3 | 7 | progress, scheduling, planning, completions, patterns |
+| Events | 10 | 0 | 7 | progress, scheduling, habit_integration |
+| Choices | 7 | 3 | 7 | — |
+| Principles | 10 | 3 | 7 | alignment, planning, reflection |
 
-**Facade Mixins (April 2026):** Goals (2: `_OrchestrationMixin`, `_RelationshipMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (3: `_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). These group related facade delegation methods by concern — methods are not removed from the facade's public API, just organized into mixin files.
+**Facade Mixins (April 2026):** Tasks (2: `_OrchestrationMixin`, `_RelationshipMixin`), Goals (2: `_OrchestrationMixin`, `_RelationshipMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (3: `_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). These group related facade delegation methods by concern — methods are not removed from the facade's public API, just organized into mixin files.
 
-**Common (Tasks):** core, search, relationships, intelligence, event_handler, knowledge_intelligence
-(factory-created; Tasks has no learning service).
-**Common (Goals/Habits/Events/Choices/Principles):** + learning.
+**Common (all 6 domains, uniform):** core, search, relationships, intelligence, event_handler, learning, knowledge_intelligence — factory-created, always the same seven. The shared shape is the contract for interconnectivity (see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization").
 
 Habits has one event service: `HabitEventHandlerService` (reactive fire-and-forget, auto-wired by
 factory as `self.event_handler`). Event scheduling intelligence (recurrence logic, UserContext lookups)
@@ -780,8 +774,9 @@ result = await tasks.scheduling.create_task_with_context(
 ### Pattern: Graph Analytics
 
 ```python
-# TasksLearningMetricsService
-metrics_result = await tasks.learning_metrics.analyze_task_learning_metrics(user_uid)
+# TasksIntelligenceService — learning-metrics methods are on the intelligence
+# service since the April 2026 symmetry refactor.
+metrics_result = await tasks.intelligence.analyze_task_learning_metrics(user_uid)
 ```
 
 **Pure Cypher analytics:**

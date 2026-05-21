@@ -85,19 +85,24 @@ class EventAdapter:
         Get time windows for calendar display.
 
         Note: Event model does not have an all_day field.
-        All events use start_time/end_time for scheduling.
+        All events use start_time/end_time for scheduling. Events
+        without a resolvable start+end datetime produce no window.
         """
-        windows = []
-        # GRAPH-NATIVE: Event model doesn't have all_day field, always use EVENT kind
-        windows.append(
+        # TimeWindow requires datetime, not time — combine via the model's
+        # start_datetime()/end_datetime() helpers, which return None when
+        # event_date or start_time/end_time are missing.
+        start = self._event.start_datetime()
+        end = self._event.end_datetime()
+        if start is None or end is None:
+            return []
+        return [
             TimeWindow(
-                start=self._event.start_time,
-                end=self._event.end_time,
+                start=start,
+                end=end,
                 kind=WindowKind.EVENT,
                 is_all_day=False,
             )
-        )
-        return windows
+        ]
 
     def get_metadata(self) -> dict[str, Any]:
         """Get additional metadata"""

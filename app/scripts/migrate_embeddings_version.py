@@ -328,8 +328,7 @@ CAUTION: This makes API calls to the HuggingFace Inference API. Rate limits appl
     args = parser.parse_args()
 
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         await driver.verify_connectivity()
@@ -339,7 +338,7 @@ CAUTION: This makes API calls to the HuggingFace Inference API. Rate limits appl
         service = HuggingFaceEmbeddingsService(driver)
 
         # Check embeddings service availability
-        plugin_available = await service._check_plugin_availability()
+        plugin_available = await service._check_plugin_availability()  # type: ignore[attr-defined]
         if not plugin_available and not args.dry_run:
             logger.error("❌ Embeddings service not available")
             logger.error("   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env")

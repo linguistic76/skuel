@@ -64,6 +64,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import EntityUID
 
 if TYPE_CHECKING:
+    from core.services.ps_engagement.engagement import Engagement
     from core.services.user.unified_user_context import UserContext
 
 
@@ -818,7 +819,7 @@ class ContextualHabit(ContextualEntity):
             if completion_rate is not None
             else context.habit_completion_rates.get(uid, 0.0)
         )
-        at_risk = uid in context.at_risk_habits
+        at_risk = uid in context.get_habits_needing_reinforcement()
         keystone = is_keystone if is_keystone is not None else uid in context.keystone_habits
 
         readiness = readiness_override if readiness_override is not None else 1.0
@@ -1462,10 +1463,16 @@ class PathStep:
 @dataclass(frozen=True)
 class ContextualExercise:
     """
-    An assigned exercise enriched with urgency context.
+    An assigned exercise enriched with urgency + prerequisite context.
 
-    Used by DailyPlanningMixin to present teacher assignments with
-    deadline awareness in the daily work plan.
+    Used by DailyPlanningMixin to present teacher assignments and pending
+    revisions with deadline awareness AND learning-readiness signals
+    ("blocked by N unmastered KUs") in the daily work plan.
+
+    The enrichment fields (subtype, blocking_kus, readiness_score,
+    est_time_minutes) all carry safe defaults so this dataclass remains
+    backward-compatible with the original 5-field shape until callers
+    migrate to ExerciseService.get_actionable_exercises_for_user().
     """
 
     uid: str
@@ -1473,6 +1480,12 @@ class ContextualExercise:
     due_date: date | None = None
     is_overdue: bool = False
     days_until_due: int | None = None  # None = no deadline set
+    # ── Enrichment fields (service-routed callers populate; legacy callers
+    #    accept the defaults, which mean "ready, unblocked, 60min estimate"). ──
+    subtype: str = "assignment"  # "assignment" | "revision"
+    blocking_kus: tuple[str, ...] = ()  # UIDs of required KUs below mastery threshold
+    readiness_score: float = 1.0  # 0.0-1.0; fraction of prerequisite KUs at mastery>=0.7
+    est_time_minutes: int = 60
 
     @property
     def entity_type(self) -> str:
@@ -1482,6 +1495,40 @@ class ContextualExercise:
     def is_urgent(self) -> bool:
         """Due within 3 days."""
         return self.days_until_due is not None and 0 <= self.days_until_due <= 3
+
+    @property
+    def is_blocked(self) -> bool:
+        """Has unmastered prerequisite knowledge."""
+        return bool(self.blocking_kus)
+
+    @property
+    def is_ready(self) -> bool:
+        """Prerequisite mastery clears the 0.7 readiness threshold."""
+        return self.readiness_score >= 0.7
+
+
+@dataclass(frozen=True)
+class EngagedPsGroup:
+    """One engaged PathStep plus its still-pending spawned activities.
+
+    Built by ``DailyPlanningMixin.get_ready_to_work_on_today`` from the
+    intersection of ``Engagement.spawned_instance_uids`` (set at engage time)
+    and the daily plan's per-domain UID lists. ``pending_*`` tuples preserve
+    the plan's ordering — they are filtered slices, not re-ranked sets.
+
+    The ``engagement`` snapshot carries ``state``, ``since``, and the full
+    ``spawned_instance_uids`` tuple — useful when a consumer wants to know
+    "this engagement spawned 5 things originally; 3 are still pending today."
+    """
+
+    ps_uid: str
+    engagement: "Engagement"
+    pending_task_uids: tuple[str, ...] = ()
+    pending_habit_uids: tuple[str, ...] = ()
+    pending_event_uids: tuple[str, ...] = ()
+    pending_goal_uids: tuple[str, ...] = ()
+    pending_choice_uids: tuple[str, ...] = ()
+    pending_principle_uids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1518,6 +1565,13 @@ class DailyWorkPlan:
     contextual_goals: tuple[ContextualGoal, ...] = ()
     contextual_knowledge: tuple[ContextualKnowledge, ...] = ()
     contextual_exercises: tuple[ContextualExercise, ...] = ()
+
+    # PS-engagement bucketing (ADR-059) — populated by DailyPlanningMixin from
+    # RichUserContext.active_ps_engagements (which UserContextBuilder fetches
+    # via PsEngagementService.list_engaged). Empty when active_ps_engagements
+    # is None (standard build or list_engaged failure).
+    engaged_ps_groups: tuple[EngagedPsGroup, ...] = ()  # one per active engagement
+    available_to_start: tuple[str, ...] = ()  # PS UIDs touched but not engaged
 
     # Capacity metrics
     estimated_time_minutes: int = 0
@@ -1607,6 +1661,7 @@ __all__ = [
     "PracticeOpportunity",
     # Intelligence output types
     "DailyWorkPlan",
+    "EngagedPsGroup",
     "LifePathAlignment",
     "CrossDomainSynergy",
     "PathStep",

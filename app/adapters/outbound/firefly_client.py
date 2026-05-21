@@ -84,11 +84,18 @@ class FireflyClient:
 
     @classmethod
     def from_env(cls, http_client: httpx.AsyncClient | None = None) -> FireflyClient:
-        """Build a client from environment variables (used by bootstrap)."""
+        """Build a client from credentials (keychain-first, env fallback).
+
+        PATs go through `get_credential()` so keychain-stored tokens are found
+        when `SKUEL_CREDENTIAL_BACKEND=keyring`. Non-secret config (base URL,
+        timeout) stays on `os.environ` — it lives in `.env`, not the keychain.
+        """
+        from core.config.credential_store import get_credential
+
         return cls(
             base_url=os.environ.get("FIREFLY_BASE_URL", "http://firefly:8080"),
-            pat_personal=os.environ.get("FIREFLY_PAT_PERSONAL", ""),
-            pat_skuel=os.environ.get("FIREFLY_PAT_SKUEL", ""),
+            pat_personal=get_credential("FIREFLY_PAT_PERSONAL", fallback_to_env=True) or "",
+            pat_skuel=get_credential("FIREFLY_PAT_SKUEL", fallback_to_env=True) or "",
             timeout_seconds=float(os.environ.get("FIREFLY_TIMEOUT_SECONDS", _DEFAULT_TIMEOUT)),
             http_client=http_client,
         )
@@ -386,7 +393,9 @@ class FireflyClient:
         return Result.ok(True)
 
 
-def _parse_insight_rows(body: dict[str, Any]) -> list[FireflyInsightRow]:
+def _parse_insight_rows(
+    body: dict[str, Any] | list[dict[str, Any]],
+) -> list[FireflyInsightRow]:
     """Firefly insight endpoints return a flat list (not JSON:API)."""
     rows_in = body if isinstance(body, list) else body.get("data") or []
     return [

@@ -11,10 +11,16 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, timedelta
+from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
+from core.constants import QueryLimit
 from core.models.enums import EntityStatus
+from core.models.task.task import Task
+from core.services.tasks.task_relationships import TaskRelationships
+from core.services.tasks_types import KnowledgePatternAnalysis
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -184,4 +190,145 @@ class _ProductivityMixin:
 
         return await self._analytics_engine.track_knowledge_mastery_progression(
             all_tasks, knowledge_uids
+        )
+
+    async def analyze_task_learning_metrics(
+        self, _filters: dict[str, Any] | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Analyze learning metrics from tasks using Task model capabilities.
+
+        Scores each task for knowledge complexity, learning impact, bridge-task
+        detection, and mastery validation. Different from
+        get_learning_opportunities() which uses graph intelligence for discovery;
+        this is per-task scoring, sorted by learning impact.
+
+        GRAPH-NATIVE: Fetches relationship data for tasks that have learning
+        opportunities before calling Task model methods.
+        """
+        tasks_result = await self.backend.list(limit=QueryLimit.SMALL)
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+
+        tasks, _ = tasks_result.value
+        tasks_with_opportunities = [task for task in tasks if task.learning_opportunities_count > 0]
+
+        if not tasks_with_opportunities:
+            return Result.ok([])
+
+        rels_list = await asyncio.gather(
+            *[
+                TaskRelationships.fetch(task.uid, self.relationships)
+                for task in tasks_with_opportunities
+            ]
+        )
+
+        opportunities: list[dict[str, Any]] = []
+        for task, _rels in zip(tasks_with_opportunities, rels_list, strict=False):
+            opportunities.append(
+                {
+                    "task_uid": task.uid,
+                    "title": task.title,
+                    "opportunities_count": task.learning_opportunities_count,
+                    # knowledge_patterns inferred from relationships, not a stored field
+                    "knowledge_patterns": [],
+                    "complexity_score": task.calculate_knowledge_complexity(),
+                    "learning_impact": task.calculate_learning_impact(),
+                    "is_bridge_task": task.is_knowledge_bridge(),
+                    "validates_mastery": task.validates_knowledge_mastery(),
+                }
+            )
+
+        opportunities.sort(key=itemgetter("learning_impact"), reverse=True)
+        return Result.ok(opportunities)
+
+    async def generate_task_knowledge_insights(
+        self, _domain_filter: str | None = None
+    ) -> Result[dict[str, Any]]:
+        """
+        Generate knowledge insights summary across all user tasks.
+
+        Aggregates bridge-task count, mastery-validation count, high-complexity
+        count, and total learning opportunities; derives ratios and knowledge
+        pattern analysis.
+
+        GRAPH-NATIVE: Fetches relationships for all tasks in parallel.
+        """
+        tasks_result = await self.backend.list(limit=QueryLimit.COMPREHENSIVE)
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+
+        all_tasks, _ = tasks_result.value
+
+        if not all_tasks:
+            return Result.ok(
+                {
+                    "total_tasks_analyzed": 0,
+                    "knowledge_bridge_tasks": 0,
+                    "mastery_validation_tasks": 0,
+                    "high_complexity_tasks": 0,
+                    "total_learning_opportunities": 0,
+                    "average_learning_opportunities": 0,
+                    "bridge_task_ratio": 0,
+                    "mastery_validation_ratio": 0,
+                    "knowledge_discovery_patterns": {},
+                }
+            )
+
+        rels_list = await asyncio.gather(
+            *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
+        )
+
+        knowledge_bridge_tasks: list[Task] = []
+        mastery_validation_tasks: list[Task] = []
+        high_complexity_tasks: list[Task] = []
+        total_learning_opportunities = 0
+
+        for task, _rels in zip(all_tasks, rels_list, strict=False):
+            if task.is_knowledge_bridge():
+                knowledge_bridge_tasks.append(task)
+            if task.validates_knowledge_mastery():
+                mastery_validation_tasks.append(task)
+            if task.calculate_knowledge_complexity() > 0.7:
+                high_complexity_tasks.append(task)
+            total_learning_opportunities += task.learning_opportunities_count
+
+        insights = {
+            "total_tasks_analyzed": len(all_tasks),
+            "knowledge_bridge_tasks": len(knowledge_bridge_tasks),
+            "mastery_validation_tasks": len(mastery_validation_tasks),
+            "high_complexity_tasks": len(high_complexity_tasks),
+            "total_learning_opportunities": total_learning_opportunities,
+            "average_learning_opportunities": total_learning_opportunities / len(all_tasks),
+            "bridge_task_ratio": len(knowledge_bridge_tasks) / len(all_tasks),
+            "mastery_validation_ratio": len(mastery_validation_tasks) / len(all_tasks),
+            "knowledge_discovery_patterns": self._analyze_task_knowledge_patterns(
+                all_tasks, rels_list
+            ),
+        }
+
+        return Result.ok(insights)
+
+    def _analyze_task_knowledge_patterns(
+        self, tasks: list[Task], rels_list: list[TaskRelationships]
+    ) -> KnowledgePatternAnalysis:
+        """Derive knowledge-combination frequencies across tasks."""
+        pattern_counts: dict[str, int] = {}
+        knowledge_combinations: dict[tuple[str, ...], int] = {}
+
+        for task, _rels in zip(tasks, rels_list, strict=False):
+            all_knowledge = task.get_combined_knowledge_uids()
+            if len(all_knowledge) > 1:
+                combo_key = tuple(sorted(all_knowledge))
+                knowledge_combinations[combo_key] = knowledge_combinations.get(combo_key, 0) + 1
+
+        return KnowledgePatternAnalysis(
+            common_patterns=dict(
+                sorted(pattern_counts.items(), key=itemgetter(1), reverse=True)[:10]
+            ),
+            frequent_knowledge_combinations=dict(
+                sorted(knowledge_combinations.items(), key=itemgetter(1), reverse=True)[:5]
+            ),
+            total_unique_patterns=len(pattern_counts),
+            total_knowledge_combinations=len(knowledge_combinations),
         )

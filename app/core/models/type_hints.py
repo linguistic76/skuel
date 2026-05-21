@@ -28,7 +28,6 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from core.models.base_models_consolidated import BaseEntity
     from core.models.enums.activity_enums import Priority
     from core.ports.calendar_protocol import CalendarTrackable
     from core.utils.result_simplified import Result as _Result
@@ -173,7 +172,7 @@ EdgeDirection = Literal["outgoing", "incoming", "both"]
 
 # Generic type variables
 T = TypeVar("T")
-T_Entity = TypeVar("T_Entity", bound="BaseEntity")
+
 T_Trackable = TypeVar("T_Trackable", bound="CalendarTrackable")
 
 
@@ -542,7 +541,6 @@ __all__ = [
     "Success",
     # Type variables
     "T",
-    "T_Entity",
     "T_Trackable",
     "Tag",
     # Collection types

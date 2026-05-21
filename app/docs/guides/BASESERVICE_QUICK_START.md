@@ -4,7 +4,7 @@
 
 **Audience:** Developers new to SKUEL's service layer
 
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-04-21
 
 ---
 
@@ -238,7 +238,7 @@ priorities_result = await tasks_service.calculate_knowledge_aware_priorities(
 ```
 
 **Behind the scenes:**
-- Delegates to `learning_metrics.analyze_task_learning_metrics()`
+- Delegates to `intelligence.analyze_task_learning_metrics()` (via `_productivity_mixin`)
 - Pure Cypher analytics (no AI/LLM dependencies)
 - Cross-domain graph analysis
 
@@ -408,10 +408,9 @@ class TasksService(BaseService[TasksOperations, Task]):
     def __init__(self, backend, ...):
         super().__init__(backend, "tasks")
 
-        # Factory creates 7 common sub-services:
+        # Factory creates the same 7 common sub-services for every Activity Domain:
         # core, search, relationships, intelligence (skippable via skip={})
-        # + event_handler, learning*, knowledge_intelligence (always auto-wired)
-        # *Tasks omits learning — no learning_class in its ActivityDomainConfig
+        # + event_handler, learning, knowledge_intelligence (always auto-wired, no domain opts out)
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,
@@ -426,7 +425,7 @@ class TasksService(BaseService[TasksOperations, Task]):
         self.relationships = common.relationships      # UnifiedRelationshipService
         self.intelligence = common.intelligence        # TasksIntelligenceService
         self.event_handler = common.event_handler      # TaskEventHandlerService
-        self.learning = common.learning                # None for Tasks
+        self.learning = common.learning                # TasksLearningService
         self.knowledge_intelligence = common.knowledge_intelligence  # shared singleton
 ```
 
@@ -475,8 +474,9 @@ async def tasks_core_service(neo4j_driver):
     """Real TasksCoreService with real backend."""
     backend = UniversalNeo4jBackend[Task](
         driver=neo4j_driver,
-        entity_label="Task",
-        model_class=Task,
+        label=NeoLabel.TASK,
+        entity_class=Task,
+        base_label=NeoLabel.ENTITY,
     )
     return TasksCoreService(backend=backend)
 
@@ -581,15 +581,19 @@ _config = create_activity_domain_config(
     date_field="due_date",
     completed_statuses=("completed",),
 )
+# entity_label defaults to "Entity" (Neo4j base-label for multi-label Cypher);
+# config_lookup_label defaults to model_class.__name__ ("Task") — the
+# LABEL_CONFIGS registry key. Override either explicitly if your model name
+# diverges from the registry key.
 
 # Curriculum Domains (KU, PS, LP)
 from core.services.domain_config import create_curriculum_domain_config
 
 _config = create_curriculum_domain_config(
-    dto_class=CurriculumDTO,
-    model_class=Curriculum,
-    domain_name="article",
-    search_fields=("title", "content", "description"),
+    dto_class=PathStepDTO,
+    model_class=PathStep,
+    domain_name="ps",
+    search_fields=("title", "intent", "description"),
 )
 ```
 

@@ -33,7 +33,7 @@ class SampleKu:
     user_uid: str | None = None
 
 
-def _mock_driver() -> Mock:
+def _mock_driver() -> tuple[Mock, AsyncMock]:
     """Create a mock Neo4j driver with async session."""
     driver = Mock()
     driver._closed = False  # Prevent _is_driver_closed() from short-circuiting

@@ -94,11 +94,11 @@ step "Validating HuggingFace embeddings service"
 
 HF_CHECK=$(uv run python -c "
 import asyncio
-import os
+from core.config.credential_store import get_credential
 from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
 async def check():
-    token = os.getenv('HF_API_TOKEN')
+    token = get_credential('HF_API_TOKEN', fallback_to_env=True)
     if not token:
         return 'NO_TOKEN'
     try:
@@ -205,13 +205,14 @@ if [ "$TASK_UID" != "NONE" ]; then
     # Check if embedding was generated
     EMBEDDING_CHECK=$(uv run python -c "
 import asyncio
-from neo4j import AsyncGraphDatabase
 import os
+from neo4j import AsyncGraphDatabase
+from core.config.credential_store import get_credential
 
 async def check():
     driver = AsyncGraphDatabase.driver(
         os.getenv('NEO4J_URI'),
-        auth=('neo4j', os.getenv('NEO4J_PASSWORD'))
+        auth=('neo4j', get_credential('NEO4J_PASSWORD', fallback_to_env=True))
     )
     try:
         async with driver.session() as session:

@@ -30,6 +30,7 @@ Usage:
 from typing import Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
+from core.models.type_hints import EntityUID
 from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -298,9 +299,9 @@ class BaseAIService(Generic[B, T]):
     async def _semantic_search(
         self,
         query: str,
-        candidates: list[tuple[str, str]],
+        candidates: list[tuple[EntityUID, str]],
         top_k: int = 5,
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """
         Perform semantic search using embeddings.
 
@@ -326,7 +327,7 @@ class BaseAIService(Generic[B, T]):
             query_embedding = await self.embeddings.embed_text(query)
 
             # Get candidate embeddings and calculate similarity
-            results: list[tuple[str, float]] = []
+            results: list[tuple[EntityUID, float]] = []
             for uid, text in candidates:
                 candidate_embedding = await self.embeddings.embed_text(text)
                 similarity = self._cosine_similarity(query_embedding, candidate_embedding)

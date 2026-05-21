@@ -186,8 +186,8 @@ class HabitsProgressService:
             cue=habit_dict.get("cue"),
             routine=habit_dict.get("routine"),
             reward=habit_dict.get("reward"),
-            created_at=habit_dict.get("created_at"),
-            updated_at=habit_dict.get("updated_at"),
+            created_at=habit_dict.get("created_at") or datetime.now(),
+            updated_at=habit_dict.get("updated_at") or datetime.now(),
         )
         return to_domain_model(dto, HabitDTO, Habit)
 
@@ -273,6 +273,7 @@ class HabitsProgressService:
 
         new_streak = habit.current_streak
         streak_broken = False
+        days_since = 0
         if habit.last_completed:
             days_since = (completion_date - habit.last_completed.date()).days
             if days_since == 1:
@@ -300,7 +301,7 @@ class HabitsProgressService:
         )
         updates["consistency_30d"] = consistency
 
-        update_result = await self.backend.update_habit(habit_uid, updates)
+        update_result = await self.backend.update_habit(habit_uid, dict(updates))
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -404,7 +405,9 @@ class HabitsProgressService:
         context_hits = 0
         context_misses = 0
 
-        for habit_uid in user_context.at_risk_habits:
+        # at_risk_habits is rich-context only; empty at standard depth
+        at_risk_uids = user_context.at_risk_habits_or_empty()
+        for habit_uid in at_risk_uids:
             # CONTEXT-FIRST: Try rich context first
             habit = self._get_habit_from_rich_context(habit_uid, user_context)
 
@@ -496,7 +499,8 @@ class HabitsProgressService:
             "total_completions": habit.total_completions,
             "average_quality": recent_quality,
             "is_keystone": habit.is_keystone,
-            "streak_risk": habit.current_streak > 0 and habit_uid in user_context.at_risk_habits,
+            "streak_risk": habit.current_streak > 0
+            and habit_uid in user_context.at_risk_habits_or_empty(),
             "supports_goals": len(rels.linked_goal_uids),
             "reinforces_knowledge": len(rels.knowledge_reinforcement_uids),
         }

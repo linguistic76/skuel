@@ -52,7 +52,7 @@ def create_learning_paths_ui_routes(
         if lp_service:
             result = await lp_service.core.list(limit=50)
             if not result.is_error:
-                items = result.value if isinstance(result.value, list) else result.value[0]
+                items, _total = result.value
         return Div(_entity_list(items), id="learning-paths-content")
 
 

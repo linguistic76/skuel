@@ -8,7 +8,7 @@ Handles basic CRUD operations for choices.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
 from core.events.choice_events import (
@@ -23,7 +23,7 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -38,7 +38,6 @@ if TYPE_CHECKING:
         ChoiceCreateRequest,
         ChoiceEvaluationRequest,
     )
-    from core.models.entity_requests import EntityUpdateRequest
     from core.ports.domain_protocols import ChoicesOperations
 
 
@@ -71,19 +70,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         self.event_bus = event_bus
         self.relationship_service = relationship_service
         self.logger = get_logger("skuel.services.choices.core")  # type: ignore[assignment]  # structlog BoundLogger
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Choice entities (filters by entity_type)."""
-        return "Entity"
-
-    # ========================================================================
-    # EMBEDDING HELPERS (Async Background Generation - January 2026)
-    # ========================================================================
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (DomainConfig - January 2026)
@@ -232,11 +218,11 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         )
 
         # Create choice in backend (use generic create, not domain-specific create_choice)
-        create_result = await self.backend.create(dto)
+        create_result = await self._create_and_convert(dto.to_dict(), ChoiceDTO, Choice)
         if create_result.is_error:
             return create_result
 
-        # Backend returns domain model directly, no conversion needed
+        # _create_and_convert returns domain model
         choice = create_result.value
 
         # Create knowledge relationships if provided
@@ -375,20 +361,17 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
         return Result.ok(choices)
 
-    async def update_choice(
-        self, choice_uid: str, choice_update: EntityUpdateRequest
-    ) -> Result[Choice]:
+    async def update_choice(self, choice_uid: str, updates: dict[str, Any]) -> Result[Choice]:
         """
-        Update a choice.
+        Update a choice from a dict of fields to change.
 
         Args:
-            choice_uid: UID of the choice,
-            choice_update: Updated choice data
+            choice_uid: UID of the choice
+            updates: Dict of fields to update (caller drops None values)
 
         Returns:
             Result containing updated Choice
         """
-        # Get existing choice
         existing_result = await self.get_choice(choice_uid)
         if existing_result.is_error:
             return Result.fail(existing_result)
@@ -398,43 +381,17 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
         assert isinstance(existing, Choice)
 
-        # Create updated DTO
-        dto = existing.to_dto()
-
-        # Apply updates
-        if choice_update.title is not None:
-            dto.title = choice_update.title
-        if choice_update.description is not None:
-            dto.description = choice_update.description
-        if choice_update.priority is not None:
-            dto.priority = choice_update.priority
-        if choice_update.decision_deadline is not None:
-            dto.decision_deadline = choice_update.decision_deadline
-
-        # Track updated fields
-        updated_fields: dict[str, Any] = {}
-        if choice_update.title is not None:
-            updated_fields["title"] = choice_update.title
-        if choice_update.description is not None:
-            updated_fields["description"] = choice_update.description
-        if choice_update.priority is not None:
-            updated_fields["priority"] = choice_update.priority
-        if choice_update.decision_deadline is not None:
-            updated_fields["deadline"] = choice_update.decision_deadline
-
-        # Update in backend
-        update_result = await self.backend.update(choice_uid, dto.to_dict())
+        update_result = await self.backend.update(choice_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result)
 
         choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
 
-        # Publish ChoiceUpdated event (event-driven architecture)
-        if updated_fields:
+        if updates:
             event = ChoiceUpdated(
                 choice_uid=choice.uid,
                 user_uid=choice.user_uid,
-                updated_fields=updated_fields,
+                updated_fields=updates,
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -467,7 +424,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Publish ChoiceDeleted event (event-driven architecture)
         event = ChoiceDeleted(
             choice_uid=choice_uid,
-            user_uid=user_uid,
+            user_uid=UserUID(user_uid),
             choice_description=choice_description or choice_uid,
         )
         await publish_event(self.event_bus, event, self.logger)
@@ -549,7 +506,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             Result containing updated Choice
         """
         # Update choice with selected option directly via backend
-        updates = {
+        updates: Neo4jProperties = {
             "selected_option_uid": selected_option_uid,
             "decision_rationale": decision_rationale,
             "decided_at": datetime.now().isoformat(),
@@ -736,7 +693,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update choice with new options
         dto = existing.to_dto()
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = list(updated_options)
+        dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
@@ -865,7 +822,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update choice with modified options
         dto = existing.to_dto()
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = list(updated_options)
+        dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
@@ -968,7 +925,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update choice with remaining options
         dto = existing.to_dto()
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
-        dto.options = list(updated_options)
+        dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
@@ -1019,7 +976,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             return Result.fail(current_result)
         current_choice = self._to_domain_model(current_result.value, ChoiceDTO, Choice)
 
-        hierarchy_result = await self.backend.get_hierarchy_raw(choice_uid)
+        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(choice_uid))
         if hierarchy_result.is_error:
             return Result.fail(hierarchy_result)
 

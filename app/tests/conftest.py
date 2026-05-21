@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from httpx import TestClient
+    from httpx import TestClient  # type: ignore[attr-defined]
 
 load_dotenv()
 

@@ -23,11 +23,16 @@ from fasthtml.common import (
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
+from ui.learning_loop.report import (
+    render_activity_report_detail,
+    render_activity_report_list,
+    render_progress_report_list,
+    render_time_period_filter,
+)
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.generate_report import (
     render_activity_report_request_card,
@@ -36,12 +41,6 @@ from ui.patterns.generate_report import (
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
-from ui.submissions.report import (
-    render_activity_report_detail,
-    render_activity_report_list,
-    render_progress_report_list,
-    render_time_period_filter,
-)
 
 logger = get_logger("skuel.routes.activity_reports")
 
@@ -225,11 +224,7 @@ def create_activity_reports_ui_routes(
                     render_error_banner("Submissions orchestrator unavailable"),
                     id="progress-list",
                 )
-            result = await orchestrator.list_submissions(
-                user_uid=user_uid,
-                entity_type=EntityType.ACTIVITY_REPORT,
-                limit=10,
-            )
+            result = await orchestrator.get_activity_report_history(user_uid, limit=10)
             if result.is_error:
                 logger.error(f"Error loading progress reports: {result.error}")
                 return Div(

@@ -361,7 +361,7 @@ class EntityTimestampMixin:
         return entity
 
     @staticmethod
-    def get_version(entity: T) -> int:
+    def get_version(entity: object) -> int:
         """
         Get the version from entity metadata.
 

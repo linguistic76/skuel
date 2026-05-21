@@ -199,6 +199,31 @@ class _HierarchyMixin:
             }
         )
 
+    async def get_descendant_uids(self, uid: str) -> Result[set[str]]:
+        """Get all descendant UIDs reachable from ``uid`` via the forward relationship.
+
+        Used by the entity-picker to filter cycle-prone candidates from
+        self-referential pickers (e.g., a Task's ``parent_uid`` cannot point to
+        any of its own subtasks).
+
+        Args:
+            uid: Source entity UID.
+
+        Returns:
+            Result containing the set of descendant UIDs (does NOT include
+            ``uid`` itself — caller adds if it wants self excluded too).
+        """
+        cfg = self._hierarchy_config
+        query = f"""
+        MATCH (root:{cfg.node_label} {{uid: $uid{cfg.node_filter}}})
+        MATCH (root)-[:{cfg.forward_rel}*]->(descendant:{cfg.node_label})
+        RETURN DISTINCT descendant.uid AS uid
+        """
+        result = await self.execute_query(query, {"uid": uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({record["uid"] for record in (result.value or []) if record.get("uid")})
+
     # ========================================================================
     # WRITE OPERATIONS
     # ========================================================================

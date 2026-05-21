@@ -29,6 +29,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -64,17 +65,21 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.models.principle.principle_types import PrincipleDecision
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import PrinciplesSearchOperations
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+    from core.services.insight.insight_store import InsightStore
+    from core.services.principles.principle_event_handler_service import (
+        PrincipleEventHandlerService,
+    )
     from core.services.principles.principles_ai_service import PrinciplesAIService
     from core.services.principles.principles_alignment_service import (
         AlignmentAssessment,
         MotivationalProfile,
     )
-    from core.services.principles.principles_event_handler_service import (
-        PrincipleEventHandlerService,
-    )
+    from core.services.principles.principles_core_service import PrinciplesCoreService
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
@@ -210,6 +215,19 @@ class PrinciplesService(
     )
 
     # ========================================================================
+    # CLASS-LEVEL TYPE ANNOTATIONS
+    # ========================================================================
+    core: PrinciplesCoreService
+    search: PrinciplesSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
+    alignment: PrinciplesAlignmentService
+    planning: PrinciplesPlanningService
+    learning: PrinciplesLearningService
+    relationships: UnifiedRelationshipService
+    intelligence: PrinciplesIntelligenceService
+    event_handler: PrincipleEventHandlerService
+    ai: PrinciplesAIService | None
+
+    # ========================================================================
     # DELEGATION METHODS
     # ========================================================================
 
@@ -240,6 +258,11 @@ class PrinciplesService(
 
     async def get_motivational_profile(self, user_uid: UserUID) -> Result[MotivationalProfile]:
         return await self.alignment.get_motivational_profile(user_uid)
+
+    async def get_embodiment_rates_7d(
+        self, principle_uids: list[EntityUID], user_uid: UserUID
+    ) -> Result[dict[str, float]]:
+        return await self.alignment.get_embodiment_rates_7d(principle_uids, user_uid)
 
     async def make_principle_based_decision(
         self, user_uid: UserUID, decision_description: str, options: list[str], context: str = ""
@@ -328,7 +351,7 @@ class PrinciplesService(
     async def get_principles_by_strength(
         self, strength: PrincipleStrength, limit: int = 100
     ) -> Result[list[Principle]]:
-        return await self.search.get_by_strength(strength, limit)
+        return await self.search.get_by_strength(strength, limit=limit)
 
     async def get_principles_by_category(
         self, category: PrincipleCategory | str, user_uid: UserUID | None = None, limit: int = 100
@@ -336,9 +359,25 @@ class PrinciplesService(
         return await self.search.get_by_category(category, user_uid, limit)
 
     async def get_principles_needing_review(
-        self, days_threshold: int = 90, limit: int = 20
+        self,
+        user_uid: UserUID | None = None,
+        days_threshold: int = 90,
+        limit: int = 20,
     ) -> Result[list[Principle]]:
-        return await self.search.get_needing_review(days_threshold, limit)
+        return await self.search.get_needing_review(user_uid, days_threshold, limit)
+
+    async def get_upcoming(
+        self, days_ahead: int = 30, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Principle]]:
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
+
+    async def get_overdue(
+        self, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Principle]]:
+        return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Principle]]:
+        return await self.search.get_active(user_uid, limit)
 
     async def get_principles_for_goal(
         self, goal_uid: str, limit: int = 10
@@ -354,8 +393,6 @@ class PrinciplesService(
         self, choice_uid: str, limit: int = 10
     ) -> Result[list[Principle]]:
         return await self.search.get_for_choice(choice_uid, limit)
-
-    # PrinciplesReflectionService shelved (2026-03-28)
 
     # Planning delegations
     async def get_principles_needing_attention_for_user(
@@ -385,10 +422,10 @@ class PrinciplesService(
     def __init__(
         self,
         backend: PrinciplesOperations,
-        graph_intel: Any,
+        graph_intel: GraphIntelligenceService,
         cross_domain_query: CrossDomainQueryService,
-        event_bus: Any = None,
-        insight_store: Any = None,
+        event_bus: EventBusOperations | None = None,
+        insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: PrinciplesAIService | None = None,
     ) -> None:
@@ -408,12 +445,14 @@ class PrinciplesService(
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: PrinciplesAIService | None = ai_service
-        self.logger = get_logger("skuel.services.principles")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.principles")  # structlog BoundLogger
         self.alignment_cache: dict[str, AlignmentAssessment] = {}
 
         # Initialize all common sub-services via factory, including event_handler,
         # learning, and knowledge_intelligence.
-        common: CommonSubServices[PrinciplesIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            PrinciplesCoreService, PrinciplesSearchOperations, PrinciplesIntelligenceService
+        ] = create_common_sub_services(
             domain="principles",
             backend=backend,
             graph_intel=graph_intel,
@@ -421,10 +460,14 @@ class PrinciplesService(
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
+        assert common.intelligence is not None  # 'intelligence' not in skip
         self.core = common.core
-        self.search: PrinciplesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
-        self.intelligence: PrinciplesIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
+        self.search = common.search
+        self.relationships = common.relationships
+        self.intelligence = common.intelligence
 
         # Domain-specific sub-services (not common to all facades)
         self.alignment = PrinciplesAlignmentService(
@@ -433,8 +476,6 @@ class PrinciplesService(
             event_bus=event_bus,
         )
         self.learning: PrinciplesLearningService = common.learning
-
-        # PrinciplesReflectionService shelved (2026-03-28)
 
         # Planning sub-service (January 2026 - context-aware recommendations)
         self.planning = PrinciplesPlanningService(
@@ -446,7 +487,7 @@ class PrinciplesService(
         self.event_handler: PrincipleEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "PrinciplesService facade initialized with 8 sub-services: "
@@ -455,28 +496,20 @@ class PrinciplesService(
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Principle entities."""
-        return "Principle"
-
-    # ========================================================================
     # CORE CRUD OPERATIONS - Delegate to PrinciplesCoreService
     # ========================================================================
 
     async def create_principle(
-        self,
-        label: str,
-        description: str,
-        category: PrincipleCategory,
-        why_matters: str,
-        **kwargs: Any,
+        self, request: PrincipleCreateRequest, user_uid: UserUID
     ) -> Result[Principle]:
-        """Create a new principle."""
-        return await self.core.create_principle(label, description, category, why_matters, **kwargs)
+        """Create a principle from a validated request."""
+        return await self.core.create_principle(request, user_uid)
+
+    async def update_principle(
+        self, principle_uid: str, updates: dict[str, Any]
+    ) -> Result[Principle]:
+        """Update a principle by uid with a dict of fields to change."""
+        return await self.core.update_principle(principle_uid, updates)
 
     # ========================================================================
     # QUERY LAYER

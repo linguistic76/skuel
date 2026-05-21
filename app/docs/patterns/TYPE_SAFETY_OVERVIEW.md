@@ -101,7 +101,7 @@ BackendOperations[T]          # UniversalNeo4jBackend[T] implements this
     └── LowLevelOperations
 ```
 `UniversalNeo4jBackend[Task]`, `UniversalNeo4jBackend[Goal]`, etc. — the same generic
-backend serves all 22 entity types, constrained by `DomainModelProtocol`.
+backend serves all 20 entity types, constrained by `DomainModelProtocol`.
 
 **See:** `docs/patterns/protocol_architecture.md`, `docs/patterns/BACKEND_OPERATIONS_ISP.md`
 
@@ -147,7 +147,7 @@ instead of `dict[str, Any]` for parameters.
 
 *Phase 4 — Return types:* ~170 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
 to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_service_interface.py`):
-- Domain model returns: `Result[ExerciseSubmission]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
+- Domain model returns: `Result[UserEntry]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
 - Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`
 - Existing dataclasses: `Result[LearningVelocityMetrics]`, `Result[SpendingPatternAnalysis]`
 - 48 output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
@@ -169,7 +169,7 @@ protocol root cause fixed: 4 extended protocols (`GoalsSearchOperations`, `Event
 `ChoicesSearchOperations`, `PrinciplesSearchOperations`) re-parameterized from `Entity` to their
 domain model type, eliminating 27 `# type: ignore[return-value]` suppressions in facade delegation
 methods. `EntityStatus` enum now enforced in all status comparisons (previously only `UserRole`
-and `ExerciseScope`). `ProcessorType` and `Visibility` enums enforced in submission protocol
+and `ExerciseScope`). `Pipeline` and `Visibility` enums enforced in user entry protocol
 parameters (previously `Any`). 30 missing return type annotations added to service methods.
 
 *Phase 6 — Route handler returns:* All 27 `*_api.py` route files narrowed from `Result[Any]` to
@@ -222,7 +222,7 @@ Per-module strictness overrides:
 
 ## Generic Types
 
-The generic backbone that makes one backend serve 22 entity types:
+The generic backbone that makes one backend serve 20 entity types:
 
 ```python
 # DomainModelProtocol — the constraint on T
@@ -235,7 +235,7 @@ class DomainModelProtocol(Protocol):
     @classmethod
     def from_dto(cls, dto: Any) -> "DomainModelProtocol": ...
 
-# UniversalNeo4jBackend[T] — one backend, all 22 entity types
+# UniversalNeo4jBackend[T] — one backend, all 20 entity types
 backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
 
 # BaseService[B, T] — all 6 activity domains use this

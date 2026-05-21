@@ -14,6 +14,7 @@ from adapters.inbound.ku_ui import (
     _exercises_for_ku_section,
     _ku_learning_buttons,
 )
+from core.models.type_hints import EntityUID
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
@@ -105,7 +106,7 @@ def render_ku_detail_content(
             _ku_learning_buttons(
                 uid, learning_state["is_studying"], learning_state["is_understood"]
             ),
-            PinButton(entity_uid=uid, is_pinned=is_pinned),
+            PinButton(entity_uid=EntityUID(uid), is_pinned=is_pinned),
             cls="flex gap-2 items-center border-t border-border pt-6 mt-8",
         )
     else:
@@ -139,7 +140,7 @@ def render_ku_detail_content(
         metadata_footer,
         _exercises_for_ku_section(exercises_for_ku),
         Div(
-            EntityRelationshipsSection(entity_uid=uid, entity_type="ku"),
+            EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ku"),
             cls="mt-8",
         ),
         cls="flex-1 min-w-0 max-w-4xl",

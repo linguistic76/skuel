@@ -161,8 +161,10 @@ async def tasks_content_fragment(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
     result = await tasks_service.get_user_tasks(user_uid)
     if result.is_error:
-        error = result.expect_error()
-        return Div(render_error_banner(error.user_message or error.message), id="tasks-content")
+        return Div(
+            render_error_banner(result.expect_error().display_message),
+            id="tasks-content",
+        )
     return Div(TasksList(result.value), id="tasks-content")
 ```
 
@@ -808,7 +810,7 @@ FormGenerator.from_instance(
 
 # Fragment mode — embed in article content (no <form> tag, no submit button)
 exercise_fields = FormGenerator.from_model(
-    ExerciseSubmissionRequest,
+    UserEntryRequest,
     include_fields=["response", "confidence_level"],
     as_fragment=True,
 )

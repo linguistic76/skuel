@@ -6,27 +6,31 @@
 
 The Learning Loop is the core of SKUEL. Everything in the app — tasks, goals, habits, journals, curriculum — exists to serve one purpose: helping you learn by doing, reflecting on what you did, and doing it better next time.
 
-The loop has five phases:
+The loop has four phases, anchored by a Path Step:
 
 ```
-Path Step → Exercise → Submission → Report → Revised Exercise → ...
+[Path Step] ──RELATED_TO──▶ Exercise → UserEntry → ExerciseReport → RevisedExercise → ...
 ```
 
 Each phase builds on the last. You never just consume content — you engage with it, get a response, and refine your understanding. The loop repeats until mastery emerges.
 
+The **Path Step** is the curriculum anchor — the knowledge the loop exists to transmit. It sits outside the cycle as context: every Exercise is linked back to one or more Path Steps via `RELATED_TO`. You move through the four phases; the Path Step is the why.
+
 ---
 
-## The Five Phases
-
-### Phase 1: Path Step — The Knowledge
+## The Curriculum Anchor: Path Step — The Knowledge
 
 Path Steps are units for learning written by teachers. They present ideas, concepts, and narratives that form the foundation of what you'll practice. Each Path Step composes one or more atomic knowledge units (Kus) into coherent learning content.
 
-You don't need to memorize Path Steps. You need to *engage* with them — and that engagement happens in the next phase.
+You don't need to memorize Path Steps. You need to *engage* with them — and that engagement happens in the four phases below.
 
 **Where to find them:** Browse Path Steps in the Explore hub (`/explore`), discover them through Learning Paths, or follow Askesis's recommendations.
 
-### Phase 2: Exercise — The Instructions
+---
+
+## The Four Phases
+
+### Phase 1: Exercise — The Instructions
 
 An Exercise is what your teacher asks you to do with the knowledge. It contains clear instructions for what to produce — an essay, a voice recording, a reflection, a creative piece.
 
@@ -41,21 +45,21 @@ Assigned Exercises appear automatically on your assignments page. Personal Exerc
 
 **Where to find them:** Your assignments page shows all Exercises assigned to you, with due dates and status.
 
-### Phase 3: Submission — Your Work
+### Phase 2: UserEntry — Your Work
 
-This is where you show what you've learned. Upload your work — text, audio, or other files — against an Exercise.
+This is where you show what you've learned. Upload your work — text, audio, or other files — against an Exercise. Your upload becomes a `UserEntry` node, the unified user-authored content type.
 
 **How it works:**
 
 1. Open the Exercise and click **Submit**
 2. Upload your file (audio files are automatically transcribed)
-3. Your submission is linked to the Exercise and, for assigned work, automatically shared with your teacher
+3. Your entry is linked to the Exercise and, for assigned work, automatically shared with your teacher
 
-Your submission's status moves through: **Submitted → Processing → Completed**. Once completed, it's ready for feedback.
+Your entry's status moves through: **Submitted → Processing → Completed**. Once completed, it's ready for feedback.
 
-**Journals** are a special kind of submission — reflective writing that gets AI-processed automatically. You can submit journals independently of any Exercise.
+**Journals** are a `UserEntry` with the transcribe-and-structure pipeline — reflective writing that gets AI-processed automatically. You can submit journals independently of any Exercise.
 
-### Phase 4: Report — The Response
+### Phase 3: ExerciseReport — The Response
 
 After you submit, the system responds. Reports can come from two sources:
 
@@ -74,7 +78,7 @@ When your teacher reviews your work, they choose one of three outcomes:
 
 You can annotate your Activity Reports with your own reflections, and those annotations feed into the next report — creating a feedback loop about the feedback itself.
 
-### Phase 5: Revised Exercise — The Refinement
+### Phase 4: Revised Exercise — The Refinement
 
 If your feedback identifies specific gaps, your teacher can create a Revised Exercise — a new set of instructions that targets exactly what you need to work on.
 
@@ -100,10 +104,10 @@ The Learning Loop operates on two parallel tracks:
 ### Curriculum Track (Artifact-Based)
 
 ```
-Path Step → Exercise → Submission → Report → Revised Exercise → ...
+[Path Step] ──▶ Exercise → UserEntry → ExerciseReport → RevisedExercise → ...
 ```
 
-This is the explicit learning cycle. You engage with specific curriculum content, produce work, and receive targeted feedback on that work.
+This is the explicit learning cycle. You engage with specific curriculum content, produce work, and receive targeted feedback on that work. The Path Step anchors the loop to curriculum; the four phases are what you actually cycle through.
 
 ### Activity Track (Pattern-Based)
 
@@ -197,7 +201,7 @@ Learning Paths are curriculum — created by teachers or admins, shared with all
 3. Set mastery thresholds per step (higher for critical concepts, lower for introductory ones)
 4. Students enroll and progress through steps by completing the associated Exercises
 
-The path structure gives students a clear road through your curriculum while the loop (Exercise -> Submission -> Feedback -> Revision) ensures they actually engage with each step's content.
+The path structure gives students a clear road through your curriculum while the loop (Exercise -> UserEntry -> ExerciseReport -> RevisedExercise) ensures they actually engage with each step's content.
 
 ---
 
@@ -234,13 +238,13 @@ The learning loop is not the whole system — it's the *base*. SKUEL is a layere
 ├─────────────────────────────────────────┤
 │  2. ZPD + UserContext (intelligence)    │  "Where are you?" + "What's next?"
 ├─────────────────────────────────────────┤
-│  1. Learning Loop (base)                │  Path Step → Exercise ��� Submission → ...
+│  1. Learning Loop (base)                │  Exercise → UserEntry → ExerciseReport → ...
 └─────────────────────────────────────────┘
 ```
 
 ### Layer 1: Learning Loop (this document)
 
-The base. Path Step → Exercise → Submission → Report → RevisedExercise. Without this, nothing else matters. The loop is the mechanism by which knowledge moves from the curriculum into the learner's life.
+The base. Exercise → UserEntry → ExerciseReport → RevisedExercise, anchored by a Path Step via `RELATED_TO`. Without this, nothing else matters. The loop is the mechanism by which knowledge moves from the curriculum into the learner's life.
 
 ### Layer 2: ZPD + UserContext (intelligence)
 
@@ -275,7 +279,7 @@ The loop (Layer 1) generates graph relationships (Layer 4) as the learner works.
 | **Mastery** | Not "I read it" but "I live it." Measured through habits, choices, journals, tasks — not just submissions. |
 | **Substance** | Knowledge has weight when it changes behavior. Habits contribute more to substance than passive reading. |
 | **Compound evidence** | ZPD requires 2+ signal types (submission, habit, task, journal) to consider a KU confirmed in your zone. Single-signal KUs get reinforcement recommendations. |
-| **Revision chain** | The sequence Exercise → Submission → Feedback → Revised Exercise → Submission v2 → ... Each link is a traceable entity. |
+| **Revision chain** | The sequence Exercise → UserEntry → ExerciseReport → RevisedExercise → UserEntry v2 → ... Each link is a traceable entity. |
 | **Activity Report** | A periodic synthesis of everything you've been doing, with AI-generated insights about your patterns. |
 | **Annotation** | Your voice alongside the system's analysis. Add your own reflections to Activity Reports — they inform the next one. |
 | **ZPD** | Zone of Proximal Development. The intelligence layer that reads the curriculum graph to know what you're ready for next — not too easy, not too hard. Generates three action types: unblock, learn, reinforce. See the [standalone ZPD guide](zpd.md). |

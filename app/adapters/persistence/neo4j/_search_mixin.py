@@ -21,7 +21,7 @@ mixins composed alongside this one on ``UniversalNeo4jBackend``:
         array_any_match_raw, array_contains_raw, distinct_values_raw,
         faceted_search_raw
     D: _temporal_mixin.py        (_TemporalMixin)
-        user_activity_range_raw, due_soon_raw, overdue_raw
+        user_activity_range_raw, upcoming_raw, overdue_raw, active_raw
     E + F: _prereq_progress_mixin.py (_PrereqProgressMixin)
         prerequisite_traversal_raw, hierarchy_query_raw, user_progress_raw,
         update_user_mastery_rel, user_curriculum_raw
@@ -275,7 +275,7 @@ class _SearchMixin[T: DomainModelProtocol]:
         sort_order = filters.pop("sort_order", "asc")
 
         if not filters and not self.default_filters:
-            return await self.list(limit=limit)  # type: ignore[no-any-return]
+            return await self.list(limit=limit)
 
         # Merge default_filters (non-overridable) with caller filters
         all_filters = {**filters, **self.default_filters}

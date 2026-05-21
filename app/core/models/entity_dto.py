@@ -24,7 +24,6 @@ from typing import Any
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import EntityUID
-from core.ports import get_enum_value
 
 
 @dataclass
@@ -74,33 +73,14 @@ class EntityDTO:
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for database operations."""
-        from core.models.dto_helpers import convert_datetimes_to_iso
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data: dict[str, Any] = {
-            "uid": self.uid,
-            "title": self.title,
-            "entity_type": get_enum_value(self.entity_type),
-            "parent_entity_uid": self.parent_entity_uid,
-            "domain": get_enum_value(self.domain),
-            "created_by": self.created_by,
-            "content": self.content,
-            "summary": self.summary,
-            "description": self.description,
-            "word_count": self.word_count,
-            "status": get_enum_value(self.status),
-            "tags": list(self.tags),
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "metadata": dict(self.metadata) if self.metadata else {},
-        }
-
-        convert_datetimes_to_iso(data, ["created_at", "updated_at"])
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain"],
+            datetime_fields=["created_at", "updated_at"],
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EntityDTO:

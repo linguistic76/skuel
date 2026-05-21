@@ -22,7 +22,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -80,15 +80,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         """
         super().__init__(backend=backend, service_name="tasks.progress")
         self.event_bus = event_bus
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Task entities."""
-        return "Entity"
 
     # ========================================================================
     # CONTEXT-FIRST PATTERN HELPERS (November 26, 2025)
@@ -197,13 +188,21 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             )
 
         # Parse datetime fields
-        created_at = task_dict.get("created_at")
-        if created_at and isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at)
+        created_at_raw = task_dict.get("created_at")
+        if isinstance(created_at_raw, str):
+            created_at: datetime = datetime.fromisoformat(created_at_raw)
+        elif isinstance(created_at_raw, datetime):
+            created_at = created_at_raw
+        else:
+            created_at = datetime.now()
 
-        updated_at = task_dict.get("updated_at")
-        if updated_at and isinstance(updated_at, str):
-            updated_at = datetime.fromisoformat(updated_at)
+        updated_at_raw = task_dict.get("updated_at")
+        if isinstance(updated_at_raw, str):
+            updated_at: datetime = datetime.fromisoformat(updated_at_raw)
+        elif isinstance(updated_at_raw, datetime):
+            updated_at = updated_at_raw
+        else:
+            updated_at = datetime.now()
 
         # Parse enums
         status_val = task_dict.get("status", "pending")
@@ -233,7 +232,8 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             ),
             actual_minutes=task_dict.get("actual_minutes"),
             fulfills_goal_uid=task_dict.get("fulfills_goal_uid"),
-            reinforces_habit_uid=task_dict.get("reinforces_habit_uid"),
+            # reinforces_habit_uid is a derived field (graph edge) — populated by
+            # explicit enrichment, not read from the persisted node dict.
             completion_updates_goal=task_dict.get("completion_updates_goal", False),
             goal_progress_contribution=task_dict.get("goal_progress_contribution", 0.0),
             knowledge_mastery_check=task_dict.get("knowledge_mastery_check", False),
@@ -389,9 +389,9 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             )
 
         # Update task to completed
-        updates = {
+        updates: Neo4jProperties = {
             "status": EntityStatus.COMPLETED.value,
-            "completion_date": date.today(),
+            "completion_date": date.today().isoformat(),
             "actual_minutes": actual_minutes,
         }
 
@@ -407,9 +407,13 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
                 task.fulfills_goal_uid, task.goal_progress_contribution, user_context
             )
 
-        # 2. Reinforce habit if linked
-        if task.reinforces_habit_uid:
-            await self._reinforce_habit(task.reinforces_habit_uid, quality_score or 4)
+        # 2. Reinforce habit if linked (graph-native: query the REINFORCES_HABIT edge)
+        habit_result = await self.backend.get_related_uids(
+            task_uid, RelationshipName.REINFORCES_HABIT, direction="outgoing"
+        )
+        reinforced_habit_uids = habit_result.value if habit_result.is_ok else []
+        for habit_uid in reinforced_habit_uids:
+            await self._reinforce_habit(habit_uid, quality_score or 4)
 
         # 3. Update knowledge mastery if checking
         if task.knowledge_mastery_check and applies_knowledge_uids:
@@ -433,10 +437,10 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         completed_task = self._to_domain_model(update_result.value, TaskDTO, Task)
 
         self.logger.info(
-            "Completed task %s with cascading effects: goal=%s, habit=%s, knowledge=%d",
+            "Completed task %s with cascading effects: goal=%s, habits=%d, knowledge=%d",
             task_uid,
             task.fulfills_goal_uid,
-            task.reinforces_habit_uid,
+            len(reinforced_habit_uids),
             len(applies_knowledge_uids),
         )
 
@@ -445,7 +449,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             task_uid=task_uid,
             user_uid=user_context.user_uid,
             completion_time_seconds=actual_minutes * 60 if actual_minutes else None,
-            was_overdue=task.due_date and task.due_date < date.today() if task.due_date else False,
+            was_overdue=task.due_date < date.today() if task.due_date else False,
         )
         await publish_event(self.event_bus, event, self.logger)
 

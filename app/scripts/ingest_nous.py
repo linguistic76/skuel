@@ -30,8 +30,7 @@ async def main():
 
     print(f"Loaded from .env: {ENV_FILE}")
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
     print(f"Connecting to Neo4j at {conn.uri}")
 
     try:

@@ -56,7 +56,7 @@ class PsAdaptiveService:
     def __init__(
         self,
         backend: Any,  # PS backend operations
-        user_service=None,
+        user_service: Any = None,
     ) -> None:
         if not backend:
             raise ValueError("backend is required")
@@ -276,7 +276,7 @@ class PsAdaptiveService:
         try:
             all_ps_result = await self.backend.find_by(sel_category=category.value)
             if all_ps_result.is_error:
-                all_ps = []
+                all_ps: list[PathStep] = []
             else:
                 all_ps = all_ps_result.value or []
 
@@ -543,7 +543,11 @@ class PsAdaptiveService:
                 velocity_counts[vel] = velocity_counts.get(vel, 0) + 1
 
             if velocity_counts:
-                dominant_vel = max(velocity_counts.keys(), key=velocity_counts.get)
+                from core.utils.sort_functions import make_dict_value_getter
+
+                dominant_vel = max(
+                    velocity_counts.keys(), key=make_dict_value_getter(velocity_counts)
+                )
                 velocities[domain] = dominant_vel
             else:
                 velocities[domain] = LearningVelocity.MODERATE

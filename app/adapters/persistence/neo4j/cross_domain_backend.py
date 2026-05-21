@@ -23,7 +23,7 @@ from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from datetime import date
+    from datetime import date, datetime
 
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
@@ -137,6 +137,24 @@ MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{
 WHERE c.created_at >= datetime() - duration({{days: 30}})
 MATCH (c)-[:{RelationshipName.CONFLICTS_WITH_PRINCIPLE.value}]->(:Entity {{entity_type: 'principle'}})
 RETURN count(DISTINCT c) AS conflict_count
+"""
+
+# Rolling 7-day embodiment rate per principle: for each supplied principle UID,
+# find the user-owned habits that EMBODY it, then count HabitCompletions in
+# the cutoff window. Return raw counts so the service layer computes the rate
+# and clamps to [0, 1]. Principles with no embodying habits are dropped from
+# the result (caller should default to 0.0).
+_EMBODIMENT_RATES_7D_QUERY = f"""
+UNWIND $principle_uids AS pid
+MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Habit)
+      -[:{RelationshipName.EMBODIES_PRINCIPLE.value}]->(p:Principle {{uid: pid}})
+WITH pid, collect(DISTINCT h.uid) AS habit_uids
+OPTIONAL MATCH (hc:HabitCompletion)
+WHERE hc.habit_uid IN habit_uids
+  AND hc.completed_at >= $cutoff
+RETURN pid AS principle_uid,
+       size(habit_uids) AS habit_count,
+       count(hc) AS completion_count
 """
 
 # Re-export constants needed by CrossDomainQueryService for score calculation
@@ -355,6 +373,15 @@ class CrossDomainBackend:
         return await self.executor.execute_query(
             _PRINCIPLE_ALIGNMENT_EVIDENCE_QUERY,
             {"principle_uid": principle_uid, "user_uid": user_uid},
+        )
+
+    async def get_embodiment_rates_7d(
+        self, principle_uids: list[str], user_uid: str, cutoff: datetime
+    ) -> Result[list[dict[str, Any]]]:
+        """Per-principle habit-completion counts over the window ending now."""
+        return await self.executor.execute_query(
+            _EMBODIMENT_RATES_7D_QUERY,
+            {"principle_uids": principle_uids, "user_uid": user_uid, "cutoff": cutoff},
         )
 
     async def get_tasks_applying_knowledge(
@@ -990,14 +1017,23 @@ class CrossDomainBackend:
         start_datetime: str,
         end_datetime: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Get journal input entries within a date range."""
+        """Get journal source entries within a date range.
+
+        After ADR-054 the former `:JeInput` nodes are `:UserEntry` with
+        `pipeline='transcribe_and_structure'` — the audio source of the
+        journal flow. The LLM-structured child (pipeline='none', linked via
+        TRANSFORMS) is intentionally not included here: analytics consumes
+        the source's `processed_content` (transcript) plus the metadata
+        fields the migration preserved on the source node.
+        """
         return await self.executor.execute_query(
             """
-            MATCH (j:JeInput {user_uid: $user_uid})
-            WHERE j.created_at >= datetime($start_datetime)
+            MATCH (j:UserEntry {user_uid: $user_uid})
+            WHERE j.pipeline = 'transcribe_and_structure'
+              AND j.created_at >= datetime($start_datetime)
               AND j.created_at <= datetime($end_datetime)
             RETURN j.uid as uid,
-                   j.content as processed_content,
+                   coalesce(j.processed_content, j.content) as processed_content,
                    {title: j.title, summary: j.summary, themes: j.key_topics} as metadata,
                    j.created_at as created_at
             ORDER BY j.created_at DESC

@@ -97,6 +97,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),  # no KU UIDs to fetch
             habits_service=_ok_service(habit),
@@ -127,6 +128,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
             ps_service=_failing_service("ps service down"),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
@@ -156,6 +158,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
@@ -180,6 +183,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
             ps_service=_failing_service("lessons down"),
             ku_service=_failing_service("kus down"),
             habits_service=_failing_service("habits down"),
@@ -207,6 +211,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
             ps_service=MagicMock(),
             ku_service=MagicMock(),
             habits_service=MagicMock(),
@@ -232,6 +237,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_failing_service("habits timeout"),
@@ -272,6 +278,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
@@ -300,6 +307,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
@@ -327,3 +335,34 @@ class TestRelationshipNameCitesResource:
 
         assert RelationshipName.CITES_RESOURCE == "CITES_RESOURCE"
         assert RelationshipName.is_valid("CITES_RESOURCE")
+
+
+class TestIntentToChunkTypes:
+    """Intent-aware chunk-type filtering for chunk retrieval."""
+
+    @pytest.mark.parametrize(
+        "intent_name,expected",
+        [
+            ("PREREQUISITE", ["DEFINITION", "EXPLANATION"]),
+            ("PRACTICE", ["EXERCISE", "EXAMPLE"]),
+            ("HIERARCHICAL", ["DEFINITION", "EXPLANATION"]),
+            ("EXPLORATORY", ["INTRODUCTION", "SUMMARY", "DEFINITION"]),
+            ("RELATIONSHIP", ["EXPLANATION", "DEFINITION"]),
+        ],
+    )
+    def test_mapped_intents_return_chunk_types(self, intent_name: str, expected: list[str]) -> None:
+        from core.models.query_types import QueryIntent
+        from core.services.askesis.context_retriever import _intent_to_chunk_types
+
+        assert _intent_to_chunk_types(QueryIntent[intent_name]) == expected
+
+    @pytest.mark.parametrize(
+        "intent_name",
+        ["AGGREGATION", "SPECIFIC", "GOAL_ACHIEVEMENT", "SCHEDULED_ACTION"],
+    )
+    def test_unmapped_intents_return_none(self, intent_name: str) -> None:
+        """Unmapped intents fall through to None (no chunk-type filter)."""
+        from core.models.query_types import QueryIntent
+        from core.services.askesis.context_retriever import _intent_to_chunk_types
+
+        assert _intent_to_chunk_types(QueryIntent[intent_name]) is None

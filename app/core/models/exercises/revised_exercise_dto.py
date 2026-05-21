@@ -15,7 +15,6 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -34,7 +33,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
     - revision_number: Which revision iteration
     - original_exercise_uid: UID of the original Exercise
     - report_uid: UID of the ExerciseReport this addresses
-    - submission_uid: UID of the ExerciseSubmission that was evaluated
+    - submission_uid: UID of the UserEntry that was evaluated
     - student_uid: Target student
     - instructions: Revision instructions
     - model: Which LLM to use
@@ -64,30 +63,14 @@ class RevisedExerciseDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including revised-exercise-specific fields."""
-        data = super().to_dict()
-        data.update(
-            {
-                "revision_number": self.revision_number,
-                "original_exercise_uid": self.original_exercise_uid,
-                "report_uid": self.report_uid,
-                "submission_uid": self.submission_uid,
-                "student_uid": self.student_uid,
-                "instructions": self.instructions,
-                "model": self.model,
-                "context_notes": list(self.context_notes) if self.context_notes else [],
-                "feedback_points": (
-                    json.dumps(self.feedback_points) if self.feedback_points else "[]"
-                ),
-                "revision_rationale": self.revision_rationale,
-                "expected_modality": self.expected_modality,
-            }
-        )
-        return data
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility"],
+            datetime_fields=["created_at", "updated_at"],
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RevisedExerciseDTO:

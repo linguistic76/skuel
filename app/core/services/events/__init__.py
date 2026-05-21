@@ -17,7 +17,7 @@ Sub-Services:
 - EventsSchedulingService: Scheduling, recurrence, capacity management
 - EventsLearningService: Learning and knowledge integration
 - EventsHabitIntegrationService: Cross-domain habits integration
-- EventsEventHandlerService: Event-driven reactive logic (attendance patterns, rescheduling, density)
+- EventEventHandlerService: Event-driven reactive logic (attendance patterns, rescheduling, density)
 - EventsIntelligenceService: Pure Cypher analytics (NO AI dependencies)
 
 Common Import Pattern (Production):
@@ -38,8 +38,8 @@ Architecture Notes:
 - Uses UnifiedRelationshipService for all relationship operations
 """
 
+from core.services.events.event_event_handler_service import EventEventHandlerService
 from core.services.events.events_core_service import EventsCoreService
-from core.services.events.events_event_handler_service import EventsEventHandlerService
 from core.services.events.events_habit_integration_service import EventsHabitIntegrationService
 from core.services.events.events_intelligence_service import EventsIntelligenceService
 from core.services.events.events_learning_service import EventsLearningService
@@ -49,7 +49,7 @@ from core.services.events.events_search_service import EventsSearchService
 
 __all__ = [
     "EventsCoreService",
-    "EventsEventHandlerService",
+    "EventEventHandlerService",
     "EventsHabitIntegrationService",
     "EventsIntelligenceService",
     "EventsLearningService",

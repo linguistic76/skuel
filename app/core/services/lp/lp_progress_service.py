@@ -19,6 +19,7 @@ from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
@@ -194,8 +195,8 @@ class LpProgressService:
             self.logger.debug(f"No KUs found for learning path {lp_uid}")
             return
 
-        total_kus = int(progress_data.get("total_kus", 0))  # type: ignore[arg-type]
-        mastered_kus = int(progress_data.get("mastered_kus", 0))  # type: ignore[arg-type]
+        total_kus = coerce_int(progress_data.get("total_kus"))
+        mastered_kus = coerce_int(progress_data.get("mastered_kus"))
 
         # Calculate old and new progress
         # Note: We need to get the user's current LP progress from storage

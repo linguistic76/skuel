@@ -55,6 +55,7 @@ from pydantic import BaseModel
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
@@ -277,6 +278,7 @@ class OwnershipRouteFactory:
             methods = ["GET"]
 
         @rt(config.path, methods=methods)
+        @csrf_protected
         @boundary_handler(success_status=config.success_status)
         async def ownership_route(request: Any) -> Result[Any]:
             # 1. Require authentication
@@ -318,7 +320,7 @@ class OwnershipRouteFactory:
                 )
                 result = await parse_json_body(request, config.request_schema, extra=extra)
                 if result.is_error:
-                    return result  # type: ignore[return-value]
+                    return result
 
                 if config.include_user_uid:
                     return cast(

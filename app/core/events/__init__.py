@@ -57,7 +57,7 @@ Finance:
     ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid,
 
 User:
-    UserContextInvalidated, UserPreferencesChanged,
+    UserContextInvalidated, UserPreferencesChanged, UserDeleted,
 
 Learning:
     KnowledgeMastered, LearningPathStarted, LearningPathCompleted,
@@ -71,7 +71,6 @@ References:
 """
 
 # Base classes and protocols
-# Journal events extracted to core/events/journal_events.py (March 2026)
 # Knowledge substance events (tracking real-world application)
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
@@ -161,15 +160,6 @@ from core.events.habit_events import (
     HabitStreakBroken,
     HabitStreakMilestone,
 )
-
-# Journal events (JE_INPUT/JE_OUTPUT domain)
-from core.events.journal_events import (
-    JeInputCreated,
-    JeInputDeleted,
-    JeInputProcessingCompleted,
-    JeInputProcessingStarted,
-    JeOutputGenerated,
-)
 from core.events.knowledge_substance_events import (
     KnowledgeAppliedInTask,
     KnowledgeBuiltIntoHabit,
@@ -193,6 +183,16 @@ from core.events.learning_events import (
     PrerequisitesAnalyzed,
 )
 
+# Learning loop events (ADR-054 — relocated from submission_events.py)
+from core.events.learning_loop_events import (
+    ActivitySnapshotAccessed,
+    AssessmentCreated,
+    ReportSubmitted,
+    RevisedExerciseCreated,
+    UserEntryApproved,
+    UserEntryRevisionRequested,
+)
+
 # Principle events
 from core.events.principle_events import (
     PrincipleAlignmentAssessed,
@@ -200,20 +200,6 @@ from core.events.principle_events import (
     PrincipleDeleted,
     PrincipleStrengthChanged,
     PrincipleUpdated,
-)
-
-# Submission events
-from core.events.submission_events import (
-    AssessmentCreated,
-    ReportSubmitted,
-    RevisedExerciseCreated,
-    SubmissionApproved,
-    SubmissionCreated,
-    SubmissionDeleted,
-    SubmissionProcessingCompleted,
-    SubmissionProcessingFailed,
-    SubmissionProcessingStarted,
-    SubmissionRevisionRequested,
 )
 
 # Task events
@@ -233,26 +219,32 @@ from core.events.transcription_events import (
     TranscriptionFailed,
 )
 
+# UserEntry events (ADR-054 — additive through Step 13)
+from core.events.user_entry_events import (
+    UserEntryCreated,
+    UserEntryDeleted,
+    UserEntryProcessingCompleted,
+    UserEntryProcessingFailed,
+    UserEntryProcessingStarted,
+)
+
 # User events
 from core.events.user_events import (
     UserActivityRecorded,
     UserContextInvalidated,
+    UserDeleted,
     UserPreferencesChanged,
 )
 
 # Public API
 __all__ = [
-    # Submission events
+    # Learning loop events
+    "ActivitySnapshotAccessed",
     "AssessmentCreated",
     "ReportSubmitted",
     "RevisedExerciseCreated",
-    "SubmissionApproved",
-    "SubmissionCreated",
-    "SubmissionDeleted",
-    "SubmissionProcessingCompleted",
-    "SubmissionProcessingFailed",
-    "SubmissionProcessingStarted",
-    "SubmissionRevisionRequested",
+    "UserEntryApproved",
+    "UserEntryRevisionRequested",
     # Base
     "BaseEvent",
     # Calendar Events
@@ -302,12 +294,6 @@ __all__ = [
     "GoalAchieved",
     # Goals
     "GoalCreated",
-    # Journal events (JE_INPUT/JE_OUTPUT)
-    "JeInputCreated",
-    "JeInputDeleted",
-    "JeInputProcessingCompleted",
-    "JeInputProcessingStarted",
-    "JeOutputGenerated",
     "GoalMilestoneReached",
     "GoalProgressUpdated",
     "HabitCompleted",
@@ -317,7 +303,6 @@ __all__ = [
     "HabitMissed",
     "HabitStreakBroken",
     "HabitStreakMilestone",
-    # Journal (JE_INPUT/JE_OUTPUT domain — extracted March 2026)
     # Knowledge substance events
     "KnowledgeAppliedInTask",
     "KnowledgeBulkAppliedInTask",
@@ -363,7 +348,14 @@ __all__ = [
     "UserActivityRecorded",
     # User
     "UserContextInvalidated",
+    "UserDeleted",
     "UserPreferencesChanged",
+    # UserEntry (ADR-054)
+    "UserEntryCreated",
+    "UserEntryDeleted",
+    "UserEntryProcessingCompleted",
+    "UserEntryProcessingFailed",
+    "UserEntryProcessingStarted",
     # Utilities
     "publish_event",
 ]
@@ -375,16 +367,12 @@ __all__ = [
 
 # Map event type strings to event classes for deserialization
 EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
-    # Submissions
-    "submission.created": SubmissionCreated,
-    "submission.processing_started": SubmissionProcessingStarted,
-    "submission.processing_completed": SubmissionProcessingCompleted,
-    "submission.processing_failed": SubmissionProcessingFailed,
-    "submission.deleted": SubmissionDeleted,
+    # Learning loop
     "submission.report_submitted": ReportSubmitted,
-    "submission.approved": SubmissionApproved,
-    "submission.assessment_created": AssessmentCreated,
-    "submission.revision_requested": SubmissionRevisionRequested,
+    "user_entry.approved": UserEntryApproved,
+    "user_entry.revision_requested": UserEntryRevisionRequested,
+    "assessment.created": AssessmentCreated,
+    "activity.snapshot_accessed": ActivitySnapshotAccessed,
     "revised_exercise.created": RevisedExerciseCreated,
     # Chunk embedding events (async background generation for RAG)
     "chunk.embedding_requested": ChunkEmbeddingRequested,
@@ -427,6 +415,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "user.context_invalidated": UserContextInvalidated,
     "user.preferences_changed": UserPreferencesChanged,
     "user.activity_recorded": UserActivityRecorded,
+    "user.deleted": UserDeleted,
     # Learning
     "knowledge.mastered": KnowledgeMastered,
     "knowledge.created": KnowledgeCreated,
@@ -482,10 +471,12 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "expense.updated": ExpenseUpdated,
     "expense.deleted": ExpenseDeleted,
     "expense.paid": ExpensePaid,
-    # Journal events (JE_INPUT/JE_OUTPUT domain)
-    "journal.input_created": JeInputCreated,
-    "journal.input_deleted": JeInputDeleted,
-    "journal.output_generated": JeOutputGenerated,
+    # UserEntry (ADR-054)
+    "user_entry.created": UserEntryCreated,
+    "user_entry.processing_started": UserEntryProcessingStarted,
+    "user_entry.processing_completed": UserEntryProcessingCompleted,
+    "user_entry.processing_failed": UserEntryProcessingFailed,
+    "user_entry.deleted": UserEntryDeleted,
     # Transcriptions
     "transcription.created": TranscriptionCreated,
     "transcription.completed": TranscriptionCompleted,
@@ -570,16 +561,12 @@ def list_event_types() -> list[str]:
 # EVENT GROUPS
 # ============================================================================
 
-SUBMISSION_EVENTS = [
-    SubmissionCreated,
-    SubmissionProcessingStarted,
-    SubmissionProcessingCompleted,
-    SubmissionProcessingFailed,
-    SubmissionDeleted,
+LEARNING_LOOP_EVENTS = [
     ReportSubmitted,
-    SubmissionApproved,
+    UserEntryApproved,
     AssessmentCreated,
-    SubmissionRevisionRequested,
+    ActivitySnapshotAccessed,
+    UserEntryRevisionRequested,
     RevisedExerciseCreated,
 ]
 
@@ -613,6 +600,7 @@ USER_EVENTS = [
     UserContextInvalidated,
     UserPreferencesChanged,
     UserActivityRecorded,
+    UserDeleted,
 ]
 
 LEARNING_EVENTS = [
@@ -685,10 +673,12 @@ FINANCE_EVENTS = [
     ExpensePaid,
 ]
 
-JOURNAL_EVENTS = [
-    JeInputCreated,
-    JeInputDeleted,
-    JeOutputGenerated,
+USER_ENTRY_EVENTS = [
+    UserEntryCreated,
+    UserEntryProcessingStarted,
+    UserEntryProcessingCompleted,
+    UserEntryProcessingFailed,
+    UserEntryDeleted,
 ]
 
 TRANSCRIPTION_EVENTS = [
@@ -699,7 +689,7 @@ TRANSCRIPTION_EVENTS = [
 
 # All events
 ALL_EVENTS = (
-    SUBMISSION_EVENTS
+    LEARNING_LOOP_EVENTS
     + TASK_EVENTS
     + GOAL_EVENTS
     + HABIT_EVENTS
@@ -712,7 +702,7 @@ ALL_EVENTS = (
     + CALENDAR_EVENT_EVENTS
     + FORM_EVENTS
     + FINANCE_EVENTS
-    + JOURNAL_EVENTS
+    + USER_ENTRY_EVENTS
     + TRANSCRIPTION_EVENTS
 )
 

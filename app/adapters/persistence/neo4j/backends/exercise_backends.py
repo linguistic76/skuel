@@ -1,12 +1,15 @@
 """Exercise-family backends: Exercise, RevisedExercise, ExerciseReport.
 
-The three entities that drive the five-phase learning loop:
-Exercise → ExerciseSubmission → ExerciseReport → RevisedExercise → …
+The three entities that drive the four-phase learning loop:
+Exercise → UserEntry → ExerciseReport → RevisedExercise → …
+
+PathStep is the curriculum anchor, linked via (PathStep)-[:RELATED_TO]->(Exercise)
+(denormalized as Exercise.path_step_uid for PERSONAL scope).
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.exercises.exercise import Exercise
@@ -34,9 +37,8 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
     Methods:
     - create_owns_relationship      — MERGE OWNS (user -> exercise)
-    - create_for_group_relationship — MERGE FOR_GROUP (exercise -> group)
     - get_user_exercises             — OWNS query for user's exercises
-    - get_student_exercises          — MEMBER_OF + FOR_GROUP traversal
+    - get_student_exercises          — MEMBER_OF + SHARED_WITH_GROUP traversal
     - get_student_exercises_with_status — Above + FULFILLS_EXERCISE submission check
     - get_exercises_for_curriculum   — Reverse REQUIRES_KNOWLEDGE lookup
     - link_to_curriculum             — MERGE REQUIRES_KNOWLEDGE relationship
@@ -140,7 +142,9 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
         if result.is_error:
             return Result.fail(result)
-        items: list[RequiredKnowledgeResult] = [dict(record) for record in (result.value or [])]  # type: ignore[misc]
+        items: list[RequiredKnowledgeResult] = [
+            cast("RequiredKnowledgeResult", dict(record)) for record in (result.value or [])
+        ]
         return Result.ok(items)
 
     async def create_owns_relationship(
@@ -165,28 +169,6 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"user_uid": user_uid, "exercise_uid": exercise_uid},
         )
 
-    async def create_for_group_relationship(
-        self, exercise_uid: str, group_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create FOR_GROUP relationship from exercise to group.
-
-        Args:
-            exercise_uid: Exercise UID
-            group_uid: Target group UID
-
-        Returns:
-            Result containing query records
-        """
-        return await self.execute_query(
-            f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-            MATCH (group:Group {{uid: $group_uid}})
-            MERGE (exercise)-[:{RelationshipName.FOR_GROUP}]->(group)
-            RETURN true as success
-            """,
-            {"exercise_uid": exercise_uid, "group_uid": group_uid},
-        )
-
     async def get_user_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all exercises owned by a user via OWNS relationship.
 
@@ -206,7 +188,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
 
     async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Get assigned exercises for a student via MEMBER_OF -> Group <- FOR_GROUP.
+        """Get assigned exercises for a student via MEMBER_OF -> Group <- SHARED_WITH_GROUP.
 
         Args:
             user_uid: Student UID
@@ -217,7 +199,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
+            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.SHARED_WITH_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
             RETURN exercise
             ORDER BY exercise.due_date ASC, exercise.created_at DESC
@@ -248,7 +230,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
+            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.SHARED_WITH_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
@@ -371,8 +353,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         if result.is_error:
             return Result.fail(result)
         items: list[CurriculumExerciseResult] = [
-            dict(record)
-            for record in (result.value or [])  # type: ignore[misc]
+            cast("CurriculumExerciseResult", dict(record)) for record in (result.value or [])
         ]
         return Result.ok(items)
 
@@ -464,7 +445,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     """
     Domain backend for RevisedExercise entities.
 
-    Provides relationship-specific Cypher for the five-phase learning loop:
+    Provides relationship-specific Cypher for the four-phase learning loop:
     - verify_teacher_authority    — Check teacher review authority graph path
     - create_owns_relationship   — MERGE OWNS (teacher -> revised exercise)
     - auto_share_with_student    — MERGE SHARES_WITH (student -> revised exercise)
@@ -529,8 +510,8 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """Verify teacher has review authority over a report.
 
         Checks the graph path (OWNS-based, per ADR-040):
-        - (ExerciseReport)-[:REPORT_FOR]->(Submission) exists
-        - (Student)-[:OWNS]->(Submission)
+        - (ExerciseReport)-[:REPORT_FOR]->(UserEntry) exists
+        - (Student)-[:OWNS]->(UserEntry)
         - Teacher identity is role-gated at the route level (@require_role)
 
         teacher_uid is retained for audit logging and future per-teacher scoping.
@@ -673,8 +654,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         if result.is_error:
             return Result.fail(result)
         items: list[RevisionChainResult] = [
-            dict(record)
-            for record in (result.value or [])  # type: ignore[misc]
+            cast("RevisionChainResult", dict(record)) for record in (result.value or [])
         ]
         return Result.ok(items)
 
@@ -719,7 +699,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     """
     Domain backend for ExerciseReport entities.
 
-    Provides typed relationship-specific reads for the five-phase learning loop.
+    Provides typed relationship-specific reads for the four-phase learning loop.
     All reads assert both labels (``:Entity:ExerciseReport``) and return
     ``list[ExerciseReport]`` via ``from_neo4j_node``.
 
@@ -908,13 +888,13 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
         """
         return await self.execute_query(query, params)
 
-    async def get_by_uid(self, uid: str) -> Result[ExerciseReport | None]:
+    async def get(self, uid: str) -> Result[ExerciseReport | None]:
         """Typed single-fetch for ExerciseReport by UID.
 
-        Projects ``subject_uid`` from the REPORT_FOR edge so the hydrated
-        ExerciseReport carries the submission UID it reports on. Returns
-        ``Result.ok(None)`` when no node matches (matches the generic
-        ``UniversalNeo4jBackend.get`` convention).
+        Overrides ``UniversalNeo4jBackend.get`` to project ``subject_uid``
+        from the REPORT_FOR edge so the hydrated ExerciseReport carries the
+        submission UID it reports on. Returns ``Result.ok(None)`` when no
+        node matches (same not-found-is-not-error contract as the parent).
         """
         cypher = f"""
             MATCH (n:ExerciseReport {{uid: $uid}})
@@ -930,16 +910,14 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             entity = from_neo4j_node(records[0]["n"], self.entity_class)
             return Result.ok(entity)
         except Exception as e:  # safety-net: neo4j + mapping errors
-            return Result.fail(
-                Errors.database("get_by_uid", f"Failed to fetch ExerciseReport: {e!s}")
-            )
+            return Result.fail(Errors.database("get", f"Failed to fetch ExerciseReport: {e!s}"))
 
     async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:
         """Return all reports attached to a submission, as typed ExerciseReport
         instances, ordered by created_at ASC (oldest → newest review round).
 
         Replaces the former dict-returning get_report_for_submission (this
-        backend) and the dict-returning SubmissionsBackend.get_report_history.
+        backend) and the dict-returning UserEntryBackend.get_report_history.
         Typed all the way to the route handler — no TypedDict projection.
         """
         cypher = f"""
@@ -963,8 +941,8 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     ) -> Result[list[ExerciseReport]]:
         """All ExerciseReports for a student's submissions on a given exercise.
 
-        Traverses: (Student)-[:OWNS]->(Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-                   (Report)-[:REPORT_FOR]->(Submission)
+        Traverses: (Student)-[:OWNS]->(UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
+                   (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
 
         Returns typed ExerciseReport instances ordered by created_at DESC
         (newest-first — natural reading order for "most recent feedback").

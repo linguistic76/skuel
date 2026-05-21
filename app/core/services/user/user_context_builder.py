@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import UserUID
 from core.models.user import User
 from core.services.user import UserContext
+from core.services.user.unified_user_context import RichUserContext
 from core.services.user.user_context_extractor import UserContextExtractor
 from core.services.user.user_context_populator import UserContextPopulator
 from core.services.user.user_context_queries import UserContextQueryExecutor
@@ -42,6 +43,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.services.ps_engagement import PsEngagementService
     from core.services.user_service import UserService
     from core.services.zpd.zpd_service import ZPDService
 
@@ -98,6 +100,10 @@ class UserContextBuilder:
         self.executor = executor
         self.user_service = user_service
         self.zpd_service: ZPDService | None = None
+        # PsEngagementService is post-wired by services_bootstrap/_intelligence_hub.py
+        # alongside zpd_service. ps_engagement is core-tier, but UserContextBuilder
+        # is constructed before template_services run, so it can't be a ctor arg.
+        self.ps_engagement_service: PsEngagementService | None = None
 
         # Compose modules for separation of concerns
         self._query_executor = UserContextQueryExecutor(executor)
@@ -131,7 +137,7 @@ class UserContextBuilder:
 
         return Result.ok(user)
 
-    def _finalize_context(self, context: UserContext, *, is_rich: bool = False) -> None:
+    def _finalize_context(self, context: UserContext) -> None:
         """
         Apply final derived calculations to context.
 
@@ -142,10 +148,13 @@ class UserContextBuilder:
         single authority for workload calculation. This method delegates to it
         rather than duplicating the logic. If workload calculation needs to change,
         modify UserContext.calculate_current_workload(), not here.
+
+        `is_rich_context` is pinned by class default — `UserContext` defaults
+        it to `False`, `RichUserContext` pins it to `True`. No runtime
+        assignment needed.
         """
         # Delegate workload calculation to UserContext (single authority)
         context.current_workload_score = context.calculate_current_workload()
-        context.is_rich_context = is_rich
 
     # ========================================================================
     # SIMPLIFIED API - Builder Owns User Resolution (Preferred)
@@ -192,7 +201,7 @@ class UserContextBuilder:
         user_uid: UserUID,
         min_confidence: float = 0.7,
         window: str = "30d",
-    ) -> Result[UserContext]:
+    ) -> Result[RichUserContext]:
         """
         Build COMPLETE UserContext with rich fields - handles user resolution internally.
 
@@ -283,6 +292,11 @@ class UserContextBuilder:
             context.current_path_steps = ps_result.value
             context.current_ps_uids = {item["uid"] for item in ps_result.value}
 
+        # Fetch group memberships, ownerships, and assigned curriculum
+        groups_result = await self._query_executor.fetch_user_groups(user_uid)
+        if groups_result.is_ok:
+            self._populator.populate_group_awareness(context, groups_result.value)
+
         # Calculate derived fields
         self._finalize_context(context)
 
@@ -295,7 +309,7 @@ class UserContextBuilder:
         user: User,
         min_confidence: float = 0.7,
         window: str = "30d",
-    ) -> Result[UserContext]:
+    ) -> Result[RichUserContext]:
         """
         Build COMPLETE UserContext with BOTH standard AND rich fields in ONE query.
 
@@ -340,8 +354,9 @@ class UserContextBuilder:
 
         # User.title stores the username (inherited from BaseEntity, see user.py line 101-102)
         # This mapping is intentional: User uses title for username, UserContext exposes it as username
-        # Initialize context with user identity
-        context = UserContext(
+        # Initialize RICH context with user identity — rich-only fields start as
+        # empty containers (narrowed from `X | None`) and get populated below.
+        context = RichUserContext(
             user_uid=user_uid,
             username=user.title,
             email=user.email,
@@ -396,6 +411,29 @@ class UserContextBuilder:
             context.current_path_steps = ps_result.value
             context.current_ps_uids = {item["uid"] for item in ps_result.value}
 
+        # Fetch active PS engagements (per ADR-059 — engagement-aware planning).
+        # Failure of the engagement read must not kill context build — the daily
+        # plan still works without bucketing, it just won't have engaged_ps_groups.
+        if self.ps_engagement_service is not None:
+            engaged_result = await self.ps_engagement_service.list_engaged(user_uid)
+            if engaged_result.is_ok:
+                context.active_ps_engagements = {eng.ps_uid: eng for eng in engaged_result.value}
+                context.spawned_uid_to_ps_uid = {
+                    instance_uid: eng.ps_uid
+                    for eng in engaged_result.value
+                    for instance_uid in eng.spawned_instance_uids
+                }
+            else:
+                logger.warning(
+                    f"list_engaged failed for {user_uid}: {engaged_result.expect_error()} "
+                    "— context.active_ps_engagements left as None"
+                )
+
+        # Fetch group memberships, ownerships, and assigned curriculum
+        groups_result = await self._query_executor.fetch_user_groups(user_uid)
+        if groups_result.is_ok:
+            self._populator.populate_group_awareness(context, groups_result.value)
+
         # Populate activity domain entities (all 6 domains, unified shape)
         self._populator.populate_entities_rich(context, entities_data)
 
@@ -443,8 +481,8 @@ class UserContextBuilder:
             context, entities_data.get("principles", []), entities_data.get("choices", [])
         )
 
-        # Calculate derived fields and mark as rich context
-        self._finalize_context(context, is_rich=True)
+        # Calculate derived fields — `is_rich_context` is pinned by RichUserContext default
+        self._finalize_context(context)
 
         # ── ZPD capstone — reads all prior fields ────────────────────────
         if self.zpd_service is not None:

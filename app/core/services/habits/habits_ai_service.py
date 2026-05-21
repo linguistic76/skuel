@@ -24,6 +24,7 @@ The app works WITHOUT this service. It's an enhancement layer.
 from typing import TYPE_CHECKING, Any
 
 from core.models.habit.habit import Habit
+from core.models.type_hints import EntityUID
 from core.ports import HabitsOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
@@ -85,7 +86,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
 
     async def find_similar_habits(
         self, habit_uid: str, limit: int = 5
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """
         Find semantically similar habits using embeddings.
 
@@ -119,7 +120,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
 
         all_habits = all_habits_result.value or []
         candidates = [
-            (h.uid, f"{h.name} {h.description or ''} {h.routine or ''}")
+            (h.uid, f"{h.title} {h.description or ''} {h.routine or ''}")
             for h in all_habits
             if h.uid != habit_uid
         ]

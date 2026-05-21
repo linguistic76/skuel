@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 from core.events import publish_event
 from core.models.type_hints import EntityUID, UserUID
@@ -384,31 +384,33 @@ class UserActivityService:
         stats["pending_count"] = self._invalidator.get_pending_count()
         return stats
 
-    def get_valid_context(self, user_uid: UserUID) -> UserContext | None:
+    def get_valid_context(self, user_uid: UserUID) -> RichUserContext | None:
         """
-        Get cached user context if still valid (not invalidated).
+        Get cached rich user context if still valid (not invalidated).
 
         Semantic: "get valid context" - returns context only if it hasn't been
         invalidated by domain events. Returns None for stale/invalidated contexts.
+
+        Only rich contexts are cached (see ``UserContextCache`` docstring).
 
         Args:
             user_uid: User's unique identifier
 
         Returns:
-            UserContext if valid and not invalidated, None otherwise
+            RichUserContext if valid and not invalidated, None otherwise
         """
         return self._context_cache.get(user_uid)
 
-    def cache_context(self, user_uid: UserUID, context) -> None:
+    def cache_context(self, user_uid: UserUID, context: RichUserContext) -> None:
         """
-        Cache a freshly-built user context.
+        Cache a freshly-built rich user context.
 
         Semantic: "cache context" - stores a fresh context that will be served
-        until domain events trigger invalidation.
+        until domain events trigger invalidation. Only rich contexts are cached.
 
         Args:
             user_uid: User's unique identifier
-            context: UserContext to cache
+            context: RichUserContext to cache
         """
         self._context_cache.set(user_uid, context)
 

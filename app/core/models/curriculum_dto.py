@@ -29,7 +29,6 @@ from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.activity_enums import Confidence
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.ports import get_enum_value
 
 
 @dataclass
@@ -84,47 +83,23 @@ class CurriculumDTO(EntityDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including curriculum-specific fields."""
-        from core.models.dto_helpers import convert_datetimes_to_iso
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        data.update(
-            {
-                # Confidence
-                "confidence": get_enum_value(self.confidence),
-                # Learning metadata
-                "complexity": get_enum_value(self.complexity),
-                "learning_level": get_enum_value(self.learning_level),
-                "sel_category": get_enum_value(self.sel_category),
-                "quality_score": self.quality_score,
-                "estimated_time_minutes": self.estimated_time_minutes,
-                "difficulty_rating": self.difficulty_rating,
-                "semantic_links": list(self.semantic_links) if self.semantic_links else [],
-                "target_age_range": list(self.target_age_range) if self.target_age_range else None,
-                "learning_objectives": list(self.learning_objectives)
-                if self.learning_objectives
-                else [],
-                "structured_learning_objectives": list(self.structured_learning_objectives)
-                if self.structured_learning_objectives
-                else [],
-                # Substance tracking
-                "times_applied_in_tasks": self.times_applied_in_tasks,
-                "times_practiced_in_events": self.times_practiced_in_events,
-                "times_built_into_habits": self.times_built_into_habits,
-                "journal_reflections_count": self.journal_reflections_count,
-                "choices_informed_count": self.choices_informed_count,
-                "last_applied_date": self.last_applied_date,
-                "last_practiced_date": self.last_practiced_date,
-                "last_built_into_habit_date": self.last_built_into_habit_date,
-                "last_reflected_date": self.last_reflected_date,
-                "last_choice_informed_date": self.last_choice_informed_date,
-            }
-        )
-
-        convert_datetimes_to_iso(
-            data,
-            [
+        return dto_to_dict(
+            self,
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "confidence",
+                "complexity",
+                "learning_level",
+                "sel_category",
+            ],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
                 "last_applied_date",
                 "last_practiced_date",
                 "last_built_into_habit_date",
@@ -132,12 +107,6 @@ class CurriculumDTO(EntityDTO):
                 "last_choice_informed_date",
             ],
         )
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CurriculumDTO:

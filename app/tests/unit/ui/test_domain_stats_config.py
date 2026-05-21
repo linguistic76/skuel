@@ -8,7 +8,7 @@ from UserContext.
 
 import pytest
 
-from core.services.user.unified_user_context import UserContext
+from core.services.user.unified_user_context import RichUserContext, UserContext
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
     choices_active,
@@ -36,37 +36,37 @@ from ui.profile.domain_stats_config import (
 
 
 @pytest.fixture
-def mock_context() -> UserContext:
+def mock_context() -> RichUserContext:
     """
-    Create a mock UserContext with sample data.
+    Create a mock RichUserContext with sample data.
 
-    Uses minimal initialization - UserContext provides defaults for all fields.
+    Uses minimal initialization — RichUserContext provides defaults for all fields.
     """
-    context = UserContext(
+    context = RichUserContext(
         user_uid="user_test_123",
         username="testuser",
+        blocked_task_uids={"task_2"},
     )
 
     # Populate test data by modifying the context object
     # Tasks
     context.active_task_uids = ["task_1", "task_2", "task_3"]
-    context.completed_task_uids = ["task_4", "task_5"]
+    context.completed_task_uids = {"task_4", "task_5"}
     context.overdue_task_uids = ["task_1"]
-    context.blocked_task_uids = ["task_2"]
 
     # Events
     context.upcoming_event_uids = ["event_1", "event_2"]
     context.today_event_uids = ["event_3"]
-    context.missed_event_uids = ["event_4"]
+    context.missed_event_uids = {"event_4"}
 
     # Goals
     context.active_goal_uids = ["goal_1", "goal_2"]
-    context.completed_goal_uids = ["goal_3"]
+    context.completed_goal_uids = {"goal_3"}
     context.at_risk_goals = ["goal_1"]
 
     # Habits
     context.active_habit_uids = ["habit_1", "habit_2", "habit_3"]
-    context.at_risk_habits = ["habit_1"]
+    context.at_risk_habits = ["habit_1"]  # rich-only; RichUserContext narrows to list[str]
 
     # Principles
     context.core_principle_uids = ["principle_1", "principle_2"]
@@ -75,13 +75,13 @@ def mock_context() -> UserContext:
 
     # Choices
     context.pending_choice_uids = ["choice_1", "choice_2"]
-    context.resolved_choice_uids = ["choice_3"]
+    context.resolved_choice_uids = {"choice_3"}
 
     # Curriculum
-    context.mastered_knowledge_uids = ["ku_1", "ku_2"]
-    context.in_progress_knowledge_uids = ["ku_3"]
-    context.ready_to_learn_uids = ["ku_4", "ku_5"]
-    context.prerequisites_needed = ["ku_6"]
+    context.mastered_knowledge_uids = {"ku_1", "ku_2"}
+    context.in_progress_knowledge_uids = {"ku_3"}
+    context.ready_to_learn_uids = {"ku_4", "ku_5"}
+    context.prerequisites_needed = {"ku_6": []}
     context.enrolled_path_uids = ["lp_1"]
 
     return context
@@ -277,7 +277,7 @@ def test_knowledge_status_no_enrolled_paths() -> None:
         user_uid="user_test",
         username="test",
     )
-    context.prerequisites_needed = ["ku_1", "ku_2"]
+    context.prerequisites_needed = {"ku_1": [], "ku_2": []}
     context.enrolled_path_uids = []
 
     status = knowledge_status(context)

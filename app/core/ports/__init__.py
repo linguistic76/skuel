@@ -128,23 +128,6 @@ from .base_protocols import (
     to_dict,
 )
 
-# Context awareness protocols - ISP slices of UserContext (~240 fields → focused protocols)
-# These define the architecture for context-aware services. Services should depend on the
-# smallest slice they need. See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
-from .context_awareness_protocols import (
-    ChoiceAwareness,
-    CoreIdentity,
-    CrossDomainAwareness,
-    EventAwareness,
-    FullAwareness,
-    GoalAwareness,
-    HabitAwareness,
-    KnowledgeAwareness,
-    LearningPathAwareness,
-    PrincipleAwareness,
-    TaskAwareness,
-)
-
 # Curriculum operation protocols (November 2025 - consistent hierarchy)
 # Three curriculum domains: KU (point), PS (edge), LP (path)
 # All three have dedicated operations protocols: KuOperations, PsOperations, LpOperations (April 2026)
@@ -282,12 +265,8 @@ from .service_protocols import (
 # Sharing protocol — cross-cutting, any entity type can be shared
 from .sharing_protocols import SharingOperations
 
-# Submission protocols — Submission stage of the educational loop
-from .submission_protocols import (
-    SubmissionOperations,
-    SubmissionProcessingOperations,
-    SubmissionSearchOperations,
-)
+# Activity Template protocol — PS-owned templates (May 2026)
+from .template_protocols import ActivityTemplateOperations
 
 # ZPD protocol — Zone of Proximal Development (March 2026)
 from .zpd_protocols import ZPDOperations
@@ -324,6 +303,8 @@ __all__ = [
     "GraphContextResult",
     "IntelligenceResult",
     "ProgressResult",
+    # ========== ACTIVITY TEMPLATE PROTOCOL (1 - May 2026) ==========
+    "ActivityTemplateOperations",
     # ========== ASKESIS PROTOCOLS (6 - February 2026) ==========
     "AskesisCoreOperations",  # CRUD + context building (6 methods)
     "AskesisDomainSynthesisOperations",
@@ -337,18 +318,6 @@ __all__ = [
     "BackendOperations",  # THE protocol for UniversalNeo4jBackend
     # ========== CALENDAR/SYSTEM/SERVICE PROTOCOLS (7 - February 2026) ==========
     "CalendarServiceOperations",
-    # ========== CONTEXT AWARENESS PROTOCOLS (11 - ISP slices of UserContext) ==========
-    "ChoiceAwareness",
-    "CoreIdentity",
-    "CrossDomainAwareness",
-    "EventAwareness",
-    "FullAwareness",
-    "GoalAwareness",
-    "HabitAwareness",
-    "KnowledgeAwareness",
-    "LearningPathAwareness",
-    "PrincipleAwareness",
-    "TaskAwareness",
     # ========== SEARCH OPERATION PROTOCOLS (10) ==========
     "ChoicesSearchOperations",
     # ========== DOMAIN OPERATION PROTOCOLS (8) ==========
@@ -444,10 +413,6 @@ __all__ = [
     "PydanticFieldInfo",
     "PydanticModel",
     "QueryBuilderOperations",
-    # ========== SUBMISSION PROTOCOLS (3) ==========
-    "SubmissionOperations",
-    "SubmissionProcessingOperations",
-    "SubmissionSearchOperations",
     # ========== SHARING PROTOCOL ==========
     "SharingOperations",
     # ========== REPORT PROTOCOLS (5) ==========

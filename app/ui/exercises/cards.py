@@ -36,7 +36,7 @@ def render_exercise_card(exercise: Any) -> Any:
     def render_model_badge(value: str) -> Any:
         return Badge(value, variant=BadgeT.info)
 
-    def render_context_notes(value: list) -> Any:  # type: ignore[type-arg]
+    def render_context_notes(value: list) -> Any:
         if not value:
             return None
         return Span(

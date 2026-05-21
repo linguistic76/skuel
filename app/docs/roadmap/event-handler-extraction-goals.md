@@ -6,7 +6,7 @@ Goals is the second domain to receive a dedicated event handler service, followi
 
 **Template files:**
 - `core/services/tasks/task_event_handler_service.py` (Tasks proof of concept)
-- `core/services/principles/principles_event_handler_service.py` (original template)
+- `core/services/principles/principle_event_handler_service.py` (original template)
 
 ---
 

@@ -8,7 +8,9 @@ Runs all code quality checks in sequence:
 2. Ruff linting
 3. SKUEL linting (consolidated architecture + patterns)
 4. Cypher query validation
-5. MyPy type checking (optional)
+5. MyPy + Pyright type checking (optional)
+
+`./dev typecheck-strict` runs only Pyright. See [tool.pyright] in pyproject.toml.
 
 Usage:
     uv run python scripts/run_quality_checks.py
@@ -120,7 +122,15 @@ def main():
     ):
         all_passed = False
 
-    # 5. Type Checking (optional - slow)
+    # 5. Route Security Audit (CSRF + auth on mutation handlers; fast AST scan)
+    if not run_command(
+        ["uv", "run", "python", "scripts/audit_route_security.py"],
+        "Route Security Audit",
+        check=False,
+    ):
+        all_passed = False
+
+    # 6. Type Checking (optional - slow)
     if not args.fast:
         print("\n💡 Running type checks (slow). Use --fast to skip.")
 
@@ -130,8 +140,17 @@ def main():
             "MyPy Type Checking",
             check=False,
         ):
-            print("⚠️  MyPy found type issues (not blocking)")
-            # Don't fail on MyPy - we have ~2200 known issues
+            all_passed = False
+
+        # Pyright — catches what mypy misses (attribute access on protocols,
+        # possibly-unbound variables). Baseline = 0 errors as of 2026-05-18.
+        # Config: [tool.pyright] in pyproject.toml.
+        if not run_command(
+            ["uv", "run", "pyright"],
+            "Pyright Type Checking",
+            check=False,
+        ):
+            all_passed = False
 
     # Summary
     print(f"\n{'=' * 80}")

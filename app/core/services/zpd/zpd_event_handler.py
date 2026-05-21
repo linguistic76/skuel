@@ -3,7 +3,7 @@ ZPD Event Handler — Snapshot persistence on significant events
 ===============================================================
 
 Takes a ZPD snapshot when pedagogically significant events occur:
-- SubmissionApproved — student work validated
+- UserEntryApproved — student work validated
 - ReportSubmitted — teacher feedback delivered
 - KnowledgeMastered — KU mastery confirmed
 - PathStepCompleted — curriculum progress
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
     from core.events.curriculum_events import PathStepCompleted
     from core.events.learning_events import KnowledgeMastered, LearningPathProgressUpdated
-    from core.events.submission_events import ReportSubmitted, SubmissionApproved
+    from core.events.learning_loop_events import ReportSubmitted, UserEntryApproved
     from core.services.zpd.zpd_service import ZPDService
 
 logger = get_logger(__name__)
@@ -46,9 +46,9 @@ class ZPDSnapshotHandler:
         self._snapshot_backend = snapshot_backend
         self._logger = logger
 
-    async def handle_submission_approved(self, event: SubmissionApproved) -> None:
-        """Snapshot when a submission is approved — mastery signal."""
-        await self._take_snapshot(event.student_uid, "submission.approved")
+    async def handle_submission_approved(self, event: UserEntryApproved) -> None:
+        """Snapshot when a user entry is approved — mastery signal."""
+        await self._take_snapshot(event.student_uid, "user_entry.approved")
 
     async def handle_report_submitted(self, event: ReportSubmitted) -> None:
         """Snapshot when a teacher submits a report — feedback delivered."""
