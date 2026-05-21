@@ -4,15 +4,16 @@ Skills Metadata Validator
 
 Validates the skills metadata registry and skill directory structure:
 1. All skills in metadata exist as directories
-2. Required files present (SKILL.md, QUICK_REFERENCE.md, PATTERNS.md)
+2. SKILL.md present; oversized monolithic SKILL.md nudged to split (progressive disclosure)
 3. No circular dependencies in dependency graph
 4. All primary_docs exist
 5. Documentation has backlinks (related_skills field)
+6. Registry completeness — every skill directory is registered in metadata
+7. related_skills references resolve to real skills
 
 Usage:
     uv run python scripts/skills_validator.py           # Full validation
     uv run python scripts/skills_validator.py --json    # JSON output
-    uv run python scripts/skills_validator.py --fix     # Auto-fix backlinks (future)
 """
 
 import sys
@@ -23,6 +24,11 @@ from typing import Any
 import yaml
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+
+# Soft line limit for SKILL.md before we nudge toward progressive disclosure.
+# Claude Code's guidance: keep SKILL.md under ~500 lines and move detail into
+# supporting files that load on demand (the whole body re-enters context on use).
+SKILL_MD_SOFT_LINE_LIMIT = 500
 
 
 @dataclass
@@ -43,6 +49,7 @@ class ValidationReport:
     passed_checks: int
     failed_checks: int
     warnings: int
+    total_checks: int = 0
     errors: list[ValidationError] = field(default_factory=list)
 
     @property
@@ -110,17 +117,21 @@ def validate_skill_directories(skills: list[dict], skills_dir: Path) -> list[Val
 
 
 def validate_required_files(skills: list[dict], skills_dir: Path) -> list[ValidationError]:
-    """Check the entry file exists for each skill, and nudge for convention files.
+    """Check SKILL.md exists, and nudge oversized monolithic skills to split.
 
-    SKILL.md is the hard requirement -- it is the entry point the Skill tool loads.
-    QUICK_REFERENCE.md and PATTERNS.md are a recommended convention, NOT mandatory:
-    single-file skills are valid, and some skills organize reference material under
-    domain-specific filenames (e.g. prometheus-grafana's ALERTING.md / PROMQL_PATTERNS.md).
-    Missing convention files are warnings, not errors -- we do not manufacture stub
-    files just to satisfy a linter (structural correctness over patching).
+    Per Claude Code's own guidance, ``SKILL.md`` is the only required file (it is
+    the entry point the Skill tool loads), supporting-file *names are arbitrary*,
+    and SKILL.md should stay under ~500 lines because the whole body re-enters
+    context on every invocation. So:
+
+    - **Error:** SKILL.md missing.
+    - **Warning (progressive disclosure):** SKILL.md exceeds the soft line limit
+      AND the skill has no supporting reference files (any ``*.md`` besides
+      SKILL.md). We nudge by *size + monolithic shape*, not by the absence of
+      specifically-named QUICK_REFERENCE.md / PATTERNS.md files -- a small
+      single-file skill is perfectly valid, and a skill that already splits detail
+      into ALERTING.md / reference.md / etc. is well-organized regardless of name.
     """
-    required_files = ["SKILL.md"]
-    recommended_files = ["QUICK_REFERENCE.md", "PATTERNS.md"]
     errors = []
 
     for skill in skills:
@@ -133,37 +144,107 @@ def validate_required_files(skills: list[dict], skills_dir: Path) -> list[Valida
             # Already reported in validate_skill_directories
             continue
 
-        for required_file in required_files:
-            file_path = skill_dir / required_file
-            if not file_path.exists():
-                errors.append(
-                    ValidationError(
-                        check="required_files",
-                        severity="error",
-                        message=f"Missing required file: {skill_name}/{required_file}",
-                        context={
-                            "skill": skill_name,
-                            "missing_file": required_file,
-                            "expected_path": str(file_path),
-                        },
-                    )
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.exists():
+            errors.append(
+                ValidationError(
+                    check="required_files",
+                    severity="error",
+                    message=f"Missing required file: {skill_name}/SKILL.md",
+                    context={
+                        "skill": skill_name,
+                        "missing_file": "SKILL.md",
+                        "expected_path": str(skill_md),
+                    },
                 )
+            )
+            continue
 
-        for recommended_file in recommended_files:
-            file_path = skill_dir / recommended_file
-            if not file_path.exists():
+        line_count = len(skill_md.read_text(encoding="utf-8").splitlines())
+        support_files = [p.name for p in skill_dir.glob("*.md") if p.name != "SKILL.md"]
+        if line_count > SKILL_MD_SOFT_LINE_LIMIT and not support_files:
+            errors.append(
+                ValidationError(
+                    check="required_files",
+                    severity="warning",
+                    message=(
+                        f"{skill_name}/SKILL.md is {line_count} lines with no supporting "
+                        f"files -- consider progressive disclosure (soft limit "
+                        f"{SKILL_MD_SOFT_LINE_LIMIT})"
+                    ),
+                    context={
+                        "skill": skill_name,
+                        "lines": line_count,
+                        "limit": SKILL_MD_SOFT_LINE_LIMIT,
+                        "suggestion": (
+                            "Move detailed reference material into separate .md files "
+                            "(any name) and link them from SKILL.md so they load on demand"
+                        ),
+                    },
+                )
+            )
+
+    return errors
+
+
+def validate_registry_completeness(skills: list[dict], skills_dir: Path) -> list[ValidationError]:
+    """Check every skill directory is registered in metadata (catches drift).
+
+    The forward checks only walk metadata -> directory, so a skill added on disk
+    but never registered is invisible (no required-file, backlink, or dependency
+    validation). This walks directory -> metadata. Directories prefixed with ``_``
+    (e.g. ``_templates`` scaffolding) are not skills and are skipped.
+    """
+    registered = {s.get("name") for s in skills if s.get("name")}
+    errors = []
+
+    for entry in sorted(skills_dir.iterdir()):
+        if not entry.is_dir() or entry.name.startswith("_"):
+            continue
+        if entry.name not in registered:
+            errors.append(
+                ValidationError(
+                    check="registry_completeness",
+                    severity="error",
+                    message=f"Skill directory not registered in metadata: {entry.name}",
+                    context={
+                        "skill": entry.name,
+                        "suggestion": f"Add a '{entry.name}' entry to skills_metadata.yaml",
+                    },
+                )
+            )
+
+    return errors
+
+
+def validate_related_skills_references(
+    skills_dir: Path, project_root: Path
+) -> list[ValidationError]:
+    """Check every doc's ``related_skills`` names a real skill (catches stale renames).
+
+    The backlink check only verifies the skill -> doc direction. This verifies the
+    doc -> skill direction across all docs, surfacing retired/renamed skill names
+    (e.g. ``js-alpine`` -> ``ui-browser``) left behind in frontmatter.
+    """
+    real = {p.name for p in skills_dir.iterdir() if p.is_dir() and not p.name.startswith("_")}
+    errors = []
+
+    for doc in sorted((project_root / "docs").rglob("*.md")):
+        frontmatter = parse_frontmatter(doc)
+        for skill_name in frontmatter.get("related_skills", []) or []:
+            if skill_name not in real:
+                rel = doc.relative_to(project_root)
                 errors.append(
                     ValidationError(
-                        check="required_files",
+                        check="related_skills_references",
                         severity="warning",
-                        message=f"Missing recommended file: {skill_name}/{recommended_file}",
+                        message=f"Doc references unknown skill '{skill_name}': /{rel}",
                         context={
                             "skill": skill_name,
-                            "missing_file": recommended_file,
-                            "expected_path": str(file_path),
+                            "doc": f"/{rel}",
                             "suggestion": (
-                                f"Consider adding {recommended_file} "
-                                "(recommended convention, not required)"
+                                f"'{skill_name}' is not a current skill -- update it to a "
+                                "real skill or remove it"
                             ),
                         },
                     )
@@ -372,7 +453,7 @@ def run_validation(project_root: Path) -> ValidationReport:
     else:
         print("   ✅ All skill directories exist")
 
-    # Check 2: Required files present (SKILL.md hard, others recommended)
+    # Check 2: Required files present (SKILL.md hard; size-aware split nudge)
     print("2. Checking required files...")
     errors = validate_required_files(skills, skills_dir)
     all_errors.extend(errors)
@@ -381,9 +462,9 @@ def run_validation(project_root: Path) -> ValidationReport:
     if file_errors:
         print(f"   ❌ Found {len(file_errors)} error(s)")
     elif file_warnings:
-        print(f"   ⚠️  {len(file_warnings)} recommended-file warning(s) (SKILL.md present)")
+        print(f"   ⚠️  {len(file_warnings)} oversized SKILL.md(s) (consider splitting)")
     else:
-        print("   ✅ All required files present")
+        print("   ✅ All SKILL.md files present and right-sized")
 
     # Check 3: No circular dependencies
     print("3. Checking for circular dependencies...")
@@ -412,18 +493,39 @@ def run_validation(project_root: Path) -> ValidationReport:
     else:
         print("   ✅ All backlinks present")
 
+    # Check 6: Registry completeness (every skill dir is registered)
+    print("6. Checking registry completeness...")
+    errors = validate_registry_completeness(skills, skills_dir)
+    all_errors.extend(errors)
+    if errors:
+        print(f"   ❌ Found {len(errors)} unregistered skill director(ies)")
+    else:
+        print("   ✅ Every skill directory is registered")
+
+    # Check 7: related_skills references resolve to real skills
+    print("7. Checking related_skills references...")
+    errors = validate_related_skills_references(skills_dir, project_root)
+    all_errors.extend(errors)
+    if errors:
+        print(f"   ⚠️  Found {len(errors)} stale reference(s)")
+    else:
+        print("   ✅ All related_skills references resolve")
+
     print()
+
+    total_checks = 7
 
     # Generate report
     error_count = len([e for e in all_errors if e.severity == "error"])
     warning_count = len([e for e in all_errors if e.severity == "warning"])
-    passed_count = 5 - (1 if error_count > 0 else 0) - (1 if warning_count > 0 else 0)
+    passed_count = total_checks - (1 if error_count > 0 else 0) - (1 if warning_count > 0 else 0)
 
     return ValidationReport(
         total_skills=len(skills),
         passed_checks=passed_count,
         failed_checks=len(all_errors),
         warnings=warning_count,
+        total_checks=total_checks,
         errors=all_errors,
     )
 
@@ -463,7 +565,7 @@ def print_summary(report: ValidationReport) -> None:
     print("VALIDATION SUMMARY")
     print("=" * 60)
     print(f"Total skills: {report.total_skills}")
-    print(f"Checks passed: {report.passed_checks}/5")
+    print(f"Checks passed: {report.passed_checks}/{report.total_checks}")
     print(f"Errors: {len([e for e in report.errors if e.severity == 'error'])}")
     print(f"Warnings: {report.warnings}")
     print()
