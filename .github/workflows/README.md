@@ -1,150 +1,84 @@
-# GitHub Actions Workflows
+# GitHub Actions Workflows & PR Reviewers
 
-This directory contains CI/CD workflows for SKUEL.
+This directory holds SKUEL's CI. It also documents the **two AI reviewers**
+(Kodus and Codex) that run on PRs but are configured outside these YAMLs.
 
-## Code Quality Checks (`quality.yml`)
+## Who runs on a PR
 
-**Purpose**: Enforce the zero-MyPy-error baseline on every push/PR. See `app/docs/patterns/mypy_pragmatic_strategy.md` for the philosophy.
+| Participant | What it is | Where configured | Posts | Trigger |
+|---|---|---|---|---|
+| **CI Gate** | Aggregator job in `ci.yml` | This repo | ✅ status check (the one required check) | Every PR/push to `main`/`develop` |
+| **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
+| **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
+| **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
+| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | On PR open + re-reviews each pushed commit; `@kody start-review` |
+| **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + chatgpt.com/codex/settings/code-review | ⚠️ **PR reviews only — NOT a status check** | Auto-review (cloud setting) + `@codex review` |
 
-**Triggers**:
-- Push to `main` or `develop`
-- Pull requests to `main` or `develop`
-- Manual dispatch
+### ⚠️ Codex does not appear in `gh pr checks`
 
-**Only runs when Python or dependency files change**:
-- `app/**/*.py`
-- `app/pyproject.toml`
-- `app/uv.lock`
-- `.github/workflows/quality.yml`
+This is by design — the Codex connector posts **PR reviews/comments**, never a
+status check. To see its verdict, open the PR's **Files changed / Conversation**
+tabs, or run:
 
-**Concurrency**: Superseded runs on the same branch / PR are cancelled.
+```bash
+gh pr view <PR#> --json reviews \
+  -q '.reviews[] | select(.author.login|test("codex|kody")) | "\(.author.login)\t\(.state)\t\(.submittedAt)"'
+```
 
-### Job: `mypy`
+To confirm which GitHub App owns each *check*:
 
-| Step | Behavior |
-|------|----------|
-| Install dependencies | `uv sync --no-install-project` (venv cached on `uv.lock` hash) |
-| Cache `.mypy_cache` | Restored across runs on the same branch for incrementality |
-| `uv run mypy .` | Fails the job on any MyPy error |
-| Upload artifact | `mypy-output.txt` retained for 14 days on failure |
-| PR comment | Posts truncated output + reproduction instructions on PR failures |
+```bash
+SHA=$(gh pr view <PR#> --json headRefOid -q .headRefOid)
+gh api repos/linguistic76/skuel/commits/$SHA/check-runs -q '.check_runs[] | "\(.name)\tapp=\(.app.slug)"'
+```
 
-**CI Failure Conditions**: Any non-zero exit from `uv run mypy .`.
+## `ci.yml`
 
-### Running Locally
+One workflow, path-guarded jobs, one always-on gate.
+
+```
+changes ──┬─▶ mypy (if app py changed) ─────────────┐
+          └─▶ validate_documentation (if docs) ─────┤
+                                                     ▼
+documentation_metrics (push to main only)         gate ── "CI Gate" (required)
+```
+
+- **`changes`** uses `dorny/paths-filter` to decide what ran.
+- **`mypy` / `validate_documentation`** run only when their paths changed, so
+  they're skipped (not failed) on unrelated PRs.
+- **`gate` ("CI Gate")** always runs and passes when required jobs succeeded or
+  were skipped; fails only on a real failure/cancellation. **It is the single
+  required status check** — required checks must report on every PR, and a
+  path-filtered job alone would deadlock a PR it doesn't run on.
+
+### Run the checks locally
 
 ```bash
 cd app
-uv run mypy .                    # The CI check
-./dev quality                    # Full quality suite (ruff + SKUEL linter + cypher + mypy)
+uv run mypy .                                  # MyPy check
+uv run python scripts/docs_freshness.py --critical-only
+uv run python scripts/skills_validator.py
+./dev quality                                  # full suite (ruff + SKUEL linter + cypher + mypy)
 ```
 
-## Documentation Quality Checks (`docs.yml`)
+## Branch protection (`main`)
 
-**Purpose**: Automatically validate documentation quality on every push/PR.
-
-**Triggers**:
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop`
-- Manual dispatch (workflow_dispatch)
-
-**Only runs when documentation-related files change**:
-- `app/docs/**`
-- `app/.claude/skills/**`
-- `app/scripts/docs_*.py`
-- `app/scripts/skills_validator.py`
-- `.github/workflows/docs.yml`
-
-### Jobs
-
-#### 1. `validate_documentation`
-
-Runs on every trigger. Performs 4 checks:
-
-| Check | Script | Failure Level | Description |
-|-------|--------|---------------|-------------|
-| **Freshness** | `docs_freshness.py --critical-only` | ❌ Fails CI | Docs 30+ days out of sync with code |
-| **Skills** | `skills_validator.py` | ❌ Fails CI | Missing skills files, broken metadata |
-| **Broken Links** | `docs_freshness.py --json` | ⚠️ Warning only | >10 missing doc references |
-| **Review Schedule** | `docs_review_scheduler.py` | ℹ️ Info only | Docs overdue for review |
-
-**CI Failure Conditions**:
-- Critical freshness issues (30+ days)
-- Skills validation errors
-
-**PR Comments**:
-Automatically posts results to PRs with:
-- ✅/❌ Status for each check
-- ⚠️ Warnings for broken links
-- Expandable details section
-
-#### 2. `documentation_metrics`
-
-Runs only on `main` branch merges. Generates metrics report.
-
-**Metrics Collected**:
-- Freshness status (total, stale, fresh, by tracking type)
-- Skills status (total, checks passed, errors, warnings)
-- Review schedule (total tracked, overdue, upcoming, current)
-
-**Artifact**: `documentation-metrics` (retained for 90 days)
-
-### Running Locally
-
-Before pushing, run the same checks locally:
+Classic protection: **require a PR + a green "CI Gate"; no human approval
+required; admins can bypass.** With Kody in request-changes mode, a Kody
+`CHANGES_REQUESTED` holds the merge until resolved or dismissed.
 
 ```bash
-# Check critical freshness issues
-uv run python scripts/docs_freshness.py --critical-only
-
-# Validate skills
-uv run python scripts/skills_validator.py
-
-# Full freshness report
-uv run python scripts/docs_freshness.py
-
-# Review schedule
-uv run python scripts/docs_review_scheduler.py
+gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
+  -f 'required_status_checks[strict]=true' \
+  -f 'required_status_checks[contexts][]=CI Gate' \
+  -f 'required_pull_request_reviews[required_approving_review_count]=0' \
+  -F 'enforce_admins=false' \
+  -F 'restrictions=null'
 ```
 
-### Configuration
+## One-time dashboard steps (cannot live in the repo)
 
-**Python Version**: 3.12
-**Package Manager**: uv
-**Caching**:
-- uv venv cached based on `uv.lock` hash
-- Pip cache enabled for faster setup-python
-
-### Troubleshooting
-
-**"No module named 'yaml'"**:
-- uv dependencies not installed
-- Check `pyproject.toml` includes `pyyaml`
-
-**"docs directory not found"**:
-- Scripts expect to run from project root
-- Working directory should be `/home/mike/skuel/app`
-
-**False positives in freshness**:
-- Add `tracking: conceptual` to docs without code refs
-- Add `last_reviewed` and `review_frequency` to frontmatter
-- See `/docs/freshness_config.yaml` for configuration
-
-**Skills validation failures**:
-- Check required files: SKILL.md, QUICK_REFERENCE.md, PATTERNS.md
-- Verify `skills_metadata.yaml` has no circular dependencies
-- Ensure docs have `related_skills` backlinks
-
-### Future Enhancements
-
-Potential additions:
-- [ ] Markdown linting (markdownlint)
-- [ ] Spell checking (codespell)
-- [ ] Link checking (external links)
-- [ ] Documentation coverage metrics
-- [ ] Auto-update of INDEX.md
-- [ ] Automatic frontmatter validation
-
----
-
-**Last Updated**: 2026-01-29
+- **Codex:** turn on **Automatic reviews** at
+  `chatgpt.com/codex/settings/code-review` for deterministic per-PR review.
+- **Kodus:** ensure a **BYOK** LLM key is configured at `app.kodus.io`
+  (Kody can't review without it). `kodus-config.yml` overrides the rest.
