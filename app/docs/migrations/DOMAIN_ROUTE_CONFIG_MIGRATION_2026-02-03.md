@@ -1,3 +1,6 @@
+---
+related_skills: [domain-route-config]
+---
 # DomainRouteConfig Pattern Migration - Phase 3
 
 **Date:** 2026-02-03

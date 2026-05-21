@@ -110,8 +110,17 @@ def validate_skill_directories(skills: list[dict], skills_dir: Path) -> list[Val
 
 
 def validate_required_files(skills: list[dict], skills_dir: Path) -> list[ValidationError]:
-    """Check that required files exist for each skill."""
-    required_files = ["SKILL.md", "QUICK_REFERENCE.md", "PATTERNS.md"]
+    """Check the entry file exists for each skill, and nudge for convention files.
+
+    SKILL.md is the hard requirement -- it is the entry point the Skill tool loads.
+    QUICK_REFERENCE.md and PATTERNS.md are a recommended convention, NOT mandatory:
+    single-file skills are valid, and some skills organize reference material under
+    domain-specific filenames (e.g. prometheus-grafana's ALERTING.md / PROMQL_PATTERNS.md).
+    Missing convention files are warnings, not errors -- we do not manufacture stub
+    files just to satisfy a linter (structural correctness over patching).
+    """
+    required_files = ["SKILL.md"]
+    recommended_files = ["QUICK_REFERENCE.md", "PATTERNS.md"]
     errors = []
 
     for skill in skills:
@@ -136,6 +145,26 @@ def validate_required_files(skills: list[dict], skills_dir: Path) -> list[Valida
                             "skill": skill_name,
                             "missing_file": required_file,
                             "expected_path": str(file_path),
+                        },
+                    )
+                )
+
+        for recommended_file in recommended_files:
+            file_path = skill_dir / recommended_file
+            if not file_path.exists():
+                errors.append(
+                    ValidationError(
+                        check="required_files",
+                        severity="warning",
+                        message=f"Missing recommended file: {skill_name}/{recommended_file}",
+                        context={
+                            "skill": skill_name,
+                            "missing_file": recommended_file,
+                            "expected_path": str(file_path),
+                            "suggestion": (
+                                f"Consider adding {recommended_file} "
+                                "(recommended convention, not required)"
+                            ),
                         },
                     )
                 )
@@ -343,12 +372,16 @@ def run_validation(project_root: Path) -> ValidationReport:
     else:
         print("   ✅ All skill directories exist")
 
-    # Check 2: Required files present
+    # Check 2: Required files present (SKILL.md hard, others recommended)
     print("2. Checking required files...")
     errors = validate_required_files(skills, skills_dir)
     all_errors.extend(errors)
-    if errors:
-        print(f"   ❌ Found {len(errors)} error(s)")
+    file_errors = [e for e in errors if e.severity == "error"]
+    file_warnings = [e for e in errors if e.severity == "warning"]
+    if file_errors:
+        print(f"   ❌ Found {len(file_errors)} error(s)")
+    elif file_warnings:
+        print(f"   ⚠️  {len(file_warnings)} recommended-file warning(s) (SKILL.md present)")
     else:
         print("   ✅ All required files present")
 

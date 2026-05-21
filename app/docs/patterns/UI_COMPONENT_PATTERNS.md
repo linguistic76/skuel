@@ -12,6 +12,8 @@ related_skills:
   - js-alpine
   - skuel-component-composition
   - tailwind-css
+  - ui-browser
+  - skuel-ui
 related_docs: []
 ---
 # UI Component Patterns
