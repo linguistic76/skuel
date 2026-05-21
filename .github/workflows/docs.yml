@@ -200,7 +200,7 @@ jobs:
           with open('skills.json') as f:
               data = json.load(f)
           print(f'- Total skills: {data[\"total_skills\"]}')
-          print(f'- Checks passed: {data[\"passed_checks\"]}/5')
+          print(f'- Checks passed: {data[\"passed_checks\"]}/{data[\"total_checks\"]}')
           print(f'- Errors: {len([e for e in data[\"errors\"] if e[\"severity\"] == \"error\"])}')
           print(f'- Warnings: {data[\"warnings\"]}')
           " >> docs_metrics.md

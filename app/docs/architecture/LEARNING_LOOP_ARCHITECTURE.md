@@ -6,6 +6,7 @@ category: architecture
 related:
 - REPORT_ARCHITECTURE.md
 - ENTITY_TYPE_ARCHITECTURE.md
+related_skills: [learning-loop]
 ---
 
 # The Four-Phase Learning Loop

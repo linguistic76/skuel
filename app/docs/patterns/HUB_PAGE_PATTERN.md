@@ -5,6 +5,7 @@ status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
 related: [docs/design-principles/HUB_PAGES.md, docs/patterns/UI_COMPONENT_PATTERNS.md]
+related_skills: [ui-orchestrator]
 ---
 
 # Hub Page (MOC) Pattern
