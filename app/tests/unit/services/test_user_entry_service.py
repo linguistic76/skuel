@@ -49,7 +49,9 @@ def _make_sharing_service() -> MagicMock:
     backend = MagicMock()
     backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
     backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
-    backend.query_entity_owner = AsyncMock(return_value=Result.ok(None))
+    # Default: referenced predecessor entry is owned by the canonical test user
+    # (user_1), so validate_references' TRANSFORMS ownership check passes.
+    backend.query_entity_owner = AsyncMock(return_value=Result.ok("user_1"))
     svc.backend = backend
     return svc
 
@@ -223,6 +225,28 @@ class TestCreateEntryRouting:
         backend.create.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_unauthorized_exercise_reference_is_rejected(self):
+        """create_entry must reject an exercise the caller can't use.
+
+        Security regression: without validate_references a caller could attach an
+        entry to another user's exercise (cross-tenant leak via auto-share). The
+        entry must NOT be persisted when access is denied.
+        """
+        backend = _make_backend()
+        sharing = _make_sharing_service()
+        sharing.backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(False))
+        service = _make_service(backend=backend, sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            title="Turn-in for someone else's exercise",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_not_mine",
+        )
+        result = await service.create_entry(request, user_uid="user_attacker")
+        assert result.is_error
+        backend.create_with_exercise_link.assert_not_called()
+        backend.create.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_revision_number_comes_from_count_plus_one(self):
         backend = _make_backend()
         backend.count_entries_for_exercise = AsyncMock(return_value=Result.ok(2))
@@ -243,7 +267,7 @@ class TestTransformsEdge:
     @pytest.mark.asyncio
     async def test_transforms_wiring(self):
         backend = _make_backend()
-        service = _make_service(backend=backend)
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
         request = UserEntryCreateRequest(
             title="Structured output",
             pipeline=Pipeline.NONE,

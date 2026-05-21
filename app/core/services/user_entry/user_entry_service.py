@@ -147,6 +147,19 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if audience_check.is_error:
             return Result.fail(audience_check)
 
+        # Verify the requester actually has a claim to any referenced entities —
+        # otherwise a caller could attach this entry to another user's exercise
+        # (cross-tenant leak via the auto-share fan-out) or masquerade a
+        # TRANSFORMS chain over someone else's entry. The /upload ingestion path
+        # already does this; create_entry must too (it's the shared write path).
+        refs_check = await self.audience_resolver.validate_references(
+            user_uid=user_uid,
+            fulfills_exercise_uid=request.fulfills_exercise_uid,
+            transforms_of_uid=request.transforms_of_uid,
+        )
+        if refs_check.is_error:
+            return Result.fail(refs_check)
+
         # PUBLIC visibility is portfolio-publication and gated on TEACHER
         # role. This covers every entry point (YAML /upload, /submit form,
         # programmatic callers) so no path can set visibility=PUBLIC on a
