@@ -12,6 +12,7 @@ from typing import Any
 from fasthtml.common import H2, Div, P
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
 from core.utils.logging import get_logger
@@ -121,6 +122,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     routes.append(askesis_settings)
 
     @rt("/askesis/api/submit")
+    @csrf_protected
     async def submit_message(request: Request):
         """Handle message submission (HTMX endpoint)."""
         user_uid = require_authenticated_user(request)

@@ -31,6 +31,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_int, safe_form_string
 from core.models.event.calendar_models import CalendarView
@@ -307,6 +308,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
     # =========================================================================
 
     @rt("/events/calendar/quick-create")
+    @csrf_protected
     async def calendar_quick_create_htmx(request: Request) -> Any:
         """
         HTMX endpoint for quick create form.
@@ -381,6 +383,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             )
 
     @rt("/events/calendar/habit/{habit_uid}/record/{status}")
+    @csrf_protected
     async def calendar_habit_record(request: Request, habit_uid: str, status: str) -> Any:
         """
         HTMX endpoint for recording habit occurrences.

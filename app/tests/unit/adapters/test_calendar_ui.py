@@ -60,9 +60,19 @@ def _make_request(*, user_uid: str = "user_smoke", form_data=None):
     request = SimpleNamespace()
     request.session = {"user_uid": user_uid}
     request.url = SimpleNamespace(path="/test")
+    request.method = "POST"  # the @csrf_protected POST handlers read request.method
+    request.cookies = {}
     if form_data is not None:
         request.form = AsyncMock(return_value=form_data)
     return request
+
+
+@pytest.fixture(autouse=True)
+def _disable_csrf_enforcement(monkeypatch) -> None:
+    """The @csrf_protected calendar handlers read enforcement state at call time;
+    disable it so these handler-logic tests pass through (CSRF behaviour itself is
+    covered by the csrf module's own tests)."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
 
 
 def _make_calendar_data(items=None) -> CalendarData:

@@ -28,6 +28,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth.session import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from core.utils.logging import get_logger
 from routes.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
 from services_bootstrap import Services
@@ -155,6 +156,7 @@ def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: 
         return _format_graphql_response(result)
 
     @rt("/graphql/execute")
+    @csrf_protected
     async def graphql_execute(request) -> Div:
         """
         Execute GraphQL query from playground form.
