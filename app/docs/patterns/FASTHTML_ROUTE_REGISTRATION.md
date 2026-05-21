@@ -3,7 +3,7 @@ title: FastHTML Route Registration Pattern
 updated: 2026-01-15
 category: patterns
 related_skills:
-- html-htmx
+- ui-browser
 - fasthtml
 related_docs:
 - /docs/decisions/ADR-020-fasthtml-route-registration-pattern.md

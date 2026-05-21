@@ -3,7 +3,7 @@ title: Hierarchy Components Guide
 updated: '2026-03-18'
 category: patterns
 related_skills:
-- skuel-component-composition
+- skuel-ui
 related_docs: []
 ---
 # Hierarchy Components Guide
@@ -29,7 +29,7 @@ All components support HTMX lazy loading, Alpine.js state management, and work a
 
 ## Quick Start
 
-**Skill:** [@skuel-component-composition](../../.claude/skills/skuel-component-composition/SKILL.md)
+**Skill:** [@skuel-ui](../../.claude/skills/skuel-ui/SKILL.md)
 
 ### TreeView - Full-Featured Tree
 

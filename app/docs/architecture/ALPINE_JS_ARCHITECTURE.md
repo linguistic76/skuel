@@ -1,6 +1,5 @@
 ---
 related_skills:
-- js-alpine
 - ui-browser
 ---
 # Alpine.js Architecture
@@ -8,7 +7,7 @@ related_skills:
 ## Related Skills
 
 For implementation guidance, see:
-- [@js-alpine](../../.claude/skills/js-alpine/SKILL.md)
+- [@ui-browser](../../.claude/skills/ui-browser/SKILL.md)
 
 ## Overview
 
@@ -108,11 +107,8 @@ ui/
 ├── search/                 # FastHTML + Alpine directives
 └── timeline/               # FastHTML + Alpine directives
 
-.claude/skills/js-alpine/    # Claude Code skill documentation
-├── SKILL.md
-├── directives-reference.md
-├── fasthtml-patterns.md
-└── htmx-integration.md
+.claude/skills/ui-browser/   # Claude Code skill documentation (HTMX + Alpine.js)
+└── SKILL.md
 ```
 
 ## Available Components
@@ -364,5 +360,5 @@ Div(
 ## Related Documentation
 
 - **CLAUDE.md:** Quick reference (Alpine.js Architecture section)
-- **Skills:** `/.claude/skills/js-alpine/` - Detailed skill documentation
+- **Skills:** `/.claude/skills/ui-browser/` - Detailed skill documentation
 - **FastHTML:** `/docs/llms.txt/fasthtml-llms.txt` - FastHTML patterns
