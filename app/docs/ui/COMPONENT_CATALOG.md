@@ -1526,7 +1526,7 @@ Quick alphabetical index:
 - **Error Handling Patterns:** `/docs/patterns/ERROR_HANDLING.md`
 - **UI Component Patterns:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`
 - **WCAG Accessibility Guide:** `/.claude/skills/accessibility-guide/`
-- **MonsterUI Components:** `/.claude/skills/monsterui/`
+- **MonsterUI Components:** `/.claude/skills/ui-css/`
 
 ---
 

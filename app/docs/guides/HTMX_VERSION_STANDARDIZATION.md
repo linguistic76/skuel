@@ -14,7 +14,7 @@ related:
 - ALPINE_JS_ARCHITECTURE.md
 - FASTHTML_ROUTE_REGISTRATION.md
 related_skills:
-- html-htmx
+- ui-browser
 ---
 
 # HTMX Version Standardization Guide
@@ -23,7 +23,7 @@ related_skills:
 
 ## Overview
 
-**Skill:** [@html-htmx](../../.claude/skills/html-htmx/SKILL.md)
+**Skill:** [@ui-browser](../../.claude/skills/ui-browser/SKILL.md)
 
 SKUEL standardizes on **HTMX 1.9.10** across all pages. This guide explains why version consistency matters and how to implement it correctly.
 

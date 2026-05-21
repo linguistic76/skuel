@@ -3,11 +3,9 @@ name: accessibility-guide
 description: Expert guide for building accessible web applications following WCAG standards. Use when implementing keyboard navigation, screen reader support, ARIA labels, focus management, semantic HTML, or when the user mentions accessibility, a11y, WCAG, screen readers, or inclusive design.
 allowed-tools: Read, Grep, Glob
 related_skills:
-- html-htmx
-- html-navigation
+- ui-browser
+- skuel-ui
 - ui-css
-- skuel-form-patterns
-- js-alpine
 ---
 
 # Accessibility Guide for SKUEL
@@ -1016,8 +1014,6 @@ Use axe DevTools extension:
 
 ## See Also
 
-- `html-htmx` - For semantic HTML structure
-- `html-navigation` - For accessible navigation patterns
+- `ui-browser` - For semantic HTML, HTMX, and interactive components
+- `skuel-ui` - For navigation and form patterns
 - `ui-css` - For accessible component styling
-- `skuel-form-patterns` - For accessible form patterns
-- `js-alpine` - For accessible interactive components

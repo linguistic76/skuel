@@ -2,8 +2,8 @@
 related_skills:
 - result-pattern
 - fasthtml
-- html-htmx
-- base-page-architecture
+- ui-browser
+- skuel-ui
 - python
 ---
 
@@ -1291,9 +1291,9 @@ def test_validate_task_form_data_missing_title():
 
 ### Related Skills
 - **result-pattern** - Result[T] type, Errors factory, error propagation
-- **base-page-architecture** - BasePage usage, page structure
+- **skuel-ui** - BasePage usage, page structure
 - **fasthtml** - FastHTML routes, form handling
-- **html-htmx** - HTMX fragments, swapping patterns
+- **ui-browser** - HTMX fragments, swapping patterns
 - **python** - Type hints, async/await, dataclasses
 
 ---

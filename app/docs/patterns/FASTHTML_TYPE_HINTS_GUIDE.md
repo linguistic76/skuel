@@ -3,7 +3,7 @@ title: FastHTML Type Hints Pattern Guide
 updated: 2025-11-18
 category: patterns
 related_skills:
-- html-htmx
+- ui-browser
 - fasthtml
 related_docs: []
 ---
@@ -15,7 +15,7 @@ related_docs: []
 
 For implementation guidance, see:
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
-- [@html-htmx](../../.claude/skills/html-htmx/SKILL.md)
+- [@ui-browser](../../.claude/skills/ui-browser/SKILL.md)
 
 ## Core Principle
 

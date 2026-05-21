@@ -738,7 +738,7 @@ The lateral relationship graph infrastructure was extended to power the **Explor
 - `/docs/ui/COMPONENT_CATALOG.md` - ExploreGraphView component documentation
 - `/PHASE5_COMPLETE.md` - Implementation completion details
 - `/PHASE5_MANUAL_QA_CHECKLIST.md` - Testing guide
-- `/.claude/skills/js-alpine/` - Alpine.js patterns
+- `/.claude/skills/ui-browser/` - Alpine.js + HTMX patterns
 - `/docs/llms.txt/fasthtml-llms.txt` - FastHTML + HTMX patterns
 
 ---

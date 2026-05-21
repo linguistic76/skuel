@@ -4,14 +4,7 @@ updated: '2026-04-05'
 category: patterns
 related_skills:
   - accessibility-guide
-  - base-page-architecture
-  - custom-sidebar-patterns
   - ui-css
-  - html-htmx
-  - html-navigation
-  - js-alpine
-  - skuel-component-composition
-  - tailwind-css
   - ui-browser
   - skuel-ui
 related_docs: []
@@ -24,19 +17,16 @@ related_docs: []
 
 ## Quick Start
 
-**Core Skills:** [@base-page-architecture](../../.claude/skills/base-page-architecture/SKILL.md), [@ui-css](../../.claude/skills/ui-css/SKILL.md), [@tailwind-css](../../.claude/skills/tailwind-css/SKILL.md), [@html-htmx](../../.claude/skills/html-htmx/SKILL.md), [@js-alpine](../../.claude/skills/js-alpine/SKILL.md)
+**Core Skills:** [@skuel-ui](../../.claude/skills/skuel-ui/SKILL.md), [@ui-css](../../.claude/skills/ui-css/SKILL.md), [@ui-browser](../../.claude/skills/ui-browser/SKILL.md)
 
-**Advanced Skills:** [@custom-sidebar-patterns](../../.claude/skills/custom-sidebar-patterns/SKILL.md), [@html-navigation](../../.claude/skills/html-navigation/SKILL.md), [@skuel-component-composition](../../.claude/skills/skuel-component-composition/SKILL.md), [@accessibility-guide](../../.claude/skills/accessibility-guide/SKILL.md)
+**Advanced Skills:** [@accessibility-guide](../../.claude/skills/accessibility-guide/SKILL.md)
 
 For hands-on implementation:
-1. Invoke `@base-page-architecture` for BasePage patterns and page types
-2. Invoke `@ui-css` for MonsterUI (FrankenUI + Tailwind) components
-3. Invoke `@tailwind-css` for utility-first styling
-4. Invoke `@html-htmx` for server communication patterns
-5. Invoke `@js-alpine` for client-side interactivity
-6. Invoke `@custom-sidebar-patterns` for advanced navigation
-7. Invoke `@accessibility-guide` for WCAG 2.1 Level AA compliance
-8. Continue below for complete component architecture
+1. Invoke `@skuel-ui` for BasePage patterns, page types, navigation, sidebars, and forms
+2. Invoke `@ui-css` for MonsterUI (FrankenUI + Tailwind) styling
+3. Invoke `@ui-browser` for HTMX server communication and Alpine.js client-side state
+4. Invoke `@accessibility-guide` for WCAG 2.1 Level AA compliance
+5. Continue below for complete component architecture
 
 **Related Documentation:**
 - [/ui/activities/sidebar.py](/ui/activities/sidebar.py) - Activities sidebar items
@@ -193,7 +183,7 @@ return await SidebarPage(
 - `/ui/patterns/sidebar.py` - `SidebarItem`, `SidebarNav`, `SidebarPage`
 - `/static/js/skuel.js` (lines 917-953) - `collapsibleSidebar` Alpine component
 
-**See:** `@custom-sidebar-patterns` for complete implementation guide
+**See:** `@skuel-ui` for complete implementation guide
 
 #### Configuration-Driven Domain Stats
 
@@ -1767,9 +1757,8 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 ## See Also
 
 - `/.claude/skills/ui-css/SKILL.md` - MonsterUI (FrankenUI + Tailwind) component reference
-- `/.claude/skills/tailwind-css/SKILL.md` - Tailwind utility reference
 - `/.claude/skills/fasthtml/SKILL.md` - FastHTML framework guide
-- `/.claude/skills/js-alpine/SKILL.md` - Alpine.js for UI state
+- `/.claude/skills/ui-browser/SKILL.md` - HTMX + Alpine.js for UI state
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] error handling
 - `/docs/migrations/ACTIVITY_UI_ERROR_HANDLING_REFACTORING_2026-01-24.md` - P0 security fixes
 - `/docs/migrations/ACTIVITY_UI_CODE_QUALITY_IMPROVEMENTS_2026-01-24.md` - Pure helpers & validation
