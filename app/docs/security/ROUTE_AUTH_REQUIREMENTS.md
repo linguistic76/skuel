@@ -1,3 +1,6 @@
+---
+related_skills: [security]
+---
 # Route Authentication Requirements
 
 **Date:** 2026-01-21

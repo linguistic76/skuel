@@ -4,6 +4,7 @@ updated: '2026-03-19'
 category: patterns
 related_skills:
 - fasthtml
+- domain-route-config
 related_docs: []
 ---
 # Domain Route Configuration Pattern
