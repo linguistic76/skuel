@@ -122,7 +122,15 @@ def main():
     ):
         all_passed = False
 
-    # 5. Type Checking (optional - slow)
+    # 5. Route Security Audit (CSRF + auth on mutation handlers; fast AST scan)
+    if not run_command(
+        ["uv", "run", "python", "scripts/audit_route_security.py"],
+        "Route Security Audit",
+        check=False,
+    ):
+        all_passed = False
+
+    # 6. Type Checking (optional - slow)
     if not args.fast:
         print("\n💡 Running type checks (slow). Use --fast to skip.")
 

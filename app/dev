@@ -57,6 +57,11 @@ case "$1" in
     uv run pyright
     ;;
 
+  audit-routes)
+    echo -e "${YELLOW}Auditing route security (CSRF + auth on mutation handlers)...${NC}"
+    uv run python scripts/audit_route_security.py "${@:2}"
+    ;;
+
   bloat)
     echo -e "${YELLOW}Detecting bloat (unused code)...${NC}"
     uv run python scripts/detect_bloat.py
@@ -212,6 +217,7 @@ case "$1" in
     echo "  ./dev lint-fix       - Auto-fix linting issues"
     echo "  ./dev quality        - Run ALL quality checks (format + lint + patterns + Cypher)"
     echo "  ./dev quality-fix    - Run quality checks with auto-fix"
+    echo "  ./dev audit-routes   - Audit @rt handlers for CSRF + auth gaps (--include-json, --verbose)"
     echo ""
     echo "Bloat Detection:"
     echo "  ./dev bloat          - Detect all unused code (events + methods)"
