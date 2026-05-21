@@ -1,3 +1,6 @@
+---
+related_skills: [zpd]
+---
 # Zone of Proximal Development (ZPD)
 
 *Last updated: 2026-03-10*

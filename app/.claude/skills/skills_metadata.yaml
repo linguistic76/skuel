@@ -5,6 +5,13 @@
 #
 # Skills are organized by foundation layer (base dependencies).
 #
+# New 2026-05-21 (registry hardening):
+# - Registered 5 previously-unregistered skills: docker, learning-loop, prompt-templates,
+#   ui-orchestrator, zpd (skill dirs existed but were missing from this registry).
+# - Validator now checks registry completeness (dir -> metadata) + related_skills references
+#   (doc -> real skill), and nudges oversized monolithic SKILL.md files toward progressive
+#   disclosure instead of demanding specifically-named QUICK_REFERENCE.md / PATTERNS.md files.
+#
 # New in Phase 2.2 (2026-02-02):
 # - Added 8 missing skills; added related_adrs and patterns fields for bidirectional linking
 #
@@ -230,6 +237,19 @@ skills:
       - /docs/patterns/error_handling_decorators.md
     keywords: [error-ui, toasts, alerts, feedback, boundary-handler]
 
+  - name: ui-orchestrator
+    description: Creating and wiring a UI Orchestrator to resolve Dependency Gravity in Hub pages
+    last_reviewed: "2026-05-21"
+    foundation: [skuel-ui, fasthtml]
+    dependencies: [skuel-ui, fasthtml]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
+    primary_docs:
+      - /docs/patterns/HUB_PAGE_PATTERN.md
+    related_adrs: []
+    patterns: []
+    keywords: [ui-orchestrator, hub-page, dependency-gravity, orchestration, composition]
+
   # ============================================================================
   # DATABASE & DATA LAYER
   # ============================================================================
@@ -272,6 +292,22 @@ skills:
     patterns:
       - /docs/patterns/PERFORMANCE_MONITORING.md
     keywords: [prometheus, grafana, metrics, observability, monitoring, alerts]
+
+  # ============================================================================
+  # INFRASTRUCTURE LAYER
+  # ============================================================================
+
+  - name: docker
+    description: SKUEL's Docker setup — two-directory compose split, Dockerfile.production conventions, startup sequences, and local vs Droplet vs App Platform usage
+    last_reviewed: "2026-05-21"
+    foundation: []
+    dependencies: []
+    library_package: null  # Docker tooling, not a PyPI package
+    library_version: null
+    primary_docs: []
+    related_adrs: []
+    patterns: []
+    keywords: [docker, compose, dockerfile, container, deployment, digitalocean, droplet, app-platform]
 
   # ============================================================================
   # MOBILE / PWA LAYER
@@ -368,6 +404,18 @@ skills:
     patterns: []
     keywords: [ai, llm, openai, embeddings, semantic]
 
+  - name: prompt-templates
+    description: SKUEL's centralized LLM prompt template registry (PROMPT_REGISTRY) connecting services to templates
+    last_reviewed: "2026-05-21"
+    foundation: [base-ai-service]
+    dependencies: [base-ai-service]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
+    primary_docs: []
+    related_adrs: []
+    patterns: []
+    keywords: [prompt, prompt-template, PROMPT_REGISTRY, llm, askesis, prompt-engineering]
+
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
     last_reviewed: "2026-03-01"
@@ -437,6 +485,36 @@ skills:
     keywords: [UserContext, intelligence, planning, alignment, recommendations]
 
   # ============================================================================
+  # LEARNING & PEDAGOGY LAYER
+  # ============================================================================
+
+  - name: learning-loop
+    description: SKUEL's Learning Loop — the development lens for PathStep, Exercise, UserEntry, Report, RevisedExercise, Interaction; every feature must strengthen a loop phase
+    last_reviewed: "2026-05-21"
+    foundation: [curriculum-domains, activity-domains]
+    dependencies: [curriculum-domains, activity-domains]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
+    primary_docs:
+      - /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
+    related_adrs: []
+    patterns: []
+    keywords: [learning-loop, pathstep, exercise, userentry, report, revised-exercise, interaction, teacher-review]
+
+  - name: zpd
+    description: SKUEL's Zone of Proximal Development — readiness scoring, blocking gaps, compound evidence, recommended actions, ZPD snapshots (the pedagogical gravity well)
+    last_reviewed: "2026-05-21"
+    foundation: [user-context-intelligence, curriculum-domains]
+    dependencies: [user-context-intelligence, curriculum-domains]
+    library_package: null  # SKUEL pattern, not external library
+    library_version: null
+    primary_docs:
+      - /docs/user-guides/zpd.md
+    related_adrs: []
+    patterns: []
+    keywords: [zpd, zone-of-proximal-development, readiness, blocking-gaps, compound-evidence, recommended-actions, askesis, pedagogy]
+
+  # ============================================================================
   # TESTING LAYER
   # ============================================================================
 
@@ -484,5 +562,18 @@ skills:
 # Testing:
 #   pytest (depends on python, result-pattern)
 #
-# Total skills: 22
+# Infrastructure:
+#   docker (no dependencies)
+#
+# AI:
+#   prompt-templates (depends on base-ai-service)
+#
+# UI:
+#   ui-orchestrator (depends on skuel-ui, fasthtml)
+#
+# Learning & Pedagogy:
+#   learning-loop (depends on curriculum-domains, activity-domains)
+#   zpd (depends on user-context-intelligence, curriculum-domains)
+#
+# Total skills: 29
 # No cycles detected - graph is valid ✓
