@@ -19,19 +19,19 @@ handlers. An earlier ad-hoc sweep keyed mutation detection on the
 bare ``@rt(path)`` (no ``methods=``) — yet those still accept form POSTs. This
 script fixes that blind spot.
 
-**What counts as a mutation (default gate).** A handler declares a mutating HTTP
-method (``POST``/``PUT``/``DELETE``/``PATCH``) **or** reads a *form* body
-(``request.form()`` / ``parse_form_body`` / ``parse_template_form_body``),
-regardless of the ``methods=`` kwarg. Form bodies are the classic-CSRF-exploitable
-surface: a cross-site ``<form>`` can forge ``application/x-www-form-urlencoded``
-POSTs but cannot set ``application/json``.
+**What counts as a mutation (the gate).** A handler declares a mutating HTTP
+method (``POST``/``PUT``/``DELETE``/``PATCH``) **or** reads a request body —
+form (``request.form()`` / ``parse_form_body`` / ``parse_template_form_body``)
+**or** JSON (``request.json()`` / ``parse_json_body``) — regardless of the
+``methods=`` kwarg. JSON endpoints are harder to exploit via classic form-CSRF
+(a cross-site ``<form>`` can't set ``application/json``), but Starlette parses a
+JSON body regardless of content-type, and SKUEL's convention is defense-in-depth
+(factories CSRF-protect JSON mutations too), so they are gated. Genuinely
+programmatic JSON endpoints (CLI/service-to-service clients that can't send a
+token) are listed in ``CSRF_EXEMPT`` with a reason.
 
-**``--include-json`` (deeper, non-default audit).** Also treats
-``request.json()`` / ``parse_json_body`` as mutation signals. Pure-JSON
-endpoints are largely immune to form-based CSRF, but SKUEL's convention is
-defense-in-depth (factories CSRF-protect JSON mutations too), so this mode helps
-audit hand-written JSON handlers. It is **not** part of the CI gate because its
-findings need per-endpoint triage (browser-client vs. service-to-service).
+**``--form-only``** narrows the scan to form+methods mutations (excludes
+``request.json()``/``parse_json_body``) — the classic-CSRF-exploitable subset.
 
 **Limitations.** Auth detection is intra-procedural: a handler that authenticates
 only via a *helper* it calls (e.g. graphql's ``_build_graphql_context`` →
@@ -43,7 +43,7 @@ stated reason, so CI stays green without hiding real regressions.
 Usage:
     uv run python scripts/audit_route_security.py            # CI gate: exit 1 on any gap
     uv run python scripts/audit_route_security.py --verbose  # list every mutation handler
-    uv run python scripts/audit_route_security.py --include-json   # deeper audit (not gated)
+    uv run python scripts/audit_route_security.py --form-only # narrow to form+methods
     uv run python scripts/audit_route_security.py --list-exempt
 
 Exit codes: 0 = clean, 1 = one or more non-exempt gaps found.
@@ -89,7 +89,17 @@ AUTH_EXEMPT: dict[tuple[str, str], str] = {
     ("graphql_routes.py", "graphql_execute"): "authenticates via _build_graphql_context() helper",
 }
 
-CSRF_EXEMPT: dict[tuple[str, str], str] = {}
+CSRF_EXEMPT: dict[tuple[str, str], str] = {
+    ("batch_transcription_api.py", "batch_transcribe"): (
+        "CLI-only (scripts/batch_transcribe.py via httpx) — no browser caller"
+    ),
+    ("graphql_routes.py", "graphql_handler"): (
+        "programmatic JSON API; the playground form /graphql/execute is separately protected"
+    ),
+    ("advanced_routes.py", "save"): (
+        "Jupyter-notebook httpx client (admin-gated curriculum authoring); no browser caller"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -214,9 +224,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Audit @rt route handlers for CSRF + auth gaps.")
     parser.add_argument("--verbose", action="store_true", help="List every mutation handler.")
     parser.add_argument(
-        "--include-json",
+        "--form-only",
         action="store_true",
-        help="Also treat request.json()/parse_json_body as mutations (deeper, non-gated audit).",
+        help="Narrow to form+methods mutations (exclude request.json()/parse_json_body).",
     )
     parser.add_argument("--list-exempt", action="store_true", help="Print the exemption tables.")
     args = parser.parse_args()
@@ -230,7 +240,7 @@ def main() -> int:
             print(f"  {f}:{fn} — {why}")
         return 0
 
-    handlers = collect_handlers(SCAN_DIR, include_json=args.include_json)
+    handlers = collect_handlers(SCAN_DIR, include_json=not args.form_only)
     mutations = [h for h in handlers if h.is_mutation]
 
     csrf_gaps = [h for h in mutations if not h.has_csrf and (h.file, h.name) not in CSRF_EXEMPT]
@@ -239,7 +249,7 @@ def main() -> int:
     seen = {(h.file, h.name) for h in handlers}
     stale = sorted(k for k in (AUTH_EXEMPT.keys() | CSRF_EXEMPT.keys()) if k not in seen)
 
-    mode = "form+methods+json" if args.include_json else "form+methods"
+    mode = "form+methods" if args.form_only else "form+methods+json"
     print(f"{BOLD}{CYAN}Route Security Audit{RESET}  ({SCAN_DIR.relative_to(ROOT)}, mode={mode})")
     print(
         f"  scanned {len(handlers)} @rt handlers · "

@@ -33,7 +33,7 @@ collect_handlers = _audit.collect_handlers
 
 
 def _mutations():
-    return [h for h in collect_handlers(SCAN_DIR, include_json=False) if h.is_mutation]
+    return [h for h in collect_handlers(SCAN_DIR, include_json=True) if h.is_mutation]
 
 
 def test_finds_mutation_handlers() -> None:
@@ -62,6 +62,6 @@ def test_no_auth_gaps_on_mutation_handlers() -> None:
 
 def test_no_stale_exemptions() -> None:
     # Every exemption must point at a real handler, so the tables don't rot.
-    seen = {(h.file, h.name) for h in collect_handlers(SCAN_DIR, include_json=False)}
+    seen = {(h.file, h.name) for h in collect_handlers(SCAN_DIR, include_json=True)}
     stale = sorted(k for k in (AUTH_EXEMPT.keys() | CSRF_EXEMPT.keys()) if k not in seen)
     assert not stale, f"exemptions for handlers that no longer exist: {stale}"

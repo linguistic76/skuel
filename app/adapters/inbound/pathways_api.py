@@ -78,6 +78,7 @@ def create_pathways_api_routes(
     # -----------------
 
     @rt("/api/pathways/progress")
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def update_progress_route(request: Request) -> Result[dict[str, Any]]:
         """Update progress for a path step.

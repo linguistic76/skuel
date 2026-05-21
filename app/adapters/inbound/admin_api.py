@@ -336,6 +336,7 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/hard-delete")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def hard_delete_user(

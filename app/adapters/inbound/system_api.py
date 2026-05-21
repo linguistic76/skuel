@@ -30,6 +30,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from core.ports.query_types import AlertCheckResult, HealthCheckValidation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -348,6 +349,7 @@ def create_system_api_routes(
     # ========================================================================
 
     @rt("/api/services/register")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
     async def register_service_route(request: Request, current_user) -> Result[dict[str, Any]]:
@@ -393,6 +395,7 @@ def create_system_api_routes(
         )
 
     @rt("/api/services/unregister")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def unregister_service_route(request: Request, current_user) -> Result[dict[str, Any]]:
@@ -619,6 +622,7 @@ def create_system_api_routes(
         return Result.ok({"thresholds": thresholds, "timestamp": datetime.now(UTC).isoformat()})
 
     @rt("/api/alerts/thresholds")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def update_alert_thresholds_route(

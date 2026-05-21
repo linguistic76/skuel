@@ -200,6 +200,7 @@ def create_finance_api_routes(
         return result
 
     @rt("/api/expenses/receipt")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def attach_receipt_route(request, current_user, uid: str) -> Result[bool]:
@@ -456,6 +457,7 @@ def create_finance_api_routes(
     # ========================================================================
 
     @rt("/api/expenses/bulk/categorize")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def bulk_categorize_expenses_route(request, current_user) -> Result[dict[str, Any]]:
