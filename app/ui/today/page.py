@@ -706,8 +706,8 @@ def _drawer_panel() -> FT:
             "x-transition:leave": "transition ease-in duration-150",
             "x-transition:leave-start": "translate-x-0",
             "x-transition:leave-end": "translate-x-full",
-            # Server-swapped richer body. Triggered by an Alpine effect that
-            # fires `load-drawer` on body when openTaskId changes (Phase 4).
+            # Server-swapped richer body. `openDrawer()` in today.js fires
+            # `load-drawer` on body (after setting openTaskId) to trigger this.
             ":hx-get": "openTask ? `/today/tasks/${openTask.id}/drawer` : null",
             "hx-trigger": "load-drawer from:body",
             "hx-target": "#drawer-body",

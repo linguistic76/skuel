@@ -189,6 +189,13 @@
       openDrawer(id) {
         this.openTaskId = id;
         this.selectedId = id;
+        // Fire `load-drawer` once Alpine has updated the panel's :hx-get binding
+        // to /today/tasks/${id}/drawer, so HTMX swaps the richer body into
+        // #drawer-body (the panel listens via hx-trigger="load-drawer from:body").
+        // Without this the drawer opens but its server-derived body stays empty.
+        this.$nextTick(() => {
+          document.body.dispatchEvent(new Event('load-drawer', { bubbles: true }));
+        });
       },
       closeDrawer() {
         const id = this.openTaskId;
