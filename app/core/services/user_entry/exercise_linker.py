@@ -137,20 +137,25 @@ class UserEntryExerciseLinker:
                 if student_uid_records:
                     submitter_uid = student_uid_records[0]["student_uid"]
 
-                    prior_count_result = await self.backend.count_entries_for_exercise(
+                    # The FULFILLS_EXERCISE edge already exists (see docstring),
+                    # so this count INCLUDES the just-created entry — it IS this
+                    # entry's revision number directly (== the value
+                    # ``_next_revision`` computed pre-create as count+1). Adding 1
+                    # again would over-count the title/revision by one.
+                    count_result = await self.backend.count_entries_for_exercise(
                         submitter_uid, count_exercise_uid
                     )
-                    prior_count = 0
-                    if not prior_count_result.is_error:
-                        prior_count = prior_count_result.value
+                    revision = 1
+                    if not count_result.is_error and count_result.value:
+                        revision = count_result.value
 
                     new_title = _generate_exercise_title(
                         exercise_title=exercise_title,
-                        revision=prior_count + 1,
+                        revision=revision,
                     )
                     await self.backend.update(
                         entry_uid,
-                        {"title": new_title, "revision_number": prior_count + 1},
+                        {"title": new_title, "revision_number": revision},
                     )
                     self.logger.info(f"Updated user entry title to: {new_title}")
 

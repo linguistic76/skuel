@@ -1456,13 +1456,13 @@ class UserContextQueryExecutor:
                  member_count: member_count,
                  is_active: coalesce(og.is_active, true)
              } END) AS teacher_groups_raw
-        OPTIONAL MATCH (user)-[:MEMBER_OF]->(g:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise'})
+        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise'})
         WITH user, member_groups_raw, teacher_groups_raw,
              collect(DISTINCT ex.uid) AS exercise_uids
-        OPTIONAL MATCH (user)-[:MEMBER_OF]->(g2:Group)<-[:SHARED_WITH_GROUP]-(ps:Entity {entity_type: 'path_step'})
+        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g2:Group)<-[:SHARED_WITH_GROUP]-(ps:Entity {entity_type: 'path_step'})
         WITH user, member_groups_raw, teacher_groups_raw, exercise_uids,
              collect(DISTINCT ps.uid) AS path_step_uids
-        OPTIONAL MATCH (user)-[:MEMBER_OF]->(g3:Group)<-[:SHARED_WITH_GROUP]-(lp:Entity {entity_type: 'learning_path'})
+        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g3:Group)<-[:SHARED_WITH_GROUP]-(lp:Entity {entity_type: 'learning_path'})
         RETURN
             [x IN member_groups_raw WHERE x.uid IS NOT NULL] AS user_groups,
             [x IN teacher_groups_raw WHERE x IS NOT NULL AND x.uid IS NOT NULL] AS teacher_groups,

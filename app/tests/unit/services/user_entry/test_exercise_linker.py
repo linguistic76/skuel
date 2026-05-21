@@ -59,6 +59,41 @@ class TestProcessExerciseSubmission:
         assert result.value == ProcessingOutcome.PROCESSED
 
     @pytest.mark.asyncio
+    async def test_revision_uses_count_directly_not_plus_one(self):
+        """The FULFILLS_EXERCISE edge already exists when the linker runs, so the
+        count INCLUDES this entry — it is the revision number. Regression: the
+        old code added 1, over-counting the title/revision (count=1 -> "v2").
+        """
+        backend = _make_backend()
+        backend.get_exercise_context.return_value = Result.ok(
+            [
+                {
+                    "exercise_entity_type": "exercise",
+                    "scope": "assigned",
+                    "teacher_uid": "teacher_1",
+                    "student_uid": None,
+                    "exercise_title": "Write Essay",
+                    "group_uid": "grp_1",
+                }
+            ]
+        )
+        backend.verify_student_group_membership.return_value = Result.ok(
+            [{"student_uid": "user_1", "member_of_group": "grp_1"}]
+        )
+        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        # First submission: it is already linked, so the count is 1 (this entry).
+        backend.count_entries_for_exercise.return_value = Result.ok(1)
+        linker = _make_linker(backend)
+
+        result = await linker.process_exercise_submission("sub_1", "ex_1")
+
+        assert result.is_ok
+        backend.update.assert_awaited_once()
+        _uid, updates = backend.update.await_args.args
+        assert updates["revision_number"] == 1  # not 2
+        assert updates["title"] == "Write Essay v1"
+
+    @pytest.mark.asyncio
     async def test_not_assigned_scope(self):
         backend = _make_backend()
         backend.get_exercise_context.return_value = Result.ok(
