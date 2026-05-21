@@ -64,10 +64,15 @@ From `scripts/audit_route_security.py` `CSRF_EXEMPT` (run `./dev audit-routes
 |---|---|---|
 | `batch_transcription_api.py:batch_transcribe` | `scripts/batch_transcribe.py` via httpx (CLI) | CLI sends a bearer token |
 | `graphql_routes.py:graphql_handler` (`POST /graphql`) | programmatic JSON GraphQL API | API clients send a bearer token |
-| `advanced_routes.py:save` (`/jupyter/save`) | Jupyter notebook via httpx (admin) | notebook sends a bearer token |
 
 (The GraphQL *playground form* `/graphql/execute` stays cookie+CSRF — it's
 browser-driven.)
+
+**Related:** the `advanced_routes` admin endpoints (`/jupyter/save`,
+`/jupyter/sync-to-obsidian`, `/performance/optimize`) are now `@csrf_protected`
+(closing the admin-browser-CSRF vector). They have no programmatic caller today;
+when a Jupyter-notebook / ops client is wired up, it should authenticate via a
+bearer token (this scheme) rather than carrying a CSRF token.
 
 ## What to do
 

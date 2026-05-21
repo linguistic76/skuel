@@ -821,7 +821,10 @@ class CalendarService:
         UID oracle), then delegates to habits_service.track_habit.
         """
         habit_get = await self.habits_service.get(habit_uid)
-        if habit_get.is_error or not habit_get.value or habit_get.value.user_uid != user_uid:
+        if habit_get.is_error:
+            # Propagate genuine backend failures — don't mask them as not-found.
+            return Result.fail(habit_get)
+        if not habit_get.value or habit_get.value.user_uid != user_uid:
             return Result.fail(Errors.not_found(f"Habit not found: {habit_uid}"))
         request = TrackHabitRequest(
             habit_uid=habit_uid,

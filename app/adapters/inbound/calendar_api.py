@@ -45,12 +45,16 @@ def create_calendar_api_routes(
             return parsed  # type: ignore[return-value]
         req = parsed.value
 
+        # Ownership comes from the session, not the client body — drop any
+        # caller-supplied user_uid so it can't collide with the explicit kwarg
+        # (TypeError) or smuggle a different owner.
+        extras = {k: v for k, v in req.extras.items() if k != "user_uid"}
         result = await calendar_service.quick_create(
             user_uid=user_uid,
             item_type=req.type,
             title=req.title,
             start_time=datetime.fromisoformat(req.start_time),
-            **req.extras,
+            **extras,
         )
 
         if result.is_error:

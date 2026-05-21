@@ -127,6 +127,33 @@ class TestQuickCreate:
         assert kwargs["start_time"] == datetime(2026, 5, 20, 10, 0)
 
     @pytest.mark.asyncio
+    async def test_extras_user_uid_is_dropped_not_collided(self, routes_and_service) -> None:
+        """A client-supplied extras.user_uid must not collide with the session uid.
+
+        Regression: forwarding **req.extras alongside an explicit user_uid kwarg
+        raised TypeError (500) when extras carried 'user_uid'. The handler now
+        strips it and the session owner wins.
+        """
+        registry, service = routes_and_service
+        service.quick_create = AsyncMock(return_value=Result.ok(_make_calendar_item()))
+
+        handler = registry.get("/api/calendar/quick-create", "POST")
+        request = _make_request(
+            json_body={
+                "type": "task",
+                "title": "Owned by session, not by body",
+                "start_time": "2026-05-20T10:00:00",
+                "extras": {"user_uid": "user_attacker", "description": "x"},
+            }
+        )
+        response = await handler(request)
+
+        assert response.status_code == 201  # no TypeError/500
+        kwargs = service.quick_create.await_args.kwargs
+        assert kwargs["user_uid"] == "user_test"  # session owner, not the smuggled one
+        assert "user_uid" not in kwargs.get("extras", {})
+
+    @pytest.mark.asyncio
     async def test_invalid_body_returns_validation_failure(self, routes_and_service) -> None:
         registry, service = routes_and_service
         handler = registry.get("/api/calendar/quick-create", "POST")

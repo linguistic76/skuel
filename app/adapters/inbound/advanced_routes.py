@@ -29,6 +29,7 @@ from fasthtml.common import JSONResponse, Request
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
@@ -154,6 +155,7 @@ def create_jupyter_sync_routes(
         return await jupyter_sync.get_content_for_jupyter(uid)
 
     @rt("/jupyter/save")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def save(request: Request, current_user: Any, uid: str) -> JSONResponse:
@@ -162,6 +164,7 @@ def create_jupyter_sync_routes(
         return await jupyter_sync.save_jupyter_changes(uid, content)
 
     @rt("/jupyter/sync-to-obsidian")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def sync_to_obsidian(request: Request, current_user: Any, uid: str) -> JSONResponse:
@@ -216,6 +219,7 @@ def create_performance_routes(
         return Result.ok(stats)
 
     @rt("/performance/optimize")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def optimize_performance(request: Request, current_user: Any) -> JSONResponse:

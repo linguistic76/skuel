@@ -98,9 +98,6 @@ CSRF_EXEMPT: dict[tuple[str, str], str] = {
     ("graphql_routes.py", "graphql_handler"): (
         "programmatic JSON API; the playground form /graphql/execute is separately protected"
     ),
-    ("advanced_routes.py", "save"): (
-        "Jupyter-notebook httpx client (admin-gated curriculum authoring); no browser caller"
-    ),
 }
 
 
@@ -212,8 +209,10 @@ def collect_handlers(scan_dir: Path, include_json: bool) -> list[Handler]:
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except SyntaxError as exc:
+            # Fail closed: a syntax-broken module must not be silently skipped,
+            # or the audit (and its unit guard) would pass on a partial tree.
             print(f"{RED}parse error: {path}: {exc}{RESET}", file=sys.stderr)
-            continue
+            raise
         for node in ast.walk(tree):
             if isinstance(node, ast.AsyncFunctionDef | ast.FunctionDef):
                 h = _analyze(node, path.name, include_json)
