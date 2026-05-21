@@ -23,7 +23,7 @@ This directory contains CI/CD workflows for SKUEL.
 
 | Step | Behavior |
 |------|----------|
-| Install dependencies | `uv sync --no-root` (venv cached on `uv.lock` hash) |
+| Install dependencies | `uv sync --no-install-project` (venv cached on `uv.lock` hash) |
 | Cache `.mypy_cache` | Restored across runs on the same branch for incrementality |
 | `uv run mypy .` | Fails the job on any MyPy error |
 | Upload artifact | `mypy-output.txt` retained for 14 days on failure |
