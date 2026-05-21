@@ -42,7 +42,7 @@ For hands-on implementation, invoke these skills:
 - [@python](../.claude/skills/python/SKILL.md) - Python patterns
 - [@result-pattern](../.claude/skills/result-pattern/SKILL.md) - Error handling
 - [@base-analytics-service](../.claude/skills/base-analytics-service/SKILL.md) - Analytics services
-- [All 27 skills](../.claude/skills/INDEX.md)
+- [All 29 skills](../.claude/skills/skills_metadata.yaml)
 
 See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs mapping.
 

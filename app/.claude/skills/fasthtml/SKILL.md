@@ -674,15 +674,14 @@ def get_books_for_user(user_id: int):
 
 ## Related Skills
 
-- **[html-htmx](../html-htmx/SKILL.md)** - HTMX patterns FastHTML uses for dynamic updates
-- **[js-alpine](../js-alpine/SKILL.md)** - Alpine.js for client-side state in FastHTML apps
-- **[monsterui](../monsterui/SKILL.md)** - MonsterUI components for FastHTML
+- **[ui-browser](../ui-browser/SKILL.md)** - HTMX + Alpine.js patterns FastHTML uses for dynamic updates and client-side state
+- **[ui-css](../ui-css/SKILL.md)** - MonsterUI components for FastHTML
 - **[pydantic](../pydantic/SKILL.md)** - Request/response validation in FastHTML routes
 
 ## Foundation
 
-- **[html-htmx](../html-htmx/SKILL.md)** - Understanding hypermedia architecture
-- **[monsterui](../monsterui/SKILL.md)** - Pre-styled component library
+- **[ui-browser](../ui-browser/SKILL.md)** - Understanding hypermedia architecture
+- **[ui-css](../ui-css/SKILL.md)** - Pre-styled component library
 
 ## See Also
 

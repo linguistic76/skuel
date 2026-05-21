@@ -5,7 +5,7 @@ category: patterns
 related_skills:
   - prometheus-grafana
   - pydantic
-  - skuel-form-patterns
+  - skuel-ui
 related_docs:
 - /docs/patterns/PROMETHEUS_METRICS.md
 - /docs/decisions/ADR-036
@@ -20,7 +20,7 @@ related_docs:
 For implementation guidance, see:
 - [@prometheus-grafana](../../.claude/skills/prometheus-grafana/SKILL.md)
 - [@pydantic](../../.claude/skills/pydantic/SKILL.md)
-- [@skuel-form-patterns](../../.claude/skills/skuel-form-patterns/SKILL.md)
+- [@skuel-ui](../../.claude/skills/skuel-ui/SKILL.md)
 
 ## Migration Notice
 
