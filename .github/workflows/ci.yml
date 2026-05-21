@@ -39,6 +39,10 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v3
         with:
+          # On push, diff only the pushed commits (ignored on pull_request,
+          # where the PR base is used). Without this, pushes to a long-lived
+          # branch like develop diff against main and over-trigger the jobs.
+          base: ${{ github.ref }}
           filters: |
             py:
               - 'app/**/*.py'
