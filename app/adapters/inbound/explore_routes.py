@@ -39,7 +39,13 @@ def create_explore_routes(
 
     create_explore_api_routes(app, rt, orchestrator=orchestrator)
     create_explore_ui_routes(app, rt, orchestrator=orchestrator)
-    create_learning_loop_routes(app, rt, orchestrator=orchestrator)
+    create_learning_loop_routes(
+        app,
+        rt,
+        orchestrator=orchestrator,
+        ps_engagement_service=services.ps_engagement,
+        user_service=services.user,
+    )
 
 
 __all__ = ["create_explore_routes"]

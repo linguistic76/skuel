@@ -29,7 +29,6 @@ import pytest_asyncio
 from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
 from core.models.enums.curriculum_enums import StepDifficulty
 from core.models.enums.neo_labels import NeoLabel
@@ -281,7 +280,9 @@ async def test_learning_path_service_returns_typed_steps(lp_service, type_contra
     # Assert - Each step is properly typed
     for i, step in enumerate(steps, 1):
         # Core type check
-        assert isinstance(step, Entity), f"Step {i} should be Entity instance, got {type(step)}"
+        assert isinstance(step, PathStepModel), (
+            f"Step {i} should be PathStep instance, got {type(step)}"
+        )
 
         # Required string fields
         assert isinstance(step.uid, str), f"Step {i} uid should be string"

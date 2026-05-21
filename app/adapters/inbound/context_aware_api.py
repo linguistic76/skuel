@@ -24,6 +24,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.route_factories import parse_bool_query_param
 from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit import Habit
@@ -113,6 +114,7 @@ def create_context_aware_api_routes(
     # ========================================================================
 
     @rt("/api/context/task/complete", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)  # Changed to 200 (completion, not creation)
     async def complete_task_with_context_route(
         request: Request, task_uid: str, body: ContextualTaskCompletionRequest
@@ -137,6 +139,7 @@ def create_context_aware_api_routes(
         )
 
     @rt("/api/context/goal/tasks", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def create_tasks_from_goal_context_route(
         request: Request, goal_uid: str, body: ContextualGoalTaskGenerationRequest
@@ -161,6 +164,7 @@ def create_context_aware_api_routes(
         )
 
     @rt("/api/context/habit/complete", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)  # Changed to 200 (completion, not creation)
     async def complete_habit_with_context_route(
         request: Request, habit_uid: str, body: ContextualHabitCompletionRequest

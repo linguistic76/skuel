@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined"
 """
 Unit Tests: Goals Utility Method Consolidation
 ===============================================

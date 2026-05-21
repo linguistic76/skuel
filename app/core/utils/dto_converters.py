@@ -119,7 +119,7 @@ def to_domain_models[D: DTOProtocol, T: DomainModelProtocol](
     return [to_domain_model(data, dto_class, model_class) for data in data_list]
 
 
-def from_domain_model[D: DTOProtocol, T: DomainModelProtocol](model: T, dto_class: type[D]) -> D:
+def from_domain_model[D: DTOProtocol](model: DomainModelProtocol, dto_class: type[D]) -> D:
     """
     Convert domain model to DTO for backend operations.
 

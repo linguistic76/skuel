@@ -15,10 +15,8 @@ if TYPE_CHECKING:
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
-    from core.models.journal.je_input import JeInput  # noqa: F401
-    from core.models.journal.je_output import JeOutput  # noqa: F401
+    from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
-    from core.models.submissions.report_schedule import ReportSchedule  # noqa: F401
 
 
 class GroupBackend(UniversalNeo4jBackend["Group"]):
@@ -49,16 +47,29 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             return Result.fail(result)
         return Result.ok(True)
 
-    async def get_user_groups(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Get all groups a user is a member of (via MEMBER_OF relationship)."""
+    async def get_user_groups(
+        self, user_uid: UserUID, role: str | None = None
+    ) -> Result[list[Neo4jProperties]]:
+        """Get all groups a user is a member of (via MEMBER_OF relationship).
+
+        Args:
+            user_uid: UID of the member.
+            role: Optional MEMBER_OF role filter (e.g. "student", "teacher").
+                None returns memberships in all roles.
+        """
+        params: dict[str, Any] = {"user_uid": user_uid}
+        role_clause = ""
+        if role is not None:
+            role_clause = "AND r.role = $role"
+            params["role"] = role
         result = await self.execute_query(
             f"""
-            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            WHERE group.is_active = true
+            MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.MEMBER_OF}]->(group:Group)
+            WHERE group.is_active = true {role_clause}
             RETURN group
             ORDER BY group.created_at DESC
             """,
-            {"user_uid": user_uid},
+            params,
         )
         if result.is_error:
             return Result.fail(result)
@@ -151,17 +162,18 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
-        OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.FOR_GROUP.value}]->(g)
+        OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
         OPTIONAL MATCH (sub:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
-          WHERE sub.status NOT IN ['completed', 'archived']
+          WHERE NOT sub.status IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
                g.description AS description,
                g.is_active AS is_active,
+               g.created_at AS created_at,
                count(DISTINCT member) AS member_count,
                count(DISTINCT ex) AS exercise_count,
                count(DISTINCT sub) AS pending_count
-        ORDER BY g.created_at DESC
+        ORDER BY created_at DESC
         """
         return await self.execute_query(query, {"teacher_uid": teacher_uid})
 

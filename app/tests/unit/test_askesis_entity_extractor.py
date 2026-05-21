@@ -81,12 +81,17 @@ def create_mock_user_context() -> Mock:
     context = Mock()
     context.user_uid = "test_user"
 
-    # Knowledge UIDs (entity_extractor.py lines 188-192)
+    # Knowledge UIDs (consumed via UserContext.known_or_engaged_ku_uids())
     context.mastered_knowledge_uids = {"ku.python-basics"}
     context.in_progress_knowledge_uids = {"ku.machine-learning"}
     context.blocked_knowledge_uids = set()
+    context.known_or_engaged_ku_uids = Mock(
+        return_value=context.mastered_knowledge_uids
+        | context.in_progress_knowledge_uids
+        | context.blocked_knowledge_uids
+    )
 
-    # Activity UIDs (entity_extractor.py lines 231, 270, 309, 348)
+    # Activity UIDs
     context.active_task_uids = ["task_001"]
     context.active_goal_uids = ["goal_001"]
     context.active_habit_uids = []

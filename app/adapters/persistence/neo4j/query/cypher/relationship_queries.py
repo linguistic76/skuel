@@ -19,6 +19,7 @@ Methods:
 from typing import Any
 
 from core.models.type_hints import Neo4jValue
+from core.ports.base_protocols import Direction
 
 from ._helpers import validate_identifier
 
@@ -26,7 +27,7 @@ from ._helpers import validate_identifier
 def build_relationship_count(
     uid: str,
     relationship_type: str,
-    direction: str = "outgoing",
+    direction: Direction = "outgoing",
     properties: dict[str, Neo4jValue] | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
@@ -99,7 +100,7 @@ def build_relationship_count(
 def build_relationship_uids_query(
     uid: str,
     relationship_type: str,
-    direction: str = "outgoing",
+    direction: Direction = "outgoing",
     limit: int = 100,
     properties: dict[str, Neo4jValue] | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -173,7 +174,7 @@ def build_relationship_uids_query(
 
 
 def build_multi_relationship_count(
-    uid: str, relationship_types: list[str], direction: str = "outgoing"
+    uid: str, relationship_types: list[str], direction: Direction = "outgoing"
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Generate Cypher query to count relationships across multiple types.
@@ -231,7 +232,7 @@ def build_multi_relationship_count(
 def build_batch_relationship_exists(
     node_label: str,
     relationship_types: list[str],
-    direction: str = "outgoing",
+    direction: Direction = "outgoing",
 ) -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher query to check relationship existence for multiple entities.
@@ -275,7 +276,7 @@ def build_batch_relationship_exists(
     result = BatchCypherBuilder.build_relationship_exists_query(
         node_label=node_label,
         relationship_types=relationship_types,
-        direction=direction,  # type: ignore[arg-type]
+        direction=direction,
     )
 
     return result.query, result.params
@@ -284,7 +285,7 @@ def build_batch_relationship_exists(
 def build_batch_relationship_count(
     node_label: str,
     relationship_types: list[str],
-    direction: str = "outgoing",
+    direction: Direction = "outgoing",
 ) -> tuple[str, dict[str, Any]]:
     """
     Generate Cypher query to count relationships for multiple entities.
@@ -322,7 +323,7 @@ def build_batch_relationship_count(
     result = BatchCypherBuilder.build_relationship_count_query(
         node_label=node_label,
         relationship_types=relationship_types,
-        direction=direction,  # type: ignore[arg-type]
+        direction=direction,
     )
 
     return result.query, result.params
@@ -331,7 +332,7 @@ def build_batch_relationship_count(
 def build_batch_relationship_exists_with_filters(
     node_label: str,
     relationship_types: list[str],
-    direction: str = "outgoing",
+    direction: Direction = "outgoing",
     property_filters: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
@@ -373,7 +374,7 @@ def build_batch_relationship_exists_with_filters(
     result = BatchCypherBuilder.build_relationship_exists_with_filters_query(
         node_label=node_label,
         relationship_types=relationship_types,
-        direction=direction,  # type: ignore[arg-type]
+        direction=direction,
         property_filters=property_filters,
     )
 
@@ -383,7 +384,7 @@ def build_batch_relationship_exists_with_filters(
 def build_batch_get_related_with_filters(
     node_label: str,
     relationship_types: list[str],
-    direction: str = "outgoing",
+    direction: Direction = "outgoing",
     property_filters: dict[str, Any] | None = None,
     limit_per_node: int = 100,
 ) -> tuple[str, dict[str, Any]]:
@@ -426,7 +427,7 @@ def build_batch_get_related_with_filters(
     result = BatchCypherBuilder.build_get_related_with_filters_query(
         node_label=node_label,
         relationship_types=relationship_types,
-        direction=direction,  # type: ignore[arg-type]
+        direction=direction,
         property_filters=property_filters,
         limit_per_node=limit_per_node,
     )

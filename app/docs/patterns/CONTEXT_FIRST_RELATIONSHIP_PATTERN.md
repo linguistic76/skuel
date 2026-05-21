@@ -78,9 +78,8 @@ The Context-First system has three layers:
 │  ContextualGoal.from_entity_and_context()                │
 │  ... one per domain ...                                  │
 ├─────────────────────────────────────────────────────────┤
-│  Layer 3: Service Methods (18 call sites)                │
-│  planning_mixin, context_first_mixin,                    │
-│  5 domain planning services                              │
+│  Layer 3: Service Methods (14 call sites)                │
+│  planning_mixin + 5 domain planning services             │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -93,7 +92,7 @@ The Context-First system has three layers:
 
 ## Layer 1: Harmonized Scoring Engine
 
-Five pure functions in `core/models/context_types.py`, extracted from what was previously scattered across `ContextFirstMixin`, `PrerequisiteChecker`, and 5 domain planning services. Same formulas, one location, parameterized for all domains.
+Five pure functions in `core/models/context_types.py`, extracted from what was previously scattered across `PrerequisiteChecker` and 5 domain planning services. Same formulas, one location, parameterized for all domains.
 
 ### `_compute_readiness(required_knowledge, required_tasks, knowledge_mastery, completed_task_uids, threshold=0.7) -> float`
 
@@ -294,8 +293,7 @@ def from_entity_and_context(
 
 **Additional fields populated:** `can_start` (readiness >= 0.7), `is_overdue` (uid in `context.overdue_task_uids`), `is_milestone` (uid in `context.milestone_tasks`), `contributes_to_goals`, `applies_knowledge`, `blocking_reasons`.
 
-**Call sites (5):**
-- `context_first_mixin._enrich_task_with_context()` — default weights
+**Call sites (4):**
 - `tasks_planning_service.get_task_dependencies_for_user()` — default weights
 - `tasks_planning_service.get_actionable_tasks_for_user()` — default weights, filter readiness >= 0.7
 - `tasks_planning_service.get_learning_tasks_for_user()` — `readiness_override=0.8, priority_override=learning_impact`
@@ -320,8 +318,7 @@ def from_entity_and_context(
 
 **Standard scoring path:** Mastery from `context.knowledge_mastery`, prerequisites check (all >= 0.7), readiness = 1.0 if met else 0.3, relevance = 1.0 - mastery (gap-based), third dimension = `dependent_count/5` (impact). **Supports 2D or 3D weights** — `dims[:len(weights)]` truncation handles both.
 
-**Call sites (4):**
-- `context_first_mixin._enrich_knowledge_with_context()` — default weights
+**Call sites (3):**
 - `ps_context_service.get_ready_to_learn_for_user()` — `weights=(0.5, 0.3, 0.2)`
 - `ps_context_service.get_learning_gaps_for_user()` — `relevance_override=goals_blocked_ratio, weights=(0.4, 0.6)` (2D)
 - `ps_context_service.get_knowledge_to_reinforce_for_user()` — `readiness_override=0.9`, decay as relevance
@@ -347,8 +344,7 @@ def from_entity_and_context(
 
 **Additional fields populated:** `current_progress`, `days_to_deadline`, `is_at_risk`, `contributing_tasks`, `contributing_habits`, `knowledge_required`, `learning_gaps`.
 
-**Call sites (5):**
-- `context_first_mixin._enrich_goal_with_context()` — standard path
+**Call sites (4):**
 - `goals_planning_service.get_advancing_goals_for_user()` — default 4D weights
 - `goals_planning_service.get_stalled_goals_for_user()` — `relevance_override=0.7, priority_override=0.7*(1-progress)`
 - `goals_planning_service.get_achievable_goals_for_user()` — `readiness_override=1.0, relevance_override=0.9, priority_override=min(1.0, progress*1.2)`
@@ -380,8 +376,7 @@ def from_entity_and_context(
 
 **Context lookups:** Streak from `context.habit_streaks`, completion rate from `context.habit_completion_rates`, at-risk from `context.at_risk_habits`, keystone from `context.keystone_habits`.
 
-**Call sites (7):**
-- `context_first_mixin._enrich_habit_with_context()` — standard path
+**Call sites (6):**
 - `habits_planning_service.get_habit_priorities_for_user()` — `weights=(0.3, 0.3, 0.4)`
 - `habits_planning_service.get_actionable_habits_for_user()` — urgency-heavy weights + keystone bonus
 - `habits_planning_service.get_learning_habits_for_user()` — `readiness_override=0.8, priority_override=learning_impact`
@@ -469,18 +464,12 @@ def from_entity_and_context(
 
 ## Layer 3: Service Integration
 
-The 18 construction sites across 7 service files now delegate to factory classmethods. Each service extracts domain-specific parameters from its data source (rich context, graph queries, or entity attributes) and passes them to the factory.
+The 14 construction sites across 6 service files now delegate to factory classmethods. Each service extracts domain-specific parameters from its data source (rich context, graph queries, or entity attributes) and passes them to the factory.
 
 ### Service Architecture
 
 ```
 UserContext (MEGA-QUERY)
-    │
-    ├── context_first_mixin.py         (4 enrichment methods → 4 factories)
-    │   _enrich_task_with_context     → ContextualTask.from_entity_and_context()
-    │   _enrich_goal_with_context     → ContextualGoal.from_entity_and_context()
-    │   _enrich_habit_with_context    → ContextualHabit.from_entity_and_context()
-    │   _enrich_knowledge_with_context→ ContextualKnowledge.from_entity_and_context()
     │
     ├── planning_mixin.py              (6 methods → 6 factories)
     │   get_at_risk_habits_for_user   → ContextualHabit.from_entity_and_context()
@@ -495,22 +484,6 @@ UserContext (MEGA-QUERY)
     ├── habits_planning_service.py     (5 methods → ContextualHabit factory)
     ├── principles_planning_service.py (2 methods → ContextualPrinciple factory)
     └── ku_graph_service.py            (3 methods → ContextualKnowledge factory)
-```
-
-### Enrichment Adapter Pattern (`context_first_mixin.py`)
-
-The mixin's `_enrich_*_with_context()` methods are thin adapters that extract fields from domain objects and delegate to factories:
-
-```python
-async def _enrich_task_with_context(self, task, context, goal_uids=None, ...):
-    """Enrich a task with user context. Delegates to factory classmethod."""
-    uid = _get_attr(task, "uid", "")
-    title = _get_attr(task, "title", "")
-    deadline = _get_attr(task, "due_date")
-    return ContextualTask.from_entity_and_context(
-        uid=uid, title=title, context=context,
-        goal_uids=goal_uids, deadline=deadline, ...
-    )
 ```
 
 ### Domain Planning Service Pattern
@@ -650,32 +623,28 @@ UserContext (MEGA-QUERY)
 
 | # | Service | Method | Factory | Key Overrides |
 |---|---------|--------|---------|---------------|
-| 1 | context_first_mixin | `_enrich_task_with_context` | ContextualTask | — |
-| 2 | context_first_mixin | `_enrich_goal_with_context` | ContextualGoal | — |
-| 3 | context_first_mixin | `_enrich_habit_with_context` | ContextualHabit | — |
-| 4 | context_first_mixin | `_enrich_knowledge_with_context` | ContextualKnowledge | — |
-| 5 | planning_mixin | `get_at_risk_habits_for_user` | ContextualHabit | readiness=1.0, relevance=0.9, priority=0.95 |
-| 6 | planning_mixin | `get_upcoming_events_for_user` | ContextualEvent | days_until |
-| 7 | planning_mixin | `get_actionable_tasks_for_user` | ContextualTask | overdue boost |
-| 8 | planning_mixin | `get_advancing_goals_for_user` | ContextualGoal | progress, at-risk |
-| 9 | planning_mixin | `get_pending_decisions_for_user` | ContextualChoice | priority_level |
-| 10 | planning_mixin | `get_aligned_principles_for_user` | ContextualPrinciple | alignment_score |
-| 11 | tasks_planning | `get_task_dependencies_for_user` | ContextualTask | — |
-| 12 | tasks_planning | `get_actionable_tasks_for_user` | ContextualTask | readiness filter |
-| 13 | tasks_planning | `get_learning_tasks_for_user` | ContextualTask | readiness=0.8, priority=impact |
-| 14 | goals_planning | `get_advancing_goals_for_user` | ContextualGoal | — |
-| 15 | goals_planning | `get_stalled_goals_for_user` | ContextualGoal | priority=0.7*(1-progress) |
-| 16 | goals_planning | `get_achievable_goals_for_user` | ContextualGoal | readiness=1.0, priority=progress*1.2 |
-| 17 | habits_planning | `get_habit_priorities_for_user` | ContextualHabit | weights=(0.3,0.3,0.4) |
-| 18 | habits_planning | `get_actionable_habits_for_user` | ContextualHabit | urgency-heavy + keystone |
-| 19 | habits_planning | `get_learning_habits_for_user` | ContextualHabit | priority=learning_impact |
-| 20 | habits_planning | `get_goal_supporting_habits_for_user` | ContextualHabit | priority=goal_support |
-| 21 | habits_planning | `get_habit_readiness_for_user` | ContextualHabit | readiness=streak/7 |
-| 22 | principles_planning | `get_principles_needing_attention` | ContextualPrinciple | attention path |
-| 23 | principles_planning | `get_contextual_principles` | ContextualPrinciple | relevance=accumulated |
-| 24 | ps_context | `get_ready_to_learn_for_user` | ContextualKnowledge | weights=(0.5,0.3,0.2) |
-| 25 | ps_context | `get_learning_gaps_for_user` | ContextualKnowledge | 2D weights=(0.4,0.6) |
-| 26 | ps_context | `get_knowledge_to_reinforce` | ContextualKnowledge | readiness=0.9 |
+| 1 | planning_mixin | `get_at_risk_habits_for_user` | ContextualHabit | readiness=1.0, relevance=0.9, priority=0.95 |
+| 2 | planning_mixin | `get_upcoming_events_for_user` | ContextualEvent | days_until |
+| 3 | planning_mixin | `get_actionable_tasks_for_user` | ContextualTask | overdue boost |
+| 4 | planning_mixin | `get_advancing_goals_for_user` | ContextualGoal | progress, at-risk |
+| 5 | planning_mixin | `get_pending_decisions_for_user` | ContextualChoice | priority_level |
+| 6 | planning_mixin | `get_aligned_principles_for_user` | ContextualPrinciple | alignment_score |
+| 7 | tasks_planning | `get_task_dependencies_for_user` | ContextualTask | — |
+| 8 | tasks_planning | `get_actionable_tasks_for_user` | ContextualTask | readiness filter |
+| 9 | tasks_planning | `get_learning_tasks_for_user` | ContextualTask | readiness=0.8, priority=impact |
+| 10 | goals_planning | `get_advancing_goals_for_user` | ContextualGoal | — |
+| 11 | goals_planning | `get_stalled_goals_for_user` | ContextualGoal | priority=0.7*(1-progress) |
+| 12 | goals_planning | `get_achievable_goals_for_user` | ContextualGoal | readiness=1.0, priority=progress*1.2 |
+| 13 | habits_planning | `get_habit_priorities_for_user` | ContextualHabit | weights=(0.3,0.3,0.4) |
+| 14 | habits_planning | `get_actionable_habits_for_user` | ContextualHabit | urgency-heavy + keystone |
+| 15 | habits_planning | `get_learning_habits_for_user` | ContextualHabit | priority=learning_impact |
+| 16 | habits_planning | `get_goal_supporting_habits_for_user` | ContextualHabit | priority=goal_support |
+| 17 | habits_planning | `get_habit_readiness_for_user` | ContextualHabit | readiness=streak/7 |
+| 18 | principles_planning | `get_principles_needing_attention` | ContextualPrinciple | attention path |
+| 19 | principles_planning | `get_contextual_principles` | ContextualPrinciple | relevance=accumulated |
+| 20 | ps_context | `get_ready_to_learn_for_user` | ContextualKnowledge | weights=(0.5,0.3,0.2) |
+| 21 | ps_context | `get_learning_gaps_for_user` | ContextualKnowledge | 2D weights=(0.4,0.6) |
+| 22 | ps_context | `get_knowledge_to_reinforce` | ContextualKnowledge | readiness=0.9 |
 
 **Exception (stays direct):** `principles_planning_service.get_principle_practice_opportunities_for_user()` constructs `PracticeOpportunity` (different type, not ContextualEntity).
 
@@ -685,7 +654,6 @@ UserContext (MEGA-QUERY)
 | File | Purpose |
 |------|---------|
 | `core/models/context_types.py` | Scoring engine + 7 types + factories (canonical) |
-| `core/services/context_first_mixin.py` | 4 enrichment adapters → factory delegation |
 | `core/services/relationships/planning_mixin.py` | 6 methods → factory delegation |
 | `core/services/tasks/tasks_planning_service.py` | 3 task planning methods |
 | `core/services/goals/goals_planning_service.py` | 3 goal planning methods |
@@ -703,6 +671,7 @@ UserContext (MEGA-QUERY)
 | 1.0.0 | November 2025 | Original design: manual scoring in `_enrich_with_context()`, inline formulas |
 | 1.1.0 | January 2026 | Protocol compliance update, package restructuring |
 | **2.0.0** | **February 2026** | **Harmonized scoring engine + factory classmethods. 18 construction sites consolidated into 7 factory methods. One scoring engine, parameterized for all domains.** |
+| **2.1.0** | **April 2026** | **Retired `ContextFirstMixin` adapter. Its 4 `_enrich_*_with_context` methods had zero call sites (services call factory classmethods directly). 22 live call sites across 6 service files remain.** |
 
 **See also:**
 - `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — UserContext architecture

@@ -14,6 +14,7 @@ They enhance the user experience but are not required for core functionality.
 from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
+from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -55,7 +56,7 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
 
     async def find_similar_choices(
         self, choice_uid: str, limit: int = 5
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """Find semantically similar past choices using embeddings."""
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:

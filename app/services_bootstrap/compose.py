@@ -128,16 +128,44 @@ async def compose_services(
 
         schema_manager = Neo4jSchemaManager(driver)
 
-        # Create auth-specific indexes (rate limiting, session lookup, email uniqueness)
-        auth_index_result = await schema_manager.sync_auth_indexes()
-        if auth_index_result.is_ok:
-            created = auth_index_result.value.get("created", [])
-            logger.info(f"✅ Auth indexes synced: {', '.join(created) if created else 'all exist'}")
-        else:
-            logger.warning(f"⚠️ Auth index sync had issues: {auth_index_result.error}")
+        # Schema sync fail-fast policy:
+        # The sync_* methods return Result.ok(dict) even when individual indexes
+        # fail — per-index failures live in the returned `failed:[]` list.
+        # Bootstrap escalates a non-empty `failed:[]` (or Result.is_error) to a
+        # RuntimeError for everything that affects correctness or fundamental
+        # functionality. drop_stale_indexes is cosmetic (leftover indexes cost
+        # disk, not correctness) and stays warn-only.
+        def _check_schema_sync(result: Any, label: str, *, key: str = "created") -> dict[str, Any]:
+            if result.is_error:
+                raise RuntimeError(
+                    f"Schema sync failed ({label}): {result.error}. "
+                    "Bootstrap cannot proceed without required Neo4j indexes."
+                )
+            payload = result.value
+            failed = payload.get("failed", [])
+            if failed:
+                raise RuntimeError(
+                    f"Schema sync had per-index failures ({label}): {failed}. "
+                    "Check Neo4j logs — common causes: missing privileges, "
+                    "constraint creation against existing duplicate rows, "
+                    "or missing plugins. Bootstrap cannot proceed."
+                )
+            created = payload.get(key, [])
+            return {"created": created}
 
-        # Create vector indexes for semantic search (FULL tier only — ADR-043)
-        # CORE tier has no embeddings, so vector indexes are unnecessary
+        # Create auth-specific indexes (rate limiting, session lookup, email uniqueness).
+        # User(email) UNIQUE failure means two accounts could share an email
+        # (data-integrity bug); Session(session_token) failure means every
+        # authenticated request scans the Session label.
+        auth_index_result = await schema_manager.sync_auth_indexes()
+        auth_summary = _check_schema_sync(auth_index_result, "auth indexes")
+        created = auth_summary["created"]
+        logger.info(f"✅ Auth indexes synced: {', '.join(created) if created else 'all exist'}")
+
+        # Create vector indexes for semantic search (FULL tier only — ADR-043).
+        # CORE tier has no embeddings, so vector indexes are unnecessary. At FULL
+        # tier a missing vector index means db.index.vector.queryNodes() returns
+        # zero results — Askesis RAG silently degrades to graph-only (Gap #6).
         if tier.ai_enabled:
             vector_labels = [
                 "Entity",  # Base label — covers all entity types via multi-label
@@ -146,46 +174,40 @@ async def compose_services(
             vector_result = await schema_manager.sync_vector_indexes(
                 entity_labels=vector_labels, dimension=1024, similarity="cosine"
             )
-            if vector_result.is_ok:
-                created = vector_result.value.get("created", [])
-                logger.info(
-                    f"✅ Vector indexes synced: {', '.join(created) if created else 'all exist'}"
-                )
-            else:
-                logger.warning(f"⚠️ Vector index sync had issues: {vector_result.error}")
+            vector_summary = _check_schema_sync(vector_result, "vector indexes")
+            created = vector_summary["created"]
+            logger.info(
+                f"✅ Vector indexes synced: {', '.join(created) if created else 'all exist'}"
+            )
         else:
             logger.info("⏭️  Vector indexes skipped (intelligence tier: CORE)")
 
-        # Drop stale indexes from removed labels
+        # Drop stale indexes from removed labels. Cosmetic — failures leave a
+        # leftover index but no correctness impact. Warn-only by design.
         stale_result = await schema_manager.drop_stale_indexes()
         if stale_result.is_ok:
             dropped = stale_result.value.get("dropped", [])
+            failed = stale_result.value.get("failed", [])
             if dropped:
                 logger.info(f"✅ Dropped stale indexes: {', '.join(dropped)}")
+            if failed:
+                logger.warning(f"⚠️ Could not drop {len(failed)} stale indexes: {failed}")
+        else:
+            logger.warning(f"⚠️ Stale-index drop had issues: {stale_result.error}")
 
-        # Sync domain indexes (UID, user_uid, status, date, composite)
+        # Sync domain indexes (UID, user_uid, status, date, composite).
+        # Missing UID indexes turn every entity lookup into a full label scan.
         domain_idx_result = await schema_manager.sync_domain_indexes()
-        if domain_idx_result.is_ok:
-            created = domain_idx_result.value.get("created", [])
-            failed = domain_idx_result.value.get("failed", [])
-            logger.info(
-                f"✅ Domain indexes synced: {len(created)} created/verified"
-                + (f", {len(failed)} failed" if failed else "")
-            )
-        else:
-            logger.warning(f"⚠️ Domain index sync had issues: {domain_idx_result.error}")
+        domain_summary = _check_schema_sync(domain_idx_result, "domain indexes")
+        logger.info(f"✅ Domain indexes synced: {len(domain_summary['created'])} created/verified")
 
-        # Sync full-text indexes (Cypher-first search foundation — always created)
+        # Sync full-text indexes (Cypher-first search foundation — always created).
+        # Missing fulltext indexes break SearchRouter for that domain.
         fulltext_result = await schema_manager.sync_fulltext_indexes()
-        if fulltext_result.is_ok:
-            created = fulltext_result.value.get("created", [])
-            failed = fulltext_result.value.get("failed", [])
-            logger.info(
-                f"✅ Fulltext indexes synced: {len(created)} created/verified"
-                + (f", {len(failed)} failed" if failed else "")
-            )
-        else:
-            logger.warning(f"⚠️ Fulltext index sync had issues: {fulltext_result.error}")
+        fulltext_summary = _check_schema_sync(fulltext_result, "fulltext indexes")
+        logger.info(
+            f"✅ Fulltext indexes synced: {len(fulltext_summary['created'])} created/verified"
+        )
 
         # Cleanup expired sessions and reset tokens (daily maintenance at startup)
         from adapters.persistence.neo4j.session_backend import SessionBackend
@@ -268,25 +290,43 @@ async def compose_services(
         # reflection_backend shelved (2026-03-28)
         choices_backend = backends["choices_backend"]
         progress_backend = backends["progress_backend"]
-        submissions_backend = backends["submissions_backend"]
+        user_entry_backend = backends["user_entry_backend"]
         activity_report_backend = backends["activity_report_backend"]
         askesis_backend = backends["askesis_backend"]
+        # Activity template backends (Phase 4 — PsEngagementService)
+        task_template_backend = backends["task_template_backend"]
+        goal_template_backend = backends["goal_template_backend"]
+        habit_template_backend = backends["habit_template_backend"]
+        event_template_backend = backends["event_template_backend"]
+        choice_template_backend = backends["choice_template_backend"]
+        principle_template_backend = backends["principle_template_backend"]
 
         # Create user service FIRST (foundation service with no dependencies)
         from core.services.user_service import create_user_service
 
         user_service = create_user_service(
-            users_backend, query_executor, metrics_cache=metrics_cache
+            users_backend,
+            query_executor,
+            event_bus=event_bus,
+            metrics_cache=metrics_cache,
         )
         logger.info("✅ UserService created (foundation service)")
 
-        # Ensure system user exists for infrastructure operations
+        # Ensure system user exists for infrastructure operations.
+        # Fail-fast: system-owned content (e.g. the default transcript exercise)
+        # creates OWNS edges against (:User {uid: "user_system"}). If that node
+        # doesn't exist the MATCH yields zero rows, MERGE silently no-ops, and
+        # the exercise becomes an orphan with no warning. Bootstrap should die
+        # here rather than ship an app with broken system-owned content.
         logger.info("Ensuring system user exists...")
         system_user_result = await user_service.ensure_system_user()
         if system_user_result.is_error:
-            logger.warning(f"Failed to create system user: {system_user_result.error}")
-        else:
-            logger.info("✅ System user ready")
+            raise RuntimeError(
+                f"Bootstrap requires the system user (uid='user_system') for "
+                f"infrastructure-owned content. ensure_system_user() failed: "
+                f"{system_user_result.error}"
+            )
+        logger.info("✅ System user ready")
 
         # Create user relationship service (pinning, following, etc.)
         from core.services.user_relationship_service import UserRelationshipService
@@ -301,17 +341,30 @@ async def compose_services(
 
         session_backend = SessionBackend(driver)
 
-        # Optional email service for password reset (March 2026)
+        # Email service for password reset (March 2026, tier-gated May 2026)
+        # Gated by EMAIL_ENABLED to match the embeddings pattern: opt-in via flag,
+        # fail-fast on missing credential when opted in. Default off keeps local-dev
+        # quiet. graph_auth handles email_service=None — password reset returns
+        # Result.ok(True) without sending (prevents email-enumeration leak).
         email_service = None
-        resend_api_key = os.environ.get("RESEND_API_KEY")
-        if resend_api_key:
+        email_enabled = os.environ.get("EMAIL_ENABLED", "").lower() in ("true", "1", "yes")
+        if email_enabled:
+            from core.config.credential_store import get_credential
+
+            resend_api_key = get_credential("RESEND_API_KEY", fallback_to_env=True)
+            if not resend_api_key:
+                raise RuntimeError(
+                    "EMAIL_ENABLED=true but RESEND_API_KEY is not set in keychain or env. "
+                    "Add it via the credential setup flow, or set EMAIL_ENABLED=false "
+                    "to disable password reset emails."
+                )
             from adapters.outbound.email_service import ResendEmailService
 
             resend_from = os.environ.get("RESEND_FROM_EMAIL", "noreply@skuel.app")
             email_service = ResendEmailService(api_key=resend_api_key, from_email=resend_from)
             logger.info("✅ ResendEmailService created (password reset emails)")
         else:
-            logger.warning("⚠️ RESEND_API_KEY not set — password reset emails disabled")
+            logger.info("⏭️  Email service skipped (EMAIL_ENABLED not set)")
 
         app_url = os.environ.get("APP_URL", "http://localhost:8000")
 
@@ -443,7 +496,8 @@ async def compose_services(
         # Note: MarkdownSyncService DELETED (January 2026) - use UnifiedIngestionService
 
         # Create knowledge components using 100% dynamic backend pattern
-        # IMPORTANT: chunking_service must be created BEFORE UnifiedIngestionService (January 2026)
+        # IMPORTANT: chunking_service AND content_adapter must be created BEFORE
+        # UnifiedIngestionService so chunks persist to Neo4j at ingest time.
         from adapters.persistence.neo4j.neo4j_connection import get_connection
         from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
         from core.services.entity_chunking_service import EntityChunkingService
@@ -451,9 +505,14 @@ async def compose_services(
         chunking_service = EntityChunkingService()
         logger.info("✅ EntityChunkingService created for automatic chunk generation")
 
+        # Content adapter implements ContentOperations protocol — used by ingestion
+        # (store_content_with_chunks) and by the embedding worker (store_chunk_embeddings).
+        connection = await get_connection()
+        content_adapter = Neo4jContentAdapter(connection)
+
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
-        # January 2026 - Automatic Chunking: Pass chunking service for RAG-ready ingestion
-        # January 2026 - GenAI Integration: Pass embeddings service for automatic embedding generation
+        # Wires the chunk pipeline end-to-end: chunk generation → Neo4j persistence →
+        # ChunkEmbeddingRequested event → background worker.
         from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
         from core.services.ingestion import UnifiedIngestionService
 
@@ -464,6 +523,9 @@ async def compose_services(
             ingestion_backend=ingestion_backend,
             embeddings_service=None,  # Optional - will be created later in learning_services
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
+            content_adapter=content_adapter,  # Persist :ContentChunk nodes for RAG retrieval
+            event_bus=event_bus,  # Publish ChunkEmbeddingRequested for async embedding
+            user_service=user_service,  # Role lookup for audience:public gate (Finding 2)
         )
 
         # Per-user bulk upload service (wraps UnifiedIngestionService)
@@ -474,16 +536,33 @@ async def compose_services(
             user_vaults_base=config.vault.user_vaults_path,
         )
 
+        # Batch chunk regeneration (Phase 2, May 2026) — admin tool used when
+        # CHUNKING_ALGORITHM_VERSION changes or chunks drift from their source.
+        # event_bus is wired only in FULL tier; in CORE the embedding worker
+        # isn't running, so publishing ChunkEmbeddingRequested would be a
+        # queue-with-no-listener. CORE-tier regen produces fresh chunks; admins
+        # sweep embeddings separately via migrate_chunk_embeddings.py.
+        from core.services.chunks.batch_chunking_service import BatchChunkingService
+
+        batch_chunking_service = BatchChunkingService(
+            driver=driver,
+            chunking_service=chunking_service,
+            content_adapter=content_adapter,
+            event_bus=event_bus if tier.ai_enabled else None,
+        )
+        if tier.ai_enabled:
+            logger.info("✅ BatchChunkingService created (regen + re-embed via event bus)")
+        else:
+            logger.info(
+                "✅ BatchChunkingService created (CORE tier: regen-only, no event publication)"
+            )
+
         logger.info(
             "✅ Content services created (includes UnifiedIngestionService with automatic chunking)"
         )
 
-        # Use Neo4jContentAdapter for ContentOperations protocol (store_content_with_chunks, get_chunks, etc.)
-        connection = await get_connection()
-        content_adapter = Neo4jContentAdapter(connection)
-
-        # Create LLM service BEFORE learning services (OPTIONAL - enables AI features)
-        # Gated by intelligence tier (ADR-043): CORE skips entirely
+        # Create LLM service BEFORE learning services.
+        # Gated by intelligence tier (ADR-043): CORE skips entirely; FULL requires it.
         llm_service = None
         if not tier.ai_enabled:
             logger.info("⏭️  LLM service skipped (intelligence tier: CORE)")
@@ -491,26 +570,31 @@ async def compose_services(
             from core.config.credential_store import get_credential
             from core.services.llm_service import LLMConfig, LLMProvider, LLMService
 
+            openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+            if not openai_api_key or openai_api_key in ("your-openai-api-key-here", "sk-"):
+                raise RuntimeError(
+                    "FULL-tier bootstrap requires OPENAI_API_KEY. "
+                    "Set INTELLIGENCE_TIER=core to run without LLM features, or "
+                    "set OPENAI_API_KEY in the credential store / environment."
+                )
+
             try:
-                openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-                # Check if key is valid (not placeholder/empty)
-                if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
-                    llm_config = LLMConfig(
-                        provider=LLMProvider.OPENAI,
-                        api_key=openai_api_key,
-                        model_name="gpt-4",  # Use GPT-4 for high-quality RAG and intelligence insights
-                    )
-                    llm_service = LLMService(config=llm_config)
-                    logger.info(
-                        "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
-                    )
-                else:
-                    logger.warning("⚠️ LLM service disabled - OPENAI_API_KEY not configured")
-            except (
-                Exception
-            ) as e:  # safety-net: service bootstrap must report initialization failures
-                logger.error(f"Failed to initialize LLM service: {e}")
-                logger.warning("⚠️ LLM service disabled - continuing with basic features")
+                llm_config = LLMConfig(
+                    provider=LLMProvider.OPENAI,
+                    api_key=openai_api_key,
+                    model_name="gpt-4",  # GPT-4 for high-quality RAG and intelligence insights
+                )
+                llm_service = LLMService(config=llm_config)
+                logger.info(
+                    "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
+                )
+            except Exception as e:  # safety-net: surface FULL-tier LLM init failure loudly
+                logger.error(f"FULL-tier LLM service failed to initialize: {e}")
+                raise RuntimeError(
+                    "FULL-tier bootstrap requires the LLM service. "
+                    "Set INTELLIGENCE_TIER=core to run without LLM features, or fix the "
+                    f"underlying init error: {e}"
+                ) from e
 
         # Create learning services (graph_intelligence already created above)
         learning_services = _create_learning_services(
@@ -534,6 +618,27 @@ async def compose_services(
         )
         logger.info("✅ Learning services created")
 
+        # Build template + engagement layer (Phase 4 — PS+Activity Templates).
+        # PS service must already exist (it's inside learning_services).
+        from services_bootstrap._template_services import _create_template_services
+
+        template_services = _create_template_services(
+            executor=query_executor,
+            ps_service=learning_services["ps"],
+            task_template_backend=task_template_backend,
+            goal_template_backend=goal_template_backend,
+            habit_template_backend=habit_template_backend,
+            event_template_backend=event_template_backend,
+            choice_template_backend=choice_template_backend,
+            principle_template_backend=principle_template_backend,
+            tasks_backend=tasks_backend,
+            goals_backend=goals_backend,
+            habits_backend=habits_backend,
+            events_backend=events_backend,
+            choices_backend=choices_backend,
+            principles_backend=principles_backend,
+        )
+
         # Extract embeddings and vector search services for use by intelligence services and SearchRouter
         embeddings_service = learning_services["embeddings_service"]
         vector_search_service = learning_services["vector_search_service"]
@@ -543,29 +648,25 @@ async def compose_services(
         # ========================================================================
 
         # Create embedding background worker (async embedding generation for all activity domains)
-        # Worker processes EmbeddingRequested events in batches for zero-latency user experience
+        # Worker processes EmbeddingRequested events in batches for zero-latency user experience.
+        # Tier-gated via embeddings_service: CORE tier legitimately runs without the worker.
         embedding_worker = None
         if embeddings_service:
-            try:
-                from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+            from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 
-                embedding_worker = EmbeddingBackgroundWorker(
-                    event_bus=event_bus,
-                    embeddings_service=embeddings_service,
-                    config=config,
-                    prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
-                    batch_size=25,  # Process 25 entities per batch (cost-optimized)
-                    batch_interval_seconds=30,  # Run every 30 seconds
-                )
-                logger.info("✅ Embedding background worker created (batch_size=25, interval=30s)")
-                logger.info(
-                    "   Worker handles: 6 Activity + 7 Curriculum entity types + content chunks"
-                )
-            except (
-                Exception
-            ) as e:  # safety-net: service bootstrap must report initialization failures
-                logger.warning(f"Failed to initialize embedding background worker: {e}")
-                logger.warning("   Embeddings will only be generated during ingestion")
+            embedding_worker = EmbeddingBackgroundWorker(
+                event_bus=event_bus,
+                embeddings_service=embeddings_service,
+                config=config,
+                content_adapter=content_adapter,  # Unlocks _process_chunk_batch
+                prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
+                batch_size=25,  # Process 25 entities per batch (cost-optimized)
+                batch_interval_seconds=30,  # Run every 30 seconds
+            )
+            logger.info("✅ Embedding background worker created (batch_size=25, interval=30s)")
+            logger.info(
+                "   Worker handles: 6 Activity + 7 Curriculum entity types + content chunks"
+            )
         else:
             logger.info("⏭️  Embedding background worker skipped (embeddings_service not available)")
 
@@ -650,13 +751,19 @@ async def compose_services(
             from core.services.ai_service import OpenAIService
 
             openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+            if not openai_api_key or openai_api_key in ("your-openai-api-key-here", "sk-"):
+                raise RuntimeError(
+                    "FULL-tier bootstrap requires OPENAI_API_KEY for content enrichment. "
+                    "Set INTELLIGENCE_TIER=core to run without LLM features, or "
+                    "set OPENAI_API_KEY in the credential store / environment."
+                )
             ai_service = OpenAIService(api_key=openai_api_key)
             logger.info("✅ OpenAI service created")
         else:
             logger.info("⏭️  OpenAI service skipped (intelligence tier: CORE)")
 
         content_enrichment = ContentEnrichmentService(
-            backend=submissions_backend,  # February 2026: Uses Entity backend (domain-first model)
+            backend=user_entry_backend,
             transcription_service=core_services["transcription"],
             ai_service=ai_service,  # None in CORE tier — already handles None gracefully
             event_bus=event_bus,  # Event-driven architecture
@@ -674,7 +781,7 @@ async def compose_services(
         from core.services.report.report_mastery_service import ReportMasteryService
 
         report_mastery_service = ReportMasteryService(
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
             ku_interaction_service=learning_services["ps"].mastery,
         )
         logger.info("✅ ReportMasteryService created")
@@ -699,7 +806,7 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
 
-        # ExerciseReportService: always created so typed reads (get_by_uid,
+        # ExerciseReportService: always created so typed reads (get,
         # list_for_submission) work in both CORE and FULL tiers. AI report
         # *generation* still requires llm_caller — returns a system error
         # when llm_caller is None (CORE tier).
@@ -736,7 +843,7 @@ async def compose_services(
 
         logger.info("✅ Report, exercise, and resource services created")
 
-        # Create revised exercise service (five-phase learning loop)
+        # Create revised exercise service (four-phase learning loop)
         from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
         from core.models.exercises.revised_exercise import RevisedExercise
         from core.services.revised_exercises import RevisedExerciseService
@@ -751,7 +858,7 @@ async def compose_services(
         revised_exercise_service = RevisedExerciseService(
             backend=revised_exercise_backend, event_bus=event_bus
         )
-        logger.info("✅ RevisedExerciseService created (five-phase learning loop)")
+        logger.info("✅ RevisedExerciseService created (four-phase learning loop)")
 
         # Create form services (general-purpose form system)
         from adapters.persistence.neo4j.backends.forms_backends import (
@@ -824,7 +931,7 @@ async def compose_services(
         from core.services.report.teacher_review_service import TeacherReviewService
 
         teacher_review_service = TeacherReviewService(
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
             report_backend=exercise_report_backend,
             exercise_backend=exercise_backend,
             group_backend=group_backend,
@@ -849,25 +956,6 @@ async def compose_services(
         else:
             logger.warning(f"Default transcript exercise: {seed_result.error}")
 
-        # Create submissions submission and processing pipeline services
-        from core.services.submissions import (
-            LearningLoopQueryService,
-            SubmissionsCoreService,
-            SubmissionsProcessingService,
-            SubmissionsSearchService,
-            SubmissionsService,
-        )
-
-        # Get storage path from environment (default: /tmp/skuel_submissions)
-        storage_path = os.getenv("SKUEL_SUBMISSIONS_STORAGE", "/tmp/skuel_submissions")
-
-        submissions_service = SubmissionsService(
-            backend=submissions_backend,
-            storage_path=storage_path,
-            event_bus=event_bus,
-            interaction_service=interaction_service,
-        )
-
         # Create sharing backend + service (cross-domain, queries :Entity nodes)
         from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
         from core.models.entity import Entity
@@ -878,15 +966,11 @@ async def compose_services(
         )
         unified_sharing_service = UnifiedSharingService(backend=sharing_backend)
 
-        # Wire sharing into form submission service (created earlier without sharing)
+        # Wire sharing into services that were created earlier without sharing.
+        # Both ExerciseService (ASSIGNED scope -> SHARED_WITH_GROUP, ADR-053)
+        # and FormSubmissionService need the sharing service post-hoc.
         form_submission_service.sharing_service = unified_sharing_service
-
-        # Create Submissions core service (content management: categories, tags, bulk operations)
-        submissions_core_service = SubmissionsCoreService(
-            backend=submissions_backend,
-            event_bus=event_bus,
-            sharing_service=unified_sharing_service,
-        )
+        exercise_service.sharing_service = unified_sharing_service
 
         # LIFEPATH SERVICE (Domain #14: The Destination)
         # "Everything flows toward the life path"
@@ -905,76 +989,16 @@ async def compose_services(
         )
         logger.info("✅ LifePath service created (Vision→Action bridge)")
 
-        # Create report activity extractor (DSL integration for journal → entity extraction)
-        from core.services.dsl import ActivityExtractorService
-
-        activity_extractor = ActivityExtractorService(
-            # Activity Domains (6) - access .core for CRUD operations
-            tasks_service=activity_services["tasks"].core,
-            habits_service=activity_services["habits"].core,
-            goals_service=activity_services["goals"].core,
-            events_service=activity_services["events"].core,
-            principles_service=activity_services["principles"].core,
-            choices_service=activity_services["choices"].core,
-            # Finance Domain (1) - admin-only bookkeeping
-            finance_service=core_services["finance"],
-            # Curriculum Domains (3) - admin creates, all read
-            ku_service=learning_services["ps"],
-            ps_service=learning_services["ps"],
-            lp_service=learning_services["learning_paths"],
-            # Meta Domains (3)
-            report_service=submissions_service,  # For metadata updates
-            analytics_service=None,  # Not needed for extraction
-            calendar_service=None,  # Not needed for extraction
-            # The Destination (+1)
-            lifepath_service=lifepath_service,
-        )
-        logger.info("✅ Submission activity extractor created (DSL journal → entity extraction)")
-
-        # Create instruction resolver (stateless — works without AI)
+        # Create instruction resolver (stateless — works without AI).
+        # Consumed by UserEntryProcessingService for LLM-driven enrichment.
         from core.services.output import InstructionResolver
 
         instruction_resolver = InstructionResolver()
         logger.info("✅ InstructionResolver created")
 
-        # Journal input service (CRUD + file upload → JeInput entities)
-        from adapters.persistence.neo4j.backends.journal_backends import JournalInputBackend
-        from core.models.journal.je_input import JeInput
-        from core.services.journal import JournalInputService
-
-        journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
-        journal_input_backend = JournalInputBackend(
-            driver, NeoLabel.JE_INPUT, JeInput, base_label=NeoLabel.ENTITY
-        )
-        journal_input_service = JournalInputService(
-            backend=journal_input_backend,
-            storage_base=journal_storage,
-            event_bus=event_bus,
-        )
-        logger.info(f"✅ JournalInputService created (storage: {journal_storage})")
-
-        # Journal output service (LLM processing → JeOutput entities)
-        from adapters.persistence.neo4j.backends.journal_backends import JournalOutputBackend
-        from core.models.journal.je_output import JeOutput
-        from core.services.journal import JournalOutputService
-
-        journal_output_backend = JournalOutputBackend(
-            driver, NeoLabel.JE_OUTPUT, JeOutput, base_label=NeoLabel.ENTITY
-        )
-        journal_output_service = None
-        if llm_caller:
-            journal_output_service = JournalOutputService(
-                llm_caller=llm_caller,
-                instruction_resolver=instruction_resolver,
-                backend=journal_output_backend,
-                storage_base=journal_storage,
-                event_bus=event_bus,
-            )
-            logger.info(f"✅ JournalOutputService created (storage: {journal_storage})")
-        else:
-            logger.info("⏭️  JournalOutputService skipped (intelligence tier: CORE)")
-
-        # Create batch transcription service (Tier 1: audio → txt)
+        # Batch transcription service (Tier 1: audio → txt).
+        # Tier 2 (BatchProcessingService) retired with ADR-054 Commit 6a — the
+        # LLM-driven txt→md path now lives inside UserEntryProcessingService.
         from core.services.transcription import BatchTranscriptionService
 
         batch_transcription = BatchTranscriptionService(
@@ -983,55 +1007,56 @@ async def compose_services(
         )
         logger.info("✅ BatchTranscriptionService created (Tier 1: audio → txt)")
 
-        # Create batch processing service (Tier 2: txt → md via LLM)
-        from core.services.transcription import BatchProcessingService
-
-        batch_processing = None
-        if journal_output_service:
-            batch_processing = BatchProcessingService(
-                output_generator=journal_output_service,
-                instruction_resolver=instruction_resolver,
-                max_concurrent=3,
-            )
-            logger.info("✅ BatchProcessingService created (Tier 2: txt → md)")
-        else:
-            logger.info("⏭️  BatchProcessingService skipped (requires JournalOutputService)")
-
-        submissions_processor = SubmissionsProcessingService(
-            submission_service=submissions_service,
-            transcription_service=core_services["transcription"],  # Simplified TranscriptionService
-            content_enrichment=content_enrichment,  # For LLM formatting
-            activity_extractor=activity_extractor,  # DSL entity extraction
-            journal_output_service=journal_output_service,  # JournalOutputService
-            event_bus=event_bus,
-        )
-
-        # Create Submissions search service (unified query interface)
-        submissions_search_service = SubmissionsSearchService(
-            submissions_backend=submissions_backend, event_bus=event_bus
-        )
-
         # Learning loop query service — read-side peer of LearningLoopEventHandlerService.
         # Owns Cypher that traverses Interaction/Exercise/Report edges, keeping
-        # generic submission search free of learning-loop shape.
+        # UserEntry search free of learning-loop shape.
+        from core.services.user_entry.learning_loop_query import LearningLoopQueryService
+
         learning_loop_query_service = LearningLoopQueryService(
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
+        )
+        logger.info("✅ LearningLoopQueryService created (UserEntry read-side peer)")
+
+        # ADR-054 Step 7 — UserEntry facade + processing dispatcher.
+        # Additive through Step 13; lives alongside the legacy submissions
+        # and journal services while the migration lands incrementally.
+        from core.services.user_entry import (
+            AssessmentService,
+            UserEntryProcessingService,
+            UserEntryService,
         )
 
-        logger.info("✅ Submissions pipeline services created")
-        logger.info(
-            "✅ Submissions core service created (content management: categories, tags, bulk ops)"
+        user_entry_service = UserEntryService(
+            backend=user_entry_backend,
+            sharing_service=unified_sharing_service,
+            interaction_service=interaction_service,
+            event_bus=event_bus,
+            group_service=group_service,
+            user_service=user_service,  # Role gate for visibility=PUBLIC (Finding 2)
+        )
+
+        # Wire UserEntryService into the ingestion service so YAML uploads of
+        # ``type: user_entry`` route through the same create_entry() pipeline
+        # as the /submit form (ADR-054 — one path forward).
+        unified_ingestion.user_entry_service = user_entry_service
+        user_entry_processor = UserEntryProcessingService(
+            entry_service=user_entry_service,
+            transcription_adapter=core_services["deepgram_adapter"],
+            llm_caller=llm_caller,
+            instruction_resolver=instruction_resolver,
+            event_bus=event_bus,
+        )
+        user_entry_assessment = AssessmentService(
+            backend=user_entry_backend,
+            event_bus=event_bus,
         )
         logger.info(
-            "✅ Submissions search service created (unified query interface for all submission types)"
-        )
-        logger.info(
-            "✅ Learning loop query service created (read-side peer of LearningLoopEventHandlerService)"
+            "✅ UserEntry service + processing dispatcher + AssessmentService created (ADR-054)"
         )
 
         # Create progress report generator and schedule service
         from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
-        from core.models.submissions.report_schedule import ReportSchedule
+        from core.models.report_schedule import ReportSchedule
         from core.services.report.progress_report_generator import ProgressReportGenerator
         from core.services.report.progress_schedule_service import ProgressScheduleService
 
@@ -1131,25 +1156,26 @@ async def compose_services(
             sharing_service=unified_sharing_service,
             ps_service=learning_services["ps"],
             exercises_service=exercise_service,
-            context_intelligence=context_service.intelligence_factory,
+            context_intelligence=None,  # Post-wired after _create_intelligence_hub below
         )
-        logger.info("✅ Profile Orchestrator created")
+        logger.info("✅ Profile Orchestrator created (intelligence post-wired below)")
 
-        from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
+        # ADR-054 Commit 5c: SubmissionsOrchestrator + JournalOrchestrator retired.
+        # UserEntryOrchestrator is the sole facade for submissions + journals.
+        from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 
-        submissions_orchestrator = SubmissionsOrchestrator(
-            submissions_service=submissions_service,
+        user_entry_orchestrator = UserEntryOrchestrator(
+            user_entry_service=user_entry_service,
             exercises_service=exercise_service,
-            submissions_search_service=submissions_search_service,
-            submissions_core_service=submissions_core_service,
             teacher_review_service=teacher_review_service,
             user_service=user_service,
             activity_report_service=activity_report_service,
             revised_exercise_service=revised_exercise_service,
             exercise_report_service=exercise_report_service,
             sharing_service=unified_sharing_service,
+            assessment_service=user_entry_assessment,
         )
-        logger.info("✅ Submissions Orchestrator created")
+        logger.info("✅ UserEntry Orchestrator created (ADR-054)")
 
         from core.orchestrator.explore_orchestrator import ExploreOrchestrator
 
@@ -1169,7 +1195,7 @@ async def compose_services(
             resource_service=resource_service,
             ku_service=learning_services["atomic_ku_service"],
             ps_service=learning_services["ps"],
-            submissions_service=submissions_service,
+            user_entry_service=user_entry_service,
             user_relationship_service=user_relationships,
         )
         logger.info("✅ Library Orchestrator created")
@@ -1192,16 +1218,6 @@ async def compose_services(
             system_service=system_service,
         )
         logger.info("✅ Admin Orchestrator created")
-
-        from core.orchestrator.journal_orchestrator import JournalOrchestrator
-
-        journal_orchestrator = JournalOrchestrator(
-            journal_input_service=journal_input_service,
-            journal_output_service=journal_output_service,
-            exercises_service=exercise_service,
-            user_service=user_service,
-        )
-        logger.info("✅ Journal Orchestrator created")
 
         from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
@@ -1254,6 +1270,19 @@ async def compose_services(
         )
         logger.info("✅ Calendar Optimization Orchestrator created")
 
+        from ui.today.orchestrator import TodayOrchestrator
+
+        today_orchestrator = TodayOrchestrator(
+            tasks_service=activity_services["tasks"],
+            goals_service=activity_services["goals"],
+            habits_service=activity_services["habits"],
+            events_service=activity_services["events"],
+            principles_service=activity_services["principles"],
+            lifepath_service=lifepath_service,
+            user_relationship_service=user_relationships,
+        )
+        logger.info("✅ Today Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1268,19 +1297,27 @@ async def compose_services(
         activity_services["goals"].intelligence.habits_service = activity_services["habits"]
         logger.info("✅ GoalsIntelligenceService wired with HabitsService")
 
+        # Exercise linker for UserEntry → FULFILLS_EXERCISE validation.
+        # Subscribed to UserEntryCreated inside _wire_event_subscribers.
+        from core.services.user_entry.exercise_linker import UserEntryExerciseLinker
+
+        user_entry_exercise_linker = UserEntryExerciseLinker(backend=user_entry_backend)
+        logger.info("✅ UserEntryExerciseLinker created")
+
         # Wire all event subscribers (context invalidation + cross-domain + intelligence)
         _wire_event_subscribers(
             event_bus=event_bus,
             user_service=user_service,
             activity_services=activity_services,
             learning_services=learning_services,
-            submissions_core_service=submissions_core_service,
+            user_entry_exercise_linker=user_entry_exercise_linker,
             notification_service=notification_service,
             advanced=advanced,
             analytics_service=analytics_service,
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
             insight_store=insight_store,
             group_backend=group_backend,
+            ps_engagement=template_services["ps_engagement"],
         )
         logger.info("✅ All services initialized")
 
@@ -1306,27 +1343,25 @@ async def compose_services(
             report_mastery=report_mastery_service,  # Explicit mastery propagation
             exercise_report=exercise_report_service,  # LLM report on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
-            revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
+            revised_exercises=revised_exercise_service,  # Four-phase learning loop revisions
             form_templates=form_template_service,  # General-purpose form templates
             form_submissions=form_submission_service,  # User form submissions
             interaction_service=interaction_service,  # User Interaction Contract
-            journal_input=journal_input_service,  # JournalInputService
-            journal_generator=journal_output_service,  # JournalOutputService
-            # Batch transcription/processing (March 2026)
+            # Batch transcription (Tier 1). Tier 2 BatchProcessingService retired
+            # in ADR-054 Commit 6a — lives inside UserEntryProcessingService now.
             batch_transcription=batch_transcription,
-            batch_processing=batch_processing,
             # Group & Teaching (ADR-040: Teacher exercise workflow)
             groups=group_service,
             teacher_review=teacher_review_service,
             # Notifications
             notifications=notification_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
-            # Reports
-            submissions=submissions_service,
-            submissions_core=submissions_core_service,  # Content management (categories, tags, bulk ops)
+            # Sharing
             sharing=unified_sharing_service,  # Cross-domain sharing and visibility control
-            submissions_processor=submissions_processor,
-            submissions_search=submissions_search_service,  # Unified submission queries
+            # UserEntry (ADR-054) — unified user-authored content
+            user_entry=user_entry_service,
+            user_entry_processor=user_entry_processor,
+            user_entry_assessment=user_entry_assessment,
             # Progress report (February 2026)
             progress_report_generator=progress_generator,
             progress_schedule=progress_schedule_service,
@@ -1337,6 +1372,7 @@ async def compose_services(
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
             user_upload_service=user_upload_service,  # Per-user bulk upload
+            batch_chunking_service=batch_chunking_service,  # Phase 2 admin tool
             calendar=calendar_service,
             system=system_service,
             admin_stats=admin_stats_service,
@@ -1352,6 +1388,14 @@ async def compose_services(
             # unified_progress DELETED (January 2026) - use user_progress
             lp=learning_services["learning_paths"],  # ku, ps, lp short-name consistency
             ps=learning_services["ps"],  # ku, ps, lp short-name consistency
+            ps_engagement=template_services["ps_engagement"],  # PS+Activity lifecycle (Phase 4)
+            # PS+Activity Template CRUD services (Phase 5 — May 2026)
+            task_templates=template_services["task_templates"],
+            goal_templates=template_services["goal_templates"],
+            habit_templates=template_services["habit_templates"],
+            event_templates=template_services["event_templates"],
+            choice_templates=template_services["choice_templates"],
+            principle_templates=template_services["principle_templates"],
             learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
             askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI
@@ -1378,15 +1422,15 @@ async def compose_services(
             habit_event_scheduler=orchestration["habit_event_scheduler"],
             admin_orchestrator=admin_orchestrator,
             profile_orchestrator=profile_orchestrator,
-            submissions_orchestrator=submissions_orchestrator,
+            user_entry_orchestrator=user_entry_orchestrator,
             explore_orchestrator=explore_orchestrator,
             library_orchestrator=library_orchestrator,
             teacher_orchestrator=teacher_orchestrator,
-            journal_orchestrator=journal_orchestrator,
             activity_review_orchestrator=activity_review_orchestrator,
             pathways_orchestrator=pathways_orchestrator,
             lateral_orchestrator=lateral_orchestrator,
             calendar_optimization_orchestrator=calendar_optimization_orchestrator,
+            today_orchestrator=today_orchestrator,
             # Advanced
             jupyter_sync=advanced["jupyter_sync"],
             performance_optimization=advanced["performance_optimization"],
@@ -1404,7 +1448,7 @@ async def compose_services(
             services=services,
             activity_services=activity_services,
             learning_services=learning_services,
-            submissions_backend=submissions_backend,
+            user_entry_backend=user_entry_backend,
             calendar_service=calendar_service,
             vector_search_service=vector_search_service,
             driver=driver,
@@ -1412,9 +1456,15 @@ async def compose_services(
             tier=tier,
             context_builder=context_builder,
             user_service=user_service,
-            context_service=context_service,
             askesis_core_service=askesis_core_service,
         )
+
+        # Post-wire intelligence factory into ProfileOrchestrator.
+        # ProfileOrchestrator is built before the hub (it goes into the Services
+        # container above), so we attach the factory after the hub creates it.
+        # Validated in the post-construction wiring check below.
+        profile_orchestrator.context_intelligence = services.context_intelligence
+        logger.info("✅ ProfileOrchestrator wired with UserContextIntelligenceFactory")
 
         # ========================================================================
         # CREATE SEARCH ROUTER (One Path Forward, January 2026)
@@ -1436,11 +1486,11 @@ async def compose_services(
             "context_service.tasks_service": context_service.tasks_service,
             "context_service.goal_task_generator": context_service.goal_task_generator,
             "context_service.habits_service": context_service.habits_service,
-            "context_service.intelligence_factory": context_service.intelligence_factory,
             "user_service.intelligence_factory": user_service.intelligence_factory,
             "services.context_intelligence": services.context_intelligence,
             "services.search_router": services.search_router,
             "form_submission_service.sharing_service": form_submission_service.sharing_service,
+            "profile_orchestrator.context_intelligence": profile_orchestrator.context_intelligence,
             # habits.goal_analytics shelved (2026-03-28)
         }
         missing = [name for name, value in post_wiring_checks.items() if value is None]

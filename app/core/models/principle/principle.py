@@ -21,9 +21,10 @@ See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
+import dataclasses
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -38,6 +39,63 @@ from core.models.enums.principle_enums import (
 )
 from core.models.principle.principle_types import AlignmentAssessment, PrincipleExpression
 from core.models.user_owned_entity import UserOwnedEntity
+
+# ``why_important`` is a request-only field — Principle has no dedicated column,
+# so the create/update flow appends it to ``description`` with this marker.
+# Edit forms call ``split_why_important`` to reverse the merge for prefill.
+# Round-trip caveat: if ``description`` was empty at write time the marker is
+# omitted (preserves the original behavior of principles_core_service), so a
+# write of (description=None, why_important="x") reads back as
+# (description="x", why_important=None).
+WHY_IMPORTANT_MARKER = "\n\nWhy this matters:\n"
+
+
+def merge_why_important(description: str | None, why_important: str | None) -> str | None:
+    """Append ``why_important`` to ``description`` with the canonical marker."""
+    if not why_important:
+        return description
+    if not description:
+        return why_important
+    return f"{description}{WHY_IMPORTANT_MARKER}{why_important}"
+
+
+def split_why_important(
+    description: str | None,
+) -> tuple[str | None, str | None]:
+    """Inverse of ``merge_why_important``: return (prose, why_important)."""
+    if not description:
+        return None, None
+    prose, sep, why = description.rpartition(WHY_IMPORTANT_MARKER)
+    if not sep:
+        return description, None
+    return (prose or None), (why or None)
+
+
+def _to_alignment_assessment(entry: Any) -> AlignmentAssessment:
+    """Reconstruct an AlignmentAssessment from a dict produced by ``asdict()``.
+
+    The dict form may carry ``assessed_date`` as a real ``date`` (in-memory
+    round-trip) or an ISO string (after JSON serialization), and
+    ``alignment_level`` as either an ``AlignmentLevel`` or its string value.
+    Handle both so callers don't have to.
+    """
+    if isinstance(entry, AlignmentAssessment):
+        return entry
+    data = dict(entry)
+    assessed = data.get("assessed_date")
+    if isinstance(assessed, str):
+        data["assessed_date"] = date.fromisoformat(assessed)
+    level = data.get("alignment_level")
+    if isinstance(level, str):
+        data["alignment_level"] = AlignmentLevel(level)
+    return AlignmentAssessment(**data)
+
+
+def _to_principle_expression(entry: Any) -> PrincipleExpression:
+    """Reconstruct a PrincipleExpression from an asdict()-flattened dict."""
+    if isinstance(entry, PrincipleExpression):
+        return entry
+    return PrincipleExpression(**entry)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -110,6 +168,17 @@ class Principle(UserOwnedEntity):
     adopted_date: date | None = None
 
     # =========================================================================
+    # CROSS-DOMAIN LINKS
+    # =========================================================================
+    source_path_step_uid: str | None = None  # PRINCIPLE -> PS
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    # Back-reference is (Principle)-[:SPAWNED_FROM]->(PrincipleTemplate).
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
+
+    # =========================================================================
     # PRINCIPLE-SPECIFIC METHODS
     # =========================================================================
 
@@ -166,6 +235,8 @@ class Principle(UserOwnedEntity):
 
     def _review_cadence_days(self) -> int:
         """Review interval based on strength level."""
+        if self.strength is None:
+            return 30
         cadence = {
             PrincipleStrength.EXPLORING: 14,
             PrincipleStrength.DEVELOPING: 21,
@@ -228,24 +299,37 @@ class Principle(UserOwnedEntity):
         """Create Principle from an EntityDTO or PrincipleDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "PrincipleDTO":  # type: ignore[override]
-        """Convert Principle to domain-specific PrincipleDTO."""
-        import dataclasses
+    @classmethod
+    def _from_dto(cls, dto: "EntityDTO") -> Self:
+        """Extend the generic extraction to rehydrate typed nested records.
 
+        ``PrincipleDTO`` stores ``alignment_history`` and ``expressions`` as
+        ``list[dict[str, Any]]`` because ``asdict()`` in ``dto_to_dict`` flattens
+        nested dataclasses recursively during JSON serialization. The generic
+        ``Entity._from_dto`` only converts the outer ``list`` to ``tuple`` and
+        leaves the inner dicts untouched — so consumers that expect
+        ``alignment_history[-1].alignment_level`` get an ``AttributeError``.
+
+        Rebuild the typed ``AlignmentAssessment`` and ``PrincipleExpression``
+        records here so the rest of the codebase can rely on the type
+        annotations on ``Principle``.
+        """
+        instance = super()._from_dto(dto)
+        return dataclasses.replace(
+            instance,
+            alignment_history=tuple(
+                _to_alignment_assessment(entry) for entry in instance.alignment_history
+            ),
+            expressions=tuple(_to_principle_expression(entry) for entry in instance.expressions),
+        )
+
+    def to_dto(self) -> "PrincipleDTO":
+        """Convert Principle to domain-specific PrincipleDTO."""
+
+        from core.models.dto_helpers import domain_to_dto
         from core.models.principle.principle_dto import PrincipleDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(PrincipleDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return PrincipleDTO(**kwargs)
+        return domain_to_dto(self, PrincipleDTO)
 
     def __str__(self) -> str:
         return (

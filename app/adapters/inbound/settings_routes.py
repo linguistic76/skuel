@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_form_string
 from core.ports import get_enum_value
@@ -94,6 +95,7 @@ def create_settings_routes(
         )
 
     @rt("/settings/save")
+    @csrf_protected
     async def save_settings(request: Request) -> Any:
         """Save user preferences from form submission."""
         user_uid = require_authenticated_user(request)

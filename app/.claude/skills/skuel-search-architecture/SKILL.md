@@ -148,31 +148,43 @@ await lp_service.search.get_aligned_with_goal("goal:learn-python")
 
 | Aspect | Value |
 |--------|-------|
-| **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Ku, PathStep, LearningPath, Exercise, RevisedExercise, ExerciseSubmission) |
+| **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Ku, PathStep, LearningPath, Exercise, RevisedExercise, UserEntry) |
 | **User Ownership** | Activity domains use OWNS; Curriculum uses None (shared) |
 | **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
 | **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
 
-## Temporal Scoring Patterns
+## Priority Scoring — Unified Across 6 Activity Domains
 
-Two patterns for time-based prioritization across Activity Domains:
+All 6 Activity Domain search services (`{tasks,goals,habits,events,choices,principles}_search_service.py`) implement `get_prioritized(user_context)` by delegating to a single `score_<domain>(entity, context) -> PriorityScore` function in `core/models/search/scoring.py`. The same scorers also back `SearchRouter._score_results()` for cross-domain ranking.
 
-**Deadline Proximity (Goals, Events, Choices):** Forward-looking — `score_deadline_proximity()` from `timestamp_helpers.py` awards 0–40 points based on days until deadline. Each domain defines `_PROXIMITY_BANDS` as `ClassVar`:
-- **Goals:** `(0,40) (7,35) (30,25) (90,15)` — long horizons
-- **Events:** `(0,40) (1,35) (3,30) (7,20)` — tight windows
-- **Choices:** `(0,40) (3,35) (7,30) (14,20)` — medium urgency
+Each scorer composes shared `ComponentScore` helpers with domain-specific weights that sum to 1.0:
 
-**Frequency Windows (Habits):** Backwards-looking — `get_frequency_window_days()` from `timestamp_helpers.py` checks days since last completion against `FREQUENCY_WINDOWS_DAYS` (daily=1, weekly=7, monthly=30). Due when `days_since >= window`, overdue when `days_since > window`.
+| Helper | Produces (normalized 0–1) | Reused by |
+|--------|---------------------------|-----------|
+| `score_deadline_proximity(target_date)` | Urgency from days-until | Task, Goal, Event, Choice |
+| `score_priority_level(priority)` | CRITICAL/HIGH/MEDIUM/LOW → 1.0/0.8/0.5/0.25 | Task, Goal, Choice |
+| `score_goal_alignment(goal_uid, active_goal_uids)` | 1.0 if linked to active goal | Task, Goal, Event, Habit |
+| `score_streak_protection(habit_uid, streaks, active_habits)` | Protects long streaks | Task, Habit, Event |
+| `score_progress_momentum(progress)` | Inverted-U — ~0.5 favored over stuck/done | Goal |
 
-**Config-Driven Temporal Queries (March 2026):** `TimeQueryMixin.get_due_soon()` / `get_overdue()` use two `DomainConfig` fields:
+`PriorityScore.total` is the weighted sum; `.components` + `.explain()` expose per-component breakdown for debugging. Service-level canonical pattern:
+
+```python
+scored = [(e, score_<domain>(e, user_context).total) for e in entities]
+scored.sort(key=get_result_score, reverse=True)
+```
+
+**Frequency Windows (Habits, separate concern):** `get_frequency_window_days()` in `timestamp_helpers.py` powers the Habits-specific `get_upcoming()`/`get_overdue()` overrides only — the *prioritization* scorer uses the unified pipeline above.
+
+**Config-Driven Temporal Queries:** `TimeQueryMixin.get_upcoming()` / `get_overdue()` / `get_active()` use `DomainConfig` fields:
+- `date_field` — column driving upcoming/overdue (e.g., `target_date`, `decision_deadline`)
 - `temporal_exclude_statuses` — defaults to the 4 `EntityStatus.is_terminal()` values
 - `temporal_secondary_sort` — optional secondary ORDER BY (Events use `"start_time"`)
+- `completed_statuses` — excluded from `get_active` (Goals extend to `("completed", "cancelled")`)
 
-Tasks, Goals, Events, and Choices use the base implementation. Only Habits and Principles override (fundamentally different semantics).
+Tasks, Goals, Events, and Choices use the base implementation. Only Habits and Principles override (fundamentally different semantics — frequency windows / 90-day review threshold).
 
-**Not temporal:** Tasks use `impact_score()` (priority + goal fulfillment); Principles use strength scoring.
-
-**See:** `/docs/architecture/SEARCH_ARCHITECTURE.md` → "Temporal Scoring Patterns" for full breakdown.
+**See:** `/docs/architecture/SEARCH_ARCHITECTURE.md` → "Priority Scoring — Unified Across 6 Activity Domains" for full weights and breakdown.
 
 ## Search Index Foundation (Bootstrap)
 

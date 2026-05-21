@@ -45,7 +45,6 @@ These are consumed by the query builders above, not alternative query paths:
 |---------|---------|--------------------------|
 | `confidence_filter.py` | Cypher clause fragments for confidence filtering | Standardizes `coalesce()` patterns across all builders |
 | `convert_value_for_neo4j()` | Python→Neo4j type conversion (enums, datetimes) | Neo4j driver doesn't auto-serialize; complements Pydantic (HTTP boundary) |
-| `validate_dataclass()` | Guard clause (12 lines) before field introspection | Prevents cryptic errors when CypherGenerator receives non-dataclass types |
 | `QueryConstraint.to_cypher()` | WHERE clause fragment generation | Adapter-layer model in `adapters/persistence/` — persistence models doing persistence work |
 
 ## Query Infrastructure (October 3, 2025)
@@ -62,7 +61,7 @@ These are consumed by the query builders above, not alternative query paths:
 ├── confidence_filter.py   # Cypher clause helpers for confidence-based filtering
 ├── cypher_template.py     # Query optimization strategies
 ├── cypher/                # Cypher query generators (crud, semantic, domain, relationship, intelligence)
-│   └── _helpers.py        # Shared utilities (validate_label, validate_identifier, convert_value_for_neo4j, validate_dataclass)
+│   └── _helpers.py        # Shared utilities (validate_label, validate_identifier, convert_value_for_neo4j)
 ├── unified_query_builder.py  # UnifiedQueryBuilder — THE single entry point
 ├── __init__.py            # Clean public API
 └── README.md              # Usage documentation
@@ -871,7 +870,7 @@ The BaseService mixins *implement* the backend abstraction. They call `execute_q
 |-------|---------|
 | `SearchOperationsMixin` | `search()`, `get_by_relationship()`, `search_connected_to()` |
 | `RelationshipOperationsMixin` | `get_prerequisites()`, `get_enables()` |
-| `TimeQueryMixin` | `get_user_items_in_range()`, `get_due_soon()`, `get_overdue()` |
+| `TimeQueryMixin` | `get_user_items_in_range()`, `get_upcoming()`, `get_overdue()`, `get_active()` |
 | `ContextOperationsMixin` | `get_with_context()` |
 
 ### Tier 4: Tolerated — Domain Sub-Services

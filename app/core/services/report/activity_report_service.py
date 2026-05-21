@@ -6,9 +6,9 @@ Processor-neutral CRUD for ActivityReport entities. Owns all ActivityReport
 persistence regardless of who authored it — human admin or AI.
 
 Three creation paths all converge here:
-    Admin-written:   submit_report() → ProcessorType.HUMAN
-    AI-generated:    persist() called by ProgressReportGenerator → ProcessorType.LLM / AUTOMATIC
-    Scheduled:       persist() called by ProgressReportWorker → ProcessorType.AUTOMATIC
+    Admin-written:   submit_report() → ReportSource.HUMAN
+    AI-generated:    persist() called by ProgressReportGenerator → ReportSource.LLM / AUTOMATIC
+    Scheduled:       persist() called by ProgressReportWorker → ReportSource.AUTOMATIC
 
 Review queue management (ReviewRequest nodes) lives in ReviewQueueService.
 
@@ -16,7 +16,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
 from core.models.type_hints import UserUID
@@ -29,8 +29,8 @@ if TYPE_CHECKING:
 
 from core.constants import ReportTimePeriod
 from core.events import publish_event
-from core.events.submission_events import ActivitySnapshotAccessed
-from core.models.enums.entity_enums import ProcessorType
+from core.events.learning_loop_events import ActivitySnapshotAccessed
+from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -287,7 +287,7 @@ class ActivityReportService:
         """
         Create an ActivityReport entity from admin-written activity assessment.
 
-        Stores as EntityType.ACTIVITY_REPORT with ProcessorType.HUMAN.
+        Stores as EntityType.ACTIVITY_REPORT with ReportSource.HUMAN.
         The admin_uid becomes owner (user_uid), subject_uid tracks who was reviewed.
 
         IMPORTANT: This method writes to another user's activity record.
@@ -322,7 +322,7 @@ class ActivityReportService:
                 user_uid=admin_uid,
                 subject_uid=subject_uid,
                 content=feedback_text,
-                processor_type=ProcessorType.HUMAN,
+                processor_type=ReportSource.HUMAN,
                 period_start=start_date,
                 period_end=end_date,
                 time_period=time_period,
@@ -351,7 +351,7 @@ class ActivityReportService:
             logger.error(f"Unexpected error submitting activity report: {e}")
             return Result.fail(Errors.system(f"Failed to submit activity report: {e}"))
 
-    async def get_by_uid(self, uid: str, user_uid: UserUID) -> Result[ActivityReport]:
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[ActivityReport]:
         """
         Fetch a single ActivityReport by UID, scoped to the owning user.
 
@@ -362,14 +362,27 @@ class ActivityReportService:
         Returns:
             Result[ActivityReport] — the report, or NotFound error
         """
-        query_result = await self.backend.get_by_uid(uid, user_uid)
+        query_result = await self.backend.get_for_user(uid, user_uid)
         if query_result.is_error:
             return Result.fail(query_result)
         records = query_result.value or []
         if not records:
             return Result.fail(Errors.not_found("ActivityReport", uid))
         node = records[0]
-        props = dict(node.get("n")) if isinstance(node, dict) and "n" in node else dict(node)
+        # Neo4j Node implements Mapping at runtime but isn't typed as such
+        if isinstance(node, dict) and "n" in node:
+            inner = node["n"]
+            props = (
+                cast("dict[str, Any]", inner)
+                if isinstance(inner, dict)
+                else cast("dict[str, Any]", dict(cast("Any", inner)))
+            )
+        else:
+            props = (
+                cast("dict[str, Any]", node)
+                if isinstance(node, dict)
+                else cast("dict[str, Any]", dict(cast("Any", node)))
+            )
         return Result.ok(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
     async def get_history(
@@ -399,7 +412,11 @@ class ActivityReportService:
         for record in records:
             node = record.get("n") if isinstance(record, dict) else record
             if node:
-                props = dict(node) if not isinstance(node, dict) else node
+                # Neo4j Node implements Mapping at runtime but isn't typed as such
+                if isinstance(node, dict):
+                    props = node
+                else:
+                    props = cast("dict[str, Any]", dict(cast("Any", node)))
                 feedbacks.append(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
         return Result.ok(feedbacks)

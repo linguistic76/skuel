@@ -42,7 +42,7 @@ class TestVariantMap:
             assert variant.value in _VARIANT_MAP, f"{variant.value} missing from _VARIANT_MAP"
 
     def test_error_maps_to_destructive(self) -> None:
-        from monsterui.franken import ButtonT as MButtonT
+        from monsterui.franken import ButtonT as MButtonT  # type: ignore[import-untyped]
 
         assert _VARIANT_MAP["error"] == MButtonT.destructive
 

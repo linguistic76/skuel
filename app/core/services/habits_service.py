@@ -94,6 +94,7 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import HabitsSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.habits.habits_ai_service import HabitsAIService
+    from core.services.habits.habits_core_service import HabitsCoreService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user import UserContext
 
@@ -160,7 +161,7 @@ class HabitsService(
     Delegation methods (explicit ~45 methods):
     - Core: get_habit, get_user_habits, list_habits, get_user_items_in_range
     - Progress: complete_habit_with_quality, get_at_risk_habits, analyze_habit_consistency, etc.
-    - Search: search_habits, get_habits_by_status, get_habits_by_domain, etc.
+    - Search: get_habits_by_status, get_habits_by_domain, get_upcoming, get_overdue, etc.
     - Learning: get_learning_habits, create_habit_from_learning_goal, etc.
     - Planning: get_habit_priorities_for_user, get_actionable_habits_for_user, etc.
     - Scheduling: check_habit_capacity, suggest_habit_stacking, etc.
@@ -184,11 +185,26 @@ class HabitsService(
     _config = create_activity_domain_config(
         dto_class=HabitDTO,
         model_class=Habit,
-        entity_label="Entity",
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(EntityStatus.ARCHIVED.value,),
     )
+
+    # ========================================================================
+    # CLASS-LEVEL TYPE ANNOTATIONS
+    # ========================================================================
+    core: HabitsCoreService
+    search: HabitsSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
+    completions: HabitsCompletionService
+    progress: HabitsProgressService
+    scheduling: HabitsSchedulingService
+    planning: HabitsPlanningService
+    learning: HabitsLearningService
+    relationships: UnifiedRelationshipService
+    intelligence: HabitsIntelligenceService
+    event_handler: HabitEventHandlerService
+    patterns: HabitsPatternService
+    ai: HabitsAIService | None
 
     # ========================================================================
     # DELEGATION METHODS
@@ -199,6 +215,9 @@ class HabitsService(
         self, habit_request: HabitCreateRequest, user_uid: UserUID
     ) -> Result[Habit]:
         return await self.core.create_habit(habit_request, user_uid)
+
+    async def update_habit(self, habit_uid: str, updates: dict[str, Any]) -> Result[Habit]:
+        return await self.core.update(habit_uid, updates)
 
     async def get_habit(self, uid: str) -> Result[Habit]:
         return await self.core.get_habit(uid)
@@ -253,13 +272,18 @@ class HabitsService(
         return await self.progress.identify_potential_keystone_habits(user_context)
 
     # Search delegations
-    async def get_active_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
-        return await self.search.get_active_habits(user_uid)
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
+        return await self.search.get_active(user_uid, limit)
 
-    async def search_habits(
-        self, query: str, limit: int = 50, user_uid: UserUID | None = None
+    async def get_upcoming(
+        self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Habit]]:
-        return await self.search.search(query, limit, user_uid)
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
+
+    async def get_overdue(
+        self, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Habit]]:
+        return await self.search.get_overdue(user_uid, limit)
 
     async def list_habit_categories(self, user_uid: UserUID) -> Result[list[str]]:
         return await self.search.list_user_categories(user_uid)
@@ -277,11 +301,6 @@ class HabitsService(
 
     async def get_all_habits_due_today(self) -> Result[list[Habit]]:
         return await self.search.get_all_due_today()
-
-    async def get_overdue_habits(
-        self, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Habit]]:
-        return await self.search.get_overdue(user_uid, limit)
 
     async def get_habits_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
@@ -529,13 +548,15 @@ class HabitsService(
         self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.habits")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.habits")  # structlog BoundLogger
 
         # Initialize core/search/relationships/event_handler/learning/
         # knowledge_intelligence via factory. Intelligence is built manually
         # because HabitsIntelligenceService takes cross_domain_query for the
         # ZPD knowledge-signals bridge.
-        common: CommonSubServices[HabitsIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            HabitsCoreService, HabitsSearchOperations, HabitsIntelligenceService
+        ] = create_common_sub_services(
             domain="habits",
             backend=backend,
             graph_intel=graph_intel,
@@ -544,9 +565,12 @@ class HabitsService(
             skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
-        self.search: HabitsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.search = common.search
+        self.relationships = common.relationships
 
         from core.services.habits.habits_intelligence_service import (
             HabitsIntelligenceService as _HabitsIntelligenceService,
@@ -561,7 +585,7 @@ class HabitsService(
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         # Completion tracking service (REQUIRED - fail-fast) - create before progress
         self.completions = HabitsCompletionService(
@@ -603,15 +627,6 @@ class HabitsService(
             "core, search, progress, learning, planning, scheduling, relationships, "
             "intelligence, event_handler, completions, patterns, knowledge_intelligence"
         )
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Entity"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection

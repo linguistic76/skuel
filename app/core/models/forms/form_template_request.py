@@ -38,12 +38,12 @@ class FormTemplateCreateRequest(BaseModel):
     """Pydantic request model for creating a FormTemplate."""
 
     title: str = Field(..., min_length=1, max_length=200, description="Form title")
-    description: str | None = Field(None, description="Form description")
-    instructions: str | None = Field(None, description="Instructions shown above form")
+    description: str | None = Field(default=None, description="Form description")
+    instructions: str | None = Field(default=None, description="Instructions shown above form")
     form_schema: list[dict[str, Any]] = Field(
         ..., min_length=1, description="Form field definitions"
     )
-    tags: list[str] | None = Field(None, description="Tags for categorization")
+    tags: list[str] | None = Field(default=None, description="Tags for categorization")
 
     @field_validator("form_schema")
     @classmethod
@@ -55,7 +55,7 @@ class FormTemplateCreateRequest(BaseModel):
 class FormTemplateUpdateRequest(BaseModel):
     """Pydantic request model for updating a FormTemplate."""
 
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     instructions: str | None = None
     form_schema: list[dict[str, Any]] | None = None

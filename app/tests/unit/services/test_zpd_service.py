@@ -276,7 +276,7 @@ class TestZPDSnapshotHandler:
 
         handler = ZPDSnapshotHandler(zpd_service, snapshot_backend)
 
-        # Simulate SubmissionApproved event
+        # Simulate UserEntryApproved event
         event = AsyncMock()
         event.student_uid = "user_1"
         await handler.handle_submission_approved(event)
@@ -285,7 +285,7 @@ class TestZPDSnapshotHandler:
         snapshot_backend.save_snapshot.assert_called_once()
         call_args = snapshot_backend.save_snapshot.call_args
         assert call_args[0][0] == "user_1"
-        assert call_args[0][2] == "submission.approved"
+        assert call_args[0][2] == "user_entry.approved"
 
     @pytest.mark.asyncio
     async def test_skips_snapshot_on_empty_assessment(self) -> None:

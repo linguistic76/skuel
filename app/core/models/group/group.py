@@ -69,7 +69,8 @@ class Group:
     A Group is a container for teacher-student relationships:
     - One teacher (owner) creates and manages the group
     - Students are added via MEMBER_OF relationship
-    - Assignments (ReportProjects with scope=ASSIGNED) target groups via FOR_GROUP
+    - Curriculum (Exercises, PathSteps, LearningPaths) is shared to groups
+      via SHARED_WITH_GROUP (ADR-053, supersedes the retired FOR_GROUP edge)
     """
 
     uid: str
@@ -90,6 +91,15 @@ class Group:
         """Get one-line summary of group."""
         status = "active" if self.is_active else "inactive"
         return f"{self.name} ({status})"
+
+    @classmethod
+    def from_dto(cls, dto: "GroupDTO") -> "Group":
+        """Create Group from GroupDTO — delegates to group_dto_to_pure."""
+        return group_dto_to_pure(dto)
+
+    def to_dto(self) -> "GroupDTO":
+        """Convert Group to GroupDTO — delegates to group_pure_to_dto."""
+        return group_pure_to_dto(self)
 
 
 # ============================================================================

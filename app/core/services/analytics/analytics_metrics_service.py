@@ -786,7 +786,7 @@ class AnalyticsMetricsService:
                 days_until_review = getattr(ku, "days_until_review", None)
                 if callable(days_until_review):
                     days_left = days_until_review()
-                    if days_left is not None and days_left <= 7:
+                    if isinstance(days_left, int) and days_left <= 7:
                         decay_warnings.append(
                             {
                                 "ku_uid": ku.uid,

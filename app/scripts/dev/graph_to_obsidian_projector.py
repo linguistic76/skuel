@@ -12,7 +12,7 @@ __version__ = "1.0"
 from pathlib import Path
 from typing import Any
 
-from services.sync.jupyter_integration import JupyterSyncHook
+from services.sync.jupyter_integration import JupyterSyncHook  # type: ignore[import-not-found]
 
 
 def project_subgraph(

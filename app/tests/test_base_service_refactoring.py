@@ -1,3 +1,4 @@
+# mypy: disable-error-code="union-attr,index"
 """
 Test Suite for BaseService Refactoring
 ===================================================

@@ -21,14 +21,14 @@ For implementation guidance, see:
 
 UserContextIntelligence is THE central intelligence hub answering: **"What should I work on next?"**
 
-This service synthesizes user state (UserContext ~240 fields) with complete graph intelligence (13 domain services) to provide actionable daily planning, learning recommendations, and life path alignment insights.
+This service synthesizes user state (UserContext ~240 fields) with complete graph intelligence (12 domain services) to provide actionable daily planning, learning recommendations, and life path alignment insights.
 
 **Depends on:** UserContext (~240 fields) — see [Unified User Architecture](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md)
 
 UserContext provides the state. This service provides the synthesis.
 
 **Core Value Proposition:**
-- Combines user state (UserContext) with graph intelligence (13 domain services)
+- Combines user state (UserContext) with graph intelligence (12 domain services)
 - Answers "What should I work on?" across all entity types
 - Provides schedule-aware, capacity-respecting recommendations
 - Measures life path alignment across 5 dimensions
@@ -110,7 +110,7 @@ UserContextIntelligence provides 8 core methods across 5 mixins:
 
 **Philosophy:** "SKUEL runs at full capacity or not at all"
 
-UserContextIntelligence requires ALL 13 domain services because each contributes unique intelligence:
+UserContextIntelligence requires ALL 12 domain services because each contributes unique intelligence:
 
 ### Activity (6) - All use UnifiedRelationshipService
 
@@ -221,28 +221,34 @@ UserContext has two depth levels:
 
 ### Validation at Runtime
 
-UserContextIntelligence validates context depth on creation:
+Intelligence methods rely on two mechanisms to fail fast when handed a
+standard-depth context:
+
+1. **Compile-time:** type the parameter as `RichUserContext` — the subclass
+   narrows the seven `RICH_ONLY_FIELDS` to non-Optional and pins
+   `is_rich_context=True`.
+2. **Runtime backstop:** strict accessors (`get_tasks_for_goal`,
+   `get_blocked_tasks`, etc.) delegate through `_as_rich(operation)` on
+   `UserContext`, which raises `RichContextRequiredError` on a standard-depth
+   context.
 
 ```python
 # File: /core/services/user/unified_user_context.py
 
 class UserContext:
-    def require_rich_context(self, operation: str) -> None:
-        """
-        Validate that context has rich data for intelligence operations.
-
-        Raises:
-            RichContextRequiredError: If context is standard (UIDs only)
-        """
+    def _as_rich(self, operation: str) -> RichUserContext:
+        """Guard + cast chokepoint for strict rich-only accessors."""
         if not self.is_rich_context:
             from core.errors import RichContextRequiredError
 
             raise RichContextRequiredError(operation)
+        return cast("RichUserContext", self)
 
-# Usage in intelligence methods:
+# Usage in intelligence methods — type against RichUserContext:
 async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:
     """THE FLAGSHIP - requires rich context."""
-    self.context.require_rich_context("get_ready_to_work_on_today")
+    # self.context typed as RichUserContext; strict accessors raise on standard
+    blocked = self.context.get_blocked_tasks()
     # Proceed with full entities available
 ```
 
@@ -907,14 +913,14 @@ class UserContextIntelligence(
 
 **Why a Factory?**
 - UserContextIntelligence requires a **context at construction** (user-specific)
-- The **13 domain services are singletons** (created once at bootstrap)
+- The **12 domain services are singletons** (created once at bootstrap)
 - Factory separates service wiring from context binding
 
 **Bootstrap (services_bootstrap.py):**
 ```python
 from core.services.user.intelligence import UserContextIntelligenceFactory
 
-# Create factory with all 13 domain services
+# Create factory with all 12 domain services
 factory = UserContextIntelligenceFactory(
     # Activity (6)
     tasks=tasks_service.relationships,
@@ -1186,7 +1192,7 @@ def create_test_intelligence(context: UserContext) -> UserContextIntelligence:
         tasks=mock_tasks_service(),
         goals=mock_goals_service(),
         habits=mock_habits_service(),
-        # ... etc for all 13 services
+        # ... etc for all 12 services
     )
 ```
 

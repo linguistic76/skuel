@@ -349,7 +349,7 @@ class EntityInferenceService:
             else:
                 summary["incorrect_inferences"] = int(summary["incorrect_inferences"]) + 1
 
-            summary["knowledge_uids_validated"].add(knowledge_uid)  # type: ignore[union-attr]
+            summary["knowledge_uids_validated"].add(knowledge_uid)
             confidence_adjustments.append(confidence_adjustment)
 
         # Calculate averages

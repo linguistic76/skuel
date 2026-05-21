@@ -8,7 +8,8 @@ Sub-Services:
 - TasksCoreService: CRUD operations
 - TasksSearchService: Search and discovery (DomainSearchOperations[Task] protocol)
 - TasksProgressService: Progress tracking and completion
-- TasksSchedulingService: Scheduling and learning path integration
+- TasksSchedulingService: Scheduling and context-aware creation
+- TasksLearningService: Learning path integration and learning-aligned suggestions
 - UnifiedRelationshipService (TASKS_CONFIG): Dependencies and relationships
 """
 
@@ -21,6 +22,7 @@ from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
@@ -34,7 +36,7 @@ if TYPE_CHECKING:
 from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.services.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 
 # Base service
 from core.services.base_service import BaseService
@@ -50,7 +52,7 @@ from core.services.tasks import (
     TaskEventHandlerService,
     TasksCoreService,
     TasksIntelligenceService,
-    TasksLearningMetricsService,
+    TasksLearningService,
     TasksPlanningService,
     TasksProgressService,
     TasksSchedulingService,
@@ -76,6 +78,7 @@ if TYPE_CHECKING:
     from core.models.task.task_request import TaskCreateRequest
     from core.ports.query_types import ListContext
     from core.services.user import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 # TypedDicts for analytics dashboard structure (fixes MyPy index errors)
@@ -236,9 +239,10 @@ class TasksService(
 
     Delegation Methods:
     - Core CRUD: get_task, get_user_tasks, list_tasks, update_task, delete_task
-    - Search: get_tasks_for_goal, get_tasks_for_habit, get_prioritized_tasks, etc.
+    - Search: get_tasks_for_goal, get_tasks_for_habit, get_prioritized, etc.
     - Progress: check_prerequisites, unblock_task_if_ready, record_task_completion, etc.
-    - Scheduling: create_task_with_context, get_next_learning_task, etc.
+    - Scheduling: create_task_with_context, create_task_with_learning_context, etc.
+    - Learning: get_learning_relevant_tasks, get_next_learning_task, suggest_learning_aligned_tasks
     - Analytics: analyze_learning_patterns, generate_task_insights, etc.
 
     Explicit Methods (custom logic):
@@ -260,7 +264,6 @@ class TasksService(
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        entity_label="Entity",
     )
 
     # ========================================================================
@@ -274,21 +277,16 @@ class TasksService(
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
     ai: TasksAIService | None
-    # TasksProductivityService shelved (2026-03-28)
-    # NOTE: Named 'learning_metrics' intentionally — provides task-level analytics (completion
-    # patterns, knowledge mastery). Other domains' 'learning' services link entities to
-    # curriculum paths; Tasks has no such service. This asymmetry is architectural, not an oversight.
-    learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService
 
     def __init__(
         self,
         backend: TasksOperations,
         cross_domain_query: CrossDomainQueryService,
-        graph_intel: GraphIntelligenceService | None = None,
+        graph_intel: GraphIntelligenceService,
         ku_inference_service: EntityInferenceService | None = None,
         ku_generation_service: InsightGenerationService | None = None,
-        event_bus=None,
+        event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: TasksAIService | None = None,
@@ -298,26 +296,32 @@ class TasksService(
 
         Args:
             backend: Protocol-based backend for task operations
-            cross_domain_query: Cross-domain query service (required)
-            graph_intel: GraphIntelligenceService for pure Cypher analytics (required)
-            ku_inference_service: Service for automatic knowledge inference (required)
-            ku_generation_service: InsightGenerationService for automatic knowledge generation (required)
+            cross_domain_query: Cross-domain query service (REQUIRED)
+            graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            ku_inference_service: Service for automatic knowledge inference (optional)
+            ku_generation_service: InsightGenerationService for knowledge generation (optional)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: For persisting event-driven insights (optional)
             activity_knowledge_intelligence: Shared knowledge intelligence singleton (optional)
             ai_service: Optional AI service — None when INTELLIGENCE_TIER=core (optional)
+
+        Migration Note (2026-04-22):
+            Made graph_intel REQUIRED — TasksIntelligenceService construction needs it.
+            Fail-fast at construction, not at method call. Matches Goals v3.2.0.
         """
         super().__init__(backend, "tasks")
 
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: TasksAIService | None = ai_service
 
-        self.logger = get_logger("skuel.services.tasks")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.tasks")  # structlog BoundLogger
 
         # Use factory for search, relationships, event_handler, learning, and
         # knowledge_intelligence. core and intelligence need domain-specific
         # parameters — created manually below.
-        common = create_common_sub_services(
+        common: CommonSubServices[
+            TasksCoreService, TasksSearchOperations, TasksIntelligenceService
+        ] = create_common_sub_services(
             domain="tasks",
             backend=backend,
             graph_intel=graph_intel,
@@ -326,11 +330,13 @@ class TasksService(
             skip={"core", "intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
 
         # NOTE: Named 'search' for consistency with other domain facades
         # This shadows BaseService.search(), intentionally - we delegate via self.search.search()
         self.search: TasksSearchOperations = common.search
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.relationships: UnifiedRelationshipService = common.relationships
         self.core = TasksCoreService(
             backend=backend, ku_inference_service=ku_inference_service, event_bus=event_bus
         )
@@ -345,16 +351,8 @@ class TasksService(
             insight_store=insight_store,
         )
 
-        # TasksProductivityService shelved (2026-03-28)
-
-        # Task-level learning metrics (uses Task model + TaskRelationships)
-        self.learning_metrics: TasksLearningMetricsService = TasksLearningMetricsService(
-            backend=backend,
-            relationship_service=self.relationships,
-            event_bus=event_bus,
-        )
-
         # Domain-specific sub-services
+        self.learning: TasksLearningService = common.learning
         self.progress = TasksProgressService(backend=backend, event_bus=event_bus)
         self.scheduling = TasksSchedulingService(backend=backend)
         self.planning = TasksPlanningService(
@@ -375,22 +373,13 @@ class TasksService(
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "TasksService facade initialized with 9 sub-services: "
-            "core, search, progress, scheduling, planning, relationships, "
-            "intelligence, learning_metrics, event_handler"
+            "core, search, progress, scheduling, planning, learning, relationships, "
+            "intelligence, event_handler"
         )
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Task entities."""
-        return "Entity"
 
     # ========================================================================
     # DELEGATION METHODS
@@ -421,7 +410,37 @@ class TasksService(
         )
 
     async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
-        return await self.core.update_task(task_uid, updates)
+        # Habit reinforcement is a graph edge ((Task)-[:REINFORCES_HABIT]->(Habit)),
+        # not a property — route it out of the property updates into edge mutation
+        # (replace any existing reinforced habit with the new one).
+        habit_uid = updates.pop("reinforces_habit_uid", None)
+
+        result = await self.core.update_task(task_uid, updates)
+        if result.is_error:
+            return result
+
+        if habit_uid is not None:
+            existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
+            if existing.is_ok:
+                for old_habit in existing.value or []:
+                    await self.relationships.delete_relationship("habits", task_uid, old_habit)
+            if habit_uid:  # non-empty → create the new edge (empty string = cleared)
+                edge = await self.relationships.create_relationship("habits", task_uid, habit_uid)
+                if edge.is_error:
+                    return Result.fail(edge)
+        return result
+
+    async def get_reinforced_habit(self, task_uid: str) -> Result[str | None]:
+        """Return the habit uid this task reinforces via (Task)-[:REINFORCES_HABIT]->(Habit).
+
+        A task reinforces at most one habit, so this returns the first linked habit
+        uid or ``None``. Graph-native — the linkage is the edge, not a property.
+        """
+        related = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
+        if related.is_error:
+            return Result.fail(related)
+        uids = related.value or []
+        return Result.ok(uids[0] if uids else None)
 
     async def delete_task(self, task_uid: str) -> Result[bool]:
         return await self.core.delete_task(task_uid)
@@ -439,21 +458,34 @@ class TasksService(
     async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list[Task]]:
         return await self.search.get_blocked_by_prerequisites(user_uid)
 
-    async def get_prioritized_tasks(
+    async def get_prioritized(
         self, user_context: UserContext, limit: int = 10
     ) -> Result[list[Task]]:
-        return await self.search.get_prioritized_tasks(user_context, limit)
+        return await self.search.get_prioritized(user_context, limit)
 
     async def get_learning_relevant_tasks(
         self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
     ) -> Result[list[Task]]:
-        return await self.search.get_learning_relevant_tasks(user_uid, learning_position, limit)
+        return await self.learning.get_learning_relevant_tasks(user_uid, learning_position, limit)
 
     async def get_curriculum_tasks(self) -> Result[list[Task]]:
         return await self.search.get_curriculum_tasks()
 
     async def get_tasks_for_path_step(self, step_uid: str) -> Result[list[Task]]:
         return await self.search.get_tasks_for_path_step(step_uid)
+
+    async def get_upcoming(
+        self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Task]]:
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
+
+    async def get_overdue(
+        self, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Task]]:
+        return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Task]]:
+        return await self.search.get_active(user_uid, limit)
 
     # Progress delegations
     async def check_prerequisites(
@@ -508,17 +540,15 @@ class TasksService(
     async def create_tasks_from_learning_path(
         self, learning_path_uid: str, _user_context: UserContext
     ) -> Result[list[Task]]:
-        return await self.scheduling.create_tasks_from_learning_path(
-            learning_path_uid, _user_context
-        )
+        return await self.learning.create_tasks_from_learning_path(learning_path_uid, _user_context)
 
     async def get_next_learning_task(self, user_context: UserContext) -> Result[Task | None]:
-        return await self.scheduling.get_next_learning_task(user_context)
+        return await self.learning.get_next_learning_task(user_context)
 
     async def suggest_learning_aligned_tasks(
         self, learning_position: LpPosition, _task_domain: str | None = None, limit: int = 10
     ) -> Result[list[dict[str, Any]]]:
-        return await self.scheduling.suggest_learning_aligned_tasks(
+        return await self.learning.suggest_learning_aligned_tasks(
             learning_position, _task_domain, limit
         )
 
@@ -542,7 +572,7 @@ class TasksService(
         )
 
     async def get_actionable_tasks_for_user(
-        self, context: UserContext, limit: int = 10
+        self, context: RichUserContext, limit: int = 10
     ) -> Result[list[ContextualTask]]:
         return await self.planning.get_actionable_tasks_for_user(context, limit)
 
@@ -577,12 +607,12 @@ class TasksService(
     async def analyze_task_learning_metrics(
         self, _filters: dict[str, Any] | None = None
     ) -> Result[list[dict[str, Any]]]:
-        return await self.learning_metrics.analyze_task_learning_metrics(_filters)
+        return await self.intelligence.analyze_task_learning_metrics(_filters)
 
     async def generate_task_knowledge_insights(
         self, _domain_filter: str | None = None
     ) -> Result[dict[str, Any]]:
-        return await self.learning_metrics.generate_task_knowledge_insights(_domain_filter)
+        return await self.intelligence.generate_task_knowledge_insights(_domain_filter)
 
     # ========================================================================
     # EXPLICIT CORE METHODS (custom logic)

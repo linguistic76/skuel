@@ -94,7 +94,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 from core.models.enums import EntityStatus
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.base_protocols import Direction
 from core.ports.query_types import UserProgressResult
 from core.utils.result_simplified import Result
 
@@ -574,8 +576,8 @@ class RelationshipOperations(Protocol[T]):
     async def get_relationships(
         self,
         uid: str,
-        rel_type: str | None = None,
-        direction: str = "both",  # 'in', 'out', 'both'
+        rel_type: RelationshipName | None = None,
+        direction: Direction = "both",
     ) -> Result[list[Any]]:  # list[Relationship]
         """
         Get all relationships for an entity.
@@ -583,7 +585,7 @@ class RelationshipOperations(Protocol[T]):
         Args:
             uid: Entity UID
             rel_type: Optional filter by relationship type
-            direction: Direction of relationships to retrieve
+            direction: "incoming", "outgoing", or "both"
 
         Returns:
             Result[list[Relationship]]: Entity relationships
@@ -699,14 +701,14 @@ class TimeQueryOperations(Protocol[T]):
         """
         ...
 
-    async def get_due_soon(
+    async def get_upcoming(
         self,
         days_ahead: int = 7,
         user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[T]]:
         """
-        Get entities due within specified number of days.
+        Get entities upcoming within specified number of days.
 
         Args:
             days_ahead: Number of days ahead to check
@@ -714,7 +716,7 @@ class TimeQueryOperations(Protocol[T]):
             limit: Maximum results to return
 
         Returns:
-            Result[list[T]]: Entities due soon
+            Result[list[T]]: Upcoming entities
         """
         ...
 
@@ -732,6 +734,23 @@ class TimeQueryOperations(Protocol[T]):
 
         Returns:
             Result[list[T]]: Overdue entities
+        """
+        ...
+
+    async def get_active(
+        self,
+        user_uid: UserUID,
+        limit: int = 100,
+    ) -> Result[list[T]]:
+        """
+        Get active (non-terminal) entities for a user.
+
+        Args:
+            user_uid: User UID
+            limit: Maximum results to return
+
+        Returns:
+            Result[list[T]]: Active entities
         """
         ...
 

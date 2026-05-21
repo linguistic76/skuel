@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
-from core.ports.context_awareness_protocols import FullAwareness
 from core.ports.query_types import (
     AlertCheckResult,
     BlockingChainRow,
@@ -65,6 +64,7 @@ if TYPE_CHECKING:
         LearningVelocityMetrics,
         SpendingPatternAnalysis,
     )
+    from core.services.user.unified_user_context import UserContext
 
 # ============================================================================
 # CALENDAR
@@ -90,36 +90,39 @@ class CalendarServiceOperations(Protocol):
         """Get calendar view for a date range. Returns Result[CalendarData]."""
         ...
 
-    async def get_item(self, item_uid: str) -> "Result[CalendarItem | None]":
-        """Get a calendar item by UID. Returns Result[CalendarItem | None]."""
+    async def get_item(self, user_uid: UserUID, item_uid: str) -> "Result[CalendarItem | None]":
+        """Get a calendar item by UID, scoped to its owner. Returns Result[CalendarItem | None]."""
         ...
 
     async def quick_create(
         self,
+        user_uid: UserUID,
         item_type: str,
         title: str,
         start_time: datetime,
         **kwargs: Any,
     ) -> "Result[CalendarItem]":
-        """Quick-create a calendar item. Returns Result[CalendarItem]."""
+        """Quick-create a calendar item owned by user_uid. Returns Result[CalendarItem]."""
         ...
 
     async def reschedule_item(
         self,
+        user_uid: UserUID,
         item_uid: str,
         new_start: datetime,
     ) -> "Result[CalendarItem]":
-        """Reschedule a calendar item. Returns Result[CalendarItem]."""
+        """Reschedule a calendar item the user owns. Returns Result[CalendarItem]."""
         ...
 
     async def record_habit_occurrence(
         self,
+        user_uid: UserUID,
         habit_uid: str,
         on_date: str,
         status: str,
         notes: str | None = None,
     ) -> "Result[HabitCompletion]":
-        """Record a habit occurrence from the calendar view."""
+        """Record a habit occurrence (verifies habit ownership) from the calendar view."""
         ...
 
 
@@ -466,7 +469,7 @@ class GoalTaskGeneratorOperations(Protocol):
     async def generate_tasks_for_goal(
         self,
         goal_uid: str,
-        user_context: FullAwareness,
+        user_context: "UserContext",
         auto_create: bool = False,
     ) -> "Result[list[TaskDTO]]":
         """Generate tasks for a goal."""
@@ -484,7 +487,7 @@ class HabitEventSchedulerOperations(Protocol):
     async def schedule_events_for_habit(
         self,
         habit_uid: str,
-        user_context: FullAwareness,
+        user_context: "UserContext",
         auto_create: bool = False,
         days_ahead: int | None = None,
     ) -> "Result[list[EventDTO]]":

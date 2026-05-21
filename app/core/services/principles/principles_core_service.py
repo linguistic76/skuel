@@ -18,10 +18,12 @@ from typing import Any
 
 from core.events import publish_event
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
-from core.models.principle.principle import Principle
+from core.models.enums.principle_enums import PrincipleStrength
+from core.models.principle.principle import Principle, merge_why_important
 from core.models.principle.principle_dto import PrincipleDTO
-from core.models.type_hints import UserUID
+from core.models.principle.principle_request import PrincipleCreateRequest
+from core.models.principle.principle_types import PrincipleExpression
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.ports.query_types import PrincipleStats
 from core.services.base_service import BaseService
@@ -71,19 +73,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         """
         super().__init__(backend, "principles.core")
         self.event_bus = event_bus
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Principle entities."""
-        return "Principle"
-
-    # ========================================================================
-    # EMBEDDING HELPERS (Async Background Generation - January 2026)
-    # ========================================================================
 
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -198,9 +187,10 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             if set(updates.keys()) & modifying_core_fields and (
                 "modification_reason" not in updates or not updates["modification_reason"]
             ):
+                strength_label = current.strength.value if current.strength else "unknown"
                 return Result.fail(
                     Errors.validation(
-                        message=f"Modifying well-established principles (strength: {current.strength.value}) "
+                        message=f"Modifying well-established principles (strength: {strength_label}) "
                         "requires a modification_reason field explaining why this core value is changing.",
                         field="modification_reason",
                         value=None,
@@ -230,79 +220,82 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
     @with_error_handling("create_principle", error_type="database")
     async def create_principle(
-        self,
-        label: str,
-        description: str,
-        category: PrincipleCategory,
-        why_matters: str,
-        **kwargs: Any,
+        self, request: PrincipleCreateRequest, user_uid: UserUID
     ) -> Result[Principle]:
         """
-        Create a new principle.
+        Create a principle from a validated request.
 
         Args:
-            label: Short name for the principle,
-            description: Full description,
-            category: Principle category,
-            why_matters: Personal importance
-            **kwargs: Additional principle fields
+            request: Validated PrincipleCreateRequest
+            user_uid: User UID (REQUIRED — fail-fast on missing)
 
         Returns:
-            Created principle
+            Result containing created Principle
         """
-        # Extract user_uid from kwargs if provided
-        user_uid = kwargs.pop("user_uid", "unknown")  # Use pop to remove from kwargs
-        strength = kwargs.get("strength", PrincipleStrength.CORE)
+        validation = self._validate_required_user_uid(user_uid, "principle creation")
+        if validation:
+            return Result.fail(validation)
 
         from core.utils.uid_generator import UIDGenerator
+
+        body = merge_why_important(request.description, request.why_important)
+
+        expressions = tuple(
+            PrincipleExpression(context=e.context, behavior=e.behavior, example=e.example)
+            for e in request.expressions
+        )
 
         principle = Principle(
             uid=UIDGenerator.generate_random_uid("principle"),
             user_uid=user_uid,
-            title=label,  # Map label → title
-            statement=description,  # Map description → statement
-            principle_category=category,
-            description=why_matters,  # Map why_matters → description (why it matters)
+            title=request.title,
+            statement=request.statement,
+            description=body,
+            principle_category=request.principle_category,
+            principle_source=request.principle_source,
+            strength=request.strength,
+            tradition=request.tradition,
+            original_source=request.original_source,
+            personal_interpretation=request.personal_interpretation,
+            origin_story=request.origin_story,
+            key_behaviors=tuple(request.key_behaviors),
+            expressions=expressions,
+            priority=request.priority,
+            tags=tuple(request.tags),
             created_at=datetime.now(),
-            **kwargs,
         )
 
         result = await self.backend.create(principle)
-
-        # Check for creation failure before proceeding
         if result.is_error:
             return result
 
-        # Publish PrincipleCreated event (event-driven architecture)
         from core.events import PrincipleCreated
 
         event = PrincipleCreated(
             principle_uid=principle.uid,
             user_uid=user_uid,
-            principle_label=label,
-            category=category.value,
-            strength=strength.value,
+            principle_label=request.title,
+            category=request.principle_category.value,
+            strength=request.strength.value,
         )
         await publish_event(self.event_bus, event, logger)
 
-        # Publish embedding request event for async background generation
         # Background worker will process embeddings in batches (zero latency impact on user)
         embedding_text = build_embedding_text(EntityType.PRINCIPLE, principle)
         if embedding_text:
             from core.events import PrincipleEmbeddingRequested
 
-            now = datetime.now()
             embedding_event = PrincipleEmbeddingRequested(
                 entity_uid=principle.uid,
                 entity_type="principle",
                 embedding_text=embedding_text,
                 user_uid=user_uid,
-                requested_at=now,
+                requested_at=datetime.now(),
             )
             await publish_event(self.event_bus, embedding_event, logger)
 
-        logger.info(f"Created principle: {label}")
-        return result  # backend.create() already returns Result[Principle]
+        logger.info(f"Created principle: {request.title}")
+        return result
 
     @with_error_handling("update_principle", error_type="database", uid_param="principle_uid")
     async def update_principle(
@@ -491,7 +484,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             return Result.fail(current_result)
         current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Principle)
 
-        hierarchy_result = await self.backend.get_hierarchy_raw(principle_uid)
+        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(principle_uid))
         if hierarchy_result.is_error:
             return Result.fail(hierarchy_result)
 

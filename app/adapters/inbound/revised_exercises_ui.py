@@ -5,9 +5,9 @@ Phase 4: RevisedExercise — Student-Facing Revision Pages
 Student view of teacher-created revision instructions. Phase 4 closes the feedback
 loop: after a teacher returns NEEDS_REVISION (Phase 3: ExerciseReport), they create
 a RevisedExercise targeting the student's gaps. The student then submits against it,
-re-entering Phase 2 (new ExerciseSubmission) for another round:
+re-entering Phase 2 (new UserEntry) for another round:
 
-    ExerciseReport (NEEDS_REVISION) → RevisedExercise → ExerciseSubmission v2 → ...
+    ExerciseReport (NEEDS_REVISION) → RevisedExercise → UserEntry v2 → ...
 
 These pages live in the GradeBook sidebar (ui/gradebook/nav.py).
 
@@ -35,14 +35,14 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.cards import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
+from ui.learning_loop.revised_exercise import (
+    render_revised_exercise_detail,
+    render_revised_exercise_list,
+)
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
-from ui.submissions.revised_exercise import (
-    render_revised_exercise_detail,
-    render_revised_exercise_list,
-)
 
 logger = get_logger("skuel.routes.revised_exercises_ui")
 

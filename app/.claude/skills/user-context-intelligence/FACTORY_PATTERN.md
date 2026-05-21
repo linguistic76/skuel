@@ -4,7 +4,7 @@
 
 `UserContextIntelligenceFactory` separates **service wiring** (at bootstrap) from **context binding** (at runtime). This pattern is essential because:
 
-1. The 13 domain services are **singletons** (created once at bootstrap)
+1. The 12 domain services are **singletons** (created once at bootstrap)
 2. `UserContext` is **user-specific** and built on-demand
 3. `UserContextIntelligence` requires **both** at construction
 
@@ -31,7 +31,7 @@ Bootstrap (once)          Runtime (per request)
 async def get_daily_plan(user_uid: UserUID):
     context = await user_service.get_user_context(user_uid)
 
-    # Where do these 13 services come from?
+    # Where do these 12 services come from?
     intelligence = UserContextIntelligence(
         context=context,
         tasks=???,        # Need to access global services
@@ -50,7 +50,7 @@ async def get_daily_plan(user_uid: UserUID):
 async def get_daily_plan(user_uid: UserUID):
     context = await user_service.get_user_context(user_uid)
 
-    # Factory already has the 13 services
+    # Factory already has the 12 services
     intelligence = factory.create(context)
 
     return await intelligence.get_ready_to_work_on_today()
@@ -88,7 +88,7 @@ class UserContextIntelligenceFactory:
         # Optional: ZPD service for curriculum-graph-aware step ranking (FULL tier only)
         zpd_service: ZPDOperations | None = None,
     ) -> None:
-        # Validate all 13 required services present
+        # Validate all 12 required services present
         required = {
             "tasks": tasks,
             "goals": goals,
@@ -108,7 +108,7 @@ class UserContextIntelligenceFactory:
         missing = [name for name, svc in required.items() if svc is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligenceFactory requires all 13 services. "
+                f"UserContextIntelligenceFactory requires all 12 services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -168,7 +168,7 @@ class UserContextIntelligenceFactory:
 Factory creation, ZPD wiring, and Askesis creation are handled by `_create_intelligence_hub()` — called near the end of `compose_services()`:
 
 ```python
-# _create_intelligence_hub() creates the factory with all 13 domain services:
+# _create_intelligence_hub() creates the factory with all 12 domain services:
 context_intelligence_factory = UserContextIntelligenceFactory(
     # Activity (6) - from facade .relationships
     tasks=activity_services["tasks"].relationships,
@@ -399,7 +399,7 @@ async def test_route(mock_factory):
 ### 3. Clean Dependency Injection
 
 ```python
-# Service only needs factory, not 13 individual services
+# Service only needs factory, not 12 individual services
 class MyService:
     def __init__(self, factory: UserContextIntelligenceFactory):
         self.factory = factory

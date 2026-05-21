@@ -2,7 +2,7 @@
 TaskDTO - Task-Specific DTO (Tier 2 - Transfer)
 =================================================
 
-Extends UserOwnedDTO with 25 task-specific fields matching the Task
+Extends UserOwnedDTO with task-specific fields matching the Task
 frozen dataclass (Tier 3): scheduling, hierarchy, cross-domain links,
 progress impact, and knowledge intelligence.
 
@@ -12,7 +12,7 @@ of the domain-first architecture migration.
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── TaskDTO(UserOwnedDTO) +25 task-specific fields
+        └── TaskDTO(UserOwnedDTO) +task-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -20,7 +20,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.type_hints import UserUID
 
@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_dto import UserOwnedDTO
 
 
@@ -38,11 +39,11 @@ class TaskDTO(UserOwnedDTO):
     """
     Mutable DTO for tasks (EntityType.TASK).
 
-    Extends UserOwnedDTO with 25 task-specific fields:
+    Extends UserOwnedDTO with task-specific fields:
     - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
     - Hierarchy (3): parent_uid, project, assignee
-    - Cross-domain links (4): goal, habit, path step/path references
-    - Progress impact (6): goal contribution, knowledge mastery, habit streak
+    - Cross-domain links (3): goal, habit, path step references
+    - Progress impact (5): goal contribution, knowledge mastery, habit streak
     - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
     """
 
@@ -56,7 +57,7 @@ class TaskDTO(UserOwnedDTO):
     actual_minutes: int | None = None
 
     # Recurrence
-    recurrence_pattern: str | None = None
+    recurrence_pattern: RecurrencePattern | None = None
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
 
@@ -73,10 +74,10 @@ class TaskDTO(UserOwnedDTO):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
+    # Task↔Habit linkage is the (Task)-[:REINFORCES_HABIT]->(Habit) graph edge,
+    # not a persisted property — so it is intentionally absent from this DTO.
     fulfills_goal_uid: str | None = None
-    reinforces_habit_uid: str | None = None
     source_path_step_uid: str | None = None
-    source_learning_path_uid: str | None = None
 
     # =========================================================================
     # PROGRESS IMPACT
@@ -85,7 +86,6 @@ class TaskDTO(UserOwnedDTO):
     knowledge_mastery_check: bool = False
     habit_streak_maintainer: bool = False
     completion_updates_goal: bool = False
-    curriculum_driven: bool = False
     curriculum_practice_type: str | None = None
 
     # =========================================================================
@@ -94,6 +94,12 @@ class TaskDTO(UserOwnedDTO):
     knowledge_confidence_scores: dict[str, float] | None = None
     knowledge_inference_metadata: dict[str, Any] | None = None
     learning_opportunities_count: int = 0
+
+    # =========================================================================
+    # PS+ACTIVITY LIFECYCLE
+    # =========================================================================
+    # Back-reference is the (Task)-[:SPAWNED_FROM]->(TaskTemplate) edge.
+    engagement_state: Literal["engaged", "owned"] | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -130,66 +136,21 @@ class TaskDTO(UserOwnedDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including task-specific fields."""
-        from core.models.dto_helpers import convert_dates_to_iso
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data = super().to_dict()
-
-        # Task-specific fields
-        data.update(
-            {
-                # Scheduling
-                "due_date": self.due_date,
-                "scheduled_date": self.scheduled_date,
-                "completion_date": self.completion_date,
-                "duration_minutes": self.duration_minutes,
-                "actual_minutes": self.actual_minutes,
-                "recurrence_pattern": self.recurrence_pattern,
-                "recurrence_end_date": self.recurrence_end_date,
-                "recurrence_parent_uid": self.recurrence_parent_uid,
-                "scheduled_event_uid": self.scheduled_event_uid,
-                # Hierarchy
-                "parent_uid": self.parent_uid,
-                "project": self.project,
-                "assignee": self.assignee,
-                # Cross-domain links
-                "fulfills_goal_uid": self.fulfills_goal_uid,
-                "reinforces_habit_uid": self.reinforces_habit_uid,
-                "source_path_step_uid": self.source_path_step_uid,
-                "source_learning_path_uid": self.source_learning_path_uid,
-                # Progress impact
-                "goal_progress_contribution": self.goal_progress_contribution,
-                "knowledge_mastery_check": self.knowledge_mastery_check,
-                "habit_streak_maintainer": self.habit_streak_maintainer,
-                "completion_updates_goal": self.completion_updates_goal,
-                "curriculum_driven": self.curriculum_driven,
-                "curriculum_practice_type": self.curriculum_practice_type,
-                # Knowledge intelligence
-                "knowledge_confidence_scores": dict(self.knowledge_confidence_scores)
-                if self.knowledge_confidence_scores
-                else None,
-                "knowledge_inference_metadata": dict(self.knowledge_inference_metadata)
-                if self.knowledge_inference_metadata
-                else None,
-                "learning_opportunities_count": self.learning_opportunities_count,
-            }
-        )
-
-        convert_dates_to_iso(
-            data,
-            [
-                "due_date",
-                "scheduled_date",
-                "completion_date",
-                "recurrence_end_date",
+        return dto_to_dict(
+            self,
+            enum_fields=[
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "recurrence_pattern",
             ],
+            date_fields=["due_date", "scheduled_date", "completion_date", "recurrence_end_date"],
+            datetime_fields=["created_at", "updated_at"],
         )
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TaskDTO:
@@ -204,6 +165,7 @@ class TaskDTO(UserOwnedDTO):
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
+                "recurrence_pattern": RecurrencePattern,
             },
             date_fields=[
                 "due_date",
@@ -259,18 +221,16 @@ class TaskDTO(UserOwnedDTO):
                 "project",
                 "assignee",
                 "fulfills_goal_uid",
-                "reinforces_habit_uid",
                 "source_path_step_uid",
-                "source_learning_path_uid",
                 "goal_progress_contribution",
                 "knowledge_mastery_check",
                 "habit_streak_maintainer",
                 "completion_updates_goal",
-                "curriculum_driven",
                 "curriculum_practice_type",
                 "knowledge_confidence_scores",
                 "knowledge_inference_metadata",
                 "learning_opportunities_count",
+                "engagement_state",
             },
             enum_mappings={
                 "entity_type": EntityType,

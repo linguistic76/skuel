@@ -19,7 +19,7 @@ Responsibilities:
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
@@ -78,15 +78,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         super().__init__(backend, "goals")
         self.logger = get_logger("skuel.services.goals.core")  # type: ignore[assignment]  # structlog BoundLogger
         self.event_bus = event_bus
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Goal entities."""
-        return "Entity"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -280,7 +271,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                 user_uid=goal.user_uid,
                 title=goal.title,
                 domain=get_enum_value(goal.domain) if goal.domain else None,
-                target_date=goal.target_date,
+                target_date=datetime.combine(goal.target_date, datetime.min.time())
+                if goal.target_date
+                else None,
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -336,7 +329,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             user_uid=goal.user_uid,
             title=goal.title,
             domain=get_enum_value(goal.domain) if goal.domain else None,
-            target_date=goal.target_date,
+            target_date=datetime.combine(goal.target_date, datetime.min.time())
+            if goal.target_date
+            else None,
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -484,7 +479,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             Result containing True if goal was activated
         """
         updates: GoalUpdatePayload = {"status": EntityStatus.ACTIVE.value}
-        result = await self.update(uid, updates)
+        result = await self.update(uid, dict(updates))
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def pause_goal(
@@ -508,7 +503,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if until_date:
             metadata_updates["paused_until"] = until_date
 
-        result = await self.update(uid, updates)
+        result = await self.update(uid, dict(updates))
         if result.is_ok and metadata_updates:
             # Update metadata separately
             goal = result.value
@@ -547,7 +542,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                 goal.metadata["completion_notes"] = completion_notes
                 updates["metadata"] = goal.metadata
 
-        result = await self.update(uid, updates)
+        result = await self.update(uid, dict(updates))
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
@@ -571,7 +566,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             goal.metadata["archived_at"] = datetime.now().isoformat()
             updates["metadata"] = goal.metadata
 
-        result = await self.update(uid, updates)
+        result = await self.update(uid, dict(updates))
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     # ========================================================================
@@ -617,8 +612,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             goal = result.value
 
             # Calculate duration metrics
-            actual_days = None
-            planned_days = None
+            actual_days: int | None = None
+            planned_days: int | None = None
             ahead_of_schedule = False
 
             if current_goal.created_at:
@@ -671,7 +666,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             return Result.fail(current_result)
         current_goal = self._to_domain_model(current_result.value, GoalDTO, Goal)
 
-        hierarchy_result = await self.backend.get_hierarchy_raw(goal_uid)
+        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(goal_uid))
         if hierarchy_result.is_error:
             return Result.fail(hierarchy_result)
 

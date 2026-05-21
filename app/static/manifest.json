@@ -1,7 +1,7 @@
 {
   "name": "SKUEL",
   "short_name": "SKUEL",
-  "description": "Learning platform — the five-phase learning loop",
+  "description": "Learning platform — the four-phase learning loop",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

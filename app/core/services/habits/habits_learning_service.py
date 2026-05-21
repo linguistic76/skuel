@@ -22,7 +22,7 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.pathways.lp_position import LpPosition
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -85,15 +85,6 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Habit"
-
-    # ========================================================================
     # LEARNING-AWARE HABIT OPERATIONS
     # ========================================================================
 
@@ -109,12 +100,10 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
                 habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
                 # GRAPH-NATIVE: Check if habit is learning-related
-                # Check category and source fields (path step/path linkage)
+                # Category or PS link (LP reachable via PS->LP traversal).
                 if (
-                    (habit.habit_category and habit.habit_category == HabitCategory.LEARNING)
-                    or habit.source_path_step_uid is not None
-                    or habit.source_learning_path_uid is not None
-                ):
+                    habit.habit_category and habit.habit_category == HabitCategory.LEARNING
+                ) or habit.source_path_step_uid is not None:
                     learning_habits.append(habit)
 
         return Result.ok(learning_habits)
@@ -183,7 +172,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         }
 
         # Check if user has related goals
-        related_goals = []
+        related_goals: list[str] = []
         for _goal_uid in user_context.active_goal_uids:
             # Would check if goal requires this knowledge
             pass
@@ -311,5 +300,5 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         """
         # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.assess_learning_alignment(
-            entity_uid=habit_uid, learning_position=learning_position
+            entity_uid=EntityUID(habit_uid), learning_position=learning_position
         )

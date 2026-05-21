@@ -1,35 +1,12 @@
-"""Library hub — block definitions and page component for the Library section.
+"""Library block definitions — Library tab on /profile.
 
-LIBRARY_BLOCKS is imported by ui/home_hub.py to populate the Library tab
-on /home, /submissions, /gradebook, and /library.
-
-LibraryHub() is the standalone page component for /library.
-
-See: /docs/design-principles/HUB_PAGES.md
+LIBRARY_BLOCKS feeds the Library tab in ui/profile/hub.py. Submission
+History was moved to the Submissions tab so each block has a single home.
 """
 
-from fasthtml.common import Div
-
-from ui.patterns.hub import HubBlockData, HubDomainBlockList
-from ui.patterns.page_header import PageHeader
+from ui.patterns.hub import HubBlockData
 
 LIBRARY_BLOCKS: list[HubBlockData] = [
-    HubBlockData(
-        "Exercises",
-        "exercises",
-        "book-open",
-        "#3B82F6",
-        "/library/exercises",
-        "/api/library/exercises/preview",
-    ),
-    HubBlockData(
-        "Submission History",
-        "history",
-        "file-text",
-        "#8B5CF6",
-        "/submissions/history",
-        "/api/submissions/history/preview",
-    ),
     HubBlockData(
         "Resources",
         "resources",
@@ -54,14 +31,12 @@ LIBRARY_BLOCKS: list[HubBlockData] = [
         "/library/path-steps",
         "/api/library/path-steps/preview",
     ),
+    HubBlockData(
+        "Exercises",
+        "exercises",
+        "book-open",
+        "#3B82F6",
+        "/library/exercises",
+        "/api/library/exercises/preview",
+    ),
 ]
-
-
-def LibraryHub() -> Div:
-    """Library hub page content — PageHeader + block list for /library."""
-    return Div(
-        PageHeader(
-            "Library", subtitle="Your exercises, submission history, resources, and curriculum"
-        ),
-        HubDomainBlockList(LIBRARY_BLOCKS),
-    )

@@ -19,20 +19,23 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, A, Div, P
+from fasthtml.common import H3, A, Div, Form, P
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.forms import LabelInput, LabelTextArea
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
+from ui.patterns.modal import AlpineModal
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import (
     SidebarPage,
@@ -71,6 +74,70 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.teaching.ui")
 
 
+def _new_group_modal() -> Any:
+    """Modal form that POSTs JSON to /api/groups/create and refreshes on success."""
+    hx_vals_js = (
+        "js:{"
+        'name: document.getElementById("new-group-name").value,'
+        'description: document.getElementById("new-group-description").value || null,'
+        'max_members: document.getElementById("new-group-max-members").value'
+        ' ? parseInt(document.getElementById("new-group-max-members").value, 10) : null'
+        "}"
+    )
+    after_request = (
+        "if(event.detail.successful){window.location.href='/teaching/groups'}"
+        "else{document.getElementById('new-group-status').textContent="
+        "'Failed to create group: ' + (event.detail.xhr.statusText || 'unknown error')}"
+    )
+
+    form = Form(
+        H3("New Group", cls="text-xl font-bold mb-4"),
+        Div(id="new-group-status", cls="text-sm text-destructive mb-2"),
+        LabelInput(
+            "Name",
+            name="name",
+            id="new-group-name",
+            placeholder="e.g. Physics 101 — Spring 2026",
+            required=True,
+        ),
+        LabelTextArea(
+            "Description",
+            name="description",
+            id="new-group-description",
+            placeholder="Optional",
+            rows="3",
+        ),
+        LabelInput(
+            "Max Members",
+            name="max_members",
+            id="new-group-max-members",
+            type="number",
+            min="1",
+            max="500",
+            placeholder="Optional",
+        ),
+        Div(
+            Button(
+                "Cancel",
+                type="button",
+                variant=ButtonT.ghost,
+                cls="mr-2",
+                **{"x-on:click": "open = false"},
+            ),
+            Button("Create", type="submit", variant=ButtonT.primary),
+            cls="flex justify-end mt-4",
+        ),
+        hx_post="/api/groups/create",
+        hx_swap="none",
+        hx_vals=hx_vals_js,
+        hx_headers='{"Content-Type": "application/json"}',
+        **{"hx-on::after-request": after_request},
+        cls="space-y-4",
+    )
+
+    return AlpineModal(form, show="open", close="open = false", max_width="max-w-lg")
+
+
 # ============================================================================
 # ROUTE CREATION
 # ============================================================================
@@ -98,7 +165,7 @@ def create_teaching_ui_routes(
     get_user_service = make_service_getter(user_service)
 
     async def _get_bucketed_submissions(
-        user_uid: str, student_uid: str
+        user_uid: UserUID, student_uid: str
     ) -> tuple[list[SubmissionRow], list[SubmissionRow], list[SubmissionRow], str]:
         """Fetch bucketed submissions from orchestrator and convert to view models."""
         result = await orchestrator.get_bucketed_student_submissions(
@@ -421,9 +488,8 @@ def create_teaching_ui_routes(
         elif not result.value:
             groups_content = EmptyState(
                 "No groups yet",
-                description="Create your first group from the Groups section to get started.",
-                action_text="Go to Groups →",
-                action_href="/groups",
+                description="Click “New Group” above to create your first group, "
+                "or upload a group YAML at /upload.",
             )
         else:
             groups_content = Div(
@@ -443,9 +509,23 @@ def create_teaching_ui_routes(
                 ]
             )
 
+        new_group_button = Button(
+            "+ New Group",
+            type="button",
+            variant=ButtonT.primary,
+            size=Size.sm,
+            **{"x-on:click": "open = true"},
+        )
+
         content = Div(
-            PageHeader("Groups", subtitle="Your groups and their activity"),
+            PageHeader(
+                "Groups",
+                subtitle="Your groups and their activity",
+                actions=new_group_button,
+            ),
             groups_content,
+            _new_group_modal(),
+            x_data="{ open: false }",
         )
         return await render_teaching_sidebar_page(
             content=content,

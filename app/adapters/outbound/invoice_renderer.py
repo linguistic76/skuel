@@ -14,7 +14,7 @@ Architecture:
 from __future__ import annotations
 
 import html
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from core.models.finance.invoice import InvoicePure
@@ -277,8 +277,9 @@ def render_invoice_pdf(invoice: InvoicePure) -> bytes:
 
     from weasyprint import HTML  # type: ignore[import-untyped]
 
-    pdf: bytes = HTML(string=html_content).write_pdf()  # type: ignore[assignment]
-    return pdf
+    pdf = HTML(string=html_content).write_pdf()
+    assert pdf is not None, "write_pdf() returns None only when a target file is given"
+    return cast("bytes", pdf)
 
 
 __all__ = ["render_invoice_html", "render_invoice_pdf"]

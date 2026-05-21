@@ -15,6 +15,7 @@ from typing import Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.type_hints import EntityUID
@@ -48,6 +49,7 @@ def create_user_pins_routes(
         return await user_relationship_service.get_pinned_entities(user_uid)
 
     @rt("/api/user/pins", methods=["POST"])
+    @csrf_protected
     async def pin_entity(request: Request):
         """
         Pin an entity.
@@ -83,6 +85,7 @@ def create_user_pins_routes(
         return PinButton(entity_uid=entity_uid, is_pinned=True)
 
     @rt("/api/user/pins/{entity_uid}", methods=["DELETE"])
+    @csrf_protected
     async def unpin_entity(request: Request, entity_uid: EntityUID):
         """
         Unpin an entity.
@@ -105,6 +108,7 @@ def create_user_pins_routes(
         return PinButton(entity_uid=entity_uid, is_pinned=False)
 
     @rt("/api/user/pins/reorder", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def reorder_pins(request: Request) -> Result[int]:
         """

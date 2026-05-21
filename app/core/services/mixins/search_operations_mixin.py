@@ -68,7 +68,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     Required attributes from composing class:
         backend: B - Backend implementation
         logger: Logger - For debug logging
-        entity_label: str - Neo4j node label
+        entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
+        config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep").
+            Used for domain-specific target_label filters and log/_domain strings.
         service_name: str - For error messages
         _search_fields: tuple[str, ...] - Fields to search
         _search_order_by: str - Default sort field
@@ -98,7 +100,13 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     @property
     @abstractmethod
     def entity_label(self) -> str:
-        """Entity label - must be provided by composing class."""
+        """Neo4j base-label (e.g., ``"Entity"``, ``"Ku"``) - provided by composing class."""
+        ...
+
+    @property
+    @abstractmethod
+    def config_lookup_label(self) -> str:
+        """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
         ...
 
     @abstractmethod
@@ -117,15 +125,20 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # CONFIGURATION VALIDATION
     # ========================================================================
 
-    def _ensure_configured_for_search(self) -> Result[None]:
+    def _ensure_configured_for_search(
+        self,
+    ) -> Result[tuple[type[DTOProtocol], type[T]]]:
         """
         Fail-fast validation: ensure search configuration exists.
 
         Checks that _dto_class and _model_class are configured, which are
-        required for all search operations using CypherGenerator.
+        required for all search operations using CypherGenerator. Returns
+        the narrowed (non-None) pair so call sites can pass them straight
+        to ``_to_domain_models`` without re-checking.
 
         Returns:
-            Result.ok(None) if configured, Result.fail() with clear error otherwise
+            Result.ok((dto_class, model_class)) if configured,
+            Result.fail() with clear error otherwise.
         """
         if self._dto_class is None or self._model_class is None:
             return Result.fail(
@@ -136,11 +149,73 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                     user_message="Search is not available for this entity type",
                 )
             )
-        return Result.ok(None)
+        return Result.ok((self._dto_class, self._model_class))
 
     # ========================================================================
     # SEARCH AND QUERY OPERATIONS
     # ========================================================================
+
+    @with_error_handling("list_recent_for_user", error_type="database")
+    async def list_recent_for_user(
+        self,
+        user_uid: UserUID,
+        limit: int = 10,
+        exclude: builtins.set[str] | None = None,
+    ) -> Result[builtins.list[T]]:
+        """
+        List a user's most-recently-updated entities, with optional exclusions.
+
+        Used by the entity-picker UI to populate the dropdown when no query has
+        been typed yet. Returns up to ``limit`` entries even when ``exclude`` is
+        non-empty — over-fetches to compensate.
+
+        Args:
+            user_uid: Owner of the entities.
+            limit: Maximum entries to return.
+            exclude: UIDs to filter out of the result.
+
+        Returns:
+            Result containing the user's entities sorted by ``updated_at`` desc.
+        """
+        exclude = exclude or set()
+        fetch_limit = limit + len(exclude)
+        result = await self.backend.get_user_entities(
+            user_uid, limit=fetch_limit, sort_by="updated_at", sort_order="desc"
+        )
+        if result.is_error:
+            return Result.fail(result)
+        entities, _ = result.value
+        return Result.ok([e for e in entities if e.uid not in exclude][:limit])
+
+    @with_error_handling("search_for_user", error_type="database")
+    async def search_for_user(
+        self,
+        query: str,
+        user_uid: UserUID,
+        limit: int = 10,
+        exclude: builtins.set[str] | None = None,
+    ) -> Result[builtins.list[T]]:
+        """
+        User-scoped title/description search with optional UID exclusions.
+
+        Wraps ``search()`` (which already respects ``user_uid`` and the
+        configured ``_search_fields``) and post-filters excluded UIDs.
+
+        Args:
+            query: Search string (case-insensitive).
+            user_uid: Owner of the entities.
+            limit: Maximum entries to return.
+            exclude: UIDs to filter out of the result.
+
+        Returns:
+            Result containing matching entities sorted by ``_search_order_by`` desc.
+        """
+        exclude = exclude or set()
+        fetch_limit = limit + len(exclude)
+        result = await self.search(query, limit=fetch_limit, user_uid=user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([e for e in result.value if e.uid not in exclude][:limit])
 
     @with_error_handling("search", error_type="database")
     async def search(
@@ -166,6 +241,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
+        dto_class, model_class = config_result.value
 
         result = await self.backend.text_search_raw(
             query,
@@ -178,9 +254,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
+        entities = self._to_domain_models(result.value, dto_class, model_class)
 
-        self.logger.debug(f"Found {len(entities)} {self.entity_label}(s) matching '{query}'")
+        self.logger.debug(f"Found {len(entities)} {self.config_lookup_label}(s) matching '{query}'")
         return Result.ok(entities)
 
     @with_error_handling("get_by_relationship", error_type="database", uid_param="related_uid")
@@ -212,20 +288,21 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
+        dto_class, model_class = config_result.value
 
         result = await self.backend.relationship_traversal_raw(
             source_uid=related_uid,
             relationship_type=relationship_type.value,
-            target_label=self.entity_label,
+            target_label=self.config_lookup_label,
             direction=direction,
         )
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
+        entities = self._to_domain_models(result.value, dto_class, model_class)
 
         self.logger.debug(
-            f"Found {len(entities)} {self.entity_label}(s) via "
+            f"Found {len(entities)} {self.config_lookup_label}(s) via "
             f"{relationship_type.value} from {related_uid}"
         )
         return Result.ok(entities)
@@ -266,6 +343,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
+        dto_class, model_class = config_result.value
 
         result = await self.backend.graph_aware_search_raw(
             query,
@@ -280,11 +358,11 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
+        entities = self._to_domain_models(result.value, dto_class, model_class)
 
         self.logger.debug(
             f"Graph-aware search for '{query}' via {relationship_type.value} "
-            f"from {related_uid} returned {len(entities)} {self.entity_label}(s)"
+            f"from {related_uid} returned {len(entities)} {self.config_lookup_label}(s)"
         )
         return Result.ok(entities)
 
@@ -339,7 +417,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         mode = "ALL" if match_all else "ANY"
         self.logger.debug(
-            f"Tag search ({mode} of {tags}) returned {len(entities)} {self.entity_label}(s)"
+            f"Tag search ({mode} of {tags}) returned {len(entities)} {self.config_lookup_label}(s)"
         )
         return Result.ok(entities)
 
@@ -369,6 +447,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
+        dto_class, model_class = config_result.value
 
         result = await self.backend.array_contains_raw(
             field,
@@ -380,10 +459,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
+        entities = self._to_domain_models(result.value, dto_class, model_class)
 
         self.logger.debug(
-            f"Array search on {field} for '{value}' returned {len(entities)} {self.entity_label}(s)"
+            f"Array search on {field} for '{value}' returned {len(entities)} {self.config_lookup_label}(s)"
         )
         return Result.ok(entities)
 
@@ -444,7 +523,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             entity_data = record.get("entity", {})
 
             result_dict = dict(entity_data) if isinstance(entity_data, dict) else {}
-            result_dict["_domain"] = self.entity_label.lower()
+            result_dict["_domain"] = self.config_lookup_label.lower()
 
             graph_context: dict[str, Any] = {}
             for pattern in self._graph_enrichment_patterns:
@@ -462,7 +541,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             results.append(result_dict)
 
         self.logger.debug(
-            f"Graph-aware faceted search returned {len(results)} {self.entity_label}(s)"
+            f"Graph-aware faceted search returned {len(results)} {self.config_lookup_label}(s)"
         )
         return Result.ok(results)
 
@@ -488,6 +567,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
+        dto_class, model_class = config_result.value
 
         status_str = status.value if isinstance(status, EntityStatus) else status
         filters: dict[str, Any] = {"status": status_str, "limit": limit}
@@ -498,9 +578,11 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
+        entities = self._to_domain_models(result.value, dto_class, model_class)
 
-        self.logger.debug(f"Found {len(entities)} {self.entity_label}(s) with status '{status}'")
+        self.logger.debug(
+            f"Found {len(entities)} {self.config_lookup_label}(s) with status '{status}'"
+        )
         return Result.ok(entities)
 
     @with_error_handling("get_by_domain", error_type="database")
@@ -518,6 +600,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
+        dto_class, model_class = config_result.value
 
         from core.ports import get_enum_value
 
@@ -526,10 +609,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
+        entities = self._to_domain_models(result.value, dto_class, model_class)
 
         self.logger.debug(
-            f"Found {len(entities)} {self.entity_label}(s) in domain '{domain_value}'"
+            f"Found {len(entities)} {self.config_lookup_label}(s) in domain '{domain_value}'"
         )
         return Result.ok(entities)
 
@@ -553,6 +636,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
+        dto_class, model_class = config_result.value
 
         filters: dict[str, Any] = {self._category_field: category, "limit": limit}
         if user_uid:
@@ -562,10 +646,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
+        entities = self._to_domain_models(result.value, dto_class, model_class)
 
         self.logger.debug(
-            f"Found {len(entities)} {self.entity_label}(s) in {self._category_field} '{category}'"
+            f"Found {len(entities)} {self.config_lookup_label}(s) in {self._category_field} '{category}'"
         )
         return Result.ok(entities)
 
@@ -590,7 +674,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         categories = [record["value"] for record in result.value if record.get("value")]
 
         self.logger.debug(
-            f"Found {len(categories)} {self.entity_label} categories for user {user_uid}"
+            f"Found {len(categories)} {self.config_lookup_label} categories for user {user_uid}"
         )
         return Result.ok(categories)
 
@@ -613,7 +697,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         categories = [record["value"] for record in result.value if record.get("value")]
 
-        self.logger.debug(f"Found {len(categories)} total {self.entity_label} categories")
+        self.logger.debug(f"Found {len(categories)} total {self.config_lookup_label} categories")
         return Result.ok(categories)
 
     async def count(self, **filters: Any) -> Result[int]:
@@ -627,4 +711,4 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import SearchOperations
 
-    _protocol_check: type[SearchOperations[Any]] = SearchOperationsMixin  # type: ignore[type-arg, type-abstract, assignment]
+    _protocol_check: type[SearchOperations[Any]] = SearchOperationsMixin  # type: ignore[type-abstract, assignment]

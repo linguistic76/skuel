@@ -12,11 +12,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
+from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
-from core.models.submissions.exercise_submission import ExerciseSubmission
+from core.models.user_entry.user_entry import UserEntry
 from core.services.report.exercise_report_service import ExerciseReportService
 from core.utils.result_simplified import Errors, Result
 
@@ -26,8 +27,8 @@ SUBMISSION_UID = "es_submission_001"
 EXERCISE_UID = "ex_exercise_001"
 
 
-def _make_submission(content: str = "My submitted work.") -> ExerciseSubmission:
-    return ExerciseSubmission(
+def _make_submission(content: str = "My submitted work.") -> UserEntry:
+    return UserEntry(
         uid=SUBMISSION_UID,
         title="Student Submission",
         user_uid=STUDENT_UID,
@@ -109,7 +110,7 @@ class TestGenerateReportHappyPath:
         assert not result.is_error, result.error if result.is_error else None
         report = result.value
         assert report.entity_type == EntityType.EXERCISE_REPORT
-        assert report.processor_type == ProcessorType.LLM
+        assert report.processor_type == ReportSource.LLM
         assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
         assert report.status == EntityStatus.COMPLETED
         assert report.subject_uid == SUBMISSION_UID
@@ -173,7 +174,7 @@ class TestGenerateReportBackendDelegation:
         )
 
         (params,), _ = backend.create_report_node.await_args
-        assert params["processor_type"] == ProcessorType.LLM.value
+        assert params["processor_type"] == ReportSource.LLM.value
         assert params["assessment_outcome"] == AssessmentOutcome.AI_EVALUATED.value
         assert params["entity_type"] == EntityType.EXERCISE_REPORT.value
 
@@ -266,7 +267,7 @@ class TestGenerateReportValidation:
         llm = _make_llm_caller()
         backend = _make_ext_backend()
         service = _make_service(llm_caller=llm, backend=backend)
-        empty_submission = ExerciseSubmission(
+        empty_submission = UserEntry(
             uid=SUBMISSION_UID,
             title="Empty",
             user_uid=STUDENT_UID,
@@ -353,12 +354,12 @@ class TestGenerateReportErrorPropagation:
 def _make_exercise_report_backend() -> MagicMock:
     backend = MagicMock()
     backend.list_for_submission = AsyncMock(return_value=Result.ok([]))
-    backend.get_by_uid = AsyncMock(return_value=Result.ok(None))
+    backend.get = AsyncMock(return_value=Result.ok(None))
     return backend
 
 
-class TestGetByUid:
-    """`get_by_uid` narrows a typed single-fetch through the backend."""
+class TestGet:
+    """`get` narrows a typed single-fetch through the backend."""
 
     @pytest.mark.asyncio
     async def test_delegates_to_backend_and_returns_report(self):
@@ -368,27 +369,27 @@ class TestGetByUid:
             title="Teacher Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.HUMAN,
+            processor_type=ReportSource.HUMAN,
             content="Solid work.",
             subject_uid=SUBMISSION_UID,
         )
         backend = _make_exercise_report_backend()
-        backend.get_by_uid.return_value = Result.ok(report)
+        backend.get.return_value = Result.ok(report)
         service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get_by_uid("sr_teacher_042")
+        result = await service.get("sr_teacher_042")
 
         assert not result.is_error
         assert result.value is report
-        backend.get_by_uid.assert_awaited_once_with("sr_teacher_042")
+        backend.get.assert_awaited_once_with("sr_teacher_042")
 
     @pytest.mark.asyncio
     async def test_missing_report_narrows_to_not_found(self):
         backend = _make_exercise_report_backend()
-        backend.get_by_uid.return_value = Result.ok(None)
+        backend.get.return_value = Result.ok(None)
         service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get_by_uid("sr_missing")
+        result = await service.get("sr_missing")
 
         assert result.is_error
 
@@ -396,17 +397,17 @@ class TestGetByUid:
     async def test_no_backend_fails_fast(self):
         service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=None)
 
-        result = await service.get_by_uid("sr_any")
+        result = await service.get("sr_any")
 
         assert result.is_error
 
     @pytest.mark.asyncio
     async def test_backend_error_propagates(self):
         backend = _make_exercise_report_backend()
-        backend.get_by_uid.return_value = Result.fail(Errors.database("get_by_uid", "query failed"))
+        backend.get.return_value = Result.fail(Errors.database("get", "query failed"))
         service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get_by_uid("sr_any")
+        result = await service.get("sr_any")
 
         assert result.is_error
 
@@ -424,7 +425,7 @@ class TestListForSubmission:
             title="AI Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.LLM,
+            processor_type=ReportSource.LLM,
             assessment_outcome=AssessmentOutcome.AI_EVALUATED,
             content="AI notes",
             subject_uid=SUBMISSION_UID,
@@ -435,7 +436,7 @@ class TestListForSubmission:
             title="Teacher Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.HUMAN,
+            processor_type=ReportSource.HUMAN,
             content="Teacher notes",
             subject_uid=SUBMISSION_UID,
         )

@@ -21,9 +21,8 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -78,20 +77,12 @@ class Ku(Entity):
         """Create Ku from an EntityDTO or KuDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> KuDTO:  # type: ignore[override]
+    def to_dto(self) -> KuDTO:
         """Convert Ku to domain-specific KuDTO."""
+        from core.models.dto_helpers import domain_to_dto
         from core.models.ku.ku_dto import KuDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(KuDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_") or f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return KuDTO(**kwargs)
+        return domain_to_dto(self, KuDTO)
 
     def __str__(self) -> str:
         ns = f" [{self.namespace}]" if self.namespace else ""

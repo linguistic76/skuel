@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
@@ -171,6 +172,7 @@ def create_search_api_routes(
     # ========================================================================
 
     @rt("/api/search/unified", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def unified_search_api(
         request: Request,

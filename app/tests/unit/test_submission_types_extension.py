@@ -4,6 +4,8 @@ Unit Tests for Submission/Report Types Extension
 
 Tests EntityType enum values, display names, is_processable,
 subject_uid on ExerciseReport, and converter logic.
+
+Updated for ADR-054: ExerciseSubmission, JeInput, JeOutput collapsed into UserEntry.
 """
 
 from core.models.curriculum import Curriculum
@@ -11,7 +13,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
 from core.models.report.exercise_report_dto import ExerciseReportDTO
-from core.models.submissions.exercise_submission import ExerciseSubmission
+from core.models.user_entry.user_entry import UserEntry
 
 # ============================================================================
 # ENUM TESTS
@@ -27,11 +29,8 @@ class TestKuTypeEnum:
     def test_exercise_report_enum_exists(self):
         assert EntityType.EXERCISE_REPORT.value == "exercise_report"
 
-    def test_je_input_enum_exists(self):
-        assert EntityType.JE_INPUT.value == "je_input"
-
-    def test_je_output_enum_exists(self):
-        assert EntityType.JE_OUTPUT.value == "je_output"
+    def test_user_entry_enum_exists(self):
+        assert EntityType.USER_ENTRY.value == "user_entry"
 
     def test_activity_report_display_name(self):
         assert EntityType.ACTIVITY_REPORT.get_display_name() == "Activity Report"
@@ -45,40 +44,34 @@ class TestKuTypeEnum:
     def test_exercise_report_not_processable(self):
         assert EntityType.EXERCISE_REPORT.is_processable() is False
 
-    def test_je_input_is_processable(self):
-        assert EntityType.JE_INPUT.is_processable() is True
-
-    def test_je_output_not_processable(self):
-        assert EntityType.JE_OUTPUT.is_processable() is False
+    def test_user_entry_is_processable(self):
+        assert EntityType.USER_ENTRY.is_processable() is True
 
     def test_curriculum_not_processable(self):
         assert EntityType.KU.is_processable() is False
 
-    def test_exercise_submission_is_processable(self):
-        assert EntityType.EXERCISE_SUBMISSION.is_processable() is True
-
-    def test_je_input_display_name(self):
-        assert EntityType.JE_INPUT.get_display_name() == "Journal Entry"
-
-    def test_je_output_display_name(self):
-        assert EntityType.JE_OUTPUT.get_display_name() == "Journal Output"
+    def test_user_entry_display_name(self):
+        assert EntityType.USER_ENTRY.get_display_name() == "User Entry"
 
     def test_curriculum_not_user_owned(self):
         assert EntityType.KU.is_user_owned() is False
 
-    def test_exercise_submission_is_user_owned(self):
-        assert EntityType.EXERCISE_SUBMISSION.is_user_owned() is True
+    def test_user_entry_is_user_owned(self):
+        assert EntityType.USER_ENTRY.is_user_owned() is True
 
     def test_exercise_report_is_user_owned(self):
         assert EntityType.EXERCISE_REPORT.is_user_owned() is True
 
     def test_is_derived(self):
-        assert EntityType.EXERCISE_SUBMISSION.is_derived() is True
-        assert EntityType.JE_INPUT.is_derived() is False  # Self-initiated, not derived
-        assert EntityType.JE_OUTPUT.is_derived() is True  # Derived from JeInput
+        assert EntityType.USER_ENTRY.is_derived() is True
         assert EntityType.ACTIVITY_REPORT.is_derived() is True
         assert EntityType.EXERCISE_REPORT.is_derived() is True
         assert EntityType.KU.is_derived() is False
+
+    def test_legacy_aliases_resolve_to_user_entry(self):
+        assert EntityType.from_string("exercise_submission") == EntityType.USER_ENTRY
+        assert EntityType.from_string("je_input") == EntityType.USER_ENTRY
+        assert EntityType.from_string("je_output") == EntityType.USER_ENTRY
 
 
 # ============================================================================
@@ -120,13 +113,13 @@ class TestKuSubjectUid:
         assert ku.entity_type == EntityType.EXERCISE_REPORT
 
     def test_is_user_owned(self):
-        ku = ExerciseSubmission(
-            uid="es_test_123",
+        entry = UserEntry(
+            uid="ue_test_123",
             title="My Submission",
             user_uid="user_alice",
             status=EntityStatus.COMPLETED,
         )
-        assert ku.is_user_owned is True
+        assert entry.is_user_owned is True
 
     def test_curriculum_not_user_owned(self):
         ku = Curriculum(

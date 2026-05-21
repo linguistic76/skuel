@@ -103,7 +103,7 @@ def StatCard(label: str, value: Any, icon: str, color_class: str = "") -> FT:
     )
 
 
-def EntityBreakdownTable(entity_counts: dict[str, int]) -> FT:
+def EntityBreakdownTable(entity_counts: dict[str, int]) -> FT | None:
     """
     Table showing entities by type.
 
@@ -141,7 +141,7 @@ def EntityBreakdownTable(entity_counts: dict[str, int]) -> FT:
     )
 
 
-def ErrorsTable(errors: list[dict[str, Any]]) -> FT:
+def ErrorsTable(errors: list[dict[str, Any]]) -> FT | None:
     """
     Table showing ingestion errors with suggestions.
 

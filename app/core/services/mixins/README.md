@@ -15,7 +15,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     UserProgressMixin[B, T],
     ContextOperationsMixin[B, T],
 ):
-    """Unified base service for 6 of 14 SKUEL domains."""
+    """Unified base service for the 6 Activity Domains (Task, Goal, Habit, Event, Choice, Principle)."""
 ```
 
 ---
@@ -144,8 +144,9 @@ Service Layer (Depends on Foundation):
 
 **Key Methods:**
 - `get_user_items_in_range(user_uid, start_date, end_date)` - Date range query
-- `get_due_soon(user_uid, days)` - Items due within N days
+- `get_upcoming(days_ahead, user_uid)` - Items upcoming within N days
 - `get_overdue(user_uid)` - Items past due date
+- `get_active(user_uid)` - Non-terminal items for user
 
 **Configuration:**
 - Uses `DomainConfig.date_field` to determine which date field to query
@@ -272,7 +273,8 @@ class MockService(SearchOperationsMixin):
     def __init__(self, backend):
         self.backend = backend
         self.logger = get_logger("test")
-        self.entity_label = "TestEntity"
+        self.entity_label = "Entity"  # Neo4j base-label for Cypher matching
+        self.config_lookup_label = "TestEntity"  # LABEL_CONFIGS registry key
         self._dto_class = TestDTO
         self._model_class = TestModel
         self._search_fields = ["title", "description"]

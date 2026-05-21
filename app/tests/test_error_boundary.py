@@ -1,3 +1,4 @@
+# mypy: disable-error-code="var-annotated"
 """
 Test Error Boundary Pattern
 ============================
@@ -521,7 +522,7 @@ class MockTaskService:
         result = await self.backend.get(uid)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(Errors.not_found("Task", uid))

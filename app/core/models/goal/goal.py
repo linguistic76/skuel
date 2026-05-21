@@ -10,9 +10,8 @@ Inherits common fields from UserOwnedEntity. Adds 24 goal-specific fields:
 - Timeline (3): start_date, target_date, achieved_date
 - Progress (4): milestones, progress_percentage, last_progress_update, progress_history
 - Motivation (4): vision_statement, why_important, success_criteria, potential_obstacles, strategies
-- Cross-domain links (3): source_learning_path_uid, inspired_by_choice_uid, selected_choice_option_uid
+- Cross-domain links (3): fulfills_goal_uid, source_path_step_uid, selected_choice_option_uid (Choice inspiration is a graph edge — see below)
 - Identity (2): target_identity, identity_evidence_required
-- Flags (1): curriculum_driven
 
 Goal-specific methods: calculate_progress, is_on_track, expected_progress_percentage,
 diagnose_system_health, calculate_system_strength, calculate_habit_velocity,
@@ -25,7 +24,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from dataclasses import dataclass
 from datetime import date, datetime
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -107,8 +106,8 @@ class Goal(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     fulfills_goal_uid: str | None = None  # SUB-GOAL -> PARENT GOAL
-    source_learning_path_uid: str | None = None  # GOAL -> LP
-    inspired_by_choice_uid: str | None = None  # GOAL <- CHOICE
+    source_path_step_uid: str | None = None  # GOAL -> PS
+    # Goal <- Choice linkage lives in the graph as (Goal)-[:INSPIRED_BY_CHOICE]->(Choice).
     selected_choice_option_uid: str | None = None  # GOAL <- CHOICE option
 
     # =========================================================================
@@ -118,9 +117,10 @@ class Goal(UserOwnedEntity):
     identity_evidence_required: int = 0  # Evidence needed for identity
 
     # =========================================================================
-    # FLAGS
+    # PS+ACTIVITY LIFECYCLE
     # =========================================================================
-    curriculum_driven: bool = False  # Derived from curriculum
+    # Back-reference is (Goal)-[:SPAWNED_FROM]->(GoalTemplate).
+    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
     # GOAL-SPECIFIC METHODS
@@ -290,26 +290,13 @@ class Goal(UserOwnedEntity):
         """Create Goal from an EntityDTO or GoalDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "GoalDTO":  # type: ignore[override]
+    def to_dto(self) -> "GoalDTO":
         """Convert Goal to domain-specific GoalDTO."""
-        import dataclasses
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.goal.goal_dto import GoalDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(GoalDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, MappingProxyType):
-                value = dict(value)
-            elif isinstance(value, tuple):
-                value = [dict(e) if isinstance(e, MappingProxyType) else e for e in value]
-            kwargs[f.name] = value
-        return GoalDTO(**kwargs)
+        return domain_to_dto(self, GoalDTO)
 
     def __str__(self) -> str:
         return f"Goal(uid={self.uid}, title='{self.title}', target={self.target_date})"

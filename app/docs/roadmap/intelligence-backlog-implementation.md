@@ -1,8 +1,12 @@
 # Intelligence Backlog: Implementation Guide
 
-Five deferred intelligence gaps identified during the Context Awareness Protocol adoption
-(2026-03-05). Each item has a concrete starting point, the exact files to touch, and the
-data model and query patterns already in place.
+Five deferred intelligence gaps. Each item has a concrete starting point, the exact files
+to touch, and the data model and query patterns already in place.
+
+> The framing here originally referenced a "Context Awareness Protocol adoption" effort that
+> was retired in commit `a82faaba` (2026-05-11). The intelligence gaps below are real and
+> survived the consolidation; only the surrounding protocol-narrowing scaffolding is gone.
+> See `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` for the current contract.
 
 **Source of truth for what to build:** `/docs/architecture/INTELLIGENCE_BACKLOG.md`
 **This file:** How to start building each item.

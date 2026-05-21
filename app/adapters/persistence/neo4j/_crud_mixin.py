@@ -142,7 +142,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             # Auto-create user relationship if user_uid exists
             if user_uid:
                 rel_result = await self.create_user_relationship(
-                    user_uid=user_uid, entity_uid=created.uid, relationship_type="OWNS"
+                    user_uid=user_uid, entity_uid=EntityUID(created.uid), relationship_type="OWNS"
                 )
 
                 if rel_result.is_error:
@@ -158,6 +158,68 @@ class _CrudMixin[T: DomainModelProtocol]:
             # Track metrics
             self._track_db_metrics("create", time.time() - start_time, is_error=False)
 
+            return Result.ok(created)
+
+    @safe_backend_operation("create_with_spawned_from")
+    async def create_with_spawned_from(self, entity: T, template_uid: str) -> Result[T]:
+        """Create entity node + atomic ``(entity)-[:SPAWNED_FROM]->(template)`` edge.
+
+        Used by the PsEngagement spawn orchestrator to write the graph-native
+        back-reference from a spawned activity to the template that produced it
+        — node and edge succeed or fail together in one Cypher transaction.
+        There is no parallel ``template_uid`` property on the node; the edge
+        is THE relationship.
+
+        Like ``create()``, auto-creates ``(User)-[:OWNS]->(entity)`` if the
+        entity carries a ``user_uid`` (warning-only on failure).
+        """
+        start_time = time.time()
+        node_data = to_neo4j_node(entity)
+        node_data.update(self.default_filters)
+
+        user_uid = node_data.get("user_uid")
+
+        query = f"""
+        MATCH (t {{uid: $template_uid}})
+        CREATE (n:{self._create_labels})
+        SET n = $props
+        CREATE (n)-[r:SPAWNED_FROM]->(t)
+        SET r.spawned_at = datetime()
+        RETURN n
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(query, {"props": node_data, "template_uid": template_uid})
+            record = await result.single()
+
+            if not record:
+                self._track_db_metrics(
+                    "create_with_spawned_from", time.time() - start_time, is_error=True
+                )
+                return Result.fail(
+                    Errors.database(
+                        "create_with_spawned_from",
+                        f"Failed to create {self.label} or locate template {template_uid}",
+                    )
+                )
+
+            created = from_neo4j_node(dict(record["n"]), self.entity_class)
+
+            if user_uid:
+                rel_result = await self.create_user_relationship(
+                    user_uid=user_uid,
+                    entity_uid=EntityUID(created.uid),
+                    relationship_type="OWNS",
+                )
+                if rel_result.is_error:
+                    self.logger.warning(
+                        f"Created {self.label} {created.uid} with SPAWNED_FROM edge "
+                        f"but failed to create OWNS relationship: {rel_result.error}"
+                    )
+
+            self._track_db_metrics(
+                "create_with_spawned_from", time.time() - start_time, is_error=False
+            )
             return Result.ok(created)
 
     @safe_backend_operation("get")
@@ -218,7 +280,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             return Result.ok(entity)
 
     @safe_backend_operation("get_many")
-    async def get_many(self, uids: builtins.list[str]) -> Result[builtins.list[T]]:
+    async def get_many(self, uids: builtins.list[str]) -> Result[builtins.list[T | None]]:
         """
         Get multiple entities by UIDs in a single batched query.
 

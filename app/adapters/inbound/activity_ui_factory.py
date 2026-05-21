@@ -27,6 +27,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.utils.connection_fetcher import fetch_entity_connections
 from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
+from ui.buttons import ButtonLink, ButtonT
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.type_hints import UserUID
 
 
 # ============================================================================
@@ -71,7 +73,7 @@ class ActivityUIConfig:
     domain_singular: str
     page_title: str
     filter_params: tuple[tuple[str, str], ...]
-    get_all: Callable[[str], Awaitable[Any]]
+    get_all: Callable[[UserUID], Awaitable[Any]]
     get_one: Callable[[str], Awaitable[Any]]
     backend: Any
     filter_fn: Callable[..., list[Any]]
@@ -80,6 +82,8 @@ class ActivityUIConfig:
     list_component: Callable[..., Any]
     stats_component: Callable[..., Any]
     detail_component: Callable[..., Any]
+    create_href: str | None = None
+    create_label: str | None = None
 
 
 # ============================================================================
@@ -139,12 +143,22 @@ def create_activity_ui_routes(
     # 1. Page shell: /{domain}
     # ------------------------------------------------------------------
 
+    header_actions = (
+        ButtonLink(
+            config.create_label or f"+ New {singular.title()}",
+            href=config.create_href,
+            variant=ButtonT.primary,
+        )
+        if config.create_href
+        else None
+    )
+
     @rt(f"/{domain}")
     async def page(request: Request) -> Any:
         """Main page shell — content loads via HTMX."""
         require_authenticated_user(request)
         content = Div(
-            PageHeader(title),
+            PageHeader(title, actions=header_actions),
             content_loading_placeholder(f"/{domain}/content", f"{domain}-content"),
             personal_header_placeholder(),
         )
@@ -160,7 +174,7 @@ def create_activity_ui_routes(
         error, all_items, filtered, connections_map, param_values = await _fetch_filtered(request)
         if error is not None:
             return Div(
-                render_error_banner(error.user_message or error.message),
+                render_error_banner(error.display_message),
                 id=f"{domain}-content",
             )
 
@@ -181,7 +195,7 @@ def create_activity_ui_routes(
         error, _all_items, filtered, connections_map, _param_values = await _fetch_filtered(request)
         if error is not None:
             return Div(
-                render_error_banner(error.user_message or error.message),
+                render_error_banner(error.display_message),
                 id=f"{singular}-list",
             )
 

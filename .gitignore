@@ -137,6 +137,11 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+# Exception: the project-level direnv loader is intentionally committed.
+# It contains no secrets — secrets live in ~/.config/skuel/secrets.env,
+# loaded by this .envrc at `cd` time. See app/.envrc + the secrets-out-of-worktree plan.
+!app/.envrc
+!infrastructure/.envrc
 .venv
 env/
 venv/

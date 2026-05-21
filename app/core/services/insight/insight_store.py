@@ -165,7 +165,7 @@ class InsightStore:
             Result with the insight or not-found error
         """
         try:
-            result = await self.backend.get_by_uid(uid)
+            result = await self.backend.get(uid)
 
             if result.is_error:
                 return Result.fail(

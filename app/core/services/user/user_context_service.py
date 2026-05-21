@@ -1,29 +1,31 @@
 """
-User Context Service - Context-Aware Intelligence API (Orchestration Layer)
-==========================================================================
+User Context Service - Context-Aware API (Orchestration Layer)
+==============================================================
 
-**Architecture Note (November 27, 2025):**
-This service is an ORCHESTRATION layer that coordinates existing infrastructure.
-It is kept as a separate file because:
-1. Routes (context_aware_api.py) depend on it directly
-2. It orchestrates multiple services (builder, intelligence, domain services)
-3. It provides API-friendly methods not in the core intelligence
+This service is the API-facing orchestration layer for the Context-Aware API
+(``context_aware_api.py``). It reshapes ``UserContext`` and ``DailyWorkPlan``
+into the view-shaped TypedDicts that routes return.
 
-**Consolidated Architecture:**
-- user_context_builder.py - ALL context building (MEGA-QUERY + graph-sourced)
-- user_context_intelligence.py - ALL intelligence operations (including graph-based)
-- user_context_service.py - API orchestration layer (THIS FILE)
+**Two distinct responsibilities:**
+1. **View shaping over UserContext** — dashboard, summary, health, at-risk
+   habits, adaptive learning path: read pre-computed fields off ``UserContext``
+   and project them into route-friendly dicts. No intelligence work happens
+   here; the MEGA-QUERY in ``UserContextBuilder`` already did it.
+2. **Intelligence delegation** — ``get_next_action`` is the only intelligence
+   entry point. It delegates to ``UserService.get_daily_work_plan`` (which
+   in turn calls ``UserContextIntelligence.get_ready_to_work_on_today``)
+   and reshapes the resulting ``DailyWorkPlan`` into ``NextActionResult``.
 
-This service wraps existing context infrastructure to provide context-aware
-operations for the Context-Aware API.
+This separation is intentional: per ADR/feedback, intelligence services return
+plans (``DailyWorkPlan``), not view shapes — the orchestrator translates plan
+→ view. Routes get one consistent shape; the intelligence layer stays pure.
 
-Architecture:
-- Uses existing UserContextBuilder to build UserContext
-- Uses existing UserContextIntelligence for ALL intelligence operations
-- Integrates with domain services (tasks, events, habits) for actions
-
-Created: 2025-11-18
-Purpose: Enable context-aware API functionality
+Dependencies:
+- ``UserContextBuilder`` — context construction (used by view-shaping methods)
+- ``UserService`` — owns ``intelligence_factory`` and ``get_daily_work_plan``
+  (used by ``get_next_action``)
+- ``TasksOperations`` / ``GoalTaskGenerator`` / ``HabitsService`` — for the
+  context-aware action methods (``complete_task_with_context``, etc.)
 """
 
 from __future__ import annotations
@@ -37,14 +39,14 @@ from core.ports.domain_protocols import TasksOperations
 from core.ports.query_types import (
     AdaptiveLearningPathResult,
     AtRiskHabitsResult,
+    ContextAlert,
     ContextDashboard,
     ContextHealthResult,
+    ContextInsights,
     ContextSummary,
     FutureContextStateResult,
     NextActionResult,
-)
-from core.services.user.intelligence import (
-    UserContextIntelligenceFactory,
+    TopPriorities,
 )
 from core.services.user.unified_user_context import UserContext
 from core.services.user.user_context_builder import UserContextBuilder
@@ -62,14 +64,13 @@ logger = get_logger(__name__)
 
 class UserContextService:
     """
-    Context-Aware Intelligence Service
+    Context-Aware API orchestration service.
 
-    Provides context-aware operations by wrapping existing infrastructure:
-    - UserContextBuilder: Builds complete user context
-    - UserContextIntelligence: ALL intelligence operations (learning + graph-based)
-    - Domain Services: For executing context-aware actions
+    View-shaping over ``UserContext`` plus a single intelligence entry point
+    (``get_next_action``) that delegates to ``UserService.get_daily_work_plan``
+    and reshapes the resulting ``DailyWorkPlan`` into ``NextActionResult``.
 
-    All methods return Result[T] for consistent error handling.
+    All methods return ``Result[T]`` for consistent error handling.
     """
 
     def __init__(
@@ -79,7 +80,6 @@ class UserContextService:
         tasks_service: TasksOperations | None = None,
         goal_task_generator: Any | None = None,  # GoalTaskGenerator
         habits_service: Any | None = None,  # HabitsService
-        intelligence_factory: UserContextIntelligenceFactory | None = None,
     ) -> None:
         """
         Initialize context service with infrastructure dependencies.
@@ -88,18 +88,14 @@ class UserContextService:
             context_builder: Builds UserContext
             user_service: For user operations
             tasks_service: For task operations (optional)
-            driver: Neo4j driver for graph intelligence (optional)
             goal_task_generator: For generating tasks from goals (optional)
             habits_service: For habit operations including completion (optional)
-            intelligence_factory: Factory for creating UserContextIntelligence instances
-                                  (requires all 13 domain services; wired post-construction)
         """
         self.context_builder = context_builder
         self.user_service = user_service
         self.tasks_service = tasks_service
         self.goal_task_generator = goal_task_generator
         self.habits_service = habits_service
-        self.intelligence_factory = intelligence_factory
         self.logger = get_logger(__name__)
 
     # =========================================================================
@@ -150,7 +146,7 @@ class UserContextService:
                 "overdue_count": len(context.overdue_task_uids),
                 "today_count": len(context.today_task_uids),
                 "current_focus": context.current_task_focus,
-                "blocked_count": len(context.blocked_task_uids),
+                "blocked_count": len(context.blocked_task_uids_or_empty()),
             },
             # Goal overview
             "goals": {
@@ -163,7 +159,7 @@ class UserContextService:
             # Habit overview
             "habits": {
                 "active_count": len(context.active_habit_uids),
-                "at_risk_count": len(context.at_risk_habits),
+                "at_risk_count": len(context.at_risk_habits_or_empty()),
                 "keystone_count": len(context.keystone_habits),
                 "daily_count": len(context.daily_habits),
                 "weekly_count": len(context.weekly_habits),
@@ -250,7 +246,7 @@ class UserContextService:
                 "task_focus": context.current_task_focus,
                 "goal_focus": context.primary_goal_focus,
                 "overdue_tasks": context.overdue_task_uids[:3],  # Top 3
-                "at_risk_habits": context.at_risk_habits[:3],  # Top 3
+                "at_risk_habits": context.at_risk_habits_or_empty()[:3],
             },
             # Key metrics
             "key_metrics": {
@@ -267,18 +263,11 @@ class UserContextService:
 
         # Add insights if requested
         if include_insights:
-            # Use factory to create intelligence instance (requires all 13 domain services)
-            if self.intelligence_factory:
-                intel = self.intelligence_factory.create(context)
-                # intel can be used for advanced intelligence queries here
-                # Currently unused but available for future features
-                _ = intel  # Suppress unused variable warning
-
             ready_to_learn = context.get_ready_to_learn()
 
             summary["insights"] = {
                 "ready_to_learn_count": len(ready_to_learn),
-                "blocked_items_count": len(context.blocked_task_uids),
+                "blocked_items_count": len(context.blocked_task_uids_or_empty()),
                 "capacity_utilization": context.current_workload_score,  # Already 0-1 score
             }
 
@@ -305,7 +294,16 @@ class UserContextService:
 
     async def get_next_action(self, user_uid: UserUID) -> Result[NextActionResult]:
         """
-        Get AI-recommended next action based on context.
+        Get AI-recommended next action by reshaping the daily work plan.
+
+        Delegates to ``UserService.get_daily_work_plan``, which calls
+        ``UserContextIntelligence.get_ready_to_work_on_today`` — the flagship
+        method that synthesizes a prioritized plan across all 9 domains
+        (tasks, goals, habits, events, choices, principles, ps, lp, exercises)
+        under capacity and energy constraints. The ``DailyWorkPlan`` is then
+        projected into the route-facing ``NextActionResult`` shape.
+
+        Fails if the intelligence tier is not configured (``INTELLIGENCE_TIER=core``).
 
         Args:
             user_uid: User identifier
@@ -313,22 +311,44 @@ class UserContextService:
         Returns:
             Result[NextActionResult] with recommended action, insights, alerts, rationale
         """
-        summary_result = await self.get_context_summary(
-            user_uid=user_uid,
-            include_insights=True,
-        )
+        plan_result = await self.user_service.get_daily_work_plan(user_uid)
+        if plan_result.is_error:
+            return Result.fail(plan_result)
 
-        if summary_result.is_error:
-            return Result.fail(summary_result)
+        plan = plan_result.value
 
-        summary: ContextSummary = summary_result.value
+        overdue_task_uids = [t.uid for t in plan.contextual_tasks if t.is_overdue][:3]
 
-        next_action = {
+        recommended_action: TopPriorities = {
+            "task_focus": plan.tasks[0] if plan.tasks else "",
+            "goal_focus": plan.goals[0] if plan.goals else "",
+            "overdue_tasks": overdue_task_uids,
+            "at_risk_habits": list(plan.habits[:3]),
+        }
+
+        insights: ContextInsights = {
+            "ready_to_learn_count": len(plan.learning),
+            "blocked_items_count": 0,
+            "capacity_utilization": plan.workload_utilization,
+        }
+
+        alerts: list[ContextAlert] = [
+            {
+                "type": "capacity_warning" if not plan.fits_capacity else "plan_warning",
+                "severity": "high" if not plan.fits_capacity else "medium",
+                "message": warning,
+                "item_count": 0,
+            }
+            for warning in plan.warnings
+        ]
+
+        next_action: NextActionResult = {
             "user_uid": user_uid,
-            "recommended_action": summary.get("top_priorities", {}),
-            "insights": summary.get("insights", {}),
-            "alerts": summary.get("alerts", []),
-            "rationale": "Based on current priorities, overdue items, and at-risk habits",
+            "recommended_action": recommended_action,
+            "insights": insights,
+            "alerts": alerts,
+            "rationale": plan.rationale
+            or "Prioritized across all 9 domains by UserContextIntelligence",
         }
 
         return Result.ok(next_action)
@@ -349,20 +369,18 @@ class UserContextService:
 
         context = context_result.value
 
+        # at_risk_habits is rich-context only; empty at standard build depth
+        at_risk = context.at_risk_habits_or_empty()
         at_risk_data = {
             "user_uid": user_uid,
-            "at_risk_habits": context.at_risk_habits,
+            "at_risk_habits": at_risk,
             "habit_streaks": {
-                uid: streak
-                for uid, streak in context.habit_streaks.items()
-                if uid in context.at_risk_habits
+                uid: streak for uid, streak in context.habit_streaks.items() if uid in at_risk
             },
             "completion_rates": {
-                uid: rate
-                for uid, rate in context.habit_completion_rates.items()
-                if uid in context.at_risk_habits
+                uid: rate for uid, rate in context.habit_completion_rates.items() if uid in at_risk
             },
-            "count": len(context.at_risk_habits),
+            "count": len(at_risk),
         }
 
         return Result.ok(at_risk_data)
@@ -843,25 +861,28 @@ class UserContextService:
                 }
             )
 
-        # At-risk habits alert
-        if len(context.at_risk_habits) > 0:
+        # At-risk habits alert (rich-context only; no alert at standard depth)
+        if at_risk := context.at_risk_habits_or_empty():
+            at_risk_count = len(at_risk)
             alerts.append(
                 {
                     "type": "at_risk_habits",
                     "severity": "medium",
-                    "message": f"{len(context.at_risk_habits)} habits need attention",
-                    "item_count": len(context.at_risk_habits),
+                    "message": f"{at_risk_count} habits need attention",
+                    "item_count": at_risk_count,
                 }
             )
 
-        # Blocked tasks alert
-        if len(context.blocked_task_uids) > 3:
+        # Blocked tasks alert (rich-context only)
+        blocked = context.blocked_task_uids_or_empty()
+        if len(blocked) > 3:
+            blocked_count = len(blocked)
             alerts.append(
                 {
                     "type": "blocked_tasks",
                     "severity": "medium",
-                    "message": f"{len(context.blocked_task_uids)} tasks are blocked",
-                    "item_count": len(context.blocked_task_uids),
+                    "message": f"{blocked_count} tasks are blocked",
+                    "item_count": blocked_count,
                 }
             )
 

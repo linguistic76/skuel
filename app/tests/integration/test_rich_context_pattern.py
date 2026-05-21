@@ -179,9 +179,8 @@ class TestRichContextPattern:
         assert "graph_context" in task.metadata
         context = task.metadata["graph_context"]
 
-        # Post entity model migration: entity_label="Entity" means LABEL_CONFIGS resolves to
-        # LESSON_CONFIG (curriculum), so context keys are curriculum-generic, not task-specific.
-        # Verify that context was populated (structure depends on registry resolution).
+        # config_lookup_label resolves to "Task", LABEL_CONFIGS["Task"] → TASKS_CONFIG,
+        # so context keys reflect Task-specific relationships (applied_knowledge, enabled_tasks, ...).
         assert isinstance(context, dict)
         assert "query_timestamp" in context
 
@@ -235,9 +234,8 @@ class TestRichContextPattern:
         assert "graph_context" in goal.metadata
         context = goal.metadata["graph_context"]
 
-        # Post entity model migration: entity_label="Entity" means LABEL_CONFIGS resolves to
-        # LESSON_CONFIG (curriculum), so context keys are curriculum-generic, not goal-specific.
-        # Verify that context was populated (structure depends on registry resolution).
+        # config_lookup_label resolves to "Goal", LABEL_CONFIGS["Goal"] → GOALS_CONFIG,
+        # so context keys reflect Goal-specific relationships.
         assert isinstance(context, dict)
         assert "query_timestamp" in context
 

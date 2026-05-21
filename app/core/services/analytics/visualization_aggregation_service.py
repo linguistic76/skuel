@@ -297,7 +297,7 @@ class VisualizationAggregationService:
         if goal_result.is_error:
             return Result.fail(goal_result)
 
-        tasks = []
+        tasks: list[Any] = []
         tasks_result = await self.goals_service.relationships.get_goal_tasks(goal_uid)
         if tasks_result.is_ok:
             tasks = tasks_result.value or []

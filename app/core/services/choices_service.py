@@ -59,7 +59,6 @@ if TYPE_CHECKING:
 
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.choice.choice_request import ChoiceCreateRequest
-    from core.models.entity_requests import EntityUpdateRequest
     from core.models.enums import Domain, Priority
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
@@ -68,6 +67,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_ai_service import ChoicesAIService
+    from core.services.choices.choices_core_service import ChoicesCoreService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
     from core.services.cross_domain import CrossDomainQueryService
@@ -160,7 +160,7 @@ class ChoicesService(
     Delegations (explicit methods):
     - Core: get_choice, get_user_choices, get_user_items_in_range
     - Learning: create_choice_with_learning_guidance, suggest_learning_aligned_choices, etc.
-    - Search: search_choices, get_choices_by_status, get_pending_choices, etc.
+    - Search: get_choices_by_status, get_pending_choices, get_upcoming, get_overdue, etc.
     - Intelligence: get_choice_with_context, get_decision_intelligence, get_decision_patterns, etc.
 
     Facade Mixins:
@@ -184,6 +184,17 @@ class ChoicesService(
         date_field="decision_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
     )
+
+    # ========================================================================
+    # CLASS-LEVEL TYPE ANNOTATIONS
+    # ========================================================================
+    core: ChoicesCoreService
+    search: ChoicesSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
+    learning: ChoicesLearningService
+    relationships: UnifiedRelationshipService
+    intelligence: ChoicesIntelligenceService
+    event_handler: ChoiceEventHandlerService
+    ai: ChoicesAIService | None
 
     # ========================================================================
     # DELEGATION METHODS
@@ -299,11 +310,6 @@ class ChoicesService(
         return await self.intelligence.get_domain_decision_patterns(user_uid, days)
 
     # Search delegations
-    async def search_choices(
-        self, query: str, limit: int = 50, user_uid: UserUID | None = None
-    ) -> Result[list[Choice]]:
-        return await self.search.search(query, limit, user_uid)
-
     async def get_choices_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Choice]]:
@@ -317,15 +323,18 @@ class ChoicesService(
     ) -> Result[list[Choice]]:
         return await self.search.get_pending(user_uid, limit)
 
-    async def get_choices_due_soon(
+    async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
-    async def get_overdue_choices(
+    async def get_overdue(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
+        return await self.search.get_active(user_uid, limit)
 
     async def get_choices_by_urgency(
         self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
@@ -389,7 +398,9 @@ class ChoicesService(
         # knowledge_intelligence via factory. Intelligence is built manually
         # because ChoicesIntelligenceService takes cross_domain_query for the
         # ZPD behavioral-signals bridge.
-        common: CommonSubServices[ChoicesIntelligenceService] = create_common_sub_services(
+        common: CommonSubServices[
+            ChoicesCoreService, ChoicesSearchOperations, ChoicesIntelligenceService
+        ] = create_common_sub_services(
             domain="choices",
             backend=backend,
             graph_intel=graph_intel,
@@ -398,9 +409,12 @@ class ChoicesService(
             skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
         self.core = common.core
-        self.search: ChoicesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.search = common.search
+        self.relationships = common.relationships
 
         from core.services.choices.choices_intelligence_service import (
             ChoicesIntelligenceService as _ChoicesIntelligenceService,
@@ -419,22 +433,13 @@ class ChoicesService(
         self.event_handler: ChoiceEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "ChoicesService facade initialized with 7 sub-services: "
             "core, search, learning, relationships, intelligence, "
             "event_handler, knowledge_intelligence"
         )
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Choice entities."""
-        return "Choice"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
@@ -456,11 +461,9 @@ class ChoicesService(
         """
         return await self.core.create_choice(choice_request, user_uid)
 
-    async def update_choice(
-        self, choice_uid: str, choice_update: EntityUpdateRequest
-    ) -> Result[Choice]:
-        """Update a choice."""
-        return await self.core.update_choice(choice_uid, choice_update)
+    async def update_choice(self, choice_uid: str, updates: dict[str, Any]) -> Result[Choice]:
+        """Update a choice from a dict of fields to change."""
+        return await self.core.update_choice(choice_uid, updates)
 
     async def delete_choice(self, choice_uid: str) -> Result[bool]:
         """Delete a choice."""
@@ -518,4 +521,5 @@ class ChoicesService(
 
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations
-    # (search_choices, get_choices_by_status, etc.) delegated via explicit methods above.
+    # (get_choices_by_status, get_pending_choices, get_upcoming, get_overdue, etc.) delegated
+    # via explicit methods above.

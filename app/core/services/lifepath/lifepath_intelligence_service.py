@@ -23,6 +23,7 @@ from core.ports.query_types import (
     LifePathRecommendationItem,
 )
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_float
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -78,7 +79,7 @@ class LifePathIntelligenceService:
 
         # Analyze each dimension
         raw_dims = alignment_data.get("dimensions", {})
-        dimensions: dict[str, float] = {k: float(v) for k, v in raw_dims.items()}
+        dimensions: dict[str, float] = {k: coerce_float(v) for k, v in raw_dims.items()}
 
         def get_dimension_score(item: tuple[str, float]) -> float:
             return item[1]
@@ -245,7 +246,7 @@ class LifePathIntelligenceService:
             )
 
         raw_dims = alignment_data.get("dimensions", {})
-        dimensions: dict[str, float] = {k: float(v) for k, v in raw_dims.items()}
+        dimensions: dict[str, float] = {k: coerce_float(v) for k, v in raw_dims.items()}
 
         # Find the weakest dimension that can be improved today
         actionable_order = ["activity", "momentum", "knowledge", "goal", "principle"]

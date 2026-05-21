@@ -51,8 +51,8 @@ if TYPE_CHECKING:
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
-    from core.services.submissions import SubmissionsRelationshipService
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext
+    from core.services.user_entry import UserEntryRelationshipService
 
 
 class UserContextIntelligence(
@@ -113,7 +113,7 @@ class UserContextIntelligence(
 
     def __init__(
         self,
-        context: UserContext,
+        context: RichUserContext,
         # Activity Domains (6) - REQUIRED (UnifiedRelationshipService with domain configs)
         tasks: UnifiedRelationshipService,
         goals: UnifiedRelationshipService,
@@ -121,11 +121,12 @@ class UserContextIntelligence(
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (2) - REQUIRED
+        # Curriculum Domains (3) - REQUIRED
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
+        exercises: Any,  # ExerciseService facade — daily-plan exercise enrichment
         # Processing Domains (3) - REQUIRED
-        submissions: SubmissionsRelationshipService,
+        user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
@@ -180,11 +181,12 @@ class UserContextIntelligence(
             "events": events,
             "choices": choices,
             "principles": principles,
-            # Curriculum Domains (2)
+            # Curriculum Domains (3)
             "ps": ps,
             "lp": lp,
+            "exercises": exercises,
             # Processing Domains (3)
-            "submissions": submissions,
+            "user_entries": user_entries,
             "report": report,
             "analytics": analytics,
             # Temporal Domain (1)
@@ -194,7 +196,7 @@ class UserContextIntelligence(
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligence requires all 12 domain services. "
+                f"UserContextIntelligence requires all 13 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -209,12 +211,13 @@ class UserContextIntelligence(
         self.choices = choices
         self.principles = principles
 
-        # Curriculum domains (2)
+        # Curriculum domains (3)
         self.ps = ps
         self.lp = lp
+        self.exercises = exercises
 
         # Processing domains (3)
-        self.submissions = submissions
+        self.user_entries = user_entries
         self.report = report
         self.analytics = analytics
 

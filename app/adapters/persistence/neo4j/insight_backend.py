@@ -72,7 +72,7 @@ class InsightBackend:
             params,
         )
 
-    async def get_by_uid(self, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get(self, uid: str) -> Result[list[dict[str, Any]]]:
         """Get a single insight by UID."""
         return await self._executor.execute_query(
             """

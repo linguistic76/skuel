@@ -21,6 +21,8 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
+from core.models.type_hints import EntityUID
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody, CardHeader, CardTitle
@@ -312,6 +314,7 @@ def create_pathways_ui_routes(
     routes.append(browse_path_steps)
 
     @rt("/api/pathways/filter-paths", methods=["POST"])
+    @csrf_protected
     async def filter_learning_paths(request) -> Any:
         """Filter learning paths by difficulty, domain, and duration."""
         form_data = await request.form()
@@ -595,7 +598,7 @@ def create_pathways_ui_routes(
 
         content = Div(
             detail_content,
-            EntityRelationshipsSection(entity_uid=uid, entity_type="lp"),
+            EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="lp"),
             cls="container mx-auto p-6 max-w-4xl",
         )
 

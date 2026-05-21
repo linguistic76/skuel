@@ -49,10 +49,7 @@ __all__ = [
     # Search field configuration
     "SEARCH_FIELD_CONFIG",
     "SearchFieldConfig",
-    # Future phases
-    "facet_suggestion_engine",
     "get_array_fields",
     "get_filter_fields",
     "get_search_fields",
-    "knowledge_domain_relationships",
 ]

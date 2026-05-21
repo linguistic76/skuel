@@ -1,84 +1,57 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
-# Install Git hooks for SKUEL
+# Install SKUEL Git hooks (pre-commit + pre-push).
 #
-# This script installs pre-commit hooks that validate cross-references
-# before allowing commits.
+# Installs symlinks (NOT copies) to the canonical scripts at
+# app/scripts/git-hooks/, so edits to those scripts take effect immediately
+# without re-running this installer.
 #
-# Usage:
-#   ./scripts/install_git_hooks.sh
+# Honors core.hooksPath when set (the outer repo here uses it to point at
+# app/.git/hooks/). Falls back to .git/hooks/ otherwise. Idempotent — running
+# it twice is safe; existing symlinks are refreshed.
+#
+# Usage:   app/scripts/install_git_hooks.sh
+#
+# See:     app/scripts/git-hooks/README.md  (what each hook does, how to bypass,
+#                                            and the path to stronger hardening)
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-HOOKS_DIR="$REPO_ROOT/.git/hooks"
+CANONICAL_DIR="$SCRIPT_DIR/git-hooks"
 
-echo "Installing SKUEL Git hooks..."
-
-# Create pre-commit hook
-cat > "$HOOKS_DIR/pre-commit" << 'EOF'
-#!/bin/bash
-#
-# SKUEL Pre-Commit Hook - Cross-Reference Validation
-#
-# This hook validates cross-references in staged documentation files.
-# It will BLOCK commits with:
-# - Broken skill references (@skill-name doesn't exist)
-# - Broken doc links (/docs/... file doesn't exist)
-# - Missing frontmatter in pattern docs
-#
-# It will WARN (but not block) for:
-# - Missing reverse links (doc→skill exists but skill→doc missing)
-
-set -e
-
-# Colors
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
-
-echo "🔍 Validating cross-references in staged files..."
-
-# Get staged .md files
-STAGED_DOCS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
-
-if [ -z "$STAGED_DOCS" ]; then
-    echo "✓ No documentation files staged, skipping validation"
-    exit 0
+# Resolve the hooks directory git is actually using.
+# - If core.hooksPath is set, git uses that path (absolute).
+# - Otherwise it uses $GIT_DIR/hooks.
+HOOKS_DIR=$(git config --get core.hooksPath || true)
+if [[ -z "$HOOKS_DIR" ]]; then
+  HOOKS_DIR="$(git rev-parse --git-dir)/hooks"
 fi
 
-echo "Checking $(echo "$STAGED_DOCS" | wc -l) staged document(s)..."
+mkdir -p "$HOOKS_DIR"
 
-# Run validation in errors-only mode
-if uv run python scripts/validate_cross_references.py --errors-only; then
-    echo -e "${GREEN}✅ Cross-reference validation passed${NC}"
-    exit 0
-else
-    echo -e "${RED}❌ Cross-reference validation failed${NC}"
-    echo ""
-    echo "Your commit contains broken cross-references that must be fixed."
-    echo ""
-    echo "To see details:"
-    echo "  uv run python scripts/validate_cross_references.py"
-    echo ""
-    echo "To bypass this check (not recommended):"
-    echo "  git commit --no-verify"
-    echo ""
+install_hook() {
+  local name="$1"
+  local source="$CANONICAL_DIR/$name"
+  local target="$HOOKS_DIR/$name"
+
+  if [[ ! -f "$source" ]]; then
+    echo "✗ Missing canonical hook: $source" >&2
     exit 1
-fi
-EOF
+  fi
 
-# Make hook executable
-chmod +x "$HOOKS_DIR/pre-commit"
+  # -f overwrites an existing symlink or file; -n treats $target as a regular
+  # file even if it's an existing symlink to a directory (defensive).
+  ln -snf "$source" "$target"
+  chmod +x "$source"
 
-echo "✅ Pre-commit hook installed successfully!"
-echo ""
-echo "The hook will run automatically before each commit to validate:"
-echo "  - Broken skill references (@skill-name)"
-echo "  - Broken doc links (/docs/...)"
-echo "  - Missing frontmatter in pattern docs"
-echo ""
-echo "To bypass the hook (not recommended):"
-echo "  git commit --no-verify"
+  echo "✓ Installed $name → $source"
+}
+
+echo "Installing SKUEL Git hooks…"
+echo "  active hooks dir: $HOOKS_DIR"
+install_hook pre-commit
+install_hook pre-push
+echo
+echo "Done. Hooks symlink to the canonical scripts — edit those files directly."
+echo "Bypass mechanisms and hardening notes: $CANONICAL_DIR/README.md"

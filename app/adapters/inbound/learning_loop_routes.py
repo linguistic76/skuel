@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Request
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
+from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
@@ -37,6 +38,7 @@ from ui.patterns.loading import content_loading_placeholder
 
 if TYPE_CHECKING:
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
+    from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 
 logger = get_logger("skuel.routes.learning_loop")
 
@@ -50,6 +52,8 @@ def create_learning_loop_detail_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: "ExploreOrchestrator",
+    ps_engagement_service: "PsEngagementService | None" = None,
+    user_service: Any = None,
 ) -> None:
     """Register /explore/ku/{uid} and /explore/ps/{uid} detail routes.
 
@@ -60,6 +64,12 @@ def create_learning_loop_detail_routes(
         _app: FastHTML application instance.
         rt: Route decorator.
         orchestrator: ExploreOrchestrator for cross-service reads.
+        ps_engagement_service: Read-only access for the active engagement
+            edge on PS detail page load. Optional — engagement actions in
+            the rendered detail collapse to "Engage" when this is None.
+        user_service: Used to resolve the viewer's role for the teacher
+            publish button on /explore/ps/{uid}. Optional — when absent,
+            the publish state collapses to the empty-wrapper variant.
     """
 
     # -----------------------------------------------------------------
@@ -83,7 +93,7 @@ def create_learning_loop_detail_routes(
     @rt("/explore/ku/{uid}/content")
     async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
         """HTMX fragment: Ku detail content with learning state and exercises."""
-        user_uid: str | None = get_current_user(request)
+        user_uid = get_current_user(request)
 
         ku_result = await orchestrator.get_ku(uid)
 
@@ -142,7 +152,7 @@ def create_learning_loop_detail_routes(
     @rt("/explore/ps/{uid}/content")
     async def explore_ps_content_fragment(request: Request, uid: str) -> Any:
         """HTMX fragment: PathStep detail content with learning state and learning loop."""
-        user_uid: str | None = get_current_user(request)
+        user_uid = get_current_user(request)
 
         result = await orchestrator.get_ps_with_content(uid)
         if result.is_error:
@@ -157,6 +167,10 @@ def create_learning_loop_detail_routes(
         is_bookmarked = False
         is_in_progress = False
         is_mastered = False
+        engagement = None
+        user_role = None
+        if user_uid and user_service is not None:
+            user_role = await get_user_role(request, user_service)
         if user_uid:
             await orchestrator.record_ps_view(user_uid, uid)
             state_result = await orchestrator.get_ps_learning_state(user_uid, uid)
@@ -168,6 +182,10 @@ def create_learning_loop_detail_routes(
             is_mastered = (
                 state_result.value.state.value == "mastered" if state_result.is_ok else False
             )
+            if ps_engagement_service is not None:
+                engagement_result = await ps_engagement_service.find_active(user_uid, uid)
+                if engagement_result.is_ok:
+                    engagement = engagement_result.value
 
         # Exercises for unauthenticated users
         exercises: list[dict] = []
@@ -190,6 +208,8 @@ def create_learning_loop_detail_routes(
             is_mastered=is_mastered,
             user_uid=user_uid,
             exercises=exercises,
+            engagement=engagement,
+            user_role=user_role,
         )
 
     logger.info(
@@ -246,12 +266,16 @@ def create_learning_loop_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: "ExploreOrchestrator",
+    ps_engagement_service: "PsEngagementService | None" = None,
+    user_service: Any = None,
 ) -> None:
     """Register all learning loop routes (detail pages + fragments).
 
     This is the single entry point called by explore_routes.py.
     """
-    create_learning_loop_detail_routes(app, rt, orchestrator)
+    create_learning_loop_detail_routes(
+        app, rt, orchestrator, ps_engagement_service, user_service=user_service
+    )
     create_learning_loop_fragment_routes(app, rt, orchestrator)
 
 

@@ -20,6 +20,10 @@ Factories:
 - OwnershipRouteFactory: Ownership-verified domain-specific routes
 """
 
+from adapters.inbound.route_factories.activity_status_api_factory import (
+    ActivityStatusApiConfig,
+    create_activity_status_api_routes,
+)
 from adapters.inbound.route_factories.crud_route_factory import (
     CRUDOperations,
     CRUDRouteFactory,
@@ -65,6 +69,9 @@ from adapters.inbound.route_factories.status_route_factory import (
 )
 
 __all__ = [
+    # Activity Domain HTMX status endpoint factory
+    "ActivityStatusApiConfig",
+    "create_activity_status_api_routes",
     "CRUDOperations",
     "CRUDRouteFactory",
     "CommonQueryRouteFactory",

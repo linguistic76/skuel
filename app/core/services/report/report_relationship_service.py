@@ -2,7 +2,7 @@
 Report Relationship Service
 =============================
 
-Graph queries against REPORT_FOR relationships — delegates Cypher to SubmissionsBackend.
+Graph queries against REPORT_FOR relationships — delegates Cypher to UserEntryBackend.
 
 Answers intelligence questions about the Report stage of the learning loop:
 - Which of the user's submissions are still awaiting a report?
@@ -12,22 +12,23 @@ No LLM dependencies — this is a Level 1 graph analytics service.
 The higher-level ExerciseReportService (LLM report generation) is a separate concern.
 
 Graph relationships queried:
-- REPORT_FOR: (ExerciseReport)-[:REPORT_FOR]->(Submission)
-- OWNS: (User)-[:OWNS]->(Submission)
+- REPORT_FOR: (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
+- OWNS: (User)-[:OWNS]->(UserEntry)
 
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 from core.ports.query_types import LearningLoopChain, ReportSummary, SubmissionChain
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
+    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 
 
 class ReportRelationshipService:
@@ -35,7 +36,7 @@ class ReportRelationshipService:
     Pure-Cypher relationship queries for the Report stage of the learning loop.
 
     Provides the intelligence layer with graph-level questions about REPORT_FOR
-    relationships — no LLM, no AI. Just graph queries delegated to SubmissionsBackend.
+    relationships — no LLM, no AI. Just graph queries delegated to UserEntryBackend.
 
     Used by UserContextIntelligence to answer:
     - "Does this user have submissions that haven't been reviewed yet?"
@@ -44,12 +45,12 @@ class ReportRelationshipService:
     See: /docs/architecture/REPORT_ARCHITECTURE.md
     """
 
+    # ADR-054: EXERCISE_SUBMISSION + JE_INPUT collapsed into USER_ENTRY.
     _SUBMISSION_TYPES = [
-        EntityType.EXERCISE_SUBMISSION.value,
-        EntityType.JE_INPUT.value,
+        EntityType.USER_ENTRY.value,
     ]
 
-    def __init__(self, backend: "SubmissionsBackend") -> None:
+    def __init__(self, backend: "UserEntryBackend") -> None:
         self.backend = backend
         self.logger = get_logger("skuel.services.report_relationship")
 
@@ -85,7 +86,7 @@ class ReportRelationshipService:
         Exercises assigned to this user (via group) with no submission yet.
 
         Graph traversal:
-        (User)-[:MEMBER_OF]->(Group)<-[:FOR_GROUP]-(Exercise)
+        (User)-[:MEMBER_OF]->(Group)<-[:SHARED_WITH_GROUP]-(Exercise)
         WHERE NOT (User)-[:OWNS]->(:Submission)-[:FULFILLS_EXERCISE]->(Exercise)
 
         Args:
@@ -145,10 +146,10 @@ class ReportRelationshipService:
         record = records[0]
         return Result.ok(
             {
-                "total_submissions": int(record["total_submissions"] or 0),
-                "with_report": int(record["with_report"] or 0),
-                "without_report": int(record["without_report"] or 0),
-                "total_reports": int(record["total_reports"] or 0),
+                "total_submissions": coerce_int(record["total_submissions"]),
+                "with_report": coerce_int(record["with_report"]),
+                "without_report": coerce_int(record["without_report"]),
+                "total_reports": coerce_int(record["total_reports"]),
             }
         )
 
@@ -163,8 +164,8 @@ class ReportRelationshipService:
         Teacher/admin view: "show me everything related to this exercise."
 
         Graph pattern (mixed directions):
-            (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (ExerciseReport)-[:REPORT_FOR]->(Submission)
+            (UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
+            (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
             (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
             (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
 
@@ -182,16 +183,16 @@ class ReportRelationshipService:
         if not records or records[0].get("exercise") is None:
             return Result.fail(Errors.not_found(resource="Exercise", identifier=exercise_uid))
 
-        record = records[0]
-        submissions = list(record.get("submissions") or [])  # type: ignore[arg-type]
-        feedback = list(record.get("feedback") or [])  # type: ignore[arg-type]
-        revised = list(record.get("revised_exercises") or [])  # type: ignore[arg-type]
+        record = cast("dict[str, Any]", records[0])
+        submissions: list[dict[str, Any]] = list(record.get("submissions") or [])
+        feedback: list[dict[str, Any]] = list(record.get("feedback") or [])
+        revised: list[dict[str, Any]] = list(record.get("revised_exercises") or [])
         return Result.ok(
             {
-                "exercise": dict(record["exercise"]) if record["exercise"] else {},  # type: ignore[arg-type]
-                "submissions": [dict(s) for s in submissions if s.get("uid")],  # type: ignore[union-attr]
-                "feedback": [dict(f) for f in feedback if f.get("uid")],  # type: ignore[union-attr]
-                "revised_exercises": [dict(r) for r in revised if r.get("uid")],  # type: ignore[union-attr]
+                "exercise": dict(record["exercise"]) if record["exercise"] else {},
+                "submissions": [dict(s) for s in submissions if s.get("uid")],
+                "feedback": [dict(f) for f in feedback if f.get("uid")],
+                "revised_exercises": [dict(r) for r in revised if r.get("uid")],
             }
         )
 
@@ -202,8 +203,8 @@ class ReportRelationshipService:
         Student view: "what happened after I submitted?"
 
         Graph pattern:
-            (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (ExerciseReport)-[:REPORT_FOR]->(Submission)
+            (UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
+            (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
             (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
 
         Args:
@@ -220,15 +221,15 @@ class ReportRelationshipService:
         if not records or records[0].get("submission") is None:
             return Result.fail(Errors.not_found(resource="Submission", identifier=submission_uid))
 
-        record = records[0]
-        feedback = list(record.get("feedback") or [])  # type: ignore[arg-type]
-        revised = list(record.get("revised_exercises") or [])  # type: ignore[arg-type]
+        record = cast("dict[str, Any]", records[0])
+        feedback: list[dict[str, Any]] = list(record.get("feedback") or [])
+        revised: list[dict[str, Any]] = list(record.get("revised_exercises") or [])
         return Result.ok(
             {
-                "submission": dict(record["submission"]) if record["submission"] else {},  # type: ignore[arg-type]
-                "exercise": dict(record["exercise"]) if record.get("exercise") else None,  # type: ignore[arg-type]
-                "feedback": [dict(f) for f in feedback if f.get("uid")],  # type: ignore[union-attr]
-                "revised_exercises": [dict(r) for r in revised if r.get("uid")],  # type: ignore[union-attr]
+                "submission": dict(record["submission"]) if record["submission"] else {},
+                "exercise": dict(record["exercise"]) if record.get("exercise") else None,
+                "feedback": [dict(f) for f in feedback if f.get("uid")],
+                "revised_exercises": [dict(r) for r in revised if r.get("uid")],
             }
         )
 

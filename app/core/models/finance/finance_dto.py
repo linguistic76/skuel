@@ -87,29 +87,13 @@ class ExpenseDTO:
     created_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert DTO to dictionary for serialization"""
-        from dataclasses import asdict
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        from core.models.dto_helpers import (
-            convert_dates_to_iso,
-            convert_datetimes_to_iso,
-            convert_enums_to_values,
+        return dto_to_dict(
+            self,
+            enum_fields=[],
         )
-
-        data = asdict(self)
-
-        # Convert enums to values
-        convert_enums_to_values(
-            data, ["category", "payment_method", "status", "recurrence_pattern"]
-        )
-
-        # Convert dates to ISO format
-        convert_dates_to_iso(data, ["expense_date", "recurrence_end_date"])
-
-        # Convert datetimes to ISO format
-        convert_datetimes_to_iso(data, ["created_at", "updated_at"])
-
-        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ExpenseDTO":

@@ -450,6 +450,8 @@ Extracted from TasksIntelligenceService (March 2026). These methods are domain-a
 
 **Backend:** Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries across ALL entity types. Since only user-owned activity entities have `user_uid`, shared entities (PathStep, Ku, etc.) naturally filter out from `find_by(user_uid=...)` calls. Uses `EntityStatus.COMPLETED` (not `CompletionStatus.DONE`) for completed entity queries.
 
+**Pattern:** This service is the first production realization of the [Shared Signal pattern](../patterns/SHARED_SIGNAL_PATTERN.md) — cross-cutting infrastructure consulted by every Activity Domain facade via a narrow protocol + delegation mixin.
+
 ---
 
 ### Curriculum (4)
@@ -701,7 +703,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Central intelligence hub answering "What should I work on next?"
 - 8 flagship methods across 5 mixins
 - **Flagship method:** `get_ready_to_work_on_today()` - Daily planning based on goals, habits, knowledge, schedule
-- Requires 13 domain services (6 Activity + 3 Curriculum + 3 Processing + 1 Temporal)
+- Requires 12 domain services (6 Activity + 2 Curriculum + 3 Processing + 1 Temporal)
 - Optional: `filtered_providers` dict (11 `FilteredContextProvider` facades) — consumed by daily planning for domain health warnings (all 6 Activity domains + cross-domain balance checks)
 - Modular package architecture (~3,124 lines)
 

@@ -26,29 +26,41 @@ npm install
 
 ### 2. Configure Environment
 
-Create a `.env` file in the project root:
+Non-secret config lives in `app/.env` (gitignored). Credentials are read via `get_credential()` from one of three backends, picked by `SKUEL_CREDENTIAL_BACKEND`:
+
+| Backend | Selector | Where credentials sit | When to pick it |
+|---|---|---|---|
+| **OS keychain** (recommended) | `SKUEL_CREDENTIAL_BACKEND=keyring` | libsecret / macOS Keychain / Windows Credential Locker | Desktop dev — no plaintext on disk |
+| Fernet-encrypted JSON | unset | `~/.skuel/credentials.enc`, keyed by `SKUEL_MASTER_KEY` | Headless boxes that can't reach the OS keychain |
+| direnv two-file (Stage 2) | unset | `~/.config/skuel/secrets.env` (mode 0600) sourced by `app/.envrc` | Fallback / CI |
+
+The `.env.example` template lists every credential the app reads (marked `[SECRET]`) and every non-secret config key. Do not paste real credentials into `.env` — leave the `[SECRET]` lines blank there and load them into the active backend.
+
+**First-time setup (keychain path):**
 
 ```bash
-# Neo4j Connection (running in ~/skuel/infrastructure)
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=your_password
-
-# Application Settings
-APP_HOST=0.0.0.0
-APP_PORT=8000
-APP_DEBUG=false
-
-# AI Services (optional)
-OPENAI_API_KEY=your_key_here
-OLLAMA_URL=http://localhost:11434
-
-# Paths
-OBSIDIAN_VAULT_PATH=./vault
-
-# Logging
-LOG_LEVEL=INFO
+cp app/.env.example app/.env
+$EDITOR app/.env                           # set SKUEL_CREDENTIAL_BACKEND=keyring + non-secret config
+uv run python -m core.config               # interactive: writes credentials into the keychain
 ```
+
+**Migrating an older `.env` that still has credentials in it:**
+
+```bash
+# Path A: move credentials out of the worktree into ~/.config/skuel/secrets.env (Stage 2)
+uv run python scripts/migrate_secrets_to_homedir.py
+
+# Path B: move credentials from secrets.env (or env) into the OS keychain (Stage 3)
+uv run python scripts/migrate_secrets_to_keychain.py
+```
+
+Both scripts are idempotent. The Stage 3 path is what you want unless you're on a box without a graphical session.
+
+**Docker note:** Docker Compose interpolates `${VAR}` directly from a `.env`-shaped file, bypassing `get_credential()`. The two keys it needs for the Neo4j services (`NEO4J_AUTH`, `NEO4J_PASSWORD`) are kept in `~/.config/skuel/secrets.env` even after Stage 3. To run docker-compose with keychain-only credentials, use `./scripts/dev/with-secrets docker compose up`.
+
+**Missing-credential behavior:** every credential the active intelligence tier needs is required at boot, not request time. Anything missing fails the bootstrap with a clear error (commit `fed4287f`). If the app starts, the credentials it needs are present.
+
+See `docs/roadmap/secrets-out-of-worktree.md` for the full design — three stages, what each shipped, and the table of where each key actually lives today.
 
 ### 3. Start Neo4j Infrastructure
 
@@ -93,9 +105,9 @@ Open your browser to: `http://localhost:8000`
 
 ## Architecture Overview
 
-### 17 Entity Types + 5 Cross-Cutting Systems
+### 20 Entity Types, 7 Subsystems, 3 Layers
 
-SKUEL organizes human experience into **17 entity types** with **5 cross-cutting systems**:
+SKUEL organizes human experience into **20 entity types**, grouped into **7 subsystems** (Model A — Ku, Curriculum Domains, Activity Domains, Learning Loop, User, Groups, Askesis) and traced through **3 layers** (Model B — Curriculum → Action → Feedback). Five cross-cutting infrastructure systems (UserContext, Search, Calendar, Askesis, Messaging) span them. See [ADR-055](docs/decisions/ADR-055-architectural-lenses.md), [`SEVEN_SUBSYSTEMS.md`](docs/architecture/SEVEN_SUBSYSTEMS.md), and [`THREE_LAYER_LENS.md`](docs/architecture/THREE_LAYER_LENS.md).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

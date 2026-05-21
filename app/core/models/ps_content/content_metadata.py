@@ -101,10 +101,10 @@ class ContentMetadata:
         external_links = []
         images = []
         videos = []
-        keywords = set()
-        key_concepts = set()
-        technical_terms = set()
-        complexity_indicators = set()
+        keywords: set[str] = set()
+        key_concepts: set[str] = set()
+        technical_terms: set[str] = set()
+        complexity_indicators: set[str] = set()
 
         # Analyze markdown content
         if content.is_markdown:

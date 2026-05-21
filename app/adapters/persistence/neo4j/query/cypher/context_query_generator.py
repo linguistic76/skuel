@@ -51,8 +51,9 @@ query, params = generate_context_query(
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
+from ._types import RelationshipSpec
 from .domain_queries import build_entity_with_context
 
 if TYPE_CHECKING:
@@ -232,8 +233,11 @@ def _generate_from_config(
         r for r in relationships if r.shared_neighbor_config is not None
     ]
 
-    # Convert regular relationships to RelationshipSpec list
-    specs = [r.to_relationship_spec() for r in regular_relationships]
+    # Convert regular relationships to RelationshipSpec list (structurally compatible TypedDicts)
+    specs = cast(
+        "list[RelationshipSpec]",
+        [r.to_relationship_spec() for r in regular_relationships],
+    )
 
     # Generate base query using the generic engine
     base_query, parameters = build_entity_with_context(

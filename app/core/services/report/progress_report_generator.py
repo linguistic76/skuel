@@ -38,16 +38,15 @@ if TYPE_CHECKING:
     from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import ReportTimePeriod  # also: MIN_REPORT_COOLDOWN_MINUTES
-from core.events import publish_event
-from core.events.submission_events import SubmissionCreated
-from core.models.enums.entity_enums import EntityType, ProcessorType
-from core.models.enums.submissions_enums import ProgressDepth
+from core.models.enums.pipeline import ReportSource
+from core.models.enums.user_entry_enums import ProgressDepth
 from core.models.report.activity_report import ActivityReport
 from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.prompts import PROMPT_REGISTRY
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.report.progress_generator")
@@ -167,7 +166,7 @@ class ProgressReportGenerator:
             comparison = await self._collect_comparison(user_uid, time_period)
 
             # 4. Build content — LLM when available, programmatic fallback
-            processor_type = ProcessorType.AUTOMATIC
+            processor_type = ReportSource.AUTOMATIC
             processing_error: str | None = None
 
             # Use caller-supplied annotation when available (saves 1 round-trip);
@@ -189,7 +188,7 @@ class ProgressReportGenerator:
                 )
                 if llm_result.is_ok:
                     content = llm_result.value
-                    processor_type = ProcessorType.LLM
+                    processor_type = ReportSource.LLM
                     logger.info(f"LLM report generated for {user_uid}: {len(content)} chars")
                 else:
                     # LLM failed — fall back to programmatic, record the error
@@ -216,7 +215,7 @@ class ProgressReportGenerator:
                 "choices_made": completions.get("choices_made", 0),
                 "principles_reviewed": completions.get("principles_reviewed", 0),
                 "insights_referenced": len(insights),
-                "llm_generated": processor_type == ProcessorType.LLM,
+                "llm_generated": processor_type == ReportSource.LLM,
             }
             if intelligence:
                 metadata["intelligence"] = intelligence
@@ -244,15 +243,6 @@ class ProgressReportGenerator:
             create_result = await self.activity_report_service.persist(report)
             if create_result.is_error:
                 return Result.fail(create_result)
-
-            # 7. Publish event
-            event = SubmissionCreated(
-                submission_uid=report.uid,
-                user_uid=user_uid,
-                entity_type=EntityType.ACTIVITY_REPORT.value,
-                processor_type=processor_type.value,
-            )
-            await publish_event(self.event_bus, event, logger)
 
             logger.info(f"Generated progress report {report.uid} for {user_uid}")
             return Result.ok(report)
@@ -1114,7 +1104,7 @@ class ProgressReportGenerator:
         if result.is_error or not result.value:
             return Result.ok(None)  # fail-safe: allow generation if check errors
 
-        recent_count = int(result.value[0].get("recent_count", 0))
+        recent_count = coerce_int(result.value[0].get("recent_count"))
         if recent_count > 0:
             return Result.fail(
                 Errors.business(

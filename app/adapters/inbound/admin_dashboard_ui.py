@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div, P, Span
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
 from ui.admin.types import UserCardData
@@ -319,7 +320,8 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
         Returns:
             Admin page with user details and role form
         """
-        result = await orchestrator.get_user(uid)
+        user_uid = UserUID(uid)
+        result = await orchestrator.get_user(user_uid)
 
         if result.is_error or not result.value:
             content = Div(
@@ -352,7 +354,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
         system_status = await orchestrator.get_system_status()
 
         # Fetch user activity stats
-        detail_stats_result = await orchestrator.get_user_detail_stats(uid)
+        detail_stats_result = await orchestrator.get_user_detail_stats(user_uid)
         detail_stats_error = detail_stats_result.is_error
         if detail_stats_error:
             logger.warning(f"Failed to load detail stats for {uid}: {detail_stats_result.error}")
@@ -397,7 +399,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                 CardBody(
                     render_error_banner("User statistics unavailable", severity="warning")
                     if detail_stats_error
-                    else AdminUIComponents.render_user_activity_stats(detail_stats, uid),
+                    else AdminUIComponents.render_user_activity_stats(detail_stats, user_uid),
                 ),
                 cls="mb-6",
             ),
@@ -467,7 +469,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
 
         Returns role change form HTML.
         """
-        result = await orchestrator.get_user(uid)
+        result = await orchestrator.get_user(UserUID(uid))
 
         if result.is_error or not result.value:
             return Div(

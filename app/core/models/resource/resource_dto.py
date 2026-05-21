@@ -61,26 +61,14 @@ class ResourceDTO(EntityDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including resource-specific fields."""
-        data = super().to_dict()
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        data.update(
-            {
-                "source_url": self.source_url,
-                "author": self.author,
-                "publisher": self.publisher,
-                "publication_year": self.publication_year,
-                "isbn": self.isbn,
-                "media_type": self.media_type,
-                "resource_duration_minutes": self.resource_duration_minutes,
-            }
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain"],
+            datetime_fields=["created_at", "updated_at"],
         )
-
-        return data
-
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ResourceDTO:

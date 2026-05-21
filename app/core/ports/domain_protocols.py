@@ -208,6 +208,14 @@ class TasksOperations(
         """Get tasks that require a specific knowledge unit."""
         ...
 
+    async def get_tasks_reinforcing_habit(self, habit_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get raw node props for tasks linked to a habit via REINFORCES_HABIT."""
+        ...
+
+    async def get_habit_links_for_tasks(self, task_uids: list[str]) -> Result[dict[str, str]]:
+        """Map task_uid → reinforced habit_uid via REINFORCES_HABIT edges (batch)."""
+        ...
+
     async def get_user_entities(
         self,
         user_uid: UserUID,
@@ -407,6 +415,22 @@ class EventsOperations(
         self, event_date: str, user_uid: UserUID, exclude_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Get events on a date for conflict detection (raw properties)."""
+        ...
+
+    async def get_events_reinforcing_habit(
+        self, habit_uid: str, user_uid: UserUID | None = None
+    ) -> Result[list[Neo4jProperties]]:
+        """Get raw node props for events linked to a habit via REINFORCES_HABIT."""
+        ...
+
+    async def get_habit_links_for_events(self, event_uids: list[str]) -> Result[dict[str, str]]:
+        """Map event_uid → reinforced habit_uid via REINFORCES_HABIT edges (batch)."""
+        ...
+
+    async def get_goal_celebration_stats(
+        self, user_uid: UserUID, start_date: str
+    ) -> Result[dict[str, Any]]:
+        """Aggregate completed events that celebrate goals via CELEBRATES_GOAL."""
         ...
 
     async def get_completed_events_in_range(
@@ -948,7 +972,7 @@ class ChoicesOperations(
         """Find choices with filters and limit."""
         ...
 
-    async def get_user_choices(self, user_id: str) -> Result[list[Choice]]:
+    async def get_user_choices(self, user_id: UserUID) -> Result[list[Choice]]:
         """Get all choices for a user."""
         ...
 

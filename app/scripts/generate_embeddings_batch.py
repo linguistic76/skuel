@@ -30,6 +30,7 @@ See: /docs/migrations/NEO4J_GENAI_MIGRATION.md
 
 import argparse
 import asyncio
+from typing import Any
 
 from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.utils.logging import get_logger
@@ -38,12 +39,12 @@ logger = get_logger("skuel.batch_embeddings")
 
 
 async def generate_embeddings_batch(
-    driver: any,
+    driver: Any,
     embeddings_service: HuggingFaceEmbeddingsService,
     label: str,
     batch_size: int = 25,
     max_batches: int | None = None,
-) -> dict[str, any]:
+) -> dict[str, Any]:
     """
     Generate embeddings for all nodes of a given label.
 
@@ -168,7 +169,7 @@ async def main():
     args = parser.parse_args()
 
     # Bootstrap services
-    from core.utils.db import get_driver
+    from core.utils.db import get_driver  # type: ignore[import-not-found,import-untyped]
 
     driver = await get_driver()
 
@@ -176,7 +177,7 @@ async def main():
     embeddings_service = HuggingFaceEmbeddingsService(driver)
 
     # Check if HuggingFace Inference API is available
-    if not await embeddings_service._check_plugin_availability():
+    if not await embeddings_service._check_plugin_availability():  # type: ignore[attr-defined]
         logger.error("❌ HuggingFace Inference API not available - cannot generate embeddings")
         logger.error("   Configure HuggingFace API key in .env (HUGGINGFACE_API_KEY)")
         return

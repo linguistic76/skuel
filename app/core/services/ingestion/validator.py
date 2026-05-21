@@ -327,14 +327,12 @@ async def validate_file(
         # Validate UID format before preparation
         uid_result = validate_uid_format(entity_type, data, file_path)
         if uid_result.is_error:
-            error = uid_result.expect_error()
-            errors.append(error.user_message or error.message)
+            errors.append(uid_result.expect_error().display_message)
 
         # Validate required fields before preparation
         validation_result = validate_required_fields(entity_type, data, file_path)
         if validation_result.is_error:
-            error = validation_result.expect_error()
-            errors.append(error.user_message or error.message)
+            errors.append(validation_result.expect_error().display_message)
 
         # Prepare entity data (even if validation failed, to show what would be created)
         try:
@@ -355,8 +353,7 @@ async def validate_file(
         # Validate entity data after preparation
         validation_result = validate_entity_data(entity_type, entity_data, file_path)
         if validation_result.is_error:
-            error = validation_result.expect_error()
-            errors.append(error.user_message or error.message)
+            errors.append(validation_result.expect_error().display_message)
 
         # Extract relationship targets for preview
         relationship_targets: dict[str, list[str]] = {}
@@ -554,10 +551,11 @@ async def validate_relationship_targets(
     existing_uids: set[str] = set()
 
     # Use driver.execute_query which accepts dynamic strings
-    # The label is derived from ENTITY_CONFIGS so it's trusted
+    # The label is derived from ENTITY_CONFIGS so it's trusted (driver requires
+    # LiteralString for injection safety, which we've already verified).
     try:
         for label, uids in uids_by_label.items():
-            records, _, _ = await driver.execute_query(
+            records, _, _ = await driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
                 f"UNWIND $uids AS uid MATCH (n:{label} {{uid: uid}}) RETURN n.uid AS uid",
                 uids=list(uids),
             )

@@ -24,8 +24,6 @@ Supporting infrastructure (leaf-level utilities, NOT alternative query paths):
   Consumed by query builders, not by services directly.
 - ``convert_value_for_neo4j()`` — Python→Neo4j type boundary (enums, datetimes).
   Complements Pydantic (HTTP boundary), does NOT duplicate it.
-- ``validate_dataclass()`` — Guard clause (12 lines) preventing misuse of
-  CypherGenerator with non-dataclass types. Not schema validation.
 - ``QueryConstraint.to_cypher()`` — Adapter-layer model that generates Cypher
   fragments. Lives in ``_query_models.py`` inside ``adapters/persistence/``,
   not in the domain layer.

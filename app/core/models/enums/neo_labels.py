@@ -71,6 +71,14 @@ class NeoLabel(StrEnum):
     CHOICE = "Choice"
     PRINCIPLE = "Principle"
 
+    # Activity Templates (6) — PS-owned, spawn Activity instances on engagement
+    TASK_TEMPLATE = "TaskTemplate"
+    GOAL_TEMPLATE = "GoalTemplate"
+    HABIT_TEMPLATE = "HabitTemplate"
+    EVENT_TEMPLATE = "EventTemplate"
+    CHOICE_TEMPLATE = "ChoiceTemplate"
+    PRINCIPLE_TEMPLATE = "PrincipleTemplate"
+
     # Curriculum Domains (4) — shared content
     KU = "Ku"
     RESOURCE = "Resource"
@@ -82,13 +90,11 @@ class NeoLabel(StrEnum):
 
     # Content Processing — user submissions and reports
     SUBMISSION = "Submission"  # Base label for multi-label queries
-    EXERCISE_SUBMISSION = "ExerciseSubmission"
     ACTIVITY_REPORT = "ActivityReport"
     EXERCISE_REPORT = "ExerciseReport"
 
-    # Journal (standalone — NOT submission, NOT report)
-    JE_INPUT = "JeInput"  # Raw journal entry (audio or text)
-    JE_OUTPUT = "JeOutput"  # LLM-processed transformation
+    # Unified user-authored content (ADR-054)
+    USER_ENTRY = "UserEntry"
 
     # Instruction Templates (2)
     EXERCISE = "Exercise"  # Domain label for :Entity nodes with entity_type="exercise"
@@ -263,13 +269,17 @@ def _init_entity_type_mapping() -> None:
             EntityType.REVISED_EXERCISE: NeoLabel.REVISED_EXERCISE,
             EntityType.FORM_TEMPLATE: NeoLabel.FORM_TEMPLATE,
             EntityType.FORM_SUBMISSION: NeoLabel.FORM_SUBMISSION,
-            EntityType.EXERCISE_SUBMISSION: NeoLabel.EXERCISE_SUBMISSION,
-            EntityType.JE_INPUT: NeoLabel.JE_INPUT,
-            EntityType.JE_OUTPUT: NeoLabel.JE_OUTPUT,
             EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT: NeoLabel.EXERCISE_REPORT,
             EntityType.INTERACTION: NeoLabel.INTERACTION,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
+            EntityType.USER_ENTRY: NeoLabel.USER_ENTRY,  # ADR-054
+            EntityType.TASK_TEMPLATE: NeoLabel.TASK_TEMPLATE,
+            EntityType.GOAL_TEMPLATE: NeoLabel.GOAL_TEMPLATE,
+            EntityType.HABIT_TEMPLATE: NeoLabel.HABIT_TEMPLATE,
+            EntityType.EVENT_TEMPLATE: NeoLabel.EVENT_TEMPLATE,
+            EntityType.CHOICE_TEMPLATE: NeoLabel.CHOICE_TEMPLATE,
+            EntityType.PRINCIPLE_TEMPLATE: NeoLabel.PRINCIPLE_TEMPLATE,
         }
     )
 

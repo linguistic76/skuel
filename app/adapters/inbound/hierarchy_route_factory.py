@@ -25,6 +25,7 @@ from typing import Any, Protocol
 from fasthtml.common import Div, Request, Span
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
@@ -214,6 +215,7 @@ class HierarchyRouteFactory:
         """POST /api/{domain}/{uid}/move - Move node to new parent."""
 
         @self.rt(f"/api/{self.domain}/{{uid}}/move", methods=["POST"])
+        @csrf_protected
         async def move_node(request: Request, uid: str) -> Any:
             """Move node to new parent (drag-and-drop)."""
             user_uid = require_authenticated_user(request)
@@ -248,6 +250,7 @@ class HierarchyRouteFactory:
         """PATCH /api/{domain}/{uid} - Update node title (inline editing)."""
 
         @self.rt(f"/api/{self.domain}/{{uid}}", methods=["PATCH"])
+        @csrf_protected
         async def update_node(request: Request, uid: str) -> Any:
             """Update node title (inline editing)."""
             user_uid = require_authenticated_user(request)
@@ -286,6 +289,7 @@ class HierarchyRouteFactory:
         """POST /api/{domain}/bulk-delete - Delete multiple nodes."""
 
         @self.rt(f"/api/{self.domain}/bulk-delete", methods=["POST"])
+        @csrf_protected
         async def bulk_delete(request: Request) -> Any:
             """Delete multiple nodes (multi-select)."""
             user_uid = require_authenticated_user(request)

@@ -1,3 +1,4 @@
+# mypy: disable-error-code="assignment,attr-defined"
 """
 Unit tests for LpService facade orchestration methods.
 

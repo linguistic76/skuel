@@ -166,11 +166,11 @@ class EmbeddingBackgroundWorker:
         Add chunk embedding request to pending queue.
 
         Args:
-            event: ChunkEmbeddingRequested event from KU creation
+            event: ChunkEmbeddingRequested event from ingestion or regeneration
         """
         self._pending_chunk_requests.append(event)
         self.logger.debug(
-            f"Queued chunk embedding request for {event.ku_uid} "
+            f"Queued chunk embedding request for {event.parent_uid} "
             f"({len(event.chunk_uids)} chunks, queue size: {len(self._pending_chunk_requests)})"
         )
 
@@ -396,9 +396,11 @@ class EmbeddingBackgroundWorker:
             for req in requests:
                 all_chunk_uids.extend(req.chunk_uids)
                 all_chunk_texts.extend(req.chunk_texts)
-                request_map[req.ku_uid] = req
+                request_map[req.parent_uid] = req
 
-            self.logger.info(f"Processing {len(all_chunk_uids)} chunks from {len(requests)} KUs")
+            self.logger.info(
+                f"Processing {len(all_chunk_uids)} chunks from {len(requests)} parents"
+            )
 
             # Generate embeddings in batch
             embeddings_result = await self.embeddings_service.create_batch_embeddings(
@@ -425,13 +427,13 @@ class EmbeddingBackgroundWorker:
                 )
 
                 if stored:
-                    # Publish completion events for each KU
-                    for ku_uid, req in request_map.items():
+                    # Publish completion events for each parent
+                    for parent_uid, req in request_map.items():
                         now = datetime.now()
                         await publish_event(
                             self.event_bus,
                             ChunkEmbeddingsCompleted(
-                                ku_uid=ku_uid,
+                                parent_uid=parent_uid,
                                 chunk_uids=req.chunk_uids,
                                 success_count=len(req.chunk_uids),
                                 failed_count=0,

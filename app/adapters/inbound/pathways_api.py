@@ -16,6 +16,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.result_helpers import require_found
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
@@ -77,6 +78,7 @@ def create_pathways_api_routes(
     # -----------------
 
     @rt("/api/pathways/progress")
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def update_progress_route(request: Request) -> Result[dict[str, Any]]:
         """Update progress for a path step.
@@ -185,6 +187,7 @@ def create_pathways_api_routes(
     # ----------
 
     @rt("/api/pathways/enroll/{uid}", methods=["POST"])
+    @csrf_protected
     async def enroll_in_path_route(request: Request, uid: str) -> Any:
         """Enroll the authenticated user in a learning path."""
         user_uid = require_authenticated_user(request)

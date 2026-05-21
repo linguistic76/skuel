@@ -231,7 +231,7 @@ class TestHandleGoalAchieved:
         self, service_full: GoalEventHandlerService, mock_relationships: AsyncMock
     ):
         """Principle alignment is checked when relationship service available."""
-        service_full.backend.get_achievement_context.return_value = Result.ok([])
+        service_full.backend.get_achievement_context.return_value = Result.ok([])  # type: ignore[attr-defined]
         mock_relationships.get_related_uids.return_value = Result.ok(["principle_test_123"])
 
         event = GoalAchieved(

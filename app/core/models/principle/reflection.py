@@ -111,24 +111,11 @@ class PrincipleReflection:
 
     def to_dto(self) -> "PrincipleReflectionDTO":
         """Convert to DTO for transfer operations."""
+        from core.models.dto_helpers import domain_to_dto
+
         from .reflection_dto import PrincipleReflectionDTO
 
-        return PrincipleReflectionDTO(
-            uid=self.uid,
-            principle_uid=self.principle_uid,
-            user_uid=self.user_uid,
-            reflection_date=self.reflection_date,
-            alignment_level=self.alignment_level,
-            evidence=self.evidence,
-            reflection_notes=self.reflection_notes,
-            reflection_quality_score=self.reflection_quality_score,
-            trigger_type=self.trigger_type,
-            trigger_uid=self.trigger_uid,
-            trigger_context=self.trigger_context,
-            created_at=self.created_at,
-            updated_at=self.updated_at,
-            metadata=self.metadata or {},
-        )
+        return domain_to_dto(self, PrincipleReflectionDTO)
 
     # ========================================================================
     # ALIGNMENT ANALYSIS

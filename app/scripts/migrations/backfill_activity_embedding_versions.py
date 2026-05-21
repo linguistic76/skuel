@@ -101,8 +101,7 @@ async def main() -> None:
 
     # Get Neo4j credentials using credential store (same as config)
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     try:
         await driver.verify_connectivity()

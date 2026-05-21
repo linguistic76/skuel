@@ -137,7 +137,8 @@ class EntityIngestionConfig:
 #   - RESOURCE: Created via API with curated metadata
 #   - FORM_TEMPLATE: Created via API by admins
 #   - FORM_SUBMISSION: Created via API by users
-#   - JE_INPUT/JE_OUTPUT: Created via journal pipeline (voice/text → LLM)
+#   - USER_ENTRY: Ingestible; legacy ``je_input``/``exercise_submission``
+#     type strings alias to USER_ENTRY with pipeline inferred (ADR-054).
 #   - EXERCISE_REPORT/ACTIVITY_REPORT: Created via report generation pipeline
 #
 # Relationship configs are derived from the Relationship Registry via
@@ -223,9 +224,16 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         requires_user_uid=True,
         base_label=None,  # Expense is not an Entity type
     ),
-    EntityType.EXERCISE_SUBMISSION: EntityIngestionConfig(
-        entity_label="ExerciseSubmission",
-        uid_prefix="es",
+    NonKuDomain.GROUP: EntityIngestionConfig(
+        entity_label="Group",
+        uid_prefix="group",
+        required_fields=("name",),
+        requires_user_uid=True,  # Upload user becomes owner_uid (see preparer)
+        base_label=None,  # Group is not an Entity type
+    ),
+    EntityType.USER_ENTRY: EntityIngestionConfig(
+        entity_label="UserEntry",
+        uid_prefix="ue",
         required_fields=("title",),
         requires_user_uid=True,
     ),

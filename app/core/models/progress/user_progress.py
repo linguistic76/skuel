@@ -82,6 +82,27 @@ class UserProgress:
         if self.completed_at and self.started_at and self.completed_at < self.started_at:
             raise ValueError("completed_at cannot be before started_at")
 
+    # DomainModelProtocol compliance: created_at/updated_at alias tracked_at,
+    # which is the only timestamp UserProgress tracks.
+    @property
+    def created_at(self) -> datetime:
+        return self.tracked_at
+
+    @property
+    def updated_at(self) -> datetime:
+        return self.tracked_at
+
+    @classmethod
+    def from_dto(cls, dto: dict[str, Any]) -> "UserProgress":
+        """Create UserProgress from dict payload — no dedicated DTO."""
+        return cls(**dto)
+
+    def to_dto(self) -> dict[str, Any]:
+        """Convert UserProgress to dict payload — no dedicated DTO."""
+        from dataclasses import asdict
+
+        return asdict(self)
+
     @property
     def is_completed(self) -> bool:
         """Check if progress is completed."""

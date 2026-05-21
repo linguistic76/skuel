@@ -55,7 +55,6 @@ from .finance_request import (
 
 __all__ = [
     "EXPENSE_SUBCATEGORIES",
-    "Budget",  # Alias
     "BudgetAnalysisDTO",
     "BudgetAnalysisRequest",
     "BudgetCreateRequest",
@@ -64,7 +63,6 @@ __all__ = [
     "BudgetPeriod",
     "BudgetPure",
     "BudgetUpdateRequest",
-    "Expense",  # Alias
     "ExpenseCategory",
     # Request models
     "ExpenseCreateRequest",

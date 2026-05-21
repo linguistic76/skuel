@@ -33,11 +33,11 @@ class TaskCreateRequest(CreateRequestBase):
     """External API request for creating a task."""
 
     title: str = Field(min_length=1, max_length=200, description="Task title")
-    description: str | None = Field(None, description="Detailed description")
+    description: str | None = Field(default=None, description="Detailed description")
 
     # Scheduling
-    due_date: date | None = Field(None, description="Due date")
-    scheduled_date: date | None = Field(None, description="Scheduled work date")
+    due_date: date | None = Field(default=None, description="Due date")
+    scheduled_date: date | None = Field(default=None, description="Scheduled work date")
     duration_minutes: int = Field(default=30, ge=5, le=480, description="Estimated duration")
 
     # Priority and status
@@ -45,12 +45,14 @@ class TaskCreateRequest(CreateRequestBase):
     status: EntityStatus = Field(default=EntityStatus.DRAFT, description="Initial status")
 
     # Organization
-    project: str | None = Field(None, description="Associated project")
-    assignee: str | None = Field(None, description="Person assigned to this task")
+    project: str | None = Field(default=None, description="Associated project")
+    assignee: str | None = Field(default=None, description="Person assigned to this task")
     tags: list[str] = Field(default_factory=list, description="Task tags")
 
     # Hierarchical Relationships (2026-01-30 - Hierarchical Pattern)
-    parent_uid: str | None = Field(None, description="Parent task UID for subtask decomposition")
+    parent_uid: str | None = Field(
+        default=None, description="Parent task UID for subtask decomposition"
+    )
     progress_weight: float = Field(
         default=1.0,
         ge=0.0,
@@ -58,12 +60,14 @@ class TaskCreateRequest(CreateRequestBase):
     )
 
     # Recurrence
-    recurrence_pattern: RecurrencePattern | None = Field(None, description="Recurrence pattern")
-    recurrence_end_date: date | None = Field(None, description="End date for recurrence")
+    recurrence_pattern: RecurrencePattern | None = Field(
+        default=None, description="Recurrence pattern"
+    )
+    recurrence_end_date: date | None = Field(default=None, description="End date for recurrence")
 
     # Learning Integration (OPTIONAL)
-    fulfills_goal_uid: str | None = Field(None, description="Goal this task fulfills")
-    reinforces_habit_uid: str | None = Field(None, description="Habit this task reinforces")
+    fulfills_goal_uid: str | None = Field(default=None, description="Goal this task fulfills")
+    reinforces_habit_uid: str | None = Field(default=None, description="Habit this task reinforces")
     applies_knowledge_uids: list[str] = Field(
         default_factory=list, description="Knowledge being applied"
     )
@@ -71,10 +75,14 @@ class TaskCreateRequest(CreateRequestBase):
         default_factory=list, description="Aligned principles"
     )
     goal_progress_contribution: float = Field(
-        0.0, ge=0.0, le=1.0, description="Goal progress contribution (0-1)"
+        default=0.0, ge=0.0, le=1.0, description="Goal progress contribution (0-1)"
     )
-    knowledge_mastery_check: bool = Field(False, description="Is this a knowledge validation task?")
-    habit_streak_maintainer: bool = Field(False, description="Does this maintain a habit streak?")
+    knowledge_mastery_check: bool = Field(
+        default=False, description="Is this a knowledge validation task?"
+    )
+    habit_streak_maintainer: bool = Field(
+        default=False, description="Does this maintain a habit streak?"
+    )
     prerequisite_knowledge_uids: list[str] = Field(
         default_factory=list, description="Required knowledge"
     )
@@ -102,17 +110,17 @@ class TaskCreateRequest(CreateRequestBase):
 class TaskUpdateRequest(UpdateRequestBase):
     """External API request for updating a task."""
 
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     due_date: date | None = None
     scheduled_date: date | None = None
-    duration_minutes: int | None = Field(None, ge=5, le=480)
+    duration_minutes: int | None = Field(default=None, ge=5, le=480)
     priority: Priority | None = None
     status: EntityStatus | None = None
     project: str | None = None
     assignee: str | None = None
     tags: list[str] | None = None
-    actual_minutes: int | None = Field(None, ge=0, description="Actual time spent")
+    actual_minutes: int | None = Field(default=None, ge=0, description="Actual time spent")
     completion_date: date | None = None
 
     # Learning Integration Updates (OPTIONAL)
@@ -120,7 +128,7 @@ class TaskUpdateRequest(UpdateRequestBase):
     reinforces_habit_uid: str | None = None
     applies_knowledge_uids: list[str] | None = None
     aligned_principle_uids: list[str] | None = None
-    goal_progress_contribution: float | None = Field(None, ge=0.0, le=1.0)
+    goal_progress_contribution: float | None = Field(default=None, ge=0.0, le=1.0)
     knowledge_mastery_check: bool | None = None
     habit_streak_maintainer: bool | None = None
     prerequisite_knowledge_uids: list[str] | None = None
@@ -189,7 +197,6 @@ class TaskResponse(ResponseBase):
     days_until_due: int | None
     progress_percentage: float
     learning_alignment_score: float
-    impact_score: float
 
 
 class TaskFilterRequest(FilterRequestBase):
@@ -210,8 +217,8 @@ class TaskAssignmentRequest(RequestBase):
     """Request model for assigning tasks."""
 
     assigned_to: str = Field(min_length=1, description="User to assign task to")
-    notes: str | None = Field(None, description="Assignment notes")
-    due_date: date | None = Field(None, description="Override due date for assignment")
+    notes: str | None = Field(default=None, description="Assignment notes")
+    due_date: date | None = Field(default=None, description="Override due date for assignment")
 
     # Shared validators (DRY pattern)
     _validate_due_date = validate_future_date("due_date")
@@ -221,9 +228,11 @@ class TaskStatusUpdateRequest(RequestBase):
     """Request model for updating task status."""
 
     status: EntityStatus = Field(description="New task status")
-    notes: str | None = Field(None, description="Status change notes")
-    completion_date: date | None = Field(None, description="Completion date if marking complete")
-    actual_minutes: int | None = Field(None, ge=0, description="Actual time spent")
+    notes: str | None = Field(default=None, description="Status change notes")
+    completion_date: date | None = Field(
+        default=None, description="Completion date if marking complete"
+    )
+    actual_minutes: int | None = Field(default=None, ge=0, description="Actual time spent")
 
     @field_validator("completion_date")
     @classmethod

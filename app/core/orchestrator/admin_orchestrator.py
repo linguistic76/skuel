@@ -13,6 +13,7 @@ See: /docs/patterns/UI_ORCHESTRATOR_PATTERN.md
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -109,7 +110,7 @@ class AdminOrchestrator:
     # User Management
     # ------------------------------------------------------------------
 
-    async def get_user(self, uid: str) -> "Result[User | None]":
+    async def get_user(self, uid: UserUID) -> "Result[User | None]":
         """Fetch a single user by UID."""
         return await self._user_service.get_user(uid)
 
@@ -128,7 +129,7 @@ class AdminOrchestrator:
         """Fetch aggregate user counts grouped by role."""
         return await self._admin_stats.get_user_role_counts()
 
-    async def get_user_detail_stats(self, uid: str) -> "Result[dict[str, int]]":
+    async def get_user_detail_stats(self, uid: UserUID) -> "Result[dict[str, int]]":
         """Fetch per-user activity and session stats for the detail view."""
         return await self._admin_stats.get_user_detail_stats(uid)
 

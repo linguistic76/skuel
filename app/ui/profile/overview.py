@@ -123,9 +123,6 @@ def OverviewView(
     return Div(
         header,
         intelligence_section,
-        # Core profile components (always shown)
-        _current_focus_card(context),
-        _velocity_summary(context),
         _domain_progress_grid(context),
         _overview_insights(context),
     )
@@ -192,12 +189,12 @@ def _overview_insights(context: UserContext) -> Div:
             )
         )
 
-    # Check for at-risk habits
-    if context.at_risk_habits:
+    # Check for at-risk habits (rich-context only; silent at standard depth)
+    if at_risk := context.at_risk_habits_or_empty():
         insights.append(
             _insight_item(
                 "warning",
-                f"{len(context.at_risk_habits)} habits at risk of breaking streak",
+                f"{len(at_risk)} habits at risk of breaking streak",
                 "/habits",
             )
         )
@@ -252,63 +249,6 @@ def _insight_item(level: str, message: str, href: str) -> A:
         Span(message),
         href=href,
         cls="flex items-center p-3 bg-background rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground",
-    )
-
-
-def _current_focus_card(context: UserContext) -> Div:
-    """Current task focus — compact inline element."""
-    if not context.current_task_focus:
-        return Div(
-            Span("🎯", cls="text-lg mr-2"),
-            Span(
-                "No current focus set",
-                cls="text-sm text-muted-foreground",
-            ),
-            cls="flex items-center mb-4",
-        )
-
-    # Get task title from rich data if available
-    task_title = "Current Task"
-    for task_data in context.entities_rich.get("tasks", []):
-        task = task_data.get("entity", {})
-        if task.get("uid") == context.current_task_focus:
-            task_title = task.get("title", "Current Task")
-            break
-
-    return Div(
-        Span("🎯", cls="text-lg mr-2"),
-        Span("Focus: ", cls="text-sm font-medium text-muted-foreground"),
-        Span(
-            task_title,
-            cls="text-sm font-medium text-primary",
-        ),
-        cls="flex items-center mb-4",
-    )
-
-
-def _velocity_summary(context: UserContext) -> Div:
-    """Overall velocity — compact inline indicator, not a gray box."""
-    total_velocity = sum(context.velocity_by_domain.values())
-    total_time = sum(context.time_invested_hours_by_domain.values())
-
-    # Determine momentum status
-    if total_velocity > 0.5:
-        momentum = ("🚀", "Strong Momentum", "text-success")
-    elif total_velocity > 0:
-        momentum = ("📈", "Building", "text-primary")
-    elif total_velocity > -0.3:
-        momentum = ("➡️", "Steady", "text-muted-foreground")
-    else:
-        momentum = ("📉", "Slowing", "text-warning")
-
-    icon, label, color = momentum
-
-    return Div(
-        Span(icon, cls="text-lg mr-2"),
-        Span(label, cls=f"text-sm font-medium {color}"),
-        Span(" · ", cls="text-foreground/30 mx-2"),
-        Span(f"{total_time:.1f}h invested", cls="text-sm text-muted-foreground"),
-        cls="flex items-center mb-6",
     )
 
 
@@ -613,10 +553,99 @@ def _chart_visualizations_section() -> Div:
     )
 
 
+def _engaged_ps_section(plan: "DailyWorkPlan") -> "Div | None":
+    """One collapsible row per active PS engagement, surfacing the spawned
+    items that are still on today's plan.
+
+    Engagements that spawned no plan items today still render a header row so
+    consumers can see "you're engaged with X" even when no spawned activity
+    is on today's plan (per ADR-059 bucketing semantics).
+
+    Returns None when ``plan.engaged_ps_groups`` is empty — typical for users
+    who haven't engaged with any PathSteps yet.
+    """
+    if not plan.engaged_ps_groups:
+        return None
+
+    title_lookup: dict[str, str] = {}
+    for t in plan.contextual_tasks:
+        title_lookup[t.uid] = getattr(t, "title", t.uid)
+    for h in plan.contextual_habits:
+        title_lookup[h.uid] = getattr(h, "title", h.uid)
+    for g in plan.contextual_goals:
+        title_lookup[g.uid] = getattr(g, "title", g.uid)
+
+    domain_emojis = {
+        "task": "✅",
+        "habit": "🔄",
+        "event": "📅",
+        "goal": "🎯",
+        "choice": "🤔",
+        "principle": "⚖️",
+    }
+
+    group_blocks = []
+    for group in plan.engaged_ps_groups:
+        ps_slug = group.ps_uid.rsplit(":", 1)[-1] or group.ps_uid
+        state = group.engagement.state
+        state_variant = BadgeT.success if state == "completed" else BadgeT.info
+
+        pending_pairs: list[tuple[str, str]] = []
+        for uid in group.pending_task_uids:
+            pending_pairs.append(("task", uid))
+        for uid in group.pending_habit_uids:
+            pending_pairs.append(("habit", uid))
+        for uid in group.pending_event_uids:
+            pending_pairs.append(("event", uid))
+        for uid in group.pending_goal_uids:
+            pending_pairs.append(("goal", uid))
+        for uid in group.pending_choice_uids:
+            pending_pairs.append(("choice", uid))
+        for uid in group.pending_principle_uids:
+            pending_pairs.append(("principle", uid))
+
+        item_rows = [
+            Div(
+                Span(domain_emojis.get(domain, "•"), cls="mr-2"),
+                Span(title_lookup.get(uid, uid), cls="text-sm"),
+                cls="flex items-center py-1 pl-4",
+            )
+            for domain, uid in pending_pairs[:6]
+        ]
+
+        total_spawned = len(group.engagement.spawned_instance_uids)
+        progress_text = (
+            f"{len(pending_pairs)} of {total_spawned} pending" if total_spawned else "engaged"
+        )
+
+        group_blocks.append(
+            Div(
+                Div(
+                    Span("📘", cls="mr-2"),
+                    Span(ps_slug, cls="text-sm font-medium"),
+                    Badge(state, variant=state_variant, cls="ml-2 text-xs"),
+                    Span(progress_text, cls="text-xs text-muted-foreground ml-2"),
+                    cls="flex items-center py-1",
+                ),
+                *item_rows,
+                cls="mb-2",
+            )
+        )
+
+    return Div(
+        P("🔗 ENGAGED PATHSTEPS", cls="text-xs font-bold text-primary mb-1"),
+        *group_blocks,
+        cls="mb-3",
+    )
+
+
 def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
     """Daily work plan card showing today's optimal focus.
 
     Displays prioritized items across domains with capacity utilization.
+    When the user has active PS engagements, those are surfaced above the
+    flat priority lists so it's visible which plan items came from engaged
+    curriculum.
 
     Args:
         plan: DailyWorkPlan from intelligence service (REQUIRED)
@@ -624,6 +653,9 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
     # Capacity bar
     capacity_percent = int(plan.workload_utilization * 100)
     capacity_color = "bg-success" if plan.fits_capacity else "bg-warning"
+
+    # Engaged PS section (None when no active engagements)
+    engaged_section = _engaged_ps_section(plan)
 
     # Build priority sections
     priority_sections = []
@@ -753,6 +785,8 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
             ),
             cls="mb-4",
         ),
+        # Engaged PS groups (above flat priorities — these are explicit commitments)
+        engaged_section,
         # Priority sections
         *priority_sections,
         # Warnings

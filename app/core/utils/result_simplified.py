@@ -25,7 +25,9 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
+
+    from core.ports.query_types import Violation
 
 
 def _utcnow() -> datetime:
@@ -102,6 +104,16 @@ class ErrorContext:
         return (
             f"[{self.severity.value}] {self.category.value}:{self.code} - {self.message}{location}"
         )
+
+    @property
+    def display_message(self) -> str:
+        """User-facing message, falling back to developer message when unset.
+
+        Use this whenever rendering an error to the UI (banners, form errors,
+        toast notifications). Prefer the safe ``user_message`` when the factory
+        set one; fall back to ``message`` so nothing silently renders empty.
+        """
+        return self.user_message or self.message
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization (internal/logging use)."""
@@ -363,7 +375,7 @@ class Result[T]:
                 )
         return self  # type: ignore[return-value]
 
-    async def aflat_map(self, func: Callable[[T], Result[U]]) -> Result[U]:
+    async def aflat_map(self, func: Callable[[T], Result[U] | Awaitable[Result[U]]]) -> Result[U]:
         """
         Async version of and_then for chaining async Result-returning operations.
 
@@ -440,17 +452,15 @@ class Result[T]:
         if self.is_error and self._error:
             try:
                 new_error = func(self._error)
-                if not isinstance(new_error, ErrorContext):
-                    logger.warning(  # type: ignore[unreachable]
-                        f"map_error function must return ErrorContext, "
-                        f"got {type(new_error).__name__}. Preserving original error."
-                    )
-                    return self
-                return Result.fail(new_error)
             except Exception as e:  # intentional-broad: side-effect must not propagate
-                # If transformation fails, preserve original error
                 logger.warning(f"map_error function raised exception: {e}")
                 return self
+            if not isinstance(new_error, ErrorContext):
+                logger.warning(  # type: ignore[unreachable]
+                    f"map_error function returned {type(new_error).__name__}, expected ErrorContext"
+                )
+                return self
+            return Result.fail(new_error)
         return self
 
     def inspect(self, func: Callable[[T], None]) -> Result[T]:
@@ -789,6 +799,32 @@ class Errors:
             details=details,
             user_message=message,
             source_location=ErrorContext.capture_current_location(),
+        )
+
+    @staticmethod
+    def ps_validation_report(violations: list[Violation]) -> ErrorContext:
+        """PS-save validation failure with a structured list of violations.
+
+        Wraps ``Errors.business`` with rule="ps_template_validation" and packs
+        the violations list into ``details["violations"]`` so the route layer
+        can read a typed structure (``list[Violation]``) instead of decoding
+        ``details`` by hand.
+
+        Use when PathStep save validation finds one or more broken
+        cross-template references (free-order authoring, deferred validation).
+
+        Returns:
+            ErrorContext with category=BUSINESS,
+            code="BUSINESS_PS_TEMPLATE_VALIDATION",
+            details["violations"] = the input list.
+        """
+        n = len(violations)
+        verb = "prevent" if n != 1 else "prevents"
+        suffix = "s" if n != 1 else ""
+        return Errors.business(
+            rule="ps_template_validation",
+            message=f"{n} issue{suffix} {verb} saving this PathStep",
+            violations=violations,
         )
 
     @staticmethod

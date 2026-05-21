@@ -31,23 +31,21 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | `get_user_progress()` | I | I | I | I | I | I | I | I | I | I |
 | **Protocol (DomainSearchOperations)** |
 | `get_prioritized()` | D | D | D | D | D | D | D | D | D | D |
+| `get_upcoming()` | I | I | O | I | I | O | - | - | - | - |
+| `get_overdue()` | I | I | O | I | I | O | - | - | - | - |
+| `get_active()` | I | I | O | I | I | O | - | - | - | - |
 | `intelligent_search()` | - | D | D | D | - | - | - | D | D | D |
 | **Domain-Specific** |
 | `get_blocking_tasks()` | D | - | - | - | - | - | - | - | - | - |
 | `get_blocked_tasks()` | D | - | - | - | - | - | - | - | - | - |
 | `get_by_priority()` | D | D | - | - | - | - | - | - | - | - |
-| `get_overdue()` | D | - | - | - | - | - | - | - | - | - |
-| `get_due_soon()` | D | - | - | - | - | - | - | - | - | - |
 | `get_pending()` | D | - | - | - | D | - | - | - | - | - |
 | `get_by_progress()` | - | D | - | - | - | - | - | - | - | - |
-| `get_active_*()` | - | D | D | - | - | D | - | - | - | - |
 | `get_by_frequency()` | - | - | D | - | - | - | - | - | - | - |
 | `get_by_streak_status()` | - | - | D | - | - | - | - | - | - | - |
-| `get_upcoming()` | - | - | - | D | - | - | - | - | - | - |
 | `get_by_date_range()` | - | - | - | D | - | - | - | - | - | - |
 | `get_by_urgency()` | - | - | - | - | D | - | - | - | - | - |
 | `get_by_strength()` | - | - | - | - | - | D | - | - | - | - |
-| `search_chunks()` | - | - | - | - | - | - | D | - | - | - |
 | `find_similar_content()` | - | - | - | - | - | - | D | - | - | - |
 | `get_for_learning_path()` | - | - | - | - | - | - | - | D | - | - |
 | `get_by_path_type()` | - | - | - | - | - | - | - | - | D | - |
@@ -227,8 +225,6 @@ _graph_enrichment_patterns = [
 | `get_blocking_tasks` | `(uid: str, user_uid: UserUID) -> Result[list[Task]]` | Tasks blocking this task |
 | `get_blocked_tasks` | `(uid: str, user_uid: UserUID) -> Result[list[Task]]` | Tasks blocked by this task |
 | `get_by_priority` | `(priority: Priority, user_uid: UserUID) -> Result[list[Task]]` | Filter by priority level |
-| `get_overdue` | `(user_uid: UserUID) -> Result[list[Task]]` | Tasks past due date |
-| `get_due_soon` | `(user_uid: UserUID, days: int = 7) -> Result[list[Task]]` | Tasks due within N days |
 | `get_pending` | `(user_uid: UserUID) -> Result[list[Task]]` | Tasks with pending status |
 | `search_by_parent_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Task]]` | Tasks fulfilling a goal |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Task]]` | Smart prioritization |
@@ -258,7 +254,6 @@ _graph_enrichment_patterns = [
 | `get_by_priority` | `(priority: Priority, user_uid: UserUID) -> Result[list[Goal]]` | Filter by priority |
 | `get_by_progress` | `(min_progress: float, max_progress: float, user_uid: UserUID) -> Result[list[Goal]]` | Filter by progress range |
 | `get_by_milestone_status` | `(status: str, user_uid: UserUID) -> Result[list[Goal]]` | Filter by milestone status |
-| `get_active_goals` | `(user_uid: UserUID) -> Result[list[Goal]]` | Active goals only |
 | `get_goals_needing_attention` | `(user_uid: UserUID) -> Result[list[Goal]]` | Stalled or at-risk goals |
 | `get_goals_with_tasks` | `(user_uid: UserUID) -> Result[list[Goal]]` | Goals with linked tasks |
 | `get_aligned_with_principle` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Goal]]` | Goals aligned with principle |
@@ -289,8 +284,8 @@ _graph_enrichment_patterns = [
 |--------|-----------|-------------|
 | `get_by_frequency` | `(frequency: str, user_uid: UserUID) -> Result[list[Habit]]` | Filter by frequency (daily/weekly/etc) |
 | `get_by_streak_status` | `(min_streak: int, user_uid: UserUID) -> Result[list[Habit]]` | Filter by streak length |
-| `get_active_habits` | `(user_uid: UserUID) -> Result[list[Habit]]` | Active habits only |
 | `get_habits_needing_attention` | `(user_uid: UserUID) -> Result[list[Habit]]` | Broken streaks or declining |
+| `get_user_due_today` | `(user_uid: UserUID) -> Result[list[Habit]]` | Habits due today (frequency-window logic) |
 | `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Habit]]` | AI-enhanced search |
 | `get_habits_by_time_of_day` | `(time_of_day: str, user_uid: UserUID) -> Result[list[Habit]]` | Morning/afternoon/evening habits |
 | `get_habit_chain_candidates` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Potential habit stacking |
@@ -392,8 +387,7 @@ _graph_enrichment_patterns = [
 | `get_inspiring_habits` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Habits inspired by principle |
 | `get_for_choice` | `(choice_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Relevant principles for decision |
 | `get_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles aligned with goal |
-| `get_active_principles` | `(user_uid: UserUID) -> Result[list[Principle]]` | Active principles only |
-| `get_needing_review` | `(user_uid: UserUID, days: int = 90) -> Result[list[Principle]]` | Principles not reviewed recently |
+| `get_needing_review` | `(user_uid: UserUID, days: int = 90) -> Result[list[Principle]]` | Principles not reviewed recently (also drives the overridden `get_overdue`) |
 | `get_related_principles` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Related principles |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Principle]]` | Smart prioritization |
 
@@ -428,10 +422,12 @@ _graph_enrichment_patterns = [
 | `search_by_title_template` | `(template: str, domain: Domain) -> Result[list[Ku]]` | Pattern-based title search |
 | `search_by_tags` | `(tags: list[str], match_all: bool = False) -> Result[list[Ku]]` | Tag-based search |
 | `search_by_facets` | `(facets: dict) -> Result[list[Ku]]` | Multi-facet filtering |
-| `search_chunks` | `(query: str, limit: int = 10) -> Result[list[dict]]` | Semantic chunk search |
-| `search_chunks_with_facets` | `(query: str, facets: dict) -> Result[list[dict]]` | Chunk search with filters |
 | `get_content_chunks` | `(ku_uid: str) -> Result[list[dict]]` | Get all chunks for a KU |
 | `find_similar_content` | `(ku_uid: str, limit: int = 5) -> Result[list[Ku]]` | Semantic similarity search |
+
+> Chunk-level vector search now lives on `Neo4jVectorSearchService.find_similar_chunks_by_text()`
+> — see `docs/guides/ASKESIS_SEARCH_ARCHITECTURE.md`. The legacy in-memory
+> `search_chunks` keyword path on `EntityChunkingService` was removed.
 | `search_by_features` | `(features: dict) -> Result[list[Ku]]` | Feature-based search |
 | `search_with_user_context` | `(query: str, user_uid: UserUID) -> Result[list[Ku]]` | Personalized search |
 | `search_with_semantic_intent` | `(intent: str, user_uid: UserUID) -> Result[list[Ku]]` | Intent-based discovery |

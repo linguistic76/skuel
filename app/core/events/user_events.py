@@ -7,6 +7,7 @@ Events published by UserService for user context and preference changes.
 Event Catalog:
 - user.context_invalidated - User context needs refresh
 - user.preferences_changed - User preferences updated
+- user.deleted - User account deleted (soft or hard)
 
 Subscribers:
 - AskesisService (refresh AI context)
@@ -88,6 +89,41 @@ class UserPreferencesChanged(BaseEvent):
 # ============================================================================
 # USER ACTIVITY EVENTS
 # ============================================================================
+
+
+@dataclass(frozen=True)
+class UserDeleted(BaseEvent):
+    """
+    Published when a user account is deleted.
+
+    Two deletion modes, both covered here:
+    - Soft delete: ``hard_delete=False``. User node stays, status flipped to
+      DELETED, PII scrubbed. OWNS-linked entities preserved so teachers can
+      still render historical submissions.
+    - Hard delete: ``hard_delete=True``. Admin-only GDPR erasure. User node +
+      every OWNS-linked entity DETACH DELETEd.
+
+    Subscribers:
+    - AuditLogService (record deletion for compliance trail)
+    - SessionService (invalidate active sessions for the deleted user)
+    - SearchIndex (drop user from search personalization)
+    """
+
+    user_uid: UserUID
+
+    # False = soft delete (reversible, PII scrubbed); True = hard delete (GDPR erasure).
+    hard_delete: bool = False
+
+    # Admin UID that initiated the deletion (for hard-delete audit trail).
+    # None for self-initiated soft deletes.
+    deleted_by: UserUID | None = None
+
+    # Free-form reason (required by admin UI for hard-delete; optional otherwise).
+    reason: str = ""
+
+    @property
+    def event_type(self) -> str:
+        return "user.deleted"
 
 
 @dataclass(frozen=True)

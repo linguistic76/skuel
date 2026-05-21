@@ -43,9 +43,9 @@ class InteractionService(BaseService[BackendOperations[Interaction], Interaction
     Stores situated learning-loop events in Neo4j with their curriculum context:
     - (Interaction)-[:INTERACTION_DURING]->(PathStep)
     - (Interaction)-[:INTERACTION_WITHIN]->(LearningPath)
-    - (Interaction)-[:RECORDS]->(ExerciseSubmission|...)
+    - (Interaction)-[:RECORDS]->(UserEntry|...)
 
-    Called by SubmissionsService after an ExerciseSubmission is created,
+    Called by UserEntryService after a UserEntry is created (ADR-054),
     capturing the user's PathStep and LearningPath context at that moment.
     """
 

@@ -16,7 +16,7 @@ from ui.patterns.page_header import PageHeader
 from ui.tokens import Container, Spacing
 
 
-def render_exercise_view(exercise: Any, required_knowledge: list | None = None) -> Any:  # type: ignore[type-arg]
+def render_exercise_view(exercise: Any, required_knowledge: list | None = None) -> Any:
     """View exercise details - TRANSPARENCY: Show exact prompt."""
     # Example entry for preview
     example_entry = "Today I felt overwhelmed by all the tasks on my plate..."
@@ -236,7 +236,7 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
         instructions_section,
         ButtonLink(
             "← Back to Library",
-            href="/library",
+            href="/profile?tab=library",
             variant=ButtonT.ghost,
         ),
         cls=f"{Container.STANDARD} {Spacing.PAGE}",

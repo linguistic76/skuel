@@ -196,10 +196,10 @@ SEARCH_FIELD_CONFIG: dict[EntityType | NonKuDomain, SearchFieldConfig] = {
         filter_fields=("status",),
         order_by="created_at",
     ),
-    EntityType.EXERCISE_SUBMISSION: SearchFieldConfig(
-        text_fields=("title", "original_filename", "processed_content"),
+    EntityType.USER_ENTRY: SearchFieldConfig(
+        text_fields=("title", "original_filename", "processed_content", "content"),
         array_fields=("tags",),
-        filter_fields=("entity_type", "status"),
+        filter_fields=("entity_type", "status", "pipeline"),
         order_by="created_at",
     ),
     # =========================================================================

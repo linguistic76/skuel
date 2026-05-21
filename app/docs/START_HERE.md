@@ -33,21 +33,19 @@ Run the app: `./dev up-neo4j` (Terminal 1), then `./dev serve` (Terminal 2). See
 
 ---
 
-## 2. The 22 Entity Types
+## 2. The 20 Entity Types
 
-Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a Neo4j node. The `entity_type` field says which kind it is. There are 22 types in five groups:
+Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a Neo4j node. The `entity_type` field says which kind it is. There are 20 types in four groups:
 
 **Activities** (user-owned, daily life): Task, Goal, Habit, Event, Choice, Principle
 
 **Curriculum** (admin-created, shared): Ku, PathStep, LearningPath, Exercise, Resource
 
-**Submissions & Reports** (the learning loop): ExerciseSubmission, ExerciseReport, ActivityReport, RevisedExercise, Interaction
-
-**Journal** (standalone domain): JeInput, JeOutput
+**Submissions & Reports** (the learning loop): UserEntry, ExerciseReport, ActivityReport, RevisedExercise, Interaction
 
 **Other**: FormTemplate, FormSubmission, LifePath, Groups
 
-The learning loop is SKUEL's core purpose: **PathStep → Exercise → Submission → Report → RevisedExercise → ...** See [Learning Loop Architecture](architecture/LEARNING_LOOP_ARCHITECTURE.md).
+The learning loop is SKUEL's core purpose (4 phases): **Exercise → UserEntry → ExerciseReport → RevisedExercise → ...** PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)`. See [Learning Loop Architecture](architecture/LEARNING_LOOP_ARCHITECTURE.md).
 
 Full reference: [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)
 

@@ -1,13 +1,16 @@
 """
-RevisedExercise - Five-Phase Learning Loop Domain Model
+RevisedExercise - Four-Phase Learning Loop Domain Model
 ========================================================
 
 Frozen dataclass for teacher-created revised exercise instructions that
-address specific feedback gaps. Part of the five-phase learning loop:
+address specific feedback gaps. Part of the four-phase learning loop:
 
-    PathStep → Exercise v1 → Submission v1 → ExerciseReport v1
-                                                  ↓
-                                            RevisedExercise v2 → Submission v2 → ...
+    Exercise v1 → UserEntry v1 → ExerciseReport v1
+                                      ↓
+                                RevisedExercise v2 → UserEntry v2 → ...
+
+PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``
+(denormalized as ``Exercise.path_step_uid`` for PERSONAL scope).
 
 RevisedExercise is teacher-owned but student-targeted: the teacher creates
 targeted revision instructions based on feedback, and the student submits
@@ -27,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import FeedbackCategory
-from core.models.enums.submissions_enums import SubmissionModality
+from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.user_owned_entity import UserOwnedEntity
 
 if TYPE_CHECKING:
@@ -61,13 +64,13 @@ class RevisedExercise(UserOwnedEntity):
     feedback gaps from an ExerciseReport entity. It links back to:
     - The original Exercise it revises (via REVISES_EXERCISE)
     - The ExerciseReport it responds to (via RESPONDS_TO_REPORT)
-    - The ExerciseSubmission that was evaluated (via submission_uid)
+    - The UserEntry that was evaluated (via submission_uid)
 
     Fields (12 exercise-specific):
     - revision_number: Which revision iteration (1, 2, 3, ...)
     - original_exercise_uid: UID of the original Exercise being revised
     - report_uid: UID of the ExerciseReport this addresses
-    - submission_uid: UID of the ExerciseSubmission that was evaluated
+    - submission_uid: UID of the UserEntry that was evaluated
     - student_uid: UID of the student this revision targets
     - instructions: Plain text instructions for the revision
     - model: Which LLM to use for feedback generation
@@ -171,34 +174,17 @@ class RevisedExercise(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | RevisedExerciseDTO") -> "RevisedExercise":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | RevisedExerciseDTO") -> "RevisedExercise":
         """Create RevisedExercise from an EntityDTO or RevisedExerciseDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "RevisedExerciseDTO":  # type: ignore[override]
+    def to_dto(self) -> "RevisedExerciseDTO":
         """Convert RevisedExercise to domain-specific RevisedExerciseDTO."""
-        import dataclasses
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(RevisedExerciseDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if f.name == "feedback_points":
-                # Serialize FeedbackPoints to list of dicts for DTO
-                value = [p.to_dict() for p in value] if value else []
-            elif f.name == "expected_modality":
-                # Serialize enum to string for DTO
-                value = value.value if value else None
-            elif isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return RevisedExerciseDTO(**kwargs)
+        return domain_to_dto(self, RevisedExerciseDTO)
 
     def __str__(self) -> str:
         return f"RevisedExercise(uid={self.uid}, title='{self.title}')"

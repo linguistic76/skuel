@@ -1,3 +1,4 @@
+# mypy: disable-error-code="call-arg,attr-defined,arg-type"
 """
 Relationship-First API Examples
 ================================

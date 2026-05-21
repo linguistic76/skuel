@@ -16,10 +16,8 @@ if TYPE_CHECKING:
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
-    from core.models.journal.je_input import JeInput  # noqa: F401
-    from core.models.journal.je_output import JeOutput  # noqa: F401
+    from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
-    from core.models.submissions.report_schedule import ReportSchedule  # noqa: F401
 
 
 class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
@@ -31,7 +29,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     get_shares_granted, get_report_schedule.
     """
 
-    async def get_by_uid(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
         """Get a single ActivityReport by UID, scoped to the owning user."""
         return await self.execute_query(
             """

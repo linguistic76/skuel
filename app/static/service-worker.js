@@ -5,7 +5,7 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
-const CACHE_VERSION = 'skuel-v1';
+const CACHE_VERSION = 'skuel-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -17,6 +17,13 @@ const PRECACHE_URLS = [
   '/static/js/focus_trap.js',
   '/static/icons/icon-192x192.png',
   '/static/icons/icon-512x512.png',
+  '/static/vendor/alpinejs/alpine.3.14.8.min.js',
+  '/static/vendor/htmx.org/htmx.1.9.10.min.js',
+  '/static/vendor/htmx.org/ext/sse.js',
+  '/static/vendor/htmx.org/ext/ws.js',
+  '/static/vendor/htmx.org/ext/response-targets.js',
+  '/static/vendor/chart.js/chart.umd.js',
+  '/static/vendor/chart.js/chartjs-adapter-date-fns.3.min.js',
 ];
 
 // Install: pre-cache static assets

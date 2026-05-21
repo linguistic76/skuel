@@ -437,7 +437,7 @@ class _CompletionMixin:
             return Result.fail(habit_result)
 
         # Clear reminder config
-        updates = {
+        updates: dict[str, Any] = {
             "reminder_time": None,
             "reminder_days": [],
             "reminder_enabled": False,

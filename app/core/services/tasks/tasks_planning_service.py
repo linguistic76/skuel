@@ -31,7 +31,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.task.task import Task
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.services.base_planning_service import BasePlanningService
 from core.services.cross_domain import KnowledgeApplyingTask
 from core.services.infrastructure import PrerequisiteChecker
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.ports.query_types import RichEntityItem
     from core.services.cross_domain import CrossDomainQueryService
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext, UserContext
 
 
 class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
@@ -103,7 +103,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         two fields — reconstructing a full ``Task`` would be waste.
         """
         result = await self.cross_domain_query.get_tasks_applying_knowledge(
-            knowledge_uid, user_uid, limit
+            EntityUID(knowledge_uid), user_uid, limit
         )
         if result.is_error:
             return Result.fail(result)
@@ -178,7 +178,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         if include_transitive:
             dep_uids = await self._get_transitive_dependency_uids(task_uid, max_depth)
         else:
-            dep_uids = await self._get_related_uids("prerequisite_tasks", task_uid)
+            dep_uids = await self._get_related_uids("prerequisite_tasks", EntityUID(task_uid))
         deps = await self._get_tasks_by_uids(dep_uids)
 
         # Batch-fetch goals for all deps in one Cypher round-trip.
@@ -225,7 +225,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
 
         return Result.ok(
             ContextualDependencies(
-                entity_uid=task_uid,
+                entity_uid=EntityUID(task_uid),
                 entity_type="Task",
                 ready_dependencies=tuple(ready),
                 blocked_dependencies=tuple(blocked),
@@ -237,7 +237,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     @with_error_handling("get_actionable_tasks_for_user", error_type="database")
     async def get_actionable_tasks_for_user(
         self,
-        context: UserContext,
+        context: RichUserContext,
         limit: int = 10,
     ) -> Result[list[ContextualTask]]:
         """
@@ -268,31 +268,14 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
 
         Returns:
             Result[list[ContextualTask]] - sorted by priority (highest first)
-            Returns error if entities_rich["tasks"] is not populated
+            Raises RichContextRequiredError if context was not built via build_rich().
         """
         from core.models.context_types import ContextualTask
 
-        # FAIL-FAST: Validate rich context is available
-        rich_tasks = context.entities_rich.get("tasks", [])
-        if not rich_tasks:
-            if len(context.active_task_uids) > 0:
-                # User has active tasks but rich context not populated
-                return Result.fail(
-                    Errors.system(
-                        message=(
-                            f"Rich context not populated for {len(context.active_task_uids)} active tasks. "
-                            "MEGA-QUERY may not have been executed. "
-                            "Use user_service.get_rich_unified_context() to build complete context."
-                        ),
-                        operation="get_actionable_tasks_for_user",
-                    )
-                )
-            # No active tasks - return empty list (not an error)
-            return Result.ok([])
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         # Build lookup from rich context for O(1) access
         rich_tasks_by_uid: dict[str, RichEntityItem] = {}
-        for task_data in rich_tasks:
+        for task_data in context.entities_rich.get("tasks", []):
             task_dict = task_data.get("entity", {})
             uid = task_dict.get("uid")
             if uid:
@@ -334,11 +317,12 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
             if readiness < 0.7:
                 continue
 
-            # Get goal associations from context
-            goal_uids = context.tasks_by_goal.get(task_uid, [])
+            # Get goal associations from context (tasks_by_goal is rich-context only)
+            tasks_by_goal = context.tasks_by_goal_or_empty()
+            goal_uids = tasks_by_goal.get(task_uid, [])
             if not goal_uids:
                 # Reverse lookup: find goals that contain this task
-                for g_uid, t_uids in context.tasks_by_goal.items():
+                for g_uid, t_uids in tasks_by_goal.items():
                     if task_uid in t_uids:
                         goal_uids.append(g_uid)
 

@@ -47,7 +47,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Choice, GraphContext]]:
         """Domain-named alias for get_with_context(). See shared base."""
-        return await self.get_with_context(uid, depth)  # type: ignore[return-value]
+        return await self.get_with_context(uid, depth)
 
     @requires_graph_intelligence("get_decision_intelligence")
     async def get_decision_intelligence(
@@ -182,9 +182,9 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         related_goals = supporting_goals + conflicting_goals
 
         # Note: Tasks/habits impact analysis not in choice cross-domain context
-        affected_tasks = []
+        affected_tasks: list[Any] = []
         affected_goals = related_goals + conflicting_goals
-        affected_habits = []
+        affected_habits: list[Any] = []
 
         # Calculate decision complexity using choice domain method
         complexity = choice.calculate_decision_complexity()
@@ -411,8 +411,8 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
 
         # Extract affected entities (backward compatibility)
         affected_goals = supporting_goals + conflicting_goals
-        affected_tasks = []  # Not in choice cross-domain context
-        affected_habits = []  # Not in choice cross-domain context
+        affected_tasks: list[Any] = []  # Not in choice cross-domain context
+        affected_habits: list[Any] = []  # Not in choice cross-domain context
 
         # Calculate impact summary with mutable accumulation
         total_affected = (

@@ -156,23 +156,13 @@ class PrincipleReflectionDTO:
         self.reflection_quality_score = self._calculate_quality_score()
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for database operations."""
-        from dataclasses import asdict
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-        from core.models.dto_helpers import convert_datetimes_to_iso
-
-        data = asdict(self)
-
-        # Convert alignment_level enum to string
-        data["alignment_level"] = self.alignment_level.value
-
-        # Convert dates and datetimes
-        if isinstance(data.get("reflection_date"), date):
-            data["reflection_date"] = data["reflection_date"].isoformat()
-
-        convert_datetimes_to_iso(data, ["created_at", "updated_at"])
-
-        return data
+        return dto_to_dict(
+            self,
+            enum_fields=[],
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PrincipleReflectionDTO":

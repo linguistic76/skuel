@@ -1,6 +1,6 @@
 """Personal header — Focus + Velocity compact display.
 
-Shared between /home and /profile pages. Requires UserContext.
+Used at the top of the /profile page. Requires UserContext.
 
 For pages that don't already have UserContext loaded (e.g. /tasks),
 use ``personal_header_placeholder()`` — an HTMX div that lazy-loads

@@ -26,7 +26,6 @@ from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import UserUID
-from core.ports import get_enum_value
 
 
 @dataclass
@@ -56,16 +55,14 @@ class UserOwnedDTO(EntityDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including user ownership fields."""
-        data = super().to_dict()
-        data["user_uid"] = self.user_uid
-        data["priority"] = self.priority
-        data["visibility"] = get_enum_value(self.visibility)
-        return data
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
 
-    # =========================================================================
-    # DESERIALIZATION
-    # =========================================================================
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "visibility"],
+            datetime_fields=["created_at", "updated_at"],
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> UserOwnedDTO:

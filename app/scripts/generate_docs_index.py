@@ -19,6 +19,7 @@ import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from core.utils.frontmatter import parse_frontmatter
 
@@ -142,7 +143,7 @@ def generate_index_markdown(docs: list[DocMeta]) -> str:
     ]
 
     # Group by category
-    categories = {}
+    categories: dict[str, list[Any]] = {}
     for doc in docs:
         cat = doc.category
         if cat not in categories:
@@ -238,7 +239,7 @@ def generate_index_markdown(docs: list[DocMeta]) -> str:
     lines.append("")
 
     # By status
-    status_counts = {}
+    status_counts: dict[str, int] = {}
     for doc in docs:
         status_counts[doc.status] = status_counts.get(doc.status, 0) + 1
 

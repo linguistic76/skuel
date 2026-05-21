@@ -422,7 +422,7 @@ class HabitsCompletionService:
             return completions_result
 
         # Group completions by habit
-        habit_completions = {}
+        habit_completions: dict[str, list[HabitCompletion]] = {}
         for item in completions_result.value:
             if isinstance(item, dict):
                 dto = HabitCompletionDTO.from_dict(item)

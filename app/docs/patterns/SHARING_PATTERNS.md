@@ -155,7 +155,7 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
   which matches all exercise_submissions via `OWNS` + `FULFILLS_EXERCISE`
 - Visibility is NOT changed — teacher access is role-gated, not relationship-gated
 - Entity ownership stays with the student
-- `verify_teacher_access()` checks that the submission is owned by a student (not the teacher)
+- `verify_teacher_has_group_access()` requires teacher and student to share an active `Group` (`(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)`); cross-group teachers get 404
 
 **CLI alternative:** Teachers can bypass the web UI entirely. `scripts/export_submissions.py --teacher-uid <uid>` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; after writing reports to `done/`, `scripts/import_reports.py` posts them back via the same service methods. See ADR-040.
 

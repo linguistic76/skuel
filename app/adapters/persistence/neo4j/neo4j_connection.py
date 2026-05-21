@@ -12,7 +12,7 @@ __version__ = "1.0"
 import os
 from typing import Any
 
-from neo4j import AsyncGraphDatabase, Record
+from neo4j import AsyncDriver, AsyncGraphDatabase, Record
 
 from core.config.settings import get_settings
 
@@ -65,13 +65,14 @@ class Neo4jConnection:
             or get_credential("NEO4J_PASSWORD", fallback_to_env=True)
         )
 
-        self.driver = None
+        self.driver: AsyncDriver | None = None
 
-    async def connect(self):
-        """Establish connection to Neo4j."""
+    async def connect(self) -> AsyncDriver:
+        """Establish connection to Neo4j and return the live driver."""
         if not self.driver:
             self.driver = AsyncGraphDatabase.driver(self.uri, auth=(self.username, self.password))
             logger.info(f"Connected to Neo4j at {self.uri}")
+        return self.driver
 
     async def close(self):
         """Close the connection."""
@@ -103,7 +104,7 @@ class Neo4jConnection:
             async with self.driver.session() as session:
                 result = await session.run("RETURN 1 as test")
                 data = await result.single()
-                return data and data["test"] == 1
+                return data is not None and data["test"] == 1
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Connection test failed: {e}")
             return False

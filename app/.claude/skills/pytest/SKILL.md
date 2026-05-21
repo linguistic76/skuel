@@ -320,7 +320,7 @@ The core learning-loop services have dedicated unit tests using the `_make_servi
 **Key mocking patterns in these tests:**
 - Backend method mocks: `backend.method_name = AsyncMock(return_value=Result.ok([...]))` for per-method return values
 - Event verification: `event_bus.publish_async.assert_awaited_once()` + check event type/fields
-- Access control: `_verify_teacher_access` returns `Result.fail(Errors.not_found(...))` — 404, not 403
+- Access control: `_verify_teacher_has_group_access` returns `Result.fail(Errors.not_found(...))` — 404, not 403
 - `_make_entity(**overrides)` helper using `MagicMock()` with attribute assignment (avoids frozen dataclass construction)
 
 ## Additional Resources

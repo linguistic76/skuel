@@ -186,7 +186,8 @@ warn_unreachable = false
 - `core.utils.result` - Result[T] pattern
 - `adapters.inbound.boundary` + `core.utils.error_boundary` - Error handling
 - `config` - Application configuration
-- `core.ports.*` - Protocol definitions (`disallow_untyped_defs = true`)
+- `core.ports.*` - Protocol definitions (`disallow_untyped_defs = true` + `warn_return_any = true`)
+- `core.auth.*` - Auth boundary (`warn_return_any = true`)
 
 **Medium strictness:**
 - `core.services.*` - Business logic

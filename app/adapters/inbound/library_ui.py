@@ -21,10 +21,11 @@ from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.models.submissions.exercise_submission import ExerciseSubmission
+    from core.models.user_entry.user_entry import UserEntry
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
 from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -92,7 +93,7 @@ def _sub_status_badge(status: str | None) -> Any:
     return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
-def _submission_item(sub: "ExerciseSubmission") -> Div:
+def _submission_item(sub: "UserEntry") -> Div:
     """Single row for a user's exercise submission."""
     status = sub.status.value
 
@@ -118,7 +119,7 @@ def _submission_item(sub: "ExerciseSubmission") -> Div:
     )
 
 
-def render_submissions_list(submissions: "list[ExerciseSubmission]") -> Div:
+def render_submissions_list(submissions: "list[UserEntry]") -> Div:
     """Render the user's exercise submissions for the Library Submissions tab."""
     if not submissions:
         return EmptyState(
@@ -210,22 +211,10 @@ def create_library_ui_routes(
     """
 
     # ========================================================================
-    # LIBRARY HUB PAGE
+    # /library (hub root) is now a tab on /profile?tab=library. Detail and
+    # API routes below remain — they are the "View all" destinations and
+    # HTMX preview endpoints for the Library tab and the in-tab links.
     # ========================================================================
-
-    @rt("/library")
-    async def library_hub(request: Request) -> Any:
-        """Library hub — exercises, submission history, resources, and curriculum."""
-        require_authenticated_user(request)
-        from ui.layouts.base_page import BasePage
-        from ui.library.hub import LibraryHub
-
-        return await BasePage(
-            content=LibraryHub(),
-            title="Library",
-            request=request,
-            active_page="library",
-        )
 
     # ========================================================================
     # HTMX FRAGMENT: EXERCISES TAB
@@ -313,7 +302,7 @@ def create_library_ui_routes(
             content=Div(fragment), active="ku", request=request
         )
 
-    async def _build_ku_fragment(user: str) -> Any:
+    async def _build_ku_fragment(user: UserUID) -> Any:
         """Build the Ku bookmarks fragment content."""
         result = await orchestrator.get_bookmarked_kus(user)
         if result.is_error:
@@ -385,7 +374,7 @@ def create_library_ui_routes(
             )
         return await _build_path_steps_fragment(user)
 
-    async def _build_path_steps_fragment(user: str) -> Any:
+    async def _build_path_steps_fragment(user: UserUID) -> Any:
         """Build the enrolled Path Steps fragment content."""
         result = await orchestrator.get_enrolled_path_steps(user)
         if result.is_error:

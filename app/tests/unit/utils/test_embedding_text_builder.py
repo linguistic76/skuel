@@ -242,7 +242,7 @@ class TestEdgeCases:
         # Create a mock entity type that's not in EMBEDDING_FIELD_MAPS
         data = {"title": "Test"}
         # Use a string cast to bypass enum validation
-        result = build_embedding_text("unknown_type", data)  # type: ignore[arg-type]
+        result = build_embedding_text("unknown_type", data)  # type: ignore[call-overload]
         assert result == ""
 
     def test_all_fields_empty_returns_empty_string(self):

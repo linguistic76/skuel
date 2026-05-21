@@ -1,5 +1,9 @@
 # ADR-040: Teacher Exercise Workflow — Groups, Exercises, and Human Review
 
+> **2026-04-14 — Partially superseded by [ADR-053](ADR-053-groups-first-class-and-unified-sharing.md).** The `FOR_GROUP` edge described in this ADR has been retired. Curriculum (Exercise, PathStep, LearningPath) is now shared to groups via `SHARED_WITH_GROUP` through `UnifiedSharingService`. The rest of the workflow — teacher review, submissions, OWNS-based review queue — remains current.
+>
+> **2026-04-14 — Partially superseded by [ADR-054](ADR-054-user-entry-unified-submissions.md).** `ExerciseSubmission` has been collapsed into `UserEntry`. The OWNS-based review queue is replaced by a symmetric `SHARED_WITH_GROUP` + `pipeline='teacher_review'` graph pattern. The learning loop (Exercise → Submission → Report → RevisedExercise) is preserved as emergent relationships rather than a type hierarchy.
+
 **Status:** Accepted
 **Date:** 2026-02-06
 **Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision), 2026-04-02 (review queue + dashboard stats switch to OWNS-based approach), 2026-04-03 (Assignment → Exercise rename throughout)

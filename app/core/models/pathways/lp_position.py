@@ -19,7 +19,8 @@ from typing import Any
 from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
+from core.utils.neo4j_mapper import coerce_float
 
 
 def _get_path_steps(path: LearningPath) -> list[PathStep]:
@@ -29,7 +30,7 @@ def _get_path_steps(path: LearningPath) -> list[PathStep]:
     return []
 
 
-def _get_next_step(path: LearningPath, completed_step_uids: set[str]) -> PathStep | None:
+def _get_next_step(path: LearningPath, completed_step_uids: set[EntityUID]) -> PathStep | None:
     """Get the next incomplete step in a learning path."""
     steps = _get_path_steps(path)
     for step in steps:
@@ -49,14 +50,14 @@ class LpPosition:
 
     # Core Learning State
     active_paths: list[LearningPath]  # User's current learning paths
-    current_steps: dict[str, PathStep]  # Current step in each path (path_uid -> step)
-    completed_step_uids: set[str]  # All completed step UIDs across paths
-    next_recommended: list[str]  # Next step UIDs ready to start
+    current_steps: dict[EntityUID, PathStep]  # Current step in each path (path_uid -> step)
+    completed_step_uids: set[EntityUID]  # All completed step UIDs across paths
+    next_recommended: list[EntityUID]  # Next step UIDs ready to start
 
     # Simple Context Data
     user_uid: UserUID
     generated_at: datetime
-    readiness_scores: dict[str, float]  # step_uid -> readiness (0.0-1.0)
+    readiness_scores: dict[EntityUID, float]  # step_uid -> readiness (0.0-1.0)
 
     def assess_task_relevance(self, task_domain: str, task_knowledge_uids: list[str]) -> float:
         """
@@ -205,7 +206,7 @@ class LpPosition:
                     path_support += 0.2
                     outcome_alignment.append(outcome)
 
-            current_support = float(alignment["learning_path_support"])
+            current_support = coerce_float(alignment["learning_path_support"])
             alignment["learning_path_support"] = max(current_support, path_support)
 
         return alignment
@@ -220,7 +221,7 @@ class LpPosition:
         Returns:
             Learning-contextual principle practice framework
         """
-        practice_frame = {
+        practice_frame: dict[str, list[Any]] = {
             "learning_applications": [],
             "current_step_relevance": [],
             "practice_opportunities": [],
@@ -336,7 +337,7 @@ class LpPosition:
 def create_lp_position(
     user_uid: UserUID,
     active_paths: list[LearningPath],
-    completed_step_uids: set[str],
+    completed_step_uids: set[EntityUID],
     readiness_map: dict[str, bool] | None = None,
 ) -> LpPosition:
     """

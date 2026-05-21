@@ -1,3 +1,4 @@
+# mypy: disable-error-code="import-not-found,import-untyped"
 """
 Integration Test Template - SKUEL Best Practices
 ================================================

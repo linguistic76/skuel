@@ -29,7 +29,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 | KU | `KuBackend` (protocol: `KuOperations`) | ORGANIZES graph, usage summary, namespace/alias search, substance, prereqs, learning state |
 | PS | `PsBackend` (5 mixins, protocol: `PsOperations`) | ORGANIZES, learning state (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED), semantic, knowledge context, adaptive |
 | LP | `LpBackend` (3 mixins, protocol: `LpOperations`) | Path CRUD, HAS_STEP management, intelligence queries, graph context, mastery progress, search queries |
-| Exercise | `ExerciseBackend` | Curriculum links, OWNS/FOR_GROUP, student queries |
+| Exercise | `ExerciseBackend` | Curriculum links, OWNS, student queries (group sharing via UnifiedSharingService, ADR-053) |
 
 `KuBackend`, `PsBackend`, `LpBackend` live in `adapters/persistence/neo4j/backends/curriculum_backends.py`; `ExerciseBackend` lives in `backends/exercise_backends.py` alongside `RevisedExerciseBackend` and `ExerciseReportBackend`. Services call typed backend methods — no inline Cypher in service layer.
 

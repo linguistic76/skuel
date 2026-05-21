@@ -69,7 +69,7 @@ def _find_hasattr_calls(filepath: pathlib.Path) -> list[int]:
     """Find hasattr() calls in production code (not in docstrings/comments)."""
     violations = []
     for lineno, node in _find_ast_nodes(filepath, ast.Call):
-        if isinstance(node.func, ast.Name) and node.func.id == "hasattr":
+        if isinstance(node.func, ast.Name) and node.func.id == "hasattr":  # type: ignore[attr-defined]
             violations.append(lineno)
     return violations
 

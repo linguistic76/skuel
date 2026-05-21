@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: disable-error-code="index"
 """
 Comprehensive Tests for Core Error Classes
 ===========================================

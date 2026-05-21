@@ -67,6 +67,8 @@ from .crud_queries import (
 
 # Domain queries - dependencies and entity-with-context
 from .domain_queries import (
+    # Time-based queries (January 2026)
+    build_active_query,
     # Domain dependencies
     build_choice_dependencies,
     # Domain-specific entity-with-context functions (reinstated January 2026)
@@ -156,6 +158,7 @@ __all__ = [
     "RelationshipSpec",
     "T",
     # Array search queries
+    "build_active_query",
     "build_array_any_match_query",
     "build_array_contains_query",
     "build_batch_get_related_with_filters",

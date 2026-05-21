@@ -43,18 +43,14 @@ class KuDTO(EntityDTO):
     sel_category: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including Ku-specific fields."""
-        data = super().to_dict()
-        data.update(
-            {
-                "namespace": self.namespace,
-                "ku_category": self.ku_category,
-                "aliases": self.aliases,
-                "source": self.source,
-                "sel_category": self.sel_category,
-            }
+        """Convert to dictionary using generic helper."""
+        from core.models.dto_helpers import dto_to_dict
+
+        return dto_to_dict(
+            self,
+            enum_fields=["entity_type", "status", "domain", "sel_category"],
+            datetime_fields=["created_at", "updated_at"],
         )
-        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> KuDTO:

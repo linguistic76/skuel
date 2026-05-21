@@ -11,7 +11,7 @@ from fasthtml.common import Div, Form, NotStr, P, Pre
 from core.config.settings import get_settings
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.forms import LabelInput
+from ui.forms import LabelCheckbox, LabelInput, LabelTextArea
 from ui.patterns import PageHeader, SectionHeader
 
 
@@ -189,6 +189,75 @@ async function ingestDirectory() {
         doneLoading(btn);
     }
 }
+
+function showRegenResult(result, isError) {
+    const statusEl = document.getElementById('ingest-status');
+    const detailsCard = document.getElementById('ingest-details-card');
+    const detailsEl = document.getElementById('ingest-results');
+
+    if (isError) {
+        const msg = (result && result.error && result.error.message)
+            || result.message || result.error || 'Regeneration failed';
+        statusEl.innerHTML = `
+            <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
+                <uk-icon icon="x" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
+                <span class="font-semibold">${msg}</span>
+            </div>`;
+    } else {
+        const succeeded = result.succeeded ?? 0;
+        const processed = result.processed ?? 0;
+        const failed = result.failed ?? 0;
+        const skippedCurrent = result.skipped_already_current ?? 0;
+        const skippedNoBody = result.skipped_no_body ?? 0;
+        const duration = result.duration_seconds ?? 0;
+        const summary = `${succeeded}/${processed} succeeded &middot; ${failed} failed &middot; ${skippedCurrent} already-current &middot; ${skippedNoBody} no-body &middot; ${duration}s`;
+        statusEl.innerHTML = `
+            <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
+                <uk-icon icon="check" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
+                <div>
+                    <span class="font-semibold">Chunks regenerated</span>
+                    <span class="text-sm opacity-80 ml-2">${summary}</span>
+                </div>
+            </div>`;
+    }
+    detailsEl.textContent = JSON.stringify(result, null, 2);
+    detailsEl.classList.remove('text-muted-foreground', 'text-success', 'text-error');
+    detailsEl.classList.add(isError ? 'text-error' : 'text-success');
+    detailsCard.classList.remove('hidden');
+    statusEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function regenerateChunks() {
+    if (_ingesting) return;
+    const btn = event.currentTarget;
+    const raw = (document.getElementById('chunks_parent_uids').value || '').trim();
+    const force = document.getElementById('chunks_force').checked;
+    const parent_uids = raw
+        ? raw.split(/[\\s,]+/).map(s => s.trim()).filter(Boolean)
+        : null;
+    showLoading(btn);
+    try {
+        const headers = {'Content-Type': 'application/json'};
+        const csrfMatch = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+        if (csrfMatch) headers['X-CSRF-Token'] = decodeURIComponent(csrfMatch[1]);
+        const resp = await fetch('/api/chunks/regenerate', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({parent_uids: parent_uids, force: force})
+        });
+        const text = await resp.text();
+        try {
+            const data = JSON.parse(text);
+            showRegenResult(data, !resp.ok);
+        } catch (_) {
+            showRegenResult({error: 'Non-JSON response', status: resp.status, body: text.substring(0, 500)}, true);
+        }
+    } catch (e) {
+        showRegenResult({error: e.message}, true);
+    } finally {
+        doneLoading(btn);
+    }
+}
 </script>
 """
 
@@ -196,6 +265,22 @@ async function ingestDirectory() {
 def build_ingestion_dashboard() -> Any:
     """Build the full ingestion dashboard content."""
     vault_path = _get_default_vault_path()
+
+    regen_form_groups = [
+        LabelTextArea(
+            "Parent UIDs (optional)",
+            name="chunks_parent_uids",
+            id="chunks_parent_uids",
+            placeholder="Comma- or whitespace-separated. Leave blank for all :Content nodes.",
+            rows=3,
+            cls="space-y-2 w-full",
+        ),
+        LabelCheckbox(
+            "Force (regenerate even when chunks match current version)",
+            name="chunks_force",
+            id="chunks_force",
+        ),
+    ]
 
     return Div(
         PageHeader(
@@ -231,6 +316,17 @@ def build_ingestion_dashboard() -> Any:
                 ],
                 button_text="Ingest Directory",
                 onclick="ingestDirectory()",
+            ),
+            _ingestion_card(
+                title="Regenerate Chunks",
+                description=(
+                    "Re-chunk existing :Content nodes. Use after a "
+                    "CHUNKING_ALGORITHM_VERSION bump or when chunks drift. "
+                    "Idempotent: stale chunks are replaced, not duplicated."
+                ),
+                form_groups=regen_form_groups,
+                button_text="Regenerate",
+                onclick="regenerateChunks()",
             ),
             cls="grid gap-6 lg:grid-cols-2",
         ),

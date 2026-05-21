@@ -20,7 +20,6 @@ Architecture:
 - See `/core/services/ps/` for architecture overview
 """
 
-from operator import itemgetter
 from typing import Any, TypedDict
 
 from core.models.pathways.path_step import PathStep
@@ -263,66 +262,10 @@ class EntityChunkingService:
 
         return Result.ok(chunks)
 
-    async def search_chunks(
-        self,
-        query: str,
-        knowledge_uids: list[str] | None = None,
-        chunk_types: list[ContentChunkType] | None = None,
-        limit: int = 20,
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Search across chunks with optional filters.
-
-        Args:
-            query: Search query,
-            knowledge_uids: Optional list of knowledge UIDs to search within,
-            chunk_types: Optional chunk types to filter,
-            limit: Maximum number of results
-
-        Returns:
-            Result containing list of matching chunks with metadata
-        """
-        results = []
-
-        # Determine which knowledge units to search
-        uids_to_search = knowledge_uids if knowledge_uids else list(self._content_cache.keys())
-
-        for uid in uids_to_search:
-            content = self._content_cache.get(uid)
-            if not content:
-                continue
-
-            # Search within chunks
-            matching_chunks = content.search_chunks(query)
-
-            for chunk in matching_chunks:
-                # Apply chunk type filter if specified
-                if chunk_types and chunk.chunk_type not in chunk_types:
-                    continue
-
-                # Calculate relevance score
-                metadata = self._metadata_cache.get(uid)
-                relevance = metadata.search_relevance_score(query) if metadata else 0.5
-
-                results.append(
-                    {
-                        "knowledge_uid": uid,
-                        "chunk": chunk.to_dict(),
-                        "relevance_score": relevance,
-                        "context_window": chunk.context_window,
-                    }
-                )
-
-                if len(results) >= limit:
-                    break
-
-            if len(results) >= limit:
-                break
-
-        # Sort by relevance using operator.itemgetter
-        results.sort(key=itemgetter("relevance_score"), reverse=True)
-
-        return Result.ok(results[:limit])
+    # In-memory keyword chunk search is gone: chunk retrieval lives in
+    # Neo4jVectorSearchService.find_similar_chunks_by_text (vector search over
+    # contentchunk_embedding_idx). This service still owns the chunk *generator*
+    # (process_content_for_ingestion) and per-PathStep read methods.
 
     async def get_learning_chunks(
         self, knowledge_uid: str

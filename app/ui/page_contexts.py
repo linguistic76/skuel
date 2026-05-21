@@ -30,8 +30,8 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.ku.ku import Ku
     from core.models.principle.principle import Principle
-    from core.models.submissions.exercise_submission import ExerciseSubmission
     from core.models.task.task import Task
+    from core.models.user_entry.user_entry import UserEntry
 
 
 # ============================================================================
@@ -126,7 +126,7 @@ class CurriculumListContext(TypedDict, total=False):
 class SubmissionsPageContext(TypedDict, total=False):
     """Study submissions page context."""
 
-    submissions: list[ExerciseSubmission]
+    submissions: list[UserEntry]
     exercises: list[Exercise]
 
 
@@ -142,3 +142,135 @@ class KuIndexContext(TypedDict, total=False):
     pinned_uids: list[str]
     latest: list[Ku]
     bookmarked: list[Ku]
+
+
+# ============================================================================
+# Today Surface Context
+# ============================================================================
+# Flat UI-shape views used by the Today page (ui/today/). The orchestrator
+# (ui/today/orchestrator.py) produces these; the UI consumes them without
+# ever touching the underlying domain models.
+#
+# See docs/design-handoff/today/today.md (paired spec) for field semantics.
+
+
+class TodayStats(TypedDict):
+    """Header stats block on the Today page."""
+
+    nodes: int  # total cards currently visible (tasks + triage)
+    committed_min: int  # sum of est_min across today's tasks
+    done: int  # completed-today count
+
+
+class LifePathRibbonView(TypedDict):
+    """The user's LifePath ribbon on the Today page.
+
+    One LifePath per user is a design invariant, so the ``lifepaths`` list
+    on ``TodayPageContext`` is always length-1.
+
+    ``dormant=True`` renders the collapsed nudge variant (wake button, no
+    ribbon body); the orchestrator sets it when the LifePath has had no
+    activity in the dormancy window.
+    """
+
+    id: str
+    label: str
+    blurb: str | None
+    color: str  # oklch(...) or hsl(...) — token-aware
+    dormant: bool
+    last_touched: str | None  # human label, e.g. "7 days ago"
+
+
+class PrincipleView(TypedDict):
+    """Principle pill shown in each ribbon header."""
+
+    id: str
+    lifepath_id: str
+    label: str
+    strength: str  # "core" | "strong" | "developing" | "moderate" | "exploring"
+    embodiment_rate: float  # rolling 7d habit-completion rate, 0..1
+
+
+class GoalView(TypedDict):
+    """Goal progress bar (optional — only rendered if a ribbon has goals)."""
+
+    id: str
+    principle_id: str
+    label: str
+    progress: float  # 0..1
+
+
+class TaskView(TypedDict):
+    """Flat card shape used by rows in ribbons AND triage.
+
+    ``kind`` drives icon + kind-chip label; the mock defines six canonical
+    kinds (submission, path-step, askesis, journal, ku, resource).
+    ``due_label`` is the right-side label shown on each row.
+
+    ``pinned`` is the Today-scoped pin (see ``:PINNED_TODAY`` edge). Ribbon
+    tasks are rendered pinned-first; triage stays severity-ordered, so
+    ``pinned`` is carried through but does not reorder triage.
+    """
+
+    id: str
+    lifepath_id: str
+    goal_id: str | None
+    kind: str
+    label: str
+    meta: str  # short gloss: "draft · needs your decision"
+    priority: str  # "high" | "medium" | "low"
+    est_min: int
+    due_label: str  # "Today", "Tonight", "Overdue · 2d"
+    pinned: bool
+
+
+class TriageItemView(TaskView):
+    """Face-first row in the Triage bar. Extends TaskView with severity/reason."""
+
+    reason: str  # "Overdue · 2 days" / "Blocked · waiting on @mentor"
+    severity: str  # "overdue" | "blocked"
+
+
+class RitualView(TypedDict):
+    """Time-anchored item shown on the Day spine."""
+
+    id: str
+    time: str  # "HH:MM" 24h
+    label: str
+    est_min: int
+    principle_id: str | None
+
+
+class KindMeta(TypedDict):
+    """Lucide icon + label per task ``kind`` string."""
+
+    icon: str
+    label: str
+
+
+class TodayPageContext(TypedDict):
+    """Complete data contract for the Today page.
+
+    Produced by ``TodayOrchestrator.build_context(user_uid)``; consumed by
+    ``ui.today.page.TodayPage(ctx)`` and serialized into ``window.SEED`` for
+    the Alpine ``today()`` factory in ``static/js/today.js``.
+
+    ``now_hhmm`` is the server clock in the user's timezone — NEVER derive
+    it client-side. This keeps SSR output and the Day spine's ``NOW`` marker
+    consistent.
+
+    ``lifepaths`` is length-1 (one LifePath per user). The list shape is
+    retained so the renderer iterates uniformly; dormancy is a per-ribbon
+    flag on ``LifePathRibbonView``, not a sort order.
+    """
+
+    date_label: str  # "Saturday · March 22"
+    now_hhmm: str  # server clock, user tz
+    stats: TodayStats
+    triage: list[TriageItemView]
+    lifepaths: list[LifePathRibbonView]
+    principles: list[PrincipleView]
+    goals: list[GoalView]
+    tasks: list[TaskView]
+    rituals: list[RitualView]
+    kinds: dict[str, KindMeta]

@@ -34,7 +34,7 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import GoalsOperations
-from core.services.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
@@ -57,7 +57,7 @@ from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_stats import compute_goal_stats
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
     PRIORITY_STRING_SORT_ORDER,
     get_created_at_attr,
@@ -78,6 +78,7 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import GoalsSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.goals.goals_ai_service import GoalsAIService
+    from core.services.goals.goals_core_service import GoalsCoreService
     from core.services.goals.goals_scheduling_service import (
         AchievabilityResult,
         GoalCapacityResult,
@@ -192,7 +193,7 @@ class GoalsService(
     - Core: get_goal, get_user_goals, get_user_items_in_range, activate/pause/complete/archive
     - Progress: calculate_goal_progress_with_context, complete_milestone, etc.
     - Learning: create_goal_with_learning_integration, assess_goal_learning_alignment, etc.
-    - Search: search_goals, get_goals_by_status, get_prioritized_goals, etc.
+    - Search: get_goals_by_status, get_prioritized_goals, get_upcoming, get_overdue, etc.
     - Intelligence: get_goal_with_context, get_goal_progress_dashboard, etc.
     - Scheduling: check_goal_capacity, suggest_goal_timeline, assess_goal_achievability, etc.
 
@@ -209,11 +210,23 @@ class GoalsService(
         dto_class=GoalDTO,
         model_class=Goal,
         domain_name="goals",
-        entity_label="Entity",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value),
         category_field="domain",  # Goals use 'domain' field for categorization
     )
+
+    # ========================================================================
+    # CLASS-LEVEL TYPE ANNOTATIONS
+    # ========================================================================
+    core: GoalsCoreService
+    search: GoalsSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
+    progress: GoalsProgressService
+    scheduling: GoalsSchedulingService
+    learning: GoalsLearningService
+    relationships: UnifiedRelationshipService
+    intelligence: GoalsIntelligenceService
+    event_handler: GoalEventHandlerService
+    ai: GoalsAIService | None
 
     # ========================================================================
     # DELEGATION METHODS
@@ -249,6 +262,37 @@ class GoalsService(
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
         return await self.core.archive_goal(uid, reason)
 
+    async def set_status(self, uid: str, new_status: str) -> Result[Goal]:
+        """Apply a status transition and return the refreshed goal.
+
+        Why: ``activate_goal`` / ``complete_goal`` / ``archive_goal`` each carry
+        different side effects (progress_percentage, completion_date, archive
+        metadata). Centralising the dispatch here keeps transition semantics in
+        the domain service so every caller — route, CLI, future batch job —
+        applies them uniformly.
+        """
+        if new_status == EntityStatus.ACTIVE.value:
+            transition: Result[bool] = await self.activate_goal(uid)
+        elif new_status == EntityStatus.COMPLETED.value:
+            transition = await self.complete_goal(uid)
+        elif new_status == EntityStatus.ARCHIVED.value:
+            transition = await self.archive_goal(uid)
+        elif new_status == EntityStatus.CANCELLED.value:
+            transition = await self.cancel_goal(uid)
+        else:
+            return Result.fail(
+                Errors.validation(
+                    message=f"Invalid goal status: {new_status}",
+                    field="status",
+                    value=new_status,
+                )
+            )
+
+        if transition.is_error:
+            return Result.fail(transition)
+
+        return await self.get_goal(uid)
+
     async def cancel_goal(self, uid: str) -> Result[bool]:
         """Cancel a goal, rejecting the request if the goal has active tasks.
 
@@ -256,9 +300,7 @@ class GoalsService(
         Placing it here (facade) allows it to coordinate across the task and goal
         domains without leaking cross-domain dependencies into GoalsCoreService.
         """
-        from core.utils.result_simplified import Errors
-
-        count_result = await self.cross_domain_query.count_active_tasks_for_goal(uid)
+        count_result = await self.cross_domain_query.count_active_tasks_for_goal(EntityUID(uid))
         if count_result.is_error:
             self.logger.warning(
                 f"Failed to check active tasks for goal {uid}: {count_result.expect_error()}"
@@ -393,27 +435,25 @@ class GoalsService(
     async def get_goals_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[call-arg, return-value]
+        return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[call-arg]
 
     async def get_goals_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Goal]]:
         return await self.search.get_by_status(status, limit, user_uid)
 
-    async def search_goals(
-        self, query: str, limit: int = 50, user_uid: UserUID | None = None
-    ) -> Result[list[Goal]]:
-        return await self.search.search(query, limit, user_uid)
-
-    async def get_goals_due_soon(
+    async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)
+        return await self.search.get_upcoming(days_ahead, user_uid, limit)
 
-    async def get_overdue_goals(
+    async def get_overdue(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
         return await self.search.get_overdue(user_uid, limit)
+
+    async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Goal]]:
+        return await self.search.get_active(user_uid, limit)
 
     async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
         return await self.search.get_by_domain(domain, limit)
@@ -513,14 +553,14 @@ class GoalsService(
 
         self.graph_intel = graph_intel
         self.cross_domain_query = cross_domain_query
-        self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger("skuel.services.goals")  # structlog BoundLogger
 
         # Initialize core, search, relationships, event_handler, learning, and
         # knowledge_intelligence via factory. intelligence is skipped because it
         # needs progress_service, which is created below.
-        from core.services.goals.goals_core_service import GoalsCoreService
-
-        common = create_common_sub_services(
+        common: CommonSubServices[
+            GoalsCoreService, GoalsSearchOperations, GoalsIntelligenceService
+        ] = create_common_sub_services(
             domain="goals",
             backend=backend,
             graph_intel=graph_intel,
@@ -529,9 +569,12 @@ class GoalsService(
             skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
-        self.core: GoalsCoreService = common.core
-        self.search: GoalsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        assert common.core is not None  # 'core' not in skip
+        assert common.search is not None  # 'search' not in skip
+        assert common.relationships is not None  # 'relationships' not in skip
+        self.core = common.core
+        self.search = common.search
+        self.relationships = common.relationships
 
         # Domain-specific sub-services that need relationships
         self.progress = GoalsProgressService(
@@ -563,22 +606,13 @@ class GoalsService(
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
             "GoalsService facade initialized with 9 sub-services: "
             "core, search, progress, learning, scheduling, relationships, "
             "intelligence, event_handler, knowledge_intelligence"
         )
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Goal entities."""
-        return "Entity"
 
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
@@ -614,5 +648,5 @@ class GoalsService(
         )
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)
-    # and Search operations (list_goal_categories, get_goals_by_status, search_goals, etc.)
-    # delegated via explicit method below.
+    # and Search operations (list_goal_categories, get_goals_by_status, get_upcoming,
+    # get_overdue, get_active, etc.) delegated via explicit methods above.

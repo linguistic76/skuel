@@ -109,7 +109,7 @@ class GraphAuthService:
             # Check if email already exists
             existing_result = await self.user_backend.find_by(email=email)
             if existing_result.is_error:
-                return existing_result
+                return Result.fail(existing_result)
 
             if existing_result.value:
                 return Result.fail(
@@ -121,7 +121,7 @@ class GraphAuthService:
             # Check if username already exists
             username_result = await self.user_backend.get_user_by_username(username)
             if username_result.is_error:
-                return username_result
+                return Result.fail(username_result)
 
             if username_result.value:
                 return Result.fail(
@@ -143,7 +143,7 @@ class GraphAuthService:
 
             create_result = await self.user_backend.create_user(user)
             if create_result.is_error:
-                return create_result
+                return Result.fail(create_result)
 
             created_user = create_result.value
             self.logger.info(f"User registered: {email}")
@@ -195,7 +195,7 @@ class GraphAuthService:
             # Check rate limiting
             is_locked = await self.session_backend.is_account_locked(email)
             if is_locked.is_error:
-                return is_locked
+                return Result.fail(is_locked)
 
             if is_locked.value:
                 # Do NOT log another LOGIN_FAILED here — doing so pushes a new
@@ -212,7 +212,7 @@ class GraphAuthService:
             # Find user by email
             users_result = await self.user_backend.find_by(email=email)
             if users_result.is_error:
-                return users_result
+                return Result.fail(users_result)
 
             users = users_result.value
             if not users:
@@ -268,7 +268,7 @@ class GraphAuthService:
 
             session_result = await self.session_backend.create_session(session)
             if session_result.is_error:
-                return session_result
+                return Result.fail(session_result)
 
             # Log successful login
             event = create_auth_event(
@@ -327,14 +327,14 @@ class GraphAuthService:
             # Get session to find user
             session_result = await self.session_backend.get_session_by_token(session_token)
             if session_result.is_error:
-                return session_result
+                return Result.fail(session_result)
 
             session = session_result.value
 
             # Invalidate session
             invalidate_result = await self.session_backend.invalidate_session(session_token)
             if invalidate_result.is_error:
-                return invalidate_result
+                return Result.fail(invalidate_result)
 
             # Log logout event
             if session:
@@ -374,7 +374,7 @@ class GraphAuthService:
             # Get session (single DB call)
             session_result = await self.session_backend.get_session_by_token(session_token)
             if session_result.is_error:
-                return session_result
+                return Result.fail(session_result)
 
             session = session_result.value
 
@@ -475,7 +475,7 @@ class GraphAuthService:
             # Get user
             user_result = await self.user_backend.get_user_by_uid(user_uid)
             if user_result.is_error:
-                return user_result
+                return Result.fail(user_result)
 
             user = user_result.value
             if not user:
@@ -497,7 +497,7 @@ class GraphAuthService:
 
             update_result = await self.user_backend.update_user(updated_user)
             if update_result.is_error:
-                return update_result
+                return Result.fail(update_result)
 
             # Invalidate all sessions for security
             await self.session_backend.invalidate_all_user_sessions(user_uid)
@@ -550,7 +550,7 @@ class GraphAuthService:
             # Verify user exists
             user_result = await self.user_backend.get_user_by_uid(user_uid)
             if user_result.is_error:
-                return user_result
+                return Result.fail(user_result)
 
             user = user_result.value
             if not user:
@@ -559,7 +559,7 @@ class GraphAuthService:
             # Verify admin exists and has permission
             admin_result = await self.user_backend.get_user_by_uid(admin_uid)
             if admin_result.is_error:
-                return admin_result
+                return Result.fail(admin_result)
 
             admin = admin_result.value
             if not admin or not admin.can_manage_users():
@@ -578,7 +578,7 @@ class GraphAuthService:
 
             token_result = await self.session_backend.create_reset_token(token)
             if token_result.is_error:
-                return token_result
+                return Result.fail(token_result)
 
             # Log the event
             event = create_auth_event(
@@ -633,7 +633,7 @@ class GraphAuthService:
             # Get token
             token_result = await self.session_backend.get_reset_token(token_value)
             if token_result.is_error:
-                return token_result
+                return Result.fail(token_result)
 
             token = token_result.value
             if not token:
@@ -650,7 +650,7 @@ class GraphAuthService:
             # Get user
             user_result = await self.user_backend.get_user_by_uid(token.user_uid)
             if user_result.is_error:
-                return user_result
+                return Result.fail(user_result)
 
             user = user_result.value
             if not user:
@@ -664,7 +664,7 @@ class GraphAuthService:
 
             update_result = await self.user_backend.update_user(updated_user)
             if update_result.is_error:
-                return update_result
+                return Result.fail(update_result)
 
             # Mark token as used
             await self.session_backend.mark_reset_token_used(token_value)

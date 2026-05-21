@@ -4,8 +4,8 @@ Exercise Report Service
 
 Generates AI reports for submission entries using Exercises.
 
-AI report creates a first-class EXERCISE_REPORT entity (processor_type=LLM),
-symmetric with human teacher reports (processor_type=HUMAN). Both are stored
+AI report creates a first-class EXERCISE_REPORT entity (ReportSource.LLM),
+symmetric with human teacher reports (ReportSource.HUMAN). Both are stored
 as EXERCISE_REPORT entities linked to the submission via REPORT_FOR.
 
 The core educational loop:
@@ -20,12 +20,13 @@ Following SKUEL principles:
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
+from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
 from core.models.report.exercise_report import ExerciseReport
-from core.models.submissions.submission import Submission
 from core.models.type_hints import UserUID
+from core.models.user_entry.user_entry import UserEntry
 from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -44,7 +45,7 @@ class ExerciseReportService:
     """
     Generates AI reports for submission entries using exercise instructions.
 
-    Creates an EXERCISE_REPORT entity (processor_type=LLM) linked to the
+    Creates an EXERCISE_REPORT entity (ReportSource.LLM) linked to the
     submission via REPORT_FOR — symmetric with teacher reports.
 
     Supports both OpenAI and Anthropic models.
@@ -66,7 +67,7 @@ class ExerciseReportService:
             backend: The typed read facade for ExerciseReport — typed reads
                 (``list_for_submission``, etc.) plus the mastery-loop scalar
                 projection (``get_linked_ku_and_student``). Report *creation*
-                is delegated to ``submissions_backend.create_report_node`` —
+                is delegated to ``user_entry_backend.create_report_node`` —
                 the canonical path shared with teacher reports.
              Canonical
                 report-node creator shared with TeacherReviewService so AI
@@ -92,10 +93,10 @@ class ExerciseReportService:
 
         logger.info(f"ExerciseReportService initialized with: {', '.join(available)}")
 
-    async def get_by_uid(self, uid: str) -> Result[ExerciseReport]:
+    async def get(self, uid: str) -> Result[ExerciseReport]:
         """Typed single-fetch for ExerciseReport by UID.
 
-        Delegates to ExerciseReportBackend.get_by_uid and narrows a missing
+        Delegates to ``ExerciseReportBackend.get`` and narrows a missing
         row to a not-found error so routes can use the standard
         ``require_found`` pattern.
         """
@@ -103,10 +104,10 @@ class ExerciseReportService:
             return Result.fail(
                 Errors.system(
                     "ExerciseReportBackend not configured",
-                    operation="get_by_uid",
+                    operation="get",
                 )
             )
-        result = await self.backend.get_by_uid(uid)
+        result = await self.backend.get(uid)
         if result.is_error:
             return Result.fail(result)
         if result.value is None:
@@ -132,7 +133,7 @@ class ExerciseReportService:
 
     async def generate_report(
         self,
-        entry: Submission,
+        entry: UserEntry,
         exercise: Exercise,
         user_uid: UserUID,
         temperature: float = 0.7,
@@ -141,7 +142,7 @@ class ExerciseReportService:
         """
         Generate AI report for a submission entry using exercise instructions.
 
-        Creates an EXERCISE_REPORT entity (processor_type=LLM) in Neo4j, linked
+        Creates an EXERCISE_REPORT entity (ReportSource.LLM) in Neo4j, linked
         to the submission via REPORT_FOR. The typed read path
         (list_for_submission) is the authoritative source for report content.
 
@@ -221,7 +222,7 @@ class ExerciseReportService:
 
     async def _persist_report_entity(
         self,
-        submission: Submission,
+        submission: UserEntry,
         exercise: Exercise,
         feedback_text: str,
         user_uid: UserUID,
@@ -229,7 +230,7 @@ class ExerciseReportService:
         """
         Persist AI report as an EXERCISE_REPORT entity in Neo4j.
 
-        Delegates to ``SubmissionsBackend.create_report_node`` — the canonical
+        Delegates to ``UserEntryBackend.create_report_node`` — the canonical
         report-creation path shared with teacher reports. Creates the entity,
         OWNS + REPORT_FOR relationships, and SHARES_WITH the student — all in
         one transaction.
@@ -268,7 +269,7 @@ class ExerciseReportService:
                     "entity_type": EntityType.EXERCISE_REPORT.value,
                     "submission_status": None,
                     "completed_status": EntityStatus.COMPLETED.value,
-                    "processor_type": ProcessorType.LLM.value,
+                    "processor_type": ReportSource.LLM.value,
                     "assessment_outcome": AssessmentOutcome.AI_EVALUATED.value,
                     "allowed_from_statuses": None,
                     "now": now,
@@ -285,8 +286,8 @@ class ExerciseReportService:
 
             self.logger.info(f"EXERCISE_REPORT entity created: {report_entity_uid}")
 
-            student_uid = (
-                (query_result.value[0].get("student_uid") or user_uid)
+            student_uid: UserUID = (
+                UserUID(str(query_result.value[0].get("student_uid") or user_uid))
                 if query_result.value
                 else user_uid
             )
@@ -297,7 +298,7 @@ class ExerciseReportService:
                 user_uid=student_uid,
                 author_uid=user_uid,
                 status=EntityStatus.COMPLETED,
-                processor_type=ProcessorType.LLM,
+                processor_type=ReportSource.LLM,
                 assessment_outcome=AssessmentOutcome.AI_EVALUATED,
                 processed_content=feedback_text,
                 subject_uid=submission.uid,
@@ -327,7 +328,7 @@ class ExerciseReportService:
 
     async def _propagate_mastery_via_service(
         self,
-        submission: Submission,
+        submission: UserEntry,
         user_uid: UserUID,
         mastery_impact: MasteryImpact,
     ) -> None:
@@ -339,8 +340,14 @@ class ExerciseReportService:
         if result.is_error or not result.value:
             return
 
-        linked_uids = [record.get("ku_uid") for record in result.value if record.get("ku_uid")]
-        student_uid = result.value[0].get("student_uid") if result.value else user_uid
+        linked_uids: list[str] = [
+            str(record.get("ku_uid")) for record in result.value if record.get("ku_uid")
+        ]
+        student_uid: UserUID = (
+            UserUID(str(result.value[0].get("student_uid") or user_uid))
+            if result.value
+            else user_uid
+        )
 
         if linked_uids and self.report_mastery_service:
             await self.report_mastery_service.propagate_mastery(
@@ -353,7 +360,7 @@ class ExerciseReportService:
 
     async def _update_mastery_for_linked_ku(
         self,
-        submission: Submission,
+        submission: UserEntry,
         user_uid: UserUID,
         mastery_impact: MasteryImpact = MasteryImpact.MODERATE,
     ) -> None:
@@ -384,10 +391,11 @@ class ExerciseReportService:
             return
 
         for record in result.value:
-            ku_uid = record.get("ku_uid")
-            student_uid = record.get("student_uid") or user_uid
-            if not ku_uid:
+            ku_uid_raw = record.get("ku_uid")
+            if not ku_uid_raw:
                 continue
+            ku_uid = str(ku_uid_raw)
+            student_uid = UserUID(str(record.get("student_uid") or user_uid))
 
             ai_score = mastery_impact.get_ai_score()
             mastery_result = await self.ku_interaction_service.mark_mastered(

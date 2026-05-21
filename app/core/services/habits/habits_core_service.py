@@ -21,7 +21,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
@@ -59,15 +59,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         """
         super().__init__(backend, "habits.core")
         self.event_bus = event_bus
-
-    # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Habit"
 
     # ========================================================================
     # EMBEDDING HELPERS (Async Background Generation - January 2026)
@@ -288,11 +279,11 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         dto = HabitDTO(
             uid=UIDGenerator.generate_random_uid("habit"),
             user_uid=user_uid,
-            title=habit_request.name,
+            title=habit_request.title,
             description=habit_request.description,
             polarity=habit_request.polarity,
-            habit_category=habit_request.category,
-            habit_difficulty=habit_request.difficulty,
+            habit_category=habit_request.habit_category,
+            habit_difficulty=habit_request.habit_difficulty,
             recurrence_pattern=habit_request.recurrence_pattern,
             target_days_per_week=habit_request.target_days_per_week,
             preferred_time=habit_request.preferred_time,
@@ -408,7 +399,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             return Result.fail(current_result)
         current_habit = self._to_domain_model(current_result.value, HabitDTO, Habit)
 
-        hierarchy_result = await self.backend.get_hierarchy_raw(habit_uid)
+        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(habit_uid))
         if hierarchy_result.is_error:
             return Result.fail(hierarchy_result)
 

@@ -18,19 +18,41 @@ from typing import Any
 
 import yaml
 
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
-from core.utils.exception_types import FILE_IO_EXCEPTIONS, PARSING_EXCEPTIONS
+from core.utils.exception_types import (
+    FILE_IO_EXCEPTIONS,
+    NEO4J_EXCEPTIONS,
+    PARSING_EXCEPTIONS,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .config import DEFAULT_MAX_FILE_SIZE_BYTES
 from .unified_ingestion_service import UnifiedIngestionService
 
+# Ingestion can fail across three substrates: Neo4j writes, filesystem I/O on
+# referenced vault files, and YAML/content parsing of dependent documents.
+# Narrow the catch to this union so genuinely unexpected bugs still propagate.
+_INGESTION_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    *NEO4J_EXCEPTIONS,
+    *FILE_IO_EXCEPTIONS,
+    *PARSING_EXCEPTIONS,
+)
+
+# Entity identifier union covering both Activity Domain (EntityType) and
+# non-Entity domains like Group (NonKuDomain).
+UploadType = EntityType | NonKuDomain
+
 logger = get_logger("skuel.services.ingestion.user_upload")
 
-# Only Activity Domain types are allowed for user uploads
-ALLOWED_UPLOAD_TYPES: frozenset[EntityType] = frozenset(
+# Types users may upload. Activity Domain types and UserEntry are open to all
+# authenticated users; Group uploads are additionally gated on
+# UserRole.TEACHER (ADR-053). UserEntry uploads carry a ``pipeline:`` field
+# that is validated separately by the ingestion preparer (ADR-054) — audio
+# pipelines are rejected because /upload is YAML-only.
+ALLOWED_UPLOAD_TYPES: frozenset[UploadType] = frozenset(
     {
         EntityType.TASK,
         EntityType.GOAL,
@@ -38,27 +60,36 @@ ALLOWED_UPLOAD_TYPES: frozenset[EntityType] = frozenset(
         EntityType.EVENT,
         EntityType.CHOICE,
         EntityType.PRINCIPLE,
+        EntityType.USER_ENTRY,
+        NonKuDomain.GROUP,
     }
 )
 
-# Map detected type string → EntityType for validation
-_TYPE_STRING_TO_ENTITY: dict[str, EntityType] = {
+# Upload types that require UserRole.TEACHER or higher.
+TEACHER_ONLY_UPLOAD_TYPES: frozenset[UploadType] = frozenset({NonKuDomain.GROUP})
+
+# Map detected type string → UploadType for validation
+_TYPE_STRING_TO_ENTITY: dict[str, UploadType] = {
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
     "habit": EntityType.HABIT,
     "event": EntityType.EVENT,
     "choice": EntityType.CHOICE,
     "principle": EntityType.PRINCIPLE,
+    "user_entry": EntityType.USER_ENTRY,
+    "group": NonKuDomain.GROUP,
 }
 
-# Map EntityType → subdirectory name
-_TYPE_TO_SUBDIR: dict[EntityType, str] = {
+# Map UploadType → subdirectory name
+_TYPE_TO_SUBDIR: dict[UploadType, str] = {
     EntityType.TASK: "tasks",
     EntityType.GOAL: "goals",
     EntityType.HABIT: "habits",
     EntityType.EVENT: "events",
     EntityType.CHOICE: "choices",
     EntityType.PRINCIPLE: "principles",
+    EntityType.USER_ENTRY: "user_entries",
+    NonKuDomain.GROUP: "groups",
 }
 
 VAULT_SUBDIRS: tuple[str, ...] = tuple(_TYPE_TO_SUBDIR.values())
@@ -70,13 +101,20 @@ MAX_FILE_SIZE_BYTES = DEFAULT_MAX_FILE_SIZE_BYTES  # 10 MB
 
 @dataclass(frozen=True)
 class FileUploadResult:
-    """Result for a single uploaded file."""
+    """Result for a single uploaded file.
+
+    ``warnings`` surfaces non-fatal issues — e.g. a UserEntry persisted
+    successfully but one of its declared group shares failed (user not a
+    member, group missing). The entry exists; the uploader just needs to
+    know it did not reach every intended audience.
+    """
 
     filename: str
     success: bool
     entity_type: str | None = None
     uid: str | None = None
     error: str | None = None
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -158,12 +196,15 @@ class UserUploadService:
         self,
         user_uid: UserUID,
         files: list[tuple[str, bytes]],
+        user_role: UserRole = UserRole.REGISTERED,
     ) -> Result[UploadBatchResult]:
         """Upload YAML files to user vault and ingest them.
 
         Args:
             user_uid: Authenticated user's UID
             files: List of (filename, content_bytes) tuples
+            user_role: Caller's role — gates teacher-only upload types
+                (defaults to REGISTERED for conservative rejection).
 
         Returns:
             Result with UploadBatchResult containing per-file outcomes.
@@ -182,7 +223,9 @@ class UserUploadService:
         results: list[FileUploadResult] = []
 
         for filename, content in files:
-            result = await self._process_single_file(user_uid, vault_path, filename, content)
+            result = await self._process_single_file(
+                user_uid, vault_path, filename, content, user_role
+            )
             results.append(result)
 
         successful = sum(1 for r in results if r.success)
@@ -203,6 +246,7 @@ class UserUploadService:
         vault_path: Path,
         filename: str,
         content: bytes,
+        user_role: UserRole,
     ) -> FileUploadResult:
         """Validate, write, and ingest a single uploaded file."""
 
@@ -268,6 +312,17 @@ class UserUploadService:
                 error=f"Type '{type_str}' is not allowed for user uploads",
             )
 
+        # Teacher-only gate (Group uploads require UserRole.TEACHER or higher)
+        if entity_type in TEACHER_ONLY_UPLOAD_TYPES and not user_role.has_permission(
+            UserRole.TEACHER
+        ):
+            return FileUploadResult(
+                filename=filename,
+                success=False,
+                entity_type=type_str,
+                error=f"Type '{type_str}' requires teacher role",
+            )
+
         # 5. Write to user vault subdirectory
         subdir = _TYPE_TO_SUBDIR[entity_type]
         file_path = vault_path / subdir / safe_name
@@ -286,7 +341,7 @@ class UserUploadService:
         # 6. Ingest via UnifiedIngestionService with user's UID
         try:
             ingest_result = await self.ingestion_service.ingest_file(file_path, user_uid=user_uid)
-        except Exception as e:  # safety-net: ingestion can fail in many ways
+        except _INGESTION_EXCEPTIONS as e:
             logger.error("Ingestion failed for %s (user %s): %s", filename, user_uid, e)
             return FileUploadResult(
                 filename=filename,
@@ -306,9 +361,34 @@ class UserUploadService:
 
         # 7. Extract result details
         result_data: dict[str, Any] = ingest_result.value
+        warnings = _extract_share_warnings(result_data)
         return FileUploadResult(
             filename=filename,
             success=True,
             entity_type=type_str,
             uid=result_data.get("uid"),
+            warnings=warnings,
         )
+
+
+def _extract_share_warnings(result_data: dict[str, Any]) -> tuple[str, ...]:
+    """Lift per-target ``ShareOutcome.failed`` entries into human-readable warnings.
+
+    Only UserEntry ingestion populates ``share_outcome``; other types return
+    an empty tuple. The shape is ``{"failed": [{"target": ..., "reason": ...}]}``
+    as produced by ``ShareOutcome.to_payload()``.
+    """
+    share_outcome = result_data.get("share_outcome")
+    if not isinstance(share_outcome, dict):
+        return ()
+    failed = share_outcome.get("failed")
+    if not isinstance(failed, list):
+        return ()
+    warnings: list[str] = []
+    for item in failed:
+        if not isinstance(item, dict):
+            continue
+        target = str(item.get("target") or "(unknown)")
+        reason = str(item.get("reason") or "unknown reason")
+        warnings.append(f"Share to {target} failed: {reason}")
+    return tuple(warnings)

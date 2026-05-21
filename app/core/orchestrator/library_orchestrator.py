@@ -2,7 +2,7 @@
 =========================
 
 Application orchestrator for the Library Hub. Consolidates Exercises,
-Resources, KU, PathStep, Submissions, and UserRelationship services
+Resources, KU, PathStep, UserEntry, and UserRelationship services
 into a single unified facade for UI rendering.
 
 All service dependencies are required — bootstrap raises if any are missing
@@ -11,6 +11,7 @@ All service dependencies are required — bootstrap raises if any are missing
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from core.services.ku_service import KuService
     from core.services.ps_service import PsService
     from core.services.resource_service import ResourceService
-    from core.services.submissions.submissions_service import SubmissionsService
+    from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_relationship_service import UserRelationshipService
 
 
@@ -36,21 +37,21 @@ class LibraryOrchestrator:
         resource_service: "ResourceService",
         ku_service: "KuService",
         ps_service: "PsService",
-        submissions_service: "SubmissionsService",
+        user_entry_service: "UserEntryService",
         user_relationship_service: "UserRelationshipService",
     ) -> None:
         self._exercises = exercises_service
         self._resource = resource_service
         self._ku = ku_service
         self._ps = ps_service
-        self._submissions = submissions_service
+        self._user_entry = user_entry_service
         self._user_relationships = user_relationship_service
 
     # ------------------------------------------------------------------
     # Exercises
     # ------------------------------------------------------------------
 
-    async def get_student_exercises_with_status(self, user_uid: str) -> Result[list[Any]]:
+    async def get_student_exercises_with_status(self, user_uid: UserUID) -> Result[list[Any]]:
         """Get exercises assigned to the student with submission/feedback status."""
         return await self._exercises.get_student_exercises_with_status(user_uid)
 
@@ -63,23 +64,30 @@ class LibraryOrchestrator:
         return await self._resource.list_all()
 
     # ------------------------------------------------------------------
-    # Submissions
+    # UserEntry — teacher-review pipeline (ADR-054)
     # ------------------------------------------------------------------
 
-    async def list_exercise_submissions(self, user_uid: str, limit: int = 50) -> Result[list[Any]]:
-        """List user's exercise submissions."""
-        from core.models.enums.entity_enums import EntityType
+    async def list_exercise_submissions(
+        self, user_uid: UserUID, limit: int = 50
+    ) -> Result[list[Any]]:
+        """List the user's exercise submissions (pipeline=TEACHER_REVIEW entries)."""
+        from core.models.enums.pipeline import Pipeline
 
-        return await self._submissions.list_submissions(
-            user_uid, entity_type=EntityType.EXERCISE_SUBMISSION, limit=limit
+        result = await self._user_entry.list_for_user(
+            user_uid=user_uid,
+            pipeline=Pipeline.TEACHER_REVIEW,
+            limit=limit,
         )
+        if result.is_error:
+            return result
+        return Result.ok(list(result.value or []))
 
     # ------------------------------------------------------------------
     # Bookmarked KU
     # ------------------------------------------------------------------
 
     async def get_bookmarked_kus(
-        self, user_uid: str, limit: int | None = None
+        self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[Any]]:
         """Get the KU entities that the user has pinned/bookmarked.
 
@@ -108,7 +116,7 @@ class LibraryOrchestrator:
     # ------------------------------------------------------------------
 
     async def get_enrolled_path_steps(
-        self, user_uid: str, limit: int | None = None
+        self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[Any]]:
         """Get PathStep entities the user is currently enrolled in (IN_PROGRESS).
 
@@ -136,6 +144,6 @@ class LibraryOrchestrator:
     # Pinned entity UIDs (pass-through for sidebar / other consumers)
     # ------------------------------------------------------------------
 
-    async def get_pinned_entities(self, user_uid: str) -> Result[Any]:
+    async def get_pinned_entities(self, user_uid: UserUID) -> Result[Any]:
         """Get UIDs of entities pinned by the user."""
         return await self._user_relationships.get_pinned_entities(user_uid)

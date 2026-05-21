@@ -5,7 +5,8 @@ business operations, mitigating 'Dependency Gravity' in the routing layer.
 
 Implemented orchestrators:
 - ProfileOrchestrator                  — User Profile Hub
-- SubmissionsOrchestrator              — Submissions & Workbench Hub
+- SubmissionsOrchestrator              — Submissions & Workbench Hub (legacy, deleted in commit 5)
+- UserEntryOrchestrator                 — UserEntry Hub (ADR-054 successor)
 - ExploreOrchestrator                  — Explore / Discovery Hub
 - LibraryOrchestrator                  — Library Hub
 - TeacherOrchestrator                  — Teaching & Review Hub

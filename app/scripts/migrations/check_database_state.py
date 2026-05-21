@@ -23,8 +23,7 @@ async def check_database():
 
     # Get connection
     conn = Neo4jConnection()
-    await conn.connect()
-    driver = conn.driver
+    driver = await conn.connect()
 
     print("=" * 80)
     print("Database State Check")

@@ -1,20 +1,19 @@
 """Journal entry card rendering components."""
 
-from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Div, P, Span
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.exercises.exercise import Exercise
-from core.models.journal.je_input import JeInput
+from core.models.user_entry.user_entry import UserEntry
 from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 
 
-def render_journal_card(je_input: JeInput) -> Any:
+def render_journal_card(je_input: UserEntry) -> Any:
     """Render a single journal entry card for the browse grid using CardGenerator."""
     from ui.feedback import StatusBadge
 
@@ -60,7 +59,7 @@ def render_journal_card(je_input: JeInput) -> Any:
     )
 
 
-def render_journals_grid(je_inputs: list[JeInput]) -> Any:
+def render_journals_grid(je_inputs: list[UserEntry]) -> Any:
     """Render journal entries grid as HTML fragment for HTMX swap."""
     if not je_inputs:
         return Div(
@@ -80,12 +79,7 @@ def render_instruction_card(ex: Exercise, is_first: bool = False) -> Any:
     title = ex.title or "Unnamed"
     created_at = ex.created_at
 
-    if isinstance(created_at, datetime):
-        date_str = created_at.strftime("%b %d, %Y")
-    elif isinstance(created_at, str) and created_at:
-        date_str = created_at[:10]
-    else:
-        date_str = ""
+    date_str = created_at.strftime("%b %d, %Y") if created_at else ""
 
     selected_cls = "ring-2 ring-primary bg-muted" if is_first else ""
     return Div(

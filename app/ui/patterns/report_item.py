@@ -5,12 +5,11 @@ a typed ``ExerciseReport`` — the persistence boundary returns these directly
 via ``ExerciseReportService.list_for_submission``.
 """
 
-from datetime import datetime
 from typing import Any
 
 from fasthtml.common import A, Div, P, Span
 
-from core.models.enums.entity_enums import ProcessorType
+from core.models.enums.pipeline import ReportSource
 from core.models.report.exercise_report import ExerciseReport
 
 
@@ -20,15 +19,10 @@ def render_report_item(report: ExerciseReport) -> Div:
     content = report.processed_content or ""
     title = report.title or ""
 
-    time_display = ""
-    if report.created_at:
-        if isinstance(report.created_at, datetime):
-            time_display = report.created_at.strftime("%b %d, %H:%M")
-        else:
-            time_display = str(report.created_at)[:16]
+    time_display = report.created_at.strftime("%b %d, %H:%M") if report.created_at else ""
 
     is_revision = "revision" in title.lower() if title else False
-    is_ai = report.processor_type == ProcessorType.LLM
+    is_ai = report.processor_type == ReportSource.LLM
     border_cls = "border-l-warning" if is_revision else "border-l-info"
     if is_revision:
         type_label = "Revision Request"

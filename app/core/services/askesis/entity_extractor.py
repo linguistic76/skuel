@@ -137,9 +137,7 @@ class EntityExtractor:
         entities = {
             "knowledge": await self._extract_matching_entities(
                 query_lower,
-                user_context.mastered_knowledge_uids
-                | user_context.in_progress_knowledge_uids
-                | user_context.blocked_knowledge_uids,
+                user_context.known_or_engaged_ku_uids(),
                 self.knowledge_service,
             ),
             "tasks": await self._extract_matching_entities(

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.lifepath_request import CaptureVisionRequest, DesignateLifePathRequest
@@ -66,6 +67,7 @@ def create_lifepath_api_routes(
         return await lifepath_service.get_full_status(user_uid)
 
     @rt("/api/lifepath/vision", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def api_capture_vision(request: Request) -> Result[LifePathRecommendation]:
         """Capture vision and get recommendations (JSON API)."""
@@ -83,6 +85,7 @@ def create_lifepath_api_routes(
         return await lifepath_service.capture_and_recommend(user_uid, parsed.value.vision_statement)
 
     @rt("/api/lifepath/designate", methods=["POST"])
+    @csrf_protected
     @boundary_handler()
     async def api_designate(request: Request) -> Result[LifePathDesignation]:
         """Designate an LP as life path (JSON API)."""

@@ -377,8 +377,9 @@ class ResponseGenerator:
         parts.append(f"Active Tasks: {len(ctx.active_task_uids)}")
         if ctx.overdue_task_uids:
             parts.append(f"Overdue: {len(ctx.overdue_task_uids)} tasks")
-        if ctx.blocked_task_uids:
-            parts.append(f"Blocked: {len(ctx.blocked_task_uids)} tasks")
+        # blocked_task_uids is rich-context only; omit section at standard depth
+        if blocked := ctx.blocked_task_uids_or_empty():
+            parts.append(f"Blocked: {len(blocked)} tasks")
         if ctx.today_task_uids:
             parts.append(f"Due Today: {len(ctx.today_task_uids)} tasks")
 
@@ -413,8 +414,9 @@ class ResponseGenerator:
             avg_streak = sum(ctx.habit_streaks.values()) / len(ctx.habit_streaks)
             parts.append(f"Longest Streak: {max_streak} days")
             parts.append(f"Average Streak: {avg_streak:.1f} days")
-        if ctx.at_risk_habits:
-            parts.append(f"At Risk: {len(ctx.at_risk_habits)} habits need attention")
+        # at_risk_habits is rich-context only; omit at standard depth
+        if at_risk := ctx.at_risk_habits_or_empty():
+            parts.append(f"At Risk: {len(at_risk)} habits need attention")
 
     @staticmethod
     def _append_events_section(parts: list[str], ctx: UserContext) -> None:
@@ -475,15 +477,15 @@ class ResponseGenerator:
         """
         actions = []
 
-        # Critical actions first (at-risk habits, overdue tasks)
-        if user_context.at_risk_habits:
+        # Critical actions first (at_risk_habits is rich-context only)
+        if at_risk := user_context.at_risk_habits_or_empty():
             actions.append(
                 {
                     "priority": "critical",
                     "action": "reinforce_habits",
-                    "description": f"Maintain {len(user_context.at_risk_habits)} at-risk habits",
+                    "description": f"Maintain {len(at_risk)} at-risk habits",
                     "entity_type": "habits",
-                    "entity_count": len(user_context.at_risk_habits),
+                    "entity_count": len(at_risk),
                 }
             )
 

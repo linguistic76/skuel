@@ -16,6 +16,7 @@ SKUEL has a strong security foundation built into the architecture:
 | **Ownership verification** | Returns 404 (not 403) for entities the user doesn't own — no information leakage | Active |
 | **Error stripping** | `@boundary_handler` strips internal details from HTTP responses | Active |
 | **Session security** | SHA-256 hashing, `SameSite=strict`, `HttpOnly`, `Secure` in production | Active |
+| **CSRF protection** | `SameSite=Strict` (primary) + double-submit `csrf_token` cookie verified by `@csrf_protected` | Active |
 | **Path traversal** | `VaultConfig.validate_paths`, `restrict_access`, allowed subdirs/extensions | Active |
 | **Login rate limiting** | Account lockout after failed attempts | Active |
 | **Docker production** | Non-root user, minimal image | Active |
@@ -85,12 +86,64 @@ if error:
 `@boundary_handler()` catches service-layer errors and converts them to safe HTTP responses.
 Internal error details (stack traces, Cypher queries, Neo4j internals) are never exposed.
 
+### Credential Handling (SKUEL019)
+
+Every secret read goes through `get_credential()` — the funnel that dispatches to whichever backend is configured. Raw `os.getenv("FOO_API_KEY")` is a SKUEL019 violation.
+
+```python
+from core.config.credential_store import get_credential
+
+api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+if not api_key:
+    raise RuntimeError("OPENAI_API_KEY missing — set via `uv run python -m core.config`")
+```
+
+| Layer | Mechanism |
+|---|---|
+| **Storage** | OS keychain (`SKUEL_CREDENTIAL_BACKEND=keyring`, recommended) → libsecret / macOS Keychain / Windows Credential Locker. Or Fernet-encrypted JSON at `~/.skuel/credentials.enc` keyed by `SKUEL_MASTER_KEY`. |
+| **Funnel** | `get_credential(K, fallback_to_env=True)` in `core/config/credential_store.py`. Dispatches via `SKUEL_CREDENTIAL_BACKEND`. Falls back to env, auto-migrates env values into the backend on first read. |
+| **Boot validation** | Tier-gated services fail-fast when their credential is missing (commit `fed4287f`) — no silent half-on state. |
+| **Lint enforcement** | SKUEL019 — ERROR for catalog credentials, WARNING for credential-shape names not yet in the catalog. Catalog mirrored from `CredentialSetup.CREDENTIALS` and pinned by a drift test. |
+
+**Catalog as the single source of truth:** when adding a new credential, register it in `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`. The drift test (`test_lint_skuel.py::TestCredentialCatalogDrift`) will tell you to mirror it in `SkuelLinter.CREDENTIAL_CATALOG` so SKUEL019 catches future bypasses with ERROR severity.
+
+**Exempt files** (raw env reads ARE the implementation): `credential_store.py`, `credential_setup.py`, `migrate_secrets_to_homedir.py`, `migrate_secrets_to_keychain.py`, test files.
+
+**See:** `docs/roadmap/secrets-out-of-worktree.md` — full storage architecture; `docs/patterns/linter_rules.md` § SKUEL019.
+
 ### Session Configuration
 
-- `SESSION_SECRET_KEY` env var — required in production, auto-generated in development
+- `SESSION_SECRET_KEY` read via `get_credential()` from the active backend — required in production, auto-generated in development.
 - Session IDs hashed with SHA-256 before storage
 - Cookies: `HttpOnly=True`, `SameSite=strict`, `Secure=True` in production
 - Session data stored in Neo4j (graph-native, no separate session store)
+
+### CSRF Protection (Double-Submit Token + SameSite)
+
+Primary defense is `SameSite=Strict` on the session cookie — the browser refuses to send it on cross-site POSTs, so forged requests have no identity. Double-submit is the second line so the app stays safe if `SameSite` is ever loosened (cross-subdomain SSO, OAuth embeds) or if an XSS on the same origin forges writes.
+
+`CSRFMiddleware` mints a non-HttpOnly `csrf_token` cookie on first GET and exposes it via a ContextVar. Three mirror paths feed the submitted token back to the server:
+
+1. **Server-render** — `csrf_hidden_input()` emits a hidden form field from the ContextVar
+2. **HTMX header** — `static/js/skuel.js` attaches `X-CSRF-Token` via `htmx:configRequest`
+3. **Native form sync** — capture-phase `submit` handler in `skuel.js` refreshes the hidden input from the cookie before serialization (covers SW-cached HTML, extension-mutated DOM)
+
+State-changing routes wear `@csrf_protected`. The decorator reads header first then form field, constant-time compares against the cookie, returns 403 on mismatch. `SKUEL_CSRF_ENFORCE=false` is a revert lever; production runs enforcement on.
+
+```python
+from adapters.inbound.csrf import csrf_protected, csrf_hidden_input
+
+@rt("/tasks/create", methods=["POST"])
+@csrf_protected
+async def create_task(request): ...
+
+# Hand-built forms need the hidden field (FormGenerator adds it automatically)
+Form(csrf_hidden_input(), ..., method="POST", action="/login/submit")
+```
+
+**CSRF cookie is deliberately `HttpOnly=False`** — JS must read it to echo back via HTMX header. XSS can already post anything as the user; protecting the CSRF token from JS would add no defense against a threat that's already past the perimeter. See `/docs/security/COOKIES_AND_CSRF.md` § 4 for the threat model.
+
+**See:** `/docs/security/COOKIES_AND_CSRF.md` — teaching-focused deep dive on both cookies, the double-submit pattern, and the forward security posture.
 
 ### Path Traversal Protection
 
@@ -127,7 +180,7 @@ When adding a new route, verify:
 | No lambdas | SKUEL012 | Use named functions (prevents injection via closable scope) |
 | No `print()` in production | SKUEL015 | Use `logger.*()` — print can leak to stdout |
 | No `eval()`/`exec()` | — | Never execute dynamic code |
-| No hardcoded secrets | — | All secrets via env vars or credential store |
+| No hardcoded secrets | — | All secret reads go through `get_credential(KEY, fallback_to_env=True)` from `core/config/credential_store` — never raw `os.getenv("FOO_API_KEY")`. Backend (keychain / Fernet / direnv-loaded env) is selected by `SKUEL_CREDENTIAL_BACKEND`. Tier-gated services fail-fast at boot when a required credential is missing (commit `fed4287f`). |
 | No APOC in domain services | SKUEL001 | APOC scoped to `apoc.meta.*` only |
 
 ---
@@ -150,6 +203,7 @@ Network security monitoring is tracked in `/docs/roadmap/network-security-monito
 
 ## References
 
+- `/docs/security/COOKIES_AND_CSRF.md` — teaching-focused deep dive on session + CSRF cookies, double-submit pattern, forward posture
 - `/docs/patterns/AUTH_PATTERNS.md` — authentication and authorization implementation
 - `/docs/security/ROUTE_AUTH_REQUIREMENTS.md` — per-route auth requirements
 - `/docs/patterns/OWNERSHIP_VERIFICATION.md` — ownership verification patterns

@@ -261,11 +261,11 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
             )
         )
 
-    # Extract principle name (first part before any dash or colon)
+    # Extract principle title (first part before any dash or colon)
     description = activity.description
-    name = description.split(" - ")[0].split(":")[0].strip()
-    if len(name) > 100:
-        name = name[:97] + "..."
+    title = description.split(" - ")[0].split(":")[0].strip()
+    if len(title) > 100:
+        title = title[:97] + "..."
 
     # Full statement is the complete description
     statement = description
@@ -274,7 +274,7 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
 
     # Map energy states to principle category
     # spiritual → SPIRITUAL, focus/creative → INTELLECTUAL, etc.
-    category = "personal"  # default
+    principle_category = "personal"  # default
     if activity.energy_states:
         energy_to_category = {
             "spiritual": "spiritual",
@@ -286,7 +286,7 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
         }
         for energy in activity.energy_states:
             if energy.lower() in energy_to_category:
-                category = energy_to_category[energy.lower()]
+                principle_category = energy_to_category[energy.lower()]
                 break
 
     # Map priority to principle strength
@@ -302,11 +302,11 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
         strength = priority_to_strength.get(activity.priority, "moderate")
 
     principle_dict = {
-        "name": name,
+        "title": title,
         "statement": statement,
         "description": description if description != statement else None,
-        "category": category,
-        "source": "personal",  # DSL entries are personal by default
+        "principle_category": principle_category,
+        "principle_source": "personal",  # DSL entries are personal by default
         "strength": strength,
         "priority": activity.priority or 3,
         "linked_knowledge_uids": activity.get_linked_knowledge(),
@@ -315,7 +315,7 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
         "key_behaviors": [],  # Can be extracted from description if needed
     }
 
-    logger.debug(f"Converted activity to principle dict: {principle_dict['name']}")
+    logger.debug(f"Converted activity to principle dict: {principle_dict['title']}")
     return Result.ok(principle_dict)
 
 

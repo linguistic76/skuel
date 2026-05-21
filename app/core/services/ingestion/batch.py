@@ -166,7 +166,7 @@ def parse_file_sync(
                 err = parse_result.expect_error()
                 error = create_error(
                     file_path=file_path,
-                    error=err.user_message or err.message,
+                    error=err.display_message,
                     stage="parsing",
                     error_type="parse",
                     suggestion="Check YAML frontmatter syntax between --- markers.",
@@ -191,7 +191,7 @@ def parse_file_sync(
                         col = int(col_match.group(1))
                 error = create_error(
                     file_path=file_path,
-                    error=err.user_message or err.message,
+                    error=err.display_message,
                     stage="parsing",
                     error_type="parse",
                     line_number=line_num,
@@ -209,7 +209,7 @@ def parse_file_sync(
                 err = validation.expect_error()
                 error = create_error(
                     file_path=file_path,
-                    error=err.user_message or err.message,
+                    error=err.display_message,
                     stage="validation",
                     error_type="validation",
                     entity_type="edge",
@@ -244,7 +244,7 @@ def parse_file_sync(
             err = validation_result.expect_error()
             error = create_error(
                 file_path=file_path,
-                error=err.user_message or err.message,
+                error=err.display_message,
                 stage="validation",
                 error_type="validation",
                 entity_type=entity_type_str,
@@ -273,7 +273,7 @@ def parse_file_sync(
             err = validation_result.expect_error()
             error = create_error(
                 file_path=file_path,
-                error=err.user_message or err.message,
+                error=err.display_message,
                 stage="validation",
                 error_type="validation",
                 entity_type=entity_type_str,
@@ -622,7 +622,7 @@ async def ingest_directory(
     # DRY-RUN MODE: Preview changes without writing to Neo4j
     if dry_run and driver is not None:
         # Collect all UIDs to check existence
-        all_uids = []
+        all_uids: list[str] = []
         for entities in entities_by_type.values():
             all_uids.extend(entity.get("uid", "") for entity in entities if entity.get("uid"))
 

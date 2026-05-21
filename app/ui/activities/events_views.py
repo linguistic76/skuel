@@ -16,7 +16,7 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import UkIcon  # type: ignore[import-untyped]
+from monsterui.franken import UkIcon
 
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
 from ui.buttons import Button, ButtonT
@@ -275,18 +275,22 @@ def EventDetailView(
             cls="my-4",
         )
 
-    # Milestone section
+    # Milestone section. The celebrated goal is read from graph-derived
+    # connections ((Event)-[:CELEBRATES_GOAL]->(Goal)), not a property.
     milestone_section = Div()
     if event.is_milestone_event:
         ms_items: list[Any] = []
         if event.milestone_type:
             ms_items.append(P(f"Type: {event.milestone_type}"))
-        if event.milestone_celebration_for_goal:
+        celebrated = next((c for c in connections if c.get("rel_type") == "CELEBRATES_GOAL"), None)
+        if celebrated:
+            goal_uid = celebrated.get("connected_uid", "")
+            goal_label = celebrated.get("title") or goal_uid
             ms_items.append(
                 P(
                     A(
-                        f"Celebrates goal: {event.milestone_celebration_for_goal}",
-                        href=f"/goals/detail?uid={event.milestone_celebration_for_goal}",
+                        f"Celebrates goal: {goal_label}",
+                        href=f"/goals/detail?uid={goal_uid}",
                         cls="hover:underline text-primary",
                     ),
                 )

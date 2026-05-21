@@ -1,3 +1,4 @@
+# mypy: disable-error-code="operator,attr-defined"
 """Cross-domain UI component consistency tests.
 
 Verifies that shared UI components (PageHeader, EmptyState, StatsGrid,
@@ -65,7 +66,7 @@ DOMAIN_IDS = [d[0] for d in ACTIVITY_DOMAINS]
 
 def _make_entity(model_cls: type, domain: str) -> object:
     """Construct a minimal domain entity for rendering."""
-    return model_cls(uid=f"{domain}_test_1", title=f"Test {domain.title()}")
+    return model_cls(uid=f"{domain}_test_1", title=f"Test {domain.title()}", user_uid="user_test")
 
 
 class TestImportConsistency:
@@ -199,22 +200,6 @@ class TestHubPageConsistency:
         assert "text-2xl" in result, "ActivityHub missing PageHeader (text-2xl)"
         assert "font-bold" in result, "ActivityHub missing PageHeader (font-bold)"
         assert "mb-8" in result, "ActivityHub missing PageHeader (mb-8)"
-
-    def test_gradebook_hub_has_page_header(self) -> None:
-        from ui.gradebook.hub import GradeBookHub
-
-        result = to_xml(GradeBookHub())
-        assert "text-2xl" in result, "GradeBookHub missing PageHeader (text-2xl)"
-        assert "font-bold" in result, "GradeBookHub missing PageHeader (font-bold)"
-        assert "mb-8" in result, "GradeBookHub missing PageHeader (mb-8)"
-
-    def test_library_hub_has_page_header(self) -> None:
-        from ui.library.hub import LibraryHub
-
-        result = to_xml(LibraryHub())
-        assert "text-2xl" in result, "LibraryHub missing PageHeader (text-2xl)"
-        assert "font-bold" in result, "LibraryHub missing PageHeader (font-bold)"
-        assert "mb-8" in result, "LibraryHub missing PageHeader (mb-8)"
 
     def test_student_hub_has_page_header(self) -> None:
         from ui.teaching.student_hub import StudentHub

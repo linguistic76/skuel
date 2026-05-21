@@ -41,6 +41,8 @@ def create_mock_user_context(
     """Create mock UserContext with actual field names from unified_user_context.py."""
     context = Mock()
     context.user_uid = "test_user"
+    # Rich-only fields (at_risk_habits, blocked_task_uids) require rich context
+    context.is_rich_context = True
 
     # Activity UIDs (lists)
     context.active_task_uids = [f"task_{i}" for i in range(active_tasks)]
@@ -87,6 +89,11 @@ def create_mock_user_context(
     context.get_ready_to_learn = Mock(
         return_value=[f"ku.ready_{i}" for i in range(ready_to_learn_count)]
     )
+    # Rich-only accessors — return containers matching the rich fields above
+    context.get_blocked_tasks = Mock(return_value=set(context.blocked_task_uids))
+    context.get_habits_needing_reinforcement = Mock(return_value=list(context.at_risk_habits))
+    context.blocked_task_uids_or_empty = Mock(return_value=set(context.blocked_task_uids))
+    context.at_risk_habits_or_empty = Mock(return_value=list(context.at_risk_habits))
 
     # Workload
     context.current_workload_score = current_workload_score

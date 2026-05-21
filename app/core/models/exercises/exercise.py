@@ -12,20 +12,20 @@ Exercise is the shared, reusable instruction template side of SKUEL's core loop:
 
     Exercise (shared template — this file)
         ↓  user submits work against it
-    ExerciseSubmission (user-owned work product — EntityType.EXERCISE_SUBMISSION)
+    UserEntry (user-owned work product — EntityType.USER_ENTRY)
         ↓  FULFILLS_EXERCISE relationship in Neo4j
         ↓  auto-shared with teacher
     ExerciseReport (teacher's response — EntityType.EXERCISE_REPORT)
 
 The Exercise belongs to curriculum (shared, admin/teacher-created).
-The ExerciseSubmission is entirely user-owned the moment it is created.
+The UserEntry is entirely user-owned the moment it is created.
 
 Terminology
 -----------
 - Exercise = what the teacher/admin creates (instruction template, scope=ASSIGNED)
              or what a user creates for personal AI feedback (scope=PERSONAL)
-- ExerciseSubmission = the user's work product in response to an Exercise
-- ExerciseReport = the teacher's or AI's response to the ExerciseSubmission
+- UserEntry = the user's work product in response to an Exercise (ADR-054)
+- ExerciseReport = the teacher's or AI's response to the UserEntry
 
 Hierarchy:
     Entity (~29 fields)
@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import MasteryImpact
-from core.models.enums.submissions_enums import EnrichmentMode, ExerciseScope, SubmissionModality
+from core.models.enums.user_entry_enums import EnrichmentMode, ExerciseScope, SubmissionModality
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -219,29 +219,17 @@ class Exercise(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | ExerciseDTO") -> "Exercise":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | ExerciseDTO") -> "Exercise":
         """Create Exercise from an EntityDTO or ExerciseDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ExerciseDTO":  # type: ignore[override]
+    def to_dto(self) -> "ExerciseDTO":
         """Convert Exercise to domain-specific ExerciseDTO."""
-        import dataclasses
-        from typing import Any
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.exercises.exercise_dto import ExerciseDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(ExerciseDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return ExerciseDTO(**kwargs)
+        return domain_to_dto(self, ExerciseDTO)
 
     def __str__(self) -> str:
         return f"Exercise(uid={self.uid}, title='{self.title}')"

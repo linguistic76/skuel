@@ -444,7 +444,7 @@ def _build_scoring_weights(
 # -----------------------------------------------------------------------------
 TASKS_CONFIG = DomainRelationshipConfig(
     domain=Domain.TASKS,
-    entity_label="Task",
+    entity_label="Entity",
     dto_class=TaskDTO,
     model_class=Task,
     backend_get_method="get_task",
@@ -514,13 +514,16 @@ TASKS_CONFIG = DomainRelationshipConfig(
             single=True,  # Context: expect single goal
             yaml_field_path="connections.fulfills_goal",
         ),
-        # Task → Habit: single result for context
+        # Task → Habit: (Task)-[:REINFORCES_HABIT]->(Habit), single result for context.
+        # Consolidated from the former SUPPORTS_HABIT (which was never written and
+        # disagreed with the field name, connection config, and context query — all
+        # of which use REINFORCES_HABIT, matching Event's identical concept).
         UnifiedRelationshipDefinition(
-            RelationshipName.SUPPORTS_HABIT,
+            RelationshipName.REINFORCES_HABIT,
             "Entity",
             "outgoing",
             "habit_context",  # Renamed for context view
-            "supports_habit",
+            "habits",
             fields=("uid", "title", "current_streak"),  # Context: include streak
             single=True,  # Context: expect single habit
             yaml_field_path="connections.reinforces_habit",
@@ -653,7 +656,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 GOAPS_CONFIG = DomainRelationshipConfig(
     domain=Domain.GOALS,
-    entity_label="Goal",
+    entity_label="Entity",
     dto_class=GoalDTO,
     model_class=Goal,
     backend_get_method="get",
@@ -1002,7 +1005,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 EVENTS_CONFIG = DomainRelationshipConfig(
     domain=Domain.EVENTS,
-    entity_label="Event",
+    entity_label="Entity",
     dto_class=EventDTO,
     model_class=Entity,
     backend_get_method="get_event",
@@ -1033,6 +1036,14 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "habits",
             yaml_field_path="connections.reinforces_habit",
         ),
+        # Outgoing: Event → Goal (milestone celebration)
+        UnifiedRelationshipDefinition(
+            RelationshipName.CELEBRATES_GOAL,
+            "Goal",
+            "outgoing",
+            "celebrated_goals",
+            "celebrated_goals",
+        ),
         # Outgoing: Event → Task (tasks executed in this event)
         UnifiedRelationshipDefinition(
             RelationshipName.EXECUTES_TASK,
@@ -1050,13 +1061,6 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "incoming",
             "practiced_habits",
             "practiced_habits",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.CELEBRATED_BY_EVENT,
-            "Goal",
-            "incoming",
-            "celebrated_goals",
-            "celebrated_goals",
         ),
         # Bidirectional
         UnifiedRelationshipDefinition(
@@ -1964,15 +1968,14 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
             "required_knowledge",
             fields=("uid", "title", "complexity", "learning_level"),
         ),
-        # Outgoing: Exercise → Group (teacher assigns to group)
+        # Outgoing: Exercise → Group (teacher assigns to group via unified sharing, ADR-053)
         UnifiedRelationshipDefinition(
-            RelationshipName.FOR_GROUP,
+            RelationshipName.SHARED_WITH_GROUP,
             "Group",
             "outgoing",
-            "target_group",
-            "target_group",
-            fields=("uid", "title"),
-            single=True,
+            "shared_groups",
+            "shared_groups",
+            fields=("uid", "name"),
         ),
         # Incoming: Submission → Exercise (student submissions fulfilling this exercise)
         UnifiedRelationshipDefinition(
@@ -2000,7 +2003,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
 )
 
 # -----------------------------------------------------------------------------
-# REVISED_EXERCISE (Five-Phase Learning Loop — teacher-owned, student-targeted)
+# REVISED_EXERCISE (Four-Phase Learning Loop — teacher-owned, student-targeted)
 # RevisedExercise responds to ExerciseReport and revises an Exercise
 # -----------------------------------------------------------------------------
 REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
@@ -2060,6 +2063,45 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     },
 )
 
+# -----------------------------------------------------------------------------
+# USER_ENTRY (ADR-054 — unified user-authored content)
+# Replaces legacy Submission / JeInput / JeOutput. Persisted as :Entity:UserEntry.
+# -----------------------------------------------------------------------------
+USER_ENTRY_CONFIG = DomainRelationshipConfig(
+    domain=Domain.SYSTEM,
+    entity_label="UserEntry",
+    dto_class=EntityDTO,
+    model_class=Entity,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.OWNS,
+    is_shared_content=False,
+    relationships=(
+        # Outgoing: UserEntry → UserEntry (multi-stage pipelines, e.g. journal
+        # transcript → LLM-structured entry). Target is another :UserEntry.
+        UnifiedRelationshipDefinition(
+            RelationshipName.TRANSFORMS,
+            "UserEntry",
+            "outgoing",
+            "source_entry",
+            "source_entry",
+            fields=("uid", "title", "pipeline"),
+            single=True,
+        ),
+        # Outgoing: UserEntry → Exercise (what the entry answers)
+        UnifiedRelationshipDefinition(
+            RelationshipName.FULFILLS_EXERCISE,
+            "Entity",
+            "outgoing",
+            "exercise",
+            "exercise",
+            fields=("uid", "title"),
+            single=True,
+        ),
+    ),
+    bidirectional_relationships=(),
+    default_context_intent=QueryIntent.HIERARCHICAL,
+)
+
 # =============================================================================
 # NOTE (February 2026): MOC_CONFIG REMOVED
 # =============================================================================
@@ -2111,8 +2153,9 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "LearningPath": LP_CONFIG,
     "Exercise": EXERCISE_CONFIG,
     "RevisedExercise": REVISED_EXERCISE_CONFIG,
+    # User-authored content (ADR-054)
+    "UserEntry": USER_ENTRY_CONFIG,
     # Backward-compat aliases (old label keys used by DomainConfig files)
-    "Entity": PS_CONFIG,  # PathStep is THE curriculum content entity
     "Lesson": PS_CONFIG,  # backward-compat alias (Lesson merged into PathStep)
     "Ls": PS_CONFIG,
     "Lp": LP_CONFIG,
@@ -2359,13 +2402,17 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     EntityType.EVENT: "Event",
     EntityType.CHOICE: "Choice",
     EntityType.PRINCIPLE: "Principle",
-    # Submissions/Reports (3)
-    EntityType.EXERCISE_SUBMISSION: "ExerciseSubmission",
+    # Activity Templates (6) — PS-owned, spawn Activity instances on engagement
+    EntityType.TASK_TEMPLATE: "TaskTemplate",
+    EntityType.GOAL_TEMPLATE: "GoalTemplate",
+    EntityType.HABIT_TEMPLATE: "HabitTemplate",
+    EntityType.EVENT_TEMPLATE: "EventTemplate",
+    EntityType.CHOICE_TEMPLATE: "ChoiceTemplate",
+    EntityType.PRINCIPLE_TEMPLATE: "PrincipleTemplate",
+    # User-authored content + Reports (3)
+    EntityType.USER_ENTRY: "UserEntry",
     EntityType.ACTIVITY_REPORT: "ActivityReport",
     EntityType.EXERCISE_REPORT: "ExerciseReport",
-    # Journal (2)
-    EntityType.JE_INPUT: "JeInput",
-    EntityType.JE_OUTPUT: "JeOutput",
     # General-Purpose Forms (2)
     EntityType.FORM_TEMPLATE: "FormTemplate",
     EntityType.FORM_SUBMISSION: "FormSubmission",
@@ -2392,13 +2439,20 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     "Event": EntityType.EVENT,
     "Choice": EntityType.CHOICE,
     "Principle": EntityType.PRINCIPLE,
-    # Submissions/Reports (3)
-    "ExerciseSubmission": EntityType.EXERCISE_SUBMISSION,
+    # Activity Templates (6)
+    "TaskTemplate": EntityType.TASK_TEMPLATE,
+    "GoalTemplate": EntityType.GOAL_TEMPLATE,
+    "HabitTemplate": EntityType.HABIT_TEMPLATE,
+    "EventTemplate": EntityType.EVENT_TEMPLATE,
+    "ChoiceTemplate": EntityType.CHOICE_TEMPLATE,
+    "PrincipleTemplate": EntityType.PRINCIPLE_TEMPLATE,
+    # User-authored content + Reports (3)
+    "UserEntry": EntityType.USER_ENTRY,
+    "ExerciseSubmission": EntityType.USER_ENTRY,  # legacy alias
+    "JeInput": EntityType.USER_ENTRY,  # legacy alias
+    "JeOutput": EntityType.USER_ENTRY,  # legacy alias
     "ActivityReport": EntityType.ACTIVITY_REPORT,
     "ExerciseReport": EntityType.EXERCISE_REPORT,
-    # Journal (2)
-    "JeInput": EntityType.JE_INPUT,
-    "JeOutput": EntityType.JE_OUTPUT,
     # General-Purpose Forms (2)
     "FormTemplate": EntityType.FORM_TEMPLATE,
     "FormSubmission": EntityType.FORM_SUBMISSION,

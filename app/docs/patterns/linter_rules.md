@@ -63,6 +63,8 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
 | **SKUEL016** | Stale Poetry references | SKUEL uses uv, not Poetry |
 | **SKUEL017** | Bare `except Exception` | Use specific exception types from `exception_types.py` |
+| **SKUEL018** | Direct read of `RichUserContext` rich-only fields | Use accessor methods (`get_X()` / `X_or_empty()`) |
+| **SKUEL019** | Credential reads bypassing `get_credential()` | ERROR for catalog keys, WARNING for credential-shape names |
 
 ## Inline Suppression
 
@@ -76,7 +78,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (261 existing uses).
 
@@ -360,6 +362,52 @@ except Exception as e:  # safety-net: catch unexpected errors
 - Scripts (`scripts/**/*.py`)
 - `result_simplified.py` (monadic boundaries annotated separately)
 
+## Rule: SKUEL019 - Credential Reads Must Use get_credential()
+
+**Pattern:** Credential-shaped env reads must route through `get_credential()` from `core.config.credential_store`. The funnel dispatches to the active backend (`SKUEL_CREDENTIAL_BACKEND=keyring` → OS keychain, unset → Fernet-encrypted JSON) and falls back to env when neither has the value. Raw `os.getenv` reads silently skip the keychain under Stage 3.
+
+```python
+# ❌ VIOLATION (ERROR) — catalog credential read via env
+import os
+api_key = os.environ.get("OPENAI_API_KEY")
+hf_token = os.getenv("HF_API_TOKEN")
+neo4j_pw = os.environ["NEO4J_PASSWORD"]
+
+# ❌ VIOLATION (WARNING) — credential-shaped name not yet in catalog
+custom_secret = os.getenv("THIRDPARTY_API_KEY")   # *_API_KEY suffix
+vendor_pat = os.getenv("VENDOR_PAT_PROD")         # *_PAT_* suffix
+
+# ✅ CORRECT — route through the credential funnel
+from core.config.credential_store import get_credential
+api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+if not api_key:
+    raise RuntimeError("OPENAI_API_KEY missing — set via `uv run python -m core.config`")
+```
+
+**Severity logic:**
+- **ERROR** — name is in the credential catalog mirrored from `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`. These are known credentials and must use the funnel.
+- **WARNING** — name matches the credential-shape regex (`_PASSWORD`, `_TOKEN`, `_API_KEY`, `_SECRET`, `_AUTH`, `_PAT_*`) but isn't catalogued yet. Likely a new credential — add it to `CredentialSetup.CREDENTIALS` (and the linter will pick it up automatically via the drift test).
+
+**Catalog drift test:** `tests/unit/scripts/test_lint_skuel.py::TestCredentialCatalogDrift::test_linter_catalog_matches_credential_setup` pins `SkuelLinter.CREDENTIAL_CATALOG` against `CredentialSetup.CREDENTIALS`. Add a new credential to one place, the test tells you to mirror it in the other.
+
+**Exempt files** (raw env reads ARE the implementation):
+- `core/config/credential_store.py` — defines `get_credential()`
+- `core/config/credential_setup.py` — reads `SKUEL_MASTER_KEY` to unlock the Fernet store
+- `scripts/migrate_secrets_to_homedir.py` — Stage 2 migration source
+- `scripts/migrate_secrets_to_keychain.py` — Stage 3 migration source
+- Test files (`tests/**/*.py`) — fixtures often poke env directly
+
+**False-positive guards** built into the regex:
+- `SKUEL_MASTER_KEY` doesn't match — ends in `_KEY`, not any credential suffix
+- `SKUEL_CREDENTIAL_BACKEND` doesn't match — backend selector, not a credential
+- `*_PATH`, `*_DIR`, `*_FILE`, `*_BACKEND`, `*_USERNAME` all don't match
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL019 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL019 -- <reason>` (file)
+
+**See:** `docs/roadmap/secrets-out-of-worktree.md` — full credential storage architecture and the `fed4287f` fail-fast wiring that makes this rule load-bearing.
+
 ## Running the Linters
 
 **Primary interface — use `./dev` commands:**
@@ -432,7 +480,7 @@ Add to pre-commit hooks or CI pipeline:
 ## Linter Configuration Files
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
-- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (17 rules)
+- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (19 rules)
 - **scripts/cypher_linter.py** - Cypher query static analysis (10 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
@@ -450,6 +498,8 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 | **SKUEL012** | Tests, `examples/` | `# skuel-lint: disable=SKUEL012` |
 | **SKUEL015** | Tests, `scripts/`, `examples/`, `debug_*`, `lint_skuel.py`, `dev`, `__main__` blocks, docstrings | `# skuel-lint: disable=SKUEL015` |
 | **SKUEL017** | Tests, `scripts/`, `result_simplified.py` | `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` |
+| **SKUEL018** | Tests, `unified_user_context.py`, `user_context_populator.py` | `# skuel-lint: disable=SKUEL018` |
+| **SKUEL019** | Tests, `credential_store.py`, `credential_setup.py`, both `migrate_secrets_*` scripts, `lint_skuel.py` | `# skuel-lint: disable=SKUEL019` |
 
 ## Benefits Achieved
 
@@ -461,5 +511,5 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 
 ---
 
-**Last Updated:** March 29, 2026
-**Status:** Active - 17 rules enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX`. 118 unit tests cover both linters.
+**Last Updated:** 2026-05-16
+**Status:** Active - 19 rules enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX`. Unit tests cover both linters.

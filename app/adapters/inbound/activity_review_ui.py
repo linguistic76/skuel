@@ -24,7 +24,9 @@ from fasthtml.common import H3, Div, P
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.activity_review import (
     activity_review_sidebar_page,
@@ -64,7 +66,7 @@ def create_activity_review_ui_routes(
         """Admin queue: pending review requests from users."""
         _not_found = object()
         _uid_val = getattr(current_user, "uid", _not_found)
-        admin_uid = str(current_user) if _uid_val is _not_found else str(_uid_val)
+        admin_uid = UserUID(str(current_user) if _uid_val is _not_found else str(_uid_val))
 
         pending: list[Any] = []
         try:
@@ -137,7 +139,9 @@ def create_activity_review_ui_routes(
             return render_inline_error("Please enter a user UID")
 
         try:
-            ctx_result = await orchestrator.build_rich_context(subject_uid, window=time_period)
+            ctx_result = await orchestrator.build_rich_context(
+                UserUID(subject_uid), window=time_period
+            )
             if ctx_result.is_error:
                 return Div(
                     P(f"Failed to build context: {ctx_result.error}", cls="text-error text-sm")
@@ -178,6 +182,7 @@ def create_activity_review_ui_routes(
         )
 
     @rt("/activity-review/submit-feedback", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     async def activity_review_submit_feedback(
         request: Request,
@@ -190,7 +195,9 @@ def create_activity_review_ui_routes(
         """HTMX fragment: admin submits written activity feedback."""
         _missing = object()
         admin_uid_val = getattr(current_user, "uid", _missing)
-        admin_uid = str(admin_uid_val) if admin_uid_val is not _missing else str(current_user)
+        admin_uid = UserUID(
+            str(admin_uid_val) if admin_uid_val is not _missing else str(current_user)
+        )
 
         if not subject_uid or not feedback_text:
             return Div(
@@ -203,7 +210,7 @@ def create_activity_review_ui_routes(
         try:
             result = await orchestrator.submit_report(
                 admin_uid=admin_uid,
-                subject_uid=subject_uid,
+                subject_uid=UserUID(subject_uid),
                 feedback_text=feedback_text,
                 time_period=time_period,
                 domains=domains,
@@ -239,7 +246,7 @@ def create_activity_review_ui_routes(
                     cls="mb-0 font-semibold",
                 ),
                 P(
-                    f"Activity feedback for {subject_uid} saved with ProcessorType.HUMAN.",
+                    f"Activity feedback for {subject_uid} saved with ReportSource.HUMAN.",
                     cls="mb-0 text-sm",
                 ),
                 variant=AlertT.success,

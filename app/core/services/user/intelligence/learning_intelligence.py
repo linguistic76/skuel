@@ -17,14 +17,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.context_types import PathStep
+from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
-    from core.services.user.unified_user_context import UserContext
 
 
-class LearningIntelligenceMixin:
+class LearningIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing learning intelligence methods.
 
@@ -32,12 +32,6 @@ class LearningIntelligenceMixin:
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     Optional: self.zpd_service (ZPDOperations) for curriculum-graph-aware step ranking.
     """
-
-    context: UserContext
-    tasks: Any  # UnifiedRelationshipService
-    ps: Any  # PsService facade
-    vector_search: Any = None  # Neo4jVectorSearchService (optional)
-    zpd_service: Any = None  # ZPDOperations (optional — see core/ports/zpd_protocols.py)
 
     # =========================================================================
     # METHOD 1: Optimal Next Learning Steps
@@ -543,6 +537,7 @@ class LearningIntelligenceMixin:
         Returns:
             Result containing dict of {domain: [uid_list]} showing application opportunities
         """
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         opportunities: dict[str, list[str]] = {
             "tasks": [],
             "habits": [],
@@ -566,7 +561,7 @@ class LearningIntelligenceMixin:
         for habit_uid in self.context.active_habit_uids:
             for goal_uid in opportunities["goals"]:
                 if (
-                    habit_uid in self.context.habits_by_goal.get(goal_uid, [])
+                    habit_uid in self.context.get_habits_for_goal(goal_uid)
                     and habit_uid not in opportunities["habits"]
                 ):
                     opportunities["habits"].append(habit_uid)

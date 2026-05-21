@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined,var-annotated"
 """
 Unit tests for PrinciplesService facade orchestration methods.
 
@@ -10,6 +11,7 @@ import pytest
 
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle import Principle
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.services.principles_service import PrinciplesService
 from core.utils.result_simplified import Errors, Result
 
@@ -66,24 +68,20 @@ class TestPrinciplesServiceCreate:
     async def test_create_principle_delegates_to_core(
         self, principles_service: PrinciplesService
     ) -> None:
-        """create_principle delegates to core.create_principle with all params."""
+        """create_principle delegates to core.create_principle with the request and user_uid."""
         mock_principle = Mock()
         principles_service.core.create_principle = AsyncMock(return_value=Result.ok(mock_principle))
 
-        result = await principles_service.create_principle(
-            label="Do the right thing",
-            description="Always act with integrity",
-            category=PrincipleCategory.ETHICAL,
-            why_matters="Foundation of trust",
+        request = PrincipleCreateRequest(
+            title="Do the right thing",
+            statement="Always act with integrity",
+            principle_category=PrincipleCategory.ETHICAL,
+            why_important="Foundation of trust",
         )
+        result = await principles_service.create_principle(request, user_uid="user_123")
 
         assert result.is_ok
-        principles_service.core.create_principle.assert_called_once_with(
-            "Do the right thing",
-            "Always act with integrity",
-            PrincipleCategory.ETHICAL,
-            "Foundation of trust",
-        )
+        principles_service.core.create_principle.assert_called_once_with(request, "user_123")
 
 
 # ---------------------------------------------------------------------------

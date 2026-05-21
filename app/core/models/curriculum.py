@@ -497,24 +497,13 @@ class Curriculum(Entity):
         """Create Curriculum from an EntityDTO or CurriculumDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "CurriculumDTO":  # type: ignore[override]
+    def to_dto(self) -> "CurriculumDTO":
         """Convert Curriculum to domain-specific CurriculumDTO."""
-        import dataclasses
 
         from core.models.curriculum_dto import CurriculumDTO
+        from core.models.dto_helpers import domain_to_dto
 
-        dto_field_names = {f.name for f in dataclasses.fields(CurriculumDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return CurriculumDTO(**kwargs)
+        return domain_to_dto(self, CurriculumDTO)
 
     def __str__(self) -> str:
         return f"Curriculum(uid={self.uid}, title='{self.title}')"

@@ -347,7 +347,7 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 - **Published by:** `ChoicesCoreService` — single when 1 KU, bulk when 2+
 - **Rationale:** Applying knowledge to real decisions demonstrates practical wisdom
 
-> **Journal channel (not yet implemented):** The substance philosophy reserves weight 0.07 (max 0.20) for journal reflections. No `KnowledgeReflectedInJournal` event exists yet — the Journal domain uses a separate submission pipeline. Implement when JeOutput processing is wired to substance tracking.
+> **Journal channel (not yet implemented):** The substance philosophy reserves weight 0.07 (max 0.20) for journal reflections. No `KnowledgeReflectedInJournal` event exists yet — the Journal domain uses a separate submission pipeline. Implement when UserEntry journal processing is wired to substance tracking.
 
 ---
 

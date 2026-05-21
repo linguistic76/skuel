@@ -12,6 +12,7 @@ All dependencies are required — bootstrap raises if any are missing
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -81,7 +82,7 @@ class LateralRelationshipsOrchestrator:
 
     async def create_relationship(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         uid: str,
         target_uid: str,
         relationship_type: RelationshipName,
@@ -124,7 +125,7 @@ class LateralRelationshipsOrchestrator:
 
     async def get_relationships(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         uid: str,
         relationship_type: RelationshipName,
         direction: str,

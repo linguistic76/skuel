@@ -109,7 +109,7 @@ class Ontology:
 
     def get_class_hierarchy(self) -> dict[str, list[str]]:
         """Get the class hierarchy as parent -> children mapping."""
-        hierarchy = {}
+        hierarchy: dict[str, list[str]] = {}
         for name, class_def in self.classes.items():
             if class_def.base_class:
                 if class_def.base_class not in hierarchy:
@@ -235,7 +235,7 @@ class PydanticOntologyGenerator:
         constraints = {}
         min_value = None
         max_value = None
-        allowed_values = []
+        allowed_values: list[Any] = []
         description = ""
 
         if isinstance(field_info, FieldInfo):

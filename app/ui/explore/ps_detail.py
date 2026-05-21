@@ -10,14 +10,19 @@ from typing import Any
 
 from fasthtml.common import H3, Div, Li, NotStr, P, Ul
 
-from adapters.inbound.path_steps_ui import _start_step_button
+from adapters.inbound.path_steps_ui import _start_step_button, render_engagement_actions
+from core.models.enums import UserRole
+from core.models.type_hints import EntityUID
+from core.services.ps_engagement.engagement import Engagement
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
+from ui.explore.ps_publish_state import render_publish_state, render_status_badge
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.relationships import EntityRelationshipsSection
+from ui.teaching.templates_panel import render_templates_panel_placeholder
 
 
 def render_ps_not_found(uid: str) -> Div:
@@ -56,6 +61,8 @@ def render_ps_detail_content(
     is_mastered: bool,
     user_uid: str | None,
     exercises: list[dict],
+    engagement: Engagement | None,
+    user_role: UserRole | None = None,
 ) -> Div:
     """Render the full PathStep detail content fragment.
 
@@ -70,7 +77,13 @@ def render_ps_detail_content(
         is_mastered: Whether the user has mastered this step.
         user_uid: Current user UID, or None if unauthenticated.
         exercises: Exercise dicts (used for unauthenticated exercise list).
+        engagement: Active engagement (state="engaged") for this user+PS, or
+            None if no active engagement. Drives the Engage/Abandon button
+            group rendered above the learning-state action row.
+        user_role: Viewer's role, or None for unauthenticated. Used to gate
+            the Publish button (TEACHER+ only) in the action area.
     """
+    is_teacher = user_role is not None and user_role.has_permission(UserRole.TEACHER)
     has_toc = bool(toc_html and toc_html.strip())
 
     # Breadcrumbs
@@ -80,7 +93,7 @@ def render_ps_detail_content(
     ]
 
     # Metadata badges
-    metadata_items = []
+    metadata_items = [render_status_badge(getattr(step, "status", None))]
     if step.domain:
         domain_label = getattr(step.domain, "value", str(step.domain))
         metadata_items.append(metadata_badge("Domain:", domain_label, BadgeT.primary))
@@ -93,9 +106,7 @@ def render_ps_detail_content(
     if step.estimated_hours:
         metadata_items.append(metadata_badge("Hours:", f"{step.estimated_hours:.1f}h"))
 
-    metadata_section = (
-        Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4") if metadata_items else Div()
-    )
+    metadata_section = Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4")
 
     # Learning objectives
     objectives_section = Div()
@@ -120,7 +131,9 @@ def render_ps_detail_content(
         cls="prose prose-lg max-w-none",
     )
 
-    # Exercises + Submissions + Feedback (learning loop sections)
+    # Exercises stay visible with an empty state (the workflow entry point).
+    # Submissions + Feedback collapse to an empty Div when the user has no
+    # activity yet — see render_ps_submissions_and_feedback.
     submissions_section: Any = Div()
     feedback_section: Any = Div()
     if user_uid:
@@ -164,10 +177,15 @@ def render_ps_detail_content(
             hx_target="this",
         )
         action_area: Any = Div(
-            _start_step_button(uid, is_in_progress, is_mastered),
-            mark_read_btn,
-            bookmark_btn,
-            cls="flex gap-2 border-t border-border pt-6 mt-8",
+            render_engagement_actions(uid, engagement),
+            render_publish_state(uid, getattr(step, "status", None), is_teacher),
+            Div(
+                _start_step_button(uid, is_in_progress, is_mastered),
+                mark_read_btn,
+                bookmark_btn,
+                cls="flex gap-2",
+            ),
+            cls="flex flex-col gap-3 border-t border-border pt-6 mt-8",
         )
     else:
         action_area = Div(
@@ -180,6 +198,10 @@ def render_ps_detail_content(
             cls="border-t border-border pt-6 mt-8",
         )
 
+    # Teacher-only: Activity Templates panel. HTMX-loaded so detach + create
+    # flows can refresh in place without re-rendering the entire PS detail.
+    templates_panel: Any = render_templates_panel_placeholder(uid) if is_teacher else Div()
+
     # Main content column
     main_column = Div(
         Breadcrumbs(path=breadcrumb_path, show_home=False),
@@ -190,8 +212,9 @@ def render_ps_detail_content(
         submissions_section,
         feedback_section,
         action_area,
+        templates_panel,
         Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),
-        EntityRelationshipsSection(entity_uid=uid, entity_type="ps"),
+        EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ps"),
         cls="flex-1 min-w-0 max-w-4xl",
     )
 

@@ -38,7 +38,7 @@ class QueryTemplateRegistry:
         """Initialize template registry with schema service."""
         self.schema_service = schema_service
         self.logger = get_logger("QueryTemplateRegistry")
-        self._template_library = {}
+        self._template_library: dict[str, TemplateRegistration] = {}
         self._load_default_templates()
 
     def _load_default_templates(self) -> None:
@@ -321,7 +321,7 @@ class QueryTemplateRegistry:
         Returns:
             Dictionary mapping categories to template names
         """
-        library = {}
+        library: dict[str, list[str]] = {}
         for name, registration in self._template_library.items():
             category = registration.category
             if category not in library:

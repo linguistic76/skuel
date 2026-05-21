@@ -81,7 +81,6 @@ core/ports/
 ├── base_service_interface.py          # BaseService mixin protocols
 ├── calendar_protocol.py               # CalendarTrackable entity protocol
 ├── content_protocols.py               # Content/media protocols
-├── context_awareness_protocols.py     # UserContext slices (11 protocols)
 ├── curriculum_protocols.py            # KU, PS, LP operations (5 protocols: CurriculumOperations, PsOperations, LpOperations, KuOperations, ExerciseOperations)
 ├── domain_protocols.py                # Activity domain operations (9 protocols)
 ├── email_protocols.py                 # Email service protocol
@@ -97,6 +96,38 @@ core/ports/
 ├── sharing_protocols.py               # Cross-entity sharing (1 protocol)
 └── submission_protocols.py            # Submission stage (4 protocols)
 ```
+
+### Protocol Hierarchies
+
+Three key protocol hierarchies organize the contracts at their respective layers. Each is ISP-compliant — consumers depend on the narrowest slice they actually use.
+
+**BackendOperations** (the backend-level contract; `UniversalNeo4jBackend` implements this):
+```
+BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
+    ├── CrudOperations[T]
+    ├── EntitySearchOperations[T]
+    ├── RelationshipCrudOperations
+    ├── RelationshipQueryOperations
+    ├── GraphTraversalOperations
+    └── LowLevelOperations
+```
+
+**UserOperations** (decomposed per sub-service; `UserBackend` implements the composed protocol):
+```
+UserOperations  <- composed protocol (UserBackend implements this)
+    ├── UserCrudOperations (6)           <- UserCoreService
+    ├── UserLearningStateOperations (8)  <- UserProgressRecorderService
+    └── UserActivityOperations (3)       <- UserActivityService
+```
+
+**IntelligenceOperations** (shared knowledge + per-domain intelligence):
+```
+IntelligenceOperations  <- composed protocol
+    ├── KnowledgeIntelligenceOperations (4)  <- ActivityKnowledgeIntelligenceService (shared across all 6 Activity Domains)
+    └── DomainIntelligenceOperations (7)     <- Per-domain intelligence services
+```
+
+Note: `*Operations` protocols in `domain_protocols.py` are **backend-level** — they type `self.backend` inside `BaseService[Op, T]`, NOT service-level contracts. Facade services use concrete class types in routes (see "Facade Services — Explicit Delegation" below).
 
 ### Protocol Categories
 
@@ -114,33 +145,14 @@ core/ports/
 | **Forms** | `form_protocols.py` | Backend ops (2) + route-level ISP (2) | 4 |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review queue | 2 |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 |
-| **Context Awareness** | `context_awareness_protocols.py` | ISP slices of UserContext — ZPD, Askesis, intelligence | 11 |
 
-### Context Awareness Protocols — UserContext ISP
+### No "Awareness Slice" Protocols
 
-`UserContext` has ~240 fields. Intelligence and planning services should depend on the narrowest slice they actually use — not the full object. The 11 **context awareness protocols** provide these ISP-compliant slices:
+Services that need a user-state parameter take `UserContext` directly. There is **no parallel layer of ISP slice protocols** (`TaskAwareness`, `KnowledgeAwareness`, etc.) — that pattern was retired (2026-05-11, commit `a82faaba`) because the slices re-declared ~25 fields already owned by `UserContext` and drifted by hand.
 
-```
-UserContext (~240 fields)  ←  implements all 11 protocols
-    ↓ ISP narrowing
-CoreIdentity          → user_uid, username
-TaskAwareness         → active/blocked/overdue tasks, priorities
-KnowledgeAwareness    → mastery levels, in-progress KUs, active path steps, prerequisites, velocity
-HabitAwareness        → streaks, at-risk habits, consistency
-GoalAwareness         → progress, milestones
-EventAwareness        → upcoming events, schedule
-PrincipleAwareness    → core principles, integrity scores
-ChoiceAwareness       → pending choices, decision patterns
-LearningPathAwareness → enrolled paths, current steps, ZPD position
-CrossDomainAwareness  → multi-domain subset incl. in-progress KUs, active path steps
-FullAwareness         → all fields (Askesis dialogue, admin — use sparingly)
-```
+If you find yourself reaching for a "narrow this signature so MyPy enforces minimum field access" abstraction, take a primitive parameter instead of inventing a wrapping protocol. The single source of truth is `UserContext`.
 
-**Why this matters for ZPD and Askesis:** The Zone of Proximal Development computation only needs `KnowledgeAwareness & LearningPathAwareness`. A `ZPDService` that declares this dependency cannot accidentally read task or habit state — the constraint is MyPy-enforced.
-
-**Adoption status (2026-03-05):** First adoption complete — `PlanningMixin`, `DomainPlanningMixin`, and `UnifiedRelationshipService` (15 method signatures across 3 files). Remaining adoption: Askesis services, domain intelligence services, domain planning/progress/scheduling services. `UserContext` satisfies all 11 protocols, so call sites do not change — only the callee signature narrows.
-
-**See:** `core/ports/context_awareness_protocols.py`, `UNIFIED_USER_ARCHITECTURE.md` → ISP Narrowing section, `/docs/architecture/INTELLIGENCE_BACKLOG.md` → Broader Protocol Adoption section
+**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` → "UserContext as Single Source of Truth"
 
 ### Protocol Cleanup (February 2026)
 

@@ -72,7 +72,7 @@ EntityType.HABIT:      ("name", "title", "description", "cue", "reward")
 EntityType.EXERCISE:   ("title", "instructions", "description")
 ```
 
-Curriculum types use `"\n\n"` between fields; activity types use `"\n"`. All 19 content-bearing entity types are supported.
+Curriculum types use `"\n\n"` between fields; activity types use `"\n"`. All 16 content-bearing entity types in `EMBEDDING_FIELD_MAPS` are supported.
 
 ### Embedding Storage
 
@@ -166,16 +166,24 @@ Adjusts scores based on the user's learning state:
 
 Traverses the Neo4j graph for structured context — prerequisites, learning paths, active tasks, related goals. The traversal strategy adapts to the classified intent (see Stage 5a).
 
-### 4c. Semantic Search Within Askesis
+### 4c. Chunk-Level Semantic Search Within Askesis
 
-`ContextRetriever._find_similar_knowledge()` performs a focused search:
+`ContextRetriever._find_similar_chunks()` retrieves the specific passages most
+relevant to the question, not just the owning PathStep titles:
 
-1. Embed the user's question
-2. Fetch knowledge entities (Lessons, KUs, Resources) with embeddings from Neo4j (`WHERE ku.entity_type IN ['lesson', 'ku', 'resource']`)
-3. Calculate cosine similarity in Python
-4. Return top-5 above 0.6 threshold
+1. Embed the user's question.
+2. Hit `contentchunk_embedding_idx` via
+   `Neo4jVectorSearchService.find_similar_chunks_by_text()` — top-5 above the
+   0.6 cosine threshold.
+3. Optionally filter `chunk_types` based on intent (e.g. `PRACTICE` ⇒
+   `["EXERCISE", "EXAMPLE"]`, `PREREQUISITE` ⇒ `["DEFINITION"]`).
+4. Join `chunk → content → entity` so each hit carries the owning PathStep's
+   `parent_uid` + `parent_title` for citation.
 
-This is separate from `Neo4jVectorSearchService` — it's a simpler, direct comparison used specifically within the Askesis pipeline.
+The result lands on `relevant_context["relevant_chunks"]`, which the LLM service
+inlines verbatim (using `context_window` — the 100-word pre/post buffer designed
+for grounding) so the model can quote the matched passage instead of
+paraphrasing the parent's title.
 
 ---
 

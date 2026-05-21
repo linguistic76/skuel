@@ -13,17 +13,19 @@ def _wire_event_subscribers(
     user_service: Any,
     activity_services: dict[str, Any],
     learning_services: dict[str, Any],
-    submissions_core_service: Any,
+    user_entry_exercise_linker: Any,
     notification_service: Any,
     advanced: dict[str, Any],
     analytics_service: Any,
-    submissions_backend: Any = None,
-    insight_store: Any = None,
-    group_backend: Any = None,
+    user_entry_backend: Any,
+    insight_store: Any,
+    group_backend: Any,
+    ps_engagement: Any,
 ) -> None:
     """Wire all event subscribers for context invalidation, cross-domain, and intelligence.
 
     Pure side-effects: subscribes handlers to the event bus. No return value.
+    All dependencies are required — compose_services passes them unconditionally.
     """
     import functools
 
@@ -92,19 +94,21 @@ def _wire_event_subscribers(
         KnowledgeInformedChoice,
         KnowledgePracticedInEvent,
     )
+    from core.events.learning_loop_events import (
+        ReportSubmitted,
+        RevisedExerciseCreated,
+        UserEntryApproved,
+        UserEntryRevisionRequested,
+    )
     from core.events.principle_events import (
         PrincipleConflictRevealed,
         PrincipleReflectionRecorded,
     )
-    from core.events.submission_events import (
-        ReportSubmitted,
-        RevisedExerciseCreated,
-        SubmissionApproved,
-        SubmissionCreated,
-        SubmissionProcessingCompleted,
-        SubmissionProcessingFailed,
-        SubmissionProcessingStarted,
-        SubmissionRevisionRequested,
+    from core.events.user_entry_events import (
+        UserEntryCreated,
+        UserEntryProcessingCompleted,
+        UserEntryProcessingFailed,
+        UserEntryProcessingStarted,
     )
 
     # ── Context invalidation handlers ───────────────────────────────────────
@@ -170,10 +174,10 @@ def _wire_event_subscribers(
         ExpenseUpdated,
         ExpenseDeleted,
         ExpensePaid,
-        # Submission processing lifecycle
-        SubmissionProcessingStarted,
-        SubmissionProcessingCompleted,
-        SubmissionProcessingFailed,
+        # UserEntry processing lifecycle
+        UserEntryProcessingStarted,
+        UserEntryProcessingCompleted,
+        UserEntryProcessingFailed,
     ]
     for event_type in activity_context_events:
         event_bus.subscribe(event_type, invalidate_context)
@@ -181,31 +185,30 @@ def _wire_event_subscribers(
         f"✅ UserService subscribed to {len(activity_context_events)} activity/domain context events"
     )
 
-    # Subscribe to SubmissionCreated for exercise linking (ADR-040)
+    # Subscribe to UserEntryCreated for exercise linking (ADR-040 / ADR-054)
     exercise_handler = functools.partial(
         handle_exercise_submission,
-        reports_core_service=submissions_core_service,
+        exercise_linker=user_entry_exercise_linker,
     )
-    event_bus.subscribe(SubmissionCreated, exercise_handler)
+    event_bus.subscribe(UserEntryCreated, exercise_handler)
     logger.info(
-        "✅ Exercise handler subscribed to SubmissionCreated "
+        "✅ Exercise handler subscribed to UserEntryCreated "
         "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
     )
 
     # Subscribe to PathStepEnrolled for auto default-group enrolment (ADR-040)
-    if submissions_backend and group_backend:
-        from core.events.handlers.path_step_enrollment_handler import handle_path_step_enrolled
+    from core.events.handlers.path_step_enrollment_handler import handle_path_step_enrolled
 
-        enrollment_handler = functools.partial(
-            handle_path_step_enrolled,
-            submissions_backend=submissions_backend,
-            group_backend=group_backend,
-        )
-        event_bus.subscribe(PathStepEnrolled, enrollment_handler)
-        logger.info(
-            "✅ Enrollment handler subscribed to PathStepEnrolled "
-            "(auto student enrolment in admin default group)"
-        )
+    enrollment_handler = functools.partial(
+        handle_path_step_enrolled,
+        user_entry_backend=user_entry_backend,
+        group_backend=group_backend,
+    )
+    event_bus.subscribe(PathStepEnrolled, enrollment_handler)
+    logger.info(
+        "✅ Enrollment handler subscribed to PathStepEnrolled "
+        "(auto student enrolment in admin default group)"
+    )
 
     # Subscribe to report events for student notifications
     report_submitted_handler = functools.partial(
@@ -225,30 +228,29 @@ def _wire_event_subscribers(
         notification_service=notification_service,
     )
     event_bus.subscribe(ReportSubmitted, report_submitted_handler)
-    event_bus.subscribe(SubmissionApproved, submission_approved_handler)
-    event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
+    event_bus.subscribe(UserEntryApproved, submission_approved_handler)
+    event_bus.subscribe(UserEntryRevisionRequested, revision_requested_handler)
     event_bus.subscribe(RevisedExerciseCreated, revised_exercise_handler)
     logger.info(
         "✅ Learning loop notification handlers subscribed to ReportSubmitted + "
-        "SubmissionApproved + SubmissionRevisionRequested + RevisedExerciseCreated "
+        "UserEntryApproved + UserEntryRevisionRequested + RevisedExerciseCreated "
         "(student notifications)"
     )
 
     # Learning loop intelligence handlers — iteration tracking, feedback turnaround, mastery velocity
-    if submissions_backend and insight_store:
-        from core.services.submissions import LearningLoopEventHandlerService
+    from core.services.user_entry.learning_loop_handler import LearningLoopEventHandlerService
 
-        learning_loop_handler = LearningLoopEventHandlerService(
-            backend=submissions_backend,
-            insight_store=insight_store,
-        )
-        event_bus.subscribe(SubmissionCreated, learning_loop_handler.handle_submission_created)
-        event_bus.subscribe(ReportSubmitted, learning_loop_handler.handle_report_submitted)
-        event_bus.subscribe(SubmissionApproved, learning_loop_handler.handle_submission_approved)
-        logger.info(
-            "✅ LearningLoopEventHandlerService subscribed to SubmissionCreated, "
-            "ReportSubmitted, SubmissionApproved (iteration tracking + feedback turnaround + mastery velocity)"
-        )
+    learning_loop_handler = LearningLoopEventHandlerService(
+        backend=user_entry_backend,
+        insight_store=insight_store,
+    )
+    event_bus.subscribe(UserEntryCreated, learning_loop_handler.handle_submission_created)
+    event_bus.subscribe(ReportSubmitted, learning_loop_handler.handle_report_submitted)
+    event_bus.subscribe(UserEntryApproved, learning_loop_handler.handle_submission_approved)
+    logger.info(
+        "✅ LearningLoopEventHandlerService subscribed to UserEntryCreated, "
+        "ReportSubmitted, UserEntryApproved (iteration tracking + feedback turnaround + mastery velocity)"
+    )
 
     # Learning events (user_uid may be absent on curriculum-level events)
     learning_context_events = [
@@ -290,6 +292,23 @@ def _wire_event_subscribers(
     )
     logger.info(
         "✅ GoalEventHandlerService subscribed to GoalAchieved, GoalAbandoned, GoalProgressUpdated"
+    )
+
+    # ── PS engagement auto-completion ───────────────────────────────────────
+    # When an Activity instance reaches engagement-terminal status, check
+    # whether its parent PS engagement is now fully done and auto-complete
+    # if so. See: core/services/ps_engagement/_auto_completion_handler.py
+    # and core/services/ps_engagement/_terminal_status_rules.py.
+    from core.services.ps_engagement._auto_completion_handler import _AutoCompletionHandler
+
+    auto_complete = _AutoCompletionHandler(ps_engagement)
+    event_bus.subscribe(TaskCompleted, auto_complete.on_task_completed)
+    event_bus.subscribe(GoalAchieved, auto_complete.on_goal_achieved)
+    event_bus.subscribe(CalendarEventCompleted, auto_complete.on_calendar_event_completed)
+    event_bus.subscribe(ChoiceMade, auto_complete.on_choice_made)
+    logger.info(
+        "✅ PsEngagementService auto-complete subscribed to TaskCompleted, "
+        "GoalAchieved, CalendarEventCompleted, ChoiceMade"
     )
 
     # Knowledge mastery → Learning Path progress update
@@ -428,7 +447,7 @@ def _wire_event_subscribers(
     )
     event_bus.subscribe(CalendarEventCreated, events_service.event_handler.handle_event_created)
     logger.info(
-        "✅ EventsEventHandlerService subscribed to "
+        "✅ EventEventHandlerService subscribed to "
         "CalendarEventCompleted, CalendarEventRescheduled, CalendarEventCreated"
     )
 

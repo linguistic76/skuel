@@ -232,9 +232,10 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         # Sort by priority (highest first)
         prioritized.sort(key=get_priority_score, reverse=True)
 
+        at_risk_count = len(context.at_risk_habits_or_empty())
         self.logger.info(
             f"Found {len(prioritized)} prioritized habits for user "
-            f"(at_risk={len(context.at_risk_habits)}, keystone={len(context.keystone_habits)})"
+            f"(at_risk={at_risk_count}, keystone={len(context.keystone_habits)})"
         )
 
         return Result.ok(prioritized[:limit])
@@ -300,7 +301,8 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             is_keystone = habit_uid in context.keystone_habits
 
             # Compute urgency + relevance for custom weighting
-            is_at_risk = habit_uid in context.at_risk_habits
+            # at_risk_habits is rich-context only; treat as not-at-risk at standard depth
+            is_at_risk = habit_uid in context.at_risk_habits_or_empty()
             urgency = self._calculate_urgency_score(habit, is_at_risk)
             relevance = self._calculate_relevance_score(
                 goal_uids, habit.is_identity_habit, is_keystone, context
@@ -405,7 +407,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             is_learning_habit = (
                 habit.habit_category == HabitCategory.LEARNING
                 or habit.source_path_step_uid is not None
-                or habit.source_learning_path_uid is not None
                 or any(ku in learning_ku for ku in knowledge_uids)
             )
 
@@ -563,7 +564,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
         # Get prerequisite habit UIDs
-        prereq_uids = await self._get_related_uids("prerequisite_habits", habit_uid)
+        prereq_uids = await self._get_related_uids("prerequisite_habits", EntityUID(habit_uid))
 
         # Check prerequisite habits
         ready_deps = []
@@ -621,7 +622,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
         return Result.ok(
             ContextualDependencies(
-                entity_uid=habit_uid,
+                entity_uid=EntityUID(habit_uid),
                 entity_type="Habit",
                 ready_dependencies=tuple(ready_deps),
                 blocked_dependencies=tuple(blocked_deps),

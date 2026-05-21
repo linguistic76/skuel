@@ -443,6 +443,26 @@ class GraphRelationshipOperations(Protocol):
         """
         ...
 
+    async def create_relationship(
+        self,
+        from_uid: str,
+        to_uid: str,
+        relationship_type: str,
+        properties: Neo4jProperties | None = None,
+    ) -> ResultType[bool]:
+        """Create (MERGE) a validated graph edge between two entities.
+
+        Args:
+            from_uid: Source entity UID
+            to_uid: Target entity UID
+            relationship_type: Neo4j relationship type (validated against the registry)
+            properties: Optional edge properties
+
+        Returns:
+            Result[bool] - True if created/updated
+        """
+        ...
+
 
 # ============================================================================
 # Composable Backend Protocols (ISP-compliant decomposition)
@@ -659,7 +679,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         """Query user entities within a date range."""
         ...
 
-    async def due_soon_raw(
+    async def upcoming_raw(
         self,
         date_field: str,
         days_ahead: int = 7,
@@ -669,7 +689,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         limit: int = 100,
         secondary_sort_field: str | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Query entities due within N days."""
+        """Query entities upcoming within N days."""
         ...
 
     async def overdue_raw(
@@ -682,6 +702,16 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         secondary_sort_field: str | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Query entities past their due date."""
+        ...
+
+    async def active_raw(
+        self,
+        user_uid: UserUID,
+        *,
+        exclude_statuses: builtins.list[str] | None = None,
+        limit: int = 100,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Query user's active (non-terminal) entities."""
         ...
 
     async def prerequisite_traversal_raw(
@@ -1101,6 +1131,10 @@ class HierarchyOperations(Protocol):
 
     async def would_create_cycle(self, parent_uid: str, child_uid: str) -> ResultType[bool]:
         """Check if adding parent→child would create a cycle."""
+        ...
+
+    async def get_descendant_uids(self, uid: str) -> ResultType[builtins.set[str]]:
+        """Get all descendant UIDs reachable via the forward relationship."""
         ...
 
 

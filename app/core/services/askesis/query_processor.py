@@ -236,6 +236,15 @@ class QueryProcessor:
         intent = intent_result.value
 
         # Step 5: Extract entities
+        extracted_entities: dict[str, list[dict[str, Any]]] = {
+            "knowledge": [],
+            "tasks": [],
+            "goals": [],
+            "habits": [],
+            "events": [],
+            "principles": [],
+            "choices": [],
+        }
         try:
             extracted_entities = await self.entity_extractor.extract_entities_from_query(
                 question, user_context
@@ -249,15 +258,6 @@ class QueryProcessor:
             logger.warning(
                 "Entity extraction failed — continuing without entity matches", exc_info=True
             )
-            extracted_entities = {
-                "knowledge": [],
-                "tasks": [],
-                "goals": [],
-                "habits": [],
-                "events": [],
-                "principles": [],
-                "choices": [],
-            }
 
         # Step 6: Retrieve relevant context
         relevant_context = await self.context_retriever.retrieve_relevant_context(
@@ -397,8 +397,8 @@ class QueryProcessor:
         if not user_context.enrolled_path_uids:
             return Result.ok(_ENROLLMENT_GATE_RESPONSE)
 
-        # Step 2: Get learning context
-        context_result = await self.context_retriever.get_learning_context(user_uid, depth)
+        # Step 2: Get learning context (served from already-built UserContext, no extra query)
+        context_result = await self.context_retriever.get_learning_context(user_context, depth)
         if context_result.is_error:
             return context_result
         context_data = context_result.value

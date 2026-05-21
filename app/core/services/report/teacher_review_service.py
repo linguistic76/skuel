@@ -18,16 +18,18 @@ See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
-from core.events.submission_events import (
+from core.events.learning_loop_events import (
     ReportSubmitted,
-    SubmissionApproved,
-    SubmissionRevisionRequested,
+    UserEntryApproved,
+    UserEntryRevisionRequested,
 )
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
+from core.models.enums.pipeline import ReportSource
+from core.models.type_hints import UserUID
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     GroupMemberProgress,
@@ -42,13 +44,14 @@ from core.ports.query_types import (
 )
 from core.ports.report_protocols import ExerciseReportBackendOperations
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
     from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
-    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
+    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
@@ -61,7 +64,7 @@ class TeacherReviewService:
 
     def __init__(
         self,
-        submissions_backend: "SubmissionsBackend",
+        user_entry_backend: "UserEntryBackend",
         report_backend: "ExerciseReportBackendOperations",
         exercise_backend: "ExerciseBackend",
         group_backend: "GroupBackend",
@@ -73,14 +76,14 @@ class TeacherReviewService:
         Initialize the teacher review service.
 
         Args:
-            submissions_backend: Backend for submission queries
+            user_entry_backend: Backend for submission queries
             exercise_backend: Backend for exercise queries
             group_backend: Backend for group queries
             ku_interaction_service: KU interaction service for mastery updates
             report_mastery_service: Explicit mastery propagation service
             event_bus: Event bus for publishing review events
         """
-        self.submissions_backend = submissions_backend
+        self.user_entry_backend = user_entry_backend
         self.report_backend = report_backend
         self.exercise_backend = exercise_backend
         self.group_backend = group_backend
@@ -109,7 +112,7 @@ class TeacherReviewService:
         Returns:
             Result containing list of review items
         """
-        result = await self.submissions_backend.get_review_queue(
+        result = await self.user_entry_backend.get_review_queue(
             teacher_uid, status_filter, entity_type_filter
         )
         if result.is_error:
@@ -157,7 +160,7 @@ class TeacherReviewService:
         Returns:
             Result containing report info
         """
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
 
@@ -176,7 +179,7 @@ class TeacherReviewService:
                 "entity_type": EntityType.EXERCISE_REPORT.value,
                 "submission_status": EntityStatus.COMPLETED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
-                "processor_type": ProcessorType.HUMAN.value,
+                "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.APPROVED.value,
                 "allowed_from_statuses": allowed_from,
                 "now": now,
@@ -197,7 +200,7 @@ class TeacherReviewService:
                 )
             )
 
-        student_uid = records[0]["student_uid"] or ""
+        student_uid = str(records[0]["student_uid"] or "")
         logger.info(
             f"Teacher {teacher_uid} submitted report {report_entity_uid} for submission {report_uid}"
         )
@@ -242,7 +245,7 @@ class TeacherReviewService:
         Returns:
             Result containing revision info
         """
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
 
@@ -261,7 +264,7 @@ class TeacherReviewService:
                 "entity_type": EntityType.EXERCISE_REPORT.value,
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
-                "processor_type": ProcessorType.HUMAN.value,
+                "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "allowed_from_statuses": allowed_from,
                 "now": now,
@@ -282,15 +285,15 @@ class TeacherReviewService:
                 )
             )
 
-        student_uid = records[0]["student_uid"] or ""
+        student_uid = str(records[0]["student_uid"] or "")
         logger.info(
             f"Teacher {teacher_uid} requested revision {report_entity_uid} for submission {report_uid}"
         )
 
         await publish_event(
             self.event_bus,
-            SubmissionRevisionRequested(
-                submission_uid=report_uid,
+            UserEntryRevisionRequested(
+                entity_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 revision_notes=notes,
@@ -332,7 +335,7 @@ class TeacherReviewService:
             feedback_points: List of {category, detail} dicts
             revision_rationale: Why this revision was created
         """
-        access_check = await self._verify_teacher_access(submission_uid, teacher_uid)
+        access_check = await self._verify_teacher_has_group_access(submission_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
 
@@ -359,7 +362,7 @@ class TeacherReviewService:
             uid=re_uid,
             entity_type=EntityType.REVISED_EXERCISE,
             title="",  # Overridden in Cypher
-            user_uid=teacher_uid,
+            user_uid=UserUID(teacher_uid),
             original_exercise_uid=original_exercise_uid,
             report_uid=report_entity_uid,
             instructions=notes,
@@ -382,7 +385,7 @@ class TeacherReviewService:
                 "entity_type": EntityType.EXERCISE_REPORT.value,
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
-                "processor_type": ProcessorType.HUMAN.value,
+                "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "allowed_from_statuses": allowed_from,
                 "now": now,
@@ -408,8 +411,8 @@ class TeacherReviewService:
             )
 
         record = records[0]
-        student_uid = record["student_uid"] or ""
-        revision_number = int(record["revision_number"])
+        student_uid = str(record["student_uid"] or "")
+        revision_number = coerce_int(record["revision_number"])
 
         logger.info(
             f"Teacher {teacher_uid} atomically created report {report_entity_uid} "
@@ -420,8 +423,8 @@ class TeacherReviewService:
         # Publish events after successful transaction
         await publish_event(
             self.event_bus,
-            SubmissionRevisionRequested(
-                submission_uid=submission_uid,
+            UserEntryRevisionRequested(
+                entity_uid=submission_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 revision_notes=notes,
@@ -431,7 +434,7 @@ class TeacherReviewService:
         )
 
         from core.events import RevisedExerciseEmbeddingRequested
-        from core.events.submission_events import RevisedExerciseCreated
+        from core.events.learning_loop_events import RevisedExerciseCreated
 
         await publish_event(
             self.event_bus,
@@ -454,7 +457,7 @@ class TeacherReviewService:
                     entity_uid=re_uid,
                     entity_type="revised_exercise",
                     embedding_text=embedding_text,
-                    user_uid=teacher_uid,
+                    user_uid=UserUID(teacher_uid),
                     requested_at=datetime.now(),
                 ),
                 logger,
@@ -488,13 +491,13 @@ class TeacherReviewService:
         Returns:
             Result containing updated submission info
         """
-        access_check = await self._verify_teacher_access(report_uid, teacher_uid)
+        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
 
         now = datetime.now().isoformat()
         allowed_from = [EntityStatus.REVISION_REQUESTED.value]
-        result = await self.submissions_backend.approve_and_get_linked_kus(
+        result = await self.user_entry_backend.approve_and_get_linked_kus(
             report_uid, now, EntityStatus.COMPLETED.value, allowed_from
         )
         if result.is_error:
@@ -513,7 +516,7 @@ class TeacherReviewService:
             )
 
         record = records[0]
-        student_uid = record["student_uid"] or ""
+        student_uid = UserUID(str(record["student_uid"] or ""))
         raw_ku_uids = record["linked_ku_uids"]
         linked_ku_uids: list[str] = (
             [str(uid) for uid in raw_ku_uids if uid] if isinstance(raw_ku_uids, list) else []
@@ -522,7 +525,7 @@ class TeacherReviewService:
         # Resolve MasteryImpact from the linked Exercise (default MODERATE for backward compat)
         raw_impact = record.get("mastery_impact")
         try:
-            impact = MasteryImpact(raw_impact) if raw_impact else MasteryImpact.MODERATE
+            impact = MasteryImpact(str(raw_impact)) if raw_impact else MasteryImpact.MODERATE
         except ValueError:
             impact = MasteryImpact.MODERATE
 
@@ -540,8 +543,8 @@ class TeacherReviewService:
 
         await publish_event(
             self.event_bus,
-            SubmissionApproved(
-                submission_uid=report_uid,
+            UserEntryApproved(
+                entity_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 mastered_ku_count=mastered_count,
@@ -589,7 +592,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[ExerciseWithSubmissionCounts]", items))
 
     async def get_submissions_for_exercise(
         self,
@@ -605,7 +608,7 @@ class TeacherReviewService:
             Result containing list of submission dicts with student info
             and feedback count
         """
-        result = await self.submissions_backend.get_submissions_for_exercise_review(exercise_uid)
+        result = await self.user_entry_backend.get_submissions_for_exercise_review(exercise_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -623,7 +626,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[SubmissionForExercise]", items))
 
     async def get_students_summary(
         self,
@@ -639,7 +642,7 @@ class TeacherReviewService:
             Result containing list of student dicts with submission_count,
             reviewed_count, pending_count, ordered by pending descending
         """
-        result = await self.submissions_backend.get_students_summary(teacher_uid)
+        result = await self.user_entry_backend.get_students_summary(teacher_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -654,7 +657,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[StudentSummaryItem]", items))
 
     async def get_student_submissions(
         self,
@@ -676,7 +679,7 @@ class TeacherReviewService:
             Result containing list of submission dicts with exercise context
             and feedback count
         """
-        result = await self.submissions_backend.get_student_submissions_for_teacher(
+        result = await self.user_entry_backend.get_student_submissions_for_teacher(
             teacher_uid, student_uid
         )
         if result.is_error:
@@ -696,7 +699,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[StudentSubmissionItem]", items))
 
     async def get_submission_detail(
         self,
@@ -716,7 +719,7 @@ class TeacherReviewService:
         Returns:
             Result containing submission detail dict
         """
-        result = await self.submissions_backend.get_submission_detail_for_teacher(
+        result = await self.user_entry_backend.get_submission_detail_for_teacher(
             submission_uid, teacher_uid
         )
         if result.is_error:
@@ -766,7 +769,7 @@ class TeacherReviewService:
         Returns:
             Result containing stats dict
         """
-        result = await self.submissions_backend.get_dashboard_stats(teacher_uid)
+        result = await self.user_entry_backend.get_dashboard_stats(teacher_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -821,7 +824,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[TeacherGroupStats]", items))
 
     async def get_group_detail(
         self,
@@ -857,7 +860,7 @@ class TeacherReviewService:
             for record in result.value
         ]
 
-        return Result.ok(items)
+        return Result.ok(cast("list[GroupMemberProgress]", items))
 
     # ========================================================================
     # PRIVATE HELPERS
@@ -865,15 +868,23 @@ class TeacherReviewService:
 
     async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
         """Get the report_file_path for an ExerciseReport node by UID."""
-        return await self.submissions_backend.get_report_file_path(report_uid)
+        return await self.user_entry_backend.get_report_file_path(report_uid)
 
-    async def _verify_teacher_access(
+    async def _verify_teacher_has_group_access(
         self,
         report_uid: str,
         teacher_uid: str,
     ) -> Result[bool]:
-        """Verify the submission is owned by a student (not the teacher themselves)."""
-        result = await self.submissions_backend.verify_teacher_access(report_uid, teacher_uid)
+        """Verify teacher shares an active group with the submission's owner.
+
+        Maps empty backend results to ``Errors.not_found(...)`` (404) so a
+        teacher outside the student's group cannot distinguish between
+        "submission does not exist" and "submission exists but belongs to
+        another teacher's student."
+        """
+        result = await self.user_entry_backend.verify_teacher_has_group_access(
+            report_uid, teacher_uid
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -892,7 +903,7 @@ class TeacherReviewService:
         student_uid: str,
     ) -> Result[bool]:
         """Verify the teacher shares an active group with the student."""
-        result = await self.submissions_backend.verify_teacher_authority(teacher_uid, student_uid)
+        result = await self.user_entry_backend.verify_teacher_authority(teacher_uid, student_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -900,7 +911,7 @@ class TeacherReviewService:
             return Result.fail(
                 Errors.forbidden(
                     action="verify_teacher_authority",
-                    reason=f"Teacher {teacher_uid} does not have authority over student {student_uid}"
+                    reason=f"Teacher {teacher_uid} does not have authority over student {student_uid}",
                 )
             )
 

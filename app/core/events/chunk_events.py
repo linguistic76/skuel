@@ -4,11 +4,12 @@ Chunk Embedding Events
 
 Events for async chunk-level embedding generation.
 
-Published when KU chunks are created, consumed by background worker
-for batch embedding generation.
+Published when a parent entity's content is chunked (currently PathStep, in
+principle any chunkable Entity), consumed by the background worker for batch
+embedding generation.
 
 Architecture:
-- Zero latency impact on KU creation
+- Zero latency impact on ingestion
 - Batch processing for efficiency (25 chunks per API call)
 - Graceful degradation if worker unavailable
 """
@@ -23,14 +24,14 @@ from core.models.type_hints import UserUID
 @dataclass(frozen=True)
 class ChunkEmbeddingRequested(BaseEvent):
     """
-    Published when KU chunks need embeddings.
+    Published when a parent entity's chunks need embeddings.
 
-    Triggered after KU creation with chunks.
+    Triggered after chunking during ingestion or batch regeneration.
     Worker processes in batches for efficiency.
     """
 
-    ku_uid: str
-    chunk_uids: tuple[str, ...]  # ["ku.python:chunk:0", ...]
+    parent_uid: str  # The parent Entity uid (e.g., PathStep) whose chunks need embedding
+    chunk_uids: tuple[str, ...]  # ["ps:foo:chunk:0", ...]
     chunk_texts: tuple[str, ...]  # Context window for each chunk
     requested_at: datetime
     user_uid: UserUID | None = None
@@ -48,7 +49,7 @@ class ChunkEmbeddingsCompleted(BaseEvent):
     Used for monitoring and debugging embedding generation pipeline.
     """
 
-    ku_uid: str
+    parent_uid: str  # Matches ChunkEmbeddingRequested.parent_uid
     chunk_uids: tuple[str, ...]
     success_count: int
     failed_count: int

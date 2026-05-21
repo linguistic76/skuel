@@ -102,7 +102,7 @@ class BatchTranscriptionService:
 
     def _find_audio_files(self, input_dir: Path) -> list[Path]:
         """Find all audio files in directory (non-recursive)."""
-        files = []
+        files: list[Path] = []
         for ext in AUDIO_EXTENSIONS:
             files.extend(input_dir.glob(f"*{ext}"))
         return sorted(files, key=_path_name)

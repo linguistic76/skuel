@@ -259,7 +259,7 @@ class UserStateAnalyzer:
         tasks: dict[str, Any] = {
             "active": len(user_context.active_task_uids),
             "overdue": len(user_context.overdue_task_uids),
-            "blocked": len(user_context.blocked_task_uids),
+            "blocked": len(user_context.blocked_task_uids_or_empty()),
             "due_today": len(user_context.today_task_uids),
         }
 
@@ -277,7 +277,7 @@ class UserStateAnalyzer:
         # --- Habits ---
         habits: dict[str, Any] = {
             "active": len(user_context.active_habit_uids),
-            "at_risk": len(user_context.at_risk_habits),
+            "at_risk": len(user_context.at_risk_habits_or_empty()),
         }
         if user_context.habit_streaks:
             habits["longest_streak"] = max(user_context.habit_streaks.values())
@@ -356,20 +356,20 @@ class UserStateAnalyzer:
         insights = []
 
         # Always check for critical issues
-        if user_context.at_risk_habits:
+        if at_risk := user_context.at_risk_habits_or_empty():
             insights.append(
                 AskesisInsight(
                     type=InsightType.RISK,
                     title="Habit streaks at risk",
-                    description=f"{len(user_context.at_risk_habits)} habits need immediate attention",
+                    description=f"{len(at_risk)} habits need immediate attention",
                     confidence=ConfidenceLevel.VERY_HIGH,
                     impact="critical",
                     domains_affected=[Domain.PERSONAL],
-                    entities_involved={"habits": list(user_context.at_risk_habits)},
+                    entities_involved={"habits": list(at_risk)},
                     recommended_actions=[
                         {"action": "Complete habits today", "urgency": "immediate"}
                     ],
-                    supporting_data={"count": len(user_context.at_risk_habits)},
+                    supporting_data={"count": len(at_risk)},
                 )
             )
 
@@ -403,13 +403,15 @@ class UserStateAnalyzer:
                     impact="high",
                     domains_affected=[Domain.KNOWLEDGE, Domain.BUSINESS],
                     entities_involved={
-                        "blocked": list(user_context.blocked_task_uids)[:5],
+                        "blocked": list(user_context.blocked_task_uids_or_empty())[:5],
                         "prerequisites": list(user_context.prerequisites_needed.keys())[:5],
                     },
                     recommended_actions=[
                         {"action": "Complete key prerequisites", "benefit": "Unblock progress"}
                     ],
-                    supporting_data={"blocked_count": len(user_context.blocked_task_uids)},
+                    supporting_data={
+                        "blocked_count": len(user_context.blocked_task_uids_or_empty()),
+                    },
                 )
             )
 
@@ -439,9 +441,10 @@ class UserStateAnalyzer:
         Returns:
             Risk assessment dict with risk scores (0.0 to 1.0)
         """
+        # at_risk_habits is rich-context only; treat as 0 at standard depth
+        at_risk_count = len(user_context.at_risk_habits_or_empty())
         risks = {
-            "habit_risk": len(user_context.at_risk_habits)
-            / max(len(user_context.active_habit_uids), 1),
+            "habit_risk": at_risk_count / max(len(user_context.active_habit_uids), 1),
             "goal_risk": 0.0,
             "overload_risk": user_context.current_workload_score,
             "stagnation_risk": 0.0,

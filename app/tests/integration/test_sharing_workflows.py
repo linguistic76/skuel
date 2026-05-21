@@ -49,12 +49,12 @@ async def test_report(neo4j_driver):
         uid: $uid,
         user_uid: $user_uid,
         original_filename: "test_report.pdf",
-        entity_type: "exercise_submission",
+        entity_type: "user_entry",
         status: "completed",
         file_path: "/test/path",
         file_size: 1024,
         file_type: "application/pdf",
-        processor_type: "llm",
+        pipeline: "none",
         visibility: "private",
         created_at: datetime(),
         updated_at: datetime()
@@ -92,8 +92,7 @@ async def test_report(neo4j_driver):
     # Cleanup
     cleanup_query = """
     MATCH (a:Entity {uid: $uid})
-    OPTIONAL MATCH (a)<-[r:SHARES_WITH]-()
-    DELETE r, a
+    DETACH DELETE a
     """
     await neo4j_driver.execute_query(cleanup_query, uid=report_uid)
 
@@ -369,7 +368,7 @@ async def test_only_owner_can_change_visibility(sharing_service, test_report):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_service):
+async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_service, test_report):
     """Test that non-completed entities cannot be shared."""
     # Create entity with status=processing
     report_uid = "test_report_processing"
@@ -380,12 +379,12 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
         uid: $uid,
         user_uid: $user_uid,
         original_filename: "processing.pdf",
-        entity_type: "exercise_submission",
+        entity_type: "exercise_report",
         status: "processing",
         file_path: "/test/path",
         file_size: 1024,
         file_type: "application/pdf",
-        processor_type: "llm",
+        pipeline: "none",
         visibility: "private",
         created_at: datetime(),
         updated_at: datetime()
@@ -410,7 +409,7 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
     finally:
         # Cleanup
         await neo4j_driver.execute_query(
-            "MATCH (a:Entity {uid: $uid}) DELETE a",
+            "MATCH (a:Entity {uid: $uid}) DETACH DELETE a",
             uid=report_uid,
         )
 

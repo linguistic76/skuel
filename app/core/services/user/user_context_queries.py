@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
-from core.ports.query_types import CurrentPathStepItem
+from core.ports.query_types import CurrentPathStepItem, GroupSummary
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -330,6 +330,20 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
      collect(DISTINCT {uid: conflicting_event.uid, title: conflicting_event.title})[0..5] as event_conflicting_events
 
+// Event → Habit reinforcement edge (graph-native; replaces the former
+// reinforces_habit_uid property). Loaded into graph_context.reinforced_habits.
+OPTIONAL MATCH (event)-[:REINFORCES_HABIT]->(event_reinforced_habit:Habit)
+WHERE event IS NOT NULL
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids,
+     event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
+     event_conflicting_events,
+     collect(DISTINCT {uid: event_reinforced_habit.uid, title: event_reinforced_habit.title})[0..10] as event_reinforced_habits
+
 // Aggregate events into rich format
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -343,7 +357,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
              applied_knowledge: event_applied_knowledge,
              linked_goals: event_linked_goals,
              practiced_habits: event_practiced_habits,
-             conflicting_events: event_conflicting_events
+             conflicting_events: event_conflicting_events,
+             reinforced_habits: event_reinforced_habits
          }
      } END) as events_rich
 
@@ -856,7 +871,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // SUBMISSION & FEEDBACK STATS - Learning loop engagement tracking
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(sub:Entity)
-WHERE sub.entity_type IN ['submission', 'journal']
+WHERE sub.entity_type IN ['exercise_submission', 'je_input', 'je_output', 'user_entry']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -870,15 +885,15 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      life_path_uid, life_path_designated_at, life_path_alignment_score,
      active_moc_uids, moc_metadata,
      latest_ar, active_insights_raw,
-     count(CASE WHEN sub.entity_type = 'exercise_submission' THEN 1 END) AS total_submission_count,
-     count(CASE WHEN sub.entity_type = 'je_input' THEN 1 END) AS total_journal_count,
+     count(CASE WHEN sub.entity_type = 'exercise_submission' OR (sub.entity_type = 'user_entry' AND sub.pipeline IS NOT NULL AND sub.pipeline <> 'transcribe_and_structure') THEN 1 END) AS total_submission_count,
+     count(CASE WHEN sub.entity_type = 'je_input' OR (sub.entity_type = 'user_entry' AND sub.pipeline = 'transcribe_and_structure') THEN 1 END) AS total_journal_count,
      count(CASE WHEN sub.created_at >= datetime($window_start) THEN 1 END) AS submissions_in_window,
      max(sub.created_at) AS last_submission_date,
      collect(sub.uid) AS all_submission_uids
 
 // Feedback received for user's submissions
 OPTIONAL MATCH (user)-[:OWNS]->(owned_sub:Entity)<-[:REPORT_FOR]-(fb:Entity)
-WHERE owned_sub.entity_type IN ['submission', 'journal']
+WHERE owned_sub.entity_type IN ['exercise_submission', 'je_input', 'je_output', 'user_entry']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -918,7 +933,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      size([uid IN all_submission_uids WHERE NOT uid IN submissions_with_feedback]) AS pending_feedback_count
 
 // Assigned exercises and unsubmitted exercises
-OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:FOR_GROUP]-(ex:Entity {entity_type: 'exercise', scope: 'assigned'})
+OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise', scope: 'assigned'})
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -1172,6 +1187,33 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(event.uid) as upcoming_event_uids,
      collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids
 
+// Principles - active principles guide daily decisions
+OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
+WHERE principle.status = 'active'
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     enrolled_path_uids,
+     active_moc_uids, moc_data,
+     upcoming_event_uids, today_event_uids,
+     collect(principle.uid) as core_principle_uids
+
+// Choices - pending decisions block forward motion
+OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
+WHERE choice.status IN ['draft', 'active']
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     active_habit_uids, habit_data,
+     active_goal_uids, completed_goal_uids, goal_data,
+     knowledge_data,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     enrolled_path_uids,
+     active_moc_uids, moc_data,
+     upcoming_event_uids, today_event_uids,
+     core_principle_uids,
+     collect(choice.uid) as pending_choice_uids
+
 // ACTIVITY REPORT - Latest report for standard context
 OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
 WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
@@ -1182,6 +1224,7 @@ WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      enrolled_path_uids,
      active_moc_uids, moc_data,
      upcoming_event_uids, today_event_uids,
+     core_principle_uids, pending_choice_uids,
      ar
 ORDER BY ar.period_end DESC
 WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
@@ -1192,6 +1235,7 @@ WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      enrolled_path_uids,
      active_moc_uids, moc_data,
      upcoming_event_uids, today_event_uids,
+     core_principle_uids, pending_choice_uids,
      collect(ar)[0] AS latest_ar
 
 // Final aggregation - return all domain data
@@ -1214,6 +1258,8 @@ RETURN
     moc_data,
     upcoming_event_uids,
     today_event_uids,
+    core_principle_uids,
+    pending_choice_uids,
     CASE WHEN latest_ar IS NOT NULL THEN {
         uid: latest_ar.uid,
         period: latest_ar.time_period,
@@ -1249,6 +1295,8 @@ def empty_context_data() -> dict[str, Any]:
             "ku_marked_as_read_uids": set(),
         },
         "events": {"upcoming_uids": [], "today_uids": []},
+        "principles": {"core_uids": []},
+        "choices": {"pending_uids": []},
         "mocs": {"active_uids": [], "view_counts": {}, "recently_viewed_uids": []},
         "submission_stats": {
             "total_submission_count": 0,
@@ -1374,6 +1422,103 @@ class UserContextQueryExecutor:
             ]
         )
 
+    @with_error_handling("fetch_user_groups", error_type="database", uid_param="user_uid")
+    async def fetch_user_groups(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+        """
+        Fetch group memberships, ownerships, and curriculum shared with the user's groups.
+
+        Returns a dict with:
+        - user_groups: groups the user is a MEMBER_OF (student role)
+        - teacher_groups: groups the user OWNS (teacher role) with member counts
+        - group_assigned_exercise_uids / group_assigned_path_step_uids /
+          group_assigned_learning_path_uids: curriculum shared to any of the
+          user's groups via SHARED_WITH_GROUP (ADR-053).
+        """
+        query = """
+        MATCH (user:User {uid: $user_uid})
+        OPTIONAL MATCH (user)-[:MEMBER_OF]->(mg:Group)
+        WITH user, collect(DISTINCT {
+            uid: mg.uid,
+            name: coalesce(mg.name, 'Untitled Group'),
+            role: 'student',
+            member_count: 0,
+            is_active: coalesce(mg.is_active, true)
+        }) AS member_groups_raw
+        OPTIONAL MATCH (user)-[:OWNS]->(og:Group)
+        OPTIONAL MATCH (og)<-[:MEMBER_OF]-(member:User)
+        WITH user, member_groups_raw, og,
+             count(DISTINCT member) AS member_count
+        WITH user, member_groups_raw,
+             collect(DISTINCT CASE WHEN og IS NOT NULL THEN {
+                 uid: og.uid,
+                 name: coalesce(og.name, 'Untitled Group'),
+                 role: 'owner',
+                 member_count: member_count,
+                 is_active: coalesce(og.is_active, true)
+             } END) AS teacher_groups_raw
+        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise'})
+        WITH user, member_groups_raw, teacher_groups_raw,
+             collect(DISTINCT ex.uid) AS exercise_uids
+        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g2:Group)<-[:SHARED_WITH_GROUP]-(ps:Entity {entity_type: 'path_step'})
+        WITH user, member_groups_raw, teacher_groups_raw, exercise_uids,
+             collect(DISTINCT ps.uid) AS path_step_uids
+        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g3:Group)<-[:SHARED_WITH_GROUP]-(lp:Entity {entity_type: 'learning_path'})
+        RETURN
+            [x IN member_groups_raw WHERE x.uid IS NOT NULL] AS user_groups,
+            [x IN teacher_groups_raw WHERE x IS NOT NULL AND x.uid IS NOT NULL] AS teacher_groups,
+            exercise_uids AS group_assigned_exercise_uids,
+            path_step_uids AS group_assigned_path_step_uids,
+            collect(DISTINCT lp.uid) AS group_assigned_learning_path_uids
+        """
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(
+                {
+                    "user_groups": [],
+                    "teacher_groups": [],
+                    "group_assigned_exercise_uids": [],
+                    "group_assigned_path_step_uids": [],
+                    "group_assigned_learning_path_uids": [],
+                }
+            )
+        record = records[0]
+        return Result.ok(
+            {
+                "user_groups": [
+                    GroupSummary(
+                        uid=str(g["uid"]),
+                        name=str(g.get("name", "Untitled Group")),
+                        role=str(g.get("role", "student")),
+                        member_count=int(g.get("member_count") or 0),
+                        is_active=bool(g.get("is_active", True)),
+                    )
+                    for g in (record.get("user_groups") or [])
+                ],
+                "teacher_groups": [
+                    GroupSummary(
+                        uid=str(g["uid"]),
+                        name=str(g.get("name", "Untitled Group")),
+                        role=str(g.get("role", "owner")),
+                        member_count=int(g.get("member_count") or 0),
+                        is_active=bool(g.get("is_active", True)),
+                    )
+                    for g in (record.get("teacher_groups") or [])
+                ],
+                "group_assigned_exercise_uids": [
+                    str(u) for u in (record.get("group_assigned_exercise_uids") or []) if u
+                ],
+                "group_assigned_path_step_uids": [
+                    str(u) for u in (record.get("group_assigned_path_step_uids") or []) if u
+                ],
+                "group_assigned_learning_path_uids": [
+                    str(u) for u in (record.get("group_assigned_learning_path_uids") or []) if u
+                ],
+            }
+        )
+
     @with_error_handling("execute_consolidated_query", error_type="database", uid_param="user_uid")
     async def execute_consolidated_query(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
@@ -1477,6 +1622,12 @@ class UserContextQueryExecutor:
                 "events": {
                     "upcoming_uids": record["upcoming_event_uids"] or [],
                     "today_uids": [uid for uid in (record["today_event_uids"] or []) if uid],
+                },
+                "principles": {
+                    "core_uids": [uid for uid in (record["core_principle_uids"] or []) if uid],
+                },
+                "choices": {
+                    "pending_uids": [uid for uid in (record["pending_choice_uids"] or []) if uid],
                 },
                 "mocs": {
                     "active_uids": [uid for uid in (record["active_moc_uids"] or []) if uid],

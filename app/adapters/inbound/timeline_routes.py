@@ -19,6 +19,7 @@ Version: 3.0 - Vis.js Timeline
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from fasthtml.common import FT
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -208,7 +209,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
         project: str | None = None,
         status: str | None = None,
         include_completed: bool = True,
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """
         REST API endpoint for timeline preview (first 10 lines + stats).
 
@@ -286,7 +287,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
     @boundary_handler()
     async def timeline_viewer(
         request, src: str | None = None, project: str | None = None, _view: str = "timeline"
-    ) -> Result[Any]:
+    ) -> Result[FT]:
         """
         Web interface for Vis.js Timeline visualization.
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+from core.ports.query_types import SemanticSearchChunkResult
 from core.utils.result_simplified import Result
 
 
@@ -37,3 +38,14 @@ class VectorSearchBackendOperations(Protocol):
     async def get_learning_states_batch(
         self, user_uid: str, ku_uids: list[str]
     ) -> Result[list[dict[str, Any]]]: ...
+
+    async def semantic_search_chunks(
+        self,
+        query_embedding: list[float],
+        limit: int,
+        threshold: float,
+        chunk_types: list[str] | None = None,
+        parent_uid: str | None = None,
+    ) -> Result[list[SemanticSearchChunkResult]]:
+        """Vector search across :ContentChunk nodes for precise RAG retrieval."""
+        ...

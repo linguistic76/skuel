@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# SKUEL pre-commit hook — single canonical script.
+#
+# Runs three independent checks; failure of ANY blocks the commit:
+#
+#   1. Secret-leak scan
+#      - .env / .env.local / .env.<anything> files staged
+#        (.env.example and .env.sample are allowed)
+#      - high-confidence credential patterns in added lines
+#
+#   2. Doc cross-reference validation
+#      - only when at least one .md file is staged
+#      - runs scripts/validate_cross_references.py --errors-only
+#        (broken skill references, broken /docs/ links,
+#         missing frontmatter on pattern docs)
+#
+#   3. MyPy type check on staged Python files
+#      - only when at least one app/**/*.py file is staged
+#      - runs `uv run mypy --follow-imports=silent <staged files>`
+#      - --follow-imports=silent loads imports for type info but suppresses
+#        errors in unmodified files, so pre-existing issues elsewhere don't
+#        block unrelated commits. The CI job (quality.yml) is the global gate.
+#      - Reads files from disk, not the index — if you staged then edited,
+#        the check sees the edited version (usually what you want).
+#
+# Bypass (use sparingly, prefer fixing):
+#   SKUEL_ALLOW_SECRETS=1 git commit ...   # skip secret scan only
+#   SKUEL_SKIP_MYPY=1     git commit ...   # skip MyPy only
+#   git commit --no-verify ...             # skip ALL (last resort)
+#
+# Install (idempotent):  app/scripts/install_git_hooks.sh
+# See:                    app/scripts/git-hooks/README.md
+
+set -uo pipefail
+
+red()    { printf '\033[31m%s\033[0m\n' "$*"; }
+yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
+green()  { printf '\033[32m%s\033[0m\n' "$*"; }
+
+repo_root="$(git rev-parse --show-toplevel)"
+fail=0
+
+# =========================================================================
+# Check 1 — Secret-leak scan
+# =========================================================================
+if [[ "${SKUEL_ALLOW_SECRETS:-0}" == "1" ]]; then
+  yellow "⚠ SKUEL_ALLOW_SECRETS=1 set — skipping secret scan."
+else
+  # --- 1a: refuse .env-shaped files --------------------------------------
+  staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
+  while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    case "$(basename "$path")" in
+      .env.example|.env.sample) ;;
+      .env|.env.*)
+        red "✗ Refusing to commit env file: $path"
+        fail=1
+        ;;
+    esac
+  done <<< "$staged_files"
+
+  # --- 1b: scan added lines for known credential shapes ------------------
+  # -U0 = only changed lines, no surrounding context.
+  diff_text=$(git diff --cached -U0 --diff-filter=ACMR -- \
+    ':(exclude)*.lock' ':(exclude)*.lock.json')
+
+  # provider | regex.  Length thresholds avoid matching doc placeholders.
+  patterns=(
+    'OpenAI key|sk-(proj|live|test|or)-[A-Za-z0-9_-]{40,}'
+    'AWS access key|\bAKIA[0-9A-Z]{16}\b'
+    'Stripe webhook secret|\bwhsec_[A-Za-z0-9]{30,}\b'
+    'Stripe live key|\bsk_live_[A-Za-z0-9]{20,}\b'
+    'GitHub PAT|\bghp_[A-Za-z0-9]{36}\b'
+    'GitHub fine-grained PAT|\bgithub_pat_[A-Za-z0-9_]{60,}\b'
+    'HuggingFace token|\bhf_[A-Za-z0-9]{30,}\b'
+    'Slack token|\bxox[abprs]-[A-Za-z0-9-]{20,}\b'
+    'Google API key|\bAIza[0-9A-Za-z_-]{35}\b'
+    'Private key block|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
+  )
+
+  added_lines=$(printf '%s\n' "$diff_text" | grep -E '^\+[^+]' || true)
+
+  for entry in "${patterns[@]}"; do
+    label="${entry%%|*}"
+    regex="${entry#*|}"
+    matches=$(printf '%s\n' "$added_lines" | grep -E -- "$regex" || true)
+    if [[ -n "$matches" ]]; then
+      red "✗ Possible $label in staged changes:"
+      # Redact the actual match in the printed output so we don't echo the
+      # secret into terminal scrollback / CI logs.
+      printf '%s\n' "$matches" | sed -E -e 's/'"$regex"'/[REDACTED]/g' \
+        | head -5 | sed 's/^/    /' >&2
+      fail=1
+    fi
+  done
+fi
+
+# =========================================================================
+# Check 2 — Doc cross-reference validation
+# =========================================================================
+staged_docs=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
+
+if [[ -n "$staged_docs" ]]; then
+  doc_count=$(echo "$staged_docs" | wc -l | tr -d ' ')
+  echo "🔍 Validating cross-references in $doc_count staged .md file(s)..."
+
+  # validate_cross_references.py + pyproject.toml live under app/, so cd in.
+  if ( cd "$repo_root/app" && uv run python scripts/validate_cross_references.py --errors-only ); then
+    green "✅ Cross-reference validation passed"
+  else
+    red "✗ Cross-reference validation failed"
+    yellow "  Details:  cd app && uv run python scripts/validate_cross_references.py"
+    fail=1
+  fi
+fi
+
+# =========================================================================
+# Check 3 — MyPy type check on staged Python files
+# =========================================================================
+if [[ "${SKUEL_SKIP_MYPY:-0}" == "1" ]]; then
+  yellow "⚠ SKUEL_SKIP_MYPY=1 set — skipping MyPy."
+else
+  # Only .py files inside app/; strip the prefix so paths resolve from app/.
+  staged_py=$(git diff --cached --name-only --diff-filter=ACMR \
+    | grep -E '^app/.*\.py$' \
+    | sed 's|^app/||' || true)
+
+  if [[ -n "$staged_py" ]]; then
+    py_count=$(printf '%s\n' "$staged_py" | wc -l | tr -d ' ')
+    py_word=$([[ "$py_count" == "1" ]] && echo "file" || echo "files")
+    echo "🔍 MyPy type-checking ${py_count} staged Python ${py_word}..."
+
+    # xargs reads the file list on stdin; --no-run-if-empty guards against
+    # the empty-input edge case (already prevented by the outer -n check,
+    # but defensive against future refactors).
+    if mypy_output=$(
+      printf '%s\n' "$staged_py" \
+        | (cd "$repo_root/app" && xargs --no-run-if-empty \
+             uv run mypy --follow-imports=silent --no-error-summary 2>&1)
+    ); then
+      green "✅ MyPy type check passed (${py_count} ${py_word})"
+    else
+      red "✗ MyPy type check failed"
+      printf '%s\n' "$mypy_output" | sed 's/^/    /' >&2
+      yellow "  Reproduce:   cd app && uv run mypy --follow-imports=silent <staged files>"
+      yellow "  Bypass once: SKUEL_SKIP_MYPY=1 git commit ..."
+      fail=1
+    fi
+  fi
+fi
+
+# =========================================================================
+# Verdict
+# =========================================================================
+if [[ $fail -ne 0 ]]; then
+  echo
+  yellow "Commit blocked. To bypass (last-resort, prefer fixing):"
+  yellow "  • False-positive secret (test fixture / doc placeholder):"
+  yellow "      SKUEL_ALLOW_SECRETS=1 git commit ..."
+  yellow "  • Skip just the MyPy check (work-in-progress refactor):"
+  yellow "      SKUEL_SKIP_MYPY=1     git commit ..."
+  yellow "  • Skip ALL checks (use only if you understand the trade-off):"
+  yellow "      git commit --no-verify ..."
+  yellow "Real key in staged diff? Rotate it now and unstage."
+  exit 1
+fi
+
+exit 0

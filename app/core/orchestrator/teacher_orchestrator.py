@@ -14,6 +14,7 @@ admin_stats is optional — KU detail degrades gracefully when unavailable
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -47,7 +48,7 @@ class TeacherOrchestrator:
 
     async def get_review_queue(
         self,
-        teacher_uid: str,
+        teacher_uid: UserUID,
         status_filter: str | None = None,
         entity_type_filter: str | None = None,
     ) -> Result[list[Any]]:
@@ -62,7 +63,7 @@ class TeacherOrchestrator:
     # Submission Detail
     # ------------------------------------------------------------------
 
-    async def get_submission_detail(self, submission_uid: str, teacher_uid: str) -> Result[Any]:
+    async def get_submission_detail(self, submission_uid: str, teacher_uid: UserUID) -> Result[Any]:
         """Get full submission detail for teacher review (access-checked)."""
         return await self._review.get_submission_detail(
             submission_uid=submission_uid, teacher_uid=teacher_uid
@@ -72,12 +73,12 @@ class TeacherOrchestrator:
     # Students
     # ------------------------------------------------------------------
 
-    async def get_students_summary(self, teacher_uid: str) -> Result[list[Any]]:
+    async def get_students_summary(self, teacher_uid: UserUID) -> Result[list[Any]]:
         """Get students who shared work with teacher, with counts."""
         return await self._review.get_students_summary(teacher_uid=teacher_uid)
 
     async def get_student_submissions(
-        self, teacher_uid: str, student_uid: str
+        self, teacher_uid: UserUID, student_uid: str
     ) -> Result[list[Any]]:
         """Get all submissions from student shared with teacher."""
         auth_check = await self._review.verify_teacher_authority(teacher_uid, student_uid)
@@ -96,7 +97,7 @@ class TeacherOrchestrator:
     COMPLETED_STATUSES: frozenset[str] = frozenset({"completed", "failed"})
 
     async def get_bucketed_student_submissions(
-        self, teacher_uid: str, student_uid: str
+        self, teacher_uid: UserUID, student_uid: str
     ) -> Result[tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]]:
         """Fetch and bucket student submissions into (pending, revision, completed, student_name)."""
         result = await self.get_student_submissions(
@@ -130,11 +131,11 @@ class TeacherOrchestrator:
     # Groups
     # ------------------------------------------------------------------
 
-    async def get_teacher_groups_with_stats(self, teacher_uid: str) -> Result[list[Any]]:
+    async def get_teacher_groups_with_stats(self, teacher_uid: UserUID) -> Result[list[Any]]:
         """Get teacher's groups with member/exercise/pending counts."""
         return await self._review.get_teacher_groups_with_stats(teacher_uid=teacher_uid)
 
-    async def get_group_detail(self, group_uid: str, teacher_uid: str) -> Result[list[Any]]:
+    async def get_group_detail(self, group_uid: str, teacher_uid: UserUID) -> Result[list[Any]]:
         """Get group members with submission progress stats."""
         return await self._review.get_group_detail(group_uid=group_uid, teacher_uid=teacher_uid)
 
@@ -143,7 +144,7 @@ class TeacherOrchestrator:
     # ------------------------------------------------------------------
 
     async def get_student_ku_detail(
-        self, teacher_uid: str, student_uid: str
+        self, teacher_uid: UserUID, student_uid: str
     ) -> dict[str, Any] | None:
         """Fetch KU detail for a student, returning None if unavailable.
 
@@ -160,7 +161,7 @@ class TeacherOrchestrator:
 
         if not self._admin_stats:
             return None
-        result = await self._admin_stats.get_user_ku_detail(student_uid)
+        result = await self._admin_stats.get_user_ku_detail(UserUID(student_uid))
         if result.is_error:
             logger.warning(f"Failed to load KU detail for {student_uid}: {result.error}")
             return None

@@ -2,7 +2,7 @@
 Entity Type Aliases and Class Dispatch Map
 ==========================================
 
-Type aliases and the EntityType→class map for all 22 entity types.
+Type aliases and the EntityType→class map for all 19 entity types.
 
 For construction: Use the specific subclass (Task, Ku, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
@@ -25,8 +25,6 @@ from core.models.forms.form_template import FormTemplate
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.interaction.interaction import Interaction
-from core.models.journal.je_input import JeInput
-from core.models.journal.je_output import JeOutput
 from core.models.ku.ku import Ku
 from core.models.life_path.life_path import LifePath
 from core.models.pathways.learning_path import LearningPath
@@ -35,9 +33,14 @@ from core.models.principle.principle import Principle
 from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
 from core.models.resource.resource import Resource
-from core.models.submissions.exercise_submission import ExerciseSubmission
-from core.models.submissions.submission import Submission
 from core.models.task.task import Task
+from core.models.templates.choice_template import ChoiceTemplate
+from core.models.templates.event_template import EventTemplate
+from core.models.templates.goal_template import GoalTemplate
+from core.models.templates.habit_template import HabitTemplate
+from core.models.templates.principle_template import PrincipleTemplate
+from core.models.templates.task_template import TaskTemplate
+from core.models.user_entry.user_entry import UserEntry
 
 # =============================================================================
 # NARROWER TYPE ALIASES — for services that handle a subset of entity types
@@ -55,14 +58,14 @@ CurriculumEntity = PathStep | LearningPath | Exercise
 # Atomic Ku — lightweight ontology/reference node (extends Entity directly, not Curriculum)
 KuEntity = Ku
 
-# Submission entities — carry file_path, processed_content, file_type, etc.
-SubmissionEntity = Submission | ExerciseSubmission
+# User-authored entry — ADR-054 unified type. Replaces the old
+# SubmissionEntity/JournalEntity unions. Kept as aliases during the pre-6b
+# shelving window so existing imports resolve to UserEntry.
+SubmissionEntity = UserEntry
+JournalEntity = UserEntry
 
 # Report entities — report output (no file fields, report-specific fields)
 ReportEntity = ActivityReport | ExerciseReport
-
-# Journal entities — standalone domain (NOT submission, NOT report)
-JournalEntity = JeInput | JeOutput
 
 # =============================================================================
 # TYPE CLASS MAP — dispatcher for entity deserialization
@@ -83,13 +86,18 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.LEARNING_PATH: LearningPath,
     EntityType.EXERCISE: Exercise,
     EntityType.REVISED_EXERCISE: RevisedExercise,
-    EntityType.EXERCISE_SUBMISSION: ExerciseSubmission,
-    EntityType.JE_INPUT: JeInput,
-    EntityType.JE_OUTPUT: JeOutput,
+    EntityType.USER_ENTRY: UserEntry,
     EntityType.ACTIVITY_REPORT: ActivityReport,
     EntityType.EXERCISE_REPORT: ExerciseReport,
     EntityType.FORM_TEMPLATE: FormTemplate,
     EntityType.FORM_SUBMISSION: FormSubmission,
     EntityType.INTERACTION: Interaction,
     EntityType.LIFE_PATH: LifePath,
+    # Activity Templates (Phase 2 — PS-owned, spawn user-owned instances)
+    EntityType.TASK_TEMPLATE: TaskTemplate,
+    EntityType.GOAL_TEMPLATE: GoalTemplate,
+    EntityType.HABIT_TEMPLATE: HabitTemplate,
+    EntityType.EVENT_TEMPLATE: EventTemplate,
+    EntityType.CHOICE_TEMPLATE: ChoiceTemplate,
+    EntityType.PRINCIPLE_TEMPLATE: PrincipleTemplate,
 }

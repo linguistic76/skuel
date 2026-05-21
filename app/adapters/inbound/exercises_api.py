@@ -13,11 +13,13 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.exercises.exercise_request import (
     ExerciseKnowledgeRequest,
     ReportGenerateRequest,
 )
+from core.models.user_entry.user_entry import UserEntry
 from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
 from core.services.content_enrichment_service import ContentEnrichmentService
 from core.services.exercises.exercise_service import ExerciseService
@@ -55,6 +57,7 @@ def create_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/exercises/report", methods=["POST"])
+    @csrf_protected
     @require_teacher(get_user_service)
     @boundary_handler()
     async def generate_report(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
@@ -108,6 +111,10 @@ def create_exercises_api_routes(
 
         entry = entry_result.value
         exercise = exercise_result.value
+        # transcript_service.get() returns Result[Entity]; narrow to UserEntry
+        # which is what generate_report requires. Wrong-type entries hit a 404.
+        if not isinstance(entry, UserEntry):
+            return Result.fail(Errors.not_found("UserEntry", report_request.submission_uid))
 
         # Generate report — creates ExerciseReport entity + REPORT_FOR relationship
         report_result = await exercise_report_service.generate_report(
@@ -138,6 +145,7 @@ def create_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/exercises/require-knowledge", methods=["POST"])
+    @csrf_protected
     @require_teacher(get_user_service)
     @boundary_handler()
     async def require_knowledge(request: Request, current_user: Any = None) -> Result[bool]:
@@ -160,6 +168,7 @@ def create_exercises_api_routes(
         return await exercises_service.link_to_curriculum(req.exercise_uid, req.curriculum_uid)
 
     @rt("/api/exercises/unrequire-knowledge", methods=["POST"])
+    @csrf_protected
     @require_teacher(get_user_service)
     @boundary_handler()
     async def unrequire_knowledge(request: Request, current_user: Any = None) -> Result[bool]:

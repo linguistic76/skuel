@@ -16,23 +16,18 @@ Schedule-aware recommendations take into account:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from core.models.context_types import ScheduleAwareRecommendation
 from core.models.enums.entity_enums import EntityType
-
-if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
+from core.services.user.intelligence._base import IntelligenceMixinBase
 
 
-class ScheduleIntelligenceMixin:
+class ScheduleIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing schedule-aware recommendation methods.
 
-    Requires self.context (UserContext).
+    Requires self.context (RichUserContext — rich-only fields are needed).
     """
-
-    context: UserContext
 
     # =========================================================================
     # METHOD 8: Schedule-Aware Recommendations
@@ -70,6 +65,7 @@ class ScheduleIntelligenceMixin:
         Returns:
             List of ScheduleAwareRecommendation sorted by overall score
         """
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         recommendations: list[ScheduleAwareRecommendation] = []
 
         # Calculate available capacity
@@ -175,6 +171,7 @@ class ScheduleIntelligenceMixin:
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware task recommendations."""
+        blocked_task_uids = self.context.get_blocked_tasks()
         recommendations = []
 
         # Prioritize overdue tasks
@@ -202,7 +199,7 @@ class ScheduleIntelligenceMixin:
                     priority_score=score["priority"],
                     overall_score=score["overall"],
                     deadline="overdue",
-                    blocks_other_work=task_uid in self.context.blocked_task_uids,
+                    blocks_other_work=task_uid in blocked_task_uids,
                 )
             )
 
@@ -245,10 +242,11 @@ class ScheduleIntelligenceMixin:
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware habit recommendations."""
+        at_risk_habits = self.context.get_habits_needing_reinforcement()
         recommendations = []
 
         # Prioritize at-risk habits (streak protection)
-        for habit_uid in self.context.at_risk_habits[:3]:
+        for habit_uid in at_risk_habits[:3]:
             streak = self.context.habit_streaks.get(habit_uid, 0)
             # Higher streak = higher priority to maintain
             priority = min(1.0, 0.5 + (streak * 0.05))
@@ -281,7 +279,7 @@ class ScheduleIntelligenceMixin:
 
         # Add daily habits
         for habit_uid in self.context.daily_habits[:3]:
-            if habit_uid not in self.context.at_risk_habits:
+            if habit_uid not in at_risk_habits:
                 streak = self.context.habit_streaks.get(habit_uid, 0)
                 priority = min(1.0, 0.3 + (streak * 0.03))
 

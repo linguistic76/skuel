@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.entity import Entity
 from core.models.principle.principle import Principle
+from core.models.type_hints import EntityUID
 from core.ports import PrinciplesOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
@@ -56,7 +57,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
 
     async def find_similar_principles(
         self, principle_uid: str, limit: int = 5
-    ) -> Result[list[tuple[str, float]]]:
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """Find semantically similar principles using embeddings."""
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
@@ -76,7 +77,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
 
         all_principles = all_principles_result.value or []
         candidates = [
-            (p.uid, f"{p.name} {p.description or ''}")
+            (p.uid, f"{p.title} {p.description or ''}")
             for p in all_principles
             if p.uid != principle_uid
         ]

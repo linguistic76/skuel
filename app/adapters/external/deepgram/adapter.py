@@ -203,7 +203,7 @@ class DeepgramAdapter:
             self.logger.info(
                 f"Sending audio to Deepgram: {path.name} ({file_size_mb:.2f}MB, timeout={self.timeout}s)"
             )
-            response = self.client.listen.rest.v("1").transcribe_file(
+            response = self.client.listen.rest.v("1").transcribe_file(  # pyright: ignore[reportAttributeAccessIssue]
                 {"buffer": audio_data, "mimetype": self._get_mimetype(path.suffix)},
                 options,
                 timeout=self.timeout,

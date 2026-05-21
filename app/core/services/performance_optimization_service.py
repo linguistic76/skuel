@@ -202,8 +202,8 @@ class AdvancedCache:
         self.default_ttl = default_ttl
         self.strategy = strategy
         self.cache: dict[str, CacheEntry] = {}
-        self.access_order = OrderedDict()  # For LRU
-        self.frequency_heap = []  # For LFU
+        self.access_order: OrderedDict[str, bool] = OrderedDict()  # For LRU
+        self.frequency_heap: list[tuple[int, str]] = []  # For LFU
         self.stats = {"hits": 0, "misses": 0, "evictions": 0, "size_bytes": 0}
         self.logger = get_logger(__name__)
 
@@ -325,7 +325,9 @@ class AdvancedCache:
 
         # Evict entry with lowest score
         if scores:
-            victim_key = min(scores.keys(), key=scores.get)
+            from core.utils.sort_functions import make_dict_value_getter
+
+            victim_key = min(scores.keys(), key=make_dict_value_getter(scores))
             await self.delete(victim_key)
 
     def _update_access_patterns(self, key: str) -> None:
@@ -351,8 +353,8 @@ class FastInferenceEngine:
 
     def __init__(self) -> None:
         self.cache = AdvancedCache(max_size=50000, strategy=CacheStrategy.ADAPTIVE)
-        self.precomputed_patterns = {}
-        self.inference_rules = {}
+        self.precomputed_patterns: dict[str, dict[str, Any]] = {}
+        self.inference_rules: dict[str, Any] = {}
         self.logger = get_logger(__name__)
 
     async def infer(self, request: InferenceRequest) -> InferenceResult:
@@ -527,7 +529,7 @@ class FastInferenceEngine:
             # Create mock request for precomputation
             mock_request = InferenceRequest(
                 request_id="precompute",
-                user_uid="system",
+                user_uid=UserUID("system"),
                 query=query,
                 context={},
                 requested_at=datetime.now(),
@@ -543,7 +545,7 @@ class BackgroundProcessingEngine:
     """High-performance background task processing."""
 
     def __init__(self, max_workers: int = 4) -> None:
-        self.task_queue = []
+        self.task_queue: list[BackgroundTask] = []
         self.completed_tasks: set[str] = set()
         self.running_tasks: dict[str, BackgroundTask] = {}
         self.max_workers = max_workers
@@ -1019,7 +1021,7 @@ class PerformanceOptimizationService:
                     query_index = user_id * requests_per_user + req_id
                     request = InferenceRequest(
                         request_id=f"test_{user_id}_{req_id}",
-                        user_uid=f"test_user_{user_id}",
+                        user_uid=UserUID(f"test_user_{user_id}"),
                         query=test_queries[query_index],
                         context={"test_mode": True},
                         requested_at=datetime.now(),

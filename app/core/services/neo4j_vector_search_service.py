@@ -464,6 +464,103 @@ class Neo4jVectorSearchService:
             min_score_threshold=min_score_threshold,
         )
 
+    async def find_similar_chunks_by_text(
+        self,
+        text: str,
+        chunk_types: list[str] | None = None,
+        parent_uid: str | None = None,
+        limit: int | None = None,
+        min_score: float | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """Find similar :ContentChunk nodes by embedding the query text.
+
+        Returns SemanticSearchChunkResult-shaped dicts (chunk_uid, chunk_type,
+        text, context_window, similarity_score, parent_uid, parent_title) so
+        callers can ground responses in the matched passage AND cite the
+        owning Entity (PathStep).
+
+        Args:
+            text: Query text to embed and search.
+            chunk_types: Optional filter (e.g. ["DEFINITION", "EXAMPLE"]).
+            parent_uid: Optional filter restricting chunks to a single parent.
+            limit: Max results (uses config default if None).
+            min_score: Similarity threshold (uses ContentChunk threshold if None).
+        """
+        if not self.embeddings:
+            return Result.fail(
+                Errors.unavailable(
+                    feature="semantic_chunk_search",
+                    reason="Embeddings service required. Configure HF_API_TOKEN.",
+                    operation="find_similar_chunks_by_text",
+                )
+            )
+
+        if limit is None:
+            limit = self.config.default_limit
+        if min_score is None:
+            min_score = self.config.get_min_score_for_entity("ContentChunk")
+
+        embedding_result = await self.embeddings.create_embedding(text)
+        if embedding_result.is_error:
+            return Result.fail(embedding_result)
+
+        result = await self.backend.semantic_search_chunks(
+            query_embedding=embedding_result.value,
+            limit=limit,
+            threshold=min_score,
+            chunk_types=chunk_types,
+            parent_uid=parent_uid,
+        )
+
+        if result.is_error:
+            self.logger.error(f"Chunk vector search failed: {result.expect_error()}")
+            return Result.fail(
+                Errors.database(
+                    operation="semantic_search_chunks",
+                    message=f"Chunk search failed: {result.expect_error()}",
+                )
+            )
+
+        return Result.ok(list(result.value))
+
+    async def find_similar_chunks_by_text_with_metrics(
+        self,
+        text: str,
+        chunk_types: list[str] | None = None,
+        parent_uid: str | None = None,
+        limit: int | None = None,
+        min_score: float | None = None,
+    ) -> tuple[Result[list[dict[str, Any]]], SearchMetrics | None]:
+        """Chunk vector search + Prometheus-shaped metrics (mirror of
+        find_similar_by_text_with_metrics)."""
+        start_time = time.perf_counter()
+
+        result = await self.find_similar_chunks_by_text(
+            text=text,
+            chunk_types=chunk_types,
+            parent_uid=parent_uid,
+            limit=limit,
+            min_score=min_score,
+        )
+
+        latency_ms = (time.perf_counter() - start_time) * 1000
+
+        if result.is_error:
+            return result, None
+
+        # Chunk results carry similarity_score, not score — adapt for metrics.
+        scored = [{"score": hit.get("similarity_score", 0.0)} for hit in result.value]
+        metrics = self._create_metrics(
+            query=text,
+            search_type="vector_chunks",
+            label="ContentChunk",
+            results=scored,
+            latency_ms=latency_ms,
+            min_score_threshold=min_score,
+        )
+        self.logger.info(metrics.to_log_string())
+        return result, metrics
+
     async def find_similar_by_text_with_metrics(
         self,
         label: str,
@@ -865,7 +962,7 @@ class Neo4jVectorSearchService:
         final_results = results[:limit]
 
         # Log summary
-        state_counts = {}
+        state_counts: dict[str, int] = {}
         for r in final_results:
             state = r.get("learning_state", "none")
             state_counts[state] = state_counts.get(state, 0) + 1

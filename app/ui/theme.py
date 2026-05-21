@@ -17,13 +17,41 @@ Design Principles:
 - Progressive Enhancement: Core functionality works without JS
 """
 
+from pathlib import Path
 from typing import Any
 
+import httpx
 from fasthtml.common import Link, Script
+from monsterui.core import HEADER_URLS
 from monsterui.core import Theme as MonsterTheme
 
 # Re-export MonsterUI Theme for direct access
 Theme = MonsterTheme
+
+
+def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: Any) -> list[Any]:
+    """Drop-in for ``theme.local_headers`` that doesn't hit the network when vendor files exist.
+
+    Upstream ``monsterui.Theme.local_headers`` unconditionally re-downloads every file in
+    ``HEADER_URLS`` on every call, which crashes app startup whenever DNS or the CDN is
+    unreachable. The vendor files are committed under ``static/vendor/monsterui/``, so we
+    reuse them and only fall back to download for anything genuinely missing.
+    """
+    static_path = Path(static_dir)
+    static_path.mkdir(exist_ok=True)
+    local_urls: dict[str, str] = {}
+    for name, url in HEADER_URLS.items():
+        # Extension comes from the URL path's actual suffix, not substring match —
+        # CDN hostnames like "cdn.jsdelivr.net" contain "js", which used to misclassify
+        # CSS files as .js and break stylesheet loading (browsers reject CSS served
+        # with a JS-extension URL when MIME enforcement is on).
+        ext = "css" if url.rsplit("?", 1)[0].endswith(".css") else "js"
+        fname = static_path / f"{name}.{ext}"
+        if not fname.exists():
+            fname.write_bytes(httpx.get(url, follow_redirects=True).content)
+        local_urls[name] = f"/{static_dir}/{fname.name}"
+    return theme._create_headers(local_urls, **kwargs)
+
 
 # Single source of truth for SKUEL's brand color.
 # Change this to switch the entire app's primary color (buttons, links, focus rings).
@@ -32,6 +60,8 @@ BRAND_THEME = MonsterTheme.blue
 # Version constants for self-hosted dependencies
 HTMX_VERSION = "1.9.10"
 ALPINE_VERSION = "3.14.8"
+CHARTJS_VERSION = "4"
+CHARTJS_ADAPTER_VERSION = "3"
 
 
 def monster_headers(
@@ -58,12 +88,15 @@ def monster_headers(
     """
     # MonsterUI theme headers (includes FrankenUI + Tailwind + Lucide icons)
     # Serve from local static directory — no CDN dependency
-    mu_headers = theme.local_headers(static_dir="static/vendor/monsterui", radii="sm")
+    mu_headers = _local_headers_offline_safe(
+        theme, static_dir="static/vendor/monsterui", radii="sm"
+    )
 
     headers = list(mu_headers)
 
-    # HTMX for hypermedia (MonsterUI doesn't include this)
-    headers.append(Script(src=f"https://unpkg.com/htmx.org@{htmx_version}"))
+    # HTMX for hypermedia — self-hosted so Firefox doesn't classify /login as
+    # cross-site and reject the csrf_token cookie (see adapters/inbound/csrf.py).
+    headers.append(Script(src=f"/static/vendor/htmx.org/htmx.{htmx_version}.min.js"))
 
     # Alpine.js (self-hosted for stability)
     headers.append(
@@ -157,17 +190,19 @@ def dark_mode_script() -> Script:
 def htmx_extensions() -> tuple[Any, ...]:
     """HTMX extensions commonly used in SKUEL."""
     return (
-        Script(src="https://unpkg.com/htmx.org/dist/ext/sse.js"),
-        Script(src="https://unpkg.com/htmx.org/dist/ext/ws.js"),
-        Script(src="https://unpkg.com/htmx.org/dist/ext/response-targets.js"),
+        Script(src="/static/vendor/htmx.org/ext/sse.js"),
+        Script(src="/static/vendor/htmx.org/ext/ws.js"),
+        Script(src="/static/vendor/htmx.org/ext/response-targets.js"),
     )
 
 
 def chartjs_headers() -> tuple[Any, ...]:
     """Chart.js headers for analytics dashboards."""
     return (
-        Script(src="https://cdn.jsdelivr.net/npm/chart.js@4"),
-        Script(src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"),
+        Script(src="/static/vendor/chart.js/chart.umd.js"),
+        Script(
+            src=f"/static/vendor/chart.js/chartjs-adapter-date-fns.{CHARTJS_ADAPTER_VERSION}.min.js"
+        ),
     )
 
 
@@ -181,4 +216,6 @@ __all__ = [
     "chartjs_headers",
     "HTMX_VERSION",
     "ALPINE_VERSION",
+    "CHARTJS_VERSION",
+    "CHARTJS_ADAPTER_VERSION",
 ]

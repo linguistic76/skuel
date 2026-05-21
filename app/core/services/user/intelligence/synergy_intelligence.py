@@ -11,27 +11,22 @@ Method 6 of UserContextIntelligence:
 3. Knowledge->Task: Knowledge enabling tasks (skill application)
 4. Principle->Goal: Principles guiding goal pursuit (value alignment)
 5. Goal->Learning: Goals requiring specific knowledge (learning gaps)
+6. PS->Multi: Active engagements scored by completion ratio of spawned items
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from core.models.context_types import CrossDomainSynergy
+from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
-if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
 
-
-class SynergyIntelligenceMixin:
+class SynergyIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing cross-domain synergy detection methods.
 
-    Requires self.context (UserContext).
+    Requires self.context (RichUserContext — rich-only fields are needed).
     """
-
-    context: UserContext
 
     # =========================================================================
     # METHOD 6: Cross-Domain Synergies
@@ -64,6 +59,7 @@ class SynergyIntelligenceMixin:
         Returns:
             Result[list[CrossDomainSynergy]] sorted by score (highest first)
         """
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         synergies: list[CrossDomainSynergy] = []
 
         # Default to all types
@@ -74,6 +70,7 @@ class SynergyIntelligenceMixin:
                 "knowledge_task",
                 "principle_goal",
                 "goal_learning",
+                "engagement_completion",
             ]
 
         # =====================================================================
@@ -111,6 +108,13 @@ class SynergyIntelligenceMixin:
             goal_learning_synergies = self._detect_goal_learning_synergies()
             synergies.extend(goal_learning_synergies)
 
+        # =====================================================================
+        # 6. PS->Multi Synergies (engagement completion ratio)
+        # =====================================================================
+        if "engagement_completion" in include_types:
+            engagement_synergies = self._detect_engagement_synergies()
+            synergies.extend(engagement_synergies)
+
         # Filter by minimum score and sort by score (highest first)
         filtered_synergies = [s for s in synergies if s.synergy_score >= min_synergy_score]
         from core.utils.sort_functions import get_synergy_score
@@ -126,11 +130,13 @@ class SynergyIntelligenceMixin:
         **High Leverage:** A habit supporting 3+ goals is extremely valuable.
         Example: "Daily exercise" -> Health goal, Energy goal, Stress reduction goal
         """
+        habits_by_goal = self.context.get_habits_by_goal()
+        at_risk_habits = self.context.get_habits_needing_reinforcement()
         synergies: list[CrossDomainSynergy] = []
 
         # Build reverse mapping: habit_uid -> [goal_uids]
         habit_to_goals: dict[str, list[str]] = {}
-        for goal_uid, habit_uids in self.context.habits_by_goal.items():
+        for goal_uid, habit_uids in habits_by_goal.items():
             for habit_uid in habit_uids:
                 if habit_uid not in habit_to_goals:
                     habit_to_goals[habit_uid] = []
@@ -157,7 +163,7 @@ class SynergyIntelligenceMixin:
                 recommendations.append(f"Build consistency - current streak: {streak} days")
             if len(goal_uids) >= 3:
                 recommendations.append("High-leverage habit! Prioritize maintaining this.")
-            if habit_uid in self.context.at_risk_habits:
+            if habit_uid in at_risk_habits:
                 recommendations.append("At-risk! Don't break this streak.")
 
             synergy = CrossDomainSynergy(
@@ -180,6 +186,7 @@ class SynergyIntelligenceMixin:
 
         Example: "Write morning pages" task -> "Daily journaling" habit
         """
+        habits_by_goal = self.context.get_habits_by_goal()
         synergies: list[CrossDomainSynergy] = []
 
         # Find tasks that contribute to habit-supporting goals
@@ -187,10 +194,10 @@ class SynergyIntelligenceMixin:
             supporting_tasks: list[str] = []
 
             # Find goals this habit supports
-            for goal_uid, habit_uids in self.context.habits_by_goal.items():
+            for goal_uid, habit_uids in habits_by_goal.items():
                 if habit_uid in habit_uids:
                     # Find tasks for this goal
-                    tasks = self.context.tasks_by_goal.get(goal_uid, [])
+                    tasks = self.context.get_tasks_for_goal(goal_uid)
                     for task_uid in tasks:
                         if task_uid not in supporting_tasks:
                             supporting_tasks.append(task_uid)
@@ -241,7 +248,7 @@ class SynergyIntelligenceMixin:
             # (tasks associated with goals that require this knowledge)
             aligned_goals = self._find_aligned_goals_for_ku(ku_uid)
             for goal_uid in aligned_goals:
-                for task_uid in self.context.tasks_by_goal.get(goal_uid, []):
+                for task_uid in self.context.get_tasks_for_goal(goal_uid):
                     if task_uid not in enabled_tasks:
                         enabled_tasks.append(task_uid)
 
@@ -373,6 +380,87 @@ class SynergyIntelligenceMixin:
                 recommendations=tuple(recommendations),
             )
             synergies.append(synergy)
+
+        return synergies
+
+    def _detect_engagement_synergies(self) -> list[CrossDomainSynergy]:
+        """
+        Score each active PS engagement by completion ratio of its completable
+        spawned items.
+
+        Tasks/Goals/Choices have terminal states (completed/resolved); the ratio
+        is computed over those domains only. Habits/Events/Principles spawned by
+        the engagement are perpetual commitments — they emit a low-score "ongoing"
+        synergy when an engagement spawned nothing terminal-eligible.
+
+        Abandoned engagements are skipped entirely; completed engagements score
+        1.0 (loop closed). Engaged-state synergies scale 0.3-0.9 with ratio.
+        """
+        engagements_map = self.context.active_ps_engagements
+        if not engagements_map:
+            return []
+
+        completed_terminal = (
+            self.context.completed_task_uids
+            | self.context.completed_goal_uids
+            | self.context.resolved_choice_uids
+        )
+        in_flight_terminal = (
+            set(self.context.active_task_uids)
+            | set(self.context.active_goal_uids)
+            | set(self.context.pending_choice_uids)
+        )
+
+        synergies: list[CrossDomainSynergy] = []
+        for engagement in engagements_map.values():
+            if engagement.state == "abandoned":
+                continue
+            spawned = engagement.spawned_instance_uids
+            if not spawned:
+                continue
+
+            completed = [u for u in spawned if u in completed_terminal]
+            pending = [u for u in spawned if u in in_flight_terminal]
+            completable = len(completed) + len(pending)
+
+            if engagement.state == "completed":
+                synergy_score = 1.0
+                rationale = f"Engagement closed; spawned {len(spawned)} items"
+                recommendations: tuple[str, ...] = ("Loop closed — knowledge consolidated",)
+            elif completable == 0:
+                synergy_score = 0.35
+                rationale = (
+                    f"Engaged; {len(spawned)} ongoing commitments (no terminal-state items spawned)"
+                )
+                recommendations = ("Maintain habits/events spawned by this engagement",)
+            else:
+                ratio = len(completed) / completable
+                synergy_score = min(0.9, 0.3 + (ratio * 0.6))
+                rationale = (
+                    f"{len(completed)}/{completable} completable spawned items "
+                    f"complete ({ratio:.0%})"
+                )
+                recs: list[str] = []
+                if ratio >= 0.7:
+                    recs.append("Closing the loop — finish remaining to complete engagement")
+                elif ratio < 0.3 and len(pending) >= 3:
+                    recs.append("Stalled — review or abandon if priorities shifted")
+                elif pending:
+                    recs.append(f"{len(pending)} items still pending")
+                recommendations = tuple(recs)
+
+            synergies.append(
+                CrossDomainSynergy(
+                    source_uid=engagement.ps_uid,
+                    source_domain="pathstep",
+                    target_uids=tuple(spawned[:6]),
+                    target_domain="multi",
+                    synergy_type="spawns",
+                    synergy_score=synergy_score,
+                    rationale=rationale,
+                    recommendations=recommendations,
+                )
+            )
 
         return synergies
 

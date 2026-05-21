@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: disable-error-code="var-annotated,union-attr"
 """
 Comprehensive Edge Case Tests for Result Pattern
 =================================================

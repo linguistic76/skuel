@@ -135,3 +135,9 @@ async def test_askesis_rag_pipeline_end_to_end(skuel_app, populated_test_data):
     assert len(answer_data["answer"]) > 0, "Answer should not be empty"
     assert isinstance(answer_data["suggested_actions"], list), "Suggested actions should be a list"
     assert answer_data["mode"] == "llm_generated", "Mode should be llm_generated"
+
+
+# NOTE: ADR-059 engagement-bucketing tests moved to
+# tests/unit/test_daily_planning_bucketing.py — the bucketing logic now lives
+# in DailyPlanningMixin (where it actually runs) rather than in the orphaned
+# AskesisService post-processing layer.

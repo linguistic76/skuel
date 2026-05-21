@@ -331,7 +331,7 @@ class FinanceService:
         if result.is_ok:
             event = ExpenseDeleted(
                 expense_uid=uid,
-                user_uid=user_uid,
+                user_uid=UserUID(user_uid),
                 description=expense_description,
                 amount=expense_amount,
             )

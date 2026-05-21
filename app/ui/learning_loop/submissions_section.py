@@ -1,9 +1,9 @@
-"""Phase 2: ExerciseSubmission — PathStep submissions UI.
+"""Phase 2: UserEntry — PathStep submissions UI (ADR-054).
 
-Renders a user's ExerciseSubmissions for a specific PathStep. Submissions are
+Renders a user's UserEntry submissions for a specific PathStep. Submissions are
 discovered via the Interaction graph — not by querying submissions directly:
 
-    (user)-[:OWNS]->(sub)-[:RECORDS]<-(interaction)-[:INTERACTION_DURING]->(ps)
+    (user)-[:OWNS]->(entry:UserEntry)-[:RECORDS]<-(interaction)-[:INTERACTION_DURING]->(ps)
 
 This means only submissions made *while the user was in this PathStep* appear here,
 preserving the curriculum context in which the work was done.
@@ -108,7 +108,11 @@ def render_ps_submissions_and_feedback(rows: list[PathStepSubmissionRow]) -> Div
 
     Composes the submissions list and feedback list into a single fragment,
     used by the /learning-loop/ps/{ps_uid}/submissions-and-feedback endpoint.
+    When the user has no submissions yet, collapse silently — the Start
+    Learning button is the gateway, not a stack of empty states.
     """
+    if not rows:
+        return Div()
     return Div(
         H3("My Submissions", cls="text-base font-semibold mb-2 mt-6"),
         render_ps_submissions(rows),

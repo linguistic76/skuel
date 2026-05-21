@@ -17,7 +17,6 @@ import pytest
 
 from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
-from core.utils.result_simplified import Result
 
 # Dimension for bge-large-en-v1.5
 DIM = 1024
@@ -448,53 +447,43 @@ async def test_graceful_degradation_unavailable_service(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_embedding_service_initialization(neo4j_driver):
+async def test_embedding_service_initialization(neo4j_driver, monkeypatch):
     """Test HuggingFace embeddings service initialization."""
-
-    # Create real embeddings service (will check for HF_API_TOKEN)
     from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
+    monkeypatch.setenv("HF_API_TOKEN", "test-token")
     embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     embeddings_service = HuggingFaceEmbeddingsService(
         backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
     )
 
-    # Should have correct model and dimension
     assert embeddings_service.model == "BAAI/bge-large-en-v1.5"
     assert embeddings_service.dimension == DIM
-
-    # Client may or may not be available depending on HF_API_TOKEN
-    # (test environment likely won't have it)
+    assert embeddings_service._client is not None
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_embeddings_service_graceful_failure(neo4j_driver):
-    """Test that embeddings service fails gracefully when token not set."""
+async def test_embeddings_service_fail_fast_without_token(neo4j_driver, monkeypatch):
+    """Constructor must raise immediately when HF_API_TOKEN is missing.
+
+    Fail-fast contract: FULL-tier deps that silently degrade to None are a bug.
+    The wiring layer in _learning_services.py wraps this with tier guidance.
+    """
     from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
+    monkeypatch.delenv("HF_API_TOKEN", raising=False)
+    # Block keychain fallback so the credential lookup returns None
+    monkeypatch.setenv("SKUEL_CREDENTIAL_BACKEND", "fernet-missing-master-key")
+    monkeypatch.delenv("SKUEL_MASTER_KEY", raising=False)
+
     embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
-    embeddings_service = HuggingFaceEmbeddingsService(
-        backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
-    )
 
-    # Try to create embedding (will fail if HF_API_TOKEN not set)
-    result = await embeddings_service.create_embedding("Test content for embedding")
-
-    # Should return a Result (not crash)
-    assert isinstance(result, Result)
-
-    # If token not configured, should fail with clear error message
-    if result.is_error:
-        error = result.expect_error()
-        error_str = str(error).lower()
-        assert (
-            "hf_api_token" in error_str
-            or "unavailable" in error_str
-            or "huggingface" in error_str
-            or "configured" in error_str
+    with pytest.raises(ValueError, match="HF_API_TOKEN"):
+        HuggingFaceEmbeddingsService(
+            backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
         )
 
 

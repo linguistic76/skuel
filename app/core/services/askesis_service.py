@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     )
     from core.services.user import UserContext
     from core.services.user.intelligence import UserContextIntelligenceFactory
+    from core.services.user.unified_user_context import RichUserContext
 
 logger = get_logger(__name__)
 
@@ -90,6 +91,10 @@ class AskesisDeps:
     # LP enrollment gate ensures curriculum data exists; ZPD assesses readiness.
     # See: core/services/zpd/zpd_service.py
     zpd_service: ZPDOperations
+    # PS engagement service — required for engagement-aware bundle loading.
+    # Askesis is gated on FULL tier; ps_engagement is core-tier (always wired).
+    # See: core/services/ps_engagement/ps_engagement_service.py
+    ps_engagement_service: Any  # boundary: PsEngagementService
     # Citation service — formats graph citations for Askesis responses
     citation_service: Any | None = None
     # Vector search service — Neo4j native vector indexes for semantic search
@@ -168,6 +173,10 @@ class AskesisService:
         # ZPD service — required for guided pipeline (readiness assessment).
         self.zpd_service = deps.zpd_service
 
+        # PS engagement service — required for engagement-aware daily plan
+        # bucketing (ADR-059) and bundle loading via ContextRetriever.
+        self.ps_engagement_service = deps.ps_engagement_service
+
         # 13-domain intelligence factory for comprehensive daily planning
         # (REQUIRED - passed at construction, not post-wired)
         self.intelligence_factory = deps.intelligence_factory
@@ -199,6 +208,8 @@ class AskesisService:
             # Backends for graph queries (migrated from inline Cypher)
             ku_backend=deps.ku_backend,
             ps_backend=deps.ps_backend,
+            # Engagement service for lifecycle-aware bundle loading
+            ps_engagement_service=deps.ps_engagement_service,
         )
 
         # January 2026: IntentClassifier and ResponseGenerator extracted from QueryProcessor
@@ -320,12 +331,18 @@ class AskesisService:
     async def get_learning_context(
         self, user_uid: UserUID, depth: int = 2
     ) -> Result[dict[str, Any]]:
-        """Get user's learning context. Delegated to context_retriever."""
-        return await self.context_retriever.get_learning_context(user_uid, depth)
+        """Get user's learning context. Fetches rich UserContext, then delegates."""
+        context_result = await self.user_service.get_rich_unified_context(user_uid)
+        if context_result.is_error:
+            return Result.fail(context_result)
+        return await self.context_retriever.get_learning_context(context_result.value, depth)
 
     async def analyze_knowledge_gaps(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Analyze knowledge gaps. Delegated to context_retriever."""
-        return await self.context_retriever.analyze_knowledge_gaps(user_uid)
+        """Analyze knowledge gaps. Fetches rich UserContext, then delegates."""
+        context_result = await self.user_service.get_rich_unified_context(user_uid)
+        if context_result.is_error:
+            return Result.fail(context_result)
+        return await self.context_retriever.analyze_knowledge_gaps(context_result.value)
 
     # ========================================================================
     # EXPLICIT ORCHESTRATION METHODS
@@ -409,7 +426,7 @@ class AskesisService:
 
     async def get_daily_work_plan(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         prioritize_life_path: bool = True,
         respect_capacity: bool = True,
     ) -> Result[DailyWorkPlan]:
@@ -426,7 +443,11 @@ class AskesisService:
         - Pending decisions (high priority only)
         - Aligned principles (for focus)
 
-        **This replaces get_next_best_action() for comprehensive planning.**
+        Engagement-aware bucketing (ADR-059) lives inside
+        ``UserContextIntelligence.get_ready_to_work_on_today()`` — the plan
+        returned here already has ``engaged_ps_groups`` and
+        ``available_to_start`` populated when ``user_context.active_ps_engagements``
+        is set by the builder.
 
         Args:
             user_context: Complete UserContext snapshot (~240 fields)
@@ -437,6 +458,7 @@ class AskesisService:
             Result[DailyWorkPlan]: Complete daily plan with:
                 - Domain-specific item lists (learning, tasks, habits, events, goals, choices, principles)
                 - Contextual items (enriched with relationships)
+                - Engagement-aware buckets (engaged_ps_groups, available_to_start)
                 - Estimated time and capacity utilization
                 - Rationale and warnings
         """
@@ -448,20 +470,15 @@ class AskesisService:
                 )
             )
 
-        # Create intelligence instance from factory with user context
         intelligence = self.intelligence_factory.create(user_context)
-
-        # Get comprehensive daily plan
-        return Result.ok(
-            await intelligence.get_ready_to_work_on_today(
-                prioritize_life_path=prioritize_life_path,
-                respect_capacity=respect_capacity,
-            )
+        return await intelligence.get_ready_to_work_on_today(
+            prioritize_life_path=prioritize_life_path,
+            respect_capacity=respect_capacity,
         )
 
     async def get_optimal_next_path_steps(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         max_steps: int = 5,
         consider_goals: bool = True,
         consider_capacity: bool = True,
@@ -517,7 +534,7 @@ class AskesisService:
 
     async def get_learning_path_critical_path(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
     ) -> Result[list[str]]:
         """
         What's the fastest route to life path alignment?
@@ -549,7 +566,7 @@ class AskesisService:
 
     async def get_knowledge_application_opportunities(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         ku_uid: str,
     ) -> Result[dict[str, list[str]]]:
         """
@@ -586,7 +603,7 @@ class AskesisService:
 
     async def get_unblocking_priority_order(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
     ) -> Result[list[tuple[str, int]]]:
         """
         What should I learn first to unlock the most items?
@@ -622,7 +639,7 @@ class AskesisService:
 
     async def get_cross_domain_synergies(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         min_synergy_score: float = 0.3,
         include_types: list[str] | None = None,
     ) -> Result[list[CrossDomainSynergy]]:
@@ -677,7 +694,7 @@ class AskesisService:
 
     async def calculate_life_path_alignment(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
     ) -> Result[LifePathAlignment]:
         """
         Calculate comprehensive life path alignment.
@@ -1122,7 +1139,7 @@ class AskesisService:
 
     async def get_schedule_aware_recommendations(
         self,
-        user_context: UserContext,
+        user_context: RichUserContext,
         max_recommendations: int = 5,
         time_horizon_hours: int = 8,
         respect_energy: bool = True,

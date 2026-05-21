@@ -1,10 +1,11 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-01-20
+updated: 2026-04-18
 category: patterns
 related_skills: []
 related_docs:
 - /docs/decisions/ADR-014-unified-ingestion.md
+- /docs/decisions/ADR-054-user-entry-unified-submissions.md
 ---
 
 # Unified Ingestion Implementation Guide
@@ -51,6 +52,77 @@ stats = await service.ingest_vault(Path("/vault"), subdirs=["docs", "notes"])
 # Ingest a bundle with manifest
 stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
 ```
+
+---
+
+## UserEntry YAMLs (`type: user_entry`) — ADR-054
+
+`UserEntry` YAMLs take a dedicated path: `ingest_file()` detects
+`type: user_entry` and delegates to
+`core/services/ingestion/user_entry_ingestion.py`, which builds a
+`UserEntryCreateRequest` and calls `UserEntryService.create_entry()` —
+the same method the `/submit` form uses. Both front-ends share the
+Interaction audit, TRANSFORMS edge, sharing fan-out, and compensation
+delete. `/upload` is YAML-only.
+
+### Required field: `pipeline`
+
+Every UserEntry YAML must declare a pipeline. One of:
+
+- `none` — persisted as-is, no downstream processing.
+- `teacher_review` — queued for teacher feedback.
+- `llm_summary` — sent to the LLM for a structured summary.
+
+Audio pipelines (`transcribe`, `transcribe_and_structure`) are rejected
+with a "use the audio-upload flow" error — `/upload` does not accept
+audio bytes via YAML.
+
+### Optional field: `audience`
+
+`audience:` declares who sees the submission. Defaults to `teachers`
+when omitted. Accepted values:
+
+| Value | Meaning |
+|-------|---------|
+| `teachers` (default) | Expand to every group the uploader is a student-member of (via `AudienceResolver.resolve_default_teachers`). Zero student-role groups → no shares (no silent broadcast). |
+| `group:<group_uid>` | Share with exactly one group. |
+| `public` | Set `visibility=PUBLIC` (portfolio). |
+| `private` | No shares, no visibility change. |
+
+Legacy aliases `je_input` / `je_output` / `exercise_submission` are
+**rejected** with an ADR-054 error (no compat shim — One Path Forward).
+
+### Example
+
+```yaml
+version: 1.0
+type: user_entry
+title: Reflection on Meditations chapter 3
+pipeline: teacher_review
+audience: teachers          # optional; this is the default
+
+content: |
+  My takeaways from Marcus Aurelius on impermanence…
+tags: [reading, stoicism]
+
+# Optional — link to an exercise this entry fulfills
+# fulfills_exercise_uid: ex_marcus-aurelius_abc123
+```
+
+### Shared resolver
+
+`AudienceResolver` (`core/services/user_entry/audience_resolver.py`) is
+the single implementation of:
+
+1. Pipeline/audience validation (ADR §3 + §5 guardrails — `teacher_review`
+   needs a real audience; `transcribe_and_structure` is private by policy).
+2. Share fan-out via `UnifiedSharingService` (explicit groups/users +
+   auto-share to exercise groups).
+3. `resolve_default_teachers(user_uid)` — used by the YAML preparer to
+   expand `audience: teachers` into explicit group UIDs.
+
+`UserEntryService` and the ingestion bridge both hold the same resolver
+instance; there is no second code path.
 
 ---
 

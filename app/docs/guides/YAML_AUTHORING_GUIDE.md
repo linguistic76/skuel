@@ -124,7 +124,7 @@ title: My Task Title    # Display title
 
 ### Ingestible Entity Types
 
-13 of SKUEL's 22 entity types are file-ingestible. The remaining are created via API or internal pipelines (RevisedExercise, Resource, FormTemplate, FormSubmission, JeInput, JeOutput, ExerciseReport, ActivityReport).
+13 of SKUEL's 20 entity types are file-ingestible. The remaining are created via API or internal pipelines (RevisedExercise, Resource, FormTemplate, FormSubmission, ExerciseReport, ActivityReport).
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|
@@ -138,7 +138,7 @@ title: My Task Title    # Display title
 | `Event` | — | `event:` | `event:practice-block-2min` |
 | `Choice` | — | `choice:` | `choice:2-minutes-right-now` |
 | `Principle` | — | `principle:` | `principle:small-steps` |
-| `ExerciseSubmission` | `Submission` | `es:` | `es:my-work` |
+| `UserEntry` | `UserEntry` | `ue:` | `ue:my-work` |
 | `LifePath` | — | `lifepath:` | `lifepath:my-direction` |
 | `Expense` | `Finance` | `expense:` | `expense:books` |
 | `Edge` | — | *(n/a)* | *(standalone relationship file)* |
@@ -159,7 +159,7 @@ Many YAML fields are constrained by Python enums — using an invalid value will
 
 | YAML Field | Enum Class | Valid Values |
 |------------|------------|-------------|
-| `type` | `EntityType` | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Ku`, `PathStep`, `LearningPath`, `Exercise`, `ExerciseSubmission`, `LifePath` |
+| `type` | `EntityType` | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Ku`, `PathStep`, `LearningPath`, `Exercise`, `UserEntry`, `LifePath` |
 | `status` | `EntityStatus` | Per-type subset (see [Entity Status](#entity-status) below) |
 | `priority` | `Priority` | `low`, `medium`, `high`, `critical` |
 | `polarity` | `HabitPolarity` | `build`, `break`, `neutral` |
@@ -203,7 +203,7 @@ The `status` field is governed by `EntityStatus` (14 values). Not every status i
 | Event | `scheduled`, `active`, `completed`, `cancelled` | `scheduled` |
 | Choice | `draft`, `active`, `completed`, `archived` | `draft` |
 | Principle | `active`, `paused`, `archived` | `active` |
-| ExerciseSubmission | `draft`, `submitted`, `queued`, `processing`, `completed`, `failed`, `revision_requested`, `archived` | `draft` |
+| UserEntry | `draft`, `submitted`, `queued`, `processing`, `completed`, `failed`, `revision_requested`, `archived` | `draft` |
 | LifePath | `active`, `archived` | `active` |
 
 Using a status not in the valid set for that entity type will fail validation during ingestion.
@@ -211,7 +211,7 @@ Using a status not in the valid set for that entity type will fail validation du
 **Two lifecycle patterns** govern which statuses appear:
 
 ```
-Content Processing (ExerciseSubmission, JeInput):
+Content Processing (UserEntry):
   draft → submitted → queued → processing → completed / failed
                                                  |
                                           revision_requested → resubmit
@@ -228,7 +228,7 @@ See [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the full tr
 
 ### Ownership
 
-Activity domains (Task, Goal, Habit, Event, Choice, Principle), ExerciseSubmission, and LifePath are **user-owned** — they require a `user_uid`. If the YAML file omits `user_uid`, the ingestion engine sets it to the default (`SKUEL_DEFAULT_USER_UID` env var, or `user:system`).
+Activity domains (Task, Goal, Habit, Event, Choice, Principle), UserEntry, and LifePath are **user-owned** — they require a `user_uid`. If the YAML file omits `user_uid`, the ingestion engine sets it to the default (`SKUEL_DEFAULT_USER_UID` env var, or `user:system`).
 
 Curriculum types (Ku, PathStep, LearningPath, Exercise) are **shared** — no `user_uid` needed; they are visible to all users.
 
@@ -608,7 +608,7 @@ YAML Author writes type + connections.*
 - [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) — scoring model, decay, life path alignment
 - [Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) — full ingestion API
 - [Relationship Registry](/core/models/relationship_registry.py) — source of truth for `yaml_field_path` mappings
-- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all 22 entity types
+- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all 20 entity types
 - [YAML Templates README](/yaml_templates/README.md) — directory structure and UID formats
 - [Schema Templates](/yaml_templates/_schemas/) — complete field reference per entity type
 

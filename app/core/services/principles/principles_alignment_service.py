@@ -129,7 +129,7 @@ class PrinciplesAlignmentService:
             Complete alignment assessment.
         """
         return await self._assess_entity_alignment_via_graph(
-            entity_uid=goal_uid,
+            entity_uid=EntityUID(goal_uid),
             entity_type=EntityType.GOAL,
             user_uid=user_uid,
         )
@@ -152,10 +152,21 @@ class PrinciplesAlignmentService:
             Complete alignment assessment.
         """
         return await self._assess_entity_alignment_via_graph(
-            entity_uid=habit_uid,
+            entity_uid=EntityUID(habit_uid),
             entity_type=EntityType.HABIT,
             user_uid=user_uid,
         )
+
+    async def get_embodiment_rates_7d(
+        self, principle_uids: list[EntityUID], user_uid: UserUID
+    ) -> Result[dict[str, float]]:
+        """Rolling 7-day embodiment rate per principle (0..1).
+
+        Thin pass-through to ``CrossDomainQueryService.get_embodiment_rates_7d``
+        — owned by alignment because EMBODIES_PRINCIPLE is an alignment edge.
+        See the cross-domain method for the rate formula.
+        """
+        return await self.cross_domain_query.get_embodiment_rates_7d(principle_uids, user_uid)
 
     # ========================================================================
     # GRAPH-BASED ALIGNMENT (shared implementation)
@@ -375,7 +386,7 @@ class PrinciplesAlignmentService:
 
         event = PrincipleAlignmentAssessed(
             principle_uid=principle_uid,
-            entity_uid=principle_uid,
+            entity_uid=EntityUID(principle_uid),
             entity_type="principle",
             user_uid=user_uid,
             alignment_score=system_score,

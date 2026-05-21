@@ -7,8 +7,9 @@ for any entity type.
 
 Provides:
     user_activity_range_raw: User entities within a date range
-    due_soon_raw: Entities due within N days
+    upcoming_raw: Entities upcoming within N days
     overdue_raw: Entities past their due date
+    active_raw: User's non-terminal entities
 
 Requires on concrete class:
     driver, label
@@ -80,8 +81,8 @@ class _TemporalMixin[T: DomainModelProtocol]:
             result = await session.run(cypher_query, params)
             return Result.ok(await result.data())
 
-    @safe_backend_operation("due_soon_raw")
-    async def due_soon_raw(
+    @safe_backend_operation("upcoming_raw")
+    async def upcoming_raw(
         self,
         date_field: str,
         days_ahead: int = 7,
@@ -92,7 +93,7 @@ class _TemporalMixin[T: DomainModelProtocol]:
         secondary_sort_field: str | None = None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
-        Query entities due within N days.
+        Query entities upcoming within N days.
 
         Args:
             date_field: Date field for comparison
@@ -115,6 +116,38 @@ class _TemporalMixin[T: DomainModelProtocol]:
             user_uid=user_uid,
             limit=limit,
             secondary_sort_field=secondary_sort_field,
+        )
+
+        async with self.driver.session() as session:
+            result = await session.run(cypher_query, params)
+            return Result.ok(await result.data())
+
+    @safe_backend_operation("active_raw")
+    async def active_raw(
+        self,
+        user_uid: UserUID,
+        *,
+        exclude_statuses: builtins.list[str] | None = None,
+        limit: int = 100,
+    ) -> Result[builtins.list[dict[str, Any]]]:
+        """
+        Query user's active (non-terminal) entities.
+
+        Args:
+            user_uid: User scope (required — active is always user-scoped)
+            exclude_statuses: Terminal statuses to exclude (e.g., completed/failed/cancelled/archived)
+            limit: Maximum results
+
+        Returns:
+            Result[list[dict]]: Raw Neo4j records
+        """
+        from adapters.persistence.neo4j.query.cypher import build_active_query
+
+        cypher_query, params = build_active_query(
+            node_label=self.label,
+            user_uid=user_uid,
+            exclude_statuses=exclude_statuses if exclude_statuses else None,
+            limit=limit,
         )
 
         async with self.driver.session() as session:

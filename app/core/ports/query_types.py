@@ -377,7 +377,7 @@ class EventUpdatePayload(BaseUpdatePayload, total=False):
             "start_time": "14:00",
             "end_time": "15:30",
         }
-        result = await events_service.update(uid, updates)
+        result = await events_service.update_event(uid, updates)
     """
 
     event_date: str
@@ -1929,6 +1929,20 @@ class RichMOCItem(TypedDict, total=False):
     graph_context: dict[str, Any]
 
 
+class GroupSummary(TypedDict, total=False):
+    """Shape for UserContext.user_groups and teacher_groups items.
+
+    Populated from (user)-[:MEMBER_OF]->(g:Group) and
+    (user)-[:OWNS]->(g:Group) Cypher patterns.
+    """
+
+    uid: str
+    name: str
+    role: str  # "owner" | "student" | "teacher" | other edge role
+    member_count: int
+    is_active: bool
+
+
 class CrossDomainInsightItem(TypedDict):
     """Single insight in UserContext.cross_domain_insights."""
 
@@ -2505,15 +2519,20 @@ class LearningRecommendationResult(TypedDict):
 
 
 class SemanticSearchChunkResult(TypedDict):
-    """Return shape for semantic_search_chunks()."""
+    """Return shape for semantic_search_chunks().
+
+    `parent_uid` / `parent_title` refer to the owning Entity, which for the
+    automatic chunking pipeline is a PathStep (not a Ku — chunking is keyed
+    off EntityType.PATH_STEP in UnifiedIngestionService).
+    """
 
     chunk_uid: str
     chunk_type: str
     text: str
     context_window: str | None
     similarity_score: float
-    parent_entity_uid: str
-    parent_ku_title: str
+    parent_uid: str
+    parent_title: str
 
 
 class RequiredKnowledgeResult(TypedDict):
@@ -2768,7 +2787,7 @@ class RelationshipGraphRow(TypedDict, total=False):
 
 
 class CleanupStats(TypedDict):
-    """Result of file cleanup operations (e.g., JeOutput date range cleanup)."""
+    """Result of file cleanup operations (e.g., UserEntry date range cleanup)."""
 
     files_deleted: int
     bytes_freed: int
@@ -2827,6 +2846,44 @@ class KuUserSubstanceResult(TypedDict):
     is_ready_to_learn: bool
     recommendations: list[str]
     status_message: str
+
+
+# ============================================================================
+# PS TEMPLATE VALIDATION TYPES
+# ============================================================================
+
+
+class Violation(TypedDict):
+    """One referential-integrity violation found during PS-save validation.
+
+    A PathStep author may leave cross-template references unresolved during
+    free-order authoring. On save, each broken reference produces one
+    Violation pinpointing the offending template, field, and reason.
+
+    Collected into a list and packed into ``ErrorContext.details["violations"]``
+    via ``Errors.ps_validation_report()`` — see ``core/utils/result_simplified.py``.
+    """
+
+    template_uid: str
+    template_title: str  # human-readable, for error display (NOT the uid)
+    template_type: Literal[
+        "TaskTemplate",
+        "GoalTemplate",
+        "HabitTemplate",
+        "EventTemplate",
+        "ChoiceTemplate",
+        "PrincipleTemplate",
+    ]
+    field: str  # offending reference field, e.g. "fulfills_goal_template_uid"
+    violation: Literal[
+        "target_missing",  # references a template uid not on this PS
+        "wrong_type",  # references the wrong template type for this field
+        "cycle",  # would form a reference cycle
+        "cross_ps",  # references a template on a different PS
+        "self_reference",  # references its own uid
+    ]
+    referenced_uid: str | None  # the bad reference value, if any
+    hint: str | None  # closest fuzzy-matched candidate, if any
 
 
 # ============================================================================
@@ -2924,6 +2981,7 @@ __all__ = [
     "RichLearningPathItem",
     "RichPathStepItem",
     "RichMOCItem",
+    "GroupSummary",
     "CrossDomainInsightItem",
     "CrossDomainInsightsData",
     # Intelligence Protocol Result Types
@@ -3030,4 +3088,6 @@ __all__ = [
     "StepLearningSequenceResult",
     # Ku Intelligence Result Types
     "KuUserSubstanceResult",
+    # PS Template Validation Types
+    "Violation",
 ]

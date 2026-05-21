@@ -173,6 +173,6 @@ earlier AI score.
 
 | Document | What It Covers |
 |----------|---------------|
-| [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) | The five-phase loop this chain supports |
+| [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) | The four-phase loop this chain supports |
 | [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) | KU / PS / LP hierarchy and relationships |
 | [event_driven_architecture.md](/docs/patterns/event_driven_architecture.md) | Event bus infrastructure and patterns |

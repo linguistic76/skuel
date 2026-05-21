@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 # Pydantic schemas for boundary
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     parse_date_param_strict,
@@ -75,8 +76,14 @@ def create_finance_api_routes(
     # EXPENSE CRUD ROUTES (Factory-Generated, Admin-Only)
     # ========================================================================
 
-    expense_factory = CRUDRouteFactory(
-        service=finance_service,
+    # FinancesOperations satisfies CrudOperations (base_protocols) but not
+    # CRUDOperations (crud_route_factory) — the two protocols diverged on
+    # list() signature + the get_for_user/update_for_user/delete_for_user
+    # ownership-verified methods. SHARED scope skips the *_for_user paths at
+    # runtime, so this works; the static gap is a known ISP issue worth
+    # unifying later.
+    expense_factory: CRUDRouteFactory[Any] = CRUDRouteFactory(
+        service=finance_service,  # pyright: ignore[reportArgumentType]
         domain_name="expenses",
         create_schema=ExpenseCreateSchema,
         update_schema=ExpenseUpdateSchema,
@@ -193,6 +200,7 @@ def create_finance_api_routes(
         return result
 
     @rt("/api/expenses/receipt")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def attach_receipt_route(request, current_user, uid: str) -> Result[bool]:
@@ -213,8 +221,8 @@ def create_finance_api_routes(
     # BUDGET CRUD ROUTES (Factory-Generated, Admin-Only)
     # ========================================================================
 
-    budget_factory = CRUDRouteFactory(
-        service=finance_service,
+    budget_factory: CRUDRouteFactory[Any] = CRUDRouteFactory(
+        service=finance_service,  # pyright: ignore[reportArgumentType]  # see expense_factory note above
         domain_name="budgets",
         create_schema=BudgetCreateSchema,
         update_schema=BudgetUpdateSchema,
@@ -359,6 +367,7 @@ def create_finance_api_routes(
         return Result.fail(result)
 
     @rt("/api/invoices", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def create_invoice_route(request, current_user) -> Result[dict[str, Any]]:
@@ -448,6 +457,7 @@ def create_finance_api_routes(
     # ========================================================================
 
     @rt("/api/expenses/bulk/categorize")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def bulk_categorize_expenses_route(request, current_user) -> Result[dict[str, Any]]:

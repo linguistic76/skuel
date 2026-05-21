@@ -23,7 +23,7 @@ class UserContextIntelligence(
 | Aspect | BaseIntelligenceService | Mixin Composition |
 |--------|------------------------|-------------------|
 | **Focus** | Single domain entities | Cross-domain synthesis |
-| **Backend** | Single domain backend | 13 domain services |
+| **Backend** | Single domain backend | 12 domain services |
 | **Context** | Entity-focused | User state (~250 fields) |
 | **Methods** | CRUD + intelligence | 8 specialized methods |
 | **Testing** | Mock single backend | Mock context + services |
@@ -264,7 +264,7 @@ class DailyPlanningMixin:
 **Note:** The 6 domain-specific planning methods this mixin calls (`get_at_risk_habits_for_user`, `get_upcoming_events_for_user`, `get_actionable_tasks_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` via the `UnifiedRelationshipService` MRO — they are not on the `UnifiedRelationshipService` shell itself.
 
 Each of these 6 methods:
-- Accepts a **domain-specific protocol slice** (`HabitAwareness`, `TaskAwareness`, etc.), not `UserContext`
+- Takes `context: UserContext` (the single source of truth — no awareness-slice protocols)
 - Returns `Result.fail()` immediately if `context.is_rich_context` is `False` (standard `build()` context)
 - Uses `context.get_rich_entities(domain, filter_uids)` for entity extraction instead of manual loop
 
@@ -368,11 +368,11 @@ class UserContextIntelligence(...):
         # Optional
         vector_search: Any = None,
     ):
-        # Validate all 13 required services present
+        # Validate all 12 required services present
         required = {
             "context": context,
             "tasks": tasks,
-            # ... all 13
+            # ... all 12
         }
         missing = [name for name, svc in required.items() if svc is None]
         if missing:

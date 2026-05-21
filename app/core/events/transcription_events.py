@@ -3,13 +3,14 @@ Transcription Domain Events
 ============================
 
 Events for the transcription domain, enabling loose coupling
-with downstream services like SubmissionsCoreService.
+with downstream services like UserEntryProcessingService.
 
 Event-Driven Architecture:
-- TranscriptionCompleted → SubmissionsCoreService creates journal-type Report from transcript
+- TranscriptionCompleted → UserEntryProcessingService finishes the
+  TRANSCRIBE / TRANSCRIBE_AND_STRUCTURE pipeline for the source UserEntry
 - TranscriptionFailed → Monitoring/alerting can respond
 
-This replaces direct coupling between TranscriptionService and SubmissionsCoreService.
+This replaces direct coupling between TranscriptionService and UserEntry processing.
 """
 
 from dataclasses import dataclass

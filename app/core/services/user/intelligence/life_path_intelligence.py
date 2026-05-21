@@ -13,24 +13,18 @@ habits, goals, and principles align with their ultimate life path.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from core.models.context_types import LifePathAlignment
+from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import make_dict_score_getter
 
-if TYPE_CHECKING:
-    from core.services.user.unified_user_context import UserContext
 
-
-class LifePathIntelligenceMixin:
+class LifePathIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing life path alignment methods.
 
-    Requires self.context (UserContext).
+    Requires self.context (RichUserContext — rich-only fields are needed).
     """
-
-    context: UserContext
 
     # =========================================================================
     # METHOD 7: Life Path Alignment
@@ -57,6 +51,7 @@ class LifePathIntelligenceMixin:
         Returns:
             Result containing LifePathAlignment with overall score, dimension scores, and insights
         """
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         # Check if user has a life path defined
         if not self.context.life_path_uid:
             return Result.ok(
@@ -79,6 +74,14 @@ class LifePathIntelligenceMixin:
         goal_score = self._calculate_goal_alignment()
         principle_score = self._calculate_principle_alignment()
         momentum_score = self._calculate_momentum_score()
+
+        # PS-engagement boost on activity/goal: spawned-from-engagement items are
+        # taught movement on the life path, not native drift, so they earn extra
+        # credit beyond native learning-goal linkage. Bonus is shared across
+        # activity and goal dimensions because the spawn pool spans both.
+        engagement_bonus = self._engagement_alignment_bonus()
+        activity_score = min(1.0, activity_score * engagement_bonus)
+        goal_score = min(1.0, goal_score * engagement_bonus)
 
         # Weighted average for overall score
         overall_score = (
@@ -175,14 +178,14 @@ class LifePathIntelligenceMixin:
         # Count tasks aligned with learning goals (life path proxy)
         for task_uid in self.context.active_task_uids:
             for goal_uid in self.context.learning_goals:
-                if task_uid in self.context.tasks_by_goal.get(goal_uid, []):
+                if task_uid in self.context.get_tasks_for_goal(goal_uid):
                     aligned_activities += 1
                     break
 
         # Count habits aligned with learning goals
         for habit_uid in self.context.active_habit_uids:
             for goal_uid in self.context.learning_goals:
-                if habit_uid in self.context.habits_by_goal.get(goal_uid, []):
+                if habit_uid in self.context.get_habits_for_goal(goal_uid):
                     aligned_activities += 1
                     break
 
@@ -248,8 +251,7 @@ class LifePathIntelligenceMixin:
             scores.append(0.15)  # Neutral contribution when no domain data
 
         # Component 3: Principle integration score (30% weight)
-        # Uses the new principle_integration_score from UserContext
-        scores.append(self.context.principle_integration_score * 0.30)
+        scores.append(self.context.get_principle_integration_score() * 0.30)
 
         return sum(scores)
 
@@ -284,8 +286,9 @@ class LifePathIntelligenceMixin:
             momentum_factors.append(learning_momentum)
 
         # Factor 4: At-risk habits (negative indicator)
-        if self.context.at_risk_habits:
-            at_risk_penalty = max(0.0, 1.0 - len(self.context.at_risk_habits) * 0.2)
+        at_risk_habits = self.context.get_habits_needing_reinforcement()
+        if at_risk_habits:
+            at_risk_penalty = max(0.0, 1.0 - len(at_risk_habits) * 0.2)
             momentum_factors.append(at_risk_penalty)
 
         return sum(momentum_factors) / len(momentum_factors) if momentum_factors else 0.5
@@ -400,8 +403,9 @@ class LifePathIntelligenceMixin:
         # Momentum recommendations
         if momentum < 0.5:
             recommendations.append("Build consistent habits to maintain momentum")
-            if self.context.at_risk_habits:
-                recommendations.append(f"Address {len(self.context.at_risk_habits)} at-risk habits")
+            at_risk_habits = self.context.get_habits_needing_reinforcement()
+            if at_risk_habits:
+                recommendations.append(f"Address {len(at_risk_habits)} at-risk habits")
 
         # If doing well, encourage continuation
         if not recommendations:
@@ -423,10 +427,38 @@ class LifePathIntelligenceMixin:
         supporting = []
         for habit_uid in self.context.active_habit_uids:
             for goal_uid in self.context.learning_goals:
-                if habit_uid in self.context.habits_by_goal.get(goal_uid, []):
+                if habit_uid in self.context.get_habits_for_goal(goal_uid):
                     supporting.append(habit_uid)
                     break
         return supporting
+
+    def _engagement_alignment_bonus(self) -> float:
+        """Multiplier reflecting share of active activities/goals spawned by PS engagements.
+
+        Returns a value in [1.0, 1.20]: 1.0 when no spawned items are active,
+        scaling to 1.20 when 100% of active tasks/habits/goals were spawned from
+        engagements. Abandoned engagements have their spawned items deleted per
+        ADR-059, so their UIDs naturally don't appear in active_* sets.
+
+        Applied to activity_score and goal_score by the caller — the spawn pool
+        crosses both dimensions, so one shared multiplier is the honest reading.
+        """
+        spawned_index = self.context.spawned_uid_to_ps_uid
+        if not spawned_index:
+            return 1.0
+
+        active_uids = (
+            self.context.active_task_uids
+            + self.context.active_habit_uids
+            + self.context.active_goal_uids
+        )
+        total = len(active_uids)
+        if total == 0:
+            return 1.0
+
+        spawned_count = sum(1 for uid in active_uids if uid in spawned_index)
+        spawned_share = spawned_count / total
+        return 1.0 + (spawned_share * 0.20)
 
     def _count_completed_milestones(self) -> int:
         """Count completed life path milestones."""

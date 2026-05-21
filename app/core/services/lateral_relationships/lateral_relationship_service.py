@@ -755,7 +755,7 @@ class LateralRelationshipService:
 
         # Build nodes and edges
         nodes_dict: dict[str, dict[str, Any]] = {}
-        edges_list = []
+        edges_list: list[dict[str, Any]] = []
 
         # Add center node
         center_record = result.value[0]

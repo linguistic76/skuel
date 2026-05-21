@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: disable-error-code="union-attr"
 """
 Import teacher reports from markdown files into SKUEL.
 
@@ -23,7 +24,7 @@ Actions:
     revision  — request revision with your notes, marks REVISION_REQUESTED
     approve   — approve as-is with no written feedback
 
-The submission_uid must match a real ExerciseSubmission. Get UIDs from
+The submission_uid must match a real UserEntry. Get UIDs from
 export_submissions.py — pending/<submission_uid>.md filenames are UIDs.
 """
 

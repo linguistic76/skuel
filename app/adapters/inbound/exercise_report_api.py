@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import entity_to_response
@@ -54,6 +55,7 @@ def create_exercise_report_api_routes(
     # ========================================================================
 
     @rt("/api/reports/assessments")
+    @csrf_protected
     @require_teacher(user_service_getter)
     @boundary_handler(success_status=201)
     async def create_assessment(request: Request, current_user: Any) -> Result[AssessmentResponse]:

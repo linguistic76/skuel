@@ -57,6 +57,7 @@ dependencies = [
     "httpx>=0.28.0",
     # Stripe webhook signature verification (ADR-051)
     "stripe>=11.0.0",
+    "keyring>=25.7.0",
 ]
 
 [project.scripts]
@@ -143,25 +144,19 @@ warn_redundant_casts = true
 strict_equality = true
 
 # Lenient global defaults (overridden per-module)
-# PRAGMATIC APPROACH: Warn don't fail on type issues
-# Technical debt: ~2200 known type errors as of 2025-10-20
-# Strategy: Fix new code, gradually improve old code
 disallow_untyped_defs = false  # Only enforce in critical modules
 disallow_incomplete_defs = false
 check_untyped_defs = true
 disallow_untyped_decorators = false  # FastHTML routes
-warn_unused_ignores = false  # Don't fail build
+warn_unused_ignores = true
 warn_no_return = false  # Too noisy
 warn_return_any = false  # Only enforce in critical modules
-warn_unreachable = false  # Too noisy during development
+warn_unreachable = false  # Conflicts with the __post_init__ sentinel-default pattern and Neo4j JSON-string boundary in core/models/*. See: core/models/entity.py:82, core/models/exercises/exercise.py:89.
 
 # SILENCE THE NOISE: Disable specific error codes that don't matter
 # These are type inference issues that work fine at runtime
 disable_error_code = [
     "arg-type",          # Argument type mismatches (often false positives)
-    "var-annotated",     # Variable annotation issues
-    "type-arg",          # Type argument issues (generics inference)
-    "type-var",          # Type variable bound issues (MyPy limitation with frozen dataclass + Protocol pattern)
 ]
 
 # Allow Any for flexibility
@@ -180,7 +175,7 @@ show_column_numbers = true
 show_error_context = true
 
 # Files to check (gradual migration strategy)
-files = ["core", "adapters", "api", "main.py"]
+files = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui", "routes"]
 exclude = [
     "build/",
     "dist/",
@@ -196,9 +191,22 @@ exclude = [
 
 # Per-module configuration for SKUEL-specific patterns
 [[tool.mypy.overrides]]
-# Core ports — strict typing enforced (0 untyped defs as of 2026-03-27)
+# Core ports — strict typing enforced (0 untyped defs as of 2026-03-27).
+# warn_return_any added 2026-05-16 after fixing 10 no-any-return errors in
+# content_protocols.py (getattr() → cast). Protocols are the contract;
+# silent Any returns defeat the type system at the most important boundary.
 module = ["core.ports.*"]
 disallow_untyped_defs = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+# Core auth — warn_return_any enforced (added 2026-05-16). Auth is a
+# security-critical boundary; silently propagating Any through Result
+# returns hides type-mismatch bugs. Fixed 17 occurrences of cross-type
+# Result propagation (`return some_result` → `return Result.fail(some_result)`,
+# per CLAUDE.md error-handling guidance).
+module = ["core.auth.*"]
+warn_return_any = true
 
 [[tool.mypy.overrides]]
 # Core services - gradual strictness migration
@@ -211,10 +219,11 @@ disallow_any_decorated = false  # Too strict for FastHTML
 
 [[tool.mypy.overrides]]
 # Result pattern infrastructure - CRITICAL for type safety
-module = ["core.utils.result", "core.utils.result_simplified", "core.utils.error_boundary"]
+module = ["core.utils.result_simplified", "core.utils.error_boundary"]
 disallow_any_generics = true
 disallow_untyped_defs = true
 warn_return_any = true
+warn_unreachable = true
 disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
@@ -234,12 +243,24 @@ warn_return_any = false
 disallow_any_generics = false
 
 [[tool.mypy.overrides]]
-# UI modules - lenient; monsterui has no py.typed marker
+# UI modules - lenient; monsterui has no py.typed marker.
+# warn_unreachable=true: ui/ doesn't construct domain models, so it avoids
+# the __post_init__ sentinel + Neo4j JSON-string patterns that make
+# warn_unreachable unworkable in core/models/*. See pyproject.toml:154.
 module = ["ui.*"]
 disallow_untyped_defs = false
 warn_return_any = false
 disallow_any_generics = false
+warn_unreachable = true
 disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+# Bootstrap + routes: no frozen-dataclass post-init normalization or Neo4j
+# JSON-string boundary here, so warn_unreachable catches dead defensive
+# code without false positives. See pyproject.toml:154 for why this is
+# scoped per-module rather than enabled globally.
+module = ["services_bootstrap.*", "routes.*"]
+warn_unreachable = true
 
 [[tool.mypy.overrides]]
 # Events and protocols - lenient (auto-generated patterns)
@@ -261,7 +282,6 @@ module = [
     "adapters.persistence.neo4j.backends.submissions_backend",
     "adapters.persistence.neo4j.backends.sharing_backend",
     "adapters.persistence.neo4j.backends.forms_backends",
-    "adapters.persistence.neo4j.backends.journal_backends",
     "adapters.persistence.neo4j.backends.collab_backends",
     "adapters.persistence.neo4j.backends.misc_backends",
 ]
@@ -273,14 +293,6 @@ module = ["adapters.*", "components.*"]
 disallow_any_generics = false
 disallow_untyped_decorators = false
 # Still catch Result issues
-warn_return_any = true
-
-[[tool.mypy.overrides]]
-# Test modules - more lenient for testing utilities
-module = ["tests.*"]
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-# But still check Result patterns
 warn_return_any = true
 
 [[tool.mypy.overrides]]
@@ -316,88 +328,99 @@ disable_error_code = ["call-arg", "misc"]  # Disable constructor argument checki
 warn_return_any = false
 
 [[tool.mypy.overrides]]
-# Tests, examples, and scripts - verified by pytest (151/151 passing)
-# Focus MyPy on production code quality, not test boilerplate
-# Rationale: Tests prove runtime correctness; no need for static analysis duplication
-module = ["tests.*", "examples.*", "scripts.*", "_shelved.*"]
-ignore_errors = true
+# Tests and scripts — check_untyped_defs enforced (2026-05-17).
+# Rationale: pytest verifies runtime behavior, but a test that constructs a
+# wrong-typed DTO (e.g. stale kwargs after a model refactor) passes locally
+# only because the test never exercised that path — MyPy catches the
+# construction site itself. Same logic for one-shot scripts that wire up
+# domain objects. We keep disallow_untyped_defs=false (tests don't need
+# return annotations on every fixture) but turn on body-level checking.
+#
+# Disabled error codes (all inherent to the test/script context):
+#   method-assign  — tests monkey-patch service methods with Mock/AsyncMock,
+#                    which mypy correctly flags but the pattern is unavoidable.
+#   type-var       — tests parameterize generics with DTOs (EntityDTO et al.)
+#                    that don't satisfy the production bound; fine for fixtures.
+#   misc           — Strawberry/Pydantic dynamic __init__ on test-only stubs.
+module = ["tests.*", "examples.*", "scripts.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+warn_return_any = false  # too noisy for fixture helpers
+warn_unused_ignores = false  # tests use # type: ignore liberally for mocks
+disable_error_code = ["method-assign", "type-var", "misc"]
 
 # ============================================================================
-# PYRIGHT CONFIGURATION - Additional type checking for VS Code
+# PYRIGHT CONFIGURATION
 # ============================================================================
+# Complements MyPy. The differentiator is reportAttributeAccessIssue +
+# reportPossiblyUnboundVariable — pyright catches missing protocol attributes
+# and branch-bound variables that mypy's defaults let through (`arg-type` is
+# globally disabled in mypy above, which masks the same category).
+#
+# Mode is "basic" + selectively-elevated rules. Strict mode floods on Result[T]
+# inference (12k+ reportUnknown* warnings); basic mode + targeted rules is
+# what actually pays for itself on this codebase.
+#
+# Invoke: `./dev quality` (gating) or `./dev typecheck-strict` (pyright alone).
+# Baseline as of 2026-05-19: 0 errors, ~872 warnings — entirely reportArgumentType
+# from MonsterUI / FastHTML missing-py.typed framework noise. All other warning
+# categories (reportCallIssue, reportReturnType, reportAssignmentType, etc.) are
+# at 0; the 78 real-signal warnings present on 2026-05-18 were resolved by
+# fixing the underlying type issues, not by suppression.
+# See: docs/patterns/linter_rules.md § Pyright
 
 [tool.pyright]
-include = ["skuel", "services", "core", "routes", "components"]
-exclude = ["**/__pycache__", ".venv", "build", "dist", "tests/fixtures"]
-defineConstant = { DEBUG = true }
-
+include = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui", "routes"]
+exclude = [
+    "**/__pycache__",
+    ".venv",
+    "build",
+    "dist",
+    "tests",
+    "examples",
+    "scripts",
+    "**/archive/**",
+    "z_archives",
+    "**/_old.py",
+]
 pythonVersion = "3.12"
 pythonPlatform = "Linux"
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+reportMissingTypeStubs = "none"
+reportMissingImports = "none"   # mypy owns import resolution
 
-# Strictness levels that catch Result pattern issues
-typeCheckingMode = "strict"
-reportMissingImports = true
-reportMissingTypeStubs = false  # Many dependencies lack stubs
-
-# Function and class decorator handling (FastHTML compatibility)
-reportUntypedFunctionDecorator = "warning"  # FastHTML routes
-reportUntypedClassDecorator = "warning"
-reportUntypedBaseClass = "error"
-reportUntypedNamedTuple = "error"
-
-# Type checking strictness for catching double-wrap bugs
-reportPrivateUsage = "warning"
-reportConstantRedefinition = "error"
-reportDuplicateImport = "error"
-reportFunctionMemberAccess = "error"
-reportIncompatibleMethodOverride = "error"
-reportIncompatibleVariableOverride = "error"
-reportInconsistentConstructor = "error"
-reportOverlappingOverloads = "error"
-reportMissingSuperCall = false
-reportUninitializedInstanceVariable = "error"
+# Errors — high-value, low-noise (pyright catches what mypy misses)
+reportAttributeAccessIssue = "error"
+reportPossiblyUnboundVariable = "error"
 reportInvalidStringEscapeSequence = "error"
+reportInvalidTypeArguments = "error"
 
-# Critical for Result pattern validation
-reportUnknownParameterType = "error"
-reportUnknownArgumentType = "warning"  # Some FastHTML flexibility
-reportUnknownLambdaType = "warning"
-reportUnknownVariableType = "warning"
-reportUnknownMemberType = "warning"
-reportMissingParameterType = "error"
-reportMissingTypeArgument = "error"
-reportInvalidTypeVarUse = "error"
-reportCallInDefaultInitializer = "error"
+# Warnings — useful signal but framework-noisy (MonsterUI Button etc.)
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+reportAssignmentType = "warning"
+reportOptionalMemberAccess = "warning"
+reportOptionalSubscript = "warning"
+reportOptionalCall = "warning"
+reportOptionalIterable = "warning"
+reportOptionalOperand = "warning"
+reportUnusedExpression = "warning"
+reportRedeclaration = "warning"
 
-# Result-specific validation
-reportUnnecessaryIsInstance = "warning"
-reportUnnecessaryCast = "warning"
-reportUnnecessaryComparison = "warning"
-reportAssertAlwaysTrue = "warning"
-reportSelfClsParameterName = "error"
-reportImplicitStringConcatenation = "warning"
-reportUndefinedVariable = "error"
-reportUnboundVariable = "error"
-
-# Optional handling (critical for Result pattern)
-reportOptionalSubscript = "error"
-reportOptionalMemberAccess = "error"
-reportOptionalCall = "error"
-reportOptionalIterable = "error"
-reportOptionalContextManager = "error"
-reportOptionalOperand = "error"
-
-# General type issues that catch Result problems
-reportGeneralTypeIssues = "error"
-reportPropertyTypeMismatch = "error"
-reportReturnType = "error"
-reportAssignmentType = "error"
-
-# Unused code detection
-reportUnusedImport = "warning"
-reportUnusedClass = "warning" 
-reportUnusedFunction = "warning"
-reportUnusedVariable = "warning"
+# Silenced — Result[T] noise + FastHTML/MonsterUI lack py.typed markers
+reportUnknownVariableType = "none"
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownLambdaType = "none"
+reportUntypedFunctionDecorator = "none"
+reportUntypedClassDecorator = "none"
+reportUntypedBaseClass = "none"
+reportPrivateUsage = "none"
+reportGeneralTypeIssues = "none"          # mypy owns the catch-all
+reportTypedDictNotRequiredAccess = "none" # noisy on intentional .get() patterns
 
 # ============================================================================
 # PYTEST CONFIGURATION - Enhanced for type safety testing
@@ -524,7 +547,6 @@ exclude = [
     "neo4j-import",  # Neo4j Docker container data directory (permission denied)
     "docs/archive",  # Archived/deprecated code - not actively maintained
     "zarchives",     # Archived code - not actively maintained
-    "_shelved",      # Shelved code - not actively maintained
     "__pycache__",
     "migrations",
     "*.egg-info",
@@ -679,7 +701,6 @@ fixable = ["ALL"]
 "core/services/*_service.py" = ["ARG002", "PERF401"]  # Service method signatures implement protocols
 "core/services/unified_ingestion_service.py" = ["E402", "F402"]  # Imports after constants + loop var shadowing
 "core/services/*/[!_]*.py" = ["ARG002", "ARG004", "RUF012", "PERF401", "SIM102", "SIM108", "SIM116"]  # Nested service modules + class config
-"core/services/context_first_mixin.py" = ["ARG002"]  # Mixin methods match various signatures
 "core/services/infrastructure/*.py" = ["ARG002"]  # Infrastructure helpers
 "core/infrastructure/**/*.py" = ["ARG001", "ARG002", "PERF401", "SIM116", "RUF002", "B021"]  # Route factories + batch helpers
 "core/services/relationships/*.py" = ["ARG002", "PERF401", "SIM108"]  # Relationship services + patterns
@@ -691,7 +712,6 @@ fixable = ["ALL"]
 
 # Core utilities - various patterns
 "core/utils/api_responses.py" = ["B021", "F822"]  # f-string docstrings + legacy re-exports
-"core/services/ku_retrieval.py" = ["ARG002"]      # Protocol method signatures
 "core/models/relationships/*.py" = ["F822", "ARG003", "PERF401"]  # Re-exports + class methods + performance patterns
 
 # GraphQL schema - Strawberry patterns
@@ -731,6 +751,7 @@ fixable = ["ALL"]
 
 # API compatibility (API-COMPAT-001)
 "adapters/inbound/response_helpers.py" = ["ARG001"]                # FastHTML - headers param for API consistency
+"adapters/inbound/_pathstep_template_routes_helpers.py" = ["ARG001"]  # FastHTML route handlers — request/current_user injected by decorators
 
 # ============================================================================
 # SKUEL PATTERN EXCEPTIONS (January 2025)

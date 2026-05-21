@@ -34,6 +34,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.models.goal.goal import Goal
+from core.models.type_hints import EntityUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling
@@ -42,7 +43,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.context_types import ContextualGoal
     from core.ports.query_types import RichEntityItem
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext, UserContext
 
 
 class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
@@ -74,7 +75,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
     @with_error_handling("get_advancing_goals_for_user", error_type="database")
     async def get_advancing_goals_for_user(
         self,
-        context: UserContext,
+        context: RichUserContext,
         min_progress: float = 0.1,
         limit: int = 10,
     ) -> Result[list[ContextualGoal]]:
@@ -108,31 +109,14 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
 
         Returns:
             Result[list[ContextualGoal]] - sorted by priority (highest first)
-            Returns error if entities_rich["goals"] is not populated
+            Raises RichContextRequiredError if context was not built via build_rich().
         """
         from core.models.context_types import ContextualGoal
 
-        # FAIL-FAST: Validate rich context is available
-        rich_goals = context.entities_rich.get("goals", [])
-        if not rich_goals:
-            if len(context.active_goal_uids) > 0:
-                # User has active goals but rich context not populated
-                return Result.fail(
-                    Errors.system(
-                        message=(
-                            f"Rich context not populated for {len(context.active_goal_uids)} active goals. "
-                            "MEGA-QUERY may not have been executed. "
-                            "Use user_service.get_rich_unified_context() to build complete context."
-                        ),
-                        operation="get_advancing_goals_for_user",
-                    )
-                )
-            # No active goals - return empty list (not an error)
-            return Result.ok([])
-
+        # Rich context is compile-time enforced via `context: RichUserContext`.
         # Build lookup from rich context for O(1) access
         rich_goals_by_uid: dict[str, RichEntityItem] = {}
-        for goal_data in rich_goals:
+        for goal_data in context.entities_rich.get("goals", []):
             goal_dict = goal_data.get("entity", {})
             uid = goal_dict.get("uid")
             if uid:
@@ -171,8 +155,8 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                 continue
 
             # Get contributing entities from context
-            contributing_tasks = context.tasks_by_goal.get(goal_uid, [])
-            contributing_habits = context.habits_by_goal.get(goal_uid, [])
+            contributing_tasks = context.tasks_by_goal_or_empty().get(goal_uid, [])
+            contributing_habits = context.habits_by_goal_or_empty().get(goal_uid, [])
 
             contextual = ContextualGoal.from_entity_and_context(
                 uid=goal_uid,
@@ -248,10 +232,10 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             habit_uids = []
             if self._relationship_service:
                 knowledge_result = await self._relationship_service.get_related_uids(
-                    "knowledge", goal_uid
+                    "knowledge", EntityUID(goal_uid)
                 )
                 habits_result = await self._relationship_service.get_related_uids(
-                    "habits", goal_uid
+                    "habits", EntityUID(goal_uid)
                 )
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
                 habit_uids = habits_result.value if habits_result.is_ok else []
@@ -268,8 +252,8 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                     blocking_reasons.append(f"Missing knowledge: {ku_uid} ({mastery:.0%})")
 
             # Check for supporting system
-            contributing_tasks = context.tasks_by_goal.get(goal_uid, [])
-            contributing_habits = context.habits_by_goal.get(goal_uid, [])
+            contributing_tasks = context.tasks_by_goal_or_empty().get(goal_uid, [])
+            contributing_habits = context.habits_by_goal_or_empty().get(goal_uid, [])
 
             if not contributing_tasks:
                 blocking_reasons.append("No active tasks contributing to this goal")
@@ -347,12 +331,12 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             knowledge_uids = []
             if self._relationship_service:
                 knowledge_result = await self._relationship_service.get_related_uids(
-                    "knowledge", goal_uid
+                    "knowledge", EntityUID(goal_uid)
                 )
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
 
-            contributing_tasks = context.tasks_by_goal.get(goal_uid, [])
-            contributing_habits = context.habits_by_goal.get(goal_uid, [])
+            contributing_tasks = context.tasks_by_goal_or_empty().get(goal_uid, [])
+            contributing_habits = context.habits_by_goal_or_empty().get(goal_uid, [])
 
             # Get title safely
             title = getattr(goal, "title", str(goal_uid))

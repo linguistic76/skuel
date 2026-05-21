@@ -85,29 +85,17 @@ class LearningPath(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | LearningPathDTO") -> "LearningPath":  # type: ignore[override]
+    def from_dto(cls, dto: "EntityDTO | LearningPathDTO") -> "LearningPath":
         """Create LearningPath from an EntityDTO or LearningPathDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "LearningPathDTO":  # type: ignore[override]
+    def to_dto(self) -> "LearningPathDTO":
         """Convert LearningPath to domain-specific LearningPathDTO."""
-        import dataclasses
-        from typing import Any
 
+        from core.models.dto_helpers import domain_to_dto
         from core.models.pathways.learning_path_dto import LearningPathDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(LearningPathDTO)}
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            if f.name not in dto_field_names:
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
-            kwargs[f.name] = value
-        return LearningPathDTO(**kwargs)
+        return domain_to_dto(self, LearningPathDTO)
 
     def __str__(self) -> str:
         return f"LearningPath(uid={self.uid}, path_type={self.path_type}, title='{self.title}')"

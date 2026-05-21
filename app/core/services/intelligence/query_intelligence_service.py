@@ -405,6 +405,9 @@ class ResultRanker:
         primary_intent = query_intent.get("primary_intent")
         content_type = result.get("content_type", "general")
 
+        if primary_intent is None:
+            return 0.5
+
         # Intent-content type alignment
         alignments = {
             ("learn", "concept"): 1.0,

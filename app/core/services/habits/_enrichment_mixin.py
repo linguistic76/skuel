@@ -159,7 +159,7 @@ class _EnrichmentMixin:
 
         # Integration level calculation
         integration_count = 0
-        if habit.source_path_step_uid or habit.source_learning_path_uid:
+        if habit.source_path_step_uid:
             integration_count += 3
         if habit.is_identity_habit:
             integration_count += 2
@@ -191,10 +191,8 @@ class _EnrichmentMixin:
             "goal_uids": goal_uids,
             "linked_principle_count": len(principle_uids),
             "principle_uids": principle_uids,
-            "is_curriculum_habit": habit.source_path_step_uid is not None
-            or habit.source_learning_path_uid is not None,
+            "is_curriculum_habit": habit.source_path_step_uid is not None,
             "source_step_uid": habit.source_path_step_uid,
-            "source_path_uid": habit.source_learning_path_uid,
             "reinforces_step_count": len(step_uids),
             "step_uids": step_uids,
             "practice_type": habit.curriculum_practice_type,
@@ -226,10 +224,8 @@ class _EnrichmentMixin:
         enriched = {
             "uid": habit.uid,
             "name": habit.title,
-            "is_curriculum_habit": habit.source_path_step_uid is not None
-            or habit.source_learning_path_uid is not None,
+            "is_curriculum_habit": habit.source_path_step_uid is not None,
             "source_step_uid": habit.source_path_step_uid,
-            "source_path_uid": habit.source_learning_path_uid,
             "reinforces_step_uids": step_uids,
             "reinforces_step_count": len(step_uids),
             "practice_type": habit.curriculum_practice_type,

@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "THE CORE VALUE PROPOSITION: What should I work on next?"
 
-SKUEL's `UserContextIntelligence` is the central intelligence hub that synthesizes user state (`UserContext` ~250 fields) with all 13 domain services to answer the fundamental question: **"What should I work on today?"**
+SKUEL's `UserContextIntelligence` is the central intelligence hub that synthesizes user state (`UserContext` ~250 fields) with all 12 domain services to answer the fundamental question: **"What should I work on today?"**
 
 ## Quick Start
 
@@ -25,13 +25,13 @@ class UserContextIntelligence(
     TemporalMomentumMixin,          # Momentum signals (entities_rich analysis)
     DailyPlanningMixin,             # Method 5: THE FLAGSHIP - Daily work plan
 ):
-    """Learning journey intelligence = Context + 13 Domain Services."""
+    """Learning journey intelligence = Context + 12 Domain Services."""
 ```
 
 ### Core Architecture
 
 ```
-UserContextIntelligence = UserContext + 13 Domain Services
+UserContextIntelligence = UserContext + 12 Domain Services
                         = User State + Complete Graph Intelligence
 ```
 
@@ -41,7 +41,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 - Workload capacity, available time, energy levels
 - Life path alignment, recommended next steps
 
-**13 Domain Services** provide:
+**12 Domain Services** provide:
 - Fresh graph queries for real-time data
 - Cross-domain relationship traversal
 - Actionable recommendations
@@ -63,9 +63,9 @@ UserContextIntelligence = UserContext + 13 Domain Services
 
 ---
 
-## The 13 Required Domain Services
+## The 12 Required Domain Services
 
-`UserContextIntelligence` requires ALL 13 domain services at construction:
+`UserContextIntelligence` requires ALL 12 domain services at construction:
 
 ### Activity (6)
 
@@ -144,7 +144,7 @@ if tier.ai_enabled:  # FULL tier
     services.zpd_service = zpd_service
 
 factory = UserContextIntelligenceFactory(
-    ...,  # 13 required services
+    ...,  # 12 required services
     zpd_service=zpd_service,
 )
 ```
@@ -213,13 +213,13 @@ provides the standard 30-day window.
 
 **Submission & feedback stats (March 2026):** `build_rich()` now populates 11 fields via `populate_submission_stats()`: submission counts, feedback tracking, `unsubmitted_exercises`, and `pending_revised_exercises`. `DailyPlanningMixin` reads `context.pending_revised_exercises` at Priority 2.3 (teacher revision feedback) and `context.unsubmitted_exercises` at Priority 2.5 (assigned exercises).
 
-**The rule:** Always pass `build_rich()` context to intelligence. `require_rich_context()` will catch mistakes:
+**The rule:** Always pass `build_rich()` context to intelligence. The strict rich-only accessors (and the `_as_rich()` chokepoint they delegate through) will catch mistakes at runtime:
 
 ```python
-# ❌ WRONG — build() context will fail at require_rich_context()
+# ❌ WRONG — build() context will raise RichContextRequiredError on first strict accessor
 context = await builder.build(user_uid)
 intelligence = factory.create(context)
-plan = await intelligence.get_ready_to_work_on_today()  # Raises ValueError
+plan = await intelligence.get_ready_to_work_on_today()  # RichContextRequiredError
 
 # ✅ CORRECT — build_rich() for intelligence (no time_period needed)
 context = await builder.build_rich(user_uid)
@@ -252,7 +252,7 @@ UserContextIntelligence (Level 1)
 └── ScheduleIntelligenceMixin     → Pure Cypher: calendar + capacity scoring
 ```
 
-All 13 required services are Level 1. `SubmissionsRelationshipService`, `ReportRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
+All 12 required services are Level 1. `SubmissionsRelationshipService`, `ReportRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
 
 ### Level 2 — AI Enhancement (Optional)
 
@@ -279,7 +279,7 @@ This is by design. The slot reservation ensures future implementation is a fill-
 
 - `UserContextIntelligence` requires a `UserContext` at construction
 - Context is user-specific and built on-demand
-- The 13 domain services are singletons (created once at bootstrap)
+- The 12 domain services are singletons (created once at bootstrap)
 - Factory pattern separates **service wiring** from **context binding**
 
 ### UserContextIntelligenceFactory
@@ -341,7 +341,7 @@ async def get_ready_to_work_on_today(
     """
     THE FLAGSHIP METHOD - What should I focus on TODAY?
 
-    Currently synthesizes 10 of 13 wired domains:
+    Currently synthesizes 10 of 12 wired domains:
     - Activity (6): tasks, habits, goals, events, choices, principles
     - Curriculum (3): ku, ls, lp
     - Submissions Domain (1): self.report — Priority 2.5: unsubmitted exercises
@@ -443,10 +443,10 @@ class UserContextIntelligence(
     DailyPlanningMixin,
 ):
     def __init__(self, context: UserContext, ...):
-        # Store context and all 13 services
+        # Store context and all 12 services
         self.context = context
         self.tasks = tasks
-        # ... 12 more services
+        # ... 11 more services
 ```
 
 ### Mixin Requirements
@@ -465,36 +465,24 @@ class DailyPlanningMixin:
     ku: Any                        # KuGraphService
 ```
 
-### Context Awareness Protocol Targets
+### Mixins Take UserContext
 
-Each mixin currently accepts `UserContext` (~250 fields) but only uses a narrow slice. The **adoption target** is to narrow each mixin signature to its specific awareness protocol — making dependencies explicit and making the mixin trivially testable:
-
-| Mixin | Current | Adoption Target | Rationale |
-|-------|---------|-----------------|-----------|
-| `DailyPlanningMixin` | `UserContext` | `FullAwareness` | Flagship method touches all domains |
-| `LearningIntelligenceMixin` | `UserContext` | `KnowledgeAwareness & LearningPathAwareness` | Prerequisites, mastery, ZPD position |
-| `LifePathIntelligenceMixin` | `UserContext` | `CrossDomainAwareness` | Multi-domain alignment scoring |
-| `SynergyIntelligenceMixin` | `UserContext` | `CrossDomainAwareness` | Cross-domain relationship patterns |
-| `ScheduleIntelligenceMixin` | `UserContext` | `EventAwareness & TaskAwareness` | Schedule + task capacity |
+Every mixin signature is `(self, context: UserContext)`. There is no parallel layer of ISP "awareness slice" protocols (`TaskAwareness`, `KnowledgeAwareness`, `FullAwareness`, etc.) — that pattern was retired (2026-05-11, commit `a82faaba`) because the slices re-declared ~25 fields already owned by `UserContext` and drifted by hand.
 
 ```python
-from core.ports import KnowledgeAwareness, LearningPathAwareness
-
-# Adoption target — explicit ISP dependency
 class LearningIntelligenceMixin:
     async def get_optimal_next_path_steps(
-        self, context: KnowledgeAwareness  # not UserContext
+        self, context: UserContext
     ) -> Result[list[PathStep]]:
-        # Only knowledge-related fields accessible → MyPy-verified
         ready = context.get_ready_to_learn()
         ...
 ```
 
-`UserContext` implements all 11 awareness protocols, so `factory.create(context)` call sites are unchanged.
+Don't reintroduce slice protocols when adding a new mixin. If a method needs only one field, take it as a primitive parameter rather than wrapping in a protocol.
 
-**See:** `core/ports/context_awareness_protocols.py`, adoption plan: `/home/mike/.claude/plans/context-awareness-protocol-adoption.md`
+**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` → "UserContext as Single Source of Truth"
 
-**Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc. Each method: (1) accepts a domain-specific protocol slice (`HabitAwareness`, `TaskAwareness`, etc.), (2) returns `Result.fail()` if `context.is_rich_context` is `False`, and (3) uses `context.get_rich_entities(domain, filter_uids)` for entity extraction.
+**Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc. Each method: (1) takes `context: UserContext`, (2) returns `Result.fail()` if `context.is_rich_context` is `False`, and (3) uses `context.get_rich_entities(domain, filter_uids)` for entity extraction.
 
 **`include_learning` scoring boost:** `PlanningMixin.get_actionable_for_user()` and its `UnifiedRelationshipService` override accept `include_learning: bool = True`. When enabled, entities whose knowledge relationships overlap with `context.in_progress_knowledge_uids` receive a 20% score boost (`score *= 1.2`). This surfaces learning-relevant activities higher in the ranking. The boost checks `knowledge`, `applied_knowledge`, and `prerequisite_knowledge` relationship keys via `get_related_uids()`.
 
@@ -715,11 +703,11 @@ intelligence = factory.create(context)
 ## Related Skills
 
 - **[base-analytics-service](../base-analytics-service/SKILL.md)** - Level 1 domain analytics (BaseAnalyticsService, no AI) — same tier as UserContextIntelligence
-- **[learning-loop](../learning-loop/SKILL.md)** - The five-phased loop (PathStep → Exercise → Submission → Report → RevisedExercise) — context for why submissions/report slots exist
+- **[learning-loop](../learning-loop/SKILL.md)** - The four-phase loop (Exercise → UserEntry → ExerciseReport → RevisedExercise; PathStep anchors via RELATED_TO) — context for why submissions/report slots exist
 - **[result-pattern](../result-pattern/SKILL.md)** - Result[T] error handling
 
 ## See Also
 
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - 13 services, 8 methods, 5 return types
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - 12 services, 8 methods, 5 return types
 - [MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md) - 5 mixins and responsibilities
 - [FACTORY_PATTERN.md](FACTORY_PATTERN.md) - UserContextIntelligenceFactory usage

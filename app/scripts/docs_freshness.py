@@ -574,9 +574,7 @@ def print_filtered_report(
         title = "CRITICAL Stale Documentation (30+ days)"
     elif filter_type == "warnings":
         filtered = [
-            r
-            for r in stale_results
-            if any(ref.severity == "warning" and ref.severity != "critical" for ref in r.stale_refs)
+            r for r in stale_results if any(ref.severity == "warning" for ref in r.stale_refs)
         ]
         title = "WARNING Stale Documentation (7-29 days)"
     else:

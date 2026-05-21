@@ -15,9 +15,11 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.habit_enums import HabitCategory
+from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.habit.habit import Habit as Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.models.type_hints import UserUID
 
 # Import protocol interfaces
 from core.utils.dto_helpers import to_domain_model
@@ -177,8 +179,14 @@ class HabitEventScheduler:
             for event_template in scheduled_events:
                 create_result = await self.events_backend.create_event(event_template.to_dict())
                 if create_result.is_ok:
-                    created_dto = to_domain_model(create_result.value, EventDTO, EventDTO)
-                    created_events.append(created_dto)
+                    created_event = to_domain_model(create_result.value, EventDTO, Event)
+                    created_events.append(created_event.to_dto())
+                    # Habit reinforcement is a graph edge, not a property — all
+                    # events here reinforce this habit.
+                    if self.relationships:
+                        await self.relationships.create_relationship(
+                            "habits", created_event.uid, habit_uid
+                        )
                 else:
                     self.logger.warning(f"Failed to create event: {create_result.error}")
 
@@ -255,8 +263,11 @@ class HabitEventScheduler:
         3. Habits supporting critical goals
         """
         maintenance_events = []
+        maintenance_habit_links: dict[str, str] = {}  # event_uid → habit_uid (for edges)
 
-        for habit_uid in user_context.at_risk_habits:
+        # at_risk_habits is rich-context only; no maintenance to schedule at standard depth
+        at_risk = user_context.at_risk_habits_or_empty()
+        for habit_uid in at_risk:
             # Get habit details
             habit_result = await self.habits_backend.get_habit(habit_uid)
             if habit_result.is_error:
@@ -282,14 +293,15 @@ class HabitEventScheduler:
                 end_time=end_time,
             )
 
-            # Add habit integration
-            event.reinforces_habit_uid = habit_uid
+            # Add habit integration. Habit reinforcement is a graph edge — track
+            # event_uid → habit_uid and write the edge after persistence.
             event.recurrence_maintains_habit = True
             event.skip_breaks_habit_streak = True
             event.metadata["is_urgent"] = True
             event.priority = Priority.CRITICAL if habit.is_keystone else Priority.HIGH
 
             maintenance_events.append(event)
+            maintenance_habit_links[event.uid] = habit_uid
 
         # Create events if requested
         if auto_create and maintenance_events:
@@ -297,7 +309,13 @@ class HabitEventScheduler:
             for event in maintenance_events:
                 create_result = await self.events_backend.create_event(event.to_dict())
                 if create_result.is_ok:
-                    created.append(to_domain_model(create_result.value, EventDTO, EventDTO))
+                    created_event = to_domain_model(create_result.value, EventDTO, Event)
+                    created.append(created_event.to_dto())
+                    linked_habit = maintenance_habit_links.get(created_event.uid)
+                    if linked_habit and self.relationships:
+                        await self.relationships.create_relationship(
+                            "habits", created_event.uid, linked_habit
+                        )
 
             # Context invalidation happens via domain events (event-driven architecture)
 
@@ -322,7 +340,7 @@ class HabitEventScheduler:
         Returns:
             List of scheduled routine events
         """
-        routine_events = []
+        routine_events: list[EventDTO] = []
 
         # Auto-select habits if not specified
         if not habit_uids:
@@ -364,7 +382,10 @@ class HabitEventScheduler:
                 end_time=end_time,
             )
 
-            event.reinforces_habit_uid = habit_uid
+            # NOTE: create_habit_routine returns un-persisted templates; the
+            # habit-reinforcement edge ((Event)-[:REINFORCES_HABIT]->(Habit)) is
+            # written when these events are actually persisted by the caller via
+            # schedule_events_for_habit. Templates carry no graph edge.
             event.metadata["part_of_routine"] = routine_type
             event.metadata["routine_order"] = len(routine_events) + 1
 
@@ -432,8 +453,9 @@ class HabitEventScheduler:
                     end_time=end_time,
                 )
 
-                # Add habit integration
-                event.reinforces_habit_uid = habit.uid
+                # Add habit integration. Habit reinforcement is a graph edge
+                # written by schedule_events_for_habit after persistence (all events
+                # here reinforce `habit`), not a DTO property.
                 event.recurrence_maintains_habit = True
                 event.skip_breaks_habit_streak = True
 
@@ -452,8 +474,9 @@ class HabitEventScheduler:
                     # Store all goals in metadata
                     event.metadata["supports_goals"] = list(rels.linked_goal_uids)
 
-                # Set priority based on habit importance
-                if habit.is_keystone or habit.uid in user_context.at_risk_habits:
+                # Set priority based on habit importance (at_risk_habits is rich-context only)
+                at_risk_habits = user_context.at_risk_habits_or_empty()
+                if habit.is_keystone or habit.uid in at_risk_habits:
                     event.priority = Priority.HIGH
                 else:
                     event.priority = habit.priority or Priority.MEDIUM
@@ -605,7 +628,7 @@ class HabitEventScheduler:
         Note: These are template events with placeholder values.
         Real usage should copy and customize with actual user_uid and dates.
         """
-        placeholder_user = "template_user"
+        placeholder_user = UserUID("template_user")
         today = date.today()
 
         from core.models.enums.entity_enums import EntityType

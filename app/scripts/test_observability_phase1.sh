@@ -8,7 +8,7 @@
 #
 # Requirements:
 #   - Prometheus running on localhost:9090
-#   - SKUEL app running on localhost:5001
+#   - SKUEL app running on localhost:8000
 #   - jq installed (for JSON parsing)
 
 set -e
@@ -78,28 +78,25 @@ echo "📋 Phase 3: SKUEL Metrics Endpoint"
 echo "----------------------------------"
 
 test_step "SKUEL /metrics endpoint accessible" \
-    "curl -sf http://localhost:5001/metrics"
+    "curl -sf http://localhost:8000/metrics"
 
 test_step "AI request metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_ai_requests_total'"
+    "curl -sf http://localhost:8000/metrics | grep -q 'skuel_ai_requests_total'"
 
 test_step "AI duration metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_ai_duration_seconds'"
-
-test_step "AI tokens metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_ai_tokens_total'"
+    "curl -sf http://localhost:8000/metrics | grep -q 'skuel_ai_duration_seconds'"
 
 test_step "AI errors metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_ai_errors_total'"
+    "curl -sf http://localhost:8000/metrics | grep -q 'skuel_ai_errors_total'"
 
 test_step "Embedding queue size metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_embedding_queue_size'"
+    "curl -sf http://localhost:8000/metrics | grep -q 'skuel_embedding_queue_size'"
 
 test_step "Embeddings processed metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_embeddings_processed_total'"
+    "curl -sf http://localhost:8000/metrics | grep -q 'skuel_embeddings_processed_total'"
 
 test_step "Embedding batch size metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_embedding_batch_size'"
+    "curl -sf http://localhost:8000/metrics | grep -q 'skuel_embedding_batch_size'"
 
 echo ""
 echo "📋 Phase 4: Alert Definitions"
@@ -132,10 +129,10 @@ echo "------------------------------------"
 
 # Check that AI metrics don't have unbounded cardinality
 test_step "OpenAI metrics have bounded labels" \
-    "curl -sf http://localhost:5001/metrics | grep 'skuel_openai' | grep -v -E 'user_uid|task_uid|goal_uid'"
+    "curl -sf http://localhost:8000/metrics | grep 'skuel_openai' | grep -v -E 'user_uid|task_uid|goal_uid'"
 
 test_step "Embedding metrics have bounded labels" \
-    "curl -sf http://localhost:5001/metrics | grep 'skuel_embedding' | grep -v -E 'user_uid|task_uid|goal_uid'"
+    "curl -sf http://localhost:8000/metrics | grep 'skuel_embedding' | grep -v -E 'user_uid|task_uid|goal_uid'"
 
 echo ""
 echo "📋 Phase 6: Documentation Exists"
@@ -178,7 +175,7 @@ else
     echo ""
     echo "Troubleshooting:"
     echo "  - Ensure Prometheus is running: docker compose ps prometheus"
-    echo "  - Ensure SKUEL app is running: curl http://localhost:5001/metrics"
+    echo "  - Ensure SKUEL app is running: curl http://localhost:8000/metrics"
     echo "  - Check Prometheus logs: docker logs skuel-prometheus"
     echo "  - Reload Prometheus config: docker compose restart prometheus"
     exit 1

@@ -16,8 +16,11 @@ from typing import TYPE_CHECKING, Any
 from starlette.datastructures import UploadFile
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from core.models.enums.user_enums import UserRole
 from core.services.ingestion.user_upload_service import MAX_FILES_PER_REQUEST
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors
@@ -37,6 +40,7 @@ def create_upload_api_routes(
     """Create user-facing upload API routes."""
 
     @rt("/api/upload", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=200)
     async def upload_files(request: Request) -> Any:
         """Upload and ingest YAML files for the authenticated user.
@@ -72,7 +76,13 @@ def create_upload_api_routes(
         if not file_pairs:
             return Errors.validation("No valid files found in upload")
 
-        result = await upload_service.upload_and_ingest(user_uid, file_pairs)
+        user_role = UserRole.REGISTERED
+        if user_service is not None:
+            resolved_role = await get_user_role(request, user_service)
+            if resolved_role is not None:
+                user_role = resolved_role
+
+        result = await upload_service.upload_and_ingest(user_uid, file_pairs, user_role=user_role)
 
         if result.is_error:
             return result

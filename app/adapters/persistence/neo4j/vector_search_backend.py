@@ -12,12 +12,13 @@ See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.ports.query_types import SemanticSearchChunkResult
 
 
 class VectorSearchBackend:
@@ -91,6 +92,62 @@ class VectorSearchBackend:
             """,
             {"entity_uid": entity_uid, "context_uids": context_uids},
         )
+
+    async def semantic_search_chunks(
+        self,
+        query_embedding: list[float],
+        limit: int,
+        threshold: float,
+        chunk_types: list[str] | None = None,
+        parent_uid: str | None = None,
+    ) -> Result[list[SemanticSearchChunkResult]]:
+        """Vector search across :ContentChunk nodes for precise RAG retrieval.
+
+        Targets `contentchunk_embedding_idx` and joins back through
+        :HAS_CHUNK / :HAS_CONTENT to surface the owning Entity (typically a
+        PathStep) so callers can cite the parent in responses.
+        """
+        parts = [
+            """CALL db.index.vector.queryNodes(
+            'contentchunk_embedding_idx',
+            $limit * 2,
+            $query_embedding
+        ) YIELD node AS chunk, score
+        WHERE score >= $threshold"""
+        ]
+        if chunk_types:
+            parts.append("AND chunk.chunk_type IN $chunk_types")
+        if parent_uid:
+            parts.append(
+                """AND EXISTS {
+                MATCH (chunk)<-[:HAS_CHUNK]-(content:Content {uid: $parent_uid})
+            }"""
+            )
+        parts.append(
+            """MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(parent:Entity)
+        RETURN
+            chunk.uid as chunk_uid,
+            chunk.chunk_type as chunk_type,
+            chunk.text as text,
+            chunk.context_window as context_window,
+            score as similarity_score,
+            parent.uid as parent_uid,
+            parent.title as parent_title
+        ORDER BY score DESC
+        LIMIT $limit"""
+        )
+        cypher = "\n".join(parts)
+        params: dict[str, Any] = {
+            "query_embedding": query_embedding,
+            "limit": limit,
+            "threshold": threshold,
+            "chunk_types": chunk_types,
+            "parent_uid": parent_uid,
+        }
+        # boundary: query_executor returns dict rows; the Cypher's RETURN
+        # clause matches SemanticSearchChunkResult by construction.
+        raw = await self._executor.execute_query(cypher, params)
+        return cast("Result[list[SemanticSearchChunkResult]]", raw)
 
     async def get_learning_states_batch(
         self, user_uid: str, ku_uids: list[str]

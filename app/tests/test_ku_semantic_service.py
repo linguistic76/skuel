@@ -5,6 +5,7 @@ Test KU Semantic Service
 Tests for the PsSemanticService focused sub-service.
 """
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -111,7 +112,7 @@ class TestCreateWithSemanticRelationships:
         service.repo.create = AsyncMock(return_value=Result.fail(MagicMock()))
 
         ku_data = {"title": "Test", "content": "Content", "domain": "tech"}
-        relationships = []
+        relationships: list[Any] = []
 
         result = await service.create_with_semantic_relationships(
             ku_data=ku_data, relationships=relationships

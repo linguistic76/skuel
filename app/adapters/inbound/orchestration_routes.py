@@ -38,6 +38,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.event.event_dto import EventDTO
+    from core.models.task.task_dto import TaskDTO
     from core.ports import GoalTaskGeneratorOperations, HabitEventSchedulerOperations
 
 logger = get_logger("skuel.routes.orchestration")
@@ -55,7 +57,9 @@ def create_goal_task_routes(
 
     @rt("/goals/generate-tasks")
     @boundary_handler()
-    async def generate_tasks(request: Request, uid: str, auto_create: bool = False) -> JSONResponse:
+    async def generate_tasks(
+        request: Request, uid: str, auto_create: bool = False
+    ) -> Result[list["TaskDTO"]]:
         """
         Generate tasks for a goal based on milestones, knowledge requirements, and habits.
         Requires authentication.
@@ -73,7 +77,7 @@ def create_goal_task_routes(
 
     @rt("/goals/task-templates")
     @boundary_handler()
-    async def task_templates(request: Request, uid: str) -> JSONResponse:
+    async def task_templates(request: Request, uid: str) -> Result[list["TaskDTO"]]:
         """
         Get task templates for a goal without creating them.
         Requires authentication.
@@ -107,7 +111,7 @@ def create_habit_event_routes(
     @boundary_handler()
     async def schedule_events(
         request: Request, uid: str, auto_create: bool = False, days_ahead: int = 7
-    ) -> JSONResponse:
+    ) -> Result[list["EventDTO"]]:
         """
         Schedule recurring events for a habit.
         Requires authentication.
@@ -126,7 +130,7 @@ def create_habit_event_routes(
 
     @rt("/habits/event-templates")
     @boundary_handler()
-    async def event_templates(request: Request, uid: str) -> JSONResponse:
+    async def event_templates(request: Request, uid: str) -> Result[list["EventDTO"]]:
         """
         Get event templates for a habit without creating them.
         Requires authentication.
@@ -247,7 +251,7 @@ def create_principle_alignment_routes(
 
     @rt("/principles/suggest-actions")
     @boundary_handler()
-    async def suggest_actions(request: Request, context: str = "general") -> JSONResponse:
+    async def suggest_actions(request: Request, context: str = "general") -> Result[dict[str, Any]]:
         """
         Suggest actions that align with the authenticated user's principles.
 

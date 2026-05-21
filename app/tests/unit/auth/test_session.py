@@ -333,28 +333,24 @@ class TestGetSessionMiddlewareConfig:
         expected_max_age = 60 * 60 * 24 * 30  # 30 days in seconds
         assert config["max_age"] == expected_max_age
 
-    def test_secret_key_from_environment(self):
-        """Test that secret key is read from environment when set."""
-        with patch.dict("os.environ", {"SESSION_SECRET_KEY": "test_secret_key"}):
+    def test_secret_key_from_credential_store(self):
+        """Test that secret key is read from credential store when present."""
+        with patch("core.config.credential_store.get_credential", return_value="test_secret_key"):
             config = get_session_middleware_config()
             assert config["secret_key"] == "test_secret_key"
 
-    def test_generates_secret_when_not_in_env(self):
-        """Test that secret is generated when not in environment."""
-        with patch.dict("os.environ", {}, clear=True):
-            # Remove SESSION_SECRET_KEY if present
-            import os
-
-            os.environ.pop("SESSION_SECRET_KEY", None)
+    def test_generates_secret_when_credential_store_empty(self):
+        """Test that secret is generated when credential store has no value."""
+        with patch("core.config.credential_store.get_credential", return_value=None):
             config = get_session_middleware_config()
             assert config["secret_key"] is not None
             assert len(config["secret_key"]) > 20  # Should be a secure random key
 
     def test_https_only_in_production(self):
         """Test that https_only is True in production."""
-        with patch.dict(
-            "os.environ",
-            {"SKUEL_ENVIRONMENT": "production", "SESSION_SECRET_KEY": "test-key"},
+        with (
+            patch.dict("os.environ", {"SKUEL_ENVIRONMENT": "production"}),
+            patch("core.config.credential_store.get_credential", return_value="test-key"),
         ):
             config = get_session_middleware_config()
             assert config["https_only"] is True
@@ -366,11 +362,11 @@ class TestGetSessionMiddlewareConfig:
             assert config["https_only"] is False
 
     def test_fails_fast_in_production_without_secret(self):
-        """Test that RuntimeError is raised in production without SESSION_SECRET_KEY."""
-        with patch.dict("os.environ", {"SKUEL_ENVIRONMENT": "production"}, clear=False):
-            import os
-
-            os.environ.pop("SESSION_SECRET_KEY", None)
+        """Test that RuntimeError is raised in production without a secret."""
+        with (
+            patch.dict("os.environ", {"SKUEL_ENVIRONMENT": "production"}, clear=False),
+            patch("core.config.credential_store.get_credential", return_value=None),
+        ):
             with pytest.raises(RuntimeError, match="FATAL"):
                 get_session_middleware_config()
 

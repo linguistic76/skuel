@@ -208,6 +208,9 @@ async def test_dry_run_includes_relationships(
     preview = result.value
 
     # Verify relationships are included
+    from core.services.ingestion.types import DryRunPreview
+
+    assert isinstance(preview, DryRunPreview)
     assert len(preview.relationships_to_create) > 0
     rel_types = {rel["type"] for rel in preview.relationships_to_create}
     assert "PREREQUISITE" in rel_types or "ENABLES" in rel_types

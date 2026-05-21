@@ -4,20 +4,10 @@ This directory contains version-controlled Grafana dashboards for SKUEL observab
 
 ## Dashboards
 
-### Phase 1: Foundation (Implemented)
-- *(No dashboards yet - create in Grafana UI after Phase 2)*
-
-### Phase 2: System Health (Planned)
-- `system_health.json` - HTTP requests, Neo4j queries, system resources
-
-### Phase 3: Domain Activity (Planned)
-- `domain_activity.json` - Entity creation/completion, event bus metrics
-
-### Phase 4: Graph Health (PRIMARY GOAL)
-- `graph_health.json` - Graph density, lateral relationships, BLOCKS tracking
-
-### Phase 5: Search & Intelligence (Planned)
-- `search_intelligence.json` - Search quality, UserContext builds, recommendations
+- `system_health.json` — HTTP requests, Neo4j queries
+- `domain_activity.json` — Entity creation/completion by domain
+- `graph_health.json` — Graph density, lateral relationships, BLOCKS tracking
+- `event_bus.json` — Event publication rate, handler latency, errors
 
 ## Workflow
 
@@ -39,4 +29,4 @@ This directory contains version-controlled Grafana dashboards for SKUEL observab
 - **Colors**: Blue (hierarchical), Green (lateral), Orange (semantic), Purple (cross-domain)
 - **Units**: Use appropriate units (ops/s, ms, %, bytes)
 
-See: `/docs/observability/PROMETHEUS_METRICS.md` (to be created in Phase 5)
+See: `/docs/observability/PROMETHEUS_METRICS.md`

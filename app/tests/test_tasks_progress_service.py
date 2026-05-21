@@ -82,7 +82,6 @@ def sample_task() -> Task:
             priority=Priority.HIGH.value,
             status=EntityStatus.ACTIVE.value,
             fulfills_goal_uid="goal:learn_python",
-            reinforces_habit_uid="habit:daily_code",
             goal_progress_contribution=0.2,
             completion_updates_goal=True,
             knowledge_mastery_check=True,
@@ -151,7 +150,7 @@ async def test_complete_task_with_cascade_success(
 
     # Setup updated task (completed)
     completed_dto = sample_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     completed_dto.completion_date = date.today()
     completed_dto.actual_minutes = 90
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
@@ -178,7 +177,7 @@ async def test_complete_task_cascade_effects(
     mock_backend.get.return_value = Result.ok(sample_task.to_dto().to_dict())
 
     completed_dto = sample_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -360,7 +359,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
     ):
         # Setup unblocked task
         unblocked_dto = ready_task.to_dto()
-        unblocked_dto.status = EntityStatus.SCHEDULED.value
+        unblocked_dto.status = EntityStatus.SCHEDULED
         mock_backend.update.return_value = Result.ok(unblocked_dto.to_dict())
 
         # Create mock context
@@ -481,7 +480,7 @@ async def test_complete_task_updates_goal(progress_service, mock_backend, user_c
     mock_backend.get.return_value = Result.ok(goal_task.to_dto().to_dict())
 
     completed_dto = goal_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -494,8 +493,10 @@ async def test_complete_task_updates_goal(progress_service, mock_backend, user_c
 
 @pytest.mark.asyncio
 async def test_complete_task_reinforces_habit(progress_service, mock_backend, user_context):
-    """Test that completing a task reinforces linked habit."""
-    # Setup - task that reinforces habit
+    """Completing a task reinforces its linked habit via the REINFORCES_HABIT edge."""
+    from core.models.relationship_names import RelationshipName
+
+    # Setup - task that reinforces a habit (linkage is the graph edge, not a property)
     habit_task = Task.from_dto(
         TaskDTO(
             uid="task:habit_task",
@@ -503,7 +504,6 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
             title="Habit Task",
             priority=Priority.MEDIUM.value,
             status=EntityStatus.ACTIVE.value,
-            reinforces_habit_uid="habit:daily_code",
             created_at=datetime.now(),
         )
     )
@@ -511,17 +511,30 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
     mock_backend.get.return_value = Result.ok(habit_task.to_dto().to_dict())
 
     completed_dto = habit_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
+
+    # The completion handler queries the REINFORCES_HABIT edge for the linked habit.
+    async def _related(uid, relationship, direction="outgoing"):
+        if relationship == RelationshipName.REINFORCES_HABIT:
+            return Result.ok(["habit:daily_code"])
+        return Result.ok([])
+
+    mock_backend.get_related_uids = AsyncMock(side_effect=_related)
 
     # Execute
     result = await progress_service.complete_task_with_cascade(
         "task:habit_task", user_context, quality_score=5
     )
 
-    # Verify
+    # Verify the habit edge was queried (reinforcement path fired)
     assert result.is_ok
-    # In real implementation, _reinforce_habit would be called
+    habit_calls = [
+        c
+        for c in mock_backend.get_related_uids.await_args_list
+        if c.args[1] == RelationshipName.REINFORCES_HABIT
+    ]
+    assert habit_calls, "completion should query the REINFORCES_HABIT edge"
 
 
 @pytest.mark.asyncio
@@ -545,7 +558,7 @@ async def test_complete_task_updates_knowledge_mastery(
     mock_backend.get.return_value = Result.ok(mastery_task.to_dto().to_dict())
 
     completed_dto = mastery_task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Execute
@@ -579,7 +592,7 @@ async def test_complete_and_unblock_workflow(progress_service, mock_backend, use
     mock_backend.get.return_value = Result.ok(task.to_dto().to_dict())
 
     completed_dto = task.to_dto()
-    completed_dto.status = EntityStatus.COMPLETED.value
+    completed_dto.status = EntityStatus.COMPLETED
     mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
 
     # Complete the task

@@ -52,6 +52,16 @@ case "$1" in
     uv run python scripts/run_quality_checks.py --fix
     ;;
 
+  typecheck-strict)
+    echo -e "${YELLOW}Running pyright (opt-in strict type check)...${NC}"
+    uv run pyright
+    ;;
+
+  audit-routes)
+    echo -e "${YELLOW}Auditing route security (CSRF + auth on mutation handlers)...${NC}"
+    uv run python scripts/audit_route_security.py "${@:2}"
+    ;;
+
   bloat)
     echo -e "${YELLOW}Detecting bloat (unused code)...${NC}"
     uv run python scripts/detect_bloat.py
@@ -185,6 +195,17 @@ case "$1" in
     docker compose down "$@"
     ;;
 
+  install-hooks)
+    echo -e "${GREEN}Installing git hooks...${NC}"
+    repo_root=$(git rev-parse --show-toplevel)
+    if [[ -z "$repo_root" ]]; then
+      echo "Not inside a git repo." >&2
+      exit 1
+    fi
+    ln -sfv "../../app/scripts/git-hooks/pre-commit" "$repo_root/.git/hooks/pre-commit"
+    echo "Hooks installed. Bypass once with: SKUEL_ALLOW_SECRETS=1 git commit ..."
+    ;;
+
   help|*)
     echo "SKUEL Development Commands"
     echo "=========================="
@@ -196,6 +217,7 @@ case "$1" in
     echo "  ./dev lint-fix       - Auto-fix linting issues"
     echo "  ./dev quality        - Run ALL quality checks (format + lint + patterns + Cypher)"
     echo "  ./dev quality-fix    - Run quality checks with auto-fix"
+    echo "  ./dev audit-routes   - Audit @rt handlers for CSRF + auth gaps (--form-only, --verbose)"
     echo ""
     echo "Bloat Detection:"
     echo "  ./dev bloat          - Detect all unused code (events + methods)"
@@ -225,6 +247,9 @@ case "$1" in
     echo "  ./dev up-monitoring  - Start Neo4j + App + Prometheus + Grafana"
     echo "  ./dev up-neo4j       - Start Neo4j only (then: uv run python main.py)"
     echo "  ./dev down           - Stop all Docker services"
+    echo ""
+    echo "Setup:"
+    echo "  ./dev install-hooks  - Install git pre-commit hook (secret-leak guard)"
     echo ""
     echo "Development:"
     echo "  ./dev serve          - Start development server (requires Neo4j running)"

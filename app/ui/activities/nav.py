@@ -26,11 +26,11 @@ ACTIVITY_STORAGE_KEY = "activity-sidebar"
 
 ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Tasks", "/tasks", "tasks", icon="check-square"),
+    SidebarItem("Events", "/events", "events", icon="calendar"),
     SidebarItem("Goals", "/goals", "goals", icon="target"),
     SidebarItem("Habits", "/habits", "habits", icon="repeat"),
-    SidebarItem("Events", "/events", "events", icon="calendar"),
-    SidebarItem("Choices", "/choices", "choices", icon="git-branch"),
     SidebarItem("Principles", "/principles", "principles", icon="compass"),
+    SidebarItem("Choices", "/choices", "choices", icon="git-branch"),
 ]
 
 

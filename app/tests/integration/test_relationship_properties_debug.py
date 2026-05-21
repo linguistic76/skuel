@@ -16,20 +16,26 @@ class TestRelationshipPropertiesDebug:
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
-        """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
+        """Create PathStep backend with clean database.
+
+        Uses PathStep (not Ku) because the test exercises REQUIRES_KNOWLEDGE,
+        which the relationship registry defines on PathStep, not Ku.
+        """
+        return UniversalNeo4jBackend[Curriculum](
+            neo4j_driver, "PathStep", Curriculum, base_label="Entity"
+        )
 
     async def test_relationship_properties_are_stored(self, ku_backend):
         """Verify that relationship properties are actually persisted."""
         # Create two KUs
         ku1 = Curriculum(
-            uid="ku:test1",
+            uid="ps:test1",
             title="Test 1",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
         )
         ku2 = Curriculum(
-            uid="ku:test2",
+            uid="ps:test2",
             title="Test 2",
             domain=Domain.TECH,
             sel_category=SELCategory.SELF_MANAGEMENT,
@@ -45,8 +51,8 @@ class TestRelationshipPropertiesDebug:
         result = await ku_backend.create_relationships_batch(
             [
                 (
-                    "ku:test1",
-                    "ku:test2",
+                    "ps:test1",
+                    "ps:test2",
                     "REQUIRES_KNOWLEDGE",
                     {"strength": 0.9, "prerequisite_type": "foundational"},
                 )
@@ -63,7 +69,7 @@ class TestRelationshipPropertiesDebug:
         """
 
         result = await ku_backend.execute_query(
-            query, {"from_uid": "ku:test1", "to_uid": "ku:test2"}
+            query, {"from_uid": "ps:test1", "to_uid": "ps:test2"}
         )
 
         assert result.is_ok

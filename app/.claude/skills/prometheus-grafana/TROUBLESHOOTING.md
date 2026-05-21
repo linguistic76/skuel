@@ -14,7 +14,7 @@ This guide covers the most common problems with Prometheus metrics and Grafana d
 
 ```bash
 # 1. Verify metrics endpoint returns data
-curl http://localhost:5001/metrics | grep skuel_http_requests_total
+curl http://localhost:8000/metrics | grep skuel_http_requests_total
 
 # Expected: Should see metric with labels
 # skuel_http_requests_total{endpoint="/tasks",method="GET",status="200"} 42.0
@@ -30,7 +30,7 @@ cat monitoring/prometheus/prometheus.yml
 
 # Verify target address matches your app
 # Expected:
-#   - targets: ['host.docker.internal:5001']  # or actual IP
+#   - targets: ['host.docker.internal:8000']  # or actual IP
 
 # 4. Test PromQL query in Prometheus UI
 open http://localhost:9090/graph
@@ -53,13 +53,13 @@ scrape_configs:
   - job_name: 'skuel-app'
     static_configs:
       # Use host.docker.internal for Docker on Mac/Windows
-      - targets: ['host.docker.internal:5001']
+      - targets: ['host.docker.internal:8000']
 
       # Or use actual IP address
       # - targets: ['192.168.1.100:5001']
 
       # NOT localhost (Docker container can't reach host's localhost)
-      # - targets: ['localhost:5001']  # ❌ WRONG
+      # - targets: ['localhost:8000']  # ❌ WRONG
 ```
 
 After changing, restart Prometheus:
@@ -100,12 +100,12 @@ scrape_configs:
     scrape_interval: 15s
     scrape_timeout: 30s  # Increase from default 10s
     static_configs:
-      - targets: ['host.docker.internal:5001']
+      - targets: ['host.docker.internal:8000']
 ```
 
 Check endpoint performance:
 ```bash
-time curl http://localhost:5001/metrics
+time curl http://localhost:8000/metrics
 # Should complete in < 5 seconds
 ```
 
@@ -122,7 +122,7 @@ Prometheus targets page shows "skuel-app" as DOWN with error message.
 **Diagnosis**:
 ```bash
 # From Docker container, can you reach the app?
-docker exec -it skuel-prometheus-1 wget -O- http://host.docker.internal:5001/metrics
+docker exec -it skuel-prometheus-1 wget -O- http://host.docker.internal:8000/metrics
 ```
 
 **Solutions**:
@@ -132,9 +132,9 @@ docker exec -it skuel-prometheus-1 wget -O- http://host.docker.internal:5001/met
    uv run python main.py
    ```
 
-2. **Wrong port**: Check app is running on port 5001
+2. **Wrong port**: Check app is running on port 8000
    ```bash
-   lsof -i :5001
+   lsof -i :8000
    # Should show Python process
    ```
 
@@ -144,7 +144,7 @@ docker exec -it skuel-prometheus-1 wget -O- http://host.docker.internal:5001/met
    ifconfig | grep "inet "
 
    # Update prometheus.yml
-   - targets: ['192.168.1.100:5001']  # Your actual IP
+   - targets: ['192.168.1.100:8000']  # Your actual IP
    ```
 
 ### Error: "Context Deadline Exceeded"
@@ -155,7 +155,7 @@ docker exec -it skuel-prometheus-1 wget -O- http://host.docker.internal:5001/met
 
 ```bash
 # Profile endpoint
-time curl http://localhost:5001/metrics
+time curl http://localhost:8000/metrics
 
 # If > 10 seconds, investigate slow metrics
 # Check for expensive gauge calculations
@@ -664,11 +664,11 @@ After troubleshooting, verify everything works:
 
 ```bash
 # 1. App is running
-curl http://localhost:5001/health
+curl http://localhost:8000/health
 # Expected: 200 OK
 
 # 2. Metrics endpoint works
-curl http://localhost:5001/metrics | head -n 20
+curl http://localhost:8000/metrics | head -n 20
 # Expected: Prometheus-formatted metrics
 
 # 3. Prometheus is scraping

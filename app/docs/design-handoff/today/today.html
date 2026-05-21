@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Today · SKUEL</title>
+
+<!--
+================================================================================
+SKUEL · Today surface · static mock
+================================================================================
+Stack assumption:  FastHTML + HTMX + Alpine.js + MonsterUI (Tailwind + FrankenUI)
+Engineering target: ui/today.py (FastHTML module)
+
+Data shape (from UserContext resolver) — see today.md §2
+  context.today = {
+    date_label: "Saturday · March 22",
+    stats:      { nodes, committed_min, done },
+    triage:     [TriageItem, ...],
+    lifepaths:  [LifePathRibbon, ...],   # includes dormant
+    rituals:    [Ritual, ...],
+    now_hhmm:   "10:15",
+  }
+
+Alpine state (x-data="today()")
+  selectedId        str | null     currently focused task (keyboard / click)
+  openTaskId        str | null     task rendered in detail drawer
+  flash             {msg, action, payload} | null   transient toast
+  deferred          {id: '1d' | '1w'}    optimistic defers (until HTMX confirms)
+  completed         Set<str>             optimistic completes
+
+Keyboard map (global, bound on window)
+  j / ArrowDown     focus next task in ribbon order
+  k / ArrowUp       focus previous
+  Enter             open drawer for focused task
+  x                 complete focused task    → POST  /today/tasks/{id}/complete
+  d                 defer focused 1 day      → POST  /today/tasks/{id}/defer   {span:"1d"}
+  Shift+D           defer focused 1 week     → POST  /today/tasks/{id}/defer   {span:"1w"}
+  Escape            close drawer
+
+HTMX endpoints (proposal — rename to match engineering conventions)
+  POST   /today/tasks/{id}/complete           -> 204 or new <li> fragment
+  POST   /today/tasks/{id}/defer              -> 204; body: span=1d|1w
+  POST   /today/lifepaths/{id}/wake           -> new ribbon fragment
+  GET    /today/tasks/{id}/drawer             -> drawer body fragment
+
+Accessibility
+  Ribbons: role="region" with aria-labelledby on the heading.
+  Task rows: role="button" + tabindex=0 + aria-label composed from task fields.
+  Drawer:   role="dialog" aria-modal="true"; Esc closes; focus returns to origin.
+  Drag-to-defer is a progressive enhancement; the same actions are reachable
+    via keyboard (d / Shift+D) and via the "more" menu on each row.
+  Motion honors prefers-reduced-motion; all transitions ≤ 300ms ease-out.
+================================================================================
+-->
+
+<!-- Tailwind + design tokens -->
+<script src="https://cdn.tailwindcss.com?plugins=line-clamp"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          border:      'hsl(var(--border))',
+          input:       'hsl(var(--input))',
+          ring:        'hsl(var(--ring))',
+          background:  'hsl(var(--background))',
+          foreground:  'hsl(var(--foreground))',
+          muted: {
+            DEFAULT: 'hsl(var(--muted))',
+            foreground: 'hsl(var(--muted-foreground))',
+          },
+          card: {
+            DEFAULT: 'hsl(var(--card))',
+            foreground: 'hsl(var(--card-foreground))',
+          },
+          primary: {
+            DEFAULT: 'hsl(var(--primary))',
+            foreground: 'hsl(var(--primary-foreground))',
+          },
+          destructive: {
+            DEFAULT: 'hsl(var(--destructive))',
+            foreground: 'hsl(var(--destructive-foreground))',
+          },
+          // Priority accents (oklch, from palette.py)
+          priority: {
+            high:   'oklch(0.65 0.20 25)',
+            med:    'oklch(0.75 0.15 85)',
+            low:    'oklch(0.70 0.15 145)',
+          },
+          // Strength accents (oklch, from palette.py)
+          strength: {
+            core:       'oklch(0.55 0.22 295)',
+            strong:     'oklch(0.55 0.20 255)',
+            developing: 'oklch(0.60 0.15 165)',
+          },
+        },
+        borderRadius: {
+          DEFAULT: '0.375rem',  // buttons
+          md:      '0.375rem',
+          lg:      '0.5rem',    // cards
+        },
+        fontFamily: {
+          sans: ['Inter', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        },
+        boxShadow: {
+          focus: '0 0 0 2px hsl(var(--ring) / 0.2)',
+        },
+        transitionDuration: { DEFAULT: '180ms' },
+      },
+    },
+  };
+</script>
+
+<style>
+  /* Design tokens — mirrors static/css/input.css + palette.py.
+     Source of truth lives there; values here are for preview only. */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+    --primary: 222 47% 11%;
+    --primary-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Spacing tokens (from input.css) */
+    --space-page: 1.5rem;
+    --space-page-lg: 2rem;
+    --space-section: 2rem;
+    --space-content: 1rem;
+    --space-card: 1.5rem;
+    --space-card-compact: 1rem;
+  }
+  html { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+  /* Defer-on-drag: visual backdrop + row translate. Alpine binds --dx inline. */
+  .task-row      { transform: translateX(var(--dx, 0px)); transition: transform 180ms ease-out, box-shadow 180ms ease-out; }
+  .task-row.dragging { transition: none; cursor: grabbing; }
+  .defer-backdrop { opacity: 0; transition: opacity 180ms ease-out, background-color 180ms ease-out; }
+  .defer-backdrop.stage-1 { opacity: 1; background: hsl(222 47% 95%); color: hsl(222 47% 30%); }
+  .defer-backdrop.stage-2 { opacity: 1; background: oklch(0.90 0.10 85); color: oklch(0.30 0.08 85); }
+
+  /* Keep drawer out of transform contexts so it fixed-positions over everything. */
+  [x-cloak] { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0ms !important; animation-duration: 0ms !important; }
+    .task-row { transform: none !important; }
+  }
+</style>
+
+<!-- Alpine.js, HTMX, Lucide -->
+<script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
+<script src="https://unpkg.com/lucide@0.453.0/dist/umd/lucide.min.js"></script>
+</head>
+
+<body class="bg-background text-foreground antialiased">
+
+<!-- Seed data — in production, FastHTML renders this block from UserContext. -->
+<script>
+  window.SEED = {
+    date_label: "Saturday · March 22",
+    now_hhmm: "10:15",
+    stats: { nodes: 6, committed_min: 140, done: 1 },
+
+    lifepaths: [
+      { id: "lp-craft", label: "The Craft",    blurb: "Ship software that earns trust.", color: "oklch(0.55 0.20 255)" },
+      { id: "lp-mind",  label: "Steady Mind",  blurb: "Attention as a practice.",         color: "oklch(0.55 0.22 295)" },
+      { id: "lp-body",  label: "The Body",     blurb: "Move, eat, recover.",              color: "oklch(0.60 0.15 165)",
+        dormant: true, last_touched: "7 days ago" },
+    ],
+
+    principles: [
+      { id: "pr-depth", lifepath_id: "lp-craft", label: "Depth over breadth",      strength: "core",       streak: 14 },
+      { id: "pr-ship",  lifepath_id: "lp-craft", label: "Ship one thing end-to-end", strength: "strong",   streak: 6 },
+      { id: "pr-daily", lifepath_id: "lp-mind",  label: "Daily reflection",        strength: "developing", streak: 3 },
+      { id: "pr-move",  lifepath_id: "lp-body",  label: "Move every day",          strength: "developing", streak: 0 },
+    ],
+
+    goals: [
+      { id: "g-es",  principle_id: "pr-depth", label: "Understand event sourcing deeply", progress: 0.62 },
+      { id: "g-adr", principle_id: "pr-ship",  label: "Land ADR-021 this week",           progress: 0.40 },
+    ],
+
+    tasks: [
+      { id: "t-adr",  lifepath_id: "lp-craft", goal_id: "g-adr", kind: "submission",
+        label: "ADR-021 · Event Sourcing Proposal",
+        meta: "draft · needs your decision", priority: "high", est_min: 45, due_label: "Today" },
+      { id: "t-ku",   lifepath_id: "lp-craft", goal_id: "g-es", kind: "path-step",
+        label: "KU · Event Sourcing, core concepts",
+        meta: "path step · 3 of 6", priority: "medium", est_min: 30, due_label: "Today" },
+      { id: "t-cqrs", lifepath_id: "lp-craft", goal_id: "g-es", kind: "path-step",
+        label: "KU · CQRS — when it\u2019s worth it",
+        meta: "path step · 4 of 6", priority: "low", est_min: 25, due_label: "Today" },
+      { id: "t-refl", lifepath_id: "lp-mind", goal_id: null, kind: "journal",
+        label: "Weekly reflection · March 22",
+        meta: "journal · carries over", priority: "low", est_min: 15, due_label: "Tonight" },
+    ],
+
+    triage: [
+      { id: "tri-018", lifepath_id: "lp-craft", kind: "submission",
+        label: "ADR-018 · User Roles — re-review",
+        meta: "milestone", reason: "Overdue · 2 days", severity: "overdue",
+        priority: "high", est_min: 20 },
+      { id: "tri-blk", lifepath_id: "lp-craft", kind: "path-step",
+        label: "KU · Integration tests",
+        meta: "path step · mindfulness-101", reason: "Blocked · waiting on @mentor",
+        severity: "blocked", priority: "high", est_min: 30 },
+    ],
+
+    rituals: [
+      { id: "r-sit",  time: "07:30", label: "Morning sit",     est_min: 20, principle_id: "pr-daily" },
+      { id: "r-walk", time: "12:30", label: "Walk · 20 min",   est_min: 20, principle_id: "pr-move" },
+      { id: "r-refl", time: "21:00", label: "Evening reflect", est_min: 10, principle_id: "pr-daily" },
+    ],
+
+    kinds: {
+      "submission": { icon: "file-text", label: "Submission" },
+      "path-step":  { icon: "route",     label: "Path step" },
+      "journal":    { icon: "book-open", label: "Journal" },
+      "askesis":    { icon: "sunrise",   label: "Askesis" },
+      "ku":         { icon: "gem",       label: "KU" },
+      "resource":   { icon: "link",      label: "Resource" },
+    },
+  };
+</script>
+
+<!-- ============================================================ -->
+<!-- Page shell                                                   -->
+<!-- ============================================================ -->
+<main x-data="today()" x-init="init()" @keydown.window="onKey($event)"
+      class="mx-auto max-w-[1280px] px-6 lg:px-8 py-8 pb-24">
+
+  <!-- Header -->
+  <header class="flex flex-wrap items-end justify-between gap-5 mb-8">
+    <div class="min-w-[280px] flex-1">
+      <div class="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground"
+           x-text="seed.date_label"></div>
+      <h1 class="mt-1.5 text-[44px] font-bold leading-none tracking-tight">Today</h1>
+      <p class="mt-2.5 text-sm text-muted-foreground max-w-lg leading-relaxed"
+         x-text="allEmpty
+          ? 'Your ribbons are clear.'
+          : 'One ribbon per LifePath. Drag any item right to defer. Press j/k to move.'"></p>
+    </div>
+
+    <!-- Stats -->
+    <div class="flex items-center gap-6" x-show="!allEmpty">
+      <template x-for="s in statList" :key="s.label">
+        <div class="flex flex-col items-start">
+          <span class="text-[22px] font-semibold tabular-nums leading-none"
+                :class="s.accent || 'text-foreground'" x-text="s.value"></span>
+          <span class="mt-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground"
+                x-text="s.label"></span>
+        </div>
+      </template>
+    </div>
+  </header>
+
+  <!-- Two-column layout: ribbons | day spine -->
+  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_252px] gap-7 items-start">
+
+    <!-- LEFT: ribbons -->
+    <div>
+
+      <!-- Empty state -->
+      <template x-if="allEmpty">
+        <div class="text-center mx-auto max-w-md py-20 px-8">
+          <div class="mx-auto mb-5 w-14 h-14 rounded-lg bg-priority-low/15 text-priority-low
+                      flex items-center justify-center">
+            <i data-lucide="check-circle-2" class="w-7 h-7"></i>
+          </div>
+          <h2 class="text-[22px] font-bold tracking-tight mb-2">You're caught up.</h2>
+          <p class="text-[13.5px] text-muted-foreground leading-relaxed">
+            No nodes scheduled for today. This is the point where most apps would
+            offer you more to do. SKUEL suggests you close the laptop.
+          </p>
+        </div>
+      </template>
+
+      <!-- Triage bar -->
+      <section x-show="!allEmpty && fTriage.length > 0"
+               class="mb-7 rounded-lg border border-destructive/40 bg-gradient-to-b from-destructive/5 to-transparent
+                      px-[18px] py-3.5 shadow-[0_1px_2px_rgba(220,38,38,0.08)]"
+               role="region" aria-labelledby="triage-heading">
+        <div class="flex items-center gap-2.5 mb-3">
+          <div class="w-[22px] h-[22px] rounded bg-destructive/15 text-destructive
+                      flex items-center justify-center">
+            <i data-lucide="alert-triangle" class="w-[13px] h-[13px]"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div id="triage-heading"
+                 class="text-[10px] font-bold uppercase tracking-[0.09em] text-destructive">Face first</div>
+            <div class="text-[13px] font-semibold text-foreground">
+              <span x-text="fTriage.length"></span>
+              item<span x-show="fTriage.length !== 1">s</span>
+              need<span x-show="fTriage.length === 1">s</span> your attention
+            </div>
+          </div>
+          <span class="font-mono text-[11px] text-muted-foreground hidden sm:inline">drag → to defer</span>
+        </div>
+        <ul class="flex flex-col gap-2" role="list">
+          <template x-for="t in fTriage" :key="t.id">
+            <li><div x-html="renderRow(t, {isTriage: true})"></div></li>
+          </template>
+        </ul>
+      </section>
+
+      <!-- LifePath ribbons -->
+      <template x-for="lp in seed.lifepaths" :key="lp.id">
+        <section class="mb-5" role="region" :aria-labelledby="'ribbon-' + lp.id">
+
+          <!-- Dormant ribbon -->
+          <template x-if="lp.dormant">
+            <div class="flex items-center gap-3.5 px-[18px] py-3 rounded-lg bg-card
+                        border border-dashed border-border text-muted-foreground">
+              <div class="w-1.5 h-5.5 rounded-sm" :style="`background:${lp.color};opacity:.4`"></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-semibold text-foreground">
+                  <span :id="'ribbon-' + lp.id" x-text="lp.label"></span>
+                  <span class="ml-2 inline-block text-[10px] font-semibold uppercase tracking-[0.08em]
+                               px-1.5 py-0.5 rounded bg-muted text-muted-foreground">dormant</span>
+                </div>
+                <div class="text-[11.5px] mt-0.5">
+                  Nothing active today. Last touched <span x-text="lp.last_touched"></span>.
+                  <template x-if="principlesFor(lp.id)[0]"><em x-text="' · ' + principlesFor(lp.id)[0].label"></em></template>
+                </div>
+              </div>
+              <button type="button"
+                      hx-post="/today/lifepaths/lp-body/wake" hx-target="closest section" hx-swap="outerHTML"
+                      class="bg-transparent border border-border px-3 py-1.5 rounded text-xs font-medium
+                             text-foreground hover:bg-muted focus:outline-none focus:shadow-focus">
+                Wake this path
+              </button>
+            </div>
+          </template>
+
+          <!-- Active ribbon -->
+          <template x-if="!lp.dormant">
+            <div class="rounded-lg border border-border bg-card overflow-hidden">
+              <!-- Ribbon header -->
+              <header class="flex items-center gap-3 px-[18px] py-3 border-b border-border/70">
+                <div class="w-1.5 h-6 rounded-sm" :style="`background:${lp.color}`"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <h2 :id="'ribbon-' + lp.id"
+                        class="text-[15px] font-semibold tracking-tight" x-text="lp.label"></h2>
+                    <span class="text-[11px] text-muted-foreground font-mono" x-text="lp.blurb"></span>
+                  </div>
+                  <!-- Principles row -->
+                  <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <template x-for="p in principlesFor(lp.id)" :key="p.id">
+                      <span class="inline-flex items-center gap-1 text-[10.5px] font-medium
+                                   px-1.5 py-0.5 rounded-full"
+                            :class="strengthClass(p.strength)">
+                        <span x-text="p.label"></span>
+                        <span class="font-mono opacity-60"
+                              x-text="p.streak > 0 ? ('· ' + p.streak + 'd') : ''"></span>
+                      </span>
+                    </template>
+                  </div>
+                </div>
+                <span class="text-[11px] text-muted-foreground font-mono flex-none"
+                      x-text="tasksFor(lp.id).length + ' today'"></span>
+              </header>
+
+              <!-- Tasks -->
+              <ul class="divide-y divide-border/70" role="list">
+                <template x-for="t in tasksFor(lp.id)" :key="t.id">
+                  <li><div x-html="renderRow(t, {isTriage: false})"></div></li>
+                </template>
+                <template x-if="tasksFor(lp.id).length === 0">
+                  <li class="px-[18px] py-3 text-[12px] text-muted-foreground italic">
+                    Nothing committed for today on this ribbon.
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
+
+        </section>
+      </template>
+
+      <!-- Keyboard hint strip -->
+      <div x-show="!allEmpty"
+           class="mt-8 px-[18px] py-3.5 bg-card border border-border rounded-lg
+                  flex items-center gap-6 text-[11px] text-muted-foreground font-mono flex-wrap">
+        <span><kbd class="kbd">j</kbd><kbd class="kbd">k</kbd> move</span>
+        <span><kbd class="kbd">↵</kbd> open</span>
+        <span><kbd class="kbd">x</kbd> complete</span>
+        <span><kbd class="kbd">d</kbd> defer 1d</span>
+        <span><kbd class="kbd">⇧</kbd><kbd class="kbd">d</kbd> defer 1w</span>
+        <span class="ml-auto">or drag any card →</span>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Day spine -->
+    <aside class="relative sticky top-7 h-[640px] w-full max-w-[252px] bg-card
+                  border border-border rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.03)]
+                  pt-12 pr-3.5 pb-[18px] pl-12 box-border overflow-hidden"
+           aria-label="Day spine">
+      <div class="absolute top-3.5 left-[18px] text-[10px] font-bold uppercase
+                  tracking-[0.09em] text-muted-foreground">Day spine</div>
+      <!-- timeline bar -->
+      <div class="absolute left-[30px] top-[52px] bottom-[18px] w-0.5 bg-border"></div>
+      <!-- Hour ticks -->
+      <template x-for="h in [8, 12, 16, 20]" :key="h">
+        <div class="absolute left-2.5 -translate-y-1/2 text-[9px] text-muted-foreground/70 font-mono"
+             :style="`top: calc(52px + ${((h - 6) / 16) * (640 - 70)}px)`"
+             x-text="String(h).padStart(2, '0')"></div>
+      </template>
+      <!-- Now marker -->
+      <div class="absolute left-2.5 right-3 h-px bg-destructive"
+           :style="`top: calc(52px + ${(nowPct / 100) * (640 - 70)}px)`">
+        <span class="absolute left-[18px] -top-1 w-2 h-2 rounded-full bg-destructive"></span>
+        <span class="absolute left-8 -top-2 text-[9px] font-bold text-destructive
+                     bg-card px-1 font-mono whitespace-nowrap">
+          NOW · <span x-text="seed.now_hhmm"></span>
+        </span>
+      </div>
+      <!-- Rituals -->
+      <template x-for="r in seed.rituals" :key="r.id">
+        <div class="absolute left-2.5 right-3 -translate-y-1/2 flex items-center gap-2"
+             :style="`top: calc(52px + ${ritualPct(r.time) * (640 - 70)}px)`">
+          <div class="w-[18px] h-[18px] rounded-full flex-none flex items-center justify-center"
+               :class="ritualPast(r.time)
+                 ? 'bg-muted text-muted-foreground border border-border'
+                 : 'bg-strength-core/10 text-strength-core border-2 border-strength-core'">
+            <i :data-lucide="ritualPast(r.time) ? 'check' : 'sunrise'" class="w-2.5 h-2.5"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[11.5px] font-semibold truncate"
+                 :class="ritualPast(r.time) ? 'text-muted-foreground line-through' : 'text-foreground'"
+                 x-text="r.label"></div>
+            <div class="text-[9.5px] font-mono text-muted-foreground">
+              <span x-text="r.time"></span> · <span x-text="r.est_min"></span>m
+            </div>
+          </div>
+        </div>
+      </template>
+    </aside>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- Flash toast (optimistic UI)                                  -->
+  <!-- ============================================================ -->
+  <div x-show="flash" x-cloak
+       x-transition.opacity.duration.150ms
+       class="fixed bottom-6 left-1/2 -translate-x-1/2 z-20
+              bg-foreground text-background rounded-lg px-4 py-2.5 pr-3
+              flex items-center gap-3.5 text-[13px] shadow-xl"
+       role="status" aria-live="polite">
+    <span x-text="flash?.msg"></span>
+    <button x-show="flash?.action === 'undo'"
+            type="button"
+            @click="undoFlash()"
+            class="bg-transparent border border-background/20 text-background
+                   px-2.5 py-1 rounded text-[11px] font-semibold uppercase tracking-wider
+                   hover:bg-background/10 focus:outline-none focus:shadow-focus">
+      Undo
+    </button>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- Detail drawer                                                -->
+  <!-- ============================================================ -->
+  <div x-show="openTask" x-cloak
+       class="fixed inset-0 z-30" role="dialog" aria-modal="true"
+       :aria-labelledby="openTask ? 'drawer-title' : null"
+       @keydown.escape.window="closeDrawer()">
+    <!-- Scrim -->
+    <div x-show="openTask" x-transition.opacity.duration.200ms
+         @click="closeDrawer()"
+         class="absolute inset-0 bg-foreground/40"></div>
+
+    <!-- Panel -->
+    <aside x-show="openTask"
+           x-transition:enter="transition ease-out duration-200"
+           x-transition:enter-start="translate-x-full"
+           x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-150"
+           x-transition:leave-start="translate-x-0"
+           x-transition:leave-end="translate-x-full"
+           class="absolute top-0 right-0 h-full w-full max-w-[440px] bg-background
+                  border-l border-border shadow-2xl overflow-y-auto"
+           hx-get="/today/tasks/none/drawer"
+           hx-trigger="load-drawer from:body"
+           hx-target="#drawer-body" hx-swap="innerHTML">
+      <template x-if="openTask">
+        <div class="p-6">
+          <!-- Toolbar -->
+          <div class="flex items-center justify-between mb-5">
+            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10.5px]
+                         font-semibold uppercase tracking-[0.08em] bg-muted text-muted-foreground">
+              <i :data-lucide="seed.kinds[openTask.kind]?.icon || 'file-text'"
+                 class="w-3 h-3"></i>
+              <span x-text="seed.kinds[openTask.kind]?.label || openTask.kind"></span>
+            </span>
+            <div class="flex items-center gap-1">
+              <button type="button" class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center"
+                      :hx-post="`/today/tasks/${openTask.id}/star`" aria-label="Star">
+                <i data-lucide="star" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center"
+                      @click="closeDrawer()" aria-label="Close drawer">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Title & meta -->
+          <h2 id="drawer-title" class="text-[22px] font-bold tracking-tight leading-tight"
+              x-text="openTask.label"></h2>
+
+          <div class="mt-2.5 flex items-center gap-3 text-[12px] text-muted-foreground font-mono">
+            <span x-text="openTask.meta"></span>
+            <span class="w-[3px] h-[3px] rounded-full bg-border"></span>
+            <span :class="(openTask.due_label || '').startsWith('Overdue') ||
+                          (openTask.reason || '').startsWith('Overdue')
+                          ? 'text-destructive' : ''"
+                  x-text="openTask.due_label || openTask.reason || 'Triage'"></span>
+            <span class="w-[3px] h-[3px] rounded-full bg-border"></span>
+            <span class="inline-flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full"
+                    :class="openTask.priority === 'high'   ? 'bg-priority-high'
+                          : openTask.priority === 'medium' ? 'bg-priority-med'
+                          : 'bg-priority-low'"></span>
+              <span x-text="openTask.priority"></span>
+            </span>
+            <span class="w-[3px] h-[3px] rounded-full bg-border"></span>
+            <span><span x-text="openTask.est_min"></span>m</span>
+          </div>
+
+          <!-- Primary action -->
+          <button type="button"
+                  :hx-post="`/today/tasks/${openTask.id}/complete`"
+                  hx-swap="none"
+                  @click="completeTask(openTask.id); closeDrawer()"
+                  class="mt-4 w-full inline-flex items-center justify-center gap-2
+                         px-4 py-2.5 rounded-md bg-foreground text-background
+                         text-sm font-semibold hover:opacity-90
+                         focus:outline-none focus:shadow-focus">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            Mark complete
+          </button>
+
+          <!-- Secondary actions -->
+          <div class="mt-2.5 grid grid-cols-2 gap-2">
+            <button type="button"
+                    :hx-post="`/today/tasks/${openTask.id}/defer`"
+                    hx-vals='{"span":"1d"}'
+                    hx-swap="none"
+                    @click="deferTask(openTask.id, '1d'); closeDrawer()"
+                    class="px-3 py-2 rounded-md border border-border bg-card
+                           text-sm font-medium hover:bg-muted
+                           focus:outline-none focus:shadow-focus">
+              Defer tomorrow
+            </button>
+            <button type="button"
+                    :hx-post="`/today/tasks/${openTask.id}/defer`"
+                    hx-vals='{"span":"1w"}'
+                    hx-swap="none"
+                    @click="deferTask(openTask.id, '1w'); closeDrawer()"
+                    class="px-3 py-2 rounded-md border border-border bg-card
+                           text-sm font-medium hover:bg-muted
+                           focus:outline-none focus:shadow-focus">
+              Defer next week
+            </button>
+          </div>
+
+          <!-- Connects / graph context -->
+          <section class="mt-7">
+            <div class="text-[10px] font-bold uppercase tracking-[0.09em]
+                        text-muted-foreground mb-2">Connects</div>
+            <div class="rounded-lg border border-border bg-muted/40 p-3.5 space-y-2">
+              <template x-if="goalFor(openTask)">
+                <div class="flex items-center gap-2 text-[13px]">
+                  <i data-lucide="target" class="w-3.5 h-3.5 text-muted-foreground"></i>
+                  <span class="text-muted-foreground">Goal:</span>
+                  <span class="font-medium" x-text="goalFor(openTask).label"></span>
+                </div>
+              </template>
+              <template x-if="principleFor(openTask)">
+                <div class="flex items-center gap-2 text-[13px]">
+                  <i data-lucide="anchor" class="w-3.5 h-3.5 text-muted-foreground"></i>
+                  <span class="text-muted-foreground">Principle:</span>
+                  <span class="font-medium" x-text="principleFor(openTask).label"></span>
+                </div>
+              </template>
+              <template x-if="lifepathFor(openTask)">
+                <div class="flex items-center gap-2 text-[13px]">
+                  <i data-lucide="compass" class="w-3.5 h-3.5 text-muted-foreground"></i>
+                  <span class="text-muted-foreground">LifePath:</span>
+                  <span class="font-medium" x-text="lifepathFor(openTask).label"></span>
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <!-- Server-rendered drawer body would swap in here -->
+          <div id="drawer-body" class="mt-6"></div>
+        </div>
+      </template>
+    </aside>
+  </div>
+
+</main>
+
+<!-- ============================================================ -->
+<!-- Alpine component                                             -->
+<!-- ============================================================ -->
+<script>
+  /* <kbd> styling (extracted to a single class for clarity) */
+  document.head.insertAdjacentHTML('beforeend', `
+    <style>
+      .kbd { font-family: 'JetBrains Mono', monospace; font-size: 10px;
+             padding: 1px 5px; border: 1px solid hsl(var(--border));
+             border-radius: 3px; background: hsl(var(--muted));
+             margin: 0 2px; color: hsl(var(--foreground)); }
+    </style>
+  `);
+
+  function today() {
+    return {
+      seed: window.SEED,
+      selectedId: null,
+      openTaskId: null,
+      flash: null,
+      flashTimer: null,
+      deferred: {},          // id -> '1d' | '1w' (optimistic hidden until confirm)
+      completed: new Set(),  // ids
+      _lastAction: null,     // for undo
+
+      init() {
+        this.$nextTick(() => this.refreshIcons());
+        // Re-render icons whenever Alpine patches the DOM
+        this.$watch('fTasks', () => this.refreshIcons());
+        this.$watch('fTriage', () => this.refreshIcons());
+        this.$watch('openTaskId', () => this.$nextTick(() => this.refreshIcons()));
+      },
+
+      // ---- Derived ---------------------------------------------------------
+      get fTasks()  { return this.seed.tasks.filter(t =>
+        !this.deferred[t.id] && !this.completed.has(t.id)); },
+      get fTriage() { return this.seed.triage.filter(t =>
+        !this.deferred[t.id] && !this.completed.has(t.id)); },
+      get allEmpty() { return this.fTasks.length === 0 && this.fTriage.length === 0; },
+
+      get committedMin() { return this.fTasks.reduce((a, t) => a + (t.est_min || 0), 0); },
+      get fmtCommitted() {
+        const m = this.committedMin;
+        return `${Math.floor(m/60)}h ${m%60}m`;
+      },
+      get statList() {
+        return [
+          { value: this.fTasks.length + this.fTriage.length, label: 'nodes' },
+          { value: this.fmtCommitted,                        label: 'committed' },
+          { value: this.completed.size,                      label: 'done',
+            accent: 'text-priority-low' },
+        ];
+      },
+      get nowPct() {
+        const [h, m] = this.seed.now_hhmm.split(':').map(Number);
+        const frac = h + m/60;
+        return Math.max(0, Math.min(100, ((frac - 6) / 16) * 100));
+      },
+
+      principlesFor(lpId) {
+        return this.seed.principles.filter(p => p.lifepath_id === lpId);
+      },
+      tasksFor(lpId) {
+        return this.fTasks.filter(t => t.lifepath_id === lpId);
+      },
+      goalFor(t)      { return this.seed.goals.find(g => g.id === t.goal_id) || null; },
+      principleFor(t) {
+        const g = this.goalFor(t);
+        if (g) return this.seed.principles.find(p => p.id === g.principle_id) || null;
+        // fallback for rituals/journals linked directly to a principle
+        return this.seed.principles.find(p => p.id === t.principle_id) || null;
+      },
+      lifepathFor(t)  { return this.seed.lifepaths.find(lp => lp.id === t.lifepath_id) || null; },
+      strengthClass(s) {
+        return {
+          'core':       'bg-strength-core/10       text-strength-core',
+          'strong':     'bg-strength-strong/10     text-strength-strong',
+          'developing': 'bg-strength-developing/10 text-strength-developing',
+        }[s] || 'bg-muted text-muted-foreground';
+      },
+
+      // Day-spine helpers
+      ritualPct(hhmm) {
+        const [h, m] = hhmm.split(':').map(Number);
+        const frac = h + m/60;
+        return Math.max(0, Math.min(1, (frac - 6) / 16));
+      },
+      ritualPast(hhmm) { return hhmm < this.seed.now_hhmm; },
+
+      get openTask() {
+        if (!this.openTaskId) return null;
+        const t = this.seed.tasks.find(x => x.id === this.openTaskId);
+        if (t) return t;
+        const tri = this.seed.triage.find(x => x.id === this.openTaskId);
+        return tri || null;
+      },
+
+      // ---- Row renderer -----------------------------------------------------
+      // We hand-render each row via template literal so we can bind onmousedown,
+      // onclick, and dynamic classes without nested Alpine components everywhere.
+      renderRow(t, opts = {}) {
+        const k = this.seed.kinds[t.kind] || this.seed.kinds['submission'];
+        const priClass = t.priority === 'high' ? 'bg-priority-high'
+                       : t.priority === 'medium' ? 'bg-priority-med' : 'bg-priority-low';
+        const selected = this.selectedId === t.id;
+        const rightLabel = opts.isTriage ? t.reason : t.due_label;
+        return `
+          <div class="relative" data-task-row="${t.id}">
+            <div class="defer-backdrop absolute inset-0 rounded-md flex items-center justify-end
+                        px-4 text-xs font-semibold tracking-wide pointer-events-none"
+                 data-defer-backdrop>
+              <span data-defer-hint class="opacity-50">drag to defer</span>
+            </div>
+            <div class="task-row relative flex items-center gap-3 px-3.5 py-2.5 bg-card
+                        ${opts.isTriage ? 'border border-border' : ''}
+                        ${selected ? 'ring-2 ring-primary/40 shadow-focus' : ''}
+                        rounded-md cursor-grab select-none"
+                 role="button" tabindex="0"
+                 aria-label="${(t.label || '').replace(/"/g, '&quot;')} · ${rightLabel || ''} · ${t.est_min}m"
+                 onmousedown="window._today.rowDown(event, '${t.id}')"
+                 onclick="window._today.rowClick(event, '${t.id}')"
+                 onkeydown="window._today.rowKey(event, '${t.id}')">
+
+              <!-- Kind chip -->
+              <div class="w-[30px] h-[30px] rounded flex-none flex items-center justify-center
+                          bg-muted text-muted-foreground">
+                <i data-lucide="${k.icon}" class="w-3.5 h-3.5"></i>
+              </div>
+
+              <!-- Body -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-[13.5px] font-semibold text-foreground leading-snug truncate">
+                    ${t.label}
+                  </span>
+                  <span class="w-1.5 h-1.5 rounded-full ${priClass} flex-none"
+                        title="${t.priority}"></span>
+                </div>
+                <div class="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">
+                  ${t.meta}
+                </div>
+              </div>
+
+              <!-- Right -->
+              <div class="flex flex-col items-end gap-0.5 flex-none">
+                <span class="text-[11px] font-semibold text-foreground">${rightLabel || ''}</span>
+                <span class="text-[10px] text-muted-foreground font-mono">${t.est_min}m</span>
+              </div>
+
+              <!-- Trailing action -->
+              <button type="button"
+                      class="w-7 h-7 rounded flex-none flex items-center justify-center
+                             ${selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+                      aria-label="Open ${(t.label || '').replace(/"/g, '&quot;')}"
+                      onclick="event.stopPropagation(); window._today.openDrawer('${t.id}')">
+                <i data-lucide="play" class="w-3 h-3"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      },
+
+      refreshIcons() { if (window.lucide) window.lucide.createIcons(); },
+
+      // ---- Interaction: keyboard, drag, click -------------------------------
+      flatOrder() {
+        // j/k traversal order: triage first, then each ribbon's tasks
+        return [
+          ...this.fTriage.map(t => t.id),
+          ...this.seed.lifepaths.flatMap(lp => this.tasksFor(lp.id).map(t => t.id)),
+        ];
+      },
+      moveSelection(delta) {
+        const order = this.flatOrder();
+        if (order.length === 0) return;
+        let idx = order.indexOf(this.selectedId);
+        if (idx < 0) idx = delta > 0 ? -1 : order.length;
+        idx = (idx + delta + order.length) % order.length;
+        this.selectedId = order[idx];
+        this.$nextTick(() => {
+          const el = document.querySelector(`[data-task-row="${this.selectedId}"]`);
+          if (el) el.querySelector('[role="button"]')?.focus({ preventScroll: false });
+        });
+      },
+      onKey(e) {
+        if (this.openTaskId) return; // drawer owns keys while open
+        const k = e.key;
+        if (k === 'j' || k === 'ArrowDown') { e.preventDefault(); this.moveSelection(+1); }
+        else if (k === 'k' || k === 'ArrowUp') { e.preventDefault(); this.moveSelection(-1); }
+        else if (k === 'Enter' && this.selectedId) { e.preventDefault(); this.openDrawer(this.selectedId); }
+        else if (k === 'x' && this.selectedId)     { e.preventDefault(); this.completeTask(this.selectedId); }
+        else if (k === 'd' && this.selectedId && !e.shiftKey) {
+          e.preventDefault(); this.deferTask(this.selectedId, '1d');
+        }
+        else if ((k === 'D' || (k === 'd' && e.shiftKey)) && this.selectedId) {
+          e.preventDefault(); this.deferTask(this.selectedId, '1w');
+        }
+      },
+
+      // Row handlers (exposed via window._today because innerHTML-rendered rows
+      // don't see Alpine's this automatically)
+      rowClick(e, id) {
+        // openDrawer is triggered by drag-ended-with-no-movement or the play button;
+        // a plain click also opens.
+        if (e.target.closest('button')) return;
+        this.openDrawer(id);
+      },
+      rowKey(e, id) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openDrawer(id); }
+      },
+      rowDown(e, id) {
+        if (e.button !== 0) return;
+        const rowEl = e.currentTarget;
+        const backdropWrap = rowEl.parentElement;
+        const backdrop = backdropWrap.querySelector('[data-defer-backdrop]');
+        const hint = backdrop.querySelector('[data-defer-hint]');
+        const start = { x: e.clientX, y: e.clientY };
+        this.selectedId = id;
+        rowEl.classList.add('dragging');
+        let dx = 0, stage = 0;
+
+        const setStage = (s) => {
+          if (s === stage) return;
+          stage = s;
+          backdrop.classList.toggle('stage-1', s === 1);
+          backdrop.classList.toggle('stage-2', s === 2);
+          hint.classList.toggle('opacity-50', s === 0);
+          hint.textContent = s === 2 ? '→ next week'
+                          : s === 1 ? '→ tomorrow'
+                          : 'drag to defer';
+        };
+
+        const onMove = (ev) => {
+          dx = Math.max(-20, ev.clientX - start.x);
+          if (Math.abs(ev.clientY - start.y) > 20 && Math.abs(dx) < 8) return cancel();
+          rowEl.style.setProperty('--dx', dx + 'px');
+          setStage(dx > 180 ? 2 : dx > 70 ? 1 : 0);
+        };
+        const onUp = () => {
+          cleanup();
+          rowEl.classList.remove('dragging');
+          rowEl.style.setProperty('--dx', '0px');
+          setStage(0);
+          if (dx > 180)      this.deferTask(id, '1w');
+          else if (dx > 70)  this.deferTask(id, '1d');
+          else if (Math.abs(dx) < 4) { /* treat as click — rowClick will fire */ }
+        };
+        const cancel = () => { cleanup(); rowEl.classList.remove('dragging');
+                               rowEl.style.setProperty('--dx', '0px'); setStage(0); };
+        const cleanup = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      },
+
+      // ---- Actions (optimistic + HTMX confirm) ------------------------------
+      openDrawer(id) {
+        this.openTaskId = id;
+        this.selectedId = id;
+      },
+      closeDrawer() {
+        const id = this.openTaskId;
+        this.openTaskId = null;
+        // return focus to origin
+        this.$nextTick(() => {
+          const el = document.querySelector(`[data-task-row="${id}"] [role="button"]`);
+          el?.focus();
+        });
+      },
+
+      completeTask(id) {
+        const t = this.openTask || this.seed.tasks.find(x => x.id === id)
+                                || this.seed.triage.find(x => x.id === id);
+        this.completed.add(id);
+        this._lastAction = { type: 'complete', id };
+        this.showFlash(`Completed "${t?.label || id}"`, 'undo');
+        // HTMX fire-and-forget (button onclick already triggers; this is for keyboard/drag)
+        if (window.htmx) htmx.ajax('POST', `/today/tasks/${id}/complete`, { swap: 'none' });
+      },
+      deferTask(id, span) {
+        const t = this.openTask || this.seed.tasks.find(x => x.id === id)
+                                || this.seed.triage.find(x => x.id === id);
+        this.deferred[id] = span;
+        this._lastAction = { type: 'defer', id, span };
+        this.showFlash(
+          span === '1w' ? `Deferred "${t?.label || id}" → next week`
+                        : `Deferred "${t?.label || id}" → tomorrow`,
+          'undo');
+        if (window.htmx) htmx.ajax('POST', `/today/tasks/${id}/defer`,
+          { swap: 'none', values: { span }});
+      },
+
+      showFlash(msg, action = null) {
+        this.flash = { msg, action };
+        clearTimeout(this.flashTimer);
+        this.flashTimer = setTimeout(() => this.flash = null, 4200);
+      },
+      undoFlash() {
+        const a = this._lastAction;
+        if (!a) return this.flash = null;
+        if (a.type === 'complete') this.completed.delete(a.id);
+        if (a.type === 'defer')    delete this.deferred[a.id];
+        this._lastAction = null;
+        this.flash = null;
+      },
+    };
+  }
+
+  // Expose the Alpine instance to row handlers
+  document.addEventListener('alpine:initialized', () => {
+    const root = document.querySelector('[x-data="today()"]');
+    window._today = Alpine.$data(root);
+  });
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) window.lucide.createIcons();
+  });
+</script>
+
+</body>
+</html>

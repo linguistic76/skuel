@@ -39,6 +39,23 @@ module.exports = {
           error: 'var(--status-error)',
           info: 'var(--status-info)',
         },
+        // Priority accents — mirrors main.css .border-priority-* oklch values.
+        // Used on Today ribbons for dot indicators and optional fills.
+        priority: {
+          high:   'oklch(0.65 0.20 25)',
+          medium: 'oklch(0.75 0.15 85)',
+          low:    'oklch(0.70 0.15 145)',
+        },
+        // Principle strength accents — oklch analogues of palette.py StrengthColor.
+        strength: {
+          core:       'oklch(0.55 0.22 295)',
+          strong:     'oklch(0.55 0.20 255)',
+          developing: 'oklch(0.60 0.15 165)',
+        },
+      },
+      boxShadow: {
+        // Soft 2px ring matching hsl(var(--ring) / 0.2) — used as focus ring.
+        focus: '0 0 0 2px hsl(var(--ring) / 0.2)',
       },
       // Typography plugin configuration (Syntax-style)
       typography: ({ theme }) => ({

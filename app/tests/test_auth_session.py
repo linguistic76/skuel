@@ -10,7 +10,7 @@ Tests the session-based authentication system including:
 """
 
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -194,29 +194,31 @@ class TestSessionMiddlewareConfig:
         assert "https_only" in config
         assert "same_site" in config
 
-    def test_secret_key_is_generated_when_not_set(self, monkeypatch):
-        """Test secret key is generated when not in environment."""
+    def test_secret_key_is_generated_when_credential_store_empty(self, monkeypatch):
+        """Test secret key is generated when not in credential store."""
         monkeypatch.delenv("SESSION_SECRET_KEY", raising=False)
 
-        config = get_session_middleware_config()
+        with patch("core.config.credential_store.get_credential", return_value=None):
+            config = get_session_middleware_config()
 
         assert config["secret_key"] is not None
         assert len(config["secret_key"]) > 20  # Should be a decent length
 
-    def test_secret_key_from_environment(self, monkeypatch):
-        """Test secret key is read from environment."""
-        monkeypatch.setenv("SESSION_SECRET_KEY", "test_secret_key_12345")
-
-        config = get_session_middleware_config()
+    def test_secret_key_from_credential_store(self):
+        """Test secret key is read from credential store."""
+        with patch(
+            "core.config.credential_store.get_credential", return_value="test_secret_key_12345"
+        ):
+            config = get_session_middleware_config()
 
         assert config["secret_key"] == "test_secret_key_12345"
 
     def test_https_only_in_production(self, monkeypatch):
         """Test HTTPS-only enabled in production."""
         monkeypatch.setenv("SKUEL_ENVIRONMENT", "production")
-        monkeypatch.setenv("SESSION_SECRET_KEY", "test-key-for-prod")
 
-        config = get_session_middleware_config()
+        with patch("core.config.credential_store.get_credential", return_value="test-key-for-prod"):
+            config = get_session_middleware_config()
 
         assert config["https_only"] is True
 

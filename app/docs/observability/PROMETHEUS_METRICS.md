@@ -20,10 +20,10 @@
 
 SKUEL uses Prometheus for metrics collection and Grafana for visualization, providing comprehensive observability across:
 
-- **System Health** - HTTP requests, Neo4j performance, system resources
-- **Domain Activity** - Entity creation/completion, event bus metrics
+- **System Health** - HTTP requests, Neo4j performance
+- **Domain Activity** - Entity creation/completion
 - **Graph Health** - Relationship patterns, density, lateral connections (PRIMARY FOCUS)
-- **Search & Events** - Search quality, event bus health
+- **Event Bus** - Publication rate, handler latency, errors
 
 ---
 
@@ -192,13 +192,13 @@ SKUEL uses **Prometheus/Grafana** instead of building custom observability infra
 
 ### The Result
 
-**4 Production Dashboards** in 5 phases (12 hours total):
+**4 Production Dashboards**:
 1. System Health (infrastructure monitoring)
 2. Domain Activity (business metrics)
 3. Graph Health (relationship patterns) ← PRIMARY FOCUS
-4. Search & Events (search quality, event bus health)
+4. Event Bus (publication rate, handler latency, errors)
 
-**35 Metrics** tracked across system, database, events, graph, search.
+**33 Metrics** tracked across HTTP, database, events, domains, relationships, queries, AI.
 
 **Zero maintenance burden** - Prometheus/Grafana handle storage, querying, visualization.
 
@@ -221,13 +221,13 @@ SKUEL uses **Prometheus/Grafana** instead of building custom observability infra
 
 ### Examples of the Same Data, Different Perspective
 
-**Grafana Search & Events Dashboard** (Admin View):
+**Grafana Domain Activity Dashboard** (Admin View):
 ```
-"Users performed 1,247 searches this week"
-"Average search similarity: 0.82 (improving)"
-"Vector search performs 15% better than fulltext"
-"Task completion rate: 67% across all users"
-→ Actionable insight: Improve fulltext search algorithm
+"Users created 1,247 tasks this week"
+"Aggregate task completion rate: 67%"
+"Habits domain has highest engagement"
+"Event handler p95 latency: 8ms"
+→ Actionable insight: Investigate the Habit completion drop after launch
 ```
 
 **ProfileHub** (User View):
@@ -328,19 +328,11 @@ open http://localhost:3000/dashboards
 1. **System Health** (`skuel-system-health`) - Infrastructure monitoring
 2. **Domain Activity** (`skuel-domain-activity`) - Business metrics
 3. **Graph Health** (`skuel-graph-health`) - Relationship patterns ← PRIMARY
-4. **Search & Events** (`skuel-search-events`) - Search quality & event bus health
+4. **Event Bus** (`skuel-event-bus`) - Event publication rate, handler latency, errors
 
 ---
 
 ## Metrics Reference
-
-### System Metrics
-
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `skuel_cpu_usage_percent` | Gauge | user_uid | CPU usage percentage |
-| `skuel_memory_usage_bytes` | Gauge | user_uid | Memory usage in bytes |
-| `skuel_neo4j_connected` | Gauge | - | Neo4j connection (1=up, 0=down) |
 
 ### HTTP Metrics
 
@@ -380,11 +372,10 @@ open http://localhost:3000/dashboards
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `skuel_entities_created_total` | Counter | entity_type, user_uid | Entities created |
-| `skuel_entities_completed_total` | Counter | entity_type, user_uid | Entities completed |
-| `skuel_active_entities_count` | Gauge | entity_type, user_uid | Current active entities |
+| `skuel_entities_created_total` | Counter | entity_type | Entities created |
+| `skuel_entities_completed_total` | Counter | entity_type | Entities completed |
 
-**Entity Types**: task, goal, habit, event, choice, principle
+**Entity Types**: task, goal, habit, event, choice, principle, expense, transcription, ku, ps, lp, user_entry
 
 ### Graph Health Metrics (Phase 4 - PRIMARY FOCUS)
 
@@ -410,28 +401,29 @@ open http://localhost:3000/dashboards
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `skuel_blocking_relationships_count` | Gauge | user_uid | BLOCKS relationships |
-| `skuel_enables_relationships_count` | Gauge | user_uid | ENABLES relationships |
-| `skuel_contains_relationships_count` | Gauge | user_uid | CONTAINS relationships |
-| `skuel_organizes_relationships_count` | Gauge | user_uid | ORGANIZES (MOC) relationships |
-| `skuel_semantic_relationships_count` | Gauge | tier, user_uid | Semantic by tier (1/2/3) |
-| `skuel_cross_domain_relationships_count` | Gauge | from_domain, to_domain, user_uid | Cross-domain connections |
-| `skuel_dependency_chain_max_length` | Gauge | user_uid | Max BLOCKS chain length |
-| `skuel_graph_traversal_avg_depth` | Gauge | user_uid | Avg traversal depth |
+| `skuel_blocking_relationships_count` | Gauge | - | BLOCKS relationships |
+| `skuel_enables_relationships_count` | Gauge | - | ENABLES relationships |
+| `skuel_contains_relationships_count` | Gauge | - | CONTAINS relationships |
+| `skuel_organizes_relationships_count` | Gauge | - | ORGANIZES (MOC) relationships |
 
-### Search Metrics (Phase 5)
+### Query Metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `skuel_searches_total` | Counter | search_type | Total searches |
-| `skuel_search_duration_seconds` | Histogram | search_type | Search latency |
-| `skuel_search_similarity_score` | Histogram | search_type | Result similarity (0.0-1.0) |
+| `skuel_operation_calls_total` | Counter | operation_name | Total operation calls (e.g., ku_search_by_title) |
+| `skuel_operation_duration_seconds` | Histogram | operation_name | Operation execution time |
+| `skuel_operation_errors_total` | Counter | operation_name | Operation errors |
 
-**Search Types**: vector, fulltext, hybrid
+### AI Metrics
 
-**Duration Buckets**: 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0 seconds
-
-**Similarity Buckets**: 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `skuel_ai_requests_total` | Counter | operation, model | AI API requests (embeddings/chat/completion) |
+| `skuel_ai_duration_seconds` | Histogram | operation, model | AI API call duration |
+| `skuel_ai_errors_total` | Counter | operation, error_type | AI API errors (rate_limit/timeout/auth) |
+| `skuel_embedding_queue_size` | Gauge | queue_type | Pending embeddings (entity/chunk) |
+| `skuel_embeddings_processed_total` | Counter | entity_type, status | Embeddings processed (success/failed) |
+| `skuel_embedding_batch_size` | Histogram | - | Embedding batch size distribution |
 
 ---
 
@@ -535,45 +527,29 @@ open http://localhost:3000/dashboards
 - Orphaned entities > 10 (connectivity issue)
 - Blocking relationships > 50 (potential bottleneck)
 
-### 4. Search & Events (Admin/Ops Perspective)
+### 4. Event Bus (Admin/Ops Perspective)
 
-**UID**: `skuel-search-events`
+**UID**: `skuel-event-bus`
 
-**Audience**: Admins, product team (NOT end users - see ProfileHub for user-facing view)
+**Audience**: Admins, ops team
 
-**Purpose**: Aggregate search quality and intelligence operations tracking across all users
+**Purpose**: Track event bus health — publication rate, handler latency, error trends
 
 **Key Panels**:
 
-**Row 1: Search Activity**
-- Searches by Type (pie chart)
-- Search Latency p95 (time series)
-- Average Similarity Score (gauge 0.0-1.0)
-
-**Row 2: Search Quality Trends**
-- Search Quality Over Time (similarity by type)
-- Search Volume by Type (stacked)
-
-**Row 3: Event Bus Activity**
+**Row 1: Event Bus Activity**
 - Event Publication Rate
 - Event Handler Performance (p95)
 
-**Row 4: Summary Stats**
-- Total Searches (1h)
+**Row 2: Summary Stats**
 - Events Published (1h)
 - Event Handler Calls (1h)
 - Event Handler Errors (1h)
 
-**Use Cases** (Admin/Product Perspective):
-- How good are search results across all users? (aggregate quality)
-- Which search type performs best? (optimization decisions)
-- Are searches getting faster/slower? (performance trends)
-- Event processing health (operational monitoring)
-- Which users are engaging with search? (product insights)
-
-**Variables**: `$user_uid`, `$search_type`
-
-**Note**: This dashboard shows **aggregate metrics** for operational intelligence. For individual user progress and personal stats, users should view their **ProfileHub** (`/profile`) instead.
+**Use Cases**:
+- Detect handler regressions (latency creep)
+- Spot error rate increases after deploys
+- Verify event bus is processing under load
 
 ---
 
@@ -647,24 +623,6 @@ skuel_total_relationships{user_uid="system"}
   / skuel_total_entities{user_uid="system"}
 ```
 
-### Search Quality
-
-```promql
-# Total searches by type
-sum(increase(skuel_searches_total[1h])) by (search_type)
-
-# p95 search latency by type
-histogram_quantile(0.95,
-  sum(rate(skuel_search_duration_seconds_bucket[5m])) by (search_type, le)
-)
-
-# Average similarity score
-avg(skuel_search_similarity_score) by (search_type)
-
-# Search rate (searches per minute)
-sum(rate(skuel_searches_total[1m])) by (search_type)
-```
-
 ---
 
 ## Troubleshooting
@@ -699,7 +657,6 @@ docker logs skuel-prometheus
 **Solution**:
 - **Graph Health**: Wait 5 minutes for background task to run
 - **Domain Activity**: Create/complete tasks to trigger metrics
-- **Search**: Perform searches to populate search metrics
 - **Event Bus**: Events are published automatically during operations
 
 ### Dashboard JSON Issues
@@ -865,24 +822,31 @@ grep "background task started" /tmp/skuel_app.log
 
 **Outcome**: ✅ Graph health visibility achieved (PRIMARY GOAL)
 
-### Phase 5: Search Quality & Polish (Week 5)
+### Phase 5: Polish & Documentation (Week 5)
 
-**Goal**: Complete observability with search metrics + documentation
+**Goal**: Complete observability stack with comprehensive documentation
 
 **Implemented**:
-- SearchMetrics (already existed in PrometheusMetrics)
-- Search & Events dashboard (search + event bus)
+- Event Bus dashboard
 - System Health dashboard (verified existing)
 - Comprehensive documentation
 
 **Files Created**:
-- `/monitoring/grafana/dashboards/search_events.json`
+- `/monitoring/grafana/dashboards/event_bus.json`
 - `/docs/observability/PROMETHEUS_METRICS.md` (this file)
 
-**Metrics Verified**:
-- Search: searches_total, search_duration, search_similarity
-
 **Outcome**: ✅ Complete observability stack
+
+### Post-launch cleanup (May 2026)
+
+Removed 14 unemitted "aspirational" metrics from `prometheus_metrics.py`:
+- `SystemMetrics` class (cpu_usage, memory_usage, neo4j_connected) — system-level health was never instrumented
+- `SearchMetrics` class (searches_total, search_duration, search_similarity) — search instrumentation never wired into SearchRouter
+- `DomainMetrics.active_entities` — current-state gauge superseded by entities_created/completed counters
+- 4 dead RelationshipMetrics gauges (dependency_chain_length, semantic_relationships, cross_domain_relationships, graph_traversal_depth) — never calculated by graph health background task
+- 3 dead AiMetrics (ai_tokens_used, transcription_requests_total, transcription_duration_seconds) — token counting and Deepgram instrumentation never implemented
+
+The Search & Events dashboard was rewritten as the Event Bus dashboard (search panels removed; event panels preserved).
 
 ---
 
@@ -895,7 +859,7 @@ All dashboards are version-controlled in git:
 ├── system_health.json       # Infrastructure
 ├── domain_activity.json     # Business metrics
 ├── graph_health.json        # Graph patterns ← PRIMARY
-└── search_events.json       # Search & event bus health
+└── event_bus.json           # Event publication, handler latency, errors
 ```
 
 **Workflow**:
@@ -916,14 +880,14 @@ All dashboards are version-controlled in git:
 
 | Category | Count | Update Frequency |
 |----------|-------|------------------|
-| System Health | 3 | Real-time |
 | HTTP | 3 | Per request |
 | Database | 3 | Per query |
-| Event Bus | 5 | Per event |
-| Domain Activity | 3 | Per event |
-| Graph Health | 15 | Every 5 minutes |
-| Search | 3 | Per search |
-| **TOTAL** | **35 metrics** | **Varies** |
+| Event Bus | 6 | Per event |
+| Domain Activity | 2 | Per event |
+| Graph Health | 10 | Every 5 minutes |
+| Query | 3 | Per operation |
+| AI | 6 | Per AI call |
+| **TOTAL** | **33 metrics** | **Varies** |
 
 ---
 

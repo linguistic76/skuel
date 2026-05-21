@@ -1,7 +1,10 @@
-"""Home hub route — post-login landing page + shared HTMX fragments.
+"""Shared HTMX fragments for the navbar and personal header.
+
+The former /home hub was superseded by the /profile tabbed hub. This module
+only registers the cross-cutting fragments now.
 
 Routes:
-- GET /home — hub page with navigational cards
+- GET /api/navbar/notification-badge — notification bell with unread count
 - GET /api/personal-header — HTMX fragment: Focus + Velocity header
 """
 
@@ -22,21 +25,7 @@ def create_home_routes(
     rt: "RouteDecorator",
     services: "Services",
 ) -> None:
-    """Register home hub route and shared HTMX fragments."""
-
-    @rt("/home")
-    async def home_hub(request: Request) -> Any:
-        """Home hub — post-login landing with Submissions, GradeBook, and cards."""
-        require_authenticated_user(request)
-        from ui.home_hub import HomeHub
-        from ui.layouts.base_page import BasePage
-
-        return await BasePage(
-            content=HomeHub(),
-            title="Home",
-            request=request,
-            active_page="home",
-        )
+    """Register shared HTMX fragments used by every page."""
 
     @rt("/api/navbar/notification-badge")
     async def notification_badge_fragment(request: Request) -> Any:

@@ -19,6 +19,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 from core.models.relationship_names import RelationshipName
@@ -77,6 +78,7 @@ def create_lateral_api_routes(
     # --- Habits: Stacking ---
 
     @rt("/api/habits/{uid}/lateral/stacks", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def create_habit_stack(
         request: Request,
@@ -122,6 +124,7 @@ def create_lateral_api_routes(
     # --- Events: Scheduling Conflicts ---
 
     @rt("/api/events/{uid}/lateral/conflicts", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def create_event_conflict(
         request: Request,
@@ -167,6 +170,7 @@ def create_lateral_api_routes(
     # --- Choices: Value Conflicts ---
 
     @rt("/api/choices/{uid}/lateral/conflicts", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def create_choice_conflict(
         request: Request,
@@ -212,6 +216,7 @@ def create_lateral_api_routes(
     # --- Principles: Value Tensions ---
 
     @rt("/api/principles/{uid}/lateral/conflicts", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def create_principle_conflict(
         request: Request,
@@ -262,6 +267,7 @@ def create_lateral_api_routes(
     # --- KU: ENABLES Relationships ---
 
     @rt("/api/ku/{uid}/lateral/enables", methods=["POST"])
+    @csrf_protected
     @boundary_handler(success_status=201)
     async def create_entity_enables(
         request: Request,

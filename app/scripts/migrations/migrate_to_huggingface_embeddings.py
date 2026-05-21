@@ -33,9 +33,11 @@ from neo4j import AsyncGraphDatabase
 
 
 async def run_migration(dry_run: bool = False) -> None:
+    from core.config.credential_store import get_credential
+
     uri = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
     username = os.getenv("NEO4J_USERNAME", "neo4j")
-    password = os.getenv("NEO4J_PASSWORD", "")
+    password = get_credential("NEO4J_PASSWORD", fallback_to_env=True) or ""
 
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
 

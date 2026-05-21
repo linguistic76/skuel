@@ -259,7 +259,7 @@ class CypherExecutor[T]:
                 except NEO4J_EXCEPTIONS as e:
                     # Constraint might already exist (older Neo4j versions)
                     if "already exists" in str(e).lower():
-                        (self.logger.debug(f"Constraint already exists: {statement[:50]}..."),)
+                        self.logger.debug(f"Constraint already exists: {statement[:50]}...")
                     else:
                         raise
 

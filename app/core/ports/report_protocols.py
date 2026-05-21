@@ -4,14 +4,16 @@ Report Protocols
 
 Route-facing protocols for the Report stage of SKUEL's core educational loop:
 
-    PathStep → Exercise → Submission → Report
-                                     ↑
-                           someone responds to the work
+    Exercise → UserEntry → ExerciseReport → RevisedExercise
+                              ↑
+                    someone responds to the work
+
+PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``.
 
 Reports have two implementations — the mechanism differs, the concept is the same:
 
-    Human report  (teacher reviews and writes)  → processor_type = HUMAN
-    AI report     (LLM evaluates via Exercise)   → processor_type = LLM
+    Human report  (teacher reviews and writes)  → ReportSource.HUMAN
+    AI report     (LLM evaluates via Exercise)   → ReportSource.LLM
 
 Both create EXERCISE_REPORT entities (EntityType.EXERCISE_REPORT) linked to the
 submission via REPORT_FOR. The processor_type field discriminates the source.
@@ -60,8 +62,8 @@ if TYPE_CHECKING:
     from core.models.exercises.exercise import Exercise
     from core.models.report.activity_report import ActivityReport
     from core.models.report.exercise_report import ExerciseReport
-    from core.models.submissions.report_schedule import ReportSchedule
-    from core.models.submissions.submission import Submission
+    from core.models.report_schedule import ReportSchedule
+    from core.models.user_entry.user_entry import UserEntry
     from core.ports.query_types import (
         AnnotationResult,
         AnnotationState,
@@ -78,8 +80,8 @@ class ExerciseReportOperations(Protocol):
     """Human + AI reports on submissions. Both create EXERCISE_REPORT entities.
 
     processor_type discriminates the source:
-        ProcessorType.HUMAN — teacher writes report (create_assessment)
-        ProcessorType.LLM   — LLM generates report via Exercise (generate_report)
+        ReportSource.HUMAN — teacher writes report (create_assessment)
+        ReportSource.LLM   — LLM generates report via Exercise (generate_report)
 
     Assessment methods and AI report generation are unified here because
     they represent the same concept: a response to student work.
@@ -100,7 +102,7 @@ class ExerciseReportOperations(Protocol):
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> "Result[ExerciseReport]":
-        """Create a teacher assessment (EntityType.EXERCISE_REPORT, processor_type=HUMAN).
+        """Create a teacher assessment (EntityType.EXERCISE_REPORT, ReportSource.HUMAN).
 
         Verifies teacher-student group membership before creating.
         Auto-shares with student via SHARES_WITH {role: 'student'}.
@@ -147,7 +149,7 @@ class ExerciseReportOperations(Protocol):
 
     async def generate_report(
         self,
-        entry: "Submission",
+        entry: "UserEntry",
         exercise: "Exercise",
         user_uid: UserUID,
         temperature: float = 0.7,
@@ -185,7 +187,7 @@ class ExerciseReportBackendOperations(Protocol):
     ``ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport])``.
     """
 
-    async def get_by_uid(self, uid: str) -> "Result[ExerciseReport | None]":
+    async def get(self, uid: str) -> "Result[ExerciseReport | None]":
         """Typed single-fetch for ExerciseReport by UID.
 
         Returns ``Result.ok(None)`` when no matching node exists.
@@ -239,9 +241,9 @@ class ProgressReportOperations(Protocol):
     ActivityReport inherits UserOwnedEntity directly (not Submission).
 
     processor_type discriminates source:
-        ProcessorType.AUTOMATIC — scheduled system generation
-        ProcessorType.LLM       — on-demand AI generation
-        ProcessorType.HUMAN     — admin-written activity review
+        ReportSource.AUTOMATIC — scheduled system generation
+        ReportSource.LLM       — on-demand AI generation
+        ReportSource.HUMAN     — admin-written activity review
 
     Route consumer: progress_report_api.py
     Implementation: ProgressReportGenerator

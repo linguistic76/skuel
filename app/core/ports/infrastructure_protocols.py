@@ -51,6 +51,19 @@ class EventBusOperations(Protocol):
         """
         ...
 
+    def unsubscribe(self, event_type: type, handler: Any) -> None:
+        """
+        Unsubscribe a previously-registered handler.
+
+        Required for subscription lifecycles (e.g. GraphQL subscriptions)
+        that need to detach handlers when the subscription ends.
+
+        Args:
+            event_type: Event class to unsubscribe from
+            handler: Handler function previously passed to subscribe()
+        """
+        ...
+
     async def publish_async(self, event: Any) -> None:
         """
         Publish a typed event asynchronously (preferred for async contexts).
@@ -85,7 +98,11 @@ class UserCrudOperations(Protocol):
         ...
 
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
-        """DETACH DELETE a user."""
+        """Soft-delete a user: mark status=DELETED, scrub PII, preserve graph."""
+        ...
+
+    async def hard_delete_user(self, user_uid: UserUID) -> Result[int]:
+        """DETACH DELETE a user + every OWNS-linked entity (GDPR erasure)."""
         ...
 
     async def find_by(self, **filters: Any) -> Result[list["User"]]:  # boundary: kwargs

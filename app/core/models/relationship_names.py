@@ -70,7 +70,8 @@ class RelationshipName(StrEnum):
     ENABLES_GOAL = "ENABLES_GOAL"
     ENABLES_TASK = "ENABLES_TASK"
     INFORMS_CHOICE = "INFORMS_CHOICE"
-    SUPPORTS_HABIT = "SUPPORTS_HABIT"
+    # NOTE: Task→Habit is REINFORCES_HABIT (matching Event + the field name). The
+    # former SUPPORTS_HABIT was never-written drift, removed when consolidating.
     COMPLETES_KNOWLEDGE = "COMPLETES_KNOWLEDGE"
     INFERRED_KNOWLEDGE = "INFERRED_KNOWLEDGE"
     GUIDED_BY_KNOWLEDGE = "GUIDED_BY_KNOWLEDGE"  # Goals guided by knowledge
@@ -124,7 +125,9 @@ class RelationshipName(StrEnum):
     SUPPORTS_GOAL = "SUPPORTS_GOAL"
     CONFLICTS_WITH_GOAL = "CONFLICTS_WITH_GOAL"
     INSPIRES_GOAL = "INSPIRES_GOAL"
-    CELEBRATED_BY_EVENT = "CELEBRATED_BY_EVENT"
+    CELEBRATES_GOAL = (
+        "CELEBRATES_GOAL"  # (event)-[:CELEBRATES_GOAL]->(goal) — milestone celebration
+    )
     ALIGNED_WITH_PATH = "ALIGNED_WITH_PATH"
     MOTIVATED_BY_GOAL = "MOTIVATED_BY_GOAL"
 
@@ -228,6 +231,25 @@ class RelationshipName(StrEnum):
     HAS_KU = "HAS_KU"  # Unified ownership for Entity-migrated activity domains
 
     # =========================================================================
+    # ACTIVITY TEMPLATE RELATIONSHIPS
+    # PathStep ownership of Activity Templates + per-instance back-pointers +
+    # student engagement edge. See: project_pathstep_lifecycle_contract.md.
+    # =========================================================================
+    # (PathStep)-[:HAS_*_TEMPLATE]->(*Template) — PS owns its 6 template kinds
+    HAS_TASK_TEMPLATE = "HAS_TASK_TEMPLATE"
+    HAS_GOAL_TEMPLATE = "HAS_GOAL_TEMPLATE"
+    HAS_HABIT_TEMPLATE = "HAS_HABIT_TEMPLATE"
+    HAS_EVENT_TEMPLATE = "HAS_EVENT_TEMPLATE"
+    HAS_CHOICE_TEMPLATE = "HAS_CHOICE_TEMPLATE"
+    HAS_PRINCIPLE_TEMPLATE = "HAS_PRINCIPLE_TEMPLATE"
+    # (Activity instance)-[:SPAWNED_FROM {spawned_at}]->(*Template) — graph-native
+    # back-reference written atomically with the instance node at spawn time.
+    # This is THE relationship; there is no parallel `template_uid` property.
+    SPAWNED_FROM = "SPAWNED_FROM"
+    # (User)-[:ENGAGED_WITH {since, state, completed_at?, abandoned_at?}]->(PathStep)
+    ENGAGED_WITH = "ENGAGED_WITH"
+
+    # =========================================================================
     # USER LEARNING PROGRESS RELATIONSHIPS
     # Track user interaction with knowledge units (pedagogical tracking)
     # State progression: NONE -> VIEWED -> IN_PROGRESS -> MASTERED
@@ -241,6 +263,9 @@ class RelationshipName(StrEnum):
     # User-specific relationships for social features and preferences
     # =========================================================================
     PINNED = "PINNED"  # (user)-[:PINNED {order: int}]->(entity) - User's pinned items
+    PINNED_TODAY = (
+        "PINNED_TODAY"  # (user)-[:PINNED_TODAY {pinned_at: datetime}]->(entity) - Today-surface pin
+    )
     FOLLOWS = "FOLLOWS"  # (user)-[:FOLLOWS]->(user) - Social following
     PURSUING_GOAL = "PURSUING_GOAL"  # (user)-[:PURSUING_GOAL]->(goal) - Active goals
     MEMBER_OF = "MEMBER_OF"  # (user)-[:MEMBER_OF]->(team) - Team membership
@@ -295,20 +320,20 @@ class RelationshipName(StrEnum):
     )
 
     # =========================================================================
-    # EXERCISE/GROUP RELATIONSHIPS (ADR-040)
-    # Teacher exercise workflow and group management
+    # EXERCISE/GROUP RELATIONSHIPS (ADR-053, supersedes ADR-040)
+    # Teacher exercise workflow and group management. FOR_GROUP retired;
+    # all curriculum->group sharing now uses SHARED_WITH_GROUP.
     # =========================================================================
-    FOR_GROUP = "FOR_GROUP"  # (Exercise)-[:FOR_GROUP]->(Group)
-    # (ExerciseSubmission)-[:FULFILLS_EXERCISE]->(Exercise) - Always the ROOT Exercise
+    # (UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise) - Always the ROOT Exercise; revision on edge (ADR-054)
     FULFILLS_EXERCISE = "FULFILLS_EXERCISE"
-    # (ExerciseSubmission)-[:FULFILLS_REVISED_EXERCISE]->(RevisedExercise) - Revision cycle only
+    # (UserEntry)-[:FULFILLS_REVISED_EXERCISE]->(RevisedExercise) - Revision cycle only
     # Created alongside FULFILLS_EXERCISE when submitting against a RevisedExercise.
     # FULFILLS_EXERCISE always anchors to the root Exercise; FULFILLS_REVISED_EXERCISE
     # captures which specific revision instructions the student addressed.
     FULFILLS_REVISED_EXERCISE = "FULFILLS_REVISED_EXERCISE"
     # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing
     SHARED_WITH_GROUP = "SHARED_WITH_GROUP"
-    # Revision cycle (5-phase learning loop)
+    # Revision cycle (four-phase learning loop)
     # (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
     RESPONDS_TO_REPORT = "RESPONDS_TO_REPORT"
     # (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
@@ -342,10 +367,10 @@ class RelationshipName(StrEnum):
     REPORT_FOR = "REPORT_FOR"  # (Entity)-[:REPORT_FOR]->(Entity) - Report targets submission
 
     # =========================================================================
-    # JOURNAL RELATIONSHIPS
-    # Journal entry pipeline: JE_INPUT → LLM → JE_OUTPUT
+    # JOURNAL PIPELINE RELATIONSHIPS (ADR-054)
+    # Journal is a pipeline on UserEntry: source UserEntry → Deepgram/LLM → structured UserEntry
     # =========================================================================
-    TRANSFORMS = "TRANSFORMS"  # (JeOutput)-[:TRANSFORMS]->(JeInput) - Output derived from input
+    TRANSFORMS = "TRANSFORMS"  # (UserEntry structured)-[:TRANSFORMS]->(UserEntry source) - Output derived from input
 
     # =========================================================================
     # EVIDENCE RELATIONSHIPS
@@ -403,7 +428,7 @@ class RelationshipName(StrEnum):
     # INTERACTION RELATIONSHIPS (User Interaction Contract)
     # Interaction → artifact/context: audit trail for situated learning events.
     # =========================================================================
-    RECORDS = "RECORDS"  # (Interaction)-[:RECORDS]->(ExerciseSubmission|...) — source artifact
+    RECORDS = "RECORDS"  # (Interaction)-[:RECORDS]->(UserEntry|...) — source artifact
     INTERACTION_DURING = "INTERACTION_DURING"  # (Interaction)-[:INTERACTION_DURING]->(PathStep)
     INTERACTION_WITHIN = "INTERACTION_WITHIN"  # (Interaction)-[:INTERACTION_WITHIN]->(LearningPath)
 

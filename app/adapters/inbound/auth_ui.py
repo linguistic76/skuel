@@ -25,8 +25,9 @@ Date: 2026-01-21
 
 from typing import TYPE_CHECKING, Any
 
+from fasthtml.common import to_xml
 from pydantic import ValidationError
-from starlette.responses import RedirectResponse
+from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import (
     clear_current_user,
@@ -35,6 +36,7 @@ from adapters.inbound.auth import (
     is_authenticated,
     set_current_user,
 )
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_string
 from core.models.auth import (
@@ -112,11 +114,12 @@ def create_auth_ui_routes(
         """Show registration page"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/home", status_code=303)
+            return RedirectResponse("/" if get_is_admin(request) else "/today", status_code=303)
 
         return AuthPage(AuthComponents.render_registration_page(), title="Create Account")
 
     @rt("/register/submit")
+    @csrf_protected
     async def register_submit(request: Request) -> Any:
         """Process registration with graph-native auth"""
         logger.info("POST /register/submit - Registration form submitted")
@@ -212,7 +215,7 @@ def create_auth_ui_routes(
                 f"User registered and logged in: {reg.username} "
                 f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
             )
-            return RedirectResponse("/" if is_admin else "/home", status_code=303)
+            return RedirectResponse("/" if is_admin else "/today", status_code=303)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Registration error: {e}")
@@ -230,11 +233,18 @@ def create_auth_ui_routes(
         """Show login page"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/home", status_code=303)
+            return RedirectResponse("/" if get_is_admin(request) else "/today", status_code=303)
 
-        return AuthPage(AuthComponents.render_login_page(), title="Sign In")
+        # no-store: the hidden csrf_token must always reflect the current
+        # cookie. A cached copy of this page with a stale token would cause
+        # the mismatch we just debugged.
+        return HTMLResponse(
+            to_xml(AuthPage(AuthComponents.render_login_page(), title="Sign In")),
+            headers={"Cache-Control": "no-store"},
+        )
 
     @rt("/login/submit")
+    @csrf_protected
     async def login_submit(request: Request) -> Any:
         """Process login with graph-native auth"""
         try:
@@ -317,7 +327,7 @@ def create_auth_ui_routes(
                 f"User logged in: {email} ({session_data['user_uid']}) "
                 f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
             )
-            return RedirectResponse("/" if is_admin else "/home", status_code=303)
+            return RedirectResponse("/" if is_admin else "/today", status_code=303)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Login error: {e}", exc_info=True)
@@ -333,6 +343,7 @@ def create_auth_ui_routes(
         return AuthComponents.render_forgot_password_form()
 
     @rt("/forgot-password")
+    @csrf_protected
     async def forgot_password_submit(request: Request) -> Any:
         """Process forgot password request — send reset email"""
         form_data = await request.form()
@@ -361,11 +372,12 @@ def create_auth_ui_routes(
         """Show reset password form where users enter token and new password"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/home", status_code=303)
+            return RedirectResponse("/" if get_is_admin(request) else "/today", status_code=303)
 
         return AuthComponents.render_reset_password_page(token=token)
 
     @rt("/reset-password/submit")
+    @csrf_protected
     async def reset_password_submit(request: Request) -> Any:
         """Process password reset with token"""
         try:

@@ -425,23 +425,23 @@ class ActivityExtractorService:
     def __init__(
         self,
         # Activity Domains (7)
-        tasks_service=None,  # TasksCoreService
-        habits_service=None,  # HabitsCoreService
-        goals_service=None,  # GoalsCoreService
-        events_service=None,  # EventsCoreService
-        principles_service=None,  # PrinciplesCoreService
-        choices_service=None,  # ChoicesCoreService
-        finance_service=None,  # FinanceCoreService
+        tasks_service: Any = None,  # TasksCoreService
+        habits_service: Any = None,  # HabitsCoreService
+        goals_service: Any = None,  # GoalsCoreService
+        events_service: Any = None,  # EventsCoreService
+        principles_service: Any = None,  # PrinciplesCoreService
+        choices_service: Any = None,  # ChoicesCoreService
+        finance_service: Any = None,  # FinanceCoreService
         # Curriculum Domains (3)
-        ku_service=None,  # PsCoreService
-        ps_service=None,  # PsCoreService
-        lp_service=None,  # LpCoreService
+        ku_service: Any = None,  # PsCoreService
+        ps_service: Any = None,  # PsCoreService
+        lp_service: Any = None,  # LpCoreService
         # Meta Domains (3)
-        report_service=None,  # SubmissionsCoreService (for metadata updates)
-        analytics_service=None,  # AnalyticsService
-        calendar_service=None,  # CalendarService
+        report_service: Any = None,  # SubmissionsCoreService (for metadata updates)
+        analytics_service: Any = None,  # AnalyticsService
+        calendar_service: Any = None,  # CalendarService
         # The Destination (+1)
-        lifepath_service=None,  # LifePathService
+        lifepath_service: Any = None,  # LifePathService
     ) -> None:
         """
         Initialize the extractor with domain services for all 13 SKUEL domains.
@@ -983,21 +983,20 @@ class ActivityExtractorService:
         if convert_result.is_error:
             return Result.fail(convert_result)
 
-        principle_dict = convert_result.value
+        # activity_to_principle_dict emits some DSL-specific keys (linked_*_uids) that
+        # PrincipleCreateRequest doesn't accept — drop those. ConversionResult is a
+        # union, but the principle converter always returns a dict.
+        from core.models.principle.principle_request import PrincipleCreateRequest
 
-        # Create principle via service
-        # Note: Adapt this to your PrinciplesCoreService interface
-        if getattr(self.principles_service, "create_principle", None):
-            create_result = await self.principles_service.create_principle(principle_dict, user_uid)
-        elif getattr(self.principles_service, "create", None):
-            create_result = await self.principles_service.create(principle_dict, user_uid)
-        else:
-            return Result.fail(
-                Errors.system(
-                    message="Principles service has no create method",
-                    operation="create_principle",
-                )
-            )
+        raw = convert_result.value
+        principle_dict: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
+
+        request_kwargs = dict(principle_dict)
+        for unsupported in ("linked_knowledge_uids", "linked_goal_uids", "linked_principle_uids"):
+            request_kwargs.pop(unsupported, None)
+
+        request = PrincipleCreateRequest(**request_kwargs)
+        create_result = await self.principles_service.create_principle(request, user_uid)
 
         if create_result.is_error:
             return Result.fail(create_result)

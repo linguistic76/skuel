@@ -12,6 +12,7 @@ import pytest
 
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums.principle_enums import PrincipleCategory
+from core.models.principle.principle_request import PrincipleCreateRequest
 
 
 @pytest.mark.asyncio
@@ -99,12 +100,15 @@ class TestPrinciplesIntelligenceOptimization:
     async def test_quick_principle_impact_basic(self, services):
         """Test get_quick_principle_impact() with basic principle."""
         # Create principle
-        principle_result = await services.principles.core.create_principle(
-            label="Test Principle",
+        request = PrincipleCreateRequest(
+            title="Test Principle",
+            statement="Test principle for quick impact",
             description="Test principle for quick impact",
-            category=PrincipleCategory.PERSONAL,
-            why_matters="For testing",
-            user_uid="test_user",
+            principle_category=PrincipleCategory.PERSONAL,
+            why_important="For testing",
+        )
+        principle_result = await services.principles.core.create_principle(
+            request, user_uid="test_user"
         )
         assert principle_result.is_ok
         principle_uid = principle_result.value.uid
@@ -145,12 +149,15 @@ class TestPrinciplesIntelligenceOptimization:
         # Create 3 simple principles
         principle_uids = []
         for i in range(3):
-            principle_result = await services.principles.core.create_principle(
-                label=f"Test Principle {i}",
+            request = PrincipleCreateRequest(
+                title=f"Test Principle {i}",
+                statement=f"Test principle {i}",
                 description=f"Test principle {i}",
-                category=PrincipleCategory.PERSONAL,
-                why_matters="For testing",
-                user_uid="test_user",
+                principle_category=PrincipleCategory.PERSONAL,
+                why_important="For testing",
+            )
+            principle_result = await services.principles.core.create_principle(
+                request, user_uid="test_user"
             )
             assert principle_result.is_ok
             principle_uids.append(principle_result.value.uid)

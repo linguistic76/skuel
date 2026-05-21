@@ -9,9 +9,8 @@ ARCHITECTURE:
   hosted on HuggingFace. Top-tier retrieval quality on MTEB benchmarks.
 - Client: huggingface_hub.AsyncInferenceClient (NOT sentence-transformers package —
   that's for local inference. We use the async API for serverless, no-GPU deployment.)
-- API key: HF_API_TOKEN environment variable
+- API key: HF_API_TOKEN environment variable (REQUIRED — constructor raises if missing)
 - Stores embeddings in Neo4j via EmbeddingsBackend
-- Graceful degradation when HF_API_TOKEN not set
 
 MIGRATION (March 2026):
 - Replaces Neo4jGenAIEmbeddingsService (OpenAI text-embedding-3-small via GenAI plugin)
@@ -24,7 +23,6 @@ See: /docs/decisions/ADR-049-huggingface-embeddings-migration.md
 
 import asyncio
 import math
-import os
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -78,15 +76,21 @@ class HuggingFaceEmbeddingsService:
         self.prometheus_metrics = prometheus_metrics
 
         # Initialize async HuggingFace client (non-blocking I/O)
-        hf_token = os.getenv("HF_API_TOKEN", "")
-        if not hf_token:
-            self.logger.warning("HF_API_TOKEN not set - embeddings will fail")
-            self._client = None
-        else:
-            from huggingface_hub import AsyncInferenceClient
+        from core.config.credential_store import get_credential
 
-            self._client = AsyncInferenceClient(model=self.model, token=hf_token)
-            self.logger.info(f"HuggingFace embeddings client initialized (model={self.model})")
+        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
+        if not hf_token:
+            # Fail-fast at the wiring layer. The bootstrap try/except in
+            # _learning_services.py wraps this with the user-facing tier guidance.
+            raise ValueError(
+                "HF_API_TOKEN is required to construct HuggingFaceEmbeddingsService. "
+                "Set it in the keychain (scripts/migrate_secrets_to_keychain.py) or env, "
+                "or run with INTELLIGENCE_TIER=core to skip embedding services."
+            )
+        from huggingface_hub import AsyncInferenceClient
+
+        self._client = AsyncInferenceClient(model=self.model, token=hf_token)
+        self.logger.info(f"HuggingFace embeddings client initialized (model={self.model})")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def _call_hf_api(self, text: str) -> list[float]:
@@ -98,7 +102,6 @@ class HuggingFaceEmbeddingsService:
 
         Raises on failure so tenacity can retry.
         """
-        assert self._client is not None  # caller checks
         raw = await self._client.feature_extraction(text)
 
         # Extract the embedding vector from the response
@@ -126,15 +129,6 @@ class HuggingFaceEmbeddingsService:
         Returns:
             Result containing embedding vector or error
         """
-        if self._client is None:
-            return Result.fail(
-                Errors.unavailable(
-                    feature="embeddings",
-                    reason="HF_API_TOKEN not configured",
-                    operation="create_embedding",
-                )
-            )
-
         if not text or not text.strip():
             return Result.fail(Errors.validation("Text cannot be empty", field="text"))
 
@@ -200,15 +194,6 @@ class HuggingFaceEmbeddingsService:
         Returns:
             Result containing list of embedding vectors or error
         """
-        if self._client is None:
-            return Result.fail(
-                Errors.unavailable(
-                    feature="embeddings",
-                    reason="HF_API_TOKEN not configured",
-                    operation="create_batch_embeddings",
-                )
-            )
-
         if not texts:
             return Result.ok([])
 

@@ -23,8 +23,9 @@ class TasksIntelligenceService(
 
 **Related sub-services (extracted March 2026):**
 - `TasksProductivityService` (`tasks_productivity_service.py`) — dual-track productivity assessment (ADR-030)
-- `TasksLearningMetricsService` (`tasks_learning_metrics_service.py`) — task-level learning metrics via Task model
 - `ActivityKnowledgeIntelligenceService` (`/core/services/knowledge/`) — domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted from Tasks and wired into all 6 activity domain facades as `self.knowledge_intelligence`
+
+**April 2026 — symmetry refactor:** `TasksLearningMetricsService` was retired. Its two methods (`analyze_task_learning_metrics`, `generate_task_knowledge_insights`) were folded back into `TasksIntelligenceService` via `_productivity_mixin`, where they belong as task-level analytics alongside `analyze_learning_patterns` and `track_knowledge_mastery_progression`. The old name created false parity with peer domains' `*LearningService` (which handle learning-path integration, a different concern) — retiring it restores the sub-service taxonomy to a single shared meaning across all 6 Activity Domains.
 
 **Related:** `TaskEventHandlerService` (`/core/services/tasks/task_event_handler_service.py`) — fire-and-forget reactive handlers extracted from intelligence; persists `COMPLETION_PATTERN`, `IMBALANCE_DETECTED`, and `PRINCIPLE_ALIGNMENT` insights to InsightStore (March 2026).
 

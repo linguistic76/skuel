@@ -105,15 +105,6 @@ class HabitsIntelligenceService(
         )
 
     # ========================================================================
-    # DOMAIN-SPECIFIC CONTRACT
-    # ========================================================================
-
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for Habit entities."""
-        return "Habit"
-
-    # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
@@ -189,10 +180,10 @@ class HabitsIntelligenceService(
         habits_with_timing = [
             h for h in habits if getattr(h, "learned_preferred_hour", None) is not None
         ]
-        on_time_rates = [
-            getattr(h, "learned_on_time_rate", None)
+        on_time_rates: list[float] = [
+            float(rate)
             for h in habits
-            if getattr(h, "learned_on_time_rate", None) is not None
+            if (rate := getattr(h, "learned_on_time_rate", None)) is not None
         ]
         avg_on_time = sum(on_time_rates) / len(on_time_rates) if on_time_rates else None
 

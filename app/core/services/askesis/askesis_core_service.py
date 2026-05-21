@@ -10,6 +10,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.askesis.askesis_converters import (
+    apply_askesis_update_to_dto,
+    askesis_create_request_to_dto,
+    askesis_update_request_to_dto,
+    create_askesis_dto_from_create_dto,
+)
 from core.models.askesis.askesis_dto import AskesisDTO
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -153,23 +159,17 @@ class AskesisCoreService:
                 )
             )
 
-        # Create new instance
-        askesis_uid = UIDGenerator.generate_random_uid("askesis")
-        dto = AskesisDTO(
-            uid=askesis_uid,
-            user_uid=user_uid,
-            name=create_request.name,
-            version=create_request.version,
-            preferred_guidance_mode=create_request.preferred_guidance_mode,
-            preferred_complexity_level=create_request.preferred_complexity_level,
-            created_at=datetime.now(),
-        )
+        # Run the three-tier conversion chain: Request -> CreateDTO -> AskesisDTO.
+        # ``create_askesis_dto_from_create_dto`` generates the UID via
+        # UIDGenerator so the format matches the rest of SKUEL.
+        create_dto = askesis_create_request_to_dto(create_request, user_uid)
+        dto = create_askesis_dto_from_create_dto(create_dto)
 
         result = await self.backend.create(dto)
         if result.is_error:
             return Result.fail(result)
 
-        self.logger.info(f"Created Askesis instance {askesis_uid} for user {user_uid}")
+        self.logger.info(f"Created Askesis instance {dto.uid} for user {user_uid}")
         return Result.ok(result.value)
 
     async def get_askesis(self, askesis_uid: str) -> Result[Askesis]:
@@ -231,19 +231,14 @@ class AskesisCoreService:
 
         existing = existing_result.value
 
-        # Convert to DTO for update
+        # Three-tier patch chain: Request -> UpdateDTO -> apply -> AskesisDTO.
+        # ``apply_askesis_update_to_dto`` only overwrites fields the
+        # UpdateDTO specifies (skipping ``None`` values), then we stamp
+        # ``last_interaction`` at the service boundary so the converter
+        # stays purely about request->DTO translation.
         dto = existing.to_dto()
-
-        # Apply updates
-        if update_request.name is not None:
-            dto.name = update_request.name
-        if update_request.version is not None:
-            dto.version = update_request.version
-        if update_request.preferred_guidance_mode is not None:
-            dto.preferred_guidance_mode = update_request.preferred_guidance_mode
-        if update_request.preferred_complexity_level is not None:
-            dto.preferred_complexity_level = update_request.preferred_complexity_level
-
+        update_dto = askesis_update_request_to_dto(update_request, askesis_uid)
+        dto = apply_askesis_update_to_dto(dto, update_dto)
         dto.last_interaction = datetime.now()
 
         # Update in backend (convert DTO to dict, filtering empty collections for Neo4j)

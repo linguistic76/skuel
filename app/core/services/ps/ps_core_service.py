@@ -35,7 +35,7 @@ from core.events.curriculum_events import (
 )
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports import get_enum_value
 from core.ports.query_types import PsKnowledgeItemResult, PsKnowledgeSummaryResult
 from core.services.base_service import BaseService
@@ -43,6 +43,7 @@ from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.metrics import track_query_metrics
+from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -85,11 +86,6 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         content_field="description",  # PS stores content in description field
     )
 
-    @property
-    def entity_label(self) -> str:
-        """Entity label for Neo4j queries."""
-        return "Entity"
-
     def __init__(self, backend: PsOperations, event_bus: Any = None) -> None:
         """
         Initialize core step service.
@@ -103,6 +99,29 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         """
         super().__init__(backend, "ps_core")
         self.event_bus = event_bus
+
+    @staticmethod
+    def _path_step_from_props(
+        step_data: Neo4jProperties, knowledge_uids: Sequence[str]
+    ) -> PathStep:
+        """Reconstruct a PathStep from Neo4j node properties + its knowledge UIDs.
+
+        Enum conversion (domain, status, step_difficulty) and type coercion are
+        handled by the generic node mapper. Defaults are injected for required
+        fields that older nodes may be missing (pre-schema writes).
+
+        GRAPH-NATIVE: knowledge_uids come from a CONTAINS_KNOWLEDGE traversal,
+        not node properties, so they are injected into the data dict.
+        """
+        data: dict[str, Any] = dict(step_data)
+        data.setdefault("title", "Path Step")
+        data.setdefault("intent", "Complete this path step")
+        data.setdefault("mastery_threshold", 0.7)
+        data.setdefault("current_mastery", 0.0)
+        data.setdefault("estimated_hours", 1.0)
+        data.setdefault("domain", "PERSONAL")
+        data["knowledge_uids"] = list(knowledge_uids)
+        return from_neo4j_node(data, PathStep)
 
     @with_error_handling(operation="create_step", error_type="database", uid_param="step.uid")
     async def create_step(self, step: PathStep, path_uid: str | None = None) -> Result[PathStep]:
@@ -195,21 +214,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         step_data = record["s"]
         knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
-        step = PathStep(
-            uid=step_data["uid"],
-            title=step_data.get("title", "Path Step"),
-            intent=step_data.get("intent", "Complete this path step"),
-            description=step_data.get("description"),
-            knowledge_uids=tuple(knowledge_uids),
-            learning_path_uid=step_data.get("learning_path_uid"),
-            sequence=step_data.get("sequence"),
-            mastery_threshold=step_data.get("mastery_threshold", 0.7),
-            current_mastery=step_data.get("current_mastery", 0.0),
-            estimated_hours=step_data.get("estimated_hours", 1.0),
-            step_difficulty=step_data.get("step_difficulty"),
-            status=step_data.get("status"),
-            domain=step_data.get("domain", "PERSONAL"),
-        )
+        step = self._path_step_from_props(step_data, knowledge_uids)
 
         return Result.ok(step)
 
@@ -266,21 +271,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         knowledge_uids = [rel["uid"] for rel in record["knowledge_rels"] if rel.get("uid")]
 
         # Build PathStep with knowledge UIDs
-        step = PathStep(
-            uid=step_data["uid"],
-            title=step_data.get("title", "Path Step"),
-            intent=step_data.get("intent", "Complete this path step"),
-            description=step_data.get("description"),
-            knowledge_uids=tuple(knowledge_uids),
-            learning_path_uid=step_data.get("learning_path_uid"),
-            sequence=step_data.get("sequence"),
-            mastery_threshold=step_data.get("mastery_threshold", 0.7),
-            current_mastery=step_data.get("current_mastery", 0.0),
-            estimated_hours=step_data.get("estimated_hours", 1.0),
-            step_difficulty=step_data.get("step_difficulty"),
-            status=step_data.get("status"),
-            domain=step_data.get("domain", "PERSONAL"),
-        )
+        step = self._path_step_from_props(step_data, knowledge_uids)
 
         # Enrich with graph context in metadata
         object.__setattr__(
@@ -406,21 +397,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         step_data = record["s"]
         knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
-        updated_step = PathStep(
-            uid=step_data["uid"],
-            title=step_data.get("title", "Path Step"),
-            intent=step_data.get("intent", "Complete this path step"),
-            description=step_data.get("description"),
-            knowledge_uids=tuple(knowledge_uids),
-            learning_path_uid=step_data.get("learning_path_uid"),
-            sequence=step_data.get("sequence"),
-            mastery_threshold=step_data.get("mastery_threshold", 0.7),
-            current_mastery=step_data.get("current_mastery", 0.0),
-            estimated_hours=step_data.get("estimated_hours", 1.0),
-            step_difficulty=step_data.get("step_difficulty"),
-            status=step_data.get("status"),
-            domain=step_data.get("domain", "PERSONAL"),
-        )
+        updated_step = self._path_step_from_props(step_data, knowledge_uids)
 
         logger.info(f"Updated path step {step_uid}")
 
@@ -533,23 +510,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
             step_data = record["s"]
             knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
-            steps.append(
-                PathStep(
-                    uid=step_data["uid"],
-                    title=step_data.get("title", "Path Step"),
-                    intent=step_data.get("intent", "Complete this path step"),
-                    description=step_data.get("description"),
-                    knowledge_uids=tuple(knowledge_uids),
-                    learning_path_uid=step_data.get("learning_path_uid"),
-                    sequence=step_data.get("sequence"),
-                    mastery_threshold=step_data.get("mastery_threshold", 0.7),
-                    current_mastery=step_data.get("current_mastery", 0.0),
-                    estimated_hours=step_data.get("estimated_hours", 1.0),
-                    step_difficulty=step_data.get("step_difficulty"),
-                    status=step_data.get("status"),
-                    domain=step_data.get("domain", "PERSONAL"),
-                )
-            )
+            steps.append(self._path_step_from_props(step_data, knowledge_uids))
 
         logger.info(f"✅ Listed {len(steps)} path steps")
         return Result.ok(steps)

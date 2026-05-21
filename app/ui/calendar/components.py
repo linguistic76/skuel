@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span
-from monsterui.franken import UkIcon  # type: ignore[import-untyped]
+from monsterui.franken import UkIcon
 
 from core.models.event.calendar_models import (
     CalendarData,
