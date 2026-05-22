@@ -71,6 +71,28 @@ class TestIngestionRelationshipConfig:
         assert aligned["target_label"] == "Goal"
         assert aligned["direction"] == "outgoing"
 
+    def test_lp_graph_context_relationships_are_ingestible(self):
+        """All five LP graph-context members are authorable from LP YAML.
+
+        unified_user_context documents the LP graph_context as
+        {steps, prerequisite_knowledge, aligned_goals, embodied_principles,
+        milestone_events}. Each is read in lp_core_service / _lp_step_mixin /
+        user_context_queries, so each needs a production write path — a
+        yaml_field_path — or the read returns nothing outside tests.
+        """
+        config = ENTITY_CONFIGS[EntityType.LEARNING_PATH].relationship_config
+        assert config is not None
+        expected = {
+            "connections.contains_steps": RelationshipName.HAS_STEP,
+            "connections.required_knowledge": RelationshipName.REQUIRES_KNOWLEDGE,
+            "connections.aligned_goals": RelationshipName.ALIGNED_WITH_GOAL,
+            "connections.embodied_principles": RelationshipName.EMBODIES_PRINCIPLE,
+            "connections.milestone_events": RelationshipName.HAS_MILESTONE_EVENT,
+        }
+        for field_path, rel in expected.items():
+            assert field_path in config, f"LP graph-context seam {field_path} is not ingestible"
+            assert config[field_path]["rel_type"] == rel.value
+
     def test_all_rel_types_are_valid_relationship_names(self):
         """Every rel_type in ingestion config must be a valid RelationshipName."""
         for entity_type, config in ENTITY_CONFIGS.items():
