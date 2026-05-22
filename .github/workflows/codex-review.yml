@@ -1,0 +1,46 @@
+name: Codex Auto-Review
+
+# Codex's cloud "auto-review on open" is unreliable: across PRs #1-#10 it fired
+# on only 3, and 6 PRs merged with no Codex review at all. The *comment* trigger
+# `@codex review` worked every time it was used. This workflow posts that comment
+# automatically so every non-draft PR gets a deterministic Codex review.
+#
+# Codex posts PR reviews/comments, never a status check, so this is intentionally
+# a fire-and-forget trigger — there is nothing here to mark required in branch
+# protection (that remains "CI Gate"). See ../workflows/README.md.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+# One review per burst: a newer push cancels the older run while it is still in
+# its debounce sleep, so a flurry of commits collapses to a single trigger.
+concurrency:
+  group: codex-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write   # post the `@codex review` issue comment
+
+jobs:
+  request-codex-review:
+    name: Request Codex review
+    # Stay quiet on drafts; the `ready_for_review` event covers draft -> ready.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debounce burst pushes
+        # A newer push to the same PR cancels this run before it posts (see the
+        # concurrency block above), so rapid commits yield one review, not many.
+        run: sleep 30
+
+      - name: Comment @codex review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '@codex review',
+            });

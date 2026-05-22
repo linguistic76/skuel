@@ -12,17 +12,20 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
 | **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | On PR open + re-reviews each pushed commit; `@kody start-review` |
-| **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + chatgpt.com/codex/settings/code-review | ⚠️ **PR reviews only — NOT a status check** | Auto-review (cloud setting) + `@codex review` |
+| **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | Every non-draft PR: open / reopen / ready-for-review / push (debounced) |
+| **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + `codex-review.yml` | ⚠️ **PR reviews only — NOT a status check** | The auto-posted `@codex review` comment (cloud auto-review is **OFF**) |
 
 ### ⚠️ Codex does not appear in `gh pr checks`
 
 This is by design — the Codex connector posts **PR reviews/comments**, never a
-status check. To see its verdict, open the PR's **Files changed / Conversation**
-tabs, or run:
+status check. Its verdict may land as a *review* (cloud auto-review used to) **or
+as an issue comment** (the `@codex review` comment trigger does), so a verdict
+check must scan **both**. Open the PR's **Files changed / Conversation** tabs, or
+run:
 
 ```bash
-gh pr view <PR#> --json reviews \
-  -q '.reviews[] | select(.author.login|test("codex|kody")) | "\(.author.login)\t\(.state)\t\(.submittedAt)"'
+gh pr view <PR#> --json reviews,comments \
+  -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")\t\(.submittedAt // .createdAt)"'
 ```
 
 To confirm which GitHub App owns each *check*:
@@ -61,6 +64,23 @@ uv run python scripts/skills_validator.py
 ./dev quality                                  # full suite (ruff + SKUEL linter + cypher + mypy)
 ```
 
+## `codex-review.yml`
+
+Codex's cloud auto-review proved unreliable — across PRs #1–#10 it fired on only
+**3**, and **6 merged with no Codex review at all**. The `@codex review` *comment*
+worked every time. This workflow posts that comment automatically, so every
+non-draft PR gets a deterministic review. (Verified on PR #11: a comment posted
+by `github-actions[bot]` does trigger Codex.)
+
+- Triggers on `opened` / `reopened` / `ready_for_review` / `synchronize`.
+- A `sleep 30` + per-PR `concurrency: cancel-in-progress` debounces bursts — a
+  flurry of pushes collapses to one trigger.
+- Skips drafts (`if: github.event.pull_request.draft == false`).
+- Uses the built-in `GITHUB_TOKEN` with `pull-requests: write` (sufficient for
+  the `issues.createComment` call — proven on PR #11; no PAT needed).
+- Codex prepends a cosmetic "create a Codex account / connect to github" line
+  because the trigger comes from a bot account; the actual review still follows.
+
 ## Branch protection (`main`)
 
 Classic protection: **require a PR + a green "CI Gate"; no human approval
@@ -78,7 +98,9 @@ gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
 
 ## One-time dashboard steps (cannot live in the repo)
 
-- **Codex:** turn on **Automatic reviews** at
-  `chatgpt.com/codex/settings/code-review` for deterministic per-PR review.
+- **Codex:** keep **Automatic reviews OFF** at
+  `chatgpt.com/codex/settings/code-review` (turned off 2026-05-22).
+  `codex-review.yml` auto-posts `@codex review` as the deterministic path;
+  leaving cloud auto-review on would double-review the PRs where it fires.
 - **Kodus:** ensure a **BYOK** LLM key is configured at `app.kodus.io`
   (Kody can't review without it). `kodus-config.yml` overrides the rest.
