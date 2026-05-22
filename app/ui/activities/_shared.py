@@ -44,9 +44,29 @@ CONNECTION_ICONS: dict[str, tuple[str, str]] = {
     "choice": ("git-branch", "/choices/detail?uid="),
     "principle": ("compass", "/principles/detail?uid="),
     "ku": ("atom", "/explore/ku/"),
-    "path_step": ("list", "#"),
+    "path_step": ("list", "/explore/ps/"),
     "learning_path": ("map", "#"),
 }
+
+
+def CurriculumOriginField(ps_uid: str, ps_title: str) -> "FT":
+    """Breadcrumb-style banner linking a spawned activity to its source PathStep.
+
+    Rendered above the detail body when an activity carries ``source_path_step_uid``
+    (i.e. it was spawned by engaging a PathStep). User-created activities omit it.
+    """
+    icon = CONNECTION_ICONS["path_step"][0]
+    return Div(
+        UkIcon(icon, height=14, width=14, cls="inline mr-1"),
+        Span("From learning step: ", cls="text-muted-foreground"),
+        A(
+            ps_title or ps_uid,
+            href=f"/explore/ps/{ps_uid}",
+            cls="font-medium",
+            style="text-decoration: none;",
+        ),
+        cls="mb-4 flex items-center text-sm",
+    )
 
 
 def ConnectionBadges(connections: list[dict[str, str]]) -> "FT":

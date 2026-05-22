@@ -24,7 +24,8 @@ from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from core.utils.connection_fetcher import fetch_entity_connections
+from core.utils.connection_fetcher import fetch_entity_connections, fetch_source_pathstep
+from ui.activities._shared import CurriculumOriginField
 from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
 from ui.buttons import ButtonLink, ButtonT
@@ -253,6 +254,15 @@ def create_activity_ui_routes(
         )
         connections = connections_map.get(entity.uid, [])
 
-        return config.detail_component(entity, connections)
+        body = config.detail_component(entity, connections)
+
+        # Surface curriculum origin: activities spawned by engaging a PathStep
+        # carry source_path_step_uid. User-created activities leave it None.
+        if entity.source_path_step_uid:
+            source_ps = await fetch_source_pathstep(config.backend, entity.source_path_step_uid)
+            if source_ps:
+                return Div(CurriculumOriginField(source_ps["uid"], source_ps["title"]), body)
+
+        return body
 
     return [page, content_fragment, list_fragment, detail_page, detail_content_fragment]
