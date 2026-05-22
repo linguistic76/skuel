@@ -1904,6 +1904,7 @@ LP_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "aligned_goals",
             "goals",
+            yaml_field_path="connections.aligned_goals",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.EMBODIES_PRINCIPLE,
