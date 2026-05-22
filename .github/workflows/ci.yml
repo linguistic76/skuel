@@ -34,10 +34,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # Full history so paths-filter can resolve the pre-push commit on
+          # push events (base below); shallow clones can miss it.
+          fetch-depth: 0
 
       - name: Detect changed paths
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590  # v3.0.3 (pinned: third-party action)
         with:
           # On push, diff only the pushed commits (ignored on pull_request,
           # where the PR base is used). Without this, pushes to a long-lived
@@ -237,7 +241,13 @@ jobs:
         continue-on-error: true
 
       - name: Comment on PR with results
-        if: github.event_name == 'pull_request'
+        # Only comment when there is something to report — a clean docs PR is
+        # covered by the green check, no comment needed (avoids per-push spam).
+        if: >-
+          github.event_name == 'pull_request' &&
+          (steps.freshness.outputs.freshness_failed == 'true' ||
+          steps.skills.outputs.skills_failed == 'true' ||
+          steps.broken_links.outputs.broken_links_warning == 'true')
         continue-on-error: true  # never red the job if commenting is unavailable (e.g. fork PRs)
         uses: actions/github-script@v7
         with:
