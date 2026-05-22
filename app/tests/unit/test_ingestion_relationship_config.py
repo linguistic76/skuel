@@ -58,6 +58,19 @@ class TestIngestionRelationshipConfig:
         assert config is not None
         assert config["connections.enables"]["rel_type"] == RelationshipName.ENABLES_KNOWLEDGE.value
 
+    def test_lp_aligns_with_goal_is_ingestible(self):
+        """LP ingestion creates ALIGNED_WITH_GOAL edges from `connections.aligned_goals`.
+
+        Without a yaml_field_path the LP->Goal seam was read in 4 places but never
+        written outside tests — the reads could not return data in production.
+        """
+        config = ENTITY_CONFIGS[EntityType.LEARNING_PATH].relationship_config
+        assert config is not None
+        aligned = config["connections.aligned_goals"]
+        assert aligned["rel_type"] == RelationshipName.ALIGNED_WITH_GOAL.value
+        assert aligned["target_label"] == "Goal"
+        assert aligned["direction"] == "outgoing"
+
     def test_all_rel_types_are_valid_relationship_names(self):
         """Every rel_type in ingestion config must be a valid RelationshipName."""
         for entity_type, config in ENTITY_CONFIGS.items():
