@@ -5,7 +5,7 @@ related_skills:
 # Search Service Method Reference
 *Last updated: 2026-01-06*
 
-Complete catalog of methods across all 10 domain search services. All services extend `BaseService[Backend, Model]` following the unified architecture (ADR-023).
+Complete catalog of methods across all 9 domain search services. All services extend `BaseService[Backend, Model]` following the unified architecture (ADR-023).
 
 ---
 
@@ -15,42 +15,40 @@ Complete catalog of methods across all 10 domain search services. All services e
 
 Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-specific
 
-| Method | Tasks | Goals | Habits | Events | Choices | Principles | KU | PS | LP | MOC |
-|--------|:-----:|:-----:|:------:|:------:|:-------:|:----------:|:--:|:--:|:--:|:---:|
+| Method | Tasks | Goals | Habits | Events | Choices | Principles | KU | PS | LP |
+|--------|:-----:|:-----:|:------:|:------:|:-------:|:----------:|:--:|:--:|:--:|
 | **Inherited (BaseService)** |
-| `search()` | I | I | I | I | I | I | I | I | I | I |
-| `get_by_status()` | I | I | I | I | I | O | I | I | I | I |
-| `get_by_domain()` | I | I | I | I | I | O | I | I | I | I |
-| `get_by_category()` | I | I | I | I | I | I | I | I | I | I |
-| `list_categories()` | I | I | I | I | I | O | I | I | I | I |
-| `get_by_relationship()` | I | I | I | I | I | I | I | I | I | I |
-| `graph_aware_faceted_search()` | I | I | I | I | I | I | I | I | I | I |
-| `search_by_tags()` | I | I | I | I | I | I | I | I | I | I |
-| `get_prerequisites()` | I | I | I | I | I | I | I | I | I | I |
-| `get_enables()` | I | I | I | I | I | I | I | I | I | I |
-| `get_user_progress()` | I | I | I | I | I | I | I | I | I | I |
+| `search()` | I | I | I | I | I | I | I | I | I |
+| `get_by_status()` | I | I | I | I | I | O | I | I | I |
+| `get_by_domain()` | I | I | I | I | I | O | I | I | I |
+| `get_by_category()` | I | I | I | I | I | I | I | I | I |
+| `list_categories()` | I | I | I | I | I | O | I | I | I |
+| `get_by_relationship()` | I | I | I | I | I | I | I | I | I |
+| `graph_aware_faceted_search()` | I | I | I | I | I | I | I | I | I |
+| `search_by_tags()` | I | I | I | I | I | I | I | I | I |
+| `get_prerequisites()` | I | I | I | I | I | I | I | I | I |
+| `get_enables()` | I | I | I | I | I | I | I | I | I |
+| `get_user_progress()` | I | I | I | I | I | I | I | I | I |
 | **Protocol (DomainSearchOperations)** |
-| `get_prioritized()` | D | D | D | D | D | D | D | D | D | D |
-| `get_upcoming()` | I | I | O | I | I | O | - | - | - | - |
-| `get_overdue()` | I | I | O | I | I | O | - | - | - | - |
-| `get_active()` | I | I | O | I | I | O | - | - | - | - |
-| `intelligent_search()` | - | D | D | D | - | - | - | D | D | D |
+| `get_prioritized()` | D | D | D | D | D | D | D | D | D |
+| `get_upcoming()` | I | I | O | I | I | O | - | - | - |
+| `get_overdue()` | I | I | O | I | I | O | - | - | - |
+| `get_active()` | I | I | O | I | I | O | - | - | - |
+| `intelligent_search()` | - | D | D | D | - | - | - | D | D |
 | **Domain-Specific** |
-| `get_blocking_tasks()` | D | - | - | - | - | - | - | - | - | - |
-| `get_blocked_tasks()` | D | - | - | - | - | - | - | - | - | - |
-| `get_by_priority()` | D | D | - | - | - | - | - | - | - | - |
-| `get_pending()` | D | - | - | - | D | - | - | - | - | - |
-| `get_by_progress()` | - | D | - | - | - | - | - | - | - | - |
-| `get_by_frequency()` | - | - | D | - | - | - | - | - | - | - |
-| `get_by_streak_status()` | - | - | D | - | - | - | - | - | - | - |
-| `get_by_date_range()` | - | - | - | D | - | - | - | - | - | - |
-| `get_by_urgency()` | - | - | - | - | D | - | - | - | - | - |
-| `get_by_strength()` | - | - | - | - | - | D | - | - | - | - |
-| `find_similar_content()` | - | - | - | - | - | - | D | - | - | - |
-| `get_for_learning_path()` | - | - | - | - | - | - | - | D | - | - |
-| `get_by_path_type()` | - | - | - | - | - | - | - | - | D | - |
-| `get_templates()` | - | - | - | - | - | - | - | - | - | D |
-| `get_by_visibility()` | - | - | - | - | - | - | - | - | - | D |
+| `get_blocking_tasks()` | D | - | - | - | - | - | - | - | - |
+| `get_blocked_tasks()` | D | - | - | - | - | - | - | - | - |
+| `get_by_priority()` | D | D | - | - | - | - | - | - | - |
+| `get_pending()` | D | - | - | - | D | - | - | - | - |
+| `get_by_progress()` | - | D | - | - | - | - | - | - | - |
+| `get_by_frequency()` | - | - | D | - | - | - | - | - | - |
+| `get_by_streak_status()` | - | - | D | - | - | - | - | - | - |
+| `get_by_date_range()` | - | - | - | D | - | - | - | - | - |
+| `get_by_urgency()` | - | - | - | - | D | - | - | - | - |
+| `get_by_strength()` | - | - | - | - | - | D | - | - | - |
+| `find_similar_content()` | - | - | - | - | - | - | D | - | - |
+| `get_for_learning_path()` | - | - | - | - | - | - | - | D | - |
+| `get_by_path_type()` | - | - | - | - | - | - | - | - | D |
 
 ---
 
@@ -233,7 +231,7 @@ _graph_enrichment_patterns = [
 
 ### GoalsSearchService
 
-**File:** `core/services/goals/goaps_search_service.py`
+**File:** `core/services/goals/goals_search_service.py`
 
 **Configuration:**
 ```python
@@ -265,7 +263,7 @@ _graph_enrichment_patterns = [
 
 ### HabitsSearchService
 
-**File:** `core/services/habits/habit_search_service.py`
+**File:** `core/services/habits/habits_search_service.py`
 
 **Configuration:**
 ```python
@@ -490,36 +488,6 @@ _graph_enrichment_patterns = [
 | `get_with_steps` | `(lp_uid: str) -> Result[dict]` | Path with full step details |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Lp]]` | Recommended paths |
 | `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Lp]]` | AI-enhanced search |
-
----
-
-### MocNavigationService
-
-**File:** `/core/services/moc/moc_navigation_service.py`
-
-**Configuration:**
-```python
-_search_fields = ["title", "description", "purpose"]
-_category_field = "domain"
-_user_ownership_relationship = None  # Shared content (can be user-created)
-_graph_enrichment_patterns = [
-    ("CONTAINS_KNOWLEDGE", "Ku", "knowledge_units", "outgoing"),
-    ("CONTAINS_PATH", "LearningPath", "learning_paths", "outgoing"),
-    ("CONTAINS_PRINCIPLE", "Principle", "principles", "outgoing"),
-    ("RELATED_TO_MOC", "Moc", "related_mocs", "both"),
-]
-```
-
-**Domain-Specific Methods:**
-
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `get_templates` | `() -> Result[list[Moc]]` | Template MOCs for copying |
-| `list_by_creator` | `(creator_uid: str) -> Result[list[Moc]]` | MOCs by creator |
-| `get_related_mocs` | `(moc_uid: str) -> Result[list[Moc]]` | Related MOCs |
-| `get_by_visibility` | `(visibility: str) -> Result[list[Moc]]` | Filter by visibility |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Moc]]` | Recommended MOCs |
-| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Moc]]` | AI-enhanced search |
 
 ---
 
