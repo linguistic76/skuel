@@ -1,21 +1,26 @@
 name: Codex Auto-Review
 
 # ============================================================================
-# ⏸️  PAUSED 2026-05-22 — Codex cloud reviews are NOT running.
+# ⏸️  DISABLED 2026-05-22 — this comment-bot trigger is off (Codex itself works).
 #
-# Cause: the ChatGPT account (linguistic76) is at its weekly shared "agentic"
-# usage limit, which cloud code-review draws from. GitHub IS connected — this is
-# a usage cap, not a connection problem. When the pool is exhausted Codex still
-# posts the cosmetic "create a Codex account" line, but the real review never
-# follows. (It worked through PR #11, then the meter ran down.)
+# Why off: when `@codex review` is posted by `github-actions[bot]`, Codex replies
+# with only the cosmetic "create a Codex account / connect to github" line and NO
+# real review — a bot-posted comment isn't attributed to the connected Codex
+# account. Meanwhile Codex's CLOUD AUTO-REVIEW (on PR open, attributed to the
+# connected `linguistic76` account) DOES post real reviews — verified on PR #15
+# (2026-05-22). So this workflow added cosmetic noise without producing reviews;
+# cloud auto-review is the path that works and is left ON. (This inverts the
+# PR #11-era assumption that the bot-comment was the reliable trigger.)
 #
-# Active reviewer meanwhile: Kody (Kodus) — gating. CI Gate stays the required
-# check. Codex was always advisory (never a status check), so nothing is blocked.
+# Caveat: Codex draws from a weekly shared usage limit; cloud reviews may go quiet
+# when it's exhausted (resets weekly, or upgrade to Plus), then resume.
 #
-# TO RE-ENABLE: (1) confirm Codex usage is available at chatgpt.com/codex
-# (Analytics -> Usage; weekly reset, or upgrade to Plus), then (2) uncomment the
-# `pull_request:` trigger below. Verify with the throwaway-PR test in
-# ./README.md -> "Verifying / re-enabling a reviewer".
+# Kody (Kodus) is the gating reviewer; CI Gate is the required check; Codex is
+# advisory either way, so nothing is blocked.
+#
+# TO RE-ENABLE this comment-bot path (e.g. if cloud auto-review proves flaky):
+# uncomment the `pull_request:` trigger below; verify with the throwaway-PR test
+# in ./README.md -> "Verifying / re-enabling a reviewer".
 # ============================================================================
 #
 # Original rationale (kept for re-enablement): Codex's cloud "auto-review on
@@ -26,8 +31,9 @@ name: Codex Auto-Review
 # branch protection (that remains "CI Gate"). See ./README.md.
 
 on:
-  # ⏸️ PAUSED: auto-trigger disabled while Codex is usage-limited (see header).
-  #    Re-enable by uncommenting the two lines below.
+  # ⏸️ DISABLED: comment-bot trigger off — it produced only cosmetic responses;
+  #    Codex cloud auto-review does the real reviewing (see header). Re-enable by
+  #    uncommenting the two lines below.
   # pull_request:
   #   types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:

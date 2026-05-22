@@ -65,12 +65,14 @@ invariants — keep comments focused on real, high-priority risks.
   format (PDF is reserved for finance invoices).
 
 ## Triggering a review
-- **Codex is currently paused** (the ChatGPT account is at its weekly usage
-  limit) — its auto-trigger in `.github/workflows/codex-review.yml` is commented
-  out, so PRs are **not** reviewed by Codex right now. **Kody (Kodus) is the
-  active reviewer**, and CI Gate remains the required check.
-- To re-enable Codex: confirm usage at `chatgpt.com/codex`, uncomment the
-  `pull_request:` trigger in `codex-review.yml`, then verify per
-  `.github/workflows/README.md` → "Verifying / re-enabling a reviewer".
-- When live, `codex-review.yml` posts `@codex review` automatically on every
-  non-draft PR; you can also comment `@codex review` yourself on demand.
+- **Codex reviews PRs via cloud auto-review** (on PR open, attributed to the
+  connected `linguistic76` account) — verified working on PR #15 (2026-05-22).
+  Its verdict lands as a PR review/comment, never a status check.
+- The repo's comment-bot (`.github/workflows/codex-review.yml`) is **disabled**:
+  a bot-posted `@codex review` only yields the cosmetic "create a Codex account"
+  prompt, not a real review. Re-enable it only if cloud auto-review proves flaky
+  (uncomment its `pull_request:` trigger; verify per
+  `.github/workflows/README.md` → "Verifying / re-enabling a reviewer").
+- Codex draws from a weekly shared usage limit, so cloud reviews may go quiet
+  when it's spent. **Kody (Kodus) is the gating reviewer; CI Gate is the required
+  check**, so coverage holds regardless.
