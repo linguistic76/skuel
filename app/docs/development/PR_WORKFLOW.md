@@ -52,7 +52,9 @@ Three participants run on a PR. They do **not** carry equal authority, and confl
 |---|---|---|---|
 | **CI Gate** (`ci.yml`) | Mechanical invariants: 0 MyPy errors, valid doc cross-references | A required status check | **Yes** — the single required check |
 | **Kody** (`kody-ai[bot]`, Kodus) | Full-spectrum review (security, error handling, business logic, …) per `kodus-config.yml` | A check **and** a real PR review | **Yes** — `CHANGES_REQUESTED` holds the merge until resolved/dismissed |
-| **Codex** (`chatgpt-codex-connector[bot]`) | Full-spectrum review against `AGENTS.md` invariants | **PR reviews/comments only — never a status check** | **No** — advisory |
+| **Codex** (`chatgpt-codex-connector[bot]`) | Full-spectrum review against `AGENTS.md` invariants | **PR reviews/comments only — never a status check** | **No** — advisory · runs via cloud auto-review (see note) |
+
+> ℹ️ **Codex runs via *cloud auto-review*, not the comment-bot (2026-05-22).** A bot-posted `@codex review` only returns the cosmetic "create a Codex account" prompt, so that workflow (`codex-review.yml`) is disabled. Codex's cloud auto-review (on PR open) posts real reviews — verified on PR #15. It draws from a weekly usage cap, so it can go quiet until reset; **Kody + CI Gate are the dependable gate** and Codex is advisory either way. Details: [`.github/workflows/README.md`](../../../.github/workflows/README.md).
 
 **The trust model:**
 - **CI Gate is the floor.** It is binary and mechanical. If it's red, something is objectively broken.
@@ -64,7 +66,7 @@ Three participants run on a PR. They do **not** carry equal authority, and confl
     -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")"'
   ```
 
-Why two AI reviewers? Defense-in-depth from independent models (Kodus + OpenAI Codex) catches more than either alone. Kody gates because a single gating reviewer is enough to hold the line; Codex stays advisory so a flaky external service can never deadlock a merge.
+Why two AI reviewers? Defense-in-depth from independent models (Kodus + OpenAI Codex) catches more than either alone. Kody gates because a single gating reviewer is enough to hold the line; Codex stays advisory so a flaky external service can never deadlock a merge. (Case in point: as of 2026-05-22 Codex runs via cloud auto-review with a weekly usage cap that can silence it, and the repo's comment-bot trigger turned out to yield only cosmetic responses — yet review coverage never lapses, because the *gating* reviewer (Kody) is the dependable in-house one and Codex is disposable.)
 
 ---
 
