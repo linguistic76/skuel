@@ -77,7 +77,7 @@ Not every useful signal flows both ways. These seven are asymmetric — one doma
 
 Each Sibling Signal is a narrow `Protocol` in a single grouped file. Keep the protocol tight — one or two methods, scoped to the signal, not the producing domain's full intelligence surface.
 
-**Location:** `core/ports/sibling_signals.py` (proposed — not yet created)
+**Proposed location** (not yet created): `core/ports/sibling_signals.py`
 
 ```python
 # core/ports/sibling_signals.py
