@@ -65,5 +65,8 @@ invariants — keep comments focused on real, high-priority risks.
   format (PDF is reserved for finance invoices).
 
 ## Triggering a review
-- Auto-review is configured in OpenAI's Codex cloud settings (not this repo).
-- Comment `@codex review` on a PR to request a review on demand.
+- Every non-draft PR is reviewed automatically: `.github/workflows/codex-review.yml`
+  posts `@codex review` on open / reopen / ready-for-review / push (debounced).
+- Cloud auto-review is intentionally **off** — the posted comment is the single
+  deterministic trigger (cloud auto-review fired on only 3 of PRs #1–#10).
+- Comment `@codex review` yourself any time to re-request a review on demand.
