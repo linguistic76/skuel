@@ -11,7 +11,29 @@ Cross-reference: core/services/ingestion/config.py, ADR-026
 
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import ENTITY_TYPE_TO_LABEL, LABEL_CONFIGS
 from core.services.ingestion.config import ENTITY_CONFIGS, generate_ingestion_relationship_config
+
+# Curriculum entity types authored EXCLUSIVELY through ingestion: shared content
+# built from YAML with no CRUD/API/service relationship authoring. For these,
+# ingestion is the only writer, so an outgoing relationship without a
+# yaml_field_path is a silent dead seam — it surfaces in graph_context reads but
+# nothing in production ever writes it (the bug that hid in ALIGNED_WITH_GOAL,
+# EMBODIES_PRINCIPLE, REQUIRES_KNOWLEDGE and HAS_MILESTONE_EVENT on LearningPath).
+#
+# Exercise is shared content too but is deliberately excluded: it is authored via
+# the teacher API, which writes its REQUIRES_KNOWLEDGE edge through
+# ExerciseBackend.link_to_curriculum — a real (non-ingestion) writer.
+PURE_INGESTION_CURRICULUM = (
+    EntityType.LEARNING_PATH,
+    EntityType.PATH_STEP,
+    EntityType.KU,
+)
+
+# Documented, deliberate exemptions: {EntityType: {RelationshipName.value, ...}}.
+# Add here (with a code-comment reason) only if a pure-ingestion curriculum config
+# ever gains an outgoing relationship written by some mechanism other than ingestion.
+_NON_INGESTION_OUTGOING: dict[EntityType, set[str]] = {}
 
 
 class TestIngestionRelationshipConfig:
@@ -70,6 +92,59 @@ class TestIngestionRelationshipConfig:
         assert aligned["rel_type"] == RelationshipName.ALIGNED_WITH_GOAL.value
         assert aligned["target_label"] == "Goal"
         assert aligned["direction"] == "outgoing"
+
+    def test_lp_graph_context_relationships_are_ingestible(self):
+        """All five LP graph-context members are authorable from LP YAML.
+
+        unified_user_context documents the LP graph_context as
+        {steps, prerequisite_knowledge, aligned_goals, embodied_principles,
+        milestone_events}. Each is read in lp_core_service / _lp_step_mixin /
+        user_context_queries, so each needs a production write path — a
+        yaml_field_path — or the read returns nothing outside tests.
+        """
+        config = ENTITY_CONFIGS[EntityType.LEARNING_PATH].relationship_config
+        assert config is not None
+        expected = {
+            "connections.contains_steps": RelationshipName.HAS_STEP,
+            "connections.required_knowledge": RelationshipName.REQUIRES_KNOWLEDGE,
+            "connections.aligned_goals": RelationshipName.ALIGNED_WITH_GOAL,
+            "connections.embodied_principles": RelationshipName.EMBODIES_PRINCIPLE,
+            "connections.milestone_events": RelationshipName.HAS_MILESTONE_EVENT,
+        }
+        for field_path, rel in expected.items():
+            assert field_path in config, f"LP graph-context seam {field_path} is not ingestible"
+            assert config[field_path]["rel_type"] == rel.value
+
+    def test_pure_ingestion_curriculum_has_no_dead_outgoing_seams(self):
+        """Regression guard: ingestion-only curriculum can't read a relationship it never writes.
+
+        LearningPath / PathStep / Ku are built solely from YAML — ingestion is the
+        only writer. An outgoing relationship without a yaml_field_path is therefore
+        a dead seam: graph_context queries read it, but it can never hold data in
+        production. This caught nothing the day it was written (all are wired); it
+        exists so the next outgoing relationship added to these configs must declare
+        a yaml_field_path or be explicitly exempted in _NON_INGESTION_OUTGOING.
+        """
+        dead_seams: dict[str, list[str]] = {}
+        for entity_type in PURE_INGESTION_CURRICULUM:
+            cfg = LABEL_CONFIGS[ENTITY_TYPE_TO_LABEL[entity_type]]
+            exempt = _NON_INGESTION_OUTGOING.get(entity_type, set())
+            dead = [
+                rel.relationship.value
+                for rel in cfg.relationships
+                if rel.direction == "outgoing"
+                and not rel.yaml_field_path
+                and rel.relationship.value not in exempt
+            ]
+            if dead:
+                dead_seams[entity_type.value] = dead
+
+        assert not dead_seams, (
+            "Dead seams — outgoing relationships read but never written on "
+            f"ingestion-only curriculum: {dead_seams}. Add a yaml_field_path so "
+            "ingestion creates the edge, or document a non-ingestion writer in "
+            "_NON_INGESTION_OUTGOING."
+        )
 
     def test_all_rel_types_are_valid_relationship_names(self):
         """Every rel_type in ingestion config must be a valid RelationshipName."""
