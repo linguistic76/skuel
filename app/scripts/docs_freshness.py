@@ -205,6 +205,13 @@ def parse_code_references(doc_content: str) -> list[CodeReference]:
             if not normalized:
                 continue
 
+            # Skip template placeholders, globs, and the conventional
+            # `/path/to/...` example token — these document a naming pattern or
+            # an illustrative example (e.g. `{domain}_core_service.py`,
+            # `/ui/.../*.py`, `/path/to/file.py`), not a concrete file on disk.
+            if any(ch in normalized for ch in "{}*") or "/path/to/" in normalized:
+                continue
+
             # Extract filter pattern if present (group 2)
             filter_pattern = None
             if len(match.groups()) > 1 and match.group(2):
@@ -465,6 +472,11 @@ def scan_docs(docs_dir: Path, project_root: Path, config: StalenessConfig) -> li
 
     # Scan all .md files in docs directory
     for doc_path in sorted(docs_dir.rglob("*.md")):
+        # Migration docs are point-in-time records: their code references are
+        # contemporaneous with the migration and intentionally go stale as the
+        # code evolves. Don't freshness-check them or count their missing refs.
+        if "migrations" in doc_path.parts:
+            continue
         try:
             result = check_freshness(doc_path, project_root, config)
             if result is not None:

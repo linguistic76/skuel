@@ -49,7 +49,7 @@ The service is decomposed into a modular package using mixin composition. Total 
 ```
 core/services/user/intelligence/
 ├── __init__.py                   (95 lines)   - Package exports
-├── types.py                      (205 lines)  - Data classes (return types)
+│   (return-type data classes now live in core/models/context_types.py)
 ├── learning_intelligence.py      (445 lines)  - LearningIntelligenceMixin (Methods 1-4)
 ├── life_path_intelligence.py     (429 lines)  - LifePathIntelligenceMixin (Method 7)
 ├── synergy_intelligence.py       (382 lines)  - SynergyIntelligenceMixin (Method 6)
@@ -1037,7 +1037,7 @@ async def get_coaching_recommendations(self, user_uid: UserUID):
 
 ## Data Types
 
-**Location:** `/core/services/user/intelligence/types.py` (205 lines)
+**Location:** `/core/models/context_types.py`
 
 ### LifePathAlignment
 

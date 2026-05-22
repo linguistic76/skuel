@@ -680,32 +680,6 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 - Demonstrates single-purpose API services (audio transcription)
 - Pattern used by: transcription, visualization, admin
 
-### Example 6: UI-Only Pattern (Study)
-
-**File:** `/adapters/inbound/study_routes.py`
-
-```python
-STUDY_CONFIG = DomainRouteConfig(
-    domain_name="study",
-    primary_service_attr="submissions",
-    ui_factory=create_study_ui_routes,
-    ui_related_services={
-        "processing_service": "submissions_processor",
-        "user_service": "user_service",
-        "exercises_service": "exercises",
-        "submissions_core_service": "submissions_core",
-        "activity_report_service": "activity_report",
-        "teacher_review_service": "teacher_review",
-    },
-)
-```
-
-**Key features:**
-- UI-only domain (no API routes needed)
-- `api_factory` defaults to `None` — simply omit it
-- `register_domain_routes()` skips API wiring when `api_factory` is `None`
-- Demonstrates UI-focused domains that compose multiple services without a CRUD API
-
 ### Example 7: Multi-Factory Pattern (Insights with History Routes)
 
 **File:** `/adapters/inbound/insights_routes.py`
