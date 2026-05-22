@@ -205,14 +205,29 @@ def parse_code_references(doc_content: str) -> list[CodeReference]:
             if not normalized:
                 continue
 
-            # Extract filter pattern if present (group 2)
-            filter_pattern = None
-            if len(match.groups()) > 1 and match.group(2):
-                filter_pattern = match.group(2).strip()
+            # Skip only true placeholders that can't map to a real path:
+            # template tokens (`{domain}_core_service.py`) and the `/path/to/...`
+            # example convention. These document a naming pattern, not a file.
+            if "{" in normalized or "}" in normalized or "/path/to/" in normalized:
+                continue
 
-            # Determine reference type
-            if "Directory:" in pattern or "Package:" in pattern:
+            # Determine reference type + selective filter.
+            filter_pattern = None
+            if "*" in normalized:
+                # A globbed path like `/ui/patterns/relationships/*.py` is a
+                # directory reference with a filename filter. Track the parent
+                # directory so freshness still follows the files inside it —
+                # dropping the ref would leave the doc falsely fresh when one of
+                # the matched files changes.
+                parent, glob = normalized.rsplit("/", 1)
+                normalized = parent + "/"
+                filter_pattern = glob
                 ref_type = "directory"
+            elif "Directory:" in pattern or "Package:" in pattern:
+                ref_type = "directory"
+                # Selective filter from group 2, e.g. `**Directory:** `/x/` (*.py only)`.
+                if len(match.groups()) > 1 and match.group(2):
+                    filter_pattern = match.group(2).strip()
             else:
                 ref_type = "file"
 
@@ -465,6 +480,11 @@ def scan_docs(docs_dir: Path, project_root: Path, config: StalenessConfig) -> li
 
     # Scan all .md files in docs directory
     for doc_path in sorted(docs_dir.rglob("*.md")):
+        # Migration docs are point-in-time records: their code references are
+        # contemporaneous with the migration and intentionally go stale as the
+        # code evolves. Don't freshness-check them or count their missing refs.
+        if "migrations" in doc_path.parts:
+            continue
         try:
             result = check_freshness(doc_path, project_root, config)
             if result is not None:

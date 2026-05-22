@@ -439,7 +439,7 @@ result = await service.list_reports_by_date_range(
 ### CompletionsService
 
 **Domains:** Habits only
-**File:** `habits_completion_service.py`
+**File:** `/core/services/habits/habits_completion_service.py`
 **Extends:** Standalone (does NOT extend BaseService — secondary entity pattern)
 
 **Responsibility:** Habit completion tracking and streak management
@@ -461,7 +461,7 @@ result = await service.list_reports_by_date_range(
 ### Event Scheduling Intelligence (on HabitsIntelligenceService)
 
 **Domains:** Habits only
-**File:** `habits_intelligence_service.py` (methods: `get_event_uids_for_habit`, `schedule_events_for_habit`)
+**File:** `/core/services/habits/habits_intelligence_service.py` (methods: `get_event_uids_for_habit`, `schedule_events_for_habit`)
 
 **Responsibility:** Read-only UserContext intelligence and recurrence logic for habit↔event scheduling
 

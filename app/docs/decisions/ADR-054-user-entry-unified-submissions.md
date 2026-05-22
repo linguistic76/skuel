@@ -71,7 +71,7 @@ Fields (the union of the current Submission + JeInput carriers):
   description, content, metadata, tags, ...)
 - **Ownership + visibility:** inherited from UserOwnedEntity (user_uid,
   visibility, priority)
-- **File:** `original_filename`, `file_path`, `file_size`, `file_type` —
+- **File metadata fields:** `original_filename`, `file_path`, `file_size`, `file_type` —
   nullable; text-only entries omit them
 - **Processing:** `pipeline` (new enum, see §2), `processing_started_at`,
   `processing_completed_at`, `processing_error`, `processed_content`,

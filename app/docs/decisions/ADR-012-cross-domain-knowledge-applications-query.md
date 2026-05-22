@@ -81,7 +81,7 @@ We will use a **single complex Cypher query** with multiple OPTIONAL MATCH claus
 - Calculate estimated substance score from domain counts
 - Return comprehensive cross-domain view
 
-**File:** `skuel_query_templates.py` (deleted March 2026 — intent preserved in `/docs/intelligence/PEDAGOGICAL_QUESTIONS.md`)
+**Original file** (deleted March 2026): `skuel_query_templates.py` — intent preserved in `/docs/intelligence/PEDAGOGICAL_QUESTIONS.md`.
 
 **Complexity Breakdown:**
 - 7 OPTIONAL MATCH clauses (14 pts)

@@ -61,7 +61,7 @@ Use **single complex query** with:
 6. Multi-criteria ranking (readiness + unlock value)
 7. Top N recommendations with metadata
 
-**File:** `/core/services/ku/ku_graph_service.py:589-632`
+**Code:** originally `ku_graph_service.py` lines 589-632 (since refactored into `/core/services/ku/`).
 
 **Complexity Breakdown:**
 - 2 MATCH clauses (4 pts)
@@ -294,7 +294,7 @@ ORDER BY readiness DESC, enables_count DESC
 
 ## Implementation Details
 
-**Location:** `/core/services/ku/ku_graph_service.py:589-632`
+**Implementation:** originally in `ku_graph_service.py` lines 589-632, since refactored into `/core/services/ku/`.
 
 **Method:** `find_ready_to_learn(user_uid: str, domain: str | None = None, limit: int = 10)`
 

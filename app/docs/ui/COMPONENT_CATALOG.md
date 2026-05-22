@@ -1191,12 +1191,6 @@ Components: `TaskStatsBar`, `TaskList` (delegates to generic `ActivityList` in `
 
 Routes: `GET /tasks` (page), `GET /tasks/list-fragment` (HTMX), `POST /api/tasks/{uid}/status` (status update).
 
-### Habit Layout
-
-**Location:** `/ui/habits/layout.py`
-
-Habit tracking layouts.
-
 ### Finance Layout
 
 **Location:** `/ui/finance/layout.py`
