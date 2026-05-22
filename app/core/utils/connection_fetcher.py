@@ -41,8 +41,6 @@ TASK_CONNECTION_CONFIG = ConnectionConfig(
         "FULFILLS_GOAL",
         "REINFORCES_HABIT",
         "APPLIES_KNOWLEDGE",
-        "PART_OF_PATH_STEP",
-        "PART_OF_LEARNING_PATH",
         "INFORMED_BY_PRINCIPLE",
         "RELATED_TO",
     ),
@@ -68,8 +66,6 @@ HABIT_CONNECTION_CONFIG = ConnectionConfig(
         "REINFORCES_GOAL",
         "APPLIES_KNOWLEDGE",
         "REINFORCED_BY_PRINCIPLE",
-        "PART_OF_PATH_STEP",
-        "PART_OF_LEARNING_PATH",
         "RELATED_TO",
     ),
 )
@@ -79,8 +75,6 @@ EVENT_CONNECTION_CONFIG = ConnectionConfig(
     relationship_types=(
         "REINFORCES_HABIT",
         "CELEBRATES_GOAL",
-        "PART_OF_PATH_STEP",
-        "PART_OF_LEARNING_PATH",
         "DEMONSTRATES_PRINCIPLE",
         "APPLIES_KNOWLEDGE",
         "RELATED_TO",
@@ -182,3 +176,31 @@ async def fetch_entity_connections(
             }
         )
     return connections_map
+
+
+async def fetch_source_pathstep(backend: QueryExecutor, ps_uid: str) -> dict[str, str] | None:
+    """Resolve a spawned activity's ``source_path_step_uid`` to its PathStep title.
+
+    Returns ``{"uid", "title"}`` or ``None`` if the PathStep is missing or the
+    lookup fails. A single primary-key lookup — cheap enough for a cold detail
+    render. Surfaces the curriculum origin of activities spawned by PathStep
+    engagement (their ``source_path_step_uid``).
+    """
+    if not ps_uid:
+        return None
+
+    query = """
+    MATCH (ps:Entity {uid: $uid})
+    RETURN ps.uid AS uid, ps.title AS title
+    """
+    try:
+        result = await backend.execute_query(query, {"uid": ps_uid})
+    except Exception:  # safety-net: a missing source PathStep shouldn't break the page
+        logger.warning("Failed to fetch source PathStep %s", ps_uid, exc_info=True)
+        return None
+
+    if result.is_error or not result.value:
+        return None
+
+    record = result.value[0]
+    return {"uid": record["uid"], "title": record.get("title") or record["uid"]}
