@@ -88,7 +88,7 @@ This is intentional for a solo project (no second person exists to unblock you),
 *Noticed while documenting the setup (2026-05-22). None are blocking; listed for a future pass.*
 
 1. **No PR template.** A `.github/pull_request_template.md` would standardize descriptions — valuable precisely because Kody concatenates its summary onto the human description, so an empty description yields a thin PR record. Low effort, clear win.
-2. **`develop` branch is referenced but doesn't exist.** Both `ci.yml` and `kodus-config.yml` (`baseBranches: [main, develop]`) target `develop`, but only `main` exists. Harmless dead config — drop `develop`, or create it if a staging flow is actually intended.
+2. ~~**`develop` branch is referenced but doesn't exist.**~~ *(Resolved 2026-05-22)* — `develop` was dead config in `ci.yml` and `kodus-config.yml`; removed, since only `main` exists. Re-add it to both if a staging flow is ever introduced.
 3. **`codex-review.yml` uses `pull_request`, not `pull_request_target`.** Fine today because every PR comes from a same-repo branch (the token has write access). A PR from an external fork would get a read-only token and the comment-post would silently no-op. Only matters if SKUEL ever accepts outside contributions.
 4. **Codex's verdict is invisible to `gh pr checks`.** This is by design (it's not a check), but it's a real footgun — a "merge when checks pass" reflex skips Codex entirely. The scan command above is the mitigation; consider it part of the merge ritual.
 

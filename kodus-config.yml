@@ -11,7 +11,7 @@ summary:
   behaviourForExistingDescription: concatenate
 
 # Review PRs targeting these branches.
-baseBranches: [main, develop]
+baseBranches: [main]
 
 # Skip generated / vendored / secret files. Docs and skills markdown stay
 # reviewable on purpose (kept reviewable per maintainer decision 2026-05-21).

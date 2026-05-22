@@ -10,9 +10,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
   workflow_dispatch:
 
 # Cancel superseded runs on the same branch / PR.
@@ -44,8 +44,8 @@ jobs:
         uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590  # v3.0.3 (pinned: third-party action)
         with:
           # On push, diff only the pushed commits (ignored on pull_request,
-          # where the PR base is used). Without this, pushes to a long-lived
-          # branch like develop diff against main and over-trigger the jobs.
+          # where the PR base is used). Without this, pushes to any long-lived
+          # branch would diff against main and over-trigger the jobs.
           base: ${{ github.ref }}
           filters: |
             py:
