@@ -1897,6 +1897,7 @@ LP_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "required_knowledge",
             "prerequisites",
+            yaml_field_path="connections.required_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ALIGNED_WITH_GOAL,
@@ -1912,6 +1913,7 @@ LP_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "embodied_principles",
             "principles",
+            yaml_field_path="connections.embodied_principles",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_MILESTONE_EVENT,
@@ -1919,6 +1921,7 @@ LP_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "milestone_events",
             "milestones",
+            yaml_field_path="connections.milestone_events",
         ),
         # Incoming: Other → Lp
         UnifiedRelationshipDefinition(
