@@ -86,9 +86,7 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 
 **Core Principle:** "Plain English in, working code out"
 
-SKUEL is built through an explicit human-AI partnership: domain authority (human) provides clarity of intent in plain language; technical translation (AI) provides architectural judgment and pattern consistency. The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is the purest expression — users write near-natural language, the parser converts to typed structures.
-
-Future collaborators should read SKUEL's plain-English domain descriptions and ADRs as the authoritative specification. The code is the translation, not the source of truth.
+Explicit human-AI partnership: the human provides intent in plain language, the AI provides architectural judgment and pattern consistency. The Activity DSL (`@context(task)`, `@when()`, `@priority()`) is its purest expression — near-natural language parsed into typed structures. Plain-English domain descriptions and ADRs are the authoritative specification; the code is the translation, not the source of truth.
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
@@ -122,23 +120,23 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 |--------|-------------|
 | **Three-Tier Type System** | Pydantic at edges, frozen dataclasses at core, DTOs between |
 | **Protocol-Based DI** | Zero concrete dependencies in route signatures — all services injected as protocols |
-| **Typed Protocol Returns** | ~170 protocol methods return specific models/TypedDicts; 0 `Result[Any]` in protocols. Service-layer `Result[Any]` also narrowed. Route handlers: handlers that return rendered HTML use `Result[FT]` (the `fastcore.xml.FT` base class type-checks); handlers that return models use `Result[Goal]`, `Result[Event]`, etc. The route-factory generics in `adapters/inbound/route_factories/` keep `Result[Any]` where `T` is genuinely erased — those are the only legitimate sites. |
+| **Typed Protocol Returns** | Protocol methods return specific models/TypedDicts, not `Result[Any]`; service-layer `Result[Any]` also narrowed. Handlers: `Result[FT]` for rendered HTML, `Result[Goal]`/`Result[Event]` for models. The route-factory generics in `adapters/inbound/route_factories/` are the only legitimate `Result[Any]` sites (T genuinely erased). |
 | **Any Usage Policy** | Every `Any` is justified (Category C boundary) or eliminated (Categories A + B). At the FastHTML boundary: use the `FastHTMLApp` / `RouteDecorator` protocols for `app` / `rt` parameters; use `FT` for HTML fragment returns; `*c: Any, **kwargs: Any` inside FT factories stay (HTML is structurally heterogeneous). |
 | **Search Protocol Generics** | All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, etc.), not `Entity` |
 | **Enum-Enforced Boundaries** | `UserRole`, `ExerciseScope`, `SubmissionModality`, `EntityStatus`, `FeedbackCategory`, `MasteryImpact`, `Pipeline`, `ReportSource`, `Visibility`, `EnrichmentMode` — zero raw string comparisons for roles, scopes, modalities, status checks, feedback categorization, mastery scoring, user-entry pipelines, report provenance, visibility levels, enrichment modes |
 
 **Key type aliases** (from `core/models/type_hints.py`): `Neo4jProperties`, `FilterParams`, `RelationshipMetadata`
 
-**Protocol return TypedDicts** (from `core/ports/query_types.py`): 159 TypedDicts — 21 for inputs (filters, payloads) + 138 for outputs (domain stats, system health, teacher review, visualization configs, intelligence, life path, lateral relationships, activity reports, UserContext field shapes, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns, PS backend result types, journal cleanup stats). New protocol methods and route handlers should return a specific model or TypedDict, not `Result[Any]`. Use `Result.fail(result)` to propagate errors across type boundaries (not `return result`).
+**Protocol return TypedDicts** (from `core/ports/query_types.py`): inputs (filters, payloads) + outputs (domain stats, system health, teacher review, intelligence, life path, lateral relationships, curriculum/PS backend Cypher returns, etc.). New protocol methods and route handlers return a specific model or TypedDict, not `Result[Any]`; use `Result.fail(result)` to propagate errors across type boundaries (not `return result`).
 
-**FastHTML boundary** (no type stubs): FastHTML/fastcore ship no `py.typed` marker, so the framework presents four distinct boundary surfaces — each with a different policy:
+**FastHTML boundary** (no `py.typed`) — four surfaces, four policies:
 
-1. **Route signatures** (`app`, `rt`): use `from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request`. The protocols capture exactly the surface SKUEL uses. No `# boundary:` comment — the protocol *is* the typed boundary.
-2. **Route handler returns**: annotate the concrete return — `Result[FT]` for HTMX fragments, `Result[Goal]` for models, `Response` for redirects. `from fasthtml.common import FT` works as a type (`FT = fastcore.xml.FT` is a real class). `Result[Any]` here is almost always a regression, not a boundary.
-3. **FT element internals** (variadic `*c: Any` for children, `**kwargs: Any` for attrs inside `Div(...)` and friends): permanent Category C. Mark with `# boundary: fasthtml-elements`. HTML is structurally heterogeneous and cannot be modeled.
-4. **ASGI plumbing** (`__call__(scope, receive, send) -> None` inside the `FastHTMLApp` protocol): Starlette doesn't export usable ASGI types. Permanent Category C, marked `# boundary: fasthtml-app`.
+1. Route signatures (`app`, `rt`): `RouteDecorator` / `FastHTMLApp` / `Request` from `adapters.inbound.fasthtml_types`. No `# boundary:` — the protocol *is* the typed boundary.
+2. Handler returns: concrete type — `Result[FT]` (HTMX fragments), `Result[Goal]` (models), `Response` (redirects). `Result[Any]` here is a regression.
+3. FT element internals (`*c: Any`, `**kwargs: Any` inside `Div(...)`): permanent Category C, mark `# boundary: fasthtml-elements`.
+4. ASGI plumbing (`__call__(scope, receive, send) -> None`): permanent Category C, mark `# boundary: fasthtml-app`.
 
-**`Any` policy:** Category A (eliminate), Category B (use specific type like `Neo4jProperties`), Category C (permanent boundary — add `# boundary:` comment). The rule is not "ban `Any`" but "`Any` must state *this is genuinely heterogeneous* — if `FT` or `Event` or `Neo4jProperties` would type-check, that's strictly more truthful."
+**`Any` policy:** Category A (eliminate), B (specific type like `Neo4jProperties`), C (permanent boundary — `# boundary:` comment). The rule isn't "ban `Any`" but "`Any` must mean *genuinely heterogeneous*" — if `FT`/`Event`/`Neo4jProperties` would type-check, use it.
 
 **See:** `docs/architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md` (why), `docs/patterns/TYPE_SAFETY_OVERVIEW.md` (how), `docs/patterns/ANY_USAGE_POLICY.md`, `docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md`
 
@@ -183,17 +181,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 | TEACHER | 2 | Member + create curriculum |
 | ADMIN | 3 | Teacher + user management |
 
-```python
-from adapters.inbound.auth import UserUID, require_authenticated_user
-user_uid: UserUID = require_authenticated_user(request)
-
-# Role protection (use named function, not lambda - SKUEL012)
-def get_user_service():
-    return services.user
-
-@require_admin(get_user_service)
-async def admin_route(request, current_user): ...
-```
+Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.auth`); role gates like `@require_admin(get_user_service)` take a named function, not a lambda (SKUEL012).
 
 **See:** `/docs/patterns/AUTH_PATTERNS.md`
 
@@ -240,7 +228,7 @@ Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `Enti
 
 **Core Principle:** "Right type at the right boundary — concrete for facades, protocol for thin services"
 
-**Protocol Location:** `core/ports/` — 18 protocol files, 65+ protocols covering all domains.
+**Protocol Location:** `core/ports/` — protocol files covering all domains.
 
 **Route-facing type strategy:**
 
@@ -357,19 +345,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 **Core Principle:** "One generic backend serves all 25 entity types"
 
-```python
-# Generic backend -- T constrained by DomainModelProtocol
-backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
-
-# Generic service base -- B=protocol, T=domain model
-class GoalsCoreService(BaseService[GoalsOperations, Goal]):
-    _config = create_activity_domain_config(...)
-
-# Generic type aliases (core/models/type_hints.py)
-type Validator[T] = Callable[[T], list[str]]
-type EntityFilter[T] = Callable[[T], bool]
-type Scorer[T] = Callable[[T], Score]
-```
+Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtocol`); generic service base `BaseService[Op, T]` (Op=protocol, T=domain model); generic type aliases in `core/models/type_hints.py` — `Validator[T]`, `EntityFilter[T]`, `Scorer[T]`.
 
 **See:** `docs/patterns/TYPE_SAFETY_OVERVIEW.md`, `/docs/patterns/query_architecture.md`
 
@@ -459,7 +435,7 @@ from core.events.utils import publish_event
 await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)
 ```
 
-**Location:** `/core/events/` — 65+ events across all domains
+**Location:** `/core/events/` — events across all domains
 
 ## 100% Dynamic Backend Pattern
 
@@ -495,7 +471,7 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()` (supports `skip` parameter for facades that override sub-services). Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence for all 6 domains — 4 delegation methods provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`), inherited by all 6 facades.
 
-**Design principle — harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`). No domain opts out. The shared shape is the contract for interconnectivity — unified search, user context aggregation, cross-domain queries, ZPD assessment all work *because* every domain answers the same way. Domain-specific sub-services (Habits's `completions`, Events's `habit_integration`, Principles's `alignment`, etc.) preserve uniqueness inside that shape. See: `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization".
+**Design principle — harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`) — no domain opts out. That shared shape is the contract enabling unified search, context aggregation, cross-domain queries, and ZPD. Domain-specific sub-services (Habits `completions`, Events `habit_integration`, Principles `alignment`) preserve uniqueness inside it. See: `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization".
 
 **Decomposition rule:** Intelligence services >350 lines → extract mixins. Facade services >700 lines + 4+ coherent methods → extract facade mixins. All 6 Activity Domain intelligence services and the EventsService facade now follow this pattern.
 
@@ -527,15 +503,9 @@ One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. 
 
 **Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships.
 
-**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
+**Ku UID is flat** (`ku_{slug}_{random}`) — hierarchy lives in `(parent)-[:ORGANIZES {order, importance}]->(child)` edges (multiple parents allowed), not in the UID.
 
-## KU UID Format
-
-**Format:** `ku_{slug}_{random}` (flat UIDs, hierarchy in ORGANIZES relationships)
-
-Hierarchy via `(parent)-[:ORGANIZES {order, importance}]->(child)` relationships. Multiple parents possible.
-
-**See:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md`, `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
+**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/decisions/ADR-013-ku-uid-flat-identity.md`, `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
 
 ## EntityTimestampMixin
 
@@ -572,7 +542,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 - **Grafana Dashboards**: http://localhost:3000
 - **Metrics Endpoint**: http://localhost:8000/metrics
 
-33 metrics across 7 categories (HTTP, Database, Event Bus, Domains, Relationships, Queries, AI), 11 production alerts, 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Event Bus).
+Metrics across 7 categories (HTTP, Database, Event Bus, Domains, Relationships, Queries, AI), production alerts, and 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Event Bus).
 
 **See:** `@prometheus-grafana` skill, `monitoring/README.md`
 
