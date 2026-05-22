@@ -65,14 +65,18 @@ invariants — keep comments focused on real, high-priority risks.
   format (PDF is reserved for finance invoices).
 
 ## Triggering a review
-- **Codex reviews PRs via cloud auto-review** (on PR open, attributed to the
-  connected `linguistic76` account) — verified working on PR #15 (2026-05-22).
-  Its verdict lands as a PR review/comment, never a status check.
-- The repo's comment-bot (`.github/workflows/codex-review.yml`) is **disabled**:
-  a bot-posted `@codex review` only yields the cosmetic "create a Codex account"
-  prompt, not a real review. Re-enable it only if cloud auto-review proves flaky
-  (uncomment its `pull_request:` trigger; verify per
-  `.github/workflows/README.md` → "Verifying / re-enabling a reviewer").
-- Codex draws from a weekly shared usage limit, so cloud reviews may go quiet
-  when it's spent. **Kody (Kodus) is the gating reviewer; CI Gate is the required
-  check**, so coverage holds regardless.
+- **Codex auto-review is intentionally OFF** (set 2026-05-22 in the Codex
+  dashboard: the "Personal auto review preferences" toggle is off, and
+  `linguistic76/skuel` is set to "Follow personal preferences" → resolves to off;
+  there is no per-repo hard-off, so the personal toggle is the switch). Codex
+  reviews **only** when a human posts `@codex review` on a PR. Its verdict lands
+  as a PR review/comment, never a status check.
+- The repo's comment-bot (`.github/workflows/codex-review.yml`) is also
+  **disabled**: a bot-posted `@codex review` only yields the cosmetic "create a
+  Codex account" prompt, not a real review.
+- **Kody (Kodus) is the gating reviewer; CI Gate is the required check** — Codex
+  is not part of the gate. To re-enable Codex auto-review, flip the dashboard
+  "Personal auto review preferences" toggle ON (or set the repo to "Review all
+  PRs"); even then it's best-effort (it fired on ~1 of 4 PRs historically and
+  draws from a weekly shared usage limit). Verify per
+  `.github/workflows/README.md` → "Verifying / re-enabling a reviewer".
