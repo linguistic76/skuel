@@ -5,16 +5,23 @@ category: patterns
 related_skills: []
 related_docs: []
 ---
-# Trial Limits Infrastructure
-*Last updated: 2026-01-04*
+# Trial Limits Infrastructure (Proposed — Not Yet Implemented)
+*Last updated: 2026-05-22*
 
-**Location:** `/core/services/trial_limits.py`
+> ⚠️ **Status: PROPOSED / not yet built.** There is **no `trial_limits.py`** in the
+> codebase — this document is the *design* for future monetization, not a record of
+> existing code. The trial *concept* does exist today (`UserRole.REGISTERED` = free
+> trial, `User.is_trial()`; see ADR-018), but limits are **not enforced**: there is no
+> enforcement service and all domains are effectively unlimited. Build this before
+> treating any of the APIs below as real.
+
+**Proposed location** (to be created): `/core/services/trial_limits.py`
 
 ## Overview
 
-The Trial Limits Service manages consumption limits for REGISTERED (free trial) users. It integrates with SKUEL's four-tier role system to enforce usage quotas.
+The Trial Limits Service *would* manage consumption limits for REGISTERED (free trial) users, integrating with SKUEL's four-tier role system to enforce usage quotas.
 
-**Current Policy (January 2026):** All domains are UNLIMITED for all users. The infrastructure exists for future monetization.
+**Current reality (2026-05-22):** all domains are UNLIMITED for all users — no enforcement service exists yet. This spec captures the intended design for when monetization is enabled.
 
 ## Role Hierarchy Context
 
@@ -196,7 +203,7 @@ if limit_check.is_error:
 
 | File | Purpose |
 |------|---------|
-| `/core/services/trial_limits.py` | Service implementation (~400 lines) |
+| `/core/services/trial_limits.py` | Service implementation (~400 lines) — **to be created** |
 | `/core/models/enums/user_enums.py` | UserRole enum with `is_subscriber()` |
 | `/docs/decisions/ADR-018-user-roles-four-tier-system.md` | Role system ADR |
 
