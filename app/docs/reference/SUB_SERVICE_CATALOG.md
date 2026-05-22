@@ -353,13 +353,13 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 
 ### LearningLoopQueryService
 
-**Domain:** Submissions (learning loop read-side)
-**File:** `learning_loop_query_service.py`
-**Package:** `core/services/submissions/`
+**Domain:** Submissions / learning-loop read-side (the `user_entry` package, post-ADR-054)
+**File:** `/core/services/user_entry/learning_loop_query.py`
+**Package:** `/core/services/user_entry/`
 
 **Responsibility:** Read-only queries that traverse the four-phase learning loop graph (Exercise → UserEntry → ExerciseReport → RevisedExercise). Interaction nodes provide situated context for each UserEntry. Read-side peer of `LearningLoopEventHandlerService`.
 
-**Rationale:** Keeps generic submission search (`SubmissionsSearchService`) free of Cypher that traverses Interaction/Exercise/Report edges. New learning-loop reads land here.
+**Rationale:** Isolates learning-loop reads (Interaction/Exercise/Report traversals) from generic entity search, which `UserEntryService` inherits from `BaseService`. New learning-loop reads land here.
 
 **Key Methods:**
 - `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` - Submissions + report status for a PathStep, discovered via Interaction edges. Bounded by `limit` (default 100) so a learner with hundreds of submissions on one PathStep can't unbounded-load the detail page. The entity_type filter is parameterized via `EntityType.EXERCISE_SUBMISSION.value` (no inline string literals). Powers the PathStep detail page's submissions/feedback HTMX fragment.
@@ -372,46 +372,6 @@ from core.services.user_entry import LearningLoopQueryService
 
 service = LearningLoopQueryService(submissions_backend=submissions_backend)
 result = await service.get_submissions_for_path_step(user_uid, ps_uid)
-```
-
----
-
-### SubmissionsSearchService
-
-**Domain:** Submissions (generic read-side)
-**File:** `submissions_search_service.py`
-**Package:** `core/services/submissions/`
-
-**Responsibility:** Generic submission queries that don't traverse the learning-loop graph — date-bounded reads, recency, case-insensitive text CONTAINS on `processed_content`, and date-range statistics (streaks, word counts, distributions). All filtering pushed into Cypher; never post-filters in Python.
-
-**Rationale:** Separate from `LearningLoopQueryService` (which owns Interaction/Exercise/Report traversals). Route callers do not hit this service directly — `SubmissionsOrchestrator` consumes it.
-
-**Key Methods:**
-- `get_report_for_date(user_uid, target_date, entity_type=None)` — newest submission on a calendar day. Bounds the query with `created_at__gte=<day_start>` + `created_at__lt=<next_day_start>` so the previous silent-None bug (limit=1 + post-filter) cannot recur.
-- `list_reports_by_date_range(user_uid, start_date, end_date, entity_type=None, limit=QueryLimit.COMPREHENSIVE)` — inclusive `[start, end]` window. Rejects inverted ranges with a validation error.
-- `search_submissions(user_uid, query, entity_type=None, limit=50)` — parameterized raw Cypher using `toLower(s.processed_content) CONTAINS toLower($query)`. Short-circuits on empty/whitespace/single-char queries.
-- `get_recent_submissions(user_uid, entity_type=None, limit=10)` — newest-first, unconditional `entity_type` filter so results can't bleed into Tasks/Goals/etc. sharing the `:Entity` label.
-- `get_report_statistics(user_uid, start_date, end_date, entity_type=None)` — delegates the read to `list_reports_by_date_range`, derives `SubmissionStatistics` in memory. Returns `submissions_by_day_of_week` / `submissions_by_type` keys (not the stale `kus_by_*` prefix).
-- `get_submissions_with_feedback_status(user_uid, limit=50)` — students' submissions enriched with teacher feedback counts, no N+1.
-
-**Robustness Guards:**
-- **Limit clamping** — every method that accepts `limit` clamps to `[1, QueryLimit.MAXIMUM=10_000]` so an unbounded caller can't drag the full history.
-- **Entity-type whitelist** — `_resolve_submission_type()` only permits `EntityType.EXERCISE_SUBMISSION`. Passing `ACTIVITY_REPORT`, `FORM_SUBMISSION`, or any non-submission type raises; `@with_error_handling` converts to a validation `Result`.
-- **Date invariant** — `created_at` is stored naive-local via `datetime.now().isoformat()`; date-boundary bounds are constructed the same way so ISO string comparison stays consistent. Documented in the module docstring — if the storage invariant ever changes to tz-aware, every `datetime.combine(...).isoformat()` call must be updated in lockstep.
-- **Driver-quirk tolerance** — `get_report_statistics` skips (and logs) entities where `created_at` is not a `datetime` instance instead of 500-ing mid-loop.
-
-**Consumers:** `SubmissionsOrchestrator` (primary — `get_submissions_with_feedback_status`, statistics).
-
-**Usage:**
-```python
-from core.services.user_entry.user_entry_search_service import UserEntrySearchService
-
-service = SubmissionsSearchService(submissions_backend=submissions_backend)
-result = await service.list_reports_by_date_range(
-    user_uid="user_1",
-    start_date=date(2026, 4, 1),
-    end_date=date(2026, 4, 30),
-)
 ```
 
 ---
