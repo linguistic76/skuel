@@ -52,7 +52,9 @@ Three participants run on a PR. They do **not** carry equal authority, and confl
 |---|---|---|---|
 | **CI Gate** (`ci.yml`) | Mechanical invariants: 0 MyPy errors, valid doc cross-references | A required status check | **Yes** — the single required check |
 | **Kody** (`kody-ai[bot]`, Kodus) | Full-spectrum review (security, error handling, business logic, …) per `kodus-config.yml` | A check **and** a real PR review | **Yes** — `CHANGES_REQUESTED` holds the merge until resolved/dismissed |
-| **Codex** (`chatgpt-codex-connector[bot]`) | Full-spectrum review against `AGENTS.md` invariants | **PR reviews/comments only — never a status check** | **No** — advisory |
+| **Codex** (`chatgpt-codex-connector[bot]`) | Full-spectrum review against `AGENTS.md` invariants | **PR reviews/comments only — never a status check** | **No** — advisory · ⏸️ **paused** (see note) |
+
+> ⏸️ **Codex is paused (2026-05-22).** The ChatGPT account hit its weekly shared usage limit, so cloud reviews don't run; the auto-trigger is commented out in `codex-review.yml`. **Kody + CI Gate are the live gate** — Codex was advisory, so nothing is blocked. Re-enable steps: [`.github/workflows/README.md`](../../../.github/workflows/README.md) → "Verifying / re-enabling a reviewer".
 
 **The trust model:**
 - **CI Gate is the floor.** It is binary and mechanical. If it's red, something is objectively broken.
@@ -64,7 +66,7 @@ Three participants run on a PR. They do **not** carry equal authority, and confl
     -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")"'
   ```
 
-Why two AI reviewers? Defense-in-depth from independent models (Kodus + OpenAI Codex) catches more than either alone. Kody gates because a single gating reviewer is enough to hold the line; Codex stays advisory so a flaky external service can never deadlock a merge.
+Why two AI reviewers? Defense-in-depth from independent models (Kodus + OpenAI Codex) catches more than either alone. Kody gates because a single gating reviewer is enough to hold the line; Codex stays advisory so a flaky external service can never deadlock a merge. (Codex is paused as of 2026-05-22 — usage-limited — so Kody is currently the only AI reviewer. This is exactly why the design makes the gating reviewer the dependable in-house one and the advisory one disposable: Codex can lapse without blocking a thing.)
 
 ---
 

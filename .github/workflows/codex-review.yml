@@ -1,17 +1,36 @@
 name: Codex Auto-Review
 
-# Codex's cloud "auto-review on open" is unreliable: across PRs #1-#10 it fired
-# on only 3, and 6 PRs merged with no Codex review at all. The *comment* trigger
-# `@codex review` worked every time it was used. This workflow posts that comment
-# automatically so every non-draft PR gets a deterministic Codex review.
+# ============================================================================
+# ⏸️  PAUSED 2026-05-22 — Codex cloud reviews are NOT running.
 #
-# Codex posts PR reviews/comments, never a status check, so this is intentionally
-# a fire-and-forget trigger — there is nothing here to mark required in branch
-# protection (that remains "CI Gate"). See ../workflows/README.md.
+# Cause: the ChatGPT account (linguistic76) is at its weekly shared "agentic"
+# usage limit, which cloud code-review draws from. GitHub IS connected — this is
+# a usage cap, not a connection problem. When the pool is exhausted Codex still
+# posts the cosmetic "create a Codex account" line, but the real review never
+# follows. (It worked through PR #11, then the meter ran down.)
+#
+# Active reviewer meanwhile: Kody (Kodus) — gating. CI Gate stays the required
+# check. Codex was always advisory (never a status check), so nothing is blocked.
+#
+# TO RE-ENABLE: (1) confirm Codex usage is available at chatgpt.com/codex
+# (Analytics -> Usage; weekly reset, or upgrade to Plus), then (2) uncomment the
+# `pull_request:` trigger below. Verify with the throwaway-PR test in
+# ./README.md -> "Verifying / re-enabling a reviewer".
+# ============================================================================
+#
+# Original rationale (kept for re-enablement): Codex's cloud "auto-review on
+# open" is unreliable — across PRs #1-#10 it fired on only 3, and 6 merged with
+# no review. The `@codex review` *comment* worked every time, so this workflow
+# posts that comment automatically. Codex posts PR reviews/comments, never a
+# status check, so it is a fire-and-forget trigger — nothing to mark required in
+# branch protection (that remains "CI Gate"). See ./README.md.
 
 on:
-  pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
+  # ⏸️ PAUSED: auto-trigger disabled while Codex is usage-limited (see header).
+  #    Re-enable by uncommenting the two lines below.
+  # pull_request:
+  #   types: [opened, reopened, ready_for_review, synchronize]
+  workflow_dispatch:
 
 # One review per burst: a newer push cancels the older run while it is still in
 # its debounce sleep, so a flurry of commits collapses to a single trigger.
