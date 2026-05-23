@@ -481,7 +481,7 @@ def test_api_factory_kwargs_absorbs_extra_related_services():
 
     services = _make_services(
         extras={
-            "user": "user-svc",
+            "user": "user_svc",
             "goals": "goals-svc",
             "habits": "habits-svc",
         }
@@ -500,6 +500,6 @@ def test_api_factory_kwargs_absorbs_extra_related_services():
     # No sub-configs — goes straight to api_factory with all related services
     register_domain_routes("app", "rt", services, config)
 
-    assert received_kwargs["user_service"] == "user-svc"
+    assert received_kwargs["user_service"] == "user_svc"
     assert received_kwargs["goals_service"] == "goals-svc"
     assert received_kwargs["habits_service"] == "habits-svc"

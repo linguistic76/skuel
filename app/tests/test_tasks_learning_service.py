@@ -52,7 +52,7 @@ def learning_service(mock_backend) -> TasksLearningService:
 def user_context() -> UserContext:
     """Create sample user context."""
     return UserContext(
-        user_uid="user:123",
+        user_uid="user_123",
         username="test_user",
         prerequisites_completed={"ku.python.basics", "ku.git.basics"},
         completed_task_uids={"task:completed_1"},
@@ -88,7 +88,7 @@ def learning_position() -> LpPosition:
         metadata={"steps": [step1, step2]},
     )
     return LpPosition(
-        user_uid="user:123",
+        user_uid="user_123",
         active_paths=[path],
         current_steps={"lp:python_mastery": step1},
         completed_step_uids=set(),
@@ -103,7 +103,7 @@ def sample_tasks() -> list[Task]:
     """Create sample tasks for relevance tests."""
     return [
         Task(
-            uid=f"task:{i}", user_uid="user:123", title=f"Task {i}", priority=Priority.MEDIUM.value
+            uid=f"task:{i}", user_uid="user_123", title=f"Task {i}", priority=Priority.MEDIUM.value
         )
         for i in range(5)
     ]
@@ -134,7 +134,7 @@ async def test_get_learning_relevant_tasks(
     mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
 
     result = await learning_service.get_learning_relevant_tasks(
-        "user:123", learning_position, limit=3
+        "user_123", learning_position, limit=3
     )
 
     assert result.is_ok
@@ -148,21 +148,21 @@ async def test_get_learning_relevant_tasks_skips_completed(
     """Completed tasks are excluded from relevance results."""
     completed = Task(
         uid="task:done",
-        user_uid="user:123",
+        user_uid="user_123",
         title="Done",
         priority=Priority.MEDIUM.value,
         status=EntityStatus.COMPLETED.value,
     )
     active = Task(
         uid="task:active",
-        user_uid="user:123",
+        user_uid="user_123",
         title="Active",
         priority=Priority.MEDIUM.value,
     )
     task_data = [completed.to_dto().to_dict(), active.to_dto().to_dict()]
     mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
 
-    result = await learning_service.get_learning_relevant_tasks("user:123", learning_position)
+    result = await learning_service.get_learning_relevant_tasks("user_123", learning_position)
 
     assert result.is_ok
     returned_uids = {t.uid for t in result.value}
@@ -263,7 +263,7 @@ async def test_multiple_active_paths_suggestions(learning_service):
         metadata={"steps": [html_step]},
     )
     position = LpPosition(
-        user_uid="user:123",
+        user_uid="user_123",
         active_paths=[path1, path2],
         current_steps={"lp:python": python_step, "lp:web_dev": html_step},
         completed_step_uids=set(),

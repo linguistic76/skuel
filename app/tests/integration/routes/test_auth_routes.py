@@ -33,7 +33,7 @@ class MockServices:
 class MockUser:
     """Mock User model."""
 
-    def __init__(self, uid: str = "user.test", email: str = "test@example.com"):
+    def __init__(self, uid: str = "user_test", email: str = "test@example.com"):
         self.uid = uid
         self.email = email
         self.username = "testuser"
@@ -182,7 +182,7 @@ class TestLoginSubmit:
     def test_login_retrieves_user_from_neo4j(self, mock_services):
         """Test that login retrieves user from Neo4j."""
         mock_services.user.get_user_by_email = AsyncMock(
-            return_value=Result.ok(MockUser(uid="user.test123"))
+            return_value=Result.ok(MockUser(uid="user_test123"))
         )
 
         assert hasattr(mock_services.user, "get_user_by_email")
@@ -190,7 +190,7 @@ class TestLoginSubmit:
     def test_login_sets_session_data(self):
         """Test that login sets session data."""
         session = {}
-        user_uid = "user.test"
+        user_uid = "user_test"
         session_token = "token-abc-123"
         logged_in_at = datetime.now().isoformat()
 
@@ -225,7 +225,7 @@ class TestLogout:
     def test_logout_clears_session(self):
         """Test that logout clears session data."""
         session = {
-            "user_uid": "user.test",
+            "user_uid": "user_test",
             "session_token": "token",
             "logged_in_at": "2024-01-01T00:00:00",
         }
@@ -292,18 +292,18 @@ class TestUserSwitching:
 
     def test_switch_user_shows_current_user(self):
         """Test that switch user page shows current user."""
-        current_user = "user.mike"
+        current_user = "user_mike"
         assert current_user is not None
 
     def test_switch_user_lists_available_users(self):
         """Test that switch user page lists development users."""
-        dev_users = ["user.mike", "user.test", "user.admin", "user.demo"]
+        dev_users = ["user_mike", "user_test", "user_admin", "user_demo"]
         assert len(dev_users) == 4
 
     def test_switch_user_updates_session(self):
         """Test that switch user updates session."""
-        session = {"user_uid": "user.mike"}
-        new_user = "user.test"
+        session = {"user_uid": "user_mike"}
+        new_user = "user_test"
         session["user_uid"] = new_user
         assert session["user_uid"] == new_user
 
@@ -313,7 +313,7 @@ class TestWhoami:
 
     def test_whoami_shows_user_info(self):
         """Test that whoami shows current user information."""
-        user_uid = "user.test"
+        user_uid = "user_test"
         is_authenticated = True
         assert user_uid is not None
         assert isinstance(is_authenticated, bool)
@@ -327,7 +327,7 @@ class TestSessionManagement:
         from adapters.inbound.auth.session import is_authenticated
 
         class MockRequest:
-            session = {"user_uid": "user.test"}
+            session = {"user_uid": "user_test"}
 
         assert is_authenticated(MockRequest()) is True
 
@@ -345,9 +345,9 @@ class TestSessionManagement:
         from adapters.inbound.auth.session import get_current_user
 
         class MockRequest:
-            session = {"user_uid": "user.test"}
+            session = {"user_uid": "user_test"}
 
-        assert get_current_user(MockRequest()) == "user.test"
+        assert get_current_user(MockRequest()) == "user_test"
 
     def test_get_current_user_returns_none(self):
         """Test get_current_user returns None when no session."""
@@ -365,8 +365,8 @@ class TestSessionManagement:
         class MockRequest:
             session = {}
 
-        set_current_user(MockRequest(), "user.test")
-        assert MockRequest.session.get("user_uid") == "user.test"
+        set_current_user(MockRequest(), "user_test")
+        assert MockRequest.session.get("user_uid") == "user_test"
 
     def test_set_current_user_with_token(self):
         """Test set_current_user sets session with token."""
@@ -375,8 +375,8 @@ class TestSessionManagement:
         class MockRequest:
             session = {}
 
-        set_current_user(MockRequest(), "user.test", session_token="token-abc")
-        assert MockRequest.session.get("user_uid") == "user.test"
+        set_current_user(MockRequest(), "user_test", session_token="token-abc")
+        assert MockRequest.session.get("user_uid") == "user_test"
         assert MockRequest.session.get("session_token") == "token-abc"
 
     def test_clear_current_user_clears_session(self):
@@ -384,7 +384,7 @@ class TestSessionManagement:
         from adapters.inbound.auth.session import clear_current_user
 
         class MockRequest:
-            session = {"user_uid": "user.test", "session_token": "token", "other": "data"}
+            session = {"user_uid": "user_test", "session_token": "token", "other": "data"}
 
         clear_current_user(MockRequest())
         assert MockRequest.session == {}

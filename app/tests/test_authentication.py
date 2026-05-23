@@ -23,7 +23,7 @@ from ui.auth.components import AuthComponents
 def sample_user() -> User:
     """Create sample user for testing."""
     return User(
-        uid="user.testuser",
+        uid="user_testuser",
         title="testuser",  # Username stored as title
         description="Test user account",
         email="test@example.com",
@@ -100,7 +100,7 @@ class TestUserRegistration:
 
         # Verify
         assert result.is_ok
-        assert result.value.uid == "user.testuser"
+        assert result.value.uid == "user_testuser"
         assert result.value.title == "testuser"
         assert result.value.email == "test@example.com"
 
@@ -142,7 +142,7 @@ class TestUserLogin:
 
         # Verify
         assert result.is_ok
-        assert result.value.uid == "user.testuser"
+        assert result.value.uid == "user_testuser"
         assert result.value.title == "testuser"
 
     @pytest.mark.asyncio
@@ -179,7 +179,7 @@ class TestSessionManagement:
 
     def test_set_current_user(self, mock_request):
         """Test setting current user in session."""
-        user_uid = "user.testuser"
+        user_uid = "user_testuser"
 
         # Set user in session
         mock_request.session["user_uid"] = user_uid
@@ -191,7 +191,7 @@ class TestSessionManagement:
 
     def test_get_current_user(self, mock_request):
         """Test getting current user from session."""
-        user_uid = "user.testuser"
+        user_uid = "user_testuser"
         mock_request.session["user_uid"] = user_uid
 
         # Get user from session
@@ -202,7 +202,7 @@ class TestSessionManagement:
 
     def test_clear_current_user(self, mock_request):
         """Test clearing user from session (logout)."""
-        mock_request.session["user_uid"] = "user.testuser"
+        mock_request.session["user_uid"] = "user_testuser"
         mock_request.session["logged_in_at"] = datetime.now().isoformat()
 
         # Clear session
@@ -214,7 +214,7 @@ class TestSessionManagement:
 
     def test_is_authenticated_true(self, mock_request):
         """Test is_authenticated returns True when user in session."""
-        mock_request.session["user_uid"] = "user.testuser"
+        mock_request.session["user_uid"] = "user_testuser"
 
         # Check authentication
         is_auth = mock_request.session.get("user_uid") is not None
@@ -298,7 +298,7 @@ class TestFormValidation:
     def test_username_pattern_validation(self):
         """Test username must match pattern."""
         valid_usernames = ["user123", "test_user", "User_Name_123"]
-        invalid_usernames = ["user@name", "user name", "user-name", ""]
+        invalid_usernames = ["user@name", "user name", "user_name", ""]
 
         # Valid usernames should only contain alphanumeric and underscore
         for username in valid_usernames:

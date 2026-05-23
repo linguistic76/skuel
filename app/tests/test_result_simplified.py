@@ -65,11 +65,11 @@ def test_database_error():
 
 def test_not_found_error():
     """Test not found error."""
-    result = Result.fail(Errors.not_found("User", "user-123"))
+    result = Result.fail(Errors.not_found("User", "user_123"))
 
     assert result.error.category == ErrorCategory.NOT_FOUND
     assert result.error.code == "NOT_FOUND_USER"
-    assert result.error.details["identifier"] == "user-123"
+    assert result.error.details["identifier"] == "user_123"
     print("✅ Not found error test passed")
 
 

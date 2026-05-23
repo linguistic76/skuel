@@ -80,7 +80,7 @@ def full_built() -> tuple[ProfileOrchestrator, dict[str, MagicMock], MagicMock, 
 async def test_get_domain_preview_items_invalid_slug_returns_validation_error() -> None:
     orch, mocks = _build()
 
-    result = await orch.get_domain_preview_items("user-1", "widgets")
+    result = await orch.get_domain_preview_items("user_1", "widgets")
 
     assert result.is_error
     assert result.expect_error().category == ErrorCategory.VALIDATION
@@ -91,48 +91,48 @@ async def test_get_domain_preview_items_invalid_slug_returns_validation_error() 
 async def test_get_domain_preview_items_tasks_dispatch() -> None:
     orch, mocks = _build()
     mocks["tasks_service"].get_user_tasks.return_value = Result.ok([])
-    await orch.get_domain_preview_items("user-1", "tasks")
-    mocks["tasks_service"].get_user_tasks.assert_called_once_with("user-1")
+    await orch.get_domain_preview_items("user_1", "tasks")
+    mocks["tasks_service"].get_user_tasks.assert_called_once_with("user_1")
 
 
 @pytest.mark.asyncio
 async def test_get_domain_preview_items_goals_dispatch() -> None:
     orch, mocks = _build()
     mocks["goals_service"].get_user_goals.return_value = Result.ok([])
-    await orch.get_domain_preview_items("user-1", "goals")
-    mocks["goals_service"].get_user_goals.assert_called_once_with("user-1")
+    await orch.get_domain_preview_items("user_1", "goals")
+    mocks["goals_service"].get_user_goals.assert_called_once_with("user_1")
 
 
 @pytest.mark.asyncio
 async def test_get_domain_preview_items_habits_dispatch() -> None:
     orch, mocks = _build()
     mocks["habits_service"].get_user_habits.return_value = Result.ok([])
-    await orch.get_domain_preview_items("user-1", "habits")
-    mocks["habits_service"].get_user_habits.assert_called_once_with("user-1")
+    await orch.get_domain_preview_items("user_1", "habits")
+    mocks["habits_service"].get_user_habits.assert_called_once_with("user_1")
 
 
 @pytest.mark.asyncio
 async def test_get_domain_preview_items_events_dispatch() -> None:
     orch, mocks = _build()
     mocks["events_service"].get_user_events.return_value = Result.ok([])
-    await orch.get_domain_preview_items("user-1", "events")
-    mocks["events_service"].get_user_events.assert_called_once_with("user-1")
+    await orch.get_domain_preview_items("user_1", "events")
+    mocks["events_service"].get_user_events.assert_called_once_with("user_1")
 
 
 @pytest.mark.asyncio
 async def test_get_domain_preview_items_choices_dispatch() -> None:
     orch, mocks = _build()
     mocks["choices_service"].get_user_choices.return_value = Result.ok([])
-    await orch.get_domain_preview_items("user-1", "choices")
-    mocks["choices_service"].get_user_choices.assert_called_once_with("user-1")
+    await orch.get_domain_preview_items("user_1", "choices")
+    mocks["choices_service"].get_user_choices.assert_called_once_with("user_1")
 
 
 @pytest.mark.asyncio
 async def test_get_domain_preview_items_principles_dispatch() -> None:
     orch, mocks = _build()
     mocks["principles_service"].get_user_principles.return_value = Result.ok([])
-    await orch.get_domain_preview_items("user-1", "principles")
-    mocks["principles_service"].get_user_principles.assert_called_once_with("user-1")
+    await orch.get_domain_preview_items("user_1", "principles")
+    mocks["principles_service"].get_user_principles.assert_called_once_with("user_1")
 
 
 @pytest.mark.asyncio
@@ -148,7 +148,7 @@ async def test_get_domain_preview_items_filters_out_terminal_statuses() -> None:
     ]
     mocks["tasks_service"].get_user_tasks.return_value = Result.ok(items)
 
-    result = await orch.get_domain_preview_items("user-1", "tasks")
+    result = await orch.get_domain_preview_items("user_1", "tasks")
 
     assert result.is_ok
     assert len(result.value) == 2
@@ -166,7 +166,7 @@ async def test_get_domain_preview_items_sorts_by_priority_descending() -> None:
     ]
     mocks["tasks_service"].get_user_tasks.return_value = Result.ok(items)
 
-    result = await orch.get_domain_preview_items("user-1", "tasks")
+    result = await orch.get_domain_preview_items("user_1", "tasks")
 
     assert result.is_ok
     priorities = [item.priority for item in result.value]
@@ -179,7 +179,7 @@ async def test_get_domain_preview_items_limits_to_three() -> None:
     items = [_item() for _ in range(10)]
     mocks["tasks_service"].get_user_tasks.return_value = Result.ok(items)
 
-    result = await orch.get_domain_preview_items("user-1", "tasks")
+    result = await orch.get_domain_preview_items("user_1", "tasks")
 
     assert result.is_ok
     assert len(result.value) == 3
@@ -192,7 +192,7 @@ async def test_get_domain_preview_items_service_error_propagates() -> None:
         Errors.database("read", "boom")
     )
 
-    result = await orch.get_domain_preview_items("user-1", "tasks")
+    result = await orch.get_domain_preview_items("user_1", "tasks")
 
     assert result.is_error
     assert result.expect_error().category == ErrorCategory.DATABASE
@@ -313,17 +313,17 @@ async def test_get_intelligence_data_factory_misconfigured_returns_none(
 async def test_get_assigned_exercises_delegates() -> None:
     orch, mocks = _build()
     mocks["exercises_service"].get_student_exercises.return_value = Result.ok([])
-    await orch.get_assigned_exercises("user-1")
-    mocks["exercises_service"].get_student_exercises.assert_called_once_with("user-1")
+    await orch.get_assigned_exercises("user_1")
+    mocks["exercises_service"].get_student_exercises.assert_called_once_with("user_1")
 
 
 @pytest.mark.asyncio
 async def test_get_recent_exercise_reports_delegates() -> None:
     orch, mocks = _build()
     mocks["exercise_report_service"].get_assessments_for_student.return_value = Result.ok([])
-    await orch.get_recent_exercise_reports("user-1", limit=7)
+    await orch.get_recent_exercise_reports("user_1", limit=7)
     mocks["exercise_report_service"].get_assessments_for_student.assert_called_once_with(
-        "user-1", limit=7
+        "user_1", limit=7
     )
 
 
@@ -331,21 +331,21 @@ async def test_get_recent_exercise_reports_delegates() -> None:
 async def test_get_recent_activity_reports_delegates() -> None:
     orch, mocks = _build()
     mocks["activity_report_service"].get_history.return_value = Result.ok([])
-    await orch.get_recent_activity_reports("user-1", limit=8)
-    mocks["activity_report_service"].get_history.assert_called_once_with("user-1", limit=8)
+    await orch.get_recent_activity_reports("user_1", limit=8)
+    mocks["activity_report_service"].get_history.assert_called_once_with("user_1", limit=8)
 
 
 @pytest.mark.asyncio
 async def test_get_shared_with_me_items_delegates() -> None:
     orch, mocks = _build()
     mocks["sharing_service"].get_shared_with_me.return_value = Result.ok([])
-    await orch.get_shared_with_me_items("user-1", limit=25)
-    mocks["sharing_service"].get_shared_with_me.assert_called_once_with(user_uid="user-1", limit=25)
+    await orch.get_shared_with_me_items("user_1", limit=25)
+    mocks["sharing_service"].get_shared_with_me.assert_called_once_with(user_uid="user_1", limit=25)
 
 
 @pytest.mark.asyncio
 async def test_get_knowledge_status_delegates() -> None:
     orch, mocks = _build()
     mocks["ps_service"].get_all_user_knowledge_status.return_value = Result.ok([])
-    await orch.get_knowledge_status("user-1")
-    mocks["ps_service"].get_all_user_knowledge_status.assert_called_once_with("user-1")
+    await orch.get_knowledge_status("user_1")
+    mocks["ps_service"].get_all_user_knowledge_status.assert_called_once_with("user_1")

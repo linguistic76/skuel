@@ -62,7 +62,7 @@ def sample_habit() -> Habit:
     """Create sample habit."""
     return Habit(
         uid="habit.test.1",
-        user_uid="user.mike",  # REQUIRED - habit ownership
+        user_uid="user_mike",  # REQUIRED - habit ownership
         title="Morning Exercise",
         entity_type=EntityType.HABIT,
         description="30 minutes of exercise",
@@ -139,7 +139,7 @@ class TestRecordCompletion:
 
         # Record completion
         result = await completion_service.record_completion(
-            habit_uid="habit.test.1", user_uid="user.mike"
+            habit_uid="habit.test.1", user_uid="user_mike"
         )
 
         # Verify
@@ -164,7 +164,7 @@ class TestRecordCompletion:
         # Record completion
         result = await completion_service.record_completion(
             habit_uid="habit.test.1",
-            user_uid="user.mike",
+            user_uid="user_mike",
             quality=5,
             duration_actual=35,
             notes="Excellent session!",
@@ -187,7 +187,7 @@ class TestRecordCompletion:
 
         # Record completion
         result = await completion_service.record_completion(
-            habit_uid="habit.nonexistent", user_uid="user.mike"
+            habit_uid="habit.nonexistent", user_uid="user_mike"
         )
 
         # Verify
@@ -212,7 +212,7 @@ class TestRecordCompletion:
         mock_habits_backend.update.return_value = Result.ok({})
 
         # Record completion today
-        await completion_service.record_completion(habit_uid="habit.test.1", user_uid="user.mike")
+        await completion_service.record_completion(habit_uid="habit.test.1", user_uid="user_mike")
 
         # Verify streak was incremented
         update_call = mock_habits_backend.update.call_args
@@ -238,7 +238,7 @@ class TestRecordCompletion:
         mock_habits_backend.update.return_value = Result.ok({})
 
         # Record completion today
-        await completion_service.record_completion(habit_uid="habit.test.1", user_uid="user.mike")
+        await completion_service.record_completion(habit_uid="habit.test.1", user_uid="user_mike")
 
         # Verify streak was reset
         update_call = mock_habits_backend.update.call_args
@@ -288,7 +288,7 @@ class TestCompletionQueries:
         mock_habits_backend.get.return_value = Result.ok(sample_habit_dto.to_dict())
 
         # Query today's completions
-        result = await completion_service.get_today_completions(user_uid="user.mike")
+        result = await completion_service.get_today_completions(user_uid="user_mike")
 
         # Verify
         assert result.is_ok
@@ -313,7 +313,7 @@ class TestCompletionQueries:
         mock_habits_backend.get.return_value = Result.ok(sample_habit_dto.to_dict())
 
         # Calculate count
-        result = await completion_service.calculate_completed_today_count(user_uid="user.mike")
+        result = await completion_service.calculate_completed_today_count(user_uid="user_mike")
 
         # Verify
         assert result.is_ok
@@ -362,7 +362,7 @@ class TestAnalytics:
         # Create habits with streaks
         habit1_dto = HabitDTO(
             uid="habit.1",
-            user_uid="user.mike",  # REQUIRED - habit ownership
+            user_uid="user_mike",  # REQUIRED - habit ownership
             title="Habit 1",
             current_streak=10,
             best_streak=15,
@@ -394,7 +394,7 @@ class TestAnalytics:
         mock_completions_backend.find_by.return_value = Result.ok(completions)
 
         # Get badge progress
-        result = await completion_service.get_badge_progress(user_uid="user.mike")
+        result = await completion_service.get_badge_progress(user_uid="user_mike")
 
         # Verify
         assert result.is_ok
@@ -436,7 +436,7 @@ class TestExport:
 
         # Export as CSV
         result = await completion_service.export_completion_history(
-            user_uid="user.mike", format="csv"
+            user_uid="user_mike", format="csv"
         )
 
         # Verify
@@ -468,7 +468,7 @@ class TestExport:
 
         # Export as JSON
         result = await completion_service.export_completion_history(
-            user_uid="user.mike", format="json"
+            user_uid="user_mike", format="json"
         )
 
         # Verify
@@ -484,7 +484,7 @@ class TestExport:
 
         # Export with invalid format
         result = await completion_service.export_completion_history(
-            user_uid="user.mike", format="xml"
+            user_uid="user_mike", format="xml"
         )
 
         # Verify

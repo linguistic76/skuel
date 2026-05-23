@@ -23,6 +23,7 @@ import dataclasses
 from datetime import UTC, datetime
 from typing import Any
 
+from core.constants import SYSTEM_USER_UID
 from core.events import publish_event
 from core.events.user_events import UserDeleted
 from core.models.enums.user_enums import UserRole
@@ -142,8 +143,9 @@ class UserCoreService:
         Error cases:
             - Database operation fails → DATABASE
         """
-        # Note: create_user() generates UID as "user_{username}", so "system" becomes "user_system"
-        system_uid = UserUID("user_system")
+        # create_user() generates UID as "user_{username}", so "system" becomes "user_system".
+        # SYSTEM_USER_UID is the single source of truth for this owner (see core.constants).
+        system_uid = SYSTEM_USER_UID
 
         # Check if system user exists
         result = await self.get_user(system_uid)

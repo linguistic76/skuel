@@ -39,11 +39,11 @@ class TestUnifiedUserContextBasics:
     def test_create_minimal_context(self):
         """Should create context with only required fields"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
         )
 
-        assert context.user_uid == "user:test"
+        assert context.user_uid == "user_test"
         assert context.username == "testuser"
         assert context.context_version == "3.0"  # Bumped for services layer move
         assert context.active_task_uids == []
@@ -53,7 +53,7 @@ class TestUnifiedUserContextBasics:
     def test_create_full_context(self):
         """Should create context with all fields populated"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             email="test@example.com",
             display_name="Test User",
@@ -88,7 +88,7 @@ class TestUnifiedUserContextBasics:
         )
 
         # Verify all fields set correctly
-        assert context.user_uid == "user:test"
+        assert context.user_uid == "user_test"
         assert len(context.active_task_uids) == 2
         assert context.task_priorities["task:1"] == 0.9
         assert context.goal_progress["goal:1"] == 0.6
@@ -100,7 +100,7 @@ class TestUnifiedUserContextBasics:
     def test_default_field_types(self):
         """Should initialize all collection fields with correct types"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
         )
 
@@ -128,7 +128,7 @@ class TestCacheValidity:
     def test_fresh_context_is_valid(self):
         """Should be valid immediately after creation"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
         )
 
@@ -137,7 +137,7 @@ class TestCacheValidity:
     def test_expired_context_is_invalid(self):
         """Should be invalid after TTL expires"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             cache_ttl_seconds=1,  # 1 second TTL
         )
@@ -150,7 +150,7 @@ class TestCacheValidity:
     def test_custom_ttl(self):
         """Should respect custom TTL settings"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             cache_ttl_seconds=600,  # 10 minutes
         )
@@ -174,7 +174,7 @@ class TestIntelligenceMethods:
     def test_get_ready_to_learn_no_prerequisites(self):
         """Should return knowledge with no prerequisites"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             next_recommended_knowledge=["ku:python", "ku:testing"],
             prerequisites_needed={},  # No prerequisites
@@ -190,7 +190,7 @@ class TestIntelligenceMethods:
     def test_get_ready_to_learn_with_prerequisites_met(self):
         """Should return knowledge where all prerequisites are completed"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             next_recommended_knowledge=["ku:advanced_python", "ku:web_dev"],
             prerequisites_needed={
@@ -210,7 +210,7 @@ class TestIntelligenceMethods:
     def test_get_ready_to_learn_with_prerequisites_missing(self):
         """Should exclude knowledge with missing prerequisites"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             next_recommended_knowledge=["ku:advanced_python", "ku:web_dev"],
             prerequisites_needed={
@@ -230,7 +230,7 @@ class TestIntelligenceMethods:
     def test_calculate_life_alignment_empty_path(self):
         """Should return 0.0 for empty life path"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
         )
 
@@ -242,7 +242,7 @@ class TestIntelligenceMethods:
     def test_calculate_life_alignment_high_substance(self):
         """Should return high alignment for high substance knowledge"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             knowledge_mastery={
                 "ku:meditation": 0.9,
@@ -262,7 +262,7 @@ class TestIntelligenceMethods:
     def test_calculate_life_alignment_low_substance(self):
         """Should return low alignment for theoretical knowledge"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             knowledge_mastery={
                 "ku:meditation": 0.3,  # Theoretical only
@@ -281,7 +281,7 @@ class TestIntelligenceMethods:
         """Should check alignment against default threshold (0.7)"""
         # High alignment - should pass
         context_aligned = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             life_path_alignment_score=0.8,
         )
@@ -289,7 +289,7 @@ class TestIntelligenceMethods:
 
         # Low alignment - should fail
         context_unaligned = UserContext(
-            user_uid="user:test2",
+            user_uid="user_test2",
             username="testuser2",
             life_path_alignment_score=0.5,
         )
@@ -298,7 +298,7 @@ class TestIntelligenceMethods:
     def test_is_life_aligned_custom_threshold(self):
         """Should check alignment against custom threshold"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             life_path_alignment_score=0.6,
         )
@@ -312,7 +312,7 @@ class TestIntelligenceMethods:
     def test_get_knowledge_gaps_for_goal(self):
         """Should identify missing knowledge for goals"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             prerequisites_needed={
                 "ku:advanced_python": ["ku:python"],
@@ -334,7 +334,7 @@ class TestPropertyCalculations:
     def test_mastery_average_empty(self):
         """Should return 0.0 for no knowledge"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             knowledge_mastery={},
         )
@@ -344,7 +344,7 @@ class TestPropertyCalculations:
     def test_mastery_average_calculation(self):
         """Should correctly calculate average mastery"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             knowledge_mastery={
                 "ku:python": 0.8,
@@ -359,7 +359,7 @@ class TestPropertyCalculations:
     def test_concepts_needing_review(self):
         """Should identify knowledge in review range (0.4-0.8)"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             knowledge_mastery={
                 "ku:mastered": 0.9,  # Above review range
@@ -384,7 +384,7 @@ class TestCrossDomainRelationships:
     def test_tasks_by_goal_relationship(self):
         """Should maintain task-goal relationships"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             tasks_by_goal={
                 "goal:1": ["task:1", "task:2"],
@@ -400,7 +400,7 @@ class TestCrossDomainRelationships:
     def test_habits_by_goal_relationship(self):
         """Should maintain habit-goal relationships"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             habits_by_goal={
                 "goal:fitness": ["habit:run", "habit:yoga"],
@@ -415,7 +415,7 @@ class TestCrossDomainRelationships:
     def test_events_by_habit_relationship(self):
         """Should maintain event-habit relationships"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             events_by_habit={
                 "habit:meditation": ["event:1", "event:2", "event:3"],
@@ -431,7 +431,7 @@ class TestWorkloadAndCapacity:
     def test_workload_score_calculation(self):
         """Should track current workload"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             current_workload_score=0.75,  # 75% capacity
             recommended_daily_tasks=3,
@@ -444,7 +444,7 @@ class TestWorkloadAndCapacity:
     def test_capacity_by_domain(self):
         """Should track capacity across domains"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             capacity_by_domain={
                 Domain.TECH: 0.8,
@@ -459,14 +459,14 @@ class TestWorkloadAndCapacity:
     def test_overwhelmed_state(self):
         """Should track overwhelmed state"""
         context_normal = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             is_overwhelmed=False,
         )
         assert context_normal.is_overwhelmed is False
 
         context_overwhelmed = UserContext(
-            user_uid="user:test2",
+            user_uid="user_test2",
             username="testuser2",
             is_overwhelmed=True,
         )
@@ -479,7 +479,7 @@ class TestDomainProgress:
     def test_domain_progress_tracking(self):
         """Should track progress by domain"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             domain_progress={
                 Domain.TECH: 0.75,
@@ -494,7 +494,7 @@ class TestDomainProgress:
     def test_velocity_tracking(self):
         """Should track velocity by domain"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             velocity_by_domain={
                 Domain.TECH: 0.05,  # 5% progress per week
@@ -507,7 +507,7 @@ class TestDomainProgress:
     def test_acceleration_tracking(self):
         """Should track acceleration (velocity change)"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             acceleration_by_domain={
                 Domain.TECH: 0.01,  # Velocity increasing
@@ -521,7 +521,7 @@ class TestDomainProgress:
     def test_consistency_tracking(self):
         """Should track consistency by domain"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             overall_consistency_score=0.85,
             consistency_by_domain={
@@ -540,7 +540,7 @@ class TestFacetAwareness:
     def test_facet_profile(self):
         """Should track facet profile"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             facet_profile={
                 "tags": ["python", "testing", "docker"],
@@ -555,7 +555,7 @@ class TestFacetAwareness:
     def test_facet_affinities(self):
         """Should track facet affinities (preference scores)"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             facet_affinities={
                 "python": 0.9,
@@ -570,7 +570,7 @@ class TestFacetAwareness:
     def test_content_type_preferences(self):
         """Should track content type preferences"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             content_type_preferences={
                 "tutorial": 0.8,
@@ -601,7 +601,7 @@ class TestUserContextBuilder:
         from core.models.user.user import User
 
         # Setup: Create test user directly via Cypher (bypassing UserService serialization bug)
-        test_user_uid = "user:context_builder_test"
+        test_user_uid = "user_context_builder_test"
         driver = user_service.context_builder.executor.driver
 
         # Clean up any existing test data from previous runs
@@ -898,7 +898,7 @@ class TestEntitiesRichField:
 
     def test_entities_rich_defaults_to_empty_dict(self):
         """UserContext.entities_rich is an empty dict by default."""
-        context = UserContext(user_uid="user:test", username="testuser")
+        context = UserContext(user_uid="user_test", username="testuser")
         assert context.entities_rich == {}
 
     @pytest.mark.asyncio
@@ -906,7 +906,7 @@ class TestEntitiesRichField:
         """build_rich_user_context() → entities_rich is a dict."""
         from core.models.user.user import User
 
-        user_uid = "user:ar_no_period"
+        user_uid = "user_ar_no_period"
         driver = user_service.context_builder.executor.driver
         async with driver.session() as session:
             await session.run(
@@ -929,7 +929,7 @@ class TestEntitiesRichField:
 
         from core.models.user.user import User
 
-        user_uid = "user:ar_with_period"
+        user_uid = "user_ar_with_period"
         driver = user_service.context_builder.executor.driver
 
         async with driver.session() as session:

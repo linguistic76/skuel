@@ -49,7 +49,7 @@ def mock_tasks_backend() -> Any:
     # Mock the generic BackendOperations methods (used by core service)
     task_dict = {
         "uid": "task-123",
-        "user_uid": "user-456",  # REQUIRED field
+        "user_uid": "user_456",  # REQUIRED field
         "title": "Test Task",
         "description": "Test description",
         "status": EntityStatus.DRAFT,
@@ -91,12 +91,12 @@ async def test_create_task_succeeds(mock_tasks_backend, mock_cross_domain_query,
     )
 
     # Act
-    result = await service.create_task(task_request, user_uid="user-456")
+    result = await service.create_task(task_request, user_uid="user_456")
 
     # Assert
     assert result.is_ok
     assert result.value.uid == "task-123"
-    assert result.value.user_uid == "user-456"
+    assert result.value.user_uid == "user_456"
     assert result.value.title == "Test Task"
 
 
@@ -116,7 +116,7 @@ async def test_no_event_bus_doesnt_crash(
     task_request = TaskCreateRequest(title="New Task", priority=Priority.MEDIUM)
 
     # Act - Should not crash
-    result = await service.create_task(task_request, user_uid="user-456")
+    result = await service.create_task(task_request, user_uid="user_456")
 
     # Assert
     assert result.is_ok
@@ -140,7 +140,7 @@ async def test_event_publishing_failure_doesnt_break_operation(
     task_request = TaskCreateRequest(title="New Task", priority=Priority.HIGH)
 
     # Act - Should complete successfully despite event failure
-    result = await service.create_task(task_request, user_uid="user-456")
+    result = await service.create_task(task_request, user_uid="user_456")
 
     # Assert - Operation should still succeed
     # (Event publishing is fire-and-forget, doesn't affect core operation)

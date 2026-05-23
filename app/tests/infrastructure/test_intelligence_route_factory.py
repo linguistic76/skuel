@@ -35,7 +35,7 @@ def mock_auth():
     with patch(
         "adapters.inbound.route_factories.intelligence_route_factory.require_authenticated_user"
     ) as mock:
-        mock.return_value = "user.test"
+        mock.return_value = "user_test"
         yield mock
 
 
@@ -307,14 +307,14 @@ async def test_analytics_route_success(intelligence_factory, mock_router, mock_s
 
     # Verify response
     assert status_code == 200
-    assert response["user_uid"] == "user.test"  # From require_authenticated_user mock
+    assert response["user_uid"] == "user_test"  # From require_authenticated_user mock
     assert response["period_days"] == 60
     assert response["analytics"]["total_goals"] == 10
     assert response["analytics"]["success_rate"] == 0.70
 
     # Verify service called with correct params
     assert len(mock_service.analytics_calls) == 1
-    assert mock_service.analytics_calls[0] == ("user.test", 60)
+    assert mock_service.analytics_calls[0] == ("user_test", 60)
 
 
 @pytest.mark.asyncio
@@ -335,7 +335,7 @@ async def test_analytics_route_default_period(intelligence_factory, mock_router,
     assert response["period_days"] == 30
 
     # Verify service called with default
-    assert mock_service.analytics_calls[0] == ("user.test", 30)
+    assert mock_service.analytics_calls[0] == ("user_test", 30)
 
 
 # ============================================================================
@@ -534,7 +534,7 @@ async def test_context_route_with_ownership_verification(
     assert status_code == 200
     assert "entity" in response
     assert len(mock_ownership_service.verify_calls) == 1
-    assert mock_ownership_service.verify_calls[0] == ("goal:owned123", "user.test")
+    assert mock_ownership_service.verify_calls[0] == ("goal:owned123", "user_test")
 
 
 @pytest.mark.asyncio
@@ -561,7 +561,7 @@ async def test_context_route_ownership_denied(mock_router, mock_service, mock_ow
 
     # Verify ownership was checked
     assert len(mock_ownership_service.verify_calls) == 1
-    assert mock_ownership_service.verify_calls[0] == ("goal:not-owned", "user.test")
+    assert mock_ownership_service.verify_calls[0] == ("goal:not-owned", "user_test")
 
     # Verify service was NOT called (ownership failed first)
     assert len(mock_service.context_calls) == 0

@@ -50,9 +50,9 @@ class TestGetCurrentUser:
 
     def test_returns_user_uid_when_authenticated(self):
         """Test that user_uid is returned when present in session."""
-        request = MockRequest(session={"user_uid": "user.test"})
+        request = MockRequest(session={"user_uid": "user_test"})
         result = get_current_user(request)
-        assert result == "user.test"
+        assert result == "user_test"
 
     def test_returns_none_when_not_authenticated(self):
         """Test that None is returned when session is empty."""
@@ -79,9 +79,9 @@ class TestGetCurrentUserOrDefault:
 
     def test_returns_user_uid_when_authenticated(self):
         """Test that session user is returned when present."""
-        request = MockRequest(session={"user_uid": "user.mike"})
+        request = MockRequest(session={"user_uid": "user_mike"})
         result = get_current_user_or_default(request)
-        assert result == "user.mike"
+        assert result == "user_mike"
 
     def test_returns_default_when_not_authenticated(self):
         """Test that default user is returned when no session."""
@@ -102,13 +102,13 @@ class TestSetCurrentUser:
     def test_sets_user_uid_in_session(self):
         """Test that user_uid is stored in session."""
         request = MockRequest()
-        set_current_user(request, "user.test")
-        assert request.session["user_uid"] == "user.test"
+        set_current_user(request, "user_test")
+        assert request.session["user_uid"] == "user_test"
 
     def test_sets_logged_in_at_timestamp(self):
         """Test that logged_in_at timestamp is stored."""
         request = MockRequest()
-        set_current_user(request, "user.test")
+        set_current_user(request, "user_test")
         assert "logged_in_at" in request.session
         # Verify it's a valid ISO format timestamp
         datetime.fromisoformat(request.session["logged_in_at"])
@@ -117,7 +117,7 @@ class TestSetCurrentUser:
         """Test that missing session is handled gracefully."""
         request = MagicMock(spec=[])  # No session attribute
         # Should not raise
-        set_current_user(request, "user.test")
+        set_current_user(request, "user_test")
 
 
 class TestClearCurrentUser:
@@ -125,7 +125,7 @@ class TestClearCurrentUser:
 
     def test_clears_session(self):
         """Test that session is cleared on logout."""
-        request = MockRequest(session={"user_uid": "user.test", "other": "data"})
+        request = MockRequest(session={"user_uid": "user_test", "other": "data"})
         clear_current_user(request)
         assert request.session == {}
 
@@ -141,7 +141,7 @@ class TestIsAuthenticated:
 
     def test_returns_true_when_authenticated(self):
         """Test that True is returned when user is in session."""
-        request = MockRequest(session={"user_uid": "user.test"})
+        request = MockRequest(session={"user_uid": "user_test"})
         assert is_authenticated(request) is True
 
     def test_returns_false_when_not_authenticated(self):
@@ -155,9 +155,9 @@ class TestRequireAuthenticatedUser:
 
     def test_returns_user_uid_when_authenticated(self):
         """Test that user_uid is returned when authenticated."""
-        request = MockRequest(session={"user_uid": "user.test"})
+        request = MockRequest(session={"user_uid": "user_test"})
         result = require_authenticated_user(request)
-        assert result == "user.test"
+        assert result == "user_test"
 
     def test_raises_401_when_not_authenticated(self):
         """Test that HTTPException 401 is raised when not authenticated."""
@@ -179,7 +179,7 @@ class TestRequireAuthDecorator:
         async def protected_route(request):
             return "success"
 
-        request = MockRequest(session={"user_uid": "user.test"})
+        request = MockRequest(session={"user_uid": "user_test"})
         result = await protected_route(request)
         assert result == "success"
 
@@ -234,9 +234,9 @@ class TestOptionalAuthDecorator:
         async def route(request, user_uid: str):
             return user_uid
 
-        request = MockRequest(session={"user_uid": "user.from_session"})
+        request = MockRequest(session={"user_uid": "user_from_session"})
         result = await route(request)
-        assert result == "user.from_session"
+        assert result == "user_from_session"
 
     @pytest.mark.asyncio
     async def test_injects_default_when_no_session(self):

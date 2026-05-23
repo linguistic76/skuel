@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+from core.constants import SYSTEM_USER_UID
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -370,8 +371,20 @@ async def validate_file(
         if not entity_data.get("title") and not entity_data.get("name"):
             warnings.append("No title or name - will use filename as fallback")
 
-        if config.requires_user_uid and entity_data.get("user_uid") == "user:system":
-            warnings.append("Using default system user_uid - consider specifying user_uid")
+        # Fail-fast: a user-owned entity may omit user_uid (defaults to the system owner),
+        # but an explicit user_uid must be canonical (`user_<name>`). Colon/dot/bare forms
+        # are rejected here rather than silently persisted as unreachable owners.
+        explicit_user_uid = entity_data.get("user_uid")
+        if (
+            config.requires_user_uid
+            and explicit_user_uid is not None
+            and not str(explicit_user_uid).startswith("user_")
+        ):
+            errors.append(
+                f"Non-canonical user_uid '{explicit_user_uid}': user identifiers must use the "
+                f"'user_<name>' format (e.g. {SYSTEM_USER_UID}). Omit user_uid to default to "
+                f"the system owner."
+            )
 
         return Result.ok(
             ValidationResult(

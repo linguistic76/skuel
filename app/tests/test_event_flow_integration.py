@@ -59,7 +59,7 @@ class TestEventFlowIntegration:
         # Publish event
         event = TaskCreated(
             task_uid="task-123",
-            user_uid="user-456",
+            user_uid="user_456",
             title="Test task",
             priority="high",
             domain="tech",
@@ -87,7 +87,7 @@ class TestEventFlowIntegration:
         # Publish event
         event = TaskCompleted(
             task_uid="task-123",
-            user_uid="user-456",
+            user_uid="user_456",
             occurred_at=datetime.now(),
             completion_time_seconds=120,
             was_overdue=False,
@@ -118,7 +118,7 @@ class TestEventFlowIntegration:
         # Publish event
         event = GoalCreated(
             goal_uid="goal-123",
-            user_uid="user-456",
+            user_uid="user_456",
             title="Complete Python course",
             domain="tech",
             target_date=datetime(2025, 12, 31, 23, 59),
@@ -146,7 +146,7 @@ class TestEventFlowIntegration:
         # Publish event
         event = GoalAchieved(
             goal_uid="goal-123",
-            user_uid="user-456",
+            user_uid="user_456",
             occurred_at=datetime.now(),
             actual_duration_days=180,
             completed_ahead_of_schedule=True,
@@ -177,7 +177,7 @@ class TestEventFlowIntegration:
         # Publish event
         event = HabitCreated(
             habit_uid="habit-123",
-            user_uid="user-456",
+            user_uid="user_456",
             title="Morning meditation",
             frequency="daily",
             domain="personal",
@@ -205,7 +205,7 @@ class TestEventFlowIntegration:
         # Publish event
         event = HabitCompleted(
             habit_uid="habit-123",
-            user_uid="user-456",
+            user_uid="user_456",
             occurred_at=datetime.now(),
             current_streak=7,
             is_new_streak_record=False,
@@ -246,7 +246,7 @@ class TestEventFlowIntegration:
         # Publish one event
         event = TaskCreated(
             task_uid="task-123",
-            user_uid="user-456",
+            user_uid="user_456",
             title="Test",
             priority="high",
             domain="tech",
@@ -266,7 +266,7 @@ class TestEventFlowIntegration:
         await event_bus.publish_async(
             TaskCreated(
                 task_uid="task-1",
-                user_uid="user-1",
+                user_uid="user_1",
                 title="Task 1",
                 priority="high",
                 domain="tech",
@@ -277,7 +277,7 @@ class TestEventFlowIntegration:
         await event_bus.publish_async(
             GoalCreated(
                 goal_uid="goal-1",
-                user_uid="user-1",
+                user_uid="user_1",
                 title="Goal 1",
                 domain="tech",
                 target_date=None,
@@ -288,7 +288,7 @@ class TestEventFlowIntegration:
         await event_bus.publish_async(
             HabitCreated(
                 habit_uid="habit-1",
-                user_uid="user-1",
+                user_uid="user_1",
                 title="Habit 1",
                 frequency="daily",
                 domain="personal",
@@ -325,7 +325,7 @@ class TestEventFlowIntegration:
         # Publish event
         event = TaskCreated(
             task_uid="task-123",
-            user_uid="user-456",
+            user_uid="user_456",
             title="Test",
             priority="high",
             domain="tech",
