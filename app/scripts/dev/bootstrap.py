@@ -18,7 +18,6 @@ __version__ = "1.0"
 
 
 import asyncio
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -842,13 +841,14 @@ async def shutdown_skuel(container: AppContainer) -> None:
         raise
 
 
-@asynccontextmanager
 async def skuel_lifespan(app):
     """
-    Modern lifespan context manager for SKUEL application.
+    Lifespan async generator for the SKUEL application.
 
-    Replaces deprecated @app.on_event("startup"/"shutdown") with proper
-    async context manager that guarantees cleanup even with reloader.
+    FastHTML's ``Lifespan`` wraps this generator itself (``async for state in
+    ls(app)``), so it must be a bare async generator — NOT an
+    ``@asynccontextmanager``. The ``try/finally`` still guarantees shutdown
+    cleanup when the generator is closed, even with the reloader.
     """
     # Get container from app state
     container = app.state.container

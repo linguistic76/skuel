@@ -24,7 +24,6 @@ from typing import Any
 
 from fasthtml.common import (
     H2,
-    Container,
     Div,
     P,
     Script,
@@ -56,7 +55,7 @@ from ui.calendar.components import (
     error_response,
 )
 from ui.feedback import Alert, AlertT
-from ui.layout import Size
+from ui.layout import Container, Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.loading import content_loading_placeholder
