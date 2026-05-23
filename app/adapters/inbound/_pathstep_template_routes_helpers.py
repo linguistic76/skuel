@@ -28,7 +28,7 @@ from adapters.inbound.auth import (
 )
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
     DomainRouteConfig,
@@ -73,7 +73,7 @@ def make_pathstep_template_api_factory(
         @require_teacher(get_user_service)
         @boundary_handler()
         async def attach_template(
-            request: Any,
+            request: Request,
             ps_uid: str,
             template_uid: str,
             current_user: Any = None,
@@ -89,7 +89,7 @@ def make_pathstep_template_api_factory(
         @require_teacher(get_user_service)
         @boundary_handler()
         async def detach_template(
-            request: Any,
+            request: Request,
             ps_uid: str,
             template_uid: str,
             current_user: Any = None,
@@ -104,7 +104,7 @@ def make_pathstep_template_api_factory(
         @require_teacher(get_user_service)
         @boundary_handler()
         async def list_templates_by_ps(
-            request: Any,
+            request: Request,
             ps_uid: str,
             current_user: Any = None,
         ) -> Result[list[dict[str, Any]]]:
