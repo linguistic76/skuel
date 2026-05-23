@@ -84,6 +84,17 @@ Until a fixed FastHTML release is pinned, [`fasthtml_empty_json_patch.py`](../..
 applies the identical guard at bootstrap (`scripts/dev/bootstrap.py`, Step 0), and
 `tests/unit/test_fasthtml_empty_json_patch.py` exercises the real FastHTML path.
 
-**Remove the shim, the bootstrap call, and that test** once `python-fasthtml` is bumped to a
-release containing the upstream fix. The regression test stays green either way (the upstream
-fix produces the same behavior), so it's the safe signal that removal is clean.
+**Automated signal:** `test_shim_is_still_required` runs the *original* (pre-shim) `parse_form`
+against an empty json body. It passes while FastHTML still raises (shim doing real work) and
+**fails the moment a pinned FastHTML release handles empty json natively** — the trigger to
+retire the workaround, so the monkeypatch can't silently outlive its purpose.
+
+**Removal procedure** (when that tripwire goes red — i.e. `python-fasthtml` is bumped to a release
+containing the fix):
+1. Delete `adapters/inbound/fasthtml_empty_json_patch.py`.
+2. Delete the Step-0 call in `scripts/dev/bootstrap.py`.
+3. Delete `tests/unit/test_fasthtml_empty_json_patch.py`.
+4. Delete this doc.
+
+The behavior-level tests stay green throughout (upstream produces the same result), confirming
+the removal is clean.
