@@ -2,7 +2,7 @@
 Tests for SKUEL Unified Linter
 ===============================
 
-Tests all 18 lint rules, LintResult dataclass, and suppression logic.
+Tests all SKUEL lint rules, LintResult dataclass, and suppression logic.
 Uses synthetic string content — no filesystem access needed.
 """
 
@@ -66,6 +66,8 @@ def lint_content(
         linter._check_rich_only_field_access(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL019") and not is_test:
         linter._check_credential_env_reads(fp, rel, content, lines)
+    if linter._should_run_rule("SKUEL020") and not is_test:
+        linter._check_request_annotation(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -1323,3 +1325,120 @@ class TestCredentialCatalogDrift:
             f"Remove them from scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG "
             f"(or add them to CredentialSetup.CREDENTIALS if they're real credentials)."
         )
+
+
+# ============================================================================
+# SKUEL020: FastHTML @rt handlers must annotate request: Request
+# ============================================================================
+
+
+class TestSKUEL020:
+    def test_detects_request_any_on_rt_handler(self) -> None:
+        linter = make_linter(["SKUEL020"])
+        content = (
+            '@rt("/manifest.json")\nasync def pwa_manifest(request: Any) -> Any:\n    return None\n'
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL020"
+        assert violations[0].severity == Severity.ERROR
+        assert "pwa_manifest" in violations[0].message
+        assert "request: Any" in violations[0].message
+
+    def test_detects_app_get_handler(self) -> None:
+        linter = make_linter(["SKUEL020"])
+        content = (
+            '@app.get("/ui/analytics")\nasync def dash(request: Any) -> Any:\n    return None\n'
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_detects_app_post_handler(self) -> None:
+        linter = make_linter(["SKUEL020"])
+        content = '@app.post("/x")\nasync def create(request: Any) -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_detects_nested_factory_handler(self) -> None:
+        """The bug bit factory-generated nested handlers (ai_routes _make_*_route)."""
+        linter = make_linter(["SKUEL020"])
+        content = (
+            "def make_route(rt, path):\n"
+            "    @rt(path)\n"
+            "    async def handler(request: Any, uid: str) -> Any:\n"
+            "        return None\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert "handler" in violations[0].message
+
+    def test_request_annotation_clean(self) -> None:
+        linter = make_linter(["SKUEL020"])
+        content = '@rt("/x")\nasync def h(request: Request) -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_qualified_request_annotation_clean(self) -> None:
+        """`starlette.requests.Request` (Attribute) is also a real Request class."""
+        linter = make_linter(["SKUEL020"])
+        content = (
+            '@rt("/x")\nasync def h(request: starlette.requests.Request) -> Any:\n    return None\n'
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_unannotated_request_clean(self) -> None:
+        """FastHTML injects the request when there is no annotation."""
+        linter = make_linter(["SKUEL020"])
+        content = '@rt("/x")\nasync def h(request) -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_undecorated_helper_not_flagged(self) -> None:
+        """A non-@rt helper with `request: Any` is never bound by FastHTML."""
+        linter = make_linter(["SKUEL020"])
+        content = (
+            '@rt("/x")\n'
+            "async def route_h(request: Request) -> Any:\n"
+            "    return None\n"
+            "\n"
+            "def helper(request: Any) -> Any:\n"
+            "    return None\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL020"])
+        content = (
+            '@rt("/x")\n'
+            "async def h(request: Any) -> Any:  # skuel-lint: disable=SKUEL020 -- legacy shim\n"
+            "    return None\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL020"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL020 -- generated routes\n"
+            '@rt("/x")\n'
+            "async def h(request: Any) -> Any:\n"
+            "    return None\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_test_files(self) -> None:
+        linter = make_linter(["SKUEL020"])
+        content = '@rt("/x")\nasync def h(request: Any) -> Any:\n    return None\n'
+        violations = lint_content(linter, content, file_path="tests/unit/test_routes.py")
+        assert len(violations) == 0
+
+    def test_suggestion_names_runtime_import(self) -> None:
+        linter = make_linter(["SKUEL020"])
+        content = '@rt("/x")\nasync def h(request: Any) -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert "request: Request" in violations[0].suggestion
+        assert "from adapters.inbound.fasthtml_types import Request" in violations[0].suggestion
