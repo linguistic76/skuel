@@ -1,6 +1,6 @@
 # Upstream: FastHTML `parse_form` crashes on an empty `application/json` body
 
-**Status:** interim shim in place ([`adapters/inbound/fasthtml_empty_json_patch.py`](../../adapters/inbound/fasthtml_empty_json_patch.py)); upstream PR **to be submitted** under the org's GitHub.
+**Status:** interim shim in place ([`adapters/inbound/fasthtml_empty_json_patch.py`](../../adapters/inbound/fasthtml_empty_json_patch.py)); upstream fix **submitted as [AnswerDotAI/fasthtml#880](https://github.com/AnswerDotAI/fasthtml/pull/880)** — remove the shim once a FastHTML release containing it is pinned.
 **Affects:** `python-fasthtml` 0.12.x … latest (`main` has the identical gap, verified 2026-05-22).
 
 ## Problem
