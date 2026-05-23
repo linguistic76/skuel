@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 from adapters.inbound.auth import (
     make_service_getter,
-    require_authenticated_user,
     require_teacher,
 )
 from adapters.inbound.boundary import boundary_handler
@@ -102,20 +101,22 @@ def make_pathstep_template_api_factory(
             )
 
         @rt(f"/api/{domain_name}/list-by-ps", methods=["GET"])
+        @require_teacher(get_user_service)
         @boundary_handler()
         async def list_templates_by_ps(
             request: Any,
             ps_uid: str,
+            current_user: Any = None,
         ) -> Result[list[dict[str, Any]]]:
             """List templates attached to a given PathStep.
 
-            Read-only: open to any authenticated user (no TEACHER gate) — the PS
-            and its templates are SHARED curriculum content. But enumeration
-            still requires a session: reject anonymous callers with 401 so the
-            attachment graph isn't readable without login. ``boundary_handler``
-            re-raises the ``HTTPException`` raised here.
+            TEACHER-gated read (admins satisfy TEACHER via role hierarchy).
+            Activity Templates are teacher-authored scaffolding, not public
+            curriculum — so this matches the template domain's CRUD reads and
+            its attach/detach mutations rather than the anonymous PS/LP/Ku
+            structural endpoints. The member-facing engage flow reads templates
+            server-side via the spawn loader, not this endpoint.
             """
-            require_authenticated_user(request)
             return cast(
                 "Result[list[dict[str, Any]]]",
                 await primary_service.list_for_pathstep(ps_uid),
