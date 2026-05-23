@@ -13,6 +13,7 @@ CRITICAL (blocks CI):
 ERROR (blocks CI):
   SKUEL002: Semantic type enums (not magic strings)
   SKUEL003: .is_err deprecated - use .is_error
+  SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
 
 WARNING (reported, doesn't block):
   SKUEL004: Confidence thresholds on semantic queries
@@ -53,6 +54,7 @@ Usage:
 Last Updated: April 2026
 """
 
+import ast
 import re
 import subprocess
 import sys
@@ -442,6 +444,40 @@ hf_token = os.getenv("HF_API_TOKEN")                    # ERROR — in catalog
 neo4j_auth = os.environ["NEO4J_AUTH"]                   # WARNING — matches *_AUTH regex
 stripe = os.getenv("CUSTOM_INTEGRATION_TOKEN")          # WARNING — matches *_TOKEN regex""",
     },
+    "SKUEL020": {
+        "title": "FastHTML Route Handlers Must Annotate request: Request",
+        "severity": "ERROR",
+        "description": """A FastHTML route handler (decorated with @rt(...), @app.get/post/
+put/delete/patch/route(...)) whose parameter named `request` is annotated as anything
+other than `Request` (e.g. `request: Any`) is silently broken.
+
+FastHTML resolves handler annotations at runtime and instantiates the annotated class
+(anno(**cargs)). Annotated `request: Any`, it treats `request` as a REQUIRED input field
+to extract from the query/body and returns 400 "Missing required field: request" for every
+caller — BEFORE any wrapping decorator runs. @boundary_handler, @csrf_protected, and
+@require_* all use @wraps, so they preserve the broken inner annotation and the 400 fires
+through them. The route fails closed (no data leak) but is dead, and its auth/CSRF gate
+never executes.
+
+This is invisible to mypy/ruff/the Route Security Audit — only a live request surfaces it.
+
+Fix: annotate `request: Request` and add a RUNTIME import
+`from adapters.inbound.fasthtml_types import Request` (not TYPE_CHECKING-only — files with
+`from __future__ import annotations` still need the name resolvable at runtime). Unannotated
+`request` is fine — FastHTML injects it. Helpers/middleware that are not @rt-decorated are
+never bound by FastHTML and are not flagged.
+
+Suppress: # skuel-lint: disable=SKUEL020 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL020 -- <reason>""",
+        "good": """from adapters.inbound.fasthtml_types import Request
+
+@rt("/manifest.json")
+async def pwa_manifest(request: Request) -> FileResponse:
+    ...""",
+        "bad": """@rt("/manifest.json")
+async def pwa_manifest(request: Any) -> FileResponse:  # 400s before any gate runs
+    ...""",
+    },
 }
 
 
@@ -753,6 +789,8 @@ class SkuelLinter:
                 self._check_rich_only_field_access(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL019") and not is_test:
                 self._check_credential_env_reads(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL020") and not is_test:
+                self._check_request_annotation(file_path, rel_path, content, lines)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -1829,6 +1867,125 @@ class SkuelLinter:
                         line_content=line.strip(),
                     )
                 )
+
+    # SKUEL020: decorator attributes that register a route on `app`/`rt`.
+    ROUTE_DECORATOR_ATTRS: ClassVar[frozenset[str]] = frozenset(
+        {"route", "get", "post", "put", "delete", "patch"}
+    )
+    ROUTE_DECORATOR_BASES: ClassVar[frozenset[str]] = frozenset({"app", "rt"})
+
+    @staticmethod
+    def _is_route_decorator(dec: ast.expr) -> bool:
+        """True if ``dec`` registers a FastHTML route.
+
+        Matches ``@rt`` / ``@rt(...)`` (Name ``rt``) and
+        ``@app.get`` / ``@rt.post`` / ``@app.route(...)`` etc. (Attribute whose
+        method is a routing verb and whose base is ``app`` or ``rt``).
+        """
+        target = dec.func if isinstance(dec, ast.Call) else dec
+        if isinstance(target, ast.Name):
+            return target.id == "rt"
+        if isinstance(target, ast.Attribute):
+            if target.attr in SkuelLinter.ROUTE_DECORATOR_ATTRS:
+                base = target.value
+                return isinstance(base, ast.Name) and base.id in SkuelLinter.ROUTE_DECORATOR_BASES
+        return False
+
+    @staticmethod
+    def _find_request_arg(func: ast.FunctionDef | ast.AsyncFunctionDef) -> ast.arg | None:
+        """Return the parameter named ``request``, or None if absent."""
+        a = func.args
+        for arg in (*a.posonlyargs, *a.args, *a.kwonlyargs):
+            if arg.arg == "request":
+                return arg
+        return None
+
+    @staticmethod
+    def _annotation_is_request(annotation: ast.expr | None) -> bool:
+        """True if the annotation is acceptable for a FastHTML ``request`` param.
+
+        Accepts ``Request`` (Name), ``*.Request`` (Attribute, e.g.
+        ``starlette.requests.Request``), the string form ``"Request"``, and the
+        unannotated case (FastHTML injects the request when there is no hint).
+        """
+        if annotation is None:
+            return True
+        if isinstance(annotation, ast.Name):
+            return annotation.id == "Request"
+        if isinstance(annotation, ast.Attribute):
+            return annotation.attr == "Request"
+        if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+            return annotation.value.split(".")[-1] == "Request"
+        return False
+
+    def _check_request_annotation(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL020 [ERROR]: FastHTML route handlers must annotate ``request: Request``.
+
+        A parameter named ``request`` annotated as anything other than ``Request``
+        (e.g. ``request: Any``) makes FastHTML treat ``request`` as a required input
+        field and return 400 "Missing required field: request" for every caller —
+        before any ``@require_*`` / ``@csrf_protected`` / ``@boundary_handler``
+        decorator runs (all use ``@wraps``, preserving the broken inner annotation).
+        The route fails closed but is dead. Only a live request surfaces it; mypy,
+        ruff, and the Route Security Audit do not.
+
+        AST-based: flags any function decorated with a route decorator (including
+        nested ``handler`` defs in factory functions) whose ``request`` parameter
+        has a non-``Request`` annotation. Unannotated ``request`` is fine.
+        """
+        if self._is_file_suppressed(content, "SKUEL020"):
+            return
+
+        # Cheap pre-filter: only parse files that actually register routes. Every
+        # decorator we match renders as `@rt...` or `@app....` in source.
+        if "@rt" not in content and "@app." not in content:
+            return
+
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            if not any(self._is_route_decorator(d) for d in node.decorator_list):
+                continue
+
+            request_arg = self._find_request_arg(node)
+            if request_arg is None:
+                continue
+            annotation = request_arg.annotation
+            if annotation is None or self._annotation_is_request(annotation):
+                continue
+
+            line_num = request_arg.lineno
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL020"):
+                continue
+
+            annotation_src = ast.unparse(annotation)
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=request_arg.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL020",
+                    message=(
+                        f"Route handler `{node.name}` annotates `request: {annotation_src}` — "
+                        f"FastHTML 400s 'Missing required field: request' before any gate runs"
+                    ),
+                    suggestion=(
+                        "Change to `request: Request` and add a runtime import "
+                        "`from adapters.inbound.fasthtml_types import Request`"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
 
     # =========================================================================
     # INFO RULES (visibility only)

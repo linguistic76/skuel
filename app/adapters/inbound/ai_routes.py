@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 from starlette.responses import JSONResponse
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -172,7 +172,7 @@ def _make_uid_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) -> Non
     """Generate route with (request, uid: str) signature."""
 
     @rt(path)
-    async def handler(request: Any, uid: str) -> Any:
+    async def handler(request: Request, uid: str) -> Any:
         return await _ai_route(
             request,
             services,
@@ -192,7 +192,7 @@ def _make_uid_limit_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) 
     default_limit = spec.default_limit
 
     @rt(path)
-    async def handler(request: Any, uid: str, limit: int = default_limit) -> Any:
+    async def handler(request: Request, uid: str, limit: int = default_limit) -> Any:
         return await _ai_route(
             request,
             services,
@@ -212,7 +212,7 @@ def _make_query_limit_route(rt: Any, path: str, services: Any, spec: AIRouteSpec
     default_limit = spec.default_limit
 
     @rt(path)
-    async def handler(request: Any, query: str, limit: int = default_limit) -> Any:
+    async def handler(request: Request, query: str, limit: int = default_limit) -> Any:
         return await _ai_route(
             request,
             services,
@@ -231,7 +231,7 @@ def _make_uid_level_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) 
     """Generate route with (request, uid: str, level: str = 'intermediate') signature."""
 
     @rt(path)
-    async def handler(request: Any, uid: str, level: str = "intermediate") -> Any:
+    async def handler(request: Request, uid: str, level: str = "intermediate") -> Any:
         return await _ai_route(
             request,
             services,
@@ -271,7 +271,7 @@ def create_ai_routes(app: FastHTMLApp, rt: RouteDecorator, services: "Services |
 
     # AI status endpoint — derived from _AI_STATUS_DOMAINS
     @rt("/api/ai/status")
-    async def ai_status(request: Any) -> dict[str, Any]:
+    async def ai_status(request: Request) -> dict[str, Any]:
         """Check which AI services are available."""
         require_authenticated_user(request)
         return {

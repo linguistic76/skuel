@@ -65,20 +65,20 @@ def create_analytics_ui_routes(
     """Register analytics UI routes."""
 
     @app.get("/ui/analytics")
-    async def analytics_dashboard(request: Any) -> Any:
+    async def analytics_dashboard(request: Request) -> Any:
         """Analytics dashboard."""
         require_authenticated_user(request)
         return render_analytics_dashboard(request)
 
     @app.get("/ui/analytics/period-fields")
-    async def get_period_fields(request: Any) -> Any:
+    async def get_period_fields(request: Request) -> Any:
         """Get dynamic period input fields."""
         require_authenticated_user(request)
         params = parse_period_params(request)
         return render_period_fields(params.period)
 
     @app.get("/ui/analytics/view")
-    async def view_analytics(request: Any) -> Any:
+    async def view_analytics(request: Request) -> Any:
         """Generate and view analytics."""
         user_uid = require_authenticated_user(request)
         try:
@@ -141,7 +141,7 @@ def create_analytics_ui_routes(
             return render_inline_error(f"Error: {e}")
 
     @app.get("/ui/analytics/life-path-alignment")
-    async def life_path_alignment_ui(request: Any) -> Any:
+    async def life_path_alignment_ui(request: Request) -> Any:
         """Render Life Path alignment dashboard UI."""
         user_uid = require_authenticated_user(request)
 
@@ -157,7 +157,7 @@ def create_analytics_ui_routes(
             return render_inline_error(f"Error: {e}")
 
     @app.get("/ui/analytics/weekly-life-summary")
-    async def weekly_life_summary_ui(request: Any) -> Any:
+    async def weekly_life_summary_ui(request: Request) -> Any:
         """Render weekly life summary UI (ALL layers)."""
         user_uid = require_authenticated_user(request)
         start_date_str = request.query_params.get("start_date")
