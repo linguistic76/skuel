@@ -48,7 +48,7 @@ def mock_request_no_session() -> MagicMock:
 def authenticated_request() -> MagicMock:
     """Create mock request with authenticated session."""
     request = MagicMock()
-    request.session = {"user_uid": "user.test", "logged_in_at": datetime.now().isoformat()}
+    request.session = {"user_uid": "user_test", "logged_in_at": datetime.now().isoformat()}
     return request
 
 
@@ -58,7 +58,7 @@ class TestGetCurrentUser:
     def test_get_user_from_session(self, authenticated_request):
         """Test getting user from active session."""
         user_uid = get_current_user(authenticated_request)
-        assert user_uid == "user.test"
+        assert user_uid == "user_test"
 
     def test_no_session_returns_none(self, mock_request_with_session):
         """Test that empty session returns None."""
@@ -77,7 +77,7 @@ class TestGetCurrentUserOrDefault:
     def test_returns_user_from_session(self, authenticated_request):
         """Test returns user from session when authenticated."""
         user_uid = get_current_user_or_default(authenticated_request)
-        assert user_uid == "user.test"
+        assert user_uid == "user_test"
 
     def test_returns_default_when_no_session(self, mock_request_with_session):
         """Test returns default user when no session."""
@@ -86,8 +86,8 @@ class TestGetCurrentUserOrDefault:
 
     def test_returns_custom_default(self, mock_request_with_session):
         """Test returns custom default when specified."""
-        user_uid = get_current_user_or_default(mock_request_with_session, default="user.custom")
-        assert user_uid == "user.custom"
+        user_uid = get_current_user_or_default(mock_request_with_session, default="user_custom")
+        assert user_uid == "user_custom"
 
 
 class TestSetCurrentUser:
@@ -95,21 +95,21 @@ class TestSetCurrentUser:
 
     def test_sets_user_in_session(self, mock_request_with_session):
         """Test setting user creates session data."""
-        set_current_user(mock_request_with_session, "user.newuser")
+        set_current_user(mock_request_with_session, "user_newuser")
 
-        assert mock_request_with_session.session["user_uid"] == "user.newuser"
+        assert mock_request_with_session.session["user_uid"] == "user_newuser"
         assert "logged_in_at" in mock_request_with_session.session
 
     def test_overwrites_existing_session(self, authenticated_request):
         """Test setting user overwrites existing session."""
-        set_current_user(authenticated_request, "user.different")
+        set_current_user(authenticated_request, "user_different")
 
-        assert authenticated_request.session["user_uid"] == "user.different"
+        assert authenticated_request.session["user_uid"] == "user_different"
 
     def test_no_session_attribute_does_nothing(self, mock_request_no_session):
         """Test gracefully handles request without session."""
         # Should not raise exception
-        set_current_user(mock_request_no_session, "user.test")
+        set_current_user(mock_request_no_session, "user_test")
 
 
 class TestClearCurrentUser:
@@ -241,17 +241,17 @@ class TestAuthenticationFlow:
         assert get_current_user(mock_request_with_session) is None
 
         # Log in
-        set_current_user(mock_request_with_session, "user.test")
+        set_current_user(mock_request_with_session, "user_test")
 
         # Now authenticated
         assert is_authenticated(mock_request_with_session) is True
-        assert get_current_user(mock_request_with_session) == "user.test"
+        assert get_current_user(mock_request_with_session) == "user_test"
 
     def test_complete_logout_flow(self, authenticated_request):
         """Test complete logout flow."""
         # Start authenticated
         assert is_authenticated(authenticated_request) is True
-        assert get_current_user(authenticated_request) == "user.test"
+        assert get_current_user(authenticated_request) == "user_test"
 
         # Log out
         clear_current_user(authenticated_request)
@@ -263,13 +263,13 @@ class TestAuthenticationFlow:
     def test_user_switch_flow(self, authenticated_request):
         """Test switching users."""
         # Start as user.test
-        assert get_current_user(authenticated_request) == "user.test"
+        assert get_current_user(authenticated_request) == "user_test"
 
         # Switch to different user
-        set_current_user(authenticated_request, "user.different")
+        set_current_user(authenticated_request, "user_different")
 
         # Now logged in as different user
-        assert get_current_user(authenticated_request) == "user.different"
+        assert get_current_user(authenticated_request) == "user_different"
         assert is_authenticated(authenticated_request) is True
 
 

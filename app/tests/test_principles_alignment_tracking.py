@@ -55,7 +55,7 @@ def sample_principle_with_alignment() -> Principle:
     return Principle(
         entity_type=EntityType.PRINCIPLE,
         uid="principle.integrity",
-        user_uid="user.mike",  # REQUIRED - principle ownership
+        user_uid="user_mike",  # REQUIRED - principle ownership
         title="Integrity",
         statement="Act with honesty and consistency",
         description="Always do what I say I will do",
@@ -93,7 +93,7 @@ def sample_principle_no_alignment() -> Principle:
     return Principle(
         entity_type=EntityType.PRINCIPLE,
         uid="principle.growth",
-        user_uid="user.mike",  # REQUIRED - principle ownership
+        user_uid="user_mike",  # REQUIRED - principle ownership
         title="Growth",
         statement="Continuously learn and improve",
         description="Never stop growing",
@@ -170,7 +170,7 @@ class TestCalculateAverageAlignment:
         )
 
         # Calculate average
-        result = await alignment_service.calculate_average_alignment("user.mike")
+        result = await alignment_service.calculate_average_alignment("user_mike")
 
         # Verify
         assert result.is_ok
@@ -183,7 +183,7 @@ class TestCalculateAverageAlignment:
         """Test average alignment with no principles."""
         mock_backend.find_by.return_value = Result.ok([])
 
-        result = await alignment_service.calculate_average_alignment("user.mike")
+        result = await alignment_service.calculate_average_alignment("user_mike")
 
         assert result.is_ok
         assert result.value == 0.0
@@ -195,7 +195,7 @@ class TestCalculateAverageAlignment:
             {"code": "DB_ERROR", "message": "Database error"}
         )
 
-        result = await alignment_service.calculate_average_alignment("user.mike")
+        result = await alignment_service.calculate_average_alignment("user_mike")
 
         assert result.is_error
 
@@ -206,7 +206,7 @@ class TestCalculateAverageAlignment:
         principle1 = Principle(
             entity_type=EntityType.PRINCIPLE,
             uid="p1",
-            user_uid="user.mike",  # REQUIRED - principle ownership
+            user_uid="user_mike",  # REQUIRED - principle ownership
             title="P1",
             statement="Test",
             description="Test",
@@ -229,7 +229,7 @@ class TestCalculateAverageAlignment:
         principle2 = Principle(
             entity_type=EntityType.PRINCIPLE,
             uid="p2",
-            user_uid="user.mike",  # REQUIRED - principle ownership
+            user_uid="user_mike",  # REQUIRED - principle ownership
             title="P2",
             statement="Test",
             description="Test",
@@ -253,7 +253,7 @@ class TestCalculateAverageAlignment:
             [principle1.to_dto().to_dict(), principle2.to_dto().to_dict()]
         )
 
-        result = await alignment_service.calculate_average_alignment("user.mike")
+        result = await alignment_service.calculate_average_alignment("user_mike")
 
         assert result.is_ok
         # Average of 0.85 and 0.7 = 0.775
@@ -339,7 +339,7 @@ class TestGetRecentActivity:
             [sample_principle_with_alignment.to_dto().to_dict()]
         )
 
-        result = await alignment_service.get_recent_activity("user.mike", limit=10)
+        result = await alignment_service.get_recent_activity("user_mike", limit=10)
 
         assert result.is_ok
         activities = result.value
@@ -366,7 +366,7 @@ class TestGetRecentActivity:
             [sample_principle_with_alignment.to_dto().to_dict()]
         )
 
-        result = await alignment_service.get_recent_activity("user.mike", limit=2)
+        result = await alignment_service.get_recent_activity("user_mike", limit=2)
 
         assert result.is_ok
         activities = result.value
@@ -377,7 +377,7 @@ class TestGetRecentActivity:
         """Test getting activity with no principles."""
         mock_backend.find_by.return_value = Result.ok([])
 
-        result = await alignment_service.get_recent_activity("user.mike")
+        result = await alignment_service.get_recent_activity("user_mike")
 
         assert result.is_ok
         assert len(result.value) == 0
@@ -389,7 +389,7 @@ class TestGetRecentActivity:
             {"code": "DB_ERROR", "message": "Database error"}
         )
 
-        result = await alignment_service.get_recent_activity("user.mike")
+        result = await alignment_service.get_recent_activity("user_mike")
 
         assert result.is_error
 
@@ -402,7 +402,7 @@ class TestGetRecentActivity:
             [sample_principle_with_alignment.to_dto().to_dict()]
         )
 
-        result = await alignment_service.get_recent_activity("user.mike")
+        result = await alignment_service.get_recent_activity("user_mike")
 
         assert result.is_ok
         activities = result.value

@@ -185,8 +185,8 @@ async def seed_classroom(
 
     async def _seed(
         *,
-        teacher_uid: str = "user.ue_teacher",
-        student_uid: str = "user.ue_student",
+        teacher_uid: str = "user_ue_teacher",
+        student_uid: str = "user_ue_student",
         group_uid: str = "group.ue_class",
         exercise_uid: str = "exercise.ue_demo",
     ) -> dict[str, Any]:

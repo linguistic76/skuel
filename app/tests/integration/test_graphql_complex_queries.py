@@ -42,7 +42,7 @@ async def graphql_test_data(neo4j_driver, clean_neo4j):
             ON CREATE SET u.created_at = datetime()
             RETURN u
             """,
-            user_uid="user.graphql_test",
+            user_uid="user_graphql_test",
         )
 
         # Create knowledge units across domains
@@ -118,7 +118,7 @@ async def graphql_test_data(neo4j_driver, clean_neo4j):
                 "description": "Complete Python basics course",
                 "status": "active",
                 "priority": "high",
-                "user_uid": "user.graphql_test",
+                "user_uid": "user_graphql_test",
                 "knowledge_uid": "ku.python_basics",
             },
             {
@@ -127,7 +127,7 @@ async def graphql_test_data(neo4j_driver, clean_neo4j):
                 "description": "Solve algorithm problems",
                 "status": "active",
                 "priority": "medium",
-                "user_uid": "user.graphql_test",
+                "user_uid": "user_graphql_test",
                 "knowledge_uid": "ku.data_structures",
             },
             {
@@ -136,7 +136,7 @@ async def graphql_test_data(neo4j_driver, clean_neo4j):
                 "description": "Already finished",
                 "status": "completed",
                 "priority": "low",
-                "user_uid": "user.graphql_test",
+                "user_uid": "user_graphql_test",
                 "knowledge_uid": None,
             },
         ]
@@ -189,7 +189,7 @@ async def graphql_test_data(neo4j_driver, clean_neo4j):
             WHERE n.uid STARTS WITH 'ku.' OR
                   n.uid STARTS WITH 'task.graphql_test' OR
                   n.uid STARTS WITH 'lp.python' OR
-                  n.uid = 'user.graphql_test'
+                  n.uid = 'user_graphql_test'
             DETACH DELETE n
             """
         )
@@ -288,7 +288,7 @@ async def test_tasks_list_authenticated_user(graphql_test_data, neo4j_driver):
             ORDER BY t.created_at DESC
             LIMIT 20
             """,
-            user_uid="user.graphql_test",
+            user_uid="user_graphql_test",
         )
 
         records = [record async for record in result_records]
@@ -299,7 +299,7 @@ async def test_tasks_list_authenticated_user(graphql_test_data, neo4j_driver):
         for record in records:
             task_data = dict(record["t"])
             assert task_data["status"] != "completed"
-            assert task_data["user_uid"] == "user.graphql_test"
+            assert task_data["user_uid"] == "user_graphql_test"
 
 
 @pytest.mark.asyncio
@@ -313,7 +313,7 @@ async def test_tasks_include_completed(graphql_test_data, neo4j_driver):
             ORDER BY t.created_at DESC
             LIMIT 20
             """,
-            user_uid="user.graphql_test",
+            user_uid="user_graphql_test",
         )
 
         records = [record async for record in result_records]
@@ -393,7 +393,7 @@ async def test_user_dashboard_data_aggregation(graphql_test_data, neo4j_driver):
             WHERE t.status = 'active'
             RETURN count(t) as active_tasks
             """,
-            user_uid="user.graphql_test",
+            user_uid="user_graphql_test",
         )
 
         task_record = await task_result.single()
@@ -450,7 +450,7 @@ async def test_tasks_unauthenticated_user(neo4j_driver):
             MATCH (t:Task {user_uid: $user_uid})
             RETURN t
             """,
-            user_uid="user.nonexistent",
+            user_uid="user_nonexistent",
         )
 
         records = [record async for record in result]
@@ -475,7 +475,7 @@ async def test_tasks_with_knowledge_nested(graphql_test_data, neo4j_driver):
             RETURN t, k
             LIMIT 10
             """,
-            user_uid="user.graphql_test",
+            user_uid="user_graphql_test",
         )
 
         records = [record async for record in result]

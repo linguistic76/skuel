@@ -133,7 +133,7 @@ class TestJournalActivityExtractor:
         return UserEntry(
             uid="report:test",
             title="Test Journal",
-            user_uid="user:mike",
+            user_uid="user_mike",
             entity_type=EntityType.USER_ENTRY,
             status=EntityStatus.COMPLETED,
             pipeline=Pipeline.NONE,
@@ -170,7 +170,7 @@ Some reflections on the day...
         """Extractor finds all activity lines."""
         result = await extractor.extract_and_create(
             report=mock_ku,
-            user_uid="user:mike",
+            user_uid="user_mike",
         )
 
         assert result.is_ok
@@ -184,7 +184,7 @@ Some reflections on the day...
         """Extractor creates tasks via service."""
         result = await extractor.extract_and_create(
             report=mock_ku,
-            user_uid="user:mike",
+            user_uid="user_mike",
         )
 
         assert result.is_ok
@@ -201,7 +201,7 @@ Some reflections on the day...
         empty_ku = UserEntry(
             uid="report:empty",
             title="Empty",
-            user_uid="user:mike",
+            user_uid="user_mike",
             entity_type=EntityType.USER_ENTRY,
             status=EntityStatus.COMPLETED,
             pipeline=Pipeline.NONE,
@@ -214,7 +214,7 @@ Some reflections on the day...
 
         result = await extractor.extract_and_create(
             report=empty_ku,
-            user_uid="user:mike",
+            user_uid="user_mike",
         )
 
         assert result.is_ok

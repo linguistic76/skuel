@@ -17,7 +17,21 @@ Last updated: 2026-01-24
 
 from typing import Final
 
+from core.models.type_hints import UserUID
+
 __version__ = "1.0.0"
+
+
+# ============================================================================
+# USER IDENTIFIERS
+# ============================================================================
+
+# The canonical user-id format is underscore: ``user_<name>`` (enforced by
+# TypeConverter.to_user_uid). SYSTEM_USER_UID is the single source of truth for
+# the infrastructure "system" owner — used by the user service AND as the
+# ingestion default — so the same logical user is never spelled two ways
+# (the prior `user:system` vs `user_system` split).
+SYSTEM_USER_UID: Final[UserUID] = UserUID("user_system")
 
 
 # ============================================================================

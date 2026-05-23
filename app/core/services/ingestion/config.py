@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from core.constants import SYSTEM_USER_UID
 from core.ingestion.bulk_ingestion import RelationshipConfig
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_registry import (
@@ -49,9 +50,11 @@ DEFAULT_MAX_CONCURRENT_PARSING = 20
 # USER CONFIGURATION
 # ============================================================================
 
-# Default user UID for entities without explicit user_uid
-# Configurable via SKUEL_DEFAULT_USER_UID environment variable
-DEFAULT_USER_UID: UserUID = UserUID(os.environ.get("SKUEL_DEFAULT_USER_UID", "user:system"))
+# Default user UID for entities without explicit user_uid.
+# Configurable via SKUEL_DEFAULT_USER_UID; defaults to the canonical SYSTEM_USER_UID
+# (`user_system`). Must stay canonical (`user_<name>`) — the ingestion boundary rejects
+# non-canonical owners. See core.constants.SYSTEM_USER_UID.
+DEFAULT_USER_UID: UserUID = UserUID(os.environ.get("SKUEL_DEFAULT_USER_UID", SYSTEM_USER_UID))
 
 
 # ============================================================================

@@ -81,7 +81,7 @@ def sample_tasks() -> list[Any]:
         Task.from_dto(
             TaskDTO(
                 uid="task:1",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 title="Complete Python module",
                 priority=Priority.HIGH.value,
                 status=EntityStatus.ACTIVE.value,
@@ -95,7 +95,7 @@ def sample_tasks() -> list[Any]:
             Task.from_dto(
                 TaskDTO(
                     uid="task:2",
-                    user_uid="user:demo",
+                    user_uid="user_demo",
                     title="Daily coding practice",
                     priority=Priority.MEDIUM.value,
                     status=EntityStatus.SCHEDULED.value,
@@ -108,7 +108,7 @@ def sample_tasks() -> list[Any]:
         Task.from_dto(
             TaskDTO(
                 uid="task:3",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 title="Blocked task - needs prereq",
                 priority=Priority.HIGH.value,
                 status=EntityStatus.DRAFT.value,
@@ -118,7 +118,7 @@ def sample_tasks() -> list[Any]:
         Task.from_dto(
             TaskDTO(
                 uid="task:4",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 title="Learning step task",
                 priority=Priority.LOW.value,
                 status=EntityStatus.DRAFT.value,
@@ -134,7 +134,7 @@ def sample_tasks() -> list[Any]:
 def user_context() -> UserContext:
     """Create sample user context."""
     return UserContext(
-        user_uid="user:123",
+        user_uid="user_123",
         username="test_user",
         prerequisites_completed={"ku.python.basics"},
         completed_task_uids={"task:completed_1", "task:completed_2"},
@@ -276,7 +276,7 @@ async def test_get_blocked_by_prerequisites(
     mock_backend.count_related.return_value = Result.ok(0)
 
     # Execute
-    result = await search_service.get_blocked_by_prerequisites("user:123")
+    result = await search_service.get_blocked_by_prerequisites("user_123")
 
     # Verify
     assert result.is_ok
@@ -296,7 +296,7 @@ async def test_get_blocked_tasks_empty(search_service, mock_backend):
     simple_task = Task.from_dto(
         TaskDTO(
             uid="task:simple",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Simple task",
             priority=Priority.MEDIUM.value,
             status=EntityStatus.DRAFT.value,
@@ -310,7 +310,7 @@ async def test_get_blocked_tasks_empty(search_service, mock_backend):
     mock_backend.count_related.return_value = Result.ok(0)
 
     # Execute
-    result = await search_service.get_blocked_by_prerequisites("user:123")
+    result = await search_service.get_blocked_by_prerequisites("user_123")
 
     # Verify
     assert result.is_ok
@@ -466,7 +466,7 @@ async def test_get_upcoming_success(search_service, mock_backend, sample_tasks):
     tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
     mock_backend.upcoming_raw.return_value = Result.ok(tasks_data)
 
-    result = await search_service.get_upcoming(days_ahead=14, user_uid="user:demo", limit=50)
+    result = await search_service.get_upcoming(days_ahead=14, user_uid="user_demo", limit=50)
 
     assert result.is_ok
     assert len(result.value) == len(sample_tasks)
@@ -474,7 +474,7 @@ async def test_get_upcoming_success(search_service, mock_backend, sample_tasks):
     kwargs = mock_backend.upcoming_raw.call_args.kwargs
     assert kwargs["date_field"] == "due_date"
     assert kwargs["days_ahead"] == 14
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 50
     # Terminal statuses are excluded by default via temporal_exclude_statuses
     assert set(kwargs["exclude_statuses"]) >= {"completed", "failed", "cancelled", "archived"}
@@ -485,7 +485,7 @@ async def test_get_upcoming_empty(search_service, mock_backend):
     """get_upcoming returns empty list when backend finds nothing."""
     mock_backend.upcoming_raw.return_value = Result.ok([])
 
-    result = await search_service.get_upcoming(user_uid="user:demo")
+    result = await search_service.get_upcoming(user_uid="user_demo")
 
     assert result.is_ok
     assert result.value == []
@@ -509,14 +509,14 @@ async def test_get_overdue_success(search_service, mock_backend, sample_tasks):
     tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
     mock_backend.overdue_raw.return_value = Result.ok(tasks_data)
 
-    result = await search_service.get_overdue(user_uid="user:demo", limit=25)
+    result = await search_service.get_overdue(user_uid="user_demo", limit=25)
 
     assert result.is_ok
     assert len(result.value) == len(sample_tasks)
     mock_backend.overdue_raw.assert_awaited_once()
     kwargs = mock_backend.overdue_raw.call_args.kwargs
     assert kwargs["date_field"] == "due_date"
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 25
 
 
@@ -537,7 +537,7 @@ async def test_get_overdue_error_propagates(search_service, mock_backend):
     """Backend failure on overdue surfaces cleanly."""
     mock_backend.overdue_raw.return_value = Result.fail(Errors.database("overdue_raw", "boom"))
 
-    result = await search_service.get_overdue(user_uid="user:demo")
+    result = await search_service.get_overdue(user_uid="user_demo")
 
     assert result.is_error
 
@@ -548,13 +548,13 @@ async def test_get_active_success(search_service, mock_backend, sample_tasks):
     tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
     mock_backend.active_raw.return_value = Result.ok(tasks_data)
 
-    result = await search_service.get_active(user_uid="user:demo", limit=10)
+    result = await search_service.get_active(user_uid="user_demo", limit=10)
 
     assert result.is_ok
     assert len(result.value) == len(sample_tasks)
     mock_backend.active_raw.assert_awaited_once()
     kwargs = mock_backend.active_raw.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 10
     assert set(kwargs["exclude_statuses"]) >= {"completed", "failed", "cancelled", "archived"}
 
@@ -573,7 +573,7 @@ async def test_get_active_error_propagates(search_service, mock_backend):
     """Backend failure on active surfaces cleanly."""
     mock_backend.active_raw.return_value = Result.fail(Errors.database("active_raw", "kaput"))
 
-    result = await search_service.get_active(user_uid="user:demo")
+    result = await search_service.get_active(user_uid="user_demo")
 
     assert result.is_error
 

@@ -221,7 +221,7 @@ def test_learning_path_with_context_query(sample_queries, authenticated_client_s
         "/graphql",
         json={
             "query": sample_queries["learning_path_context"],
-            "variables": {"pathUid": "lp.test_path", "userUid": "user.test"},
+            "variables": {"pathUid": "lp.test_path", "userUid": "user_test"},
         },
     )
 
@@ -330,7 +330,7 @@ def test_learning_path_blockers_query(sample_queries, authenticated_client_simpl
         "/graphql",
         json={
             "query": sample_queries["learning_path_blockers"],
-            "variables": {"pathUid": "lp.test_path", "userUid": "user.test"},
+            "variables": {"pathUid": "lp.test_path", "userUid": "user_test"},
         },
     )
 

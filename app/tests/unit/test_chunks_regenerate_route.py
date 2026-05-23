@@ -174,7 +174,7 @@ class TestRegenerateRouteHappyPath:
 
         handler = registry.get("/api/chunks/regenerate", "POST")
         request = _request_with_session(
-            session={"user_uid": "user.admin"},
+            session={"user_uid": "user_admin"},
             json_body={"parent_uids": ["ku_a", "ku_b"], "force": False},
         )
 
@@ -198,7 +198,7 @@ class TestRegenerateRouteHappyPath:
 
         handler = registry.get("/api/chunks/regenerate", "POST")
         request = _request_with_session(
-            session={"user_uid": "user.admin"},
+            session={"user_uid": "user_admin"},
             json_body={"force": True},
         )
 
@@ -216,7 +216,7 @@ class TestRegenerateRouteValidation:
 
         handler = registry.get("/api/chunks/regenerate", "POST")
         request = _request_with_session(
-            session={"user_uid": "user.admin"},
+            session={"user_uid": "user_admin"},
             json_body={"force": ["not", "a", "bool"]},
         )
 
@@ -241,7 +241,7 @@ class TestRegenerateRouteServiceFailure:
 
         handler = registry.get("/api/chunks/regenerate", "POST")
         request = _request_with_session(
-            session={"user_uid": "user.admin"},
+            session={"user_uid": "user_admin"},
             json_body={"parent_uids": None, "force": False},
         )
 
@@ -280,7 +280,7 @@ class TestRegenerateRouteAdminGate:
         )
         handler = registry.get("/api/chunks/regenerate", "POST")
         request = _request_with_session(
-            session={"user_uid": "user.member"},
+            session={"user_uid": "user_member"},
             json_body={"force": False},
         )
 

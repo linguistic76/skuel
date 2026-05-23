@@ -71,7 +71,7 @@ class TestAnalyticsGenerationFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Test user UID for analytics generation."""
-        return "user.analytics_test"
+        return "user_analytics_test"
 
     # ========================================================================
     # GOAL ACHIEVEMENT REPORT TESTS
@@ -339,7 +339,7 @@ class TestAnalyticsGenerationFlow:
         # Try to handle event
         event = GoalAchieved(
             goal_uid="goal.test",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
         )
 

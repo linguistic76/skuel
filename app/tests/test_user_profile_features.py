@@ -47,7 +47,7 @@ def sample_user_preferences() -> UserPreferences:
 def sample_user(sample_user_preferences) -> User:
     """Create sample user with preferences."""
     return User(
-        uid="user.mike",
+        uid="user_mike",
         title="mike",  # Username stored as title (from BaseEntity)
         description="Test user account",
         email="mike@example.com",
@@ -284,7 +284,7 @@ class TestActivityAggregation:
 
         activities = []
         completions_result = await mock_services.habits.completions.get_recent_activity(
-            "user.mike", limit=5
+            "user_mike", limit=5
         )
         if completions_result.is_ok:
             activities.extend(completions_result.value)
@@ -310,7 +310,7 @@ class TestActivityAggregation:
 
         activities = []
         principles_result = await mock_services.principles.alignment.get_recent_activity(
-            "user.mike", limit=5
+            "user_mike", limit=5
         )
         if principles_result.is_ok:
             activities.extend(principles_result.value)
@@ -362,13 +362,13 @@ class TestActivityAggregation:
             )
 
         completions_result = await mock_services.habits.completions.get_recent_activity(
-            "user.mike", limit=5
+            "user_mike", limit=5
         )
         if completions_result.is_ok:
             activities.extend(completions_result.value)
 
         principles_result = await mock_services.principles.alignment.get_recent_activity(
-            "user.mike", limit=5
+            "user_mike", limit=5
         )
         if principles_result.is_ok:
             activities.extend(principles_result.value)
@@ -433,7 +433,7 @@ class TestErrorHandling:
         # Should handle gracefully without user service
         user = None
         if mock_services.user:
-            user_result = await mock_services.user.get_user("user.mike")
+            user_result = await mock_services.user.get_user("user_mike")
             if user_result.is_ok:
                 user = user_result.value
 

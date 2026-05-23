@@ -125,7 +125,7 @@ async def test_learning_aware_search_with_states(
     async with neo4j_driver.session() as session:
         # Create user (MERGE to avoid conflicts with ensure_test_users fixture)
         result = await session.run("""
-            MERGE (u:User {uid: 'user.test_learning'})
+            MERGE (u:User {uid: 'user_test_learning'})
             ON CREATE SET u.created_at = datetime()
         """)
         await result.consume()
@@ -162,7 +162,7 @@ async def test_learning_aware_search_with_states(
 
         # Create MASTERED relationship
         result = await session.run("""
-            MATCH (u:User {uid: 'user.test_learning'})
+            MATCH (u:User {uid: 'user_test_learning'})
             MATCH (k:Entity {uid: 'ku.mastered-topic'})
             CREATE (u)-[:MASTERED {
                 mastered_at: datetime(),
@@ -183,7 +183,7 @@ async def test_learning_aware_search_with_states(
     result = await vector_search.learning_aware_search(
         label="Entity",
         text="topic",
-        user_uid="user.test_learning",
+        user_uid="user_test_learning",
         prefer_unmastered=True,
         limit=10,
     )
@@ -367,7 +367,7 @@ async def test_performance_learning_aware_search(
     # Create user and 10 KUs with varying learning states
     async with neo4j_driver.session() as session:
         result = await session.run("""
-            MERGE (u:User {uid: 'user.test_perf'})
+            MERGE (u:User {uid: 'user_test_perf'})
             ON CREATE SET u.created_at = datetime()
         """)
         await result.consume()
@@ -389,7 +389,7 @@ async def test_performance_learning_aware_search(
         for i in range(3):
             # MASTERED
             result = await session.run(f"""
-                MATCH (u:User {{uid: 'user.test_perf'}})
+                MATCH (u:User {{uid: 'user_test_perf'}})
                 MATCH (k:Entity {{uid: 'ku.perf-{i}'}})
                 CREATE (u)-[:MASTERED {{mastered_at: datetime()}}]->(k)
             """)
@@ -398,7 +398,7 @@ async def test_performance_learning_aware_search(
         for i in range(3, 6):
             # IN_PROGRESS
             result = await session.run(f"""
-                MATCH (u:User {{uid: 'user.test_perf'}})
+                MATCH (u:User {{uid: 'user_test_perf'}})
                 MATCH (k:Entity {{uid: 'ku.perf-{i}'}})
                 CREATE (u)-[:IN_PROGRESS {{started_at: datetime()}}]->(k)
             """)
@@ -417,7 +417,7 @@ async def test_performance_learning_aware_search(
     result = await vector_search.learning_aware_search(
         label="Entity",
         text="performance test",
-        user_uid="user.test_perf",
+        user_uid="user_test_perf",
         prefer_unmastered=True,
         limit=10,
     )
@@ -474,7 +474,7 @@ async def test_end_to_end_semantic_discovery_workflow(
     async with neo4j_driver.session() as session:
         # Create user (MERGE to avoid conflicts with ensure_test_users fixture)
         result = await session.run("""
-            MERGE (u:User {uid: 'user.discovery'})
+            MERGE (u:User {uid: 'user_discovery'})
             ON CREATE SET u.created_at = datetime()
         """)
         await result.consume()
@@ -523,7 +523,7 @@ async def test_end_to_end_semantic_discovery_workflow(
 
         # User has mastered basics, viewing intermediate
         result = await session.run("""
-            MATCH (u:User {uid: 'user.discovery'})
+            MATCH (u:User {uid: 'user_discovery'})
             MATCH (basics:Entity {uid: 'ku.python-basics'})
             MATCH (inter:Entity {uid: 'ku.python-intermediate'})
             CREATE (u)-[:MASTERED {mastered_at: datetime()}]->(basics)
@@ -560,7 +560,7 @@ async def test_end_to_end_semantic_discovery_workflow(
     learning_result = await vector_search.learning_aware_search(
         label="Entity",
         text="python programming",
-        user_uid="user.discovery",
+        user_uid="user_discovery",
         prefer_unmastered=True,
         limit=10,
     )

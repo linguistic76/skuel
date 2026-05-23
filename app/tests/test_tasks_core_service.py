@@ -96,7 +96,7 @@ def sample_task_dto() -> TaskDTO:
     """Create a sample TaskDTO."""
     return TaskDTO(
         uid="task:123",
-        user_uid="user:demo",
+        user_uid="user_demo",
         title="Test Task",
         priority=Priority.HIGH.value,
         status=EntityStatus.DRAFT.value,
@@ -159,7 +159,7 @@ async def test_create_task_success(
     mock_backend.create.return_value = Result.ok(sample_task_dto.to_dict())
 
     # Execute
-    result = await core_service.create_task(sample_task_request, user_uid="user:demo")
+    result = await core_service.create_task(sample_task_request, user_uid="user_demo")
 
     # Verify
     assert result.is_ok
@@ -185,7 +185,7 @@ async def test_create_task_with_knowledge_inference(
     mock_backend.create.return_value = Result.ok(enhanced_dto.to_dict())
 
     # Execute
-    result = await core_service.create_task(sample_task_request, user_uid="user:demo")
+    result = await core_service.create_task(sample_task_request, user_uid="user_demo")
 
     # Verify
     assert result.is_ok
@@ -212,7 +212,7 @@ async def test_create_task_inference_failure_is_fail_fast(
     mock_backend.create.return_value = Result.ok(sample_task_dto.to_dict())
 
     # Execute
-    result = await core_service.create_task(sample_task_request, user_uid="user:demo")
+    result = await core_service.create_task(sample_task_request, user_uid="user_demo")
 
     # Verify - fail-fast: inference failure → create failure
     assert result.is_error
@@ -227,7 +227,7 @@ async def test_create_task_backend_error(core_service, mock_backend, sample_task
     mock_backend.create.return_value = Result.fail(Errors.database("create", "Database error"))
 
     # Execute
-    result = await core_service.create_task(sample_task_request, user_uid="user:demo")
+    result = await core_service.create_task(sample_task_request, user_uid="user_demo")
 
     # Verify
     assert result.is_error
@@ -300,7 +300,7 @@ async def test_get_user_tasks_success(core_service, mock_backend, sample_task_dt
     mock_backend.get_user_entities.return_value = Result.ok((task_data_list, 3))
 
     # Execute
-    result = await core_service.get_user_tasks("user:123")
+    result = await core_service.get_user_tasks("user_123")
 
     # Verify
     assert result.is_ok
@@ -317,7 +317,7 @@ async def test_get_user_tasks_empty(core_service, mock_backend):
     mock_backend.get_user_entities.return_value = Result.ok(([], 0))
 
     # Execute
-    result = await core_service.get_user_tasks("user:999")
+    result = await core_service.get_user_tasks("user_999")
 
     # Verify
     assert result.is_ok
@@ -450,7 +450,7 @@ async def test_create_update_delete_workflow(
     """Test complete workflow: create, update, delete."""
     # Create - service uses backend.create()
     mock_backend.create.return_value = Result.ok(sample_task_dto.to_dict())
-    create_result = await core_service.create_task(sample_task_request, user_uid="user:demo")
+    create_result = await core_service.create_task(sample_task_request, user_uid="user_demo")
     assert create_result.is_ok
     task_uid = create_result.value.uid
 

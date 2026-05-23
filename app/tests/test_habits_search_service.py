@@ -52,7 +52,7 @@ def _habit(
     last_completed: datetime | None = None,
     current_streak: int = 0,
     best_streak: int = 0,
-    user_uid: str = "user:demo",
+    user_uid: str = "user_demo",
 ) -> Habit:
     dto = HabitDTO(
         uid=uid,
@@ -99,7 +99,7 @@ async def test_get_upcoming_never_completed_is_due(search_service, mock_backend)
     habit = _habit("habit:new", last_completed=None)
     mock_backend.find_by.return_value = Result.ok([habit.to_dto().to_dict()])
 
-    result = await search_service.get_upcoming(days_ahead=7, user_uid="user:demo")
+    result = await search_service.get_upcoming(days_ahead=7, user_uid="user_demo")
 
     assert result.is_ok
     assert len(result.value) == 1
@@ -112,7 +112,7 @@ async def test_get_upcoming_excludes_paused(search_service, mock_backend):
     paused = _habit("habit:paused", status=EntityStatus.PAUSED)
     mock_backend.find_by.return_value = Result.ok([paused.to_dto().to_dict()])
 
-    result = await search_service.get_upcoming(user_uid="user:demo")
+    result = await search_service.get_upcoming(user_uid="user_demo")
 
     assert result.is_ok
     assert result.value == []
@@ -128,7 +128,7 @@ async def test_get_upcoming_recently_completed_is_not_due(search_service, mock_b
     )
     mock_backend.find_by.return_value = Result.ok([today_completed.to_dto().to_dict()])
 
-    result = await search_service.get_upcoming(user_uid="user:demo")
+    result = await search_service.get_upcoming(user_uid="user_demo")
 
     assert result.is_ok
     assert result.value == []
@@ -144,7 +144,7 @@ async def test_get_overdue_weekly_beyond_window(search_service, mock_backend):
     )
     mock_backend.find_by.return_value = Result.ok([stale.to_dto().to_dict()])
 
-    result = await search_service.get_overdue(user_uid="user:demo")
+    result = await search_service.get_overdue(user_uid="user_demo")
 
     assert result.is_ok
     assert len(result.value) == 1
@@ -161,7 +161,7 @@ async def test_get_overdue_excludes_archived(search_service, mock_backend):
     )
     mock_backend.find_by.return_value = Result.ok([archived.to_dto().to_dict()])
 
-    result = await search_service.get_overdue(user_uid="user:demo")
+    result = await search_service.get_overdue(user_uid="user_demo")
 
     assert result.is_ok
     assert result.value == []
@@ -177,7 +177,7 @@ async def test_get_active_includes_paused(search_service, mock_backend):
         [paused.to_dto().to_dict(), active.to_dto().to_dict(), archived.to_dto().to_dict()]
     )
 
-    result = await search_service.get_active(user_uid="user:demo")
+    result = await search_service.get_active(user_uid="user_demo")
 
     assert result.is_ok
     uids = {h.uid for h in result.value}
@@ -191,11 +191,11 @@ async def test_get_active_requires_user_uid(search_service, mock_backend):
     # Mock returns empty so the filter step won't raise; we assert via call
     mock_backend.find_by.return_value = Result.ok([])
 
-    result = await search_service.get_active(user_uid="user:demo")
+    result = await search_service.get_active(user_uid="user_demo")
 
     assert result.is_ok
     kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
 
 
 # ============================================================================
@@ -240,7 +240,7 @@ async def test_get_user_due_today(search_service, mock_backend):
     )
     mock_backend.find_by.return_value = Result.ok([habit.to_dto().to_dict()])
 
-    result = await search_service.get_user_due_today(user_uid="user:demo")
+    result = await search_service.get_user_due_today(user_uid="user_demo")
 
     assert result.is_ok
     assert len(result.value) == 1
@@ -257,7 +257,7 @@ async def test_get_user_due_today_skips_completed_today(search_service, mock_bac
     )
     mock_backend.find_by.return_value = Result.ok([habit.to_dto().to_dict()])
 
-    result = await search_service.get_user_due_today(user_uid="user:demo")
+    result = await search_service.get_user_due_today(user_uid="user_demo")
 
     assert result.is_ok
     assert result.value == []

@@ -31,7 +31,7 @@ class MockExpense:
     def __init__(
         self,
         uid: str = "expense.test123",
-        user_uid: str = "user.test",
+        user_uid: str = "user_test",
         description: str = "Test Expense",
         amount: float = 50.00,
         category: str = "food",
@@ -66,7 +66,7 @@ class MockBudget:
     def __init__(
         self,
         uid: str = "budget.test123",
-        user_uid: str = "user.test",
+        user_uid: str = "user_test",
         category: str = "food",
         amount: float = 500.00,
         period: str = "monthly",
@@ -244,7 +244,7 @@ class TestExpenseQueries:
 
     async def test_get_expenses_by_user(self, mock_finance_service):
         """Test getting expenses by user."""
-        result = await mock_finance_service.get_expenses_by_user("user.test")
+        result = await mock_finance_service.get_expenses_by_user("user_test")
 
         assert result.is_ok
 
@@ -268,21 +268,21 @@ class TestAnalytics:
 
     async def test_get_spending_summary(self, mock_finance_service):
         """Test getting spending summary."""
-        result = await mock_finance_service.get_spending_summary("user.test")
+        result = await mock_finance_service.get_spending_summary("user_test")
 
         assert result.is_ok
         assert "total" in result.value
 
     async def test_get_category_breakdown(self, mock_finance_service):
         """Test getting category breakdown."""
-        result = await mock_finance_service.get_category_breakdown("user.test")
+        result = await mock_finance_service.get_category_breakdown("user_test")
 
         assert result.is_ok
         assert "food" in result.value
 
     async def test_get_budget_vs_actual(self, mock_finance_service):
         """Test getting budget vs actual comparison."""
-        result = await mock_finance_service.get_budget_vs_actual("user.test", "food")
+        result = await mock_finance_service.get_budget_vs_actual("user_test", "food")
 
         assert result.is_ok
         assert "budget" in result.value
@@ -290,7 +290,7 @@ class TestAnalytics:
 
     async def test_get_spending_trends(self, mock_finance_service):
         """Test getting spending trends."""
-        result = await mock_finance_service.get_spending_trends("user.test")
+        result = await mock_finance_service.get_spending_trends("user_test")
 
         assert result.is_ok
 
@@ -314,7 +314,7 @@ class TestRecurringExpenses:
 
     async def test_get_recurring_expenses(self, mock_finance_service):
         """Test getting recurring expenses."""
-        result = await mock_finance_service.get_recurring_expenses("user.test")
+        result = await mock_finance_service.get_recurring_expenses("user_test")
 
         assert result.is_ok
         assert len(result.value) >= 1

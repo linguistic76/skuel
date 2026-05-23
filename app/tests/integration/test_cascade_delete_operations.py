@@ -203,7 +203,7 @@ class TestCascadeDeleteTrue:
             uid="task:cross-domain",
             title="Cross Domain Task",
             description="Test",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.MEDIUM,
             status=EntityStatus.DRAFT,
         )

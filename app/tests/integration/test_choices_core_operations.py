@@ -54,7 +54,7 @@ class TestChoicesCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user.test_choices_core"
+        return "user_test_choices_core"
 
     @pytest_asyncio.fixture
     async def sample_options(self):

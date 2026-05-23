@@ -57,7 +57,7 @@ class TestHabitsCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user.test_habits_core"
+        return "user_test_habits_core"
 
     # ==========================================================================
     # CRUD OPERATIONS TESTS (5 tests)

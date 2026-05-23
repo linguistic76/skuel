@@ -68,7 +68,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             CREATE (s1:Entity:ExerciseSubmission {
                 uid: 'legacy.es.1',
                 entity_type: 'exercise_submission',
-                user_uid: 'user.mig_student',
+                user_uid: 'user_mig_student',
                 status: 'submitted',
                 revision_number: 3,
                 created_at: datetime()
@@ -76,14 +76,14 @@ async def _seed_legacy(neo4j_driver) -> None:
             CREATE (s2:Entity:ExerciseSubmission {
                 uid: 'legacy.es.2',
                 entity_type: 'exercise_submission',
-                user_uid: 'user.mig_student',
+                user_uid: 'user_mig_student',
                 status: 'submitted',
                 created_at: datetime()
             })
             CREATE (j1:Entity:JeInput {
                 uid: 'legacy.ji.audio',
                 entity_type: 'je_input',
-                user_uid: 'user.mig_student',
+                user_uid: 'user_mig_student',
                 status: 'active',
                 file_type: 'audio/mpeg',
                 created_at: datetime()
@@ -91,7 +91,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             CREATE (j2:Entity:JeInput {
                 uid: 'legacy.ji.text',
                 entity_type: 'je_input',
-                user_uid: 'user.mig_student',
+                user_uid: 'user_mig_student',
                 status: 'active',
                 file_type: 'text/plain',
                 created_at: datetime()
@@ -99,7 +99,7 @@ async def _seed_legacy(neo4j_driver) -> None:
             CREATE (o1:Entity:JeOutput {
                 uid: 'legacy.jo.1',
                 entity_type: 'je_output',
-                user_uid: 'user.mig_student',
+                user_uid: 'user_mig_student',
                 status: 'active',
                 created_at: datetime()
             })

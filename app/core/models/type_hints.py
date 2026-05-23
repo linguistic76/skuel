@@ -360,6 +360,31 @@ class TypeConverter:
         return UserUID(value)
 
     @staticmethod
+    def normalize_user_uid(value: str) -> UserUID:
+        """Normalize a legacy user identifier to the canonical ``user_<name>`` form.
+
+        Maps the historical leading-separator and bare variants to underscore,
+        preserving any internal characters:
+            ``user:system`` / ``user.system`` / ``user-system`` -> ``user_system``
+            ``system``      (bare)                              -> ``user_system``
+            ``user_system`` (already canonical)                 -> unchanged
+
+        For one-time data migration of legacy owners ONLY. Ingestion does not
+        normalize — it rejects non-canonical input (see ``to_user_uid``).
+        Raises ``ValueError`` if the result is still not canonical.
+        """
+        normalized = value
+        for sep in (":", ".", "-"):
+            prefix = f"user{sep}"
+            if value.startswith(prefix):
+                normalized = "user_" + value[len(prefix) :]
+                break
+        else:
+            if not value.startswith("user_"):
+                normalized = f"user_{value}"
+        return TypeConverter.to_user_uid(normalized)
+
+    @staticmethod
     def to_percentage(value: float) -> Percentage:
         """Convert float to Percentage with validation"""
         if not is_valid_percentage(value):

@@ -143,7 +143,7 @@ async def setup_benchmark_data(driver):
 
         # Create test user and learning states
         await session.run("""
-            CREATE (u:User {uid: 'user.benchmark', created_at: datetime()})
+            CREATE (u:User {uid: 'user_benchmark', created_at: datetime()})
         """)
 
         # Create learning states (1/3 mastered, 1/3 in_progress, 1/3 none)
@@ -151,7 +151,7 @@ async def setup_benchmark_data(driver):
             # Mastered
             await session.run(
                 """
-                MATCH (u:User {uid: 'user.benchmark'})
+                MATCH (u:User {uid: 'user_benchmark'})
                 MATCH (k:Entity {uid: $uid})
                 CREATE (u)-[:MASTERED {mastered_at: datetime()}]->(k)
             """,
@@ -162,7 +162,7 @@ async def setup_benchmark_data(driver):
             # In progress
             await session.run(
                 """
-                MATCH (u:User {uid: 'user.benchmark'})
+                MATCH (u:User {uid: 'user_benchmark'})
                 MATCH (k:Entity {uid: $uid})
                 CREATE (u)-[:IN_PROGRESS {started_at: datetime()}]->(k)
             """,
@@ -181,7 +181,7 @@ async def cleanup_benchmark_data(driver):
             DETACH DELETE k
         """)
         await session.run("""
-            MATCH (u:User {uid: 'user.benchmark'})
+            MATCH (u:User {uid: 'user_benchmark'})
             DETACH DELETE u
         """)
 
@@ -254,7 +254,7 @@ async def run_benchmarks():
             await vector_search.learning_aware_search(
                 label="Entity",
                 text="benchmark test",
-                user_uid="user.benchmark",
+                user_uid="user_benchmark",
                 prefer_unmastered=True,
                 limit=10,
             )

@@ -69,7 +69,7 @@ class TestGoalsCoreOperations:
 
     @pytest_asyncio.fixture
     def user_uid(self):
-        return "user.test_goals_core"
+        return "user_test_goals_core"
 
     # =========================================================================
     # HELPERS
@@ -162,11 +162,11 @@ class TestGoalsCoreOperations:
 
     async def test_get_user_goals_isolated_per_user(self, goals_core):
         """Goals from user A must not appear in user B's list."""
-        await goals_core.create(self._goal("goal_user_a", "user.alpha", title="Alpha goal"))
-        await goals_core.create(self._goal("goal_user_b", "user.beta", title="Beta goal"))
+        await goals_core.create(self._goal("goal_user_a", "user_alpha", title="Alpha goal"))
+        await goals_core.create(self._goal("goal_user_b", "user_beta", title="Beta goal"))
 
-        result_a = await goals_core.get_user_goals("user.alpha")
-        result_b = await goals_core.get_user_goals("user.beta")
+        result_a = await goals_core.get_user_goals("user_alpha")
+        result_b = await goals_core.get_user_goals("user_beta")
 
         assert result_a.is_ok
         assert result_b.is_ok
