@@ -335,7 +335,7 @@ class TestConflictError:
         error = ConflictError(
             "Duplicate email address",
             code="DUPLICATE_EMAIL",
-            details={"field": "email", "value": "user@example.com", "existing_id": "user-123"},
+            details={"field": "email", "value": "user@example.com", "existing_id": "user_123"},
         )
 
         assert error.message == "Duplicate email address"

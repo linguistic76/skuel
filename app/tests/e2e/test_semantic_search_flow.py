@@ -58,7 +58,7 @@ async def test_complete_semantic_search_flow(
         data=ku_data,
         body=body_content.strip(),
         file_path=Path("/fake/path/test.md"),
-        default_user_uid="user.test",
+        default_user_uid="user_test",
         embeddings_service=services_with_embeddings["embeddings"],
     )
 

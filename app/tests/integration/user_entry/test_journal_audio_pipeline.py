@@ -58,7 +58,7 @@ async def test_transcribe_and_structure_creates_linked_pair(
     neo4j_driver,
     seed_user,
 ) -> None:
-    student_uid = await seed_user("user.ue_journaler", name="Journaler")
+    student_uid = await seed_user("user_ue_journaler", name="Journaler")
 
     # Mock the external I/O the processing service reaches out to.
     transcript_text = "Today I learned about protocols in Python."

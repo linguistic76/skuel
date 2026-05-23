@@ -475,7 +475,7 @@ class TestCurriculumUserIntegration:
         async with neo4j_driver.session() as session:
             await session.run("""
                 CREATE (u:User {
-                    uid: 'user:test_learner',
+                    uid: 'user_test_learner',
                     title: 'Test Learner',
                     email: 'learner@test.com',
                     created_at: datetime(),
@@ -495,13 +495,13 @@ class TestCurriculumUserIntegration:
         # Verify mastery relationship
         async with neo4j_driver.session() as session:
             result = await session.run("""
-                MATCH (u:User {uid: 'user:test_learner'})-[m:MASTERED]->(ku:Entity {uid: 'ku:python_basics'})
+                MATCH (u:User {uid: 'user_test_learner'})-[m:MASTERED]->(ku:Entity {uid: 'ku:python_basics'})
                 RETURN u.uid as user_uid, ku.uid as ku_uid, m.mastery_score as score
             """)
             record = await result.single()
 
             assert record is not None
-            assert record["user_uid"] == "user:test_learner"
+            assert record["user_uid"] == "user_test_learner"
             assert record["ku_uid"] == "ku:python_basics"
             assert record["score"] == 0.85
 
@@ -528,7 +528,7 @@ class TestCurriculumContextBuilder:
         from core.services.user.user_context_builder import UserContextBuilder
 
         # Setup: Create user and multiple KUs with varying mastery scores
-        test_user_uid = "user:builder_test"
+        test_user_uid = "user_builder_test"
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -612,7 +612,7 @@ class TestCurriculumContextBuilder:
         from core.services.user.user_context_builder import UserContextBuilder
 
         # Setup: Create user enrolled in multiple learning paths
-        test_user_uid = "user:learning_path_test"
+        test_user_uid = "user_learning_path_test"
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -676,7 +676,7 @@ class TestCurriculumContextBuilder:
         from core.services.user.user_context_builder import UserContextBuilder
 
         # Setup: Create user with NO curriculum data
-        test_user_uid = "user:empty_curriculum"
+        test_user_uid = "user_empty_curriculum"
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -724,7 +724,7 @@ class TestCurriculumContextBuilder:
         from core.services.user.user_context_builder import UserContextBuilder
 
         # Setup: Create user with curriculum + activity domain entities
-        test_user_uid = "user:integrated_test"
+        test_user_uid = "user_integrated_test"
         async with neo4j_driver.session() as session:
             await session.run(
                 """

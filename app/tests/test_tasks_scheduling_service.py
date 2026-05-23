@@ -59,7 +59,7 @@ def scheduling_service(mock_backend) -> TasksSchedulingService:
 def user_context() -> UserContext:
     """Create sample user context."""
     return UserContext(
-        user_uid="user:123",
+        user_uid="user_123",
         username="test_user",
         prerequisites_completed={"ku.python.basics", "ku.git.basics"},
         completed_task_uids={"task:completed_1"},
@@ -99,7 +99,7 @@ def learning_position() -> LpPosition:
     )
 
     return LpPosition(
-        user_uid="user:123",
+        user_uid="user_123",
         active_paths=[path],
         current_steps={"lp:python_mastery": step1},
         completed_step_uids=set(),
@@ -153,7 +153,7 @@ async def test_create_task_with_context_success(
     """Test successful context-aware task creation."""
     # Setup
     created_dto = TaskDTO.create_task(
-        user_uid="user:123",
+        user_uid="user_123",
         title=task_request.title,
         priority=task_request.priority,
         due_date=task_request.due_date,
@@ -218,7 +218,7 @@ async def test_create_task_with_learning_context(
     """Test task creation with learning path context."""
     # Setup
     created_dto = TaskDTO.create_task(
-        user_uid="user:123", title=task_request.title, priority=task_request.priority
+        user_uid="user_123", title=task_request.title, priority=task_request.priority
     )
     created_dto.uid = "task:learning_123"
     mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
@@ -238,7 +238,7 @@ async def test_create_task_with_learning_context(
 async def test_create_task_without_learning_context(scheduling_service, mock_backend, task_request):
     """Test task creation without learning position."""
     # Setup
-    created_dto = TaskDTO.create_task(user_uid="user:123", title=task_request.title)
+    created_dto = TaskDTO.create_task(user_uid="user_123", title=task_request.title)
     created_dto.uid = "task:no_context"
     mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
 
@@ -260,7 +260,7 @@ async def test_create_task_from_path_step(scheduling_service, mock_backend):
     # Setup
     created_dto = TaskDTO(
         uid="task:curriculum_123",
-        user_uid="user:123",
+        user_uid="user_123",
         title="Practice Python fundamentals",
         source_path_step_uid="ps:python_fundamentals",
         knowledge_mastery_check=True,
@@ -275,7 +275,7 @@ async def test_create_task_from_path_step(scheduling_service, mock_backend):
         step_uid="ps:python_fundamentals",
         task_title="Practice Python fundamentals",
         knowledge_uids=["ku.python.basics"],
-        _user_uid="user:123",
+        _user_uid="user_123",
     )
 
     # Verify
@@ -294,7 +294,7 @@ async def test_create_curriculum_task_backend_error(scheduling_service, mock_bac
 
     # Execute
     result = await scheduling_service.create_task_from_path_step(
-        step_uid="ps:test", task_title="Test Task", knowledge_uids=["ku.test"], _user_uid="user:123"
+        step_uid="ps:test", task_title="Test Task", knowledge_uids=["ku.test"], _user_uid="user_123"
     )
 
     # Verify

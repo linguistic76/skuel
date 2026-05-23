@@ -29,15 +29,15 @@ async def test_review_queue_isolates_by_group_ownership(
 ) -> None:
     # Classroom A — full seeded classroom helper
     ctx_a = await seed_classroom(
-        teacher_uid="user.teacher_a",
-        student_uid="user.student_a",
+        teacher_uid="user_teacher_a",
+        student_uid="user_student_a",
         group_uid="group.a",
         exercise_uid="exercise.a",
     )
 
     # Classroom B — disjoint teacher + group + exercise, shared student identity
-    teacher_b = await seed_user("user.teacher_b", name="Teacher B")
-    student_b = await seed_user("user.student_b", name="Student B")
+    teacher_b = await seed_user("user_teacher_b", name="Teacher B")
+    student_b = await seed_user("user_student_b", name="Student B")
     group_b = await seed_group("group.b", teacher_b)
     await seed_membership(student_b, group_b)
     exercise_b = await seed_exercise("exercise.b", group_uid=group_b)

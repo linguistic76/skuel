@@ -55,7 +55,7 @@ class _FakeEntity:
     status: str
 
 
-def _request(form_data: dict[str, str] | None, user_uid: str = "user.test") -> Any:
+def _request(form_data: dict[str, str] | None, user_uid: str = "user_test") -> Any:
     """Build a minimal request stub with a session and async ``.form()``."""
     return SimpleNamespace(
         method="POST",

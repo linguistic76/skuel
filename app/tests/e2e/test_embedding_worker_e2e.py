@@ -68,7 +68,7 @@ class TestEmbeddingWorkerEventProcessing:
         """
         # Create test task in Neo4j first
         task_uid = "task.test_embedding_e2e"
-        user_uid = "user.test_e2e"
+        user_uid = "user_test_e2e"
 
         async with neo4j_driver.session() as session:
             await session.run(
@@ -152,7 +152,7 @@ class TestEmbeddingWorkerEventProcessing:
         # Create test entities in Neo4j
         task_uid = "task.multi_domain_test"
         goal_uid = "goal.multi_domain_test"
-        user_uid = "user.test_multi"
+        user_uid = "user_test_multi"
 
         async with neo4j_driver.session() as session:
             # Create task
@@ -273,7 +273,7 @@ class TestEmbeddingWorkerBatchProcessing:
         WHEN: 10 embedding requests published
         THEN: All processed in single batch cycle
         """
-        user_uid = "user.test_batch"
+        user_uid = "user_test_batch"
         task_uids = [f"task.batch_test_{i}" for i in range(10)]
 
         # Create 10 tasks in Neo4j
@@ -359,7 +359,7 @@ class TestEmbeddingWorkerErrorRecovery:
         WHEN: Batch contains valid and invalid requests
         THEN: Valid requests processed, invalid logged and skipped
         """
-        user_uid = "user.test_error"
+        user_uid = "user_test_error"
         valid_uid = "task.valid_entity"
         invalid_uid = "task.nonexistent_entity"  # Doesn't exist in Neo4j
 

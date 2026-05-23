@@ -62,7 +62,7 @@ def service_with_insights(
 
 def _make_submission_created(
     submission_uid: str = "es_test_abc",
-    user_uid: str = "user.test",
+    user_uid: str = "user_test",
     fulfills_exercise_uid: str | None = "exercise_abc",
 ) -> UserEntryCreated:
     return UserEntryCreated(
@@ -76,8 +76,8 @@ def _make_submission_created(
 
 def _make_report_submitted(
     submission_uid: str = "es_test_abc",
-    teacher_uid: str = "user.teacher",
-    student_uid: str = "user.student",
+    teacher_uid: str = "user_teacher",
+    student_uid: str = "user_student",
     report_uid: str = "sr_test_abc",
     occurred_at: datetime | None = None,
 ) -> ReportSubmitted:
@@ -92,8 +92,8 @@ def _make_report_submitted(
 
 def _make_submission_approved(
     submission_uid: str = "es_test_abc",
-    teacher_uid: str = "user.teacher",
-    student_uid: str = "user.student",
+    teacher_uid: str = "user_teacher",
+    student_uid: str = "user_student",
     mastered_ku_count: int = 2,
     occurred_at: datetime | None = None,
 ) -> UserEntryApproved:

@@ -63,7 +63,7 @@ def _principle(
     is_active: bool = True,
     last_review_date: date | None = None,
     current_alignment: AlignmentLevel | None = AlignmentLevel.ALIGNED,
-    user_uid: str = "user:demo",
+    user_uid: str = "user_demo",
 ) -> Principle:
     dto = PrincipleDTO(
         uid=uid,
@@ -83,7 +83,7 @@ def _principle(
 
 @pytest.fixture
 def user_context() -> UserContext:
-    return UserContext(user_uid="user:demo", username="test_user")
+    return UserContext(user_uid="user_demo", username="test_user")
 
 
 # ============================================================================
@@ -112,13 +112,13 @@ async def test_get_active_uses_is_active_flag(search_service, mock_backend):
     active = _principle("p:core", strength=PrincipleStrength.CORE, is_active=True)
     mock_backend.find_by.return_value = Result.ok([active.to_dto().to_dict()])
 
-    result = await search_service.get_active(user_uid="user:demo", limit=25)
+    result = await search_service.get_active(user_uid="user_demo", limit=25)
 
     assert result.is_ok
     assert len(result.value) == 1
     kwargs = mock_backend.find_by.call_args.kwargs
     assert kwargs["is_active"] is True
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 25
     # Does NOT delegate to the temporal active_raw helper
     mock_backend.active_raw.assert_not_awaited()
@@ -134,7 +134,7 @@ async def test_get_active_sorts_by_strength(search_service, mock_backend):
         [moderate.to_dto().to_dict(), core.to_dto().to_dict(), strong.to_dto().to_dict()]
     )
 
-    result = await search_service.get_active(user_uid="user:demo")
+    result = await search_service.get_active(user_uid="user_demo")
 
     assert result.is_ok
     uids = [p.uid for p in result.value]
@@ -152,7 +152,7 @@ async def test_get_overdue_delegates_to_needing_review_90_days(search_service, m
     )
     mock_backend.get_principles_needing_review.return_value = Result.ok([stale.to_dto().to_dict()])
 
-    result = await search_service.get_overdue(user_uid="user:demo", limit=10)
+    result = await search_service.get_overdue(user_uid="user_demo", limit=10)
 
     assert result.is_ok
     assert len(result.value) == 1
@@ -160,7 +160,7 @@ async def test_get_overdue_delegates_to_needing_review_90_days(search_service, m
     # 90-day cutoff is today - 90 days
     expected_cutoff = (date.today() - timedelta(days=90)).isoformat()
     assert kwargs["cutoff_date"] == expected_cutoff
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 10
     assert kwargs["prioritize_never_reviewed"] is True
     # No use of the temporal overdue_raw helper
@@ -173,7 +173,7 @@ async def test_get_overdue_error_propagates(search_service, mock_backend):
         Errors.database("get_principles_needing_review", "db down")
     )
 
-    result = await search_service.get_overdue(user_uid="user:demo")
+    result = await search_service.get_overdue(user_uid="user_demo")
 
     assert result.is_error
 
@@ -189,7 +189,7 @@ async def test_get_upcoming_uses_review_threshold_helper(search_service, mock_ba
         [due_soon.to_dto().to_dict()]
     )
 
-    result = await search_service.get_upcoming(days_ahead=30, user_uid="user:demo", limit=20)
+    result = await search_service.get_upcoming(days_ahead=30, user_uid="user_demo", limit=20)
 
     assert result.is_ok
     assert len(result.value) == 1
@@ -197,7 +197,7 @@ async def test_get_upcoming_uses_review_threshold_helper(search_service, mock_ba
     # cutoff = today - (90 - days_ahead) = today - 60
     expected_cutoff = (date.today() - timedelta(days=60)).isoformat()
     assert kwargs["cutoff_date"] == expected_cutoff
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 20
     mock_backend.upcoming_raw.assert_not_awaited()
 
@@ -239,11 +239,11 @@ async def test_get_by_status_maps_to_is_active(search_service, mock_backend):
     """get_by_status('active') → find_by(is_active=True)."""
     mock_backend.find_by.return_value = Result.ok([])
 
-    await search_service.get_by_status("active", user_uid="user:demo")
+    await search_service.get_by_status("active", user_uid="user_demo")
 
     kwargs = mock_backend.find_by.call_args.kwargs
     assert kwargs["is_active"] is True
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
 
 
 @pytest.mark.asyncio
@@ -272,7 +272,7 @@ async def test_get_by_domain_maps_health_to_category(search_service, mock_backen
 async def test_get_needing_review_custom_threshold(search_service, mock_backend):
     mock_backend.get_principles_needing_review.return_value = Result.ok([])
 
-    await search_service.get_needing_review(user_uid="user:demo", days_threshold=30, limit=5)
+    await search_service.get_needing_review(user_uid="user_demo", days_threshold=30, limit=5)
 
     kwargs = mock_backend.get_principles_needing_review.call_args.kwargs
     expected_cutoff = (date.today() - timedelta(days=30)).isoformat()
@@ -295,7 +295,7 @@ async def test_get_prioritized_filters_active(search_service, mock_backend, user
     assert result.is_ok
     assert len(result.value) == 2
     kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["is_active"] is True
 
 

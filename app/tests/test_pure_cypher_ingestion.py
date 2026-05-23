@@ -215,7 +215,7 @@ def test_user_uid_injection():
 
     # Create mock driver
     mock_driver = MagicMock()
-    custom_user_uid = "user:test-user-123"
+    custom_user_uid = "user_test_user_123"
 
     service = UnifiedIngestionService(driver=mock_driver, default_user_uid=custom_user_uid)
 
@@ -231,9 +231,9 @@ def test_user_uid_injection():
     )
 
     # Test 2: Explicit user_uid in data should NOT be overwritten
-    task_with_user = {"title": "Test Task", "user_uid": "user:explicit-user"}
+    task_with_user = {"title": "Test Task", "user_uid": "user_explicit_user"}
     prepared = service.prepare_entity_data(EntityType.TASK, task_with_user, None, mock_path)
-    assert prepared["user_uid"] == "user:explicit-user", (
+    assert prepared["user_uid"] == "user_explicit_user", (
         "Explicit user_uid should not be overwritten"
     )
 

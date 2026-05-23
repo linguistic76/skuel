@@ -65,7 +65,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
             ON CREATE SET u.created_at = datetime()
             RETURN u
             """,
-            user_uid="user.type_contract_test",
+            user_uid="user_type_contract_test",
         )
 
         # Create knowledge units

@@ -56,7 +56,7 @@ class TestMultiDomainAnalyticsFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Test user UID for analytics."""
-        return "user.analytics_test"
+        return "user_analytics_test"
 
     # ========================================================================
     # TASK COMPLETION ANALYTICS TESTS

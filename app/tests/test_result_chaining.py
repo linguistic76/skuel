@@ -44,12 +44,12 @@ class TestAndThen:
 
     def test_and_then_propagates_initial_error(self):
         """Test that and_then propagates existing error"""
-        error = Errors.not_found("user", "user-123")
+        error = Errors.not_found("user", "user_123")
 
         result = Result.fail(error).and_then(lambda x: Result.ok(x * 2))  # Should not execute
 
         assert result.is_error
-        assert result.error.message == "user not found: user-123"
+        assert result.error.message == "user not found: user_123"
 
     def test_and_then_exception_handling(self):
         """Test that exceptions in and_then are captured"""
