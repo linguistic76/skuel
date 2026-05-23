@@ -75,7 +75,7 @@ class TestLearningRecommendationsFlow:
         # Publish LearningPathCompleted event
         event = LearningPathCompleted(
             path_uid="lp.intro_python",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             actual_duration_hours=40,
             estimated_duration_hours=50,
@@ -96,7 +96,7 @@ class TestLearningRecommendationsFlow:
         """Test that accelerated completion generates 'accelerated_learner' reason."""
         event = LearningPathCompleted(
             path_uid="lp.advanced_python",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             actual_duration_hours=30,
             estimated_duration_hours=50,
@@ -115,7 +115,7 @@ class TestLearningRecommendationsFlow:
         """Test that high mastery completion generates 'high_mastery' reason."""
         event = LearningPathCompleted(
             path_uid="lp.data_structures",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             actual_duration_hours=50,
             estimated_duration_hours=50,
@@ -141,7 +141,7 @@ class TestLearningRecommendationsFlow:
         # Publish KnowledgeMastered event
         event = KnowledgeMastered(
             ku_uid="ku.python_functions",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             mastery_score=0.85,
             time_to_mastery_hours=5,
@@ -157,7 +157,7 @@ class TestLearningRecommendationsFlow:
         """Test that high mastery (≥0.9) generates 'advanced_topics' reason."""
         event = KnowledgeMastered(
             ku_uid="ku.async_programming",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             mastery_score=0.95,
         )
@@ -171,7 +171,7 @@ class TestLearningRecommendationsFlow:
         """Test that good mastery (0.7-0.9) generates 'related_topics' reason."""
         event = KnowledgeMastered(
             ku_uid="ku.web_frameworks",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             mastery_score=0.80,
         )
@@ -185,7 +185,7 @@ class TestLearningRecommendationsFlow:
         """Test that minimal mastery (<0.7) generates 'reinforcement' reason."""
         event = KnowledgeMastered(
             ku_uid="ku.design_patterns",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             mastery_score=0.65,
         )
@@ -205,7 +205,7 @@ class TestLearningRecommendationsFlow:
         """Test that recommendations are not published without learning_backend."""
         event = LearningPathCompleted(
             path_uid="lp.test_path",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             kus_mastered=5,
             average_mastery_score=0.75,
@@ -231,7 +231,7 @@ class TestLearningRecommendationsFlow:
         # Create event with minimal data
         event = LearningPathCompleted(
             path_uid="lp.test",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
         )
 
@@ -246,7 +246,7 @@ class TestLearningRecommendationsFlow:
         # Create event
         event = KnowledgeMastered(
             ku_uid="ku.test",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             mastery_score=0.75,
         )
@@ -269,7 +269,7 @@ class TestLearningRecommendationsFlow:
         # Try to handle event
         event = KnowledgeMastered(
             ku_uid="ku.test",
-            user_uid="user.test",
+            user_uid="user_test",
             occurred_at=datetime.now(),
             mastery_score=0.85,
         )

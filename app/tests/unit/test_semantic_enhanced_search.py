@@ -263,7 +263,7 @@ class TestLearningAwareSearch:
             result = await vector_search_service.learning_aware_search(
                 label="Entity",
                 text="python",
-                user_uid="user.test",
+                user_uid="user_test",
                 prefer_unmastered=True,
                 limit=10,
             )
@@ -303,7 +303,7 @@ class TestLearningAwareSearch:
             result = await vector_search_service.learning_aware_search(
                 label="Entity",
                 text="python",
-                user_uid="user.test",
+                user_uid="user_test",
                 prefer_unmastered=True,
                 limit=10,
             )
@@ -345,7 +345,7 @@ class TestLearningAwareSearch:
             result = await vector_search_service.learning_aware_search(
                 label="Entity",
                 text="test",
-                user_uid="user.test",
+                user_uid="user_test",
                 prefer_unmastered=False,  # Review mode - prefer mastered
                 limit=10,
             )
@@ -368,7 +368,7 @@ class TestLearningAwareSearch:
             result = await vector_search_service.learning_aware_search(
                 label="Task",  # Not "Entity"
                 text="test",
-                user_uid="user.test",
+                user_uid="user_test",
                 limit=10,
             )
 
@@ -393,7 +393,7 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Entity", text="test", user_uid="user.test", limit=10
+                label="Entity", text="test", user_uid="user_test", limit=10
             )
 
             # Should still return results (graceful degradation)

@@ -58,7 +58,7 @@ class TestDeleteRelationshipOperations:
             uid="task:delete_test_1",
             title="Test Delete Relationship",
             description="Test task for delete",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.MEDIUM,
             status=EntityStatus.DRAFT,
         )
@@ -132,7 +132,7 @@ class TestDeleteRelationshipOperations:
             uid="task:batch_delete_test",
             title="Test Batch Delete",
             description="Test task for batch delete",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.HIGH,
             due_date=date.today(),
             status=EntityStatus.ACTIVE,
@@ -194,7 +194,7 @@ class TestDeleteRelationshipOperations:
             uid="task:partial_delete_test",
             title="Test Partial Delete",
             description="Test task for partial batch delete",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.LOW,
             status=EntityStatus.DRAFT,
         )
@@ -251,7 +251,7 @@ class TestDeleteRelationshipOperations:
             uid="task:count_delete_test",
             title="Test Delete with Count",
             description="Test delete with count operations",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.MEDIUM,
             status=EntityStatus.ACTIVE,
         )

@@ -73,7 +73,7 @@ class TestEventKuPracticeFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user.test_event_ku_flow"
+        return "user_test_event_ku_flow"
 
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):

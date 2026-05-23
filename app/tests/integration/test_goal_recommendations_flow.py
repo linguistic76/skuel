@@ -89,7 +89,7 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user.test_goal_recommendations"
+        return "user_test_goal_recommendations"
 
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):

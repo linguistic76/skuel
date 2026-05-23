@@ -56,7 +56,7 @@ from core.models.templates.task_template import TaskTemplate
 from core.services.ps_engagement import PsEngagementService
 from core.utils.result_simplified import Errors, Result
 
-STUDENT_UID = "user.test_ps_engagement"
+STUDENT_UID = "user_test_ps_engagement"
 PS_UID = "ps_test_engagement"
 
 

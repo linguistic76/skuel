@@ -39,7 +39,7 @@ def mock_backend() -> Any:
     # Default task data for get_task - None means not found
     default_task_dict = {
         "uid": "task:123",
-        "user_uid": "user:123",
+        "user_uid": "user_123",
         "title": "Test Task",
         "status": EntityStatus.ACTIVE.value,
         "priority": Priority.MEDIUM.value,
@@ -77,7 +77,7 @@ def sample_task() -> Task:
     return Task.from_dto(
         TaskDTO(
             uid="task:123",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Test Task",
             priority=Priority.HIGH.value,
             status=EntityStatus.ACTIVE.value,
@@ -96,7 +96,7 @@ def blocked_task() -> Task:
     return Task.from_dto(
         TaskDTO(
             uid="task:blocked",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Blocked Task",
             priority=Priority.MEDIUM.value,
             status=EntityStatus.DRAFT.value,
@@ -109,7 +109,7 @@ def blocked_task() -> Task:
 def user_context() -> UserContext:
     """Create sample user context."""
     return UserContext(
-        user_uid="user:123",
+        user_uid="user_123",
         username="test_user",
         prerequisites_completed={"ku.python.basics"},
         completed_task_uids={"task:completed_1"},
@@ -215,7 +215,7 @@ async def test_record_task_completion_success(progress_service, mock_backend):
     # Execute
     result = await progress_service.record_task_completion(
         task_uid="task:123",
-        user_uid="user:123",
+        user_uid="user_123",
         duration_minutes=60,
         quality_score=0.9,
         completion_notes="Great work!",
@@ -238,7 +238,7 @@ async def test_record_task_completion_backend_error(progress_service, mock_backe
     )
 
     # Execute
-    result = await progress_service.record_task_completion("task:123", "user:123")
+    result = await progress_service.record_task_completion("task:123", "user_123")
 
     # Verify
     assert result.is_error
@@ -256,7 +256,7 @@ async def test_check_prerequisites_met(progress_service, mock_backend, sample_ta
     simple_task = Task.from_dto(
         TaskDTO(
             uid="task:simple",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Simple Task",
             priority=Priority.MEDIUM.value,
             status=EntityStatus.DRAFT.value,
@@ -340,7 +340,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
     ready_task = Task.from_dto(
         TaskDTO(
             uid="task:ready",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Ready Task",
             priority=Priority.HIGH.value,
             status=EntityStatus.DRAFT.value,
@@ -364,7 +364,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
 
         # Create mock context
         context = UserContext(
-            user_uid="user:123",
+            user_uid="user_123",
             username="test_user",
             prerequisites_completed=set(),
             completed_task_uids=set(),
@@ -398,7 +398,7 @@ async def test_unblock_task_still_blocked(progress_service, mock_backend, blocke
         ),
     ):
         context = UserContext(
-            user_uid="user:123",
+            user_uid="user_123",
             username="test_user",
             prerequisites_completed=set(),
             completed_task_uids=set(),
@@ -426,8 +426,8 @@ async def test_assign_task_to_user_success(progress_service, mock_backend):
     # Execute
     result = await progress_service.assign_task_to_user(
         task_uid="task:123",
-        user_uid="user:456",
-        assigned_by="user:admin",
+        user_uid="user_456",
+        assigned_by="user_admin",
         priority_override=Priority.HIGH.value,
     )
 
@@ -448,7 +448,7 @@ async def test_assign_task_backend_error(progress_service, mock_backend):
     )
 
     # Execute
-    result = await progress_service.assign_task_to_user("task:123", "user:456")
+    result = await progress_service.assign_task_to_user("task:123", "user_456")
 
     # Verify
     assert result.is_error
@@ -466,7 +466,7 @@ async def test_complete_task_updates_goal(progress_service, mock_backend, user_c
     goal_task = Task.from_dto(
         TaskDTO(
             uid="task:goal_task",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Goal Task",
             priority=Priority.HIGH.value,
             status=EntityStatus.ACTIVE.value,
@@ -500,7 +500,7 @@ async def test_complete_task_reinforces_habit(progress_service, mock_backend, us
     habit_task = Task.from_dto(
         TaskDTO(
             uid="task:habit_task",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Habit Task",
             priority=Priority.MEDIUM.value,
             status=EntityStatus.ACTIVE.value,
@@ -546,7 +546,7 @@ async def test_complete_task_updates_knowledge_mastery(
     mastery_task = Task.from_dto(
         TaskDTO(
             uid="task:mastery_task",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Mastery Task",
             priority=Priority.HIGH.value,
             status=EntityStatus.ACTIVE.value,
@@ -581,7 +581,7 @@ async def test_complete_and_unblock_workflow(progress_service, mock_backend, use
     task = Task.from_dto(
         TaskDTO(
             uid="task:prerequisite",
-            user_uid="user:demo",
+            user_uid="user_demo",
             title="Prerequisite Task",
             priority=Priority.HIGH.value,
             status=EntityStatus.ACTIVE.value,

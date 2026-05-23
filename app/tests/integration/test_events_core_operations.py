@@ -55,7 +55,7 @@ class TestEventsCoreOperations:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user.test_events_core"
+        return "user_test_events_core"
 
     # ==========================================================================
     # CRUD OPERATIONS TESTS (5 tests)

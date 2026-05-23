@@ -65,7 +65,7 @@ def test_rich_only_fields_registry_matches_expected_set() -> None:
 @pytest.fixture
 def standard_context() -> UserContext:
     """Minimal standard-depth context — what build() produces."""
-    return UserContext(user_uid="user:test", username="testuser")
+    return UserContext(user_uid="user_test", username="testuser")
 
 
 def test_standard_depth_is_not_rich(standard_context: UserContext) -> None:
@@ -164,7 +164,7 @@ def test_as_rich_raises_on_standard_context(
 
 def test_as_rich_returns_self_on_rich_context() -> None:
     """_as_rich() is a guard + cast — runtime identity, not a copy."""
-    context = RichUserContext(user_uid="user:test", username="testuser")
+    context = RichUserContext(user_uid="user_test", username="testuser")
     assert context._as_rich("op") is context
 
 
@@ -218,7 +218,7 @@ def test_recent_principle_aligned_choices_or_empty_at_standard_depth(
 def rich_context() -> RichUserContext:
     """Rich-depth context with rich-only fields populated."""
     return RichUserContext(
-        user_uid="user:test",
+        user_uid="user_test",
         username="testuser",
         tasks_by_goal={
             "goal:a": ["task:1", "task:2"],

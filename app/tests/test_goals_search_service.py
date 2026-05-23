@@ -57,7 +57,7 @@ def sample_goals() -> list[Goal]:
         Goal.from_dto(
             GoalDTO(
                 uid="goal:1",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 title="Ship v1",
                 domain=Domain.TECH,
                 status=EntityStatus.ACTIVE,
@@ -71,7 +71,7 @@ def sample_goals() -> list[Goal]:
         Goal.from_dto(
             GoalDTO(
                 uid="goal:2",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 title="Run marathon",
                 domain=Domain.HEALTH,
                 status=EntityStatus.ACTIVE,
@@ -85,7 +85,7 @@ def sample_goals() -> list[Goal]:
         Goal.from_dto(
             GoalDTO(
                 uid="goal:3",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 title="Learn Rust",
                 domain=Domain.TECH,
                 status=EntityStatus.COMPLETED,
@@ -102,7 +102,7 @@ def sample_goals() -> list[Goal]:
 def user_context() -> UserContext:
     """Create sample user context."""
     return UserContext(
-        user_uid="user:demo",
+        user_uid="user_demo",
         username="test_user",
         knowledge_mastery={"ku.python.basics": 0.9},
     )
@@ -135,14 +135,14 @@ async def test_get_upcoming_uses_target_date(search_service, mock_backend, sampl
         [g.to_dto().to_dict() for g in sample_goals[:2]]
     )
 
-    result = await search_service.get_upcoming(days_ahead=60, user_uid="user:demo", limit=20)
+    result = await search_service.get_upcoming(days_ahead=60, user_uid="user_demo", limit=20)
 
     assert result.is_ok
     assert len(result.value) == 2
     kwargs = mock_backend.upcoming_raw.call_args.kwargs
     assert kwargs["date_field"] == "target_date"
     assert kwargs["days_ahead"] == 60
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 20
 
 
@@ -173,13 +173,13 @@ async def test_get_overdue_uses_target_date(search_service, mock_backend, sample
         [g.to_dto().to_dict() for g in sample_goals[:1]]
     )
 
-    result = await search_service.get_overdue(user_uid="user:demo")
+    result = await search_service.get_overdue(user_uid="user_demo")
 
     assert result.is_ok
     assert len(result.value) == 1
     kwargs = mock_backend.overdue_raw.call_args.kwargs
     assert kwargs["date_field"] == "target_date"
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
 
 
 @pytest.mark.asyncio
@@ -208,12 +208,12 @@ async def test_get_active_success(search_service, mock_backend, sample_goals):
         [g.to_dto().to_dict() for g in sample_goals[:2]]
     )
 
-    result = await search_service.get_active(user_uid="user:demo", limit=10)
+    result = await search_service.get_active(user_uid="user_demo", limit=10)
 
     assert result.is_ok
     assert len(result.value) == 2
     kwargs = mock_backend.active_raw.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 10
     # Goals exclude both COMPLETED and CANCELLED per config
     assert "completed" in kwargs["exclude_statuses"]
@@ -253,7 +253,7 @@ async def test_get_prioritized_sorts_by_score(
     # Must have queried with ACTIVE status
     kwargs = mock_backend.find_by.call_args.kwargs
     assert kwargs["status"] == EntityStatus.ACTIVE.value
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
 
 
 @pytest.mark.asyncio
@@ -277,7 +277,7 @@ async def test_get_blocked_by_knowledge_skips_mastered(search_service, mock_back
     """Goals whose knowledge prerequisites are all mastered are not blocked."""
     active_goal = GoalDTO(
         uid="goal:unblocked",
-        user_uid="user:demo",
+        user_uid="user_demo",
         title="Unblocked goal",
         domain=Domain.TECH,
         status=EntityStatus.ACTIVE,

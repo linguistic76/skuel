@@ -50,7 +50,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.principle_enums import AlignmentLevel
 from core.services.cross_domain import CrossDomainQueryService
 
-USER_UID = "user.xdq"
+USER_UID = "user_xdq"
 
 
 # ---------------------------------------------------------------------------
@@ -457,7 +457,7 @@ class TestHabitKnowledgeReinforcement:
         assert set(row.ku_uids) == {"ku_python_xdq", "ku_neo4j_xdq"}
 
     async def test_user_with_no_habits(self, service, graph):
-        result = await service.get_habit_knowledge_reinforcement(user_uid="user.nobody")
+        result = await service.get_habit_knowledge_reinforcement(user_uid="user_nobody")
 
         assert result.is_ok
         assert result.value == ()
@@ -519,7 +519,7 @@ class TestChoicePrincipleAdherence:
 
     async def test_user_with_no_choices(self, service, graph):
         result = await service.get_choice_principle_adherence(
-            user_uid="user.nobody",
+            user_uid="user_nobody",
             period_days=90,
         )
 
@@ -536,7 +536,7 @@ class TestChoiceConflictCount:
         assert result.value.conflict_count == 1  # choice_conflict_xdq
 
     async def test_user_with_no_conflicts(self, service, graph):
-        result = await service.get_choice_conflict_count(user_uid="user.nobody")
+        result = await service.get_choice_conflict_count(user_uid="user_nobody")
 
         assert result.is_ok
         assert result.value.conflict_count == 0

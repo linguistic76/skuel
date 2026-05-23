@@ -91,20 +91,20 @@ async def ensure_test_users(neo4j_driver):
 
     # All test user UIDs used across integration tests
     test_user_uids = [
-        "user.test",
-        "user.test_event_ku_flow",
-        "user.test_goal_recommendations",
-        "user.test_habit_goal_flow",
-        "user.test_integration",
-        "user.test_ku_lp_flow",
-        "user.test_task_goal_flow",
-        "user.mike",  # Used in askesis tests
+        "user_test",
+        "user_test_event_ku_flow",
+        "user_test_goal_recommendations",
+        "user_test_habit_goal_flow",
+        "user_test_integration",
+        "user_test_ku_lp_flow",
+        "user_test_task_goal_flow",
+        "user_mike",  # Used in askesis tests
         "user_test_123",  # Used in some tests
         "user_test_456",  # Used in some tests
         # Semantic search integration test users
-        "user.test_learning",
-        "user.discovery",
-        "user.test_perf",
+        "user_test_learning",
+        "user_discovery",
+        "user_test_perf",
     ]
 
     async def create_users():
@@ -281,7 +281,7 @@ async def test_user(neo4j_driver):
 
     # Create a test user with minimal required fields
     test_user_obj = User(
-        uid="user.test_rich_context",
+        uid="user_test_rich_context",
         title="Test User",
         description="User for rich context pattern tests",
         email="test@example.com",
@@ -374,7 +374,7 @@ async def create_moc_test_user(neo4j_driver):
             ON CREATE SET u.created_at = datetime($created_at)
             RETURN u
             """,
-            user_uid="user.test_integration",
+            user_uid="user_test_integration",
             created_at=datetime.now().isoformat(),
         )
         await result.consume()  # Ensure transaction commits
@@ -385,7 +385,7 @@ async def create_moc_test_user(neo4j_driver):
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MATCH (u:User {uid: 'user.test_integration'})
+            MATCH (u:User {uid: 'user_test_integration'})
             DETACH DELETE u
             """
         )
@@ -722,7 +722,7 @@ async def populated_test_data(skuel_app):
     services = skuel_app.state.services
     driver = services.neo4j_driver
 
-    test_user_uid = "user.test_rag"
+    test_user_uid = "user_test_rag"
 
     # Test knowledge units for RAG tests
     test_kus = [
@@ -846,7 +846,7 @@ def event_bus():
 @pytest.fixture
 def user_uid():
     """Standard test user UID."""
-    return "user.test_async_embeddings"
+    return "user_test_async_embeddings"
 
 
 @pytest_asyncio.fixture

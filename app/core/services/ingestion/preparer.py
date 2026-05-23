@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, TypeGuard
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
-from core.models.type_hints import UserUID
+from core.models.type_hints import TypeConverter, UserUID
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -199,10 +199,13 @@ def _prepare_core(
             if key not in entity_data:
                 entity_data[key] = value
 
-    # Inject user_uid for multi-tenant entity types
-    # Uses explicit user_uid from data if present, otherwise falls back to default
-    if config.requires_user_uid and "user_uid" not in entity_data:
-        entity_data["user_uid"] = default_user_uid
+    # Stamp the owner for multi-tenant entity types: explicit user_uid if present,
+    # else the (canonical) default. Route through to_user_uid so a non-canonical owner
+    # can never be persisted — the validator already rejects bad explicit values with a
+    # clear per-file error; this is the storage-side last line of defense.
+    if config.requires_user_uid:
+        raw_user_uid = entity_data.get("user_uid", default_user_uid)
+        entity_data["user_uid"] = TypeConverter.to_user_uid(str(raw_user_uid))
 
     # Group uses `owner_uid` (teacher), not `user_uid`. The upload flow injects
     # the uploader's UID as user_uid above; translate that to owner_uid here so

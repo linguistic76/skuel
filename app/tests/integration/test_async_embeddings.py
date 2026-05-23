@@ -128,7 +128,7 @@ class TestEmbeddingBackgroundWorker:
                 entity_uid=f"task.test{i}",
                 entity_type="task",
                 embedding_text=f"Test task {i}",
-                user_uid="user.test",
+                user_uid="user_test",
                 requested_at=datetime.now(),
                 occurred_at=datetime.now(),
             )
@@ -185,7 +185,7 @@ class TestEmbeddingBackgroundWorker:
             entity_uid="task.test",
             entity_type="task",
             embedding_text="Test",
-            user_uid="user.test",
+            user_uid="user_test",
             requested_at=datetime.now(),
             occurred_at=datetime.now(),
         )
@@ -216,7 +216,7 @@ class TestEmbeddingTextExtraction:
 
         task = Task(
             uid="task.test",
-            user_uid="user.test",
+            user_uid="user_test",
             title="Learn Python",
             description="Study async/await patterns",
             priority="medium",
@@ -238,7 +238,7 @@ class TestEmbeddingTextExtraction:
 
         task = Task(
             uid="task.test",
-            user_uid="user.test",
+            user_uid="user_test",
             title="Buy groceries",
             description=None,
             priority="low",
@@ -335,7 +335,7 @@ class TestGoalEmbeddingTextExtraction:
 
         goal = Goal(
             uid="goal.test",
-            user_uid="user.test",
+            user_uid="user_test",
             title="Learn Machine Learning",
             description="Study ML algorithms and frameworks",
             vision_statement="Deploy AI models to production",
@@ -358,7 +358,7 @@ class TestGoalEmbeddingTextExtraction:
 
         goal = Goal(
             uid="goal.test",
-            user_uid="user.test",
+            user_uid="user_test",
             title="Get fit",
             description=None,
             vision_statement=None,

@@ -51,7 +51,7 @@ def sample_choices() -> list[Choice]:
         Choice.from_dto(
             ChoiceDTO(
                 uid="choice:1",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 title="Framework selection",
                 domain=Domain.TECH,
                 status=EntityStatus.DRAFT,
@@ -63,7 +63,7 @@ def sample_choices() -> list[Choice]:
         Choice.from_dto(
             ChoiceDTO(
                 uid="choice:2",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 title="Gym membership",
                 domain=Domain.HEALTH,
                 status=EntityStatus.COMPLETED,
@@ -77,7 +77,7 @@ def sample_choices() -> list[Choice]:
 
 @pytest.fixture
 def user_context() -> UserContext:
-    return UserContext(user_uid="user:demo", username="test_user")
+    return UserContext(user_uid="user_demo", username="test_user")
 
 
 # ============================================================================
@@ -107,13 +107,13 @@ async def test_get_upcoming_uses_decision_deadline(search_service, mock_backend,
         [c.to_dto().to_dict() for c in sample_choices[:1]]
     )
 
-    result = await search_service.get_upcoming(days_ahead=10, user_uid="user:demo")
+    result = await search_service.get_upcoming(days_ahead=10, user_uid="user_demo")
 
     assert result.is_ok
     kwargs = mock_backend.upcoming_raw.call_args.kwargs
     assert kwargs["date_field"] == "decision_deadline"
     assert kwargs["days_ahead"] == 10
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
 
 
 @pytest.mark.asyncio
@@ -131,7 +131,7 @@ async def test_get_upcoming_excludes_completed(search_service, mock_backend):
 async def test_get_overdue_uses_decision_deadline(search_service, mock_backend):
     mock_backend.overdue_raw.return_value = Result.ok([])
 
-    await search_service.get_overdue(user_uid="user:demo", limit=10)
+    await search_service.get_overdue(user_uid="user_demo", limit=10)
 
     kwargs = mock_backend.overdue_raw.call_args.kwargs
     assert kwargs["date_field"] == "decision_deadline"
@@ -153,12 +153,12 @@ async def test_get_active_success(search_service, mock_backend, sample_choices):
         [c.to_dto().to_dict() for c in sample_choices[:1]]
     )
 
-    result = await search_service.get_active(user_uid="user:demo", limit=25)
+    result = await search_service.get_active(user_uid="user_demo", limit=25)
 
     assert result.is_ok
     assert len(result.value) == 1
     kwargs = mock_backend.active_raw.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 25
 
 
@@ -182,12 +182,12 @@ async def test_get_pending_delegates_to_backend(search_service, mock_backend, sa
         [c.to_dto().to_dict() for c in pending]
     )
 
-    result = await search_service.get_pending(user_uid="user:demo", limit=50)
+    result = await search_service.get_pending(user_uid="user_demo", limit=50)
 
     assert result.is_ok
     assert len(result.value) == 1
     kwargs = mock_backend.get_pending_choices.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 50
 
 
@@ -196,23 +196,23 @@ async def test_get_by_urgency_with_user(search_service, mock_backend, sample_cho
     high = [c for c in sample_choices if c.priority == Priority.HIGH]
     mock_backend.find_by.return_value = Result.ok([c.to_dto().to_dict() for c in high])
 
-    result = await search_service.get_by_urgency("high", user_uid="user:demo")
+    result = await search_service.get_by_urgency("high", user_uid="user_demo")
 
     assert result.is_ok
     assert len(result.value) == 1
     kwargs = mock_backend.find_by.call_args.kwargs
     assert kwargs["urgency"] == "high"
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
 
 
 @pytest.mark.asyncio
 async def test_get_needing_decision_forwards_deadline(search_service, mock_backend):
     mock_backend.get_choices_needing_decision.return_value = Result.ok([])
 
-    await search_service.get_needing_decision(user_uid="user:demo", deadline_days=3)
+    await search_service.get_needing_decision(user_uid="user_demo", deadline_days=3)
 
     kwargs = mock_backend.get_choices_needing_decision.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     expected_end = (date.today() + timedelta(days=3)).isoformat()
     assert kwargs["end_date"] == expected_end
 
@@ -223,7 +223,7 @@ async def test_get_prioritized_filters_terminal(search_service, mock_backend, us
     now = datetime.now()
     draft = ChoiceDTO(
         uid="choice:draft",
-        user_uid="user:demo",
+        user_uid="user_demo",
         title="Draft",
         domain=Domain.TECH,
         status=EntityStatus.DRAFT,
@@ -232,7 +232,7 @@ async def test_get_prioritized_filters_terminal(search_service, mock_backend, us
     )
     completed = ChoiceDTO(
         uid="choice:done",
-        user_uid="user:demo",
+        user_uid="user_demo",
         title="Done",
         domain=Domain.HEALTH,
         status=EntityStatus.COMPLETED,

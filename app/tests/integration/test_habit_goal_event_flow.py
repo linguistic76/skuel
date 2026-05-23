@@ -72,7 +72,7 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user.test_habit_goal_flow"
+        return "user_test_habit_goal_flow"
 
     @pytest_asyncio.fixture
     async def habit_based_goal(self, goals_backend, test_user_uid):

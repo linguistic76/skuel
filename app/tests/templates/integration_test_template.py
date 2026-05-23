@@ -490,7 +490,7 @@ class TestExampleIntegration:
         # Setup: Create user and example entities
         async with driver.session() as session:
             await session.run("""
-                CREATE (u:User {uid: 'user:test', title: 'Test User', email: 'test@example.com'})
+                CREATE (u:User {uid: 'user_test', title: 'Test User', email: 'test@example.com'})
                 CREATE (e:Example {uid: 'example:user_owned', title: 'User Example'})
                 CREATE (u)-[:OWNS]->(e)
             """)
@@ -498,7 +498,7 @@ class TestExampleIntegration:
         # Act: Query integrated data
         async with driver.session() as session:
             result = await session.run("""
-                MATCH (u:User {uid: 'user:test'})-[:OWNS]->(e:Example)
+                MATCH (u:User {uid: 'user_test'})-[:OWNS]->(e:Example)
                 RETURN u.title as user_title, e.title as example_title
             """)
             record = await result.single()

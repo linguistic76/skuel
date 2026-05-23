@@ -68,7 +68,7 @@ class TestRelationshipMetadataOperations:
             uid="task:metadata_test",
             title="Test Metadata",
             description="Test getting metadata",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.MEDIUM,
             status=EntityStatus.DRAFT,
         )
@@ -140,7 +140,7 @@ class TestRelationshipMetadataOperations:
             uid="task:update_single",
             title="Test Update Single",
             description="Test single property update",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.HIGH,
             due_date=date.today(),
             status=EntityStatus.ACTIVE,
@@ -195,7 +195,7 @@ class TestRelationshipMetadataOperations:
             uid="task:update_multiple",
             title="Test Update Multiple",
             description="Test multiple property updates",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.LOW,
             status=EntityStatus.DRAFT,
         )
@@ -261,7 +261,7 @@ class TestRelationshipMetadataOperations:
             uid="task:add_props",
             title="Test Add Properties",
             description="Test adding new properties",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.MEDIUM,
             status=EntityStatus.ACTIVE,
         )
@@ -320,7 +320,7 @@ class TestRelationshipMetadataOperations:
             uid="task:counter",
             title="Test Counter",
             description="Test counter increment pattern",
-            user_uid="user.test",
+            user_uid="user_test",
             priority=Priority.MEDIUM,
             status=EntityStatus.ACTIVE,
         )

@@ -143,7 +143,7 @@ def _make_context(
     task_loader: Any = None,
     lp_loader: Any = None,
     ls_loader: Any = None,
-    user_uid: str = "user.test",
+    user_uid: str = "user_test",
 ) -> GraphQLContext:
     return GraphQLContext(
         services=services or MagicMock(),
@@ -344,9 +344,9 @@ class TestRequireUserUid:
     def test_returns_uid(self) -> None:
         from routes.graphql.auth import require_user_uid
 
-        ctx = _make_context(user_uid="user.abc")
+        ctx = _make_context(user_uid="user_abc")
         info = _make_info(ctx)
-        assert require_user_uid(info) == "user.abc"
+        assert require_user_uid(info) == "user_abc"
 
     def test_raises_on_empty(self) -> None:
         from routes.graphql.auth import require_user_uid
@@ -362,10 +362,10 @@ class TestResolveTargetUser:
     async def test_no_override_returns_caller(self) -> None:
         from routes.graphql.auth import resolve_target_user
 
-        ctx = _make_context(user_uid="user.caller")
+        ctx = _make_context(user_uid="user_caller")
         info = _make_info(ctx)
         result = await resolve_target_user(info, None)
-        assert result == "user.caller"
+        assert result == "user_caller"
 
     @pytest.mark.asyncio
     async def test_override_requires_admin(self) -> None:
@@ -379,11 +379,11 @@ class TestResolveTargetUser:
         services = MagicMock()
         services.user = user_service
 
-        ctx = _make_context(services=services, user_uid="user.caller")
+        ctx = _make_context(services=services, user_uid="user_caller")
         info = _make_info(ctx)
 
         with pytest.raises(PermissionError, match="Admin role required"):
-            await resolve_target_user(info, "user.other")
+            await resolve_target_user(info, "user_other")
 
     @pytest.mark.asyncio
     async def test_override_allowed_for_admin(self) -> None:
@@ -397,11 +397,11 @@ class TestResolveTargetUser:
         services = MagicMock()
         services.user = user_service
 
-        ctx = _make_context(services=services, user_uid="user.admin")
+        ctx = _make_context(services=services, user_uid="user_admin")
         info = _make_info(ctx)
 
-        result = await resolve_target_user(info, "user.target")
-        assert result == "user.target"
+        result = await resolve_target_user(info, "user_target")
+        assert result == "user_target"
 
     @pytest.mark.asyncio
     async def test_override_no_user_service_raises(self) -> None:
@@ -410,11 +410,11 @@ class TestResolveTargetUser:
         services = MagicMock()
         services.user = None
 
-        ctx = _make_context(services=services, user_uid="user.caller")
+        ctx = _make_context(services=services, user_uid="user_caller")
         info = _make_info(ctx)
 
         with pytest.raises(PermissionError, match="User service unavailable"):
-            await resolve_target_user(info, "user.other")
+            await resolve_target_user(info, "user_other")
 
 
 # ============================================================================
@@ -440,9 +440,9 @@ class TestBatchLoad:
 class TestCreateGraphqlContext:
     def test_creates_context_with_loaders(self) -> None:
         services = MagicMock()
-        ctx = create_graphql_context(services, search_router=None, user_uid=UserUID("user.x"))
+        ctx = create_graphql_context(services, search_router=None, user_uid=UserUID("user_x"))
 
-        assert ctx.user_uid == "user.x"
+        assert ctx.user_uid == "user_x"
         assert ctx.services is services
         assert ctx.knowledge_loader is not None
         assert ctx.task_loader is not None
@@ -527,7 +527,7 @@ class TestSearchKnowledgeResolver:
         )
         search_router.faceted_search.return_value = FakeResult(value=search_response)
 
-        ctx = _make_context(search_router=search_router, user_uid="user.test")
+        ctx = _make_context(search_router=search_router, user_uid="user_test")
         info = _make_info(ctx)
 
         input_obj = SearchInput(query="python", limit=10)
@@ -541,7 +541,7 @@ class TestSearchKnowledgeResolver:
     async def test_no_router_returns_empty(self) -> None:
         from routes.graphql.types import SearchInput
 
-        ctx = _make_context(search_router=None, user_uid="user.test")
+        ctx = _make_context(search_router=None, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().search_knowledge(info, input=SearchInput(query="test"))
@@ -554,7 +554,7 @@ class TestSearchKnowledgeResolver:
         search_router = AsyncMock()
         search_router.faceted_search.return_value = FakeResult(error="search failed")
 
-        ctx = _make_context(search_router=search_router, user_uid="user.test")
+        ctx = _make_context(search_router=search_router, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().search_knowledge(info, input=SearchInput(query="test"))
@@ -595,7 +595,7 @@ class TestTasksResolver:
             )
         )
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().tasks(info, include_completed=False)
@@ -606,7 +606,7 @@ class TestTasksResolver:
     async def test_no_tasks_service_returns_empty(self) -> None:
         services = MagicMock()
         services.tasks = None
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().tasks(info)
@@ -642,7 +642,7 @@ class TestLearningPathsResolver:
             return_value=FakeResult(value=[FakeLearningPath(uid="lp_1")])
         )
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().learning_paths(info)
@@ -658,7 +658,7 @@ class TestLearningPathsResolver:
             )
         )
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().learning_paths(info, all_paths=True)
@@ -668,7 +668,7 @@ class TestLearningPathsResolver:
     async def test_no_lp_service_returns_empty(self) -> None:
         services = MagicMock()
         services.lp = None
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().learning_paths(info)
@@ -687,7 +687,7 @@ class TestUserDashboardResolver:
             return_value=FakeResult(value=[MagicMock(), MagicMock()])
         )
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().user_dashboard(info)
@@ -702,7 +702,7 @@ class TestUserDashboardResolver:
         services.lp = None
         services.habits = None
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().user_dashboard(info)
@@ -732,7 +732,7 @@ class TestLearningPathWithContextResolver:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({"lp_ctx": lp}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -751,7 +751,7 @@ class TestLearningPathWithContextResolver:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -762,7 +762,7 @@ class TestLearningPathWithContextResolver:
     async def test_no_lp_service(self) -> None:
         services = MagicMock()
         services.lp = None
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().learning_path_with_context(info, path_uid="lp_x")
@@ -781,7 +781,7 @@ class TestLearningPathWithContextResolver:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({"lp_np": lp}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -812,7 +812,7 @@ class TestLearningPathWithContextResolver:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({"lp_blk": lp}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -842,7 +842,7 @@ class TestLearningPathWithContextResolver:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({"lp_prereq": lp}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -875,7 +875,7 @@ class TestPrerequisiteChainResolver:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({"ku_target": target_ku}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -895,7 +895,7 @@ class TestPrerequisiteChainResolver:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -906,7 +906,7 @@ class TestPrerequisiteChainResolver:
     async def test_no_ps_service(self) -> None:
         services = MagicMock()
         services.ps = None
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().prerequisite_chain(info, knowledge_uid="ku_x")
@@ -933,7 +933,7 @@ class TestPrerequisiteChainResolver:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({"ku_a": ku_a}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -966,7 +966,7 @@ class TestPrerequisiteChainResolver:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({"ku_root": ku}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -991,7 +991,7 @@ class TestKnowledgeDependenciesResolver:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({"ku_center": center}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1013,7 +1013,7 @@ class TestKnowledgeDependenciesResolver:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1024,7 +1024,7 @@ class TestKnowledgeDependenciesResolver:
     async def test_no_ps_service(self) -> None:
         services = MagicMock()
         services.ps = None
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().knowledge_dependencies(info, knowledge_uid="ku_x")
@@ -1063,7 +1063,7 @@ class TestLearningPathBlockersResolver:
             services=services,
             lp_loader=_make_loader({"lp_blk": lp}),
             knowledge_loader=_make_loader({}),  # ku_gone not found
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1092,7 +1092,7 @@ class TestLearningPathBlockersResolver:
             services=services,
             lp_loader=_make_loader({"lp_dep": lp}),
             knowledge_loader=_make_loader({"ku_old": deprecated_ku}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1124,7 +1124,7 @@ class TestLearningPathBlockersResolver:
             services=services,
             lp_loader=_make_loader({"lp_circ": lp}),
             knowledge_loader=_make_loader({"ku_1": ku1, "ku_2": ku2}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1139,7 +1139,7 @@ class TestLearningPathBlockersResolver:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1151,7 +1151,7 @@ class TestLearningPathBlockersResolver:
         services = MagicMock()
         services.lp = None
         services.ps = None
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().learning_path_blockers(info, path_uid="lp_x")
@@ -1177,7 +1177,7 @@ class TestLearningPathBlockersResolver:
             services=services,
             lp_loader=_make_loader({"lp_out": lp}),
             knowledge_loader=_make_loader({"ku_stale": stale_ku}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1196,7 +1196,7 @@ class TestLearningPathBlockersResolver:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({"lp_skip": lp}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1209,7 +1209,7 @@ class TestDiscoverCrossDomainResolver:
     async def test_no_cross_domain_service(self) -> None:
         services = MagicMock()
         services.cross_domain = None
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().discover_cross_domain(info, user_knowledge=["ku_1"])
@@ -1222,7 +1222,7 @@ class TestDiscoverCrossDomainResolver:
             return_value=FakeResult(value=[])
         )
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         result = await Query().discover_cross_domain(info, user_knowledge=["ku_1"])
@@ -1254,7 +1254,7 @@ class TestDiscoverCrossDomainResolver:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({"ku_src": src_ku, "ku_tgt": tgt_ku}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1287,7 +1287,7 @@ class TestDiscoverCrossDomainResolver:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1576,7 +1576,7 @@ class TestDiscoverCrossDomainTargetDomains:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1611,7 +1611,7 @@ class TestDiscoverCrossDomainTargetDomains:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1649,7 +1649,7 @@ class TestLearningPathWithContextStepNoKuUid:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({"lp_empty_ku": lp}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1689,7 +1689,7 @@ class TestPrerequisiteChainPsNullInRecursion:
         ctx = _make_context(
             services=services,
             knowledge_loader=_make_loader({"ku_root": ku}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1716,7 +1716,7 @@ class TestLearningPathBlockersEmptySteps:
         ctx = _make_context(
             services=services,
             lp_loader=_make_loader({"lp_empty_steps": lp}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1745,7 +1745,7 @@ class TestLearningPathBlockersMasteryCheck:
             services=services,
             lp_loader=_make_loader({"lp_mastery": lp}),
             knowledge_loader=_make_loader({"ku_adv": ku_adv}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1772,7 +1772,7 @@ class TestLearningPathBlockersMasteryCheck:
             services=services,
             lp_loader=_make_loader({"lp_low": lp}),
             knowledge_loader=_make_loader({"ku_adv": ku_adv}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1799,7 +1799,7 @@ class TestLearningPathBlockersMasteryCheck:
             services=services,
             lp_loader=_make_loader({"lp_err": lp}),
             knowledge_loader=_make_loader({"ku_adv": ku_adv}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1830,7 +1830,7 @@ class TestLearningPathBlockersPrereqTruncation:
             services=services,
             lp_loader=_make_loader({"lp_trunc": lp}),
             knowledge_loader=_make_loader({"ku_main": ku_main}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1861,7 +1861,7 @@ class TestLearningPathBlockersLaterStepNoKuUid:
             services=services,
             lp_loader=_make_loader({"lp_later_no_ku": lp}),
             knowledge_loader=_make_loader({"ku_1": ku1}),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
@@ -1885,12 +1885,12 @@ class TestLearningProgressSubscription:
         services = MagicMock()
         services.event_bus = None
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         sub = Subscription()
         values = [
-            v async for v in sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
+            v async for v in sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
         ]
 
         assert values == [0.0]
@@ -1908,13 +1908,13 @@ class TestLearningProgressSubscription:
             task_loader=_make_loader(),
             learning_path_loader=_make_loader(),
             path_step_loader=_make_loader(),
-            user_uid="user.test",
+            user_uid="user_test",
         )
         info = _make_info(ctx)
 
         sub = Subscription()
         values = [
-            v async for v in sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
+            v async for v in sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
         ]
 
         assert values == [0.0]
@@ -1938,11 +1938,11 @@ class TestLearningProgressSubscription:
         services = MagicMock()
         services.event_bus = event_bus
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         sub = Subscription()
-        gen = sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
+        gen = sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
 
         # Pre-patch wait_for so the generator doesn't actually wait 30s.
         # Strategy: on each call, check if the queue has data. If yes, return it.
@@ -1977,14 +1977,14 @@ class TestLearningProgressSubscription:
 
             # Non-matching event — filtered (line 1126)
             event_other = MagicMock()
-            event_other.user_uid = "user.other"
+            event_other.user_uid = "user_other"
             event_other.path_uid = "lp_1"
             event_other.new_progress = 0.99
             handler(event_other)
 
             # Matching event — queued and yielded (lines 1128-1129, 1141-1142)
             event_match = MagicMock()
-            event_match.user_uid = "user.test"
+            event_match.user_uid = "user_test"
             event_match.path_uid = "lp_1"
             event_match.new_progress = 0.5
             handler(event_match)
@@ -2016,11 +2016,11 @@ class TestLearningProgressSubscription:
         services = MagicMock()
         services.event_bus = event_bus
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         sub = Subscription()
-        gen = sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
+        gen = sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
 
         original_wait_for = asyncio.wait_for
         call_count = 0
@@ -2052,7 +2052,7 @@ class TestLearningProgressSubscription:
             # Push event after the first timeout/continue
             handler = captured_handler[0]
             event = MagicMock()
-            event.user_uid = "user.test"
+            event.user_uid = "user_test"
             event.path_uid = "lp_1"
             event.new_progress = 0.42
             handler(event)
@@ -2085,11 +2085,11 @@ class TestLearningProgressSubscription:
         services = MagicMock()
         services.event_bus = event_bus
 
-        ctx = _make_context(services=services, user_uid="user.test")
+        ctx = _make_context(services=services, user_uid="user_test")
         info = _make_info(ctx)
 
         sub = Subscription()
-        gen = sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
+        gen = sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
 
         original_wait_for = asyncio.wait_for
 
@@ -2110,7 +2110,7 @@ class TestLearningProgressSubscription:
             # Push a matching event so the consumer can break
             handler = captured_handler[0]
             event = MagicMock()
-            event.user_uid = "user.test"
+            event.user_uid = "user_test"
             event.path_uid = "lp_1"
             event.new_progress = 0.7
             handler(event)

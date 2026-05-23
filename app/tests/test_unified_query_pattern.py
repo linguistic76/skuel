@@ -25,7 +25,7 @@ class TestUnifiedQueryPattern:
     def test_build_user_activity_query_basic(self):
         """Test basic query generation for Tasks."""
         query, params = build_user_activity_query(
-            user_uid="user.mike",
+            user_uid="user_mike",
             node_label="Task",
             date_field="due_date",
             start_date=date(2025, 10, 1),
@@ -44,7 +44,7 @@ class TestUnifiedQueryPattern:
         assert "LIMIT $limit" in query
 
         # Verify parameters
-        assert params["user_uid"] == "user.mike"
+        assert params["user_uid"] == "user_mike"
         assert params["start_date"] == "2025-10-01"
         assert params["end_date"] == "2025-10-31"
         assert params["exclude_statuses"] == ["completed"]
@@ -53,7 +53,7 @@ class TestUnifiedQueryPattern:
     def test_build_user_activity_query_events(self):
         """Test query generation for Events."""
         query, params = build_user_activity_query(
-            user_uid="user.mike",
+            user_uid="user_mike",
             node_label="Event",
             date_field="event_date",
             start_date=date(2025, 10, 1),
@@ -70,7 +70,7 @@ class TestUnifiedQueryPattern:
     def test_build_user_activity_query_no_date_filtering(self):
         """Test query without date filtering (all items)."""
         query, _params = build_user_activity_query(
-            user_uid="user.mike",
+            user_uid="user_mike",
             node_label="Habit",
             date_field=None,  # No date filtering
             start_date=None,
@@ -87,7 +87,7 @@ class TestUnifiedQueryPattern:
     def test_build_user_activity_query_include_completed(self):
         """Test query that includes completed items."""
         query, params = build_user_activity_query(
-            user_uid="user.mike",
+            user_uid="user_mike",
             node_label="Task",
             date_field="due_date",
             start_date=date(2025, 10, 1),
@@ -141,7 +141,7 @@ class TestUnifiedQueryPattern:
 
         for node_label, date_field in domains:
             query, _params = build_user_activity_query(
-                user_uid="user.mike",
+                user_uid="user_mike",
                 node_label=node_label,
                 date_field=date_field,
                 start_date=date(2025, 10, 1) if date_field else None,

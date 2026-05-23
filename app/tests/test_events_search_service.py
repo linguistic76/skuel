@@ -56,7 +56,7 @@ def sample_events() -> list[Event]:
             EventDTO(
                 uid="event:1",
                 title="Team standup",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 domain=Domain.BUSINESS,
                 status=EntityStatus.SCHEDULED,
                 event_date=today + timedelta(days=1),
@@ -71,7 +71,7 @@ def sample_events() -> list[Event]:
             EventDTO(
                 uid="event:2",
                 title="Doctor appointment",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 domain=Domain.HEALTH,
                 status=EntityStatus.SCHEDULED,
                 event_date=today + timedelta(days=3),
@@ -85,7 +85,7 @@ def sample_events() -> list[Event]:
             EventDTO(
                 uid="event:past",
                 title="Last week conference",
-                user_uid="user:demo",
+                user_uid="user_demo",
                 domain=Domain.BUSINESS,
                 status=EntityStatus.COMPLETED,
                 event_date=today - timedelta(days=7),
@@ -123,14 +123,14 @@ async def test_get_upcoming_uses_event_date(search_service, mock_backend, sample
         [e.to_dto().to_dict() for e in sample_events[:2]]
     )
 
-    result = await search_service.get_upcoming(days_ahead=14, user_uid="user:demo", limit=20)
+    result = await search_service.get_upcoming(days_ahead=14, user_uid="user_demo", limit=20)
 
     assert result.is_ok
     assert len(result.value) == 2
     kwargs = mock_backend.upcoming_raw.call_args.kwargs
     assert kwargs["date_field"] == "event_date"
     assert kwargs["days_ahead"] == 14
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 20
 
 
@@ -149,11 +149,11 @@ async def test_get_upcoming_uses_secondary_sort(search_service, mock_backend):
 async def test_get_overdue_uses_event_date(search_service, mock_backend):
     mock_backend.overdue_raw.return_value = Result.ok([])
 
-    await search_service.get_overdue(user_uid="user:demo", limit=50)
+    await search_service.get_overdue(user_uid="user_demo", limit=50)
 
     kwargs = mock_backend.overdue_raw.call_args.kwargs
     assert kwargs["date_field"] == "event_date"
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 50
 
 
@@ -172,12 +172,12 @@ async def test_get_active_success(search_service, mock_backend, sample_events):
         [e.to_dto().to_dict() for e in sample_events[:2]]
     )
 
-    result = await search_service.get_active(user_uid="user:demo")
+    result = await search_service.get_active(user_uid="user_demo")
 
     assert result.is_ok
     assert len(result.value) == 2
     kwargs = mock_backend.active_raw.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     assert "completed" in kwargs["exclude_statuses"]
 
 
@@ -202,7 +202,7 @@ async def test_get_in_range(search_service, mock_backend, sample_events):
     )
 
     result = await search_service.get_in_range(
-        start_date=today, end_date=today + timedelta(days=7), user_uid="user:demo"
+        start_date=today, end_date=today + timedelta(days=7), user_uid="user_demo"
     )
 
     assert result.is_ok
@@ -219,7 +219,7 @@ async def test_get_recurring(search_service, mock_backend, sample_events):
         [e.to_dto().to_dict() for e in recurring]
     )
 
-    result = await search_service.get_recurring(user_uid="user:demo")
+    result = await search_service.get_recurring(user_uid="user_demo")
 
     assert result.is_ok
     assert len(result.value) == 1
@@ -230,23 +230,23 @@ async def test_get_by_type(search_service, mock_backend, sample_events):
     meetings = [e for e in sample_events if e.event_type == "meeting"]
     mock_backend.find_by.return_value = Result.ok([e.to_dto().to_dict() for e in meetings])
 
-    result = await search_service.get_by_type("meeting", user_uid="user:demo")
+    result = await search_service.get_by_type("meeting", user_uid="user_demo")
 
     assert result.is_ok
     assert len(result.value) == 1
     kwargs = mock_backend.find_by.call_args.kwargs
     assert kwargs["event_type"] == "meeting"
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
 
 
 @pytest.mark.asyncio
 async def test_get_history_uses_completed_events(search_service, mock_backend):
     mock_backend.get_completed_events_in_range.return_value = Result.ok([])
 
-    await search_service.get_history(user_uid="user:demo", days_back=30)
+    await search_service.get_history(user_uid="user_demo", days_back=30)
 
     kwargs = mock_backend.get_completed_events_in_range.call_args.kwargs
-    assert kwargs["user_uid"] == "user:demo"
+    assert kwargs["user_uid"] == "user_demo"
     today = date.today()
     assert kwargs["end_date"] == today.isoformat()
     assert kwargs["start_date"] == (today - timedelta(days=30)).isoformat()
@@ -259,7 +259,7 @@ async def test_get_conflicting_detects_overlap(search_service, mock_backend, sam
     overlapper = EventDTO(
         uid="event:overlap",
         title="Other meeting",
-        user_uid="user:demo",
+        user_uid="user_demo",
         event_date=target.event_date,
         start_time=time(9, 15),  # starts during target
         end_time=time(10, 0),
@@ -283,7 +283,7 @@ async def test_get_conflicting_no_overlap(search_service, mock_backend, sample_e
     non_overlapper = EventDTO(
         uid="event:later",
         title="Later meeting",
-        user_uid="user:demo",
+        user_uid="user_demo",
         event_date=target.event_date,
         start_time=time(10, 0),
         end_time=time(11, 0),

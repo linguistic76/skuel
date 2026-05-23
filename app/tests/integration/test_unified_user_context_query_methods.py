@@ -31,7 +31,7 @@ class TestTaskQueryMethods:
     def test_get_tasks_for_today(self):
         """Should return tasks due today"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             today_task_uids=["task:today_1", "task:today_2"],
         )
@@ -45,7 +45,7 @@ class TestTaskQueryMethods:
     def test_get_tasks_for_goal(self):
         """Should return tasks contributing to a specific goal"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             tasks_by_goal={
                 "goal:launch_app": ["task:1", "task:2", "task:3"],
@@ -66,7 +66,7 @@ class TestTaskQueryMethods:
     def test_get_blocked_tasks(self):
         """Should return tasks blocked by prerequisites"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             blocked_task_uids={"task:blocked_1", "task:blocked_2"},
         )
@@ -80,7 +80,7 @@ class TestTaskQueryMethods:
     def test_get_high_impact_tasks(self):
         """Should return tasks with high goal contribution"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             active_task_uids=["task:1", "task:2", "task:3", "task:4"],
             task_priorities={
@@ -109,7 +109,7 @@ class TestEventQueryMethods:
     def test_get_events_for_habit(self):
         """Should return events that reinforce a specific habit"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             events_by_habit={
                 "habit:meditation": ["event:1", "event:2", "event:3"],
@@ -129,7 +129,7 @@ class TestEventQueryMethods:
     def test_get_events_needing_attendance(self):
         """Should return upcoming recurring events with active streaks"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             upcoming_event_uids=["event:1", "event:2", "event:3", "event:4"],
             recurring_event_uids=["event:1", "event:2", "event:3"],
@@ -156,7 +156,7 @@ class TestGoalQueryMethods:
         """Should return goals with deadlines within specified days"""
         today = date.today()
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             goal_deadlines={
                 "goal:soon": today + timedelta(days=10),  # Within 30 days
@@ -184,7 +184,7 @@ class TestGoalQueryMethods:
     def test_get_stalled_goals(self):
         """Should return goals with minimal progress"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             active_goal_uids=["goal:1", "goal:2", "goal:3", "goal:4"],
             goal_progress={
@@ -211,7 +211,7 @@ class TestHabitQueryMethods:
     def test_get_habits_needing_reinforcement(self):
         """Should return at-risk habits"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             at_risk_habits=["habit:meditation", "habit:exercise"],
         )
@@ -225,7 +225,7 @@ class TestHabitQueryMethods:
     def test_get_habits_for_goal(self):
         """Should return habits supporting a specific goal"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             habits_by_goal={
                 "goal:fitness": ["habit:run", "habit:yoga", "habit:diet"],
@@ -245,7 +245,7 @@ class TestHabitQueryMethods:
     def test_get_high_impact_habits(self):
         """Should return keystone habits affecting multiple goals"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             keystone_habits=["habit:meditation", "habit:journaling"],
         )
@@ -263,7 +263,7 @@ class TestLifePathQueryMethods:
     def test_get_life_path_gaps(self):
         """Should return life path knowledge with low substance"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             life_path_uid="lp:wellness",
             knowledge_mastery={
@@ -286,7 +286,7 @@ class TestLifePathQueryMethods:
     def test_get_life_path_gaps_no_life_path(self):
         """Should return empty list when no life path set"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             life_path_uid=None,
             knowledge_mastery={"ku:something": 0.2},
@@ -303,7 +303,7 @@ class TestFacetQueryMethods:
     def test_evaluate_against_facets_perfect_match(self):
         """Should return high score for perfect facet match"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             facet_profile={
                 "tags": ["python", "testing", "docker"],
@@ -324,7 +324,7 @@ class TestFacetQueryMethods:
     def test_evaluate_against_facets_partial_match(self):
         """Should return proportional score for partial match"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             facet_profile={
                 "tags": ["python", "testing"],  # Missing "docker"
@@ -343,7 +343,7 @@ class TestFacetQueryMethods:
     def test_evaluate_against_facets_no_match(self):
         """Should return low score for no match"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             facet_profile={
                 "tags": ["java", "spring"],
@@ -361,7 +361,7 @@ class TestFacetQueryMethods:
     def test_get_top_facets(self):
         """Should return top facets sorted by affinity"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             facet_profile={
                 "tags": ["python", "testing", "docker", "kubernetes", "react"],
@@ -385,7 +385,7 @@ class TestFacetQueryMethods:
     def test_get_facet_recommendations(self):
         """Should return comprehensive facet recommendations"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             facet_profile={
                 "tags": ["python", "testing"],
@@ -422,7 +422,7 @@ class TestPrincipleQueryMethods:
     def test_get_principle_aligned_tasks(self):
         """Should return high-impact tasks when principle is important"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             core_principle_uids=["principle:minimalism", "principle:health"],
             principle_priorities={
@@ -448,7 +448,7 @@ class TestPrincipleQueryMethods:
     def test_has_principle_conflict(self):
         """Should detect low alignment with domain"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             principle_alignment_by_domain={
                 Domain.TECH: 0.9,  # Well aligned
@@ -472,7 +472,7 @@ class TestWorkloadQueryMethods:
     def test_calculate_current_workload(self):
         """Should calculate workload based on active items"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             active_task_uids=["task:1", "task:2", "task:3"],  # 3 tasks
             today_event_uids=["event:1", "event:2"],  # 2 events
@@ -488,7 +488,7 @@ class TestWorkloadQueryMethods:
     def test_calculate_current_workload_overloaded(self):
         """Should cap workload at 1.0 when overloaded"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             active_task_uids=["task:1", "task:2", "task:3", "task:4", "task:5"],
             today_event_uids=["event:1", "event:2", "event:3"],
@@ -504,7 +504,7 @@ class TestWorkloadQueryMethods:
     def test_has_capacity_for_new_goal_available(self):
         """Should allow new goal when under capacity"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             current_workload_score=0.5,  # 50% capacity
             active_goal_uids=["goal:1", "goal:2"],  # 2 active goals
@@ -518,7 +518,7 @@ class TestWorkloadQueryMethods:
     def test_has_capacity_for_new_goal_overloaded(self):
         """Should reject new goal when overloaded"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             current_workload_score=0.9,  # 90% capacity (over threshold)
             active_goal_uids=["goal:1", "goal:2"],
@@ -532,7 +532,7 @@ class TestWorkloadQueryMethods:
     def test_has_capacity_for_new_goal_too_many_goals(self):
         """Should reject new goal when at goal limit"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             current_workload_score=0.5,
             active_goal_uids=["goal:1", "goal:2", "goal:3", "goal:4", "goal:5"],  # 5 goals
@@ -546,7 +546,7 @@ class TestWorkloadQueryMethods:
     def test_has_capacity_for_new_goal_overwhelmed(self):
         """Should reject new goal when user is overwhelmed"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             current_workload_score=0.5,
             active_goal_uids=["goal:1"],
@@ -564,7 +564,7 @@ class TestRecommendationMethods:
     def test_get_recommended_next_action_blocked(self):
         """Should recommend unblocking when user is blocked"""
         context = UserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             is_blocked=True,
             prerequisites_needed={
@@ -582,7 +582,7 @@ class TestRecommendationMethods:
     def test_get_recommended_next_action_at_risk_habits(self):
         """Should recommend habit reinforcement when streaks at risk"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             is_blocked=False,
             at_risk_habits=["habit:meditation", "habit:exercise", "habit:reading"],
@@ -597,7 +597,7 @@ class TestRecommendationMethods:
     def test_get_recommended_next_action_overdue(self):
         """Should recommend catching up on overdue tasks"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             is_blocked=False,
             at_risk_habits=[],
@@ -613,7 +613,7 @@ class TestRecommendationMethods:
     def test_get_recommended_next_action_progress_goal(self):
         """Should recommend goal progress when no urgent issues"""
         context = RichUserContext(
-            user_uid="user:test",
+            user_uid="user_test",
             username="testuser",
             is_blocked=False,
             at_risk_habits=[],

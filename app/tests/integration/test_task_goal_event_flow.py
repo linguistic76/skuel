@@ -77,7 +77,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def test_user_uid(self):
         """Standard test user UID."""
-        return "user.test_task_goal_flow"
+        return "user_test_task_goal_flow"
 
     @pytest_asyncio.fixture
     async def task_based_goal(self, goals_backend, test_user_uid):
