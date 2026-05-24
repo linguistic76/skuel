@@ -4,12 +4,19 @@ Finance Service Protocols
 
 Protocols for finance-related outbound adapters.
 
-Firefly III (ADR-051) replaces SKUEL's expense, budget, and reporting module.
-The invoice module remains local. `FireflyOperations` is the thin contract
-services depend on so nothing outside `adapters/outbound/firefly_client.py`
-knows about Firefly's REST shape.
+Firefly III (ADR-052) replaces SKUEL's expense, budget, and reporting module.
+`FireflyOperations` is the thin contract services depend on so nothing outside
+`adapters/outbound/firefly_client.py` knows about Firefly's REST shape. It serves
+two jobs: reading the finance hub (Phase 4) and recording SaaS revenue as deposits
+(`create_transaction` with an `external_id` idempotency key).
 
-See: /docs/patterns/protocol_architecture.md, /docs/decisions/ADR-051-firefly-iii-finance-integration.md
+The local invoice module is slated for retirement under ADR-062, which adopts
+ChargeKeep (checkout + subscriptions + invoicing) as the billing layer — ChargeKeep
+billing events drive both SaaS role grants and the Firefly revenue sync above.
+
+See: /docs/patterns/protocol_architecture.md,
+/docs/decisions/ADR-052-firefly-iii-finance-integration.md,
+/docs/decisions/ADR-062-chargekeep-billing-layer.md
 """
 
 from __future__ import annotations
