@@ -70,7 +70,7 @@ logger = get_logger("skuel.routes.calendar")
 # ============================================================================
 
 
-async def _wrap_calendar_page(request: Any, content: Any, title: str = "Calendar") -> Any:
+async def _wrap_calendar_page(request: Request, content: Any, title: str = "Calendar") -> Any:
     """Wrap calendar content in BasePage for consistent document structure.
 
     Uses BasePage to get shared head (PWA, service worker, etc.) plus calendar CSS.

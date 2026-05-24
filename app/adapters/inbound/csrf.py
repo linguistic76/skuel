@@ -200,7 +200,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(
-        self, request: Any, call_next: Callable[[Any], Awaitable[Response]]
+        self, request: Request, call_next: Callable[[Any], Awaitable[Response]]
     ) -> Response:
         incoming = request.cookies.get(CSRF_COOKIE_NAME)
         if incoming:
