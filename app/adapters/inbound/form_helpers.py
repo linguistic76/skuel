@@ -316,7 +316,7 @@ class PrincipleFilters(ActivityFilters):
 
 
 def parse_activity_filters(
-    request: Any,
+    request: Request,
     default_status: str = "active",
     default_sort_by: str = "created_at",
 ) -> ActivityFilters:
@@ -327,7 +327,7 @@ def parse_activity_filters(
     )
 
 
-def parse_task_filters(request: Any) -> TaskFilters:
+def parse_task_filters(request: Request) -> TaskFilters:
     """Parse task-specific filter params from request query params."""
     return TaskFilters(
         status=request.query_params.get("filter_status", "active"),
@@ -338,7 +338,7 @@ def parse_task_filters(request: Any) -> TaskFilters:
     )
 
 
-def parse_principle_filters(request: Any) -> PrincipleFilters:
+def parse_principle_filters(request: Request) -> PrincipleFilters:
     """Parse principle-specific filter params from request query params."""
     return PrincipleFilters(
         status=request.query_params.get("filter_status", "all"),

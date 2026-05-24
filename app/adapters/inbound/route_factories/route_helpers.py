@@ -31,6 +31,7 @@ from typing import Any, cast
 from starlette.responses import Response
 
 from adapters.inbound.auth.session import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.models.enums import UserRole
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -40,7 +41,7 @@ logger = get_logger("skuel.routes.helpers")
 
 
 async def check_required_role(
-    request: Any,
+    request: Request,
     require_role: UserRole | None,
     user_service_getter: Callable | None,
     domain: str,

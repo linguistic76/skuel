@@ -128,7 +128,7 @@ def _ai_unavailable_response(domain_label: str) -> JSONResponse:
 
 
 async def _ai_route(
-    request: Any,
+    request: Request,
     services: Any,
     domain_attr: str,
     domain_label: str,
