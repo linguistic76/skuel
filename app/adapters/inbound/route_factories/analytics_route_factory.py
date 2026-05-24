@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import check_required_role
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
@@ -174,7 +175,7 @@ class AnalyticsRouteFactory:
 
         @csrf_protected
         @boundary_handler()
-        async def route_handler(request) -> Result[Any]:
+        async def route_handler(request: Request) -> Result[Any]:
             """Auto-generated analytics endpoint handler"""
             try:
                 # Role check (returns Result[None])

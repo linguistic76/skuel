@@ -50,6 +50,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
 from core.models.type_hints import UserUID
@@ -282,7 +283,7 @@ class IntelligenceRouteFactory:
 
         @rt(f"{self.base_path}/analytics", methods=["GET"])
         @boundary_handler()
-        async def analytics_route(request, period_days: int = 30) -> Result[Any]:
+        async def analytics_route(request: Request, period_days: int = 30) -> Result[Any]:
             """Get performance analytics for authenticated user"""
             user_uid = require_authenticated_user(request)
 
@@ -309,7 +310,7 @@ class IntelligenceRouteFactory:
 
         @rt(f"{self.base_path}/context", methods=["GET"])
         @boundary_handler()
-        async def context_route(request, uid: str, depth: int = 2) -> Result[Any]:
+        async def context_route(request: Request, uid: str, depth: int = 2) -> Result[Any]:
             """Get entity with full graph context"""
             user_uid = require_authenticated_user(request)
 
@@ -360,7 +361,9 @@ class IntelligenceRouteFactory:
 
         @rt(f"{self.base_path}/insights", methods=["GET"])
         @boundary_handler()
-        async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Result[Any]:
+        async def insights_route(
+            request: Request, uid: str, min_confidence: float = 0.7
+        ) -> Result[Any]:
             """Get domain-specific insights for entity"""
             user_uid = require_authenticated_user(request)
 
