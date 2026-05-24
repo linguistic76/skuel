@@ -65,6 +65,11 @@ invariants — keep comments focused on real, high-priority risks.
   format (PDF is reserved for finance invoices).
 
 ## Triggering a review
+- **No AI reviewer runs automatically (since 2026-05-24).** Both Kody and Codex are
+  **on demand**: comment **`@kody start-review`** for Kody and **`@codex review`**
+  for Codex. The only thing that runs by itself is the mechanical **CI Gate** check.
+  A PR merged without summoning a reviewer gets no AI review — summoning is the
+  human's responsibility.
 - **Codex auto-review is intentionally OFF** (set 2026-05-22 in the Codex
   dashboard: the "Personal auto review preferences" toggle is off, and
   `linguistic76/skuel` is set to "Follow personal preferences" → resolves to off;
@@ -74,8 +79,11 @@ invariants — keep comments focused on real, high-priority risks.
 - The repo's comment-bot (`.github/workflows/codex-review.yml`) is also
   **disabled**: a bot-posted `@codex review` only yields the cosmetic "create a
   Codex account" prompt, not a real review.
-- **Kody (Kodus) is the gating reviewer; CI Gate is the required check** — Codex
-  is not part of the gate. To re-enable Codex auto-review, flip the dashboard
+- **Kody (Kodus) is the gating reviewer *when summoned*; CI Gate is the required
+  check** — neither AI reviewer is part of the automatic gate. Kody's review is
+  on-demand (`automatedReviewActive: false` in `kodus-config.yml`); set that flag
+  back to `true` to restore auto-review on open + every commit. To re-enable Codex
+  auto-review, flip the dashboard
   "Personal auto review preferences" toggle ON (or set the repo to "Review all
   PRs"); even then it's best-effort (it fired on ~1 of 4 PRs historically and
   draws from a weekly shared usage limit). Verify per
