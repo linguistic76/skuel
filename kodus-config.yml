@@ -44,11 +44,19 @@ suggestionControl:
 
 ignoredTitleKeywords: []
 
-# On-demand only (set 2026-05-24): Kody does NOT auto-review on PR open or on each
-# pushed commit. It reviews only when a human comments `@kody start-review`, exactly
-# mirroring Codex's manual `@codex review`. So no AI reviewer runs automatically —
-# the mechanical "CI Gate" check is the only automatic gate. Set this back to `true`
-# to restore auto-review on open + every commit.
+# On-demand only (2026-05-24): Kody reviews only when a human comments
+# `@kody start-review` — no auto-review on PR open or per commit — exactly mirroring
+# Codex's `@codex review`. So no AI reviewer runs automatically; the mechanical
+# "CI Gate" check is the only automatic gate.
+#
+# ⚠️ This flag is NOT the switch. Empirically (2026-05-24): with
+# `automatedReviewActive: false` committed on `main`, Kody STILL auto-reviewed every
+# push — it only stopped once the **"enable automatic code review"** toggle was
+# turned OFF in the app.kodus.io Code Review settings (verified: pushes then showed a
+# "Code Review Skipped" check). The dashboard toggle is the AUTHORITATIVE control,
+# not this file — same as Codex (dashboard-only auto-review, no repo-code hard-off).
+# This flag is kept to mirror intent / in case config-as-code is honored later; to
+# actually turn Kody auto-review back on, flip the dashboard toggle.
 automatedReviewActive: false
 # Kody does not auto-APPROVE PRs (a bot approval gives false confidence solo)...
 pullRequestApprovalActive: false
