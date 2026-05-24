@@ -36,11 +36,10 @@ See: /docs/patterns/DOMAIN_LATERAL_SERVICES.md
 
 from typing import TYPE_CHECKING, Any, cast
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties
 from core.ports.query_types import BlockingChainResult, RelationshipGraphData
