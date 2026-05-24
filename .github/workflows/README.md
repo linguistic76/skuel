@@ -11,7 +11,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
-| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | ⚠️ **On-demand only (2026-05-24)** — `@kody start-review`; does NOT auto-review on open or per commit (`automatedReviewActive: false`) |
+| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | ⚠️ **On-demand only (2026-05-24)** — `@kody start-review`; does NOT auto-review on open or per commit (auto-review toggled **off in the app.kodus.io dashboard** — the real switch; the repo `automatedReviewActive: false` alone did not stop it) |
 | **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED 2026-05-22** — comment-bot trigger off (cosmetic-only; see below) |
 | **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + dashboard | ⚠️ **PR reviews only — NOT a status check** | **Auto-review intentionally OFF** (dashboard); reviews only on a manual `@codex review`; comment-bot also disabled |
 
@@ -156,8 +156,14 @@ gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
   bot-posted `@codex review` yields only the cosmetic prompt). To turn auto-review
   **on**, flip that toggle (or set the repo to "Review all PRs"); it's best-effort
   and draws from a weekly usage limit (Analytics → Usage).
-- **Kodus:** ensure a **BYOK** LLM key is configured at `app.kodus.io`
-  (Kody can't review without it). `kodus-config.yml` overrides the rest — including
-  `automatedReviewActive: false`, which makes Kody **on-demand only** (`@kody
-  start-review`). To restore auto-review on open + every commit, set that flag back
-  to `true`.
+- **Kodus:** two dashboard steps at `app.kodus.io`:
+  1. ensure a **BYOK** LLM key is configured (Kody can't review without it);
+  2. **auto-review is OFF** via the **"enable automatic code review"** toggle in the
+     Code Review settings — this is what makes Kody **on-demand only** (`@kody
+     start-review`). ⚠️ The repo `kodus-config.yml`'s `automatedReviewActive: false`
+     did **not** stop auto-review on its own (verified 2026-05-24: pushes kept
+     getting reviewed until the dashboard toggle was turned off, after which they
+     showed a "Code Review Skipped" check) — dashboard-only, exactly like Codex.
+     To restore Kody auto-review, flip that toggle back on.
+  `kodus-config.yml` still governs the rest (review lenses, severity, summary,
+  request-changes mode).
