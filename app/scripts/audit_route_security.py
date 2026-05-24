@@ -115,6 +115,11 @@ class Handler:
         return bool(self.signal)
 
 
+def _by_location(h: Handler) -> tuple[str, int]:
+    """Sort key: order handlers by file, then line number."""
+    return (h.file, h.lineno)
+
+
 def _decorator_name(d: ast.expr) -> tuple[str | None, bool, list[ast.keyword]]:
     if isinstance(d, ast.Call):
         f = d.func
@@ -260,21 +265,21 @@ def main() -> int:
 
     if args.verbose:
         print(f"\n{BOLD}Mutation handlers:{RESET}")
-        for h in sorted(mutations, key=lambda x: (x.file, x.lineno)):
+        for h in sorted(mutations, key=_by_location):
             csrf = f"{GREEN}csrf{RESET}" if h.has_csrf else f"{RED}NO-csrf{RESET}"
             auth = f"{GREEN}auth{RESET}" if h.has_auth else f"{YELLOW}no-auth{RESET}"
             print(f"  {h.file}:{h.lineno} {h.name}  [{h.signal}]  {csrf} {auth}")
 
     if csrf_gaps:
         print(f"\n{RED}{BOLD}✗ CSRF gaps ({len(csrf_gaps)}):{RESET} add @csrf_protected")
-        for h in sorted(csrf_gaps, key=lambda x: (x.file, x.lineno)):
+        for h in sorted(csrf_gaps, key=_by_location):
             print(f"  {h.file}:{h.lineno} {h.name}  [{h.signal}]")
 
     if auth_gaps:
         print(
             f"\n{RED}{BOLD}✗ Auth gaps ({len(auth_gaps)}):{RESET} add auth, or exempt with a reason"
         )
-        for h in sorted(auth_gaps, key=lambda x: (x.file, x.lineno)):
+        for h in sorted(auth_gaps, key=_by_location):
             print(f"  {h.file}:{h.lineno} {h.name}  [{h.signal}]")
 
     if stale:
