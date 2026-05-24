@@ -9,7 +9,7 @@ Core Principle: "One factory per domain, zero CRUD duplication"
 
 FastHTML Conventions Applied
 ----------------------------
-1. Function names define routes (no explicit paths)
+1. Routes registered with explicit paths (``base_path`` + suffix), e.g. ``rt(f"{base_path}/create")``
 2. Query parameters preferred over path parameters
 3. Type hints enable automatic parameter extraction
 4. Minimal ceremony, maximum clarity
@@ -60,6 +60,7 @@ from typing import Any, Protocol, TypeVar, cast
 from pydantic import BaseModel
 
 from adapters.inbound.auth.session import get_current_user, require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import check_required_role
 from core.models.enums import ContentScope, UserRole
 from core.models.type_hints import UserUID
@@ -304,7 +305,7 @@ class CRUDRouteFactory[T]:
             app: FastHTML application instance
             rt: Route decorator
 
-        Registers (FastHTML pattern - function names = routes):
+        Registers (explicit base_path + suffix per route):
             - POST /{domain}/create - Create entity
             - GET /{domain}/get?uid=... - Get by UID
             - POST /{domain}/update?uid=... - Update entity
@@ -329,7 +330,7 @@ class CRUDRouteFactory[T]:
         """
         Register create route: POST /{domain}/create
 
-        FastHTML Convention: Function name 'create' becomes route '/create'
+        Path: explicit base_path + suffix — rt(f"{base_path}/create")
         Request body: Validated by create_schema
         Response: Created entity (201 status)
 
@@ -352,7 +353,7 @@ class CRUDRouteFactory[T]:
         allow_dict_fallback = self.allow_dict_fallback
         factory = self  # Capture self for nested function
 
-        async def create(request) -> Result[T]:
+        async def create(request: Request) -> Result[T]:
             """Create new entity"""
             # Role check (returns Result.fail on authorization failure)
             role_check = await check_required_role(
@@ -436,7 +437,7 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        async def get(request, uid: str) -> Result[T | None]:
+        async def get(request: Request, uid: str) -> Result[T | None]:
             """Get entity by UID (query param) with ownership verification"""
             # Role check — skipped when role_gates_reads=False
             if factory.role_gates_reads:
@@ -479,7 +480,7 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        async def update(request, uid: str) -> Result[T]:
+        async def update(request: Request, uid: str) -> Result[T]:
             """Update entity with partial data and ownership verification"""
             # Role check (returns Result.fail on authorization failure)
             role_check = await check_required_role(
@@ -534,7 +535,7 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        async def delete(request, uid: str) -> Result[bool]:
+        async def delete(request: Request, uid: str) -> Result[bool]:
             """Delete entity by UID (query param) with ownership verification"""
             # Role check (returns Result.fail on authorization failure)
             role_check = await check_required_role(
@@ -657,7 +658,9 @@ class CRUDRouteFactory[T]:
         domain = self.domain
         factory = self  # Capture self for nested function
 
-        async def search(request, query: str, limit: int = 50, offset: int = 0) -> Result[list[T]]:
+        async def search(
+            request: Request, query: str, limit: int = 50, offset: int = 0
+        ) -> Result[list[T]]:
             """Search entities"""
             # Role check — skipped when role_gates_reads=False
             if factory.role_gates_reads:
