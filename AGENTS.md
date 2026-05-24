@@ -80,9 +80,12 @@ invariants — keep comments focused on real, high-priority risks.
   **disabled**: a bot-posted `@codex review` only yields the cosmetic "create a
   Codex account" prompt, not a real review.
 - **Kody (Kodus) is the gating reviewer *when summoned*; CI Gate is the required
-  check** — neither AI reviewer is part of the automatic gate. Kody's review is
-  on-demand (`automatedReviewActive: false` in `kodus-config.yml`); set that flag
-  back to `true` to restore auto-review on open + every commit. To re-enable Codex
+  check** — neither AI reviewer is part of the automatic gate. Kody's auto-review is
+  turned **off in the app.kodus.io dashboard** ("enable automatic code review"
+  toggle); the committed `automatedReviewActive: false` in `kodus-config.yml` mirrors
+  that intent but did NOT control the trigger on its own (dashboard-only, like Codex
+  — verified 2026-05-24). To restore Kody auto-review, flip that dashboard toggle
+  back on. To re-enable Codex
   auto-review, flip the dashboard
   "Personal auto review preferences" toggle ON (or set the repo to "Review all
   PRs"); even then it's best-effort (it fired on ~1 of 4 PRs historically and
