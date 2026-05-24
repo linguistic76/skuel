@@ -18,7 +18,11 @@ if TYPE_CHECKING:
     from core.models.event.event import Event
 
 
-async def enrich_events_with_habit_links(backend: Any, events: list[Event]) -> list[Event]:
+async def enrich_events_with_habit_links(
+    backend: Any, events: list[Event]
+) -> list[
+    Event
+]:  # skuel-lint: disable=SKUEL005 -- fail-soft read-projection; events returned unchanged on lookup failure (derived field is best-effort, not a propagated error)
     """Return events with their derived ``reinforces_habit_uid`` populated.
 
     Batch-looks up the REINFORCES_HABIT edge for ``events`` and returns new Event
