@@ -20,6 +20,8 @@ related:
 
 Accepted — implementation in progress. Phases 1 + 2 (docker stack + REST client adapter) landed in commit `c3258630`. Phases 3–5 (Stripe sync, UI rewire, demolition of legacy code) pending.
 
+> **Note (2026-05-24):** Two parts of this ADR are **superseded** by [ADR-062](ADR-062-chargekeep-billing-layer.md) + `roadmap/finance-billing-migration.md`: (1) billing is **ChargeKeep**, not Stripe-direct; (2) the "thin read-through facade" UI (Phase 4) is **dropped** — SKUEL builds **no** custom finance UI (admins use Firefly's native UI via two user accounts + ChargeKeep's dashboard; the local invoice module moves to ChargeKeep). `firefly_client` survives only for the ChargeKeep→Firefly revenue-sync write.
+
 ---
 
 ## Context
