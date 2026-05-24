@@ -64,7 +64,7 @@ async def error_page(
     message: str,
     status_code: int,
     user_display_name: str = "User",
-    request: Any = None,
+    request: Request | None = None,
 ) -> Any:
     """
     Unified error page for profile routes.

@@ -29,6 +29,7 @@ from fasthtml.common import (
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from routes.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
 from services_bootstrap import Services
@@ -50,7 +51,7 @@ def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: 
     schema = create_graphql_schema()
     search_router = services.search_router
 
-    def _build_graphql_context(request: Any) -> GraphQLContext:
+    def _build_graphql_context(request: Request) -> GraphQLContext:
         """Authenticate request and create GraphQL execution context."""
         user_uid = require_authenticated_user(request)
         return create_graphql_context(services, search_router, user_uid=user_uid)
