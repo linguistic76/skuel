@@ -44,10 +44,15 @@ suggestionControl:
 
 ignoredTitleKeywords: []
 
-automatedReviewActive: true
+# On-demand only (set 2026-05-24): Kody does NOT auto-review on PR open or on each
+# pushed commit. It reviews only when a human comments `@kody start-review`, exactly
+# mirroring Codex's manual `@codex review`. So no AI reviewer runs automatically —
+# the mechanical "CI Gate" check is the only automatic gate. Set this back to `true`
+# to restore auto-review on open + every commit.
+automatedReviewActive: false
 # Kody does not auto-APPROVE PRs (a bot approval gives false confidence solo)...
 pullRequestApprovalActive: false
-# ...but it DOES post a real CHANGES_REQUESTED review state on findings, so it
-# acts as a genuine review gate alongside branch protection.
+# ...but it DOES post a real CHANGES_REQUESTED review state on findings, so when it
+# IS summoned it acts as a genuine review gate alongside branch protection.
 isRequestChangesActive: true
 llmGeneratedMemoriesRequireApproval: false

@@ -11,7 +11,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
-| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | On PR open + re-reviews each pushed commit; `@kody start-review` |
+| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | ⚠️ **On-demand only (2026-05-24)** — `@kody start-review`; does NOT auto-review on open or per commit (`automatedReviewActive: false`) |
 | **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED 2026-05-22** — comment-bot trigger off (cosmetic-only; see below) |
 | **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + dashboard | ⚠️ **PR reviews only — NOT a status check** | **Auto-review intentionally OFF** (dashboard); reviews only on a manual `@codex review`; comment-bot also disabled |
 
@@ -131,8 +131,10 @@ it's working.
 ## Branch protection (`main`)
 
 Classic protection: **require a PR + a green "CI Gate"; no human approval
-required; admins can bypass.** With Kody in request-changes mode, a Kody
-`CHANGES_REQUESTED` holds the merge until resolved or dismissed.
+required; admins can bypass.** "CI Gate" is the **only automatic gate** — since
+2026-05-24 neither AI reviewer runs on its own (both are summoned by comment). When
+Kody *is* summoned (`@kody start-review`) it still runs in request-changes mode, so
+a Kody `CHANGES_REQUESTED` holds the merge until resolved or dismissed.
 
 ```bash
 gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
@@ -155,4 +157,7 @@ gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
   **on**, flip that toggle (or set the repo to "Review all PRs"); it's best-effort
   and draws from a weekly usage limit (Analytics → Usage).
 - **Kodus:** ensure a **BYOK** LLM key is configured at `app.kodus.io`
-  (Kody can't review without it). `kodus-config.yml` overrides the rest.
+  (Kody can't review without it). `kodus-config.yml` overrides the rest — including
+  `automatedReviewActive: false`, which makes Kody **on-demand only** (`@kody
+  start-review`). To restore auto-review on open + every commit, set that flag back
+  to `true`.
