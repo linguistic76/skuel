@@ -90,7 +90,9 @@ re-enablement only.
 - Triggers on `opened` / `reopened` / `ready_for_review` / `synchronize`.
 - A `sleep 30` + per-PR `concurrency: cancel-in-progress` debounces bursts — a
   flurry of pushes collapses to one trigger.
-- Skips drafts (`if: github.event.pull_request.draft == false`).
+- Job guard `if: github.event_name == 'pull_request' && …draft == false` — runs
+  only on real PR events (skips drafts) and **no-ops on the manual
+  `workflow_dispatch`**, which has no PR/issue context.
 - Uses the built-in `GITHUB_TOKEN` with `pull-requests: write` (sufficient for
   the `issues.createComment` call — proven on PR #11; no PAT needed).
 - A bot-authored `@codex review` (this workflow's `GITHUB_TOKEN` →

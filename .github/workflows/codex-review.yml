@@ -47,8 +47,12 @@ permissions:
 jobs:
   request-codex-review:
     name: Request Codex review
-    # Stay quiet on drafts; the `ready_for_review` event covers draft -> ready.
-    if: github.event.pull_request.draft == false
+    # Only run on real PR events. The only active trigger is `workflow_dispatch`
+    # (the `pull_request:` trigger is commented out), and on a manual dispatch
+    # there is no `pull_request` / issue context — so guard explicitly rather than
+    # rely on the ambiguous `github.event.pull_request.draft == false` null-compare.
+    # Also stay quiet on drafts; the `ready_for_review` event covers draft -> ready.
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Debounce burst pushes
