@@ -27,6 +27,7 @@ Estimated Reduction: ~500-1,000 lines across services
 
 from typing import Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID, UserUID
 
 
@@ -48,7 +49,7 @@ class QueryPatterns:
 
     @staticmethod
     def get_user_entities(
-        entity_label: str,
+        entity_label: NeoLabel,
         user_uid: UserUID,
         relationship: str | None = None,
         filters: dict[str, Any] | None = None,
@@ -136,7 +137,7 @@ class QueryPatterns:
 
     @staticmethod
     def get_user_entity_uids(
-        entity_label: str,
+        entity_label: NeoLabel,
         user_uid: UserUID,
         relationship: str | None = None,
         filters: dict[str, Any] | None = None,
@@ -197,7 +198,7 @@ class QueryPatterns:
 
     @staticmethod
     def get_entity_with_relationships(
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uid: EntityUID,
         rel_types: list[str],
         rel_direction: str = "outgoing",
@@ -255,7 +256,7 @@ class QueryPatterns:
 
     @staticmethod
     def get_prerequisite_chain(
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uid: EntityUID,
         relationship_type: str = "REQUIRES_KNOWLEDGE",
         max_depth: int = 5,
@@ -319,7 +320,7 @@ class QueryPatterns:
 
     @staticmethod
     def get_completed_prerequisites(
-        entity_label: str,
+        entity_label: NeoLabel,
         user_uid: UserUID,
         mastery_relationship: str = "MASTERED",
         prerequisite_relationship: str = "REQUIRES_KNOWLEDGE",
@@ -354,7 +355,7 @@ class QueryPatterns:
 
     @staticmethod
     def create_user_entity_relationship(
-        entity_label: str,
+        entity_label: NeoLabel,
         user_uid: UserUID,
         entity_uid: EntityUID,
         relationship_type: str,
@@ -413,8 +414,8 @@ class QueryPatterns:
 
     @staticmethod
     def create_entity_relationship(
-        source_label: str,
-        target_label: str,
+        source_label: NeoLabel,
+        target_label: NeoLabel,
         source_uid: str,
         target_uid: str,
         relationship_type: str,
@@ -467,8 +468,8 @@ class QueryPatterns:
 
     @staticmethod
     def delete_relationship(
-        source_label: str,
-        target_label: str,
+        source_label: NeoLabel,
+        target_label: NeoLabel,
         source_uid: str,
         target_uid: str,
         relationship_type: str,
@@ -572,7 +573,9 @@ class QueryPatterns:
 
     @staticmethod
     def count_entities(
-        entity_label: str, user_uid: UserUID | None = None, filters: dict[str, Any] | None = None
+        entity_label: NeoLabel,
+        user_uid: UserUID | None = None,
+        filters: dict[str, Any] | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Count entities with optional filtering.

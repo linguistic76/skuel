@@ -27,6 +27,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import BackendOperations
 from core.ports.query_types import UserProgressResult
@@ -189,8 +190,15 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        # Determine relationship type based on mastery level
-        rel_type = "MASTERED" if mastery_level >= self._mastery_threshold else "STUDYING"
+        # Determine relationship type based on mastery level. Below the mastery
+        # threshold the learner is actively studying — modeled as the canonical
+        # IN_PROGRESS edge (VIEWED -> IN_PROGRESS -> MASTERED), not a parallel
+        # STUDYING vocabulary, so writes match the live progress edges readers expect.
+        rel_type = (
+            RelationshipName.MASTERED
+            if mastery_level >= self._mastery_threshold
+            else RelationshipName.IN_PROGRESS
+        )
 
         result = await self.backend.update_user_mastery_rel(
             user_uid=user_uid,

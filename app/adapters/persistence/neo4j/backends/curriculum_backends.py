@@ -865,7 +865,7 @@ class PsBackend(
         """
         query = """
         MATCH (ps:Entity {entity_type: 'path_step'})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[progress:STUDYING]->(ps)
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[progress:IN_PROGRESS]->(ps)
         RETURN ps, progress
         ORDER BY
             CASE

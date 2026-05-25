@@ -24,6 +24,8 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
+
 _USER_ENTRY = EntityType.USER_ENTRY.value
 
 
@@ -36,7 +38,7 @@ class _UserEntryCrudMixin:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
 
         async def execute_query(
             self, query: str, params: dict[str, Any] | None = None

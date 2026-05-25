@@ -59,6 +59,7 @@ from .domain_queries import build_entity_with_context
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_registry import (
         DomainRelationshipConfig,
         UnifiedRelationshipDefinition,
@@ -73,7 +74,7 @@ def _get_registry() -> dict[str, DomainRelationshipConfig]:
 
 
 def generate_context_query(
-    entity_label: str,
+    entity_label: NeoLabel,
     include_relationships: Sequence[str] | None = None,
     exclude_relationships: Sequence[str] | None = None,
     default_confidence: float = 0.7,
@@ -281,7 +282,7 @@ def _generate_from_config(
     return final_query, parameters
 
 
-def get_available_relationships(entity_label: str) -> list[str]:
+def get_available_relationships(entity_label: NeoLabel) -> list[str]:
     """
     Get available relationship context_field_names for an entity type.
 
@@ -301,7 +302,7 @@ def get_available_relationships(entity_label: str) -> list[str]:
     return [r.context_field_name for r in config.relationships]
 
 
-def get_relationship_details(entity_label: str) -> dict[str, dict[str, Any]]:
+def get_relationship_details(entity_label: NeoLabel) -> dict[str, dict[str, Any]]:
     """
     Get detailed relationship info for an entity type.
 

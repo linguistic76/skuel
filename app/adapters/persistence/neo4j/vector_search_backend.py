@@ -18,6 +18,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.models.enums.neo_labels import NeoLabel
     from core.ports.query_types import SemanticSearchChunkResult
 
 
@@ -48,7 +49,7 @@ class VectorSearchBackend:
             },
         )
 
-    async def get_node_embedding(self, label: str, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_node_embedding(self, label: NeoLabel, uid: str) -> Result[list[dict[str, Any]]]:
         """Get the embedding vector for a specific node."""
         # Label is validated by the service layer (comes from config, not user input)
         return await self._executor.execute_query(

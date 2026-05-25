@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
+
 
 class _ContextQueryMixin[T: DomainModelProtocol]:
     """
@@ -34,12 +36,12 @@ class _ContextQueryMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
     """
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
 
     @safe_backend_operation("context_query_raw")
     async def context_query_raw(

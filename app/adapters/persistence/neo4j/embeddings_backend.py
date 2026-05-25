@@ -10,6 +10,7 @@ Consumer: HuggingFaceEmbeddingsService
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -28,7 +29,7 @@ class EmbeddingsBackend:
 
     async def store_embedding_metadata(
         self,
-        label: str,
+        label: NeoLabel,
         uid: str,
         embedding: list[float],
         version: str,
@@ -59,7 +60,9 @@ class EmbeddingsBackend:
                 Errors.database(operation="store_embedding_metadata", message=str(e))
             )
 
-    async def get_embedding_metadata(self, label: str, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_embedding_metadata(
+        self, label: NeoLabel, uid: str
+    ) -> Result[list[dict[str, Any]]]:
         """Get embedding version metadata for a node."""
         query = f"""
         MATCH (n:{label} {{uid: $uid}})
@@ -73,7 +76,7 @@ class EmbeddingsBackend:
         except NEO4J_EXCEPTIONS as e:
             return Result.fail(Errors.database(operation="get_embedding_metadata", message=str(e)))
 
-    async def get_cached_embedding(self, label: str, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_cached_embedding(self, label: NeoLabel, uid: str) -> Result[list[dict[str, Any]]]:
         """Get cached embedding vector for a node."""
         query = f"""
         MATCH (n:{label} {{uid: $uid}})

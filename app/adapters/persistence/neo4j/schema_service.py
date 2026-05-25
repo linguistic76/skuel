@@ -32,6 +32,7 @@ from core.infrastructure.database.schema import (
     RelationshipTypeInfo,
     SchemaContext,
 )
+from core.models.enums.neo_labels import NeoLabel
 
 # Import protocol interface
 from core.ports.infrastructure_protocols import SchemaOperations
@@ -287,7 +288,7 @@ class Neo4jSchemaService:
         return Result.ok(constraints)
 
     @with_error_handling("_get_node_label_info", error_type="database", uid_param="label")
-    async def _get_node_label_info(self, label: str) -> Result[NodeLabelInfo]:
+    async def _get_node_label_info(self, label: NeoLabel) -> Result[NodeLabelInfo]:
         """Get detailed information about a specific node label"""
         # Use pure Cypher - works on all Neo4j deployments
         query = f"""

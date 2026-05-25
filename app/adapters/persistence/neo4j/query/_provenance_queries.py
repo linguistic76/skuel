@@ -19,6 +19,7 @@ Date: November 23, 2025
 
 from typing import Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import UserUID
 
 
@@ -32,7 +33,7 @@ class ProvenanceQueries:
     @staticmethod
     def build_trust_filtered_prerequisite_chain(
         node_uid: str,
-        node_label: str = "Entity",
+        node_label: NeoLabel = NeoLabel.ENTITY,
         relationship_type: str = "REQUIRES_KNOWLEDGE",
         allowed_sources: list[str] | None = None,
         depth: int = 5,
@@ -86,7 +87,7 @@ class ProvenanceQueries:
 
     @staticmethod
     def build_provenance_distribution_query(
-        node_label: str = "Entity",
+        node_label: NeoLabel = NeoLabel.ENTITY,
         relationship_type: str = "REQUIRES_KNOWLEDGE",
         user_uid: UserUID | None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -143,7 +144,7 @@ class ProvenanceQueries:
 
     @staticmethod
     def build_ai_validation_queue_query(
-        node_label: str = "Entity",
+        node_label: NeoLabel = NeoLabel.ENTITY,
         relationship_type: str = "REQUIRES_KNOWLEDGE",
         min_confidence: float = 0.7,
         min_usage_count: int = 10,
@@ -209,7 +210,7 @@ class ProvenanceQueries:
 
     @staticmethod
     def build_provenance_upgrade_candidates_query(
-        node_label: str = "Entity",
+        node_label: NeoLabel = NeoLabel.ENTITY,
         relationship_type: str = "REQUIRES_KNOWLEDGE",
         min_confidence: float = 0.85,
         min_strength: float = 0.8,
@@ -280,7 +281,7 @@ class ProvenanceQueries:
     @staticmethod
     def build_well_supported_prerequisites_query(
         node_uid: str,
-        node_label: str = "Entity",
+        node_label: NeoLabel = NeoLabel.ENTITY,
         relationship_type: str = "REQUIRES_KNOWLEDGE",
         min_evidence_count: int = 3,
         depth: int = 5,
@@ -333,7 +334,7 @@ class ProvenanceQueries:
     @staticmethod
     def build_citation_export_query(
         node_uid: str,
-        node_label: str = "Entity",
+        node_label: NeoLabel = NeoLabel.ENTITY,
         relationship_type: str = "REQUIRES_KNOWLEDGE",
         depth: int = 3,
     ) -> tuple[str, dict[str, Any]]:

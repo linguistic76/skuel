@@ -35,6 +35,8 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
+
 
 class _RelationshipOrderedMixin[T: DomainModelProtocol]:
     """
@@ -66,7 +68,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
     @safe_backend_operation("get_ordered_related_uids")
     async def get_ordered_related_uids(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uid: str,
         relationship_type: str,
         direction: str,
@@ -118,7 +120,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
     @safe_backend_operation("get_related_with_metadata")
     async def get_related_with_metadata(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uid: str,
         relationship_type: str,
         direction: str,
@@ -191,7 +193,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
     @safe_backend_operation("reorder_relationships")
     async def reorder_relationships(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uid: str,
         relationship_type: str,
         direction: str,
@@ -301,11 +303,11 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
     @safe_backend_operation("get_hierarchical_children_single")
     async def get_hierarchical_children_single(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uid: str,
         relationship_type: str,
         direction: str,
-        target_label: str,
+        target_label: NeoLabel,
         order_by_property: str | None = None,
         order_direction: str = "ASC",
     ) -> Result[builtins.list[dict[str, Any]]]:
@@ -368,14 +370,14 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
     @safe_backend_operation("get_hierarchical_children_two_level")
     async def get_hierarchical_children_two_level(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uid: str,
         rel_type1: str,
         dir1: str,
-        target_label1: str,
+        target_label1: NeoLabel,
         rel_type2: str,
         dir2: str,
-        target_label2: str,
+        target_label2: NeoLabel,
         order_by_property1: str | None = None,
         order_direction1: str = "ASC",
     ) -> Result[builtins.list[dict[str, Any]]]:
@@ -450,7 +452,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
     @safe_backend_operation("get_hierarchical_children_deep")
     async def get_hierarchical_children_deep(
         self,
-        entity_label: str,  # noqa: ARG002 — kept for API consistency with sibling methods
+        entity_label: NeoLabel,  # noqa: ARG002 — kept for API consistency with sibling methods
         entity_uid: str,
         match_pattern: str,
         rel_type_params: dict[str, str],

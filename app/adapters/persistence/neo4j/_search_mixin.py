@@ -56,6 +56,7 @@ if TYPE_CHECKING:
 
     from adapters.persistence.neo4j.query import UnifiedQueryBuilder
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.models.enums.neo_labels import NeoLabel
     from core.ports.base_protocols import GraphContextNode
 
 
@@ -68,7 +69,7 @@ class _SearchMixin[T: DomainModelProtocol]:
         driver: AsyncDriver
         logger: logging.Logger
         entity_class: type[T]
-        label: str
+        label: NeoLabel
         default_filters: FilterParams
         query_builder: UnifiedQueryBuilder
         prometheus_metrics: PrometheusMetrics | None
@@ -84,7 +85,7 @@ class _SearchMixin[T: DomainModelProtocol]:
         driver: AsyncDriver
         logger: logging.Logger
         entity_class: type[T]
-        label: str
+        label: NeoLabel
         default_filters: FilterParams
         query_builder: UnifiedQueryBuilder
         prometheus_metrics: PrometheusMetrics | None
@@ -345,7 +346,7 @@ class _SearchMixin[T: DomainModelProtocol]:
     async def get_domain_context_raw(
         self,
         entity_uid: EntityUID,
-        entity_label: str,
+        entity_label: NeoLabel,
         relationship_types: builtins.list[str],
         depth: int = 2,
         min_confidence: float = 0.7,

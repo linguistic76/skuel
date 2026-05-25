@@ -37,7 +37,7 @@ class QueryConstraint:
     property_name: str
     operator: str  # "=", "<", ">", "<=", ">=", "CONTAINS", "STARTS WITH", "IN", etc.
     value: Any
-    label: str | None = None  # Optional label context
+    label: str | None = None  # Optional label context (raw/parsed label string)
 
     def to_cypher(self) -> str:
         """Generate a Cypher WHERE clause fragment (e.g., ``n.priority = $priority``)."""

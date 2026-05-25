@@ -12,6 +12,7 @@ from core.models.type_hints import Metadata, UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.enums.neo_labels import NeoLabel
     from core.models.user import User
     from core.services.ingestion.types import (
         BundleStats,
@@ -257,15 +258,17 @@ class SchemaOperations(Protocol):
         """Get all relationship types."""
         ...
 
-    async def get_node_properties(self, label: str) -> list[dict[str, str]]:
+    async def get_node_properties(self, label: "NeoLabel") -> list[dict[str, str]]:
         """Get properties for a node label."""
         ...
 
-    async def create_index(self, label: str, property: str) -> bool:
+    async def create_index(self, label: "NeoLabel", property: str) -> bool:
         """Create an index on a property."""
         ...
 
-    async def create_constraint(self, label: str, property: str, constraint_type: str) -> bool:
+    async def create_constraint(
+        self, label: "NeoLabel", property: str, constraint_type: str
+    ) -> bool:
         """Create a constraint."""
         ...
 

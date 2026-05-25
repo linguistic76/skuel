@@ -15,6 +15,7 @@ These methods wrap the semantic queries with domain-specific defaults.
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue, UserUID
 
 from ._helpers import validate_identifier, validate_label
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 
 def build_simple_prerequisite_chain(
     node_uid: str,
-    node_label: str,
+    node_label: NeoLabel,
     relationship_type: str,
     depth: int = 3,
     order: str = "DESC",
@@ -112,7 +113,7 @@ def build_simple_prerequisite_chain(
 def build_unmastered_prerequisite_chain(
     node_uid: str,
     user_uid: UserUID,
-    node_label: str = "Entity",
+    node_label: NeoLabel = NeoLabel.ENTITY,
     relationship_type: str = "REQUIRES_KNOWLEDGE",
     mastery_relationship: str = "MASTERED_BY",
     depth: int = 3,
@@ -568,7 +569,7 @@ def build_choice_dependencies(
 
 
 def build_entity_with_context(
-    entity_label: str,
+    entity_label: NeoLabel,
     relationships: list["RelationshipSpec"],
     confidence_param: str | None = "min_confidence",
     default_confidence: float = 0.7,
@@ -1401,7 +1402,7 @@ def build_principle_with_context(
 
 def build_user_activity_query(
     user_uid: UserUID,
-    node_label: str,
+    node_label: NeoLabel,
     date_field: str | None = None,
     start_date: "date | None" = None,
     end_date: "date | None" = None,
@@ -1491,7 +1492,7 @@ def build_user_activity_query(
 
 
 def build_due_soon_query(
-    node_label: str,
+    node_label: NeoLabel,
     date_field: str,
     days_ahead: int = 7,
     exclude_statuses: list[str] | None = None,
@@ -1577,7 +1578,7 @@ def build_due_soon_query(
 
 
 def build_overdue_query(
-    node_label: str,
+    node_label: NeoLabel,
     date_field: str,
     exclude_statuses: list[str] | None = None,
     user_uid: UserUID | None = None,
@@ -1658,7 +1659,7 @@ def build_overdue_query(
 
 
 def build_active_query(
-    node_label: str,
+    node_label: NeoLabel,
     user_uid: UserUID,
     exclude_statuses: list[str] | None = None,
     limit: int = 100,

@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
+
 
 class _TemporalMixin[T: DomainModelProtocol]:
     """
@@ -37,12 +39,12 @@ class _TemporalMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
     """
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
 
     @safe_backend_operation("user_activity_range_raw")
     async def user_activity_range_raw(

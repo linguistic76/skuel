@@ -37,7 +37,7 @@ _VALID_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 _VALID_SIMILARITY = frozenset({"cosine", "euclidean"})
 
 
-def _validate_label(label: str) -> None:
+def _validate_label(label: NeoLabel) -> None:
     if label not in _VALID_NEO4J_LABELS:
         raise ValueError(f"Invalid Neo4j label: {label!r}")
 
@@ -150,7 +150,7 @@ class Neo4jSchemaManager:
             self.logger.error(f"Schema sync failed for {label}: {e}")
             return Result.fail(Errors.system(f"Schema sync failed: {e}", operation="sync_indexes"))
 
-    async def _create_index(self, label: str, field_name: str) -> Result[str]:
+    async def _create_index(self, label: NeoLabel, field_name: str) -> Result[str]:
         """
         Create a regular index on a field.
 
@@ -187,7 +187,7 @@ class Neo4jSchemaManager:
                 )
             )
 
-    async def _create_unique_constraint(self, label: str, field_name: str) -> Result[str]:
+    async def _create_unique_constraint(self, label: NeoLabel, field_name: str) -> Result[str]:
         """
         Create a unique constraint on a field.
 
@@ -224,7 +224,7 @@ class Neo4jSchemaManager:
                 )
             )
 
-    async def list_indexes(self, label: str | None = None) -> Result[list[dict[str, Any]]]:
+    async def list_indexes(self, label: NeoLabel | None = None) -> Result[list[dict[str, Any]]]:
         """
         List all indexes in Neo4j, optionally filtered by label.
 
@@ -253,7 +253,7 @@ class Neo4jSchemaManager:
                 Errors.database(operation="list_indexes", message=f"List indexes failed: {e}")
             )
 
-    async def list_constraints(self, label: str | None = None) -> Result[list[dict[str, Any]]]:
+    async def list_constraints(self, label: NeoLabel | None = None) -> Result[list[dict[str, Any]]]:
         """
         List all constraints in Neo4j, optionally filtered by label.
 
@@ -286,7 +286,7 @@ class Neo4jSchemaManager:
 
     async def create_vector_index(
         self,
-        label: str,
+        label: NeoLabel,
         field_name: str = "embedding",
         dimension: int = 1024,
         similarity: str = "cosine",
@@ -380,7 +380,7 @@ class Neo4jSchemaManager:
             )
 
     async def create_composite_index(
-        self, label: str, field_names: list[str], index_name: str | None = None
+        self, label: NeoLabel, field_names: list[str], index_name: str | None = None
     ) -> Result[str]:
         """
         Create a composite index on multiple fields.
@@ -521,7 +521,7 @@ class Neo4jSchemaManager:
         return Result.ok(results)
 
     async def _create_fulltext_index(
-        self, index_name: str, label: str, fields: list[str]
+        self, index_name: str, label: NeoLabel, fields: list[str]
     ) -> Result[str]:
         """
         Create a full-text index on one or more fields.
@@ -668,7 +668,7 @@ class Neo4jSchemaManager:
         return Result.ok(summary)
 
     async def _create_named_index(
-        self, index_name: str, label: str, field_name: str
+        self, index_name: str, label: NeoLabel, field_name: str
     ) -> Result[str]:
         """Create a named index (custom name instead of auto-generated)."""
         _validate_label(label)

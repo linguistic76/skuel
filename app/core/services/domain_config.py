@@ -147,7 +147,9 @@ class DomainConfig:
 
     # Graph-Aware Search
     graph_enrichment_patterns: tuple[tuple[str, str, str, str], ...] = ()
-    user_ownership_relationship: str | None = RelationshipName.OWNS  # None for shared content (KU)
+    user_ownership_relationship: RelationshipName | None = (
+        RelationshipName.OWNS
+    )  # None for shared content (KU)
 
     # Temporal queries (get_upcoming / get_overdue / get_active)
     temporal_exclude_statuses: tuple[str, ...] = (
@@ -364,7 +366,7 @@ def create_curriculum_domain_config(
     category_field: str = "domain",
     content_field: str = "content",
     supports_user_progress: bool = True,
-    user_ownership_relationship: str | None = None,
+    user_ownership_relationship: RelationshipName | None = None,
     prerequisite_relationships: tuple[str, ...] | None = None,
     enables_relationships: tuple[str, ...] | None = None,
     entity_label: str | None = None,

@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_names import RelationshipName
 
 
@@ -89,7 +90,7 @@ class IngestionWriteBackend:
         )
         return {record["uid"]: record["exists"] for record in result.records}
 
-    async def find_existing_uids_for_label(self, label: str, uids: list[str]) -> list[str]:
+    async def find_existing_uids_for_label(self, label: NeoLabel, uids: list[str]) -> list[str]:
         """Return the subset of ``uids`` that exist as ``:label`` nodes.
 
         ``label`` is derived from ENTITY_CONFIGS (trusted), not user input.

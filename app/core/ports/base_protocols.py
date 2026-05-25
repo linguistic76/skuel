@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
     from core.models.enums import Priority
+    from core.models.enums.neo_labels import NeoLabel
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
     from core.models.type_hints import FilterParams
@@ -598,7 +599,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         self,
         source_uid: str,
         relationship_type: str,
-        target_label: str,
+        target_label: NeoLabel,
         direction: Direction = "outgoing",
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Traverse a graph relationship and return raw target node dicts."""
@@ -656,7 +657,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         self,
         user_uid: UserUID,
         *,
-        user_ownership_relationship: str | None,
+        user_ownership_relationship: RelationshipName | None,
         search_fields: tuple[str, ...],
         search_order_by: str,
         graph_enrichment_patterns: tuple[tuple[str, ...], ...],
@@ -745,7 +746,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         user_uid: UserUID,
         entity_uid: EntityUID,
         mastery_level: float,
-        rel_type: str,
+        rel_type: RelationshipName,
     ) -> ResultType[bool]:
         """Create/update a user mastery relationship."""
         ...
@@ -926,7 +927,7 @@ class GraphTraversalOperations(Protocol):
     async def get_domain_context_raw(
         self,
         entity_uid: EntityUID,
-        entity_label: str,
+        entity_label: NeoLabel,
         relationship_types: builtins.list[str],
         depth: int = 2,
         min_confidence: float = 0.7,
@@ -956,7 +957,7 @@ class GraphTraversalOperations(Protocol):
 
     async def get_batch_cross_domain_context(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uids: builtins.list[str],
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Batch-retrieve cross-domain relationship context for entities."""
@@ -966,7 +967,7 @@ class GraphTraversalOperations(Protocol):
         self,
         user_uid: str,
         domain_name: str,
-        entity_label: str,
+        entity_label: NeoLabel,
         goal_uid: str | None,
         limit: int,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
@@ -976,7 +977,7 @@ class GraphTraversalOperations(Protocol):
     async def get_citation_export(
         self,
         node_uid: str,
-        node_label: str,
+        node_label: NeoLabel,
         relationship_type: str,
         depth: int,
     ) -> ResultType[builtins.list[dict[str, Any]]]:

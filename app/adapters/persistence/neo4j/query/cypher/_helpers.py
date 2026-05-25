@@ -20,7 +20,7 @@ _VALID_NEO4J_LABELS: frozenset[str] = frozenset(v.value for v in NeoLabel)
 _VALID_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
-def validate_label(label: str) -> None:
+def validate_label(label: NeoLabel) -> None:
     """Raise ValueError if label is not a known NeoLabel value."""
     if label not in _VALID_NEO4J_LABELS:
         raise ValueError(f"Invalid Neo4j label: {label!r}")
