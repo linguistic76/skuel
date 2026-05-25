@@ -263,27 +263,6 @@ class CurriculumOperations[T: "DomainModelProtocol"](
         """
         ...
 
-    # =========================================================================
-    # USER-SCOPED QUERIES
-    # =========================================================================
-
-    async def get_user_curriculum(
-        self,
-        user_uid: UserUID,
-        include_completed: bool = False,
-    ) -> Result[list[T]]:
-        """
-        Get curriculum entities for a user.
-
-        Args:
-            user_uid: User UID
-            include_completed: Include completed/mastered entities
-
-        Returns:
-            Result[list[T]]: User's curriculum entities
-        """
-        ...
-
 
 # =============================================================================
 # INTERACTION PROTOCOLS

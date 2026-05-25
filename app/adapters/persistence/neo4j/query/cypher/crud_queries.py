@@ -18,7 +18,7 @@ from dataclasses import fields, is_dataclass
 from typing import Any, get_origin, get_type_hints
 
 from core.models.enums.neo_labels import NeoLabel
-from core.models.type_hints import EntityUID, Neo4jValue, UserUID
+from core.models.type_hints import Neo4jValue, UserUID
 from core.utils.logging import get_logger
 
 from ._helpers import convert_value_for_neo4j
@@ -868,80 +868,3 @@ def build_prerequisite_traversal_query(
         """
 
     return query, {"uid": uid}
-
-
-def build_user_progress_query(
-    label: NeoLabel,
-    user_uid: UserUID,
-    entity_uid: EntityUID,
-    mastery_threshold: float = 0.8,
-) -> tuple[str, dict[str, Neo4jValue]]:
-    """
-    Build query for user progress/mastery data.
-
-    Returns user's relationship to an entity with progress metadata.
-
-    Args:
-        label: Entity node label
-        user_uid: User UID
-        entity_uid: Entity UID
-        mastery_threshold: Threshold for considering entity mastered
-
-    Returns:
-        Tuple of (cypher_query, parameters)
-
-    Example:
-        query, params = build_user_progress_query("Entity", "user:123", "ku:python-basics")
-    """
-    query = f"""
-    MATCH (u:User {{uid: $user_uid}})-[r:MASTERED|IN_PROGRESS|COMPLETED]->(e:{label} {{uid: $entity_uid}})
-    RETURN {{
-        mastery_level: coalesce(r.level, 0.0),
-        is_mastered: coalesce(r.level, 0.0) >= $mastery_threshold,
-        last_accessed: r.last_accessed,
-        time_spent: coalesce(r.time_spent, 0),
-        attempts: coalesce(r.attempts, 0),
-        relationship_type: type(r),
-        started_at: r.started_at,
-        completed_at: r.completed_at
-    }} as progress
-    """
-
-    return query, {
-        "user_uid": user_uid,
-        "entity_uid": entity_uid,
-        "mastery_threshold": mastery_threshold,
-    }
-
-
-def build_user_curriculum_query(
-    label: NeoLabel,
-    user_uid: UserUID,
-    include_completed: bool = False,
-) -> tuple[str, dict[str, Neo4jValue]]:
-    """
-    Build query for user's curriculum/learning entities.
-
-    Returns entities the user is studying or has mastered.
-
-    Args:
-        label: Entity node label
-        user_uid: User UID
-        include_completed: Include completed/mastered entities
-
-    Returns:
-        Tuple of (cypher_query, parameters)
-
-    Example:
-        query, params = build_user_curriculum_query("Entity", "user:123", include_completed=False)
-    """
-    rel_filter = "" if include_completed else "WHERE NOT type(r) = 'MASTERED'"
-
-    query = f"""
-    MATCH (u:User {{uid: $user_uid}})-[r:IN_PROGRESS|MASTERED|ENROLLED_IN]->(n:{label})
-    {rel_filter}
-    RETURN n
-    ORDER BY r.last_accessed DESC
-    """
-
-    return query, {"user_uid": user_uid}

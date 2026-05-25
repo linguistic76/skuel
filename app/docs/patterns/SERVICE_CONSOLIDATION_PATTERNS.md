@@ -80,7 +80,6 @@ class TasksSearchService(BaseService):
     _prerequisite_relationships = [...]
     _enables_relationships = [...]
     _user_ownership_relationship = "OWNS"
-    _supports_user_progress = True
     # ... more attributes
 ```
 
@@ -196,7 +195,6 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     SearchOperationsMixin[B, T],        # search, filtering, graph-aware search
     RelationshipOperationsMixin[B, T],  # graph relationships, prerequisites
     TimeQueryMixin[B, T],               # date range queries, due_soon, overdue
-    UserProgressMixin[B, T],            # mastery tracking, curriculum progress
     ContextOperationsMixin[B, T],       # get_with_context, graph enrichment
 ):
     """Unified base service - now composed of focused mixins."""
@@ -211,7 +209,6 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 | `SearchOperationsMixin` | `mixins/search_operations_mixin.py` | `search`, `get_by_status`, `graph_aware_faceted_search` |
 | `RelationshipOperationsMixin` | `mixins/relationship_operations_mixin.py` | `add_relationship`, `traverse`, `get_prerequisites` |
 | `TimeQueryMixin` | `mixins/time_query_mixin.py` | `get_user_items_in_range`, `get_upcoming`, `get_overdue`, `get_active` (config-driven via `date_field` + `temporal_exclude_statuses` + `temporal_secondary_sort` + `completed_statuses`) |
-| `UserProgressMixin` | `mixins/user_progress_mixin.py` | `get_user_progress`, `update_user_mastery` |
 | `ContextOperationsMixin` | `mixins/context_operations_mixin.py` | `get_with_context`, `get_with_content` |
 
 ### Fail-Fast Philosophy

@@ -2,7 +2,7 @@
 Protocol-Mixin Compliance Test Suite
 ======================================
 
-Automated verification that all 7 mixins satisfy their corresponding protocols.
+Automated verification that all 6 mixins satisfy their corresponding protocols.
 
 This test suite ensures that:
 1. Each mixin has all methods defined in its protocol
@@ -27,7 +27,6 @@ from core.ports.base_service_interface import (
     RelationshipOperations,
     SearchOperations,
     TimeQueryOperations,
-    UserProgressOperations,
 )
 from core.services.mixins import (
     ContextOperationsMixin,
@@ -36,7 +35,6 @@ from core.services.mixins import (
     RelationshipOperationsMixin,
     SearchOperationsMixin,
     TimeQueryMixin,
-    UserProgressMixin,
 )
 
 # ============================================================================
@@ -54,7 +52,6 @@ MIXIN_PROTOCOL_PAIRS = [
         "relationship_operations_mixin.py",
     ),
     ("TimeQuery", TimeQueryMixin, TimeQueryOperations, "time_query_mixin.py"),
-    ("UserProgress", UserProgressMixin, UserProgressOperations, "user_progress_mixin.py"),
     ("Context", ContextOperationsMixin, ContextOperations, "context_operations_mixin.py"),
 ]
 
@@ -192,10 +189,10 @@ def test_mixin_has_type_checking_verification_block(name, mixin, protocol, filen
 # ============================================================================
 
 
-def test_all_seven_mixins_are_tested():
-    """Ensure all 7 BaseService mixins have test coverage."""
-    assert len(MIXIN_PROTOCOL_PAIRS) == 7, (
-        "BaseService is composed of 7 mixins. "
+def test_all_six_mixins_are_tested():
+    """Ensure all 6 BaseService mixins have test coverage."""
+    assert len(MIXIN_PROTOCOL_PAIRS) == 6, (
+        "BaseService is composed of 6 mixins. "
         f"Found {len(MIXIN_PROTOCOL_PAIRS)} mixin-protocol pairs in test data. "
         "Update MIXIN_PROTOCOL_PAIRS if mixins were added/removed."
     )
