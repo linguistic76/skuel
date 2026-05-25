@@ -1,10 +1,10 @@
 ---
 title: ADR-044: Neo4j as Committed Architectural Choice
-updated: 2026-05-24
+updated: 2026-05-25
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, hexagonal]
-related: [ADR-022, ADR-029, ADR-031]
+related: [ADR-022, ADR-029, ADR-031, ADR-052, ADR-062]
 ---
 
 # ADR-044: Neo4j as Committed Architectural Choice
@@ -19,6 +19,8 @@ related: [ADR-022, ADR-029, ADR-031]
 - Related to: ADR-022 (Graph-Native Authentication)
 - Related to: ADR-029 (GraphNative Service Removal)
 - Related to: ADR-031 (BaseService Mixin Decomposition)
+- Scoped by: ADR-052 (Firefly III Finance Integration) — the finance store sits *outside* this commitment
+- Scoped by: ADR-062 (ChargeKeep Billing Layer) — the proposed billing store sits *outside* this commitment
 
 ---
 
@@ -60,6 +62,22 @@ The hexagonal boundary in SKUEL is at `UniversalNeo4jBackend` (and its 27 subcla
 **What "hexagonal boundary at UniversalNeo4jBackend" means:**
 
 The backend layer holds the driver calls, label conventions, and relationship syntax. Service mixins *should* call backend methods (`self.backend.traverse()`, `self.backend.find_by()`) rather than writing Cypher directly — that is the target state, not an invariant the codebase currently upholds everywhere (see **Current State & Known Debt** below). If Neo4j were ever replaced (see Consequences), the backend layer would be rewritten, the mixin layer would need to be reconsidered, and every service still authoring Cypher would have to move too — but the domain models and protocols would survive intact.
+
+### Scope: this commitment governs the domain graph, not the finance/billing edge
+
+"Below the boundary, everything is Neo4j" describes the **domain graph** — the 25 EntityTypes, graph-native auth (ADR-022), and the intelligence layer that traverses them. It is **not** a claim that SKUEL is single-store. SKUEL is deliberately a **polystore at the finance/billing edge**, where the **Leverage Maintained Software** principle (a non-technical founder; every custom subsystem is a liability) outranks the graph commitment:
+
+| Data | Store | Seam | Status |
+|------|-------|------|--------|
+| Expenses, budgets, reporting | **Firefly III** — own MariaDB, Docker sidecar (`finance` profile) | `firefly_client` outbound adapter behind `FireflyOperations` (`core/ports/finance_protocols.py`) | ADR-052 — **Accepted**; adapter + protocol + Docker stack landed (`c3258630`) |
+| SaaS billing: checkout, subscriptions, invoicing | **ChargeKeep** — SaaS (Stripe underneath) | proposed `chargekeep_client` behind `BillingProvider` | ADR-062 — **Proposed**, spike-gated; no code yet |
+
+This is not a violation of the commitment, for two reasons:
+
+1. **Different seam.** These stores sit behind *outbound adapters* in `adapters/outbound/` — the same hexagonal pattern as `invoice_renderer.py`, **not** behind `UniversalNeo4jBackend`. The Neo4j boundary this ADR defends is untouched; the finance/billing data simply never crossed it.
+2. **Isolated domain.** Finance has no cross-domain relationships and no intelligence / ZPD / LifePath wiring (ADR-052 § Context). It is a clean seam with nothing graph-native to lose — which is precisely why it can be offloaded to maintained external software.
+
+So the commitment is **scoped**, not absolute: Neo4j is load-bearing for everything that *is* a graph (the domain), and silent on the admin-only / payment-scoped finance edge, which is owned by ADR-052 + ADR-062. (The local WeasyPrint invoice module still lives in Neo4j today; ADR-062 proposes moving it to ChargeKeep.)
 
 ---
 
@@ -191,7 +209,7 @@ above are the templates for any future graph code.
 ## Future Considerations
 
 ### When to Revisit
-- If SKUEL ever adopts a second database for a specific domain (e.g., time-series data for Habits completion history), this ADR should be revisited to define where that boundary sits
+- SKUEL has **already** adopted second stores for the finance/billing domain — Firefly III (landed) and the proposed ChargeKeep (see *Scope: this commitment governs the domain graph, not the finance/billing edge* above). The rule that emerged: an *isolated* non-graph domain (no cross-domain edges, no intelligence wiring) may live behind its own outbound adapter rather than `UniversalNeo4jBackend`. If a **graph-coupled** domain ever needs a second store (e.g., time-series Habits completion history that still relates to Goals/KUs), revisit this ADR to define where that split boundary sits — that case is genuinely harder than the isolated finance seam.
 - New Cypher-authoring in the service layer is now blocked by `SKUEL021` (ERROR). If that rule is ever relaxed or a service legitimately needs a `# skuel-lint: disable=SKUEL021` suppression, treat it as a signal to extend a backend instead — the boundary should stay closed.
 
 ### Evolution Path
@@ -216,3 +234,4 @@ Neo4j is the committed platform for SKUEL across all three deployment stages (Do
 | 2026-03-05 | Claude Code | Initial draft | 1.0 |
 | 2026-05-24 | Claude Code | Corrected false "SKUEL001 prohibits raw Cypher in services" claim (it bans APOC only); added Current State & Known Debt; recorded relocation of relationship/analytics/schema backends below the boundary | 1.1 |
 | 2026-05-24 | Claude Code | Completed the campaign: ALL raw Cypher relocated out of `core/services/` (templates, graph_query_builder, ps_engagement, ingestion, chunks, ps_intelligence, MEGA-QUERY, query/* builders) + added enforcement rule `SKUEL021` so it can't recur | 1.2 |
+| 2026-05-25 | Claude Code | Reconciled the "below the boundary, everything is Neo4j" framing with polystore reality: added a **Scope** subsection (finance = Firefly III sidecar, landed; billing = proposed ChargeKeep — both behind outbound adapters, not `UniversalNeo4jBackend`), updated *When to Revisit* (finance already adopted a second store), and cross-linked ADR-052 + ADR-062 | 1.3 |
