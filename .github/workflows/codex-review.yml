@@ -1,42 +1,36 @@
 name: Codex Auto-Review
 
 # ============================================================================
-# ⏸️  DISABLED 2026-05-22 — comment-bot trigger off, AND Codex auto-review is
-#     intentionally OFF in the dashboard. This repo is gated by Kody + CI Gate.
+# ⏸️  This comment-bot is DISABLED — and as of 2026-05-25 it is also REDUNDANT,
+#     because Codex CLOUD AUTO-REVIEW is now ON in the dashboard. Kept only for
+#     reference / possible future use. This repo is gated by CI Gate (+ Kody).
 #
-# Two separate things are off, for two different reasons:
+# 1. THIS comment-bot (still off). When `@codex review` is posted by
+#    `github-actions[bot]`, Codex replies with only the cosmetic "create a Codex
+#    account / connect to github" line and NO real review — a bot-posted comment
+#    isn't attributed to the connected account. So it added noise without
+#    producing reviews; its `pull_request:` trigger stays commented out. (If ever
+#    needed, the fix is to post with a PAT secret so the author is `linguistic76`,
+#    not the bot — but auto-review below makes that unnecessary.)
 #
-# 1. THIS comment-bot. When `@codex review` is posted by `github-actions[bot]`,
-#    Codex replies with only the cosmetic "create a Codex account / connect to
-#    github" line and NO real review — a bot-posted comment isn't attributed to
-#    the connected account. So this workflow added noise without producing
-#    reviews; its `pull_request:` trigger is commented out.
+# 2. Codex CLOUD AUTO-REVIEW (the dashboard feature) is now ON (2026-05-25, on a
+#    paid ChatGPT plan): at chatgpt.com/codex/cloud/settings/code-review the
+#    "Personal Review Trigger Preference" = "On PR open" and `linguistic76/skuel`'s
+#    "Auto code review" = "Review my PRs", so Codex auto-reviews every PR you open.
+#    A manual `@codex review` (posted by the human account, e.g. via `gh`) also
+#    works — that's the re-review path after pushing more commits.
 #
-# 2. Codex CLOUD AUTO-REVIEW (the dashboard feature). Intentionally set to OFF
-#    on 2026-05-22: at chatgpt.com/codex/cloud/settings/code-review the "Personal
-#    auto review preferences" toggle is OFF and `linguistic76/skuel` is set to
-#    "Follow personal preferences" (which resolves to off). There is no per-repo
-#    hard-off in that UI — the personal toggle is the switch. Codex now reviews
-#    ONLY when a human posts `@codex review` on a PR.
-#
-# Why off rather than on: cloud auto-review was always best-effort — it fired on
-# only ~1 of 4 PRs historically and draws from a weekly shared usage limit. Kody
-# (Kodus) is the dependable gating reviewer and CI Gate is the required check, so
-# Codex was never part of the gate. Off keeps the signal clean.
-#
-# TO RE-ENABLE Codex auto-review: flip the "Personal auto review preferences"
-# toggle ON (or set the repo to "Review all PRs") in the dashboard. To re-enable
-# THIS comment-bot instead: uncomment the `pull_request:` trigger below. Either
-# way, verify with the throwaway-PR test in ./README.md -> "Verifying /
-# re-enabling a reviewer". Codex posts PR reviews/comments, never a status check,
-# so nothing here is required in branch protection (that remains "CI Gate").
+# Codex posts PR reviews/comments, never a status check, so nothing here is
+# required in branch protection (that remains "CI Gate"). To turn auto-review
+# OFF, change the dashboard trigger preference / repo option. See ./README.md ->
+# "One-time dashboard steps" and "Manually requesting a Codex review".
 # ============================================================================
 
 on:
   # ⏸️ DISABLED: comment-bot trigger off — it produced only cosmetic responses
-  #    (see header). Codex auto-review is also intentionally off in the dashboard,
-  #    so Codex reviews only on a manual `@codex review`. Re-enable this bot by
-  #    uncommenting the two lines below.
+  #    (see header), and Codex cloud auto-review (dashboard, "On PR open") now
+  #    covers PR-open reviews, so this bot is redundant. Re-enable (with a PAT, not
+  #    GITHUB_TOKEN) by uncommenting the two lines below only if ever needed.
   # pull_request:
   #   types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:
