@@ -26,8 +26,10 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.query.query_optimizer import QueryOptimizer
-    from core.services.query.query_template_registry import QueryTemplateRegistry
+    from adapters.persistence.neo4j.query_builders.query_optimizer import QueryOptimizer
+    from adapters.persistence.neo4j.query_builders.query_template_registry import (
+        QueryTemplateRegistry,
+    )
 
 
 class QueryValidator:
@@ -83,7 +85,7 @@ class QueryValidator:
             # Get current schema
             schema_result = await self.schema_service.get_schema_context()
             if schema_result.is_error:
-                return schema_result
+                return Result.fail(schema_result)
 
             schema = schema_result.value
 

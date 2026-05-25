@@ -119,12 +119,16 @@ class PsEngagementService:
                 "PsEngagementService requires both executor and ps_service "
                 "(SKUEL fail-fast — no graceful degradation)."
             )
-        self._executor = executor
+        from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+
         self._ps_service = ps_service
+        # All lifecycle Cypher lives in the backend (ADR-044); helpers and this
+        # facade keep orchestration + domain reconstruction only.
+        self._backend = PsEngagementBackend(executor)
 
         self._validator = _PsValidator()
         self._loader = _TemplateLoader(
-            executor=executor,
+            backend=self._backend,
             task_template_backend=task_template_backend,
             goal_template_backend=goal_template_backend,
             habit_template_backend=habit_template_backend,
@@ -141,7 +145,7 @@ class PsEngagementService:
             principles=principles_backend,
         )
         self._orchestrator = _SpawnOrchestrator(self._instance_backends)
-        self._gateway = _EngagementGateway(executor)
+        self._gateway = _EngagementGateway(self._backend)
         self.logger = logger
         logger.debug("PsEngagementService initialized (Phase 4)")
 
@@ -167,22 +171,10 @@ class PsEngagementService:
         # Validation passed — flip the status to PUBLISHED.
         from core.models.enums.learning_enums import KnowledgeStatus
 
-        # PsService exposes update via .core.update; we use the executor for
-        # a focused single-property update so we don't tug on the full PS
-        # update validation path.
-        update_res: Result[list[dict[str, Any]]] = await self._executor.execute_write(
-            query="""
-            MATCH (ps {uid: $uid})
-            SET ps.status = $status,
-                ps.updated_at = $updated_at
-            RETURN ps
-            """,
-            params={
-                "uid": ps_uid,
-                "status": KnowledgeStatus.PUBLISHED.value,
-                "updated_at": datetime.now(UTC).isoformat(),
-            },
-            operation="publish_pathstep",
+        # Focused single-property status update via the backend — avoids tugging
+        # on the full PS update-validation path.
+        update_res = await self._backend.set_pathstep_published(
+            ps_uid, KnowledgeStatus.PUBLISHED.value, datetime.now(UTC).isoformat()
         )
         if update_res.is_error:
             return Result.fail(update_res)
@@ -318,26 +310,12 @@ class PsEngagementService:
         for template_uid, instance_uid, _label in spawned.value:
             decision = review.get(template_uid, "keep")
             if decision == "discard":
-                del_res: Result[list[dict[str, Any]]] = await self._executor.execute_write(
-                    query="MATCH (n {uid: $uid}) DETACH DELETE n",
-                    params={"uid": instance_uid},
-                    operation="discard_instance",
-                )
+                del_res = await self._backend.delete_instance(instance_uid, "discard_instance")
                 if del_res.is_error:
                     return Result.fail(del_res)
             else:
-                upd_res: Result[list[dict[str, Any]]] = await self._executor.execute_write(
-                    query="""
-                    MATCH (n {uid: $uid})
-                    SET n.engagement_state = 'owned',
-                        n.updated_at = $updated_at
-                    RETURN n.uid AS uid
-                    """,
-                    params={
-                        "uid": instance_uid,
-                        "updated_at": datetime.now(UTC).isoformat(),
-                    },
-                    operation="own_instance",
+                upd_res = await self._backend.mark_instance_owned(
+                    instance_uid, datetime.now(UTC).isoformat()
                 )
                 if upd_res.is_error:
                     return Result.fail(upd_res)
@@ -374,11 +352,7 @@ class PsEngagementService:
         if spawned.is_error:
             return Result.fail(spawned)
         for _template_uid, instance_uid, _label in spawned.value:
-            del_res: Result[list[dict[str, Any]]] = await self._executor.execute_write(
-                query="MATCH (n {uid: $uid}) DETACH DELETE n",
-                params={"uid": instance_uid},
-                operation="abandon_instance",
-            )
+            del_res = await self._backend.delete_instance(instance_uid, "abandon_instance")
             if del_res.is_error:
                 return Result.fail(del_res)
 
@@ -414,41 +388,10 @@ class PsEngagementService:
 
         from ._terminal_status_rules import is_engagement_terminal
 
-        # One query: anchor on the just-changed instance, walk SPAWNED_FROM to
-        # its template, then up to the PS, then find sibling instances still
-        # in engagement_state='engaged' under an ACTIVE engagement edge.
-        query = """
-        MATCH (n {uid: $instance_uid, user_uid: $student_uid})-[:SPAWNED_FROM]->(t)
-        WHERE n.engagement_state = 'engaged'
-        MATCH (ps)-[:HAS_TASK_TEMPLATE
-                    |HAS_GOAL_TEMPLATE
-                    |HAS_HABIT_TEMPLATE
-                    |HAS_EVENT_TEMPLATE
-                    |HAS_CHOICE_TEMPLATE
-                    |HAS_PRINCIPLE_TEMPLATE]->(t)
-        MATCH (u:User {uid: $student_uid})-[e:ENGAGED_WITH]->(ps)
-        WHERE e.state = 'engaged'
-        WITH ps
-        MATCH (other_n {user_uid: $student_uid})-[:SPAWNED_FROM]->(other_t)
-        MATCH (ps)-[:HAS_TASK_TEMPLATE
-                    |HAS_GOAL_TEMPLATE
-                    |HAS_HABIT_TEMPLATE
-                    |HAS_EVENT_TEMPLATE
-                    |HAS_CHOICE_TEMPLATE
-                    |HAS_PRINCIPLE_TEMPLATE]->(other_t)
-        WHERE other_n.engagement_state = 'engaged'
-        RETURN ps.uid AS ps_uid,
-               collect({
-                 entity_type: other_n.entity_type,
-                 status: other_n.status
-               }) AS siblings
-        LIMIT 1
-        """
-        res: Result[list[dict[str, Any]]] = await self._executor.execute(
-            query=query,
-            params={"student_uid": student_uid, "instance_uid": instance_uid},
-            operation="check_auto_complete",
-        )
+        # Anchor on the just-changed instance, walk SPAWNED_FROM to its template,
+        # up to the PS, then find sibling instances still engaged under an ACTIVE
+        # engagement edge.
+        res = await self._backend.fetch_auto_complete_siblings(student_uid, instance_uid)
         if res.is_error:
             return Result.fail(res)
         if not res.value:
@@ -507,25 +450,7 @@ class PsEngagementService:
         Mirrors ``_fetch_engaged_instances`` but also pulls ``title`` so the
         UI can render meaningful rows without a second round-trip.
         """
-        query = """
-        MATCH (ps {uid: $ps_uid})-[:HAS_TASK_TEMPLATE
-                                   |HAS_GOAL_TEMPLATE
-                                   |HAS_HABIT_TEMPLATE
-                                   |HAS_EVENT_TEMPLATE
-                                   |HAS_CHOICE_TEMPLATE
-                                   |HAS_PRINCIPLE_TEMPLATE]->(t)
-        MATCH (n {user_uid: $student_uid})-[:SPAWNED_FROM]->(t)
-        WHERE n.engagement_state IN ['engaged', 'owned']
-        RETURN t.uid          AS template_uid,
-               n.uid           AS instance_uid,
-               labels(n)       AS labels,
-               coalesce(n.title, n.uid) AS title
-        """
-        res: Result[list[dict[str, Any]]] = await self._executor.execute(
-            query=query,
-            params={"student_uid": student_uid, "ps_uid": ps_uid},
-            operation="list_review_items",
-        )
+        res = await self._backend.list_review_items(student_uid, ps_uid)
         if res.is_error:
             return Result.fail(res)
         out: list[ReviewItem] = []
@@ -585,22 +510,7 @@ class PsEngagementService:
         attached to this PS. Safe because the at-most-one-active invariant
         ensures the only engaged instances belong to the current engagement.
         """
-        query = """
-        MATCH (ps {uid: $ps_uid})-[:HAS_TASK_TEMPLATE
-                                   |HAS_GOAL_TEMPLATE
-                                   |HAS_HABIT_TEMPLATE
-                                   |HAS_EVENT_TEMPLATE
-                                   |HAS_CHOICE_TEMPLATE
-                                   |HAS_PRINCIPLE_TEMPLATE]->(t)
-        MATCH (n {user_uid: $student_uid})-[:SPAWNED_FROM]->(t)
-        WHERE n.engagement_state IN ['engaged', 'owned']
-        RETURN t.uid AS template_uid, n.uid AS instance_uid, labels(n) AS labels
-        """
-        res: Result[list[dict[str, Any]]] = await self._executor.execute(
-            query=query,
-            params={"student_uid": student_uid, "ps_uid": ps_uid},
-            operation="fetch_engaged_instances",
-        )
+        res = await self._backend.fetch_engaged_instances(student_uid, ps_uid)
         if res.is_error:
             return Result.fail(res)
         out: list[tuple[str, str, str]] = []

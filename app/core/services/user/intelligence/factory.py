@@ -44,8 +44,8 @@ from core.services.user.intelligence.core import UserContextIntelligence
 
 if TYPE_CHECKING:
     from core.ports.filtered_context_protocols import FilteredContextProvider
+    from core.ports.relationship_backend_protocols import AnalyticsRelationshipOperations
     from core.ports.zpd_protocols import ZPDOperations
-    from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
@@ -106,7 +106,7 @@ class UserContextIntelligenceFactory:
         # Processing Domains (3) - REQUIRED
         user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
-        analytics: AnalyticsRelationshipService,
+        analytics: AnalyticsRelationshipOperations,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements

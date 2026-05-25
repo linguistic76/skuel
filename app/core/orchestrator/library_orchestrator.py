@@ -15,12 +15,12 @@ from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
     from core.services.ps_service import PsService
     from core.services.resource_service import ResourceService
     from core.services.user_entry.user_entry_service import UserEntryService
-    from core.services.user_relationship_service import UserRelationshipService
 
 
 class LibraryOrchestrator:
@@ -38,7 +38,7 @@ class LibraryOrchestrator:
         ku_service: "KuService",
         ps_service: "PsService",
         user_entry_service: "UserEntryService",
-        user_relationship_service: "UserRelationshipService",
+        user_relationship_service: "UserRelationshipOperations",
     ) -> None:
         self._exercises = exercises_service
         self._resource = resource_service

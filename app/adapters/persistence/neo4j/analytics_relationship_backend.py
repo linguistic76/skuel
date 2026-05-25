@@ -1,40 +1,29 @@
 """
-Analytics Relationship Service
-================================
+Analytics Relationship Backend
+==============================
 
-Cross-domain relationship management for Analytics entities.
+Report-aggregation graph relationship operations, below the hexagonal boundary.
 
-**ARCHITECTURAL PATTERN: Direct Driver (Graph-Native)**
---------------------------------------------------------
-This service uses the DIRECT DRIVER pattern, matching JournalRelationshipService.
+Implements the ``AnalyticsRelationshipOperations`` port
+(``core/ports/relationship_backend_protocols.py``). Authors parameterized
+Cypher and runs it through an injected ``Neo4jQueryExecutor`` — every value is
+a ``$param`` placeholder, so user input never reaches the query body.
 
-**Key Characteristics:**
-- Does NOT inherit from BaseService
-- Takes AsyncDriver directly (not a protocol-based backend)
-- Does NOT use RelationshipCreator or SemanticRelationshipLinker
-- Writes raw Cypher queries directly via driver.session()
-- Simpler, more direct graph operations
-
-**Why This Pattern:**
-- Analytics relationships are simple (aggregation and coverage)
-- Direct Cypher provides maximum clarity for graph traversal
-- Analytics are meta-entities that summarize other domains
-
-**Note:** This service is NOT compatible with GenericRelationshipService base class.
-See: /docs/patterns/GENERIC_RELATIONSHIP_SERVICE_HONEST_ASSESSMENT.md
+Reports aggregate activity-domain data (tasks, habits, goals, …) into
+statistical summaries ("report cards") and link to the entities/goals they
+cover. Core-layer consumers depend on the port, not this class (ADR-044).
 
 Graph Relationships Managed:
 ----------------------------
-- (report)-[:AGGREGATES_DOMAIN]->(domain) - Which domain this analytics covers
-- (report)-[:INCLUDES_ENTITY]->(entity) - Specific entities included in analytics
-- (report)-[:REPORTS_ON_GOAL]->(goal) - Goals covered by this analytics
+- (report)-[:INCLUDES_ENTITY]->(entity) - Specific entities included in a report
+- (report)-[:REPORTS_ON_GOAL]->(goal) - Goals covered by a report
 
-Date: November 26, 2025
+See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.infrastructure.batch import BatchCypherBuilder
 from core.models.type_hints import EntityUID, UserUID
@@ -44,27 +33,29 @@ from core.utils.processor_functions import (
 )
 from core.utils.result_simplified import Result
 
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-class AnalyticsRelationshipService:
+
+class AnalyticsRelationshipBackend:
     """
-    Cross-domain relationship service for Analytics entities.
+    Graph relationship backend for analytics report entities.
 
-    Provides graph traversal and relationship management for analytics relationships.
-    Analytics aggregate data from activity domains (tasks, habits, goals, etc.)
+    Provides graph traversal and relationship management for report relationships.
+    Reports aggregate data from activity domains (tasks, habits, goals, etc.)
     into statistical summaries ("report cards").
 
     Semantic Types Used:
-    - AGGREGATES_DOMAIN: Which domain the analytics covers (TASKS, HABITS, etc.)
-    - INCLUDES_ENTITY: Specific entities included in the analytics metrics
-    - REPORTS_ON_GOAL: Goals this analytics tracks progress on
+    - INCLUDES_ENTITY: Specific entities included in the report metrics
+    - REPORTS_ON_GOAL: Goals this report tracks progress on
     """
 
-    def __init__(self, executor: Any = None) -> None:
+    def __init__(self, executor: Neo4jQueryExecutor) -> None:
         """
-        Initialize Analytics relationship service.
+        Initialize the analytics relationship backend.
 
         Args:
-            executor: Query executor for graph queries
+            executor: Neo4j query executor for parameterized Cypher
         """
         self.executor = executor
 

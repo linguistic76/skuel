@@ -1,18 +1,22 @@
 """
-Graph Query Builder - Pure Cypher Construction
-===============================================
+Graph Context Query Builder
+===========================
 
-Pure functions for building intent-specific Cypher queries.
-Extracted from GraphIntelligenceService to separate query construction from execution.
+Builds intent-specific Cypher for graph-context traversal, below the hexagonal
+boundary. Pure function — no I/O, no side effects — consumed by
+``CrossDomainBackend.query_with_intent``.
 
-Each function returns a Cypher query string — no I/O, no side effects.
+Relocated from ``core/services/infrastructure/graph_query_builder.py`` (2026-05):
+Cypher generation is a persistence concern and belongs in
+``adapters/persistence/neo4j/query/`` per ADR-044, not the service layer.
+
+See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from core.models.enums import Domain
 from core.ports import get_enum_value
 
 
@@ -167,43 +171,3 @@ def build_context_query_for_intent(intent: Any, depth: int) -> str:
         RETURN nodes, rels[0] as relationships
         LIMIT 100
         """
-
-
-def determine_domain(node_dict: dict[str, Any], labels: list[str]) -> Domain:
-    """
-    Determine domain from node properties or labels.
-
-    Args:
-        node_dict: Node properties dictionary
-        labels: Node labels list
-
-    Returns:
-        Domain enum value
-    """
-    # Check if domain is in properties
-    if "domain" in node_dict:
-        domain_val = node_dict["domain"]
-        try:
-            return Domain(domain_val) if isinstance(domain_val, str) else domain_val
-        except ValueError:
-            pass
-
-    # Infer from labels
-    label_to_domain = {
-        "Task": Domain.TASKS,
-        "Habit": Domain.HABITS,
-        "Goal": Domain.GOALS,
-        "Event": Domain.EVENTS,
-        "Entity": Domain.KNOWLEDGE,
-        "Lp": Domain.LEARNING,
-        "Finance": Domain.FINANCE,
-        "Choice": Domain.CHOICES,
-        "Principle": Domain.PRINCIPLES,
-        "Journal": Domain.JOURNALS,
-    }
-
-    for label in labels:
-        if label in label_to_domain:
-            return label_to_domain[label]
-
-    return Domain.KNOWLEDGE

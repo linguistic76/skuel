@@ -20,12 +20,12 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.type_hints import EntityUID
 from core.models.user_pins_request import PinEntityRequest, ReorderPinsRequest
-from core.services.user_relationship_service import UserRelationshipService
+from core.ports.relationship_backend_protocols import UserRelationshipOperations
 from core.utils.result_simplified import Errors, Result
 
 
 def create_user_pins_routes(
-    _app: Any, rt: Any, user_relationship_service: UserRelationshipService
+    _app: Any, rt: Any, user_relationship_service: UserRelationshipOperations
 ) -> list[Any]:
     """
     Create user pins API routes.
@@ -33,7 +33,7 @@ def create_user_pins_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        user_relationship_service: UserRelationshipService instance
+        user_relationship_service: UserRelationshipOperations instance
     """
 
     @rt("/api/user/pins")

@@ -38,7 +38,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
     from core.ports import BackendOperations
     from core.services.user.unified_user_context import UserContext
 
@@ -87,8 +87,12 @@ class PsIntelligenceService(
             event_bus=event_bus,
         )
 
-        # Query executor for direct Cypher access
+        from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
+
+        # Query executor for direct Cypher access; the Cypher itself lives in
+        # PsIntelligenceBackend below the boundary (ADR-044).
         self.executor = executor
+        self._backend = PsIntelligenceBackend(executor)
 
         self._init_context_loader(
             get_entity=self.backend.get,
@@ -205,8 +209,8 @@ class PsIntelligenceService(
             }
         )
 
-    def _require_executor(self) -> Result[Neo4jQueryExecutor]:
-        """Fail-fast guard for executor availability."""
+    def _require_backend(self) -> Result[PsIntelligenceBackend]:
+        """Fail-fast guard for backend (executor) availability."""
         if not self.executor:
             return Result.fail(
                 Errors.system(
@@ -214,7 +218,7 @@ class PsIntelligenceService(
                     operation="require_executor",
                 )
             )
-        return Result.ok(self.executor)
+        return Result.ok(self._backend)
 
     # ========================================================================
     # READINESS ASSESSMENT
@@ -243,25 +247,19 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("Ready to learn functions!")
         """
-        executor_result = self._require_executor()
-        if executor_result.is_error:
-            return Result.fail(executor_result.error)
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result.error)
 
-        def _check_readiness(records: list[dict]) -> bool:
-            if not records:
-                return True  # No prerequisites = ready
-            prereq_uids = set(records[0].get("prereq_uids") or [])
-            return prereq_uids.issubset(completed_step_uids)
+        records_result = await backend_result.value.fetch_prerequisite_step_uids(ps_uid)
+        if records_result.is_error:
+            return Result.fail(records_result)
 
-        return await executor_result.value.execute(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})-[:REQUIRES_STEP]->(prereq:Entity {entity_type: 'path_step'})
-                RETURN collect(prereq.uid) as prereq_uids
-            """,
-            params={"ps_uid": ps_uid},
-            processor=_check_readiness,
-            operation="is_ready",
-        )
+        records = records_result.value
+        if not records:
+            return Result.ok(True)  # No prerequisites = ready
+        prereq_uids = set(records[0].get("prereq_uids") or [])
+        return Result.ok(prereq_uids.issubset(completed_step_uids))
 
     # ========================================================================
     # PRACTICE ANALYSIS
@@ -288,9 +286,9 @@ class PsIntelligenceService(
             if result.is_ok:
                 print(f"Total practice: {result.value['total']} items")
         """
-        executor_result = self._require_executor()
-        if executor_result.is_error:
-            return Result.fail(executor_result.error)
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result.error)
 
         def _process_summary(records: list[dict]) -> PsPracticeSummaryResult:
             if not records:
@@ -322,26 +320,10 @@ class PsIntelligenceService(
                 total=total,
             )
 
-        return await executor_result.value.execute(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(h)
-                OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(t)
-                OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(e)
-                OPTIONAL MATCH (ps)-[:SUPPORTS_GOAL]->(g)
-                OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
-                RETURN count(DISTINCT h) as habits,
-                       count(DISTINCT t) as tasks,
-                       count(DISTINCT e) as events,
-                       count(DISTINCT g) as goals,
-                       count(DISTINCT p) as principles,
-                       count(DISTINCT c) as choices
-            """,
-            params={"ps_uid": ps_uid},
-            processor=_process_summary,
-            operation="get_practice_summary",
-        )
+        counts_result = await backend_result.value.fetch_practice_counts(ps_uid)
+        if counts_result.is_error:
+            return Result.fail(counts_result)
+        return Result.ok(_process_summary(counts_result.value))
 
     @with_error_handling("practice_completeness_score", error_type="database", uid_param="ps_uid")
     async def practice_completeness_score(self, ps_uid: str) -> Result[float]:
@@ -404,9 +386,9 @@ class PsIntelligenceService(
             if result.is_ok:
                 print(f"Guidance strength: {result.value:.0%}")
         """
-        executor_result = self._require_executor()
-        if executor_result.is_error:
-            return Result.fail(executor_result.error)
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result.error)
 
         def _calculate_score(records: list[dict]) -> float:
             if not records:
@@ -427,18 +409,10 @@ class PsIntelligenceService(
 
             return min(1.0, score)
 
-        return await executor_result.value.execute(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
-                RETURN count(DISTINCT p) as principle_count,
-                       count(DISTINCT c) as choice_count
-            """,
-            params={"ps_uid": ps_uid},
-            processor=_calculate_score,
-            operation="calculate_guidance_strength",
-        )
+        counts_result = await backend_result.value.fetch_guidance_counts(ps_uid)
+        if counts_result.is_error:
+            return Result.fail(counts_result)
+        return Result.ok(_calculate_score(counts_result.value))
 
     # ========================================================================
     # EXISTENCE CHECKS (Compound)
@@ -469,15 +443,7 @@ class PsIntelligenceService(
                 Errors.system(message="Query executor not available", operation="has_prerequisites")
             )
 
-        return await self.executor.execute_exists(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                WHERE exists((ps)-[:REQUIRES_STEP]->()) OR exists((ps)-[:REQUIRES_KNOWLEDGE]->())
-                RETURN ps
-            """,
-            params={"ps_uid": ps_uid},
-            operation="has_prerequisites",
-        )
+        return await self._backend.has_prerequisites(ps_uid)
 
     @with_error_handling("has_guidance", error_type="database", uid_param="ps_uid")
     async def has_guidance(self, ps_uid: str) -> Result[bool]:
@@ -502,16 +468,7 @@ class PsIntelligenceService(
                 Errors.system(message="Query executor not available", operation="has_guidance")
             )
 
-        return await self.executor.execute_exists(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                WHERE exists((ps)-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ps)-[:INFORMS_CHOICE]->())
-                RETURN ps
-            """,
-            params={"ps_uid": ps_uid},
-            operation="has_guidance",
-        )
+        return await self._backend.has_guidance(ps_uid)
 
     @with_error_handling("has_practice_opportunities", error_type="database", uid_param="ps_uid")
     async def has_practice_opportunities(self, ps_uid: str) -> Result[bool]:
@@ -539,20 +496,7 @@ class PsIntelligenceService(
                 )
             )
 
-        return await self.executor.execute_exists(
-            query="""
-                MATCH (ps:Entity {uid: $ps_uid})
-                WHERE exists((ps)-[:BUILDS_HABIT]->())
-                   OR exists((ps)-[:ASSIGNS_TASK]->())
-                   OR exists((ps)-[:SCHEDULES_EVENT]->())
-                   OR exists((ps)-[:SUPPORTS_GOAL]->())
-                   OR exists((ps)-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ps)-[:INFORMS_CHOICE]->())
-                RETURN ps
-            """,
-            params={"ps_uid": ps_uid},
-            operation="has_practice_opportunities",
-        )
+        return await self._backend.has_practice_opportunities(ps_uid)
 
     # ========================================================================
     # USER SUBSTANCE & CONTEXTUAL EVALUATION (Migrated Jan 2026)
@@ -567,28 +511,16 @@ class PsIntelligenceService(
         PathSteps are curriculum entities; their "substance" is derived by analyzing
         the user's application of the underlying atomic Knowledge Units (via USES_KU).
         """
-        executor_result = self._require_executor()
-        if executor_result.is_error:
-            return Result.fail(executor_result.error)
-
-        def _extract_ku_uids(records: list[dict]) -> list[str]:
-            return [r["ku_uid"] for r in records if r.get("ku_uid")]
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result.error)
 
         # 1. Find all KUs taught by this PathStep
-        ku_uids_result = await executor_result.value.execute(
-            query="""
-                MATCH (:Entity {uid: $ps_uid})-[:USES_KU]->(ku:Entity {entity_type: 'ku'})
-                RETURN ku.uid AS ku_uid
-            """,
-            params={"ps_uid": ps_uid},
-            processor=_extract_ku_uids,
-            operation="calculate_user_substance",
-        )
+        ku_rows_result = await backend_result.value.fetch_taught_ku_uids(ps_uid)
+        if ku_rows_result.is_error:
+            return Result.fail(ku_rows_result)
 
-        if ku_uids_result.is_error:
-            return Result.fail(ku_uids_result.error)
-
-        ku_uids = ku_uids_result.value
+        ku_uids = [r["ku_uid"] for r in ku_rows_result.value if r.get("ku_uid")]
 
         # 2. Evaluate UserContext across all found KUs
         total_substance = 0.0

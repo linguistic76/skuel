@@ -37,7 +37,6 @@ from core.services.user import UserContext
 from core.services.user.unified_user_context import RichUserContext
 from core.services.user.user_context_extractor import UserContextExtractor
 from core.services.user.user_context_populator import UserContextPopulator
-from core.services.user.user_context_queries import UserContextQueryExecutor
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -105,7 +104,11 @@ class UserContextBuilder:
         # is constructed before template_services run, so it can't be a ctor arg.
         self.ps_engagement_service: PsEngagementService | None = None
 
-        # Compose modules for separation of concerns
+        # Compose modules for separation of concerns. The query executor (MEGA /
+        # CONSOLIDATED Cypher) lives below the boundary (ADR-044) — lazy-imported
+        # to keep the dependency direction clean for this central module.
+        from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
+
         self._query_executor = UserContextQueryExecutor(executor)
         self._extractor = UserContextExtractor()
         self._populator = UserContextPopulator()

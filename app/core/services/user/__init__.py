@@ -63,12 +63,6 @@ from core.services.user.user_context_extractor import (
     UserContextExtractor,
 )
 from core.services.user.user_context_populator import UserContextPopulator
-from core.services.user.user_context_queries import (
-    CONSOLIDATED_QUERY,
-    MEGA_QUERY,
-    UserContextQueryExecutor,
-    empty_context_data,
-)
 from core.services.user.user_context_service import UserContextService
 from core.services.user.user_core_service import UserCoreService
 from core.services.user.user_progress_recorder_service import UserProgressRecorderService
@@ -77,9 +71,7 @@ from core.services.user.user_stats_aggregator import UserStatsAggregator
 __all__ = [
     # Activity constants
     "ACTIVITY_FIELD_MAP",
-    "CONSOLIDATED_QUERY",
     "InvalidationReason",
-    "MEGA_QUERY",  # Query constants
     # Intelligence data classes
     "DailyWorkPlan",
     "GoalRelationshipData",
@@ -100,11 +92,9 @@ __all__ = [
     # Intelligence
     "UserContextIntelligence",
     "UserContextPopulator",  # Context population
-    "UserContextQueryExecutor",  # Query execution
     "UserContextService",  # API orchestration
     # Sub-Services
     "UserCoreService",
     "UserProgressRecorderService",
     "UserStatsAggregator",
-    "empty_context_data",
 ]

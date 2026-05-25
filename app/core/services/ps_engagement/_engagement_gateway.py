@@ -24,25 +24,27 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .engagement import Engagement, EngagementState
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.ports.ps_engagement_protocols import PsEngagementOperations
 
 logger = get_logger(__name__)
 
-_ENGAGED_WITH = RelationshipName.ENGAGED_WITH.value
-
 
 class _EngagementGateway:
-    """Thin Cypher gateway for the ENGAGED_WITH edge."""
+    """Thin orchestrator over the ENGAGED_WITH edge.
 
-    def __init__(self, executor: Neo4jQueryExecutor) -> None:
-        self._executor = executor
+    Owns the at-most-one-active invariant and the record→``Engagement``
+    reconstruction; the Cypher itself lives in ``PsEngagementBackend`` below
+    the hexagonal boundary (ADR-044).
+    """
+
+    def __init__(self, backend: PsEngagementOperations) -> None:
+        self._backend = backend
         self.logger = logger
 
     async def find_active(self, student_uid: str, ps_uid: str) -> Result[Engagement | None]:
@@ -51,20 +53,7 @@ class _EngagementGateway:
         "Active" = ``state = "engaged"``. Completed/abandoned edges are
         ignored here — callers wanting audit history use ``find_history``.
         """
-        query = f"""
-        MATCH (u:User {{uid: $student_uid}})-[r:{_ENGAGED_WITH}]->(ps {{uid: $ps_uid}})
-        WHERE r.state = 'engaged'
-        RETURN r.since AS since,
-               r.state AS state,
-               r.completed_at AS completed_at,
-               r.abandoned_at AS abandoned_at
-        LIMIT 1
-        """
-        result: Result[list[dict[str, Any]]] = await self._executor.execute(
-            query=query,
-            params={"student_uid": student_uid, "ps_uid": ps_uid},
-            operation="find_active_engagement",
-        )
+        result = await self._backend.find_active_engagement(student_uid, ps_uid)
         if result.is_error:
             return Result.fail(result)
         records: list[dict[str, Any]] = result.value
@@ -80,20 +69,7 @@ class _EngagementGateway:
         carries an empty ``spawned_instance_uids`` tuple; the facade enriches
         it from the activity instance store.
         """
-        query = f"""
-        MATCH (u:User {{uid: $student_uid}})-[r:{_ENGAGED_WITH}]->(ps)
-        WHERE r.state = 'engaged'
-        RETURN ps.uid AS ps_uid,
-               r.since AS since,
-               r.state AS state,
-               r.completed_at AS completed_at,
-               r.abandoned_at AS abandoned_at
-        """
-        result: Result[list[dict[str, Any]]] = await self._executor.execute(
-            query=query,
-            params={"student_uid": student_uid},
-            operation="list_engaged",
-        )
+        result = await self._backend.list_engaged_edges(student_uid)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(
@@ -129,28 +105,7 @@ class _EngagementGateway:
         # facade test for this case is the concurrency test in Phase 4
         # verification — in practice we accept the race for V1; a Neo4j unique
         # constraint on (User, PS, state="engaged") would harden it later.
-        query = f"""
-        MATCH (u:User {{uid: $student_uid}}), (ps {{uid: $ps_uid}})
-        CREATE (u)-[r:{_ENGAGED_WITH} {{
-            since: $since,
-            state: 'engaged',
-            completed_at: null,
-            abandoned_at: null
-        }}]->(ps)
-        RETURN r.since AS since,
-               r.state AS state,
-               r.completed_at AS completed_at,
-               r.abandoned_at AS abandoned_at
-        """
-        result: Result[list[dict[str, Any]]] = await self._executor.execute_write(
-            query=query,
-            params={
-                "student_uid": student_uid,
-                "ps_uid": ps_uid,
-                "since": now.isoformat(),
-            },
-            operation="open_engagement",
-        )
+        result = await self._backend.create_engagement_edge(student_uid, ps_uid, now.isoformat())
         if result.is_error:
             return Result.fail(result)
         records: list[dict[str, Any]] = result.value
@@ -198,25 +153,8 @@ class _EngagementGateway:
         if timestamp_field not in {"completed_at", "abandoned_at"}:
             return Result.fail(Errors.system(message=f"Invalid timestamp_field: {timestamp_field}"))
 
-        query = f"""
-        MATCH (u:User {{uid: $student_uid}})-[r:{_ENGAGED_WITH}]->(ps {{uid: $ps_uid}})
-        WHERE r.state = 'engaged'
-        SET r.state = $new_state,
-            r.{timestamp_field} = $ts
-        RETURN r.since AS since,
-               r.state AS state,
-               r.completed_at AS completed_at,
-               r.abandoned_at AS abandoned_at
-        """
-        result: Result[list[dict[str, Any]]] = await self._executor.execute_write(
-            query=query,
-            params={
-                "student_uid": student_uid,
-                "ps_uid": ps_uid,
-                "new_state": new_state,
-                "ts": now.isoformat(),
-            },
-            operation=f"mark_engagement_{new_state}",
+        result = await self._backend.mark_engagement_terminal(
+            student_uid, ps_uid, new_state, timestamp_field, now.isoformat()
         )
         if result.is_error:
             return Result.fail(result)

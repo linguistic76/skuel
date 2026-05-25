@@ -32,11 +32,11 @@ def _create_learning_services(
     activity_knowledge_intelligence: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
+    from adapters.persistence.neo4j.schema_service import Neo4jSchemaService
     from core.models.pathways.learning_path import LearningPath
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ps_service import PsService
     from core.services.query_builder import QueryBuilder
-    from core.services.schema_service import Neo4jSchemaService
     from core.services.user_progress_service import UserProgressService
 
     # Create embedding + vector search services (March 2026 - HuggingFace Migration)

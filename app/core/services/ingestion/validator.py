@@ -563,16 +563,16 @@ async def validate_relationship_targets(
     # Query Neo4j to find which UIDs exist
     existing_uids: set[str] = set()
 
-    # Use driver.execute_query which accepts dynamic strings
-    # The label is derived from ENTITY_CONFIGS so it's trusted (driver requires
-    # LiteralString for injection safety, which we've already verified).
+    # The label is derived from ENTITY_CONFIGS (trusted). Existence Cypher lives
+    # in IngestionWriteBackend below the boundary (ADR-044).
+    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
+
+    write_backend = IngestionWriteBackend(driver)
     try:
         for label, uids in uids_by_label.items():
-            records, _, _ = await driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
-                f"UNWIND $uids AS uid MATCH (n:{label} {{uid: uid}}) RETURN n.uid AS uid",
-                uids=list(uids),
+            existing_uids.update(
+                await write_backend.find_existing_uids_for_label(label, list(uids))
             )
-            existing_uids.update(r["uid"] for r in records)
 
     except NEO4J_EXCEPTIONS as e:
         logger.error(f"Failed to validate relationship targets: {e}")

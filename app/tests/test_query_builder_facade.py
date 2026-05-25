@@ -18,7 +18,7 @@ def test_import_facade():
 
 def test_import_sub_services():
     """Test 2: Import sub-services directly"""
-    from core.services.query import (
+    from adapters.persistence.neo4j.query_builders import (
         FacetedQueryBuilder,
         GraphContextBuilder,
         QueryOptimizer,
@@ -43,7 +43,7 @@ def test_initialize_facade():
 
 def test_sub_services_initialized():
     """Test 4: Verify sub-services are initialized"""
-    from core.services.query import (
+    from adapters.persistence.neo4j.query_builders import (
         FacetedQueryBuilder,
         GraphContextBuilder,
         QueryOptimizer,
