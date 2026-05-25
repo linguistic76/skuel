@@ -65,24 +65,28 @@ invariants — keep comments focused on real, high-priority risks.
   format (PDF is reserved for finance invoices).
 
 ## Triggering a review
-- **Both AI reviewers auto-run on PRs you open, and both are also summonable by
-  comment** (2026-05-25). Codex auto-reviews on PR open (its dashboard); Kody
-  auto-reviews (its app.kodus.io toggle). Summon explicitly with **`@codex review`**
-  or **`@kody start-review`** — needed e.g. for a re-review after pushing more
-  commits (Codex's auto-trigger is "On PR open", not per-push).
-- **Codex** (`chatgpt-codex-connector`): auto-review is **ON** (unlocked by a paid
-  ChatGPT plan; dashboard `chatgpt.com/codex/cloud/settings/code-review` → "Personal
-  Review Trigger Preference" = "On PR open", repo `linguistic76/skuel` "Auto code
-  review" = "Review my PRs"). It posts a PR review/comment, **never a status check**.
-  A manual `@codex review` must come from a **human account** (e.g. `gh pr comment`,
-  which posts as `linguistic76`) — a bot-posted comment yields only the cosmetic
-  "create a Codex account" prompt, which is why the repo comment-bot
-  (`.github/workflows/codex-review.yml`) stays disabled.
+- **Neither AI reviewer auto-runs — both are on-demand** (2026-05-25). The only thing
+  that runs automatically is the mechanical **CI Gate**. Summon a reviewer by comment:
+  **`@kody start-review`** (gating) and/or **`@codex review`** (advisory) — including for
+  a re-review after pushing more commits. A review you never request never runs, so
+  summon before merging anything non-trivial.
+- **Codex** (`chatgpt-codex-connector`): auto-review is **OFF** (dashboard
+  `chatgpt.com/codex/cloud/settings/code-review` → "Personal auto review preferences" OFF,
+  and repo `linguistic76/skuel` "Auto code review" = "Follow personal preferences", which
+  resolves to off). It reviews **only** on a manual `@codex review`, and posts a PR
+  review/comment — **never a status check**. The `@codex review` must come from a **human
+  account** (e.g. `gh pr comment`, which posts as `linguistic76`) — a bot-posted comment
+  yields only the cosmetic "create a Codex account" prompt, which is why the repo
+  comment-bot (`.github/workflows/codex-review.yml`) stays disabled.
 - **Codex is ADVISORY — not authoritative.** Treat its findings as input; Claude /
   the LLM arbitrates what is actually correct (consider, then accept *or reject*).
-  ⚠️ Codex sometimes reasons from this repo's *prior* configuration (e.g. it has
-  claimed "auto-review is off" while auto-reviewing the very PR) — verify any claim
-  about repo/review state against current reality before acting on it.
+  ⚠️ Codex sometimes reasons from this repo's *prior* configuration (e.g. asserting a
+  review-trigger state that no longer holds) — verify any claim about repo/review state
+  against current reality before acting on it.
+- **Kody** (`kody-ai`): auto-review is **OFF** (app.kodus.io "enable automatic code
+  review" toggle off). It reviews only on **`@kody start-review`**; when a PR opens it
+  posts a "Code Review Skipped" check. When summoned it runs in request-changes mode, so
+  a Kody `CHANGES_REQUESTED` holds the merge.
 - **Codex Review Gate** (required check, `.github/workflows/codex-gate.yml`) —
   **scoped to on-request**: a PR with no `@codex review` passes automatically; once a
   human posts `@codex review`, the gate is **RED** until the review is considered and
@@ -91,10 +95,10 @@ invariants — keep comments focused on real, high-priority risks.
   step. Clear it: read the review → post a short "Codex consideration" note
   (accept/reject + why) → `gh pr edit <PR#> --add-label codex-considered`.
 - **Required checks on `main`:** **CI Gate** (mechanical — tests/types/lint/cypher/
-  route-audit) **and Codex Review Gate**. Kody runs in request-changes mode, so a
-  Kody `CHANGES_REQUESTED` also holds the merge. `main` keeps admin-bypass.
-- To change a reviewer's auto-behavior, flip its **dashboard** toggle (Codex:
-  the settings URL above; Kody: app.kodus.io "enable automatic code review"). The
-  committed `kodus-config.yml` `automatedReviewActive` mirrors intent but does NOT
-  control the trigger on its own (dashboard is the switch). See
-  `.github/workflows/README.md` for the full reviewer map.
+  route-audit) **and Codex Review Gate**. `main` keeps admin-bypass.
+- To change a reviewer's auto-behavior, flip its **dashboard** toggle (Codex: the
+  settings URL above — "Personal auto review preferences" / the per-repo "Auto code
+  review"; Kody: app.kodus.io "enable automatic code review"). The committed
+  `kodus-config.yml` `automatedReviewActive` mirrors intent but does NOT control the
+  trigger on its own (dashboard is the switch). See `.github/workflows/README.md` for
+  the full reviewer map.

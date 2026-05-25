@@ -44,10 +44,10 @@ suggestionControl:
 
 ignoredTitleKeywords: []
 
-# On-demand only (2026-05-24): Kody reviews only when a human comments
+# On-demand only (2026-05-25): Kody reviews only when a human comments
 # `@kody start-review` — no auto-review on PR open or per commit — exactly mirroring
-# Codex's `@codex review`. So no AI reviewer runs automatically; the mechanical
-# "CI Gate" check is the only automatic gate.
+# Codex's `@codex review` (Codex auto-review is also off). So no AI reviewer runs
+# automatically; the mechanical "CI Gate" check is the only automatic gate.
 #
 # ⚠️ This flag is NOT the switch. Empirically (2026-05-24): with
 # `automatedReviewActive: false` committed on `main`, Kody STILL auto-reviewed every
