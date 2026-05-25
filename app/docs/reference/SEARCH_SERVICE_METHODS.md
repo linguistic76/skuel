@@ -150,14 +150,6 @@ result = await ku_search.get_enables("ku.python-basics")
 # Returns: [KU(uid="ku.oop"), KU(uid="ku.decorators"), ...]
 ```
 
-#### `get_user_progress(uid: str, user_uid: UserUID) -> Result[dict]`
-Get user's progress/mastery for curriculum items (when `_supports_user_progress = True`).
-
-```python
-result = await ku_search.get_user_progress("ku.python-basics", "user.123")
-# Returns: {"mastery_level": 0.8, "last_reviewed": "2026-01-05", ...}
-```
-
 ---
 
 ## Class Attribute Configuration
@@ -179,11 +171,9 @@ class GoalsSearchService(BaseService["GoalsOperations", Goal]):
 
     # Content (for curriculum)
     _content_field: str = "content"
-    _mastery_threshold: float = 0.8
 
     # User ownership
     _user_ownership_relationship: ClassVar[str | None] = "OWNS"  # None for shared content
-    _supports_user_progress: bool = False  # True for curriculum
 
     # Graph traversal
     _prerequisite_relationships: ClassVar[list[str]] = ["REQUIRES"]
@@ -402,7 +392,6 @@ _graph_enrichment_patterns = [
 _search_fields = ["title", "content", "tags"]
 _category_field = "domain"
 _content_field = "content"
-_supports_user_progress = True
 _user_ownership_relationship = None  # Shared content
 _graph_enrichment_patterns = [
     ("REQUIRES_KNOWLEDGE", "Ku", "prerequisites", "outgoing"),
@@ -441,7 +430,6 @@ _graph_enrichment_patterns = [
 ```python
 _search_fields = ["title", "intent", "description"]
 _category_field = "learning_type"
-_supports_user_progress = True
 _user_ownership_relationship = None  # Shared content
 _graph_enrichment_patterns = [
     ("CONTAINS_KNOWLEDGE", "Ku", "knowledge_units", "outgoing"),
@@ -469,7 +457,6 @@ _graph_enrichment_patterns = [
 ```python
 _search_fields = ["name", "goal", "description"]
 _category_field = "domain"
-_supports_user_progress = True
 _user_ownership_relationship = None  # Shared content (can be user-created)
 _graph_enrichment_patterns = [
     ("HAS_STEP", "PathStep", "steps", "outgoing"),

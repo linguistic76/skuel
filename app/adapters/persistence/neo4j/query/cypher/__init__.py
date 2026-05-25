@@ -15,8 +15,6 @@ Infrastructure Functions (January 2026):
 - build_distinct_values_query: Get distinct field values (categories)
 - build_hierarchy_query: Parent/child hierarchy traversal
 - build_prerequisite_traversal_query: Prerequisite chains (both directions)
-- build_user_progress_query: User mastery/progress data
-- build_user_curriculum_query: User's curriculum entities
 
 Usage:
     from core.models.query.cypher import build_search_query, build_text_search_query
@@ -29,8 +27,6 @@ Usage:
         build_distinct_values_query,
         build_hierarchy_query,
         build_prerequisite_traversal_query,
-        build_user_progress_query,
-        build_user_curriculum_query,
     )
 """
 
@@ -58,8 +54,6 @@ from .crud_queries import (
     build_relationship_traversal_query,
     build_search_query,
     build_text_search_query,
-    build_user_curriculum_query,
-    build_user_progress_query,
     convert_value_for_neo4j,
     get_filterable_fields,
     get_supported_operators,
@@ -227,8 +221,6 @@ __all__ = [
     "build_unmastered_prerequisite_chain",
     # Meta-service queries
     "build_user_activity_query",
-    "build_user_curriculum_query",
-    "build_user_progress_query",
     # Intelligence queries - weights
     "build_weighted_path_query",
     "convert_value_for_neo4j",

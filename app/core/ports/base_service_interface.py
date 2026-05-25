@@ -6,7 +6,7 @@ Explicit Protocol interfaces for BaseService mixins.
 
 Purpose:
 - Provides type-safe interface for all BaseService methods
-- Enables IDE autocomplete for mixin methods (all 7 mixins)
+- Enables IDE autocomplete for mixin methods (all 6 mixins)
 - Documents complete BaseService public API
 - Allows static type checking with MyPy
 
@@ -85,7 +85,7 @@ Generic Service Utilities (Production):
 See Also:
 - /docs/reference/BASESERVICE_METHOD_INDEX.md - Complete method listing (35-50 methods)
 - /docs/reference/SUB_SERVICE_CATALOG.md - Domain-specific method catalog
-- /core/services/base_service.py - Implementation (7 mixins)
+- /core/services/base_service.py - Implementation (6 mixins)
 - /core/services/mixins/ - Individual mixin implementations
 """
 
@@ -97,7 +97,6 @@ from core.models.enums import EntityStatus
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.base_protocols import Direction
-from core.ports.query_types import UserProgressResult
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -756,66 +755,6 @@ class TimeQueryOperations(Protocol[T]):
 
 
 @runtime_checkable
-class UserProgressOperations(Protocol[T]):
-    """
-    Methods provided by UserProgressMixin.
-
-    Purpose: Progress and mastery tracking (curriculum-origin, now universal).
-    """
-
-    async def get_user_progress(
-        self, user_uid: UserUID, entity_uid: EntityUID
-    ) -> Result[UserProgressResult]:
-        """
-        Get user's progress/mastery for an entity.
-
-        Args:
-            user_uid: User UID
-            entity_uid: Entity UID
-
-        Returns:
-            Result[UserProgressResult]: Progress stats for entity
-        """
-        ...
-
-    async def update_user_mastery(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID,
-        mastery_level: float,
-    ) -> Result[bool]:
-        """
-        Update user's mastery level for an entity.
-
-        Args:
-            user_uid: User UID
-            entity_uid: Entity UID
-            mastery_level: Mastery score (0.0-1.0)
-
-        Returns:
-            Result[bool]: True if updated
-        """
-        ...
-
-    async def get_user_curriculum(
-        self,
-        user_uid: UserUID,
-        include_completed: bool = False,
-    ) -> Result[list[T]]:
-        """
-        Get entities the user is studying/has mastered.
-
-        Args:
-            user_uid: User UID
-            include_completed: Whether to include completed items
-
-        Returns:
-            Result[list[T]]: Entities in user's curriculum
-        """
-        ...
-
-
-@runtime_checkable
 class ContextOperations(Protocol[T]):
     """
     Methods provided by ContextOperationsMixin.
@@ -879,14 +818,13 @@ class BaseServiceInterface(
     SearchOperations[T],
     RelationshipOperations[T],
     TimeQueryOperations[T],
-    UserProgressOperations[T],
     ContextOperations[T],
     Protocol[T],
 ):
     """
     Complete BaseService interface.
 
-    Combines all 7 mixin interfaces into a unified protocol.
+    Combines all 6 mixin interfaces into a unified protocol.
 
     This protocol represents the FULL public API of BaseService:
     - ConversionHelpersMixin: DTO conversion
@@ -894,7 +832,6 @@ class BaseServiceInterface(
     - SearchOperationsMixin: Search and filtering
     - RelationshipOperationsMixin: Graph relationships
     - TimeQueryMixin: Date-based queries
-    - UserProgressMixin: Progress tracking
     - ContextOperationsMixin: Graph context retrieval
 
     Use this protocol for type hints when you need the complete BaseService interface.

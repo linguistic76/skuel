@@ -188,9 +188,6 @@ BaseService[B: BackendOperations, T: DomainModelProtocol]
     ├─ TimeQueryMixin               ← Depends on ConversionHelpersMixin
     │   └─ Methods: get_user_items_in_range(), get_upcoming(), get_overdue(), get_active()
     │
-    ├─ UserProgressMixin            ← Depends on ConversionHelpersMixin
-    │   └─ Methods: get_user_progress(), update_user_mastery()
-    │
     └─ ContextOperationsMixin       ← Depends on CrudOperationsMixin
         └─ Methods: get_with_content(), get_with_context()
 ```
@@ -204,11 +201,10 @@ mixins/
   search_operations_mixin.py     (uses conversion_helpers)
   relationship_operations_mixin.py (uses conversion_helpers)
   time_query_mixin.py            (uses conversion_helpers)
-  user_progress_mixin.py         (uses conversion_helpers)
   context_operations_mixin.py    (uses crud_operations)
 ```
 
-**Key Insight:** `ConversionHelpersMixin` is the foundation — 5 of 7 mixins depend on it directly.
+**Key Insight:** `ConversionHelpersMixin` is the foundation — 4 of 6 mixins depend on it directly.
 
 ---
 
@@ -588,7 +584,7 @@ Routes / Application Code
 /core/services/
 │
 ├─ base_service.py
-│   └─ Uses: mixins/ (7 mixin files)
+│   └─ Uses: mixins/ (6 mixin files)
 │
 ├─ mixins/
 │   ├─ conversion_helpers_mixin.py    (no dependencies)
@@ -596,7 +592,6 @@ Routes / Application Code
 │   ├─ search_operations_mixin.py     (uses conversion_helpers)
 │   ├─ relationship_operations_mixin.py (uses conversion_helpers)
 │   ├─ time_query_mixin.py            (uses conversion_helpers)
-│   ├─ user_progress_mixin.py         (uses conversion_helpers)
 │   └─ context_operations_mixin.py    (uses crud_operations)
 │
 ├─ tasks/
@@ -767,7 +762,7 @@ BaseService._get_config_value("search_fields")
 ### Service Layers
 
 ```
-Layer 1: BaseService (7 mixins)             ← Foundation (100+ methods)
+Layer 1: BaseService (6 mixins)             ← Foundation (100+ methods)
 Layer 2: Sub-Services (5–11 per domain)     ← Implementation (specialized)
 Layer 3: Facades (1 per domain)             ← Public API (explicit delegation)
 Layer 4: Routes (HTTP → Facades)            ← Interface (HTTP boundaries)

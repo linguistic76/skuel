@@ -130,7 +130,6 @@ def get_mixin_methods() -> dict[str, list[str]]:
         RelationshipOperationsMixin,
         SearchOperationsMixin,
         TimeQueryMixin,
-        UserProgressMixin,
     )
 
     mixins = {
@@ -139,7 +138,6 @@ def get_mixin_methods() -> dict[str, list[str]]:
         "SearchOperationsMixin": SearchOperationsMixin,
         "RelationshipOperationsMixin": RelationshipOperationsMixin,
         "TimeQueryMixin": TimeQueryMixin,
-        "UserProgressMixin": UserProgressMixin,
         "ContextOperationsMixin": ContextOperationsMixin,
     }
 
@@ -185,7 +183,7 @@ def generate_method_index() -> str:
     lines.append("## Table of Contents")
     lines.append("")
     lines.append(
-        "- [BaseService Mixin Methods](#baseservice-mixin-methods) - Methods from 7 mixins"
+        "- [BaseService Mixin Methods](#baseservice-mixin-methods) - Methods from 6 mixins"
     )
     lines.append("- [Activity Domain Facades](#activity-domain-facades) - Facade delegations")
     lines.append("- [Common Patterns](#common-patterns) - Usage examples")
@@ -207,7 +205,6 @@ def generate_method_index() -> str:
         "SearchOperationsMixin": "Text search, filtering, and graph-aware queries",
         "RelationshipOperationsMixin": "Graph relationship operations and traversal",
         "TimeQueryMixin": "Calendar and scheduling queries",
-        "UserProgressMixin": "Progress and mastery tracking",
         "ContextOperationsMixin": "Retrieve entities with enriched graph context",
     }
 

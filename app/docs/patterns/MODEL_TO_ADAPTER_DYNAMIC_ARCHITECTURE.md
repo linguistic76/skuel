@@ -30,7 +30,7 @@ adapters/persistence/neo4j/
     _search_mixin.py              # EntitySearchOperations[T] — find_by_date_range, search, find_by, count, health_check, get_domain_context_raw, execute_query
     _search_raw_mixin.py          # _SearchRawMixin — text_search_raw, relationship_traversal_raw, graph_aware_search_raw, array ops, distinct_values_raw, faceted_search_raw
     _temporal_mixin.py            # _TemporalMixin — user_activity_range_raw, due_soon_raw, overdue_raw
-    _prereq_progress_mixin.py     # _PrereqProgressMixin — prerequisite_traversal_raw, hierarchy_query_raw, user_progress_raw, update_user_mastery_rel, user_curriculum_raw
+    _prereq_progress_mixin.py     # _PrereqProgressMixin — prerequisite_traversal_raw, hierarchy_query_raw
     _context_query_mixin.py       # _ContextQueryMixin — context_query_raw, basic_context_query_raw
     _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent relate() API
     _relationship_ordered_mixin.py# Ordered/hierarchical traversals + lateral-getter convenience wrappers
@@ -792,7 +792,7 @@ Time: 30 seconds
 - `_search_mixin.py` — `find_by_date_range`, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query`
 - `_search_raw_mixin.py` — `text_search_raw`, `relationship_traversal_raw`, `graph_aware_search_raw`, array ops, `distinct_values_raw`, `faceted_search_raw`
 - `_temporal_mixin.py` — `user_activity_range_raw`, `due_soon_raw`, `overdue_raw`
-- `_prereq_progress_mixin.py` — `prerequisite_traversal_raw`, `hierarchy_query_raw`, `user_progress_raw`, `update_user_mastery_rel`, `user_curriculum_raw`
+- `_prereq_progress_mixin.py` — `prerequisite_traversal_raw`, `hierarchy_query_raw`
 - `_context_query_mixin.py` — `context_query_raw`, `basic_context_query_raw`
 - `_relationship_query_mixin.py` — core reads, batch counts, edge metadata, fluent `relate()` entry point
 - `_relationship_ordered_mixin.py` — ordered/hierarchical traversals + lateral-getter convenience wrappers: `get_ordered_related_uids`, `get_related_with_metadata`, `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, `get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`

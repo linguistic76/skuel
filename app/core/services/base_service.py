@@ -75,9 +75,6 @@ TimeQueryMixin:
     get_user_items_in_range_base, get_user_items_in_range,
     get_upcoming, get_overdue, get_active
 
-UserProgressMixin:
-    get_user_progress, update_user_mastery, get_user_curriculum
-
 ContextOperationsMixin:
     get_with_content, get_with_context
 
@@ -120,7 +117,6 @@ from core.services.mixins import (
     RelationshipOperationsMixin,
     SearchOperationsMixin,
     TimeQueryMixin,
-    UserProgressMixin,
 )
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -142,7 +138,6 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     SearchOperationsMixin[B, T],
     RelationshipOperationsMixin[B, T],
     TimeQueryMixin[B, T],
-    UserProgressMixin[B, T],
     ContextOperationsMixin[B, T],
 ):
     """
@@ -542,12 +537,6 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
     # Content field name - where content is stored
     _content_field: str = "content"
-
-    # Mastery threshold for "mastered" status (0.0-1.0)
-    _mastery_threshold: float = 0.7
-
-    # Whether this domain supports user progress tracking
-    _supports_user_progress: ClassVar[bool] = False
 
     # ========================================================================
     # DOMAIN-SPECIFIC HOOKS (Optional)

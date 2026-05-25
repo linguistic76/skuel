@@ -99,8 +99,8 @@ async def get_service_capabilities(
         capabilities["category_count"] = len(categories_result.value)
         logger.debug(f"{domain} has {len(categories_result.value)} categories")
 
-    # Check user progress support (BaseService from UserProgressMixin)
-    # Note: has_user_progress is a property on the service's _config
+    # Check user progress support (DomainConfig.supports_user_progress flag)
+    # Note: has_user_progress is read from the service's _config
     try:
         config = getattr(service, "_config", None)
         if config:
