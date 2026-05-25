@@ -91,9 +91,6 @@ class DomainSearchOperations(Protocol[T]):
 | `list_categories()` | List unique category values | Uses `_category_field` |
 | `get_prerequisites()` | Traverse prerequisite chains | Uses `_prerequisite_relationships` |
 | `get_enables()` | Traverse enables chains | Uses `_enables_relationships` |
-| `get_user_progress()` | Get user completion/mastery | Requires `_supports_user_progress = True` |
-| `update_user_mastery()` | Update progress level | Requires `_supports_user_progress = True` |
-| `get_user_curriculum()` | Get entities by progress state | Requires `_supports_user_progress = True` |
 
 ### Class Attributes for Configuration
 
@@ -116,9 +113,6 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     _enables_relationships: ClassVar[list[str]] = [
         RelationshipName.ENABLES_GOAL.value,
     ]
-
-    # Progress tracking (January 2026)
-    _supports_user_progress: ClassVar[bool] = True
 ```
 
 ### When to Override
@@ -317,13 +311,12 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     _dto_class = GoalDTO
     _model_class = Goal
     _category_field = "domain"  # Goals use 'domain' for categorization
-    _supports_user_progress = True  # Enable progress tracking
     _prerequisite_relationships = [REQUIRES_KNOWLEDGE, DEPENDS_ON_GOAL]
     _enables_relationships = [ENABLES_GOAL]
 
     # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
     # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables(), get_user_progress(), get_user_curriculum()
+    # get_prerequisites(), get_enables()
 
     # Goal-specific methods (must implement)
     async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Goal]]: ...
@@ -340,13 +333,12 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 class HabitSearchService(BaseService[HabitsOperations, Habit]):
     _dto_class = HabitDTO
     _model_class = Habit
-    _supports_user_progress = True  # Enable progress tracking
     _prerequisite_relationships = [REQUIRES_PREREQUISITE_HABIT]
     _enables_relationships = [ENABLES_HABIT]
 
     # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
     # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables(), get_user_progress(), get_user_curriculum()
+    # get_prerequisites(), get_enables()
 
     # Habit-specific methods
     async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Habit]]: ...
@@ -365,13 +357,12 @@ class EventsSearchService(BaseService[EventsOperations, Event]):
     _dto_class = EventDTO
     _model_class = Event
     _search_order_by = "event_date"  # Events ordered by event date
-    _supports_user_progress = True  # Enable progress tracking
     _prerequisite_relationships = [REQUIRES_KNOWLEDGE]
     _enables_relationships = [REINFORCES_HABIT]
 
     # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
     # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables(), get_user_progress(), get_user_curriculum()
+    # get_prerequisites(), get_enables()
 
     # Event-specific methods
     async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Event]]: ...
@@ -389,13 +380,12 @@ class EventsSearchService(BaseService[EventsOperations, Event]):
 class ChoicesSearchService(BaseService[ChoicesOperations, Choice]):
     _dto_class = ChoiceDTO
     _model_class = Choice
-    _supports_user_progress = True  # Enable progress tracking
     _prerequisite_relationships = [REQUIRES_KNOWLEDGE_FOR_DECISION]
     _enables_relationships = [AFFECTS_GOAL, OPENS_LEARNING_PATH]
 
     # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
     # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables(), get_user_progress(), get_user_curriculum()
+    # get_prerequisites(), get_enables()
 
     # Choice-specific methods
     async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Choice]]: ...
@@ -412,13 +402,12 @@ class ChoicesSearchService(BaseService[ChoicesOperations, Choice]):
 class TasksSearchService(BaseService[TasksOperations, Task]):
     _dto_class = TaskDTO
     _model_class = Task
-    _supports_user_progress = True  # Enable progress tracking
     _prerequisite_relationships = [BLOCKED_BY, REQUIRES_TASK]
     _enables_relationships = [BLOCKS, ENABLES_TASK]
 
     # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
     # get_by_category(), list_categories(), get_by_relationship(),
-    # get_prerequisites(), get_enables(), get_user_progress(), get_user_curriculum()
+    # get_prerequisites(), get_enables()
 
     # Task-specific methods
     async def get_tasks_for_goal(self, goal_uid: str) -> Result[list[Task]]: ...
@@ -436,7 +425,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     _dto_class = PrincipleDTO
     _model_class = Principle
     _search_fields = ["name", "statement", "description", "why_important"]
-    _supports_user_progress = True  # Enable progress tracking
     _prerequisite_relationships = [GROUNDED_IN_KNOWLEDGE]
     _enables_relationships = [GUIDES_GOAL, GUIDES_CHOICE, INSPIRES_HABIT]
 

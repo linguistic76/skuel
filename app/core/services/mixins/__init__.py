@@ -10,7 +10,6 @@ BaseService Decomposition Mixins (January 2026):
     - SearchOperationsMixin: Text search, graph search, filtering
     - RelationshipOperationsMixin: Graph relationships and prerequisites
     - TimeQueryMixin: Date-based queries for calendar integration
-    - UserProgressMixin: Progress and mastery tracking
     - ContextOperationsMixin: Graph context retrieval and enrichment
 
 Activity Domain Mixins (April 2026):
@@ -25,7 +24,6 @@ from core.services.mixins.knowledge_intelligence_mixin import KnowledgeIntellige
 from core.services.mixins.relationship_operations_mixin import RelationshipOperationsMixin
 from core.services.mixins.search_operations_mixin import SearchOperationsMixin
 from core.services.mixins.time_query_mixin import TimeQueryMixin
-from core.services.mixins.user_progress_mixin import UserProgressMixin
 
 __all__ = [
     # BaseService decomposition mixins
@@ -34,7 +32,6 @@ __all__ = [
     "SearchOperationsMixin",
     "RelationshipOperationsMixin",
     "TimeQueryMixin",
-    "UserProgressMixin",
     "ContextOperationsMixin",
     # Activity Domain mixins
     "KnowledgeIntelligenceDelegationMixin",

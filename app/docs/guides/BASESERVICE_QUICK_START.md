@@ -10,7 +10,7 @@
 
 ## TL;DR - 30 Second Summary
 
-SKUEL uses **BaseService** (7 mixins) + **Facade Pattern** (7-14 sub-services) for all Activity Domains.
+SKUEL uses **BaseService** (6 mixins) + **Facade Pattern** (7-14 sub-services) for all Activity Domains.
 
 **For Production:**
 ```python
@@ -35,13 +35,12 @@ core = TasksCoreService(backend=mock_backend)
 SKUEL's service layer has **3 levels**:
 
 ```
-1. BaseService (7 mixins)          ← Foundation layer
+1. BaseService (6 mixins)          ← Foundation layer
    ├─ ConversionHelpersMixin        ← DTO conversion
    ├─ CrudOperationsMixin           ← CRUD + ownership + lifecycle hooks
    ├─ SearchOperationsMixin         ← Search/filtering
    ├─ RelationshipOperationsMixin   ← Graph relationships
    ├─ TimeQueryMixin                ← Date-based queries
-   ├─ UserProgressMixin             ← Progress tracking
    └─ ContextOperationsMixin        ← Graph context
 
 2. Sub-Services (3-11 per domain)  ← Implementation layer
@@ -57,7 +56,7 @@ SKUEL's service layer has **3 levels**:
 
 ### Key Concepts
 
-**1. BaseService provides 100+ methods via 7 mixins**
+**1. BaseService provides 100+ methods via 6 mixins**
 - Methods like `create()`, `get()`, `search()`, `verify_ownership()`
 - All Activity Domain services extend BaseService
 
@@ -499,7 +498,7 @@ async def test_task_lifecycle(tasks_core_service):
 
 ## FAQ (5 Minutes)
 
-### Q: Why 7 mixins instead of one big BaseService?
+### Q: Why 6 mixins instead of one big BaseService?
 
 **A:** Single Responsibility Principle + Composability
 
@@ -616,7 +615,7 @@ Each BaseService mixin has a corresponding protocol:
 **TYPE_CHECKING blocks** ensure protocols match implementations:
 
 ```python
-# All 7 mixins include this verification pattern
+# All 6 mixins include this verification pattern
 if TYPE_CHECKING:
     from core.ports.base_service_interface import ConversionOperations
 

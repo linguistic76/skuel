@@ -2,7 +2,7 @@
 
 **Purpose:** Complete reference of all methods available in BaseService and Activity Domain facades.
 
-**Last Updated:** 2026-03-04 (Auto-generated)
+**Last Updated:** 2026-05-25 (Auto-generated)
 
 **WARNING:** This file is AUTO-GENERATED. Do not edit manually.
 **To update:** Run `python scripts/generate_method_index.py`
@@ -11,7 +11,7 @@
 
 ## Table of Contents
 
-- [BaseService Mixin Methods](#baseservice-mixin-methods) - Methods from 7 mixins
+- [BaseService Mixin Methods](#baseservice-mixin-methods) - Methods from 6 mixins
 - [Activity Domain Facades](#activity-domain-facades) - Facade delegations
 - [Common Patterns](#common-patterns) - Usage examples
 
@@ -47,13 +47,6 @@ These methods are available on **all services that extend BaseService**.
 | `update()` | ✅ |
 | `update_for_user()` | ✅ |
 | `verify_ownership()` | ✅ |
-| `_validate_create()` | 🔒 (hook — sync, pre-create validation) |
-| `_validate_update()` | 🔒 (hook — sync, pre-update validation) |
-| `_post_create()` | 🔒 (hook — async, post-create, e.g. event publishing) |
-| `_post_update()` | 🔒 (hook — async, post-update, e.g. event publishing) |
-| `_post_delete()` | 🔒 (hook — async, post-delete, e.g. event publishing) |
-
-**See:** `/docs/patterns/DOMAIN_SPECIFIC_HOOKS.md` for hook usage patterns.
 
 ---
 
@@ -71,11 +64,13 @@ These methods are available on **all services that extend BaseService**.
 | `get_by_status()` | ✅ |
 | `graph_aware_faceted_search()` | ✅ |
 | `list_all_categories()` | ✅ |
+| `list_recent_for_user()` | ✅ |
 | `list_user_categories()` | ✅ |
 | `search()` | ✅ |
 | `search_array_field()` | ✅ |
 | `search_by_tags()` | ✅ |
 | `search_connected_to()` | ✅ |
+| `search_for_user()` | ✅ |
 
 ---
 
@@ -100,29 +95,14 @@ These methods are available on **all services that extend BaseService**.
 
 **Purpose:** Calendar and scheduling queries
 
-**Config fields:** `date_field` (column driving upcoming/overdue), `temporal_exclude_statuses` (default: 4 terminal statuses), `temporal_secondary_sort` (optional secondary ORDER BY), `completed_statuses` (default: `("completed",)`)
-
 | Method | Public |
 |--------|--------|
 | `__init__()` | 🔒 (internal) |
-| `get_upcoming()` | ✅ |
-| `get_overdue()` | ✅ |
 | `get_active()` | ✅ |
+| `get_overdue()` | ✅ |
+| `get_upcoming()` | ✅ |
 | `get_user_items_in_range()` | ✅ |
 | `get_user_items_in_range_base()` | ✅ |
-
----
-
-### UserProgressMixin
-
-**Purpose:** Progress and mastery tracking
-
-| Method | Public |
-|--------|--------|
-| `__init__()` | 🔒 (internal) |
-| `get_user_curriculum()` | ✅ |
-| `get_user_progress()` | ✅ |
-| `update_user_mastery()` | ✅ |
 
 ---
 

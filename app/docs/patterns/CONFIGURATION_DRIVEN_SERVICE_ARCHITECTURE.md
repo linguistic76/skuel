@@ -44,7 +44,6 @@ class PsSearchService(CurriculumBaseService[PsOperations, Ls]): ...
 class TasksSearchService(BaseService[TasksOperations, Task]):
     _dto_class = TaskDTO
     _model_class = Task
-    _supports_user_progress = True
     # ... 15 more scattered attributes
 ```
 
@@ -111,14 +110,8 @@ class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
 ### Curriculum Features (Opt-In)
 
 ```python
-    # Enable mastery/progress tracking (default: False)
-    _supports_user_progress: bool = True
-
     # Content field for full-text (default: "content")
     _content_field: str = "description"
-
-    # Mastery threshold (default: 0.7)
-    _mastery_threshold: float = 0.7
 
     # Prerequisite relationship types (default: [])
     _prerequisite_relationships: ClassVar[list[str]] = [
@@ -168,9 +161,7 @@ class PsSearchService(BaseService["BackendOperations[Ls]", Ls]):
     _user_ownership_relationship: ClassVar[str | None] = None
 
     # Curriculum features (opt-in)
-    _supports_user_progress: bool = True
     _content_field: str = "description"
-    _mastery_threshold: float = 0.7
     _prerequisite_relationships: ClassVar[list[str]] = ["REQUIRES_STEP", "REQUIRES_KNOWLEDGE"]
     _enables_relationships: ClassVar[list[str]] = ["ENABLES_STEP", "ENABLES_LEARNING"]
 
@@ -232,7 +223,7 @@ await service.delete_for_user(uid, user_uid)
 
 ### Curriculum Methods
 
-Enabled when `_supports_user_progress = True`:
+Enabled when `_prerequisite_relationships` / `_content_field` are configured:
 
 ```python
 # Prerequisite chain traversal
@@ -240,10 +231,6 @@ prerequisites = await service.get_prerequisites(uid, depth=3)
 
 # What this entity enables
 enables = await service.get_enables(uid, depth=3)
-
-# User mastery tracking
-progress = await service.get_user_progress(user_uid, entity_uid)
-await service.update_user_mastery(user_uid, entity_uid, 0.85)
 
 # Entity with content
 entity = await service.get_with_content(uid)
@@ -318,7 +305,6 @@ class PsSearchService(CurriculumBaseService[PsOperations, Ls]):
 # CurriculumBaseService DELETED
 
 class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
-    _supports_user_progress = True
     _prerequisite_relationships = ["REQUIRES_STEP", "REQUIRES_KNOWLEDGE"]
     _enables_relationships = ["ENABLES_STEP"]
     _user_ownership_relationship = None

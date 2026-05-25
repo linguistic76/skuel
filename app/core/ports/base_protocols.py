@@ -732,33 +732,6 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         """Get hierarchical structure for an entity."""
         ...
 
-    async def user_progress_raw(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID,
-        mastery_threshold: float,
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Get user's progress/mastery for an entity."""
-        ...
-
-    async def update_user_mastery_rel(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID,
-        mastery_level: float,
-        rel_type: RelationshipName,
-    ) -> ResultType[bool]:
-        """Create/update a user mastery relationship."""
-        ...
-
-    async def user_curriculum_raw(
-        self,
-        user_uid: UserUID,
-        include_completed: bool = False,
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Get entities the user is studying or has mastered."""
-        ...
-
     async def context_query_raw(
         self,
         uid: str,

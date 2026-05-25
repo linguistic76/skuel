@@ -219,8 +219,6 @@ Five new infrastructure functions were added to support BaseService operations:
 | `build_distinct_values_query()` | Get distinct field values | `list_user_categories()`, `list_all_categories()` |
 | `build_hierarchy_query()` | Parent/child traversal | `get_hierarchy()` |
 | `build_prerequisite_traversal_query()` | Prerequisite chains | `get_prerequisites()`, `get_enables()` |
-| `build_user_progress_query()` | User mastery data | `get_user_progress()` |
-| `build_user_curriculum_query()` | User's curriculum | `get_user_curriculum()` |
 
 **Usage Examples:**
 
@@ -229,8 +227,6 @@ from adapters.persistence.neo4j.query.cypher import (
     build_distinct_values_query,
     build_hierarchy_query,
     build_prerequisite_traversal_query,
-    build_user_progress_query,
-    build_user_curriculum_query,
 )
 
 # Get distinct categories for a user
@@ -244,12 +240,6 @@ query, params = build_prerequisite_traversal_query(
     "Ku", "ku:advanced-python", ["REQUIRES_KNOWLEDGE"],
     depth=3, direction="outgoing"  # or "incoming" for enables
 )
-
-# Get user progress on an entity
-query, params = build_user_progress_query("Ku", "user:123", "ku:python-basics")
-
-# Get user's curriculum entities
-query, params = build_user_curriculum_query("Ku", "user:123", include_completed=False)
 ```
 
 **Record Extraction Pattern:**

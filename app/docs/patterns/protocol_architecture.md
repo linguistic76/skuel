@@ -547,13 +547,12 @@ class TasksService:
 
 ### The Challenge
 
-BaseService is composed of 7 mixins, each with a corresponding protocol:
+BaseService is composed of 6 mixins, each with a corresponding protocol:
 - `ConversionHelpersMixin` → `ConversionOperations`
 - `CrudOperationsMixin` → `CrudOperations`
 - `SearchOperationsMixin` → `SearchOperations`
 - `RelationshipOperationsMixin` → `RelationshipOperations`
 - `TimeQueryMixin` → `TimeQueryOperations`
-- `UserProgressMixin` → `UserProgressOperations`
 - `ContextOperationsMixin` → `ContextOperations`
 
 **The Problem:** Method signatures must be duplicated in both protocol and mixin, requiring manual synchronization.
