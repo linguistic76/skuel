@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, FilterParams, UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -94,7 +95,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             self,
             user_uid: UserUID,
             entity_uid: EntityUID,
-            relationship_type: str | None = None,
+            relationship_type: RelationshipName | None = None,
             metadata: dict[str, Any] | None = None,
         ) -> Result[bool]: ...
 

@@ -127,9 +127,9 @@ def _resolve_refs(
 
 def _compute_cross_edges(
     template: Any,
-    cross_edge_specs: Sequence[tuple[str, str]],
+    cross_edge_specs: Sequence[tuple[str, RelationshipName]],
     template_to_instance: dict[str, str],
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, RelationshipName]]:
     """Resolve cross-template refs into (edge_type, target_instance_uid) tuples.
 
     Used for relationships written as graph edges between spawned instances
@@ -138,7 +138,7 @@ def _compute_cross_edges(
     the field on the template, maps it through ``template_to_instance``, and
     returns the edges the orchestrator should write via ``_persist``.
     """
-    edges: list[tuple[str, str]] = []
+    edges: list[tuple[str, RelationshipName]] = []
     for template_field, edge_type in cross_edge_specs:
         ref = getattr(template, template_field, None)
         if not ref:
@@ -219,7 +219,7 @@ class DomainSpawnSpec(Generic[InstanceT]):
     uid_prefix: str  # UIDGenerator prefix for spawned instance UIDs
     offset_rewrites: tuple[tuple[str, str, OffsetKind], ...] = ()
     field_rewrites: dict[str, str] = field(default_factory=dict)
-    cross_edges: tuple[tuple[str, str], ...] = ()
+    cross_edges: tuple[tuple[str, RelationshipName], ...] = ()
 
 
 CHOICE_SPEC = DomainSpawnSpec(
@@ -260,7 +260,7 @@ GOAL_SPEC = DomainSpawnSpec(
         "selected_choice_option_template_uid": "selected_choice_option_uid",
     },
     # inspired_by_choice_template_uid → (Goal)-[:INSPIRED_BY_CHOICE]->(Choice) edge
-    cross_edges=(("inspired_by_choice_template_uid", "INSPIRED_BY_CHOICE"),),
+    cross_edges=(("inspired_by_choice_template_uid", RelationshipName.INSPIRED_BY_CHOICE),),
 )
 EVENT_SPEC = DomainSpawnSpec(
     instance_cls=Event,
@@ -275,8 +275,8 @@ EVENT_SPEC = DomainSpawnSpec(
     # Both refs are written as graph edges, not properties:
     #   (Event)-[:CELEBRATES_GOAL]->(Goal), (Event)-[:REINFORCES_HABIT]->(Habit)
     cross_edges=(
-        ("milestone_celebration_for_goal_template_uid", "CELEBRATES_GOAL"),
-        ("reinforces_habit_template_uid", "REINFORCES_HABIT"),
+        ("milestone_celebration_for_goal_template_uid", RelationshipName.CELEBRATES_GOAL),
+        ("reinforces_habit_template_uid", RelationshipName.REINFORCES_HABIT),
     ),
 )
 TASK_SPEC = DomainSpawnSpec(
@@ -296,7 +296,7 @@ TASK_SPEC = DomainSpawnSpec(
         "parent_template_uid": "parent_uid",
     },
     # reinforces_habit_template_uid → (Task)-[:REINFORCES_HABIT]->(Habit) edge
-    cross_edges=(("reinforces_habit_template_uid", "REINFORCES_HABIT"),),
+    cross_edges=(("reinforces_habit_template_uid", RelationshipName.REINFORCES_HABIT),),
 )
 
 # Declaration order is the UID pre-allocation order; build order is by ``layer``.
@@ -361,7 +361,6 @@ def _validate_spawn_registry(registry: tuple[DomainSpawnSpec[Any], ...]) -> None
     """
     bundle_fields = _field_names(TemplateBundle)
     backend_fields = _field_names(ActivityBackends)
-    valid_edges = {r.value for r in RelationshipName}
     for spec in registry:
         tmpl = spec.template_cls.__name__
         inst = spec.instance_cls.__name__
@@ -389,7 +388,10 @@ def _validate_spawn_registry(registry: tuple[DomainSpawnSpec[Any], ...]) -> None
         for src, edge_type in spec.cross_edges:
             if src not in tmpl_fields:
                 raise ValueError(f"{where}: cross-edge source '{src}' not on {tmpl}")
-            if edge_type not in valid_edges:
+            # The field is typed RelationshipName, but mypy's arg-type is globally
+            # disabled — so this import-time isinstance check is the real fail-fast
+            # guard against a non-enum edge type slipping in (ADR-056).
+            if not isinstance(edge_type, RelationshipName):
                 raise ValueError(
                     f"{where}: cross-edge type '{edge_type}' is not a RelationshipName"
                 )
@@ -462,7 +464,7 @@ class _SpawnOrchestrator:
         instance: Any,
         template_uid: str,
         created_uids: list[tuple[CrudOperations[Any], str]],
-        cross_edges: list[tuple[str, str]] | None = None,
+        cross_edges: list[tuple[str, RelationshipName]] | None = None,
     ) -> Result[Any]:
         """Atomic node + SPAWNED_FROM edge create, then any cross-edges.
 

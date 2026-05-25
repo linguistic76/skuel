@@ -51,7 +51,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         async def get_related_entities(
             self,
             uid: str,
-            relationship_type: str,
+            relationship_type: RelationshipName,
             direction: str = "outgoing",
             limit: int | None = None,
         ) -> Result[builtins.list[T]]: ...
@@ -252,7 +252,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         self,
         entity_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
         direction: str,
         edge_properties: dict[str, Any],
     ) -> Result[bool]:
@@ -262,7 +262,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         Args:
             entity_uid: Source entity UID
             target_uid: Target entity UID
-            relationship_type: Neo4j relationship type string
+            relationship_type: Neo4j relationship type (RelationshipName enum)
             direction: "outgoing", "incoming", or "both"
             edge_properties: Properties to set on the relationship edge
 

@@ -131,8 +131,9 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         """
         from core.models.relationship_names import RelationshipName
 
-        rel_type = RelationshipName.DEPENDS_ON.value
-        result = await self.backend.get_transitive_dependencies(task_uid, rel_type, max_depth)
+        result = await self.backend.get_transitive_dependencies(
+            task_uid, RelationshipName.DEPENDS_ON, max_depth
+        )
         if result.is_error:
             self.logger.warning(f"Transitive dependency query failed: {result.error}")
             return []

@@ -76,7 +76,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         def _build_direction_pattern(
             self,
-            relationship_type: str,
+            relationship_type: RelationshipName,
             direction: Direction,
             source_var: str = "n",
             target_var: str = "related",
@@ -97,7 +97,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
     async def get_related_entities(
         self,
         uid: str,
-        relationship_type: RelationshipName | str,
+        relationship_type: RelationshipName,
         direction: Direction = "outgoing",
         limit: int = 100,
     ) -> Result[builtins.list[T]]:
@@ -106,7 +106,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         Args:
             uid: Source entity UID,
-            relationship_type: Neo4j relationship type (enum preferred, str validated),
+            relationship_type: Neo4j relationship type (RelationshipName enum),
             direction: Traversal direction - "outgoing", "incoming", or "both",
             limit: Max results to return
 
@@ -121,16 +121,9 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 direction="incoming"
             )
         """
-        # Extract string value — _build_direction_pattern validates it
-        rel_type = (
-            relationship_type.value
-            if isinstance(relationship_type, RelationshipName)
-            else relationship_type
-        )
-
-        # Build Cypher pattern using helper
+        # Build Cypher pattern using helper (RelationshipName guarantees a safe type)
         pattern_result = self._build_direction_pattern(
-            relationship_type=rel_type,
+            relationship_type=relationship_type,
             direction=direction,
             target_label=self.label,
         )
@@ -251,12 +244,9 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md for architecture details
         """
-        # Extract string value for Cypher query
-        rel_type = relationship_type.value
-
         # Build Cypher pattern using helper (with named relationship variable for property access)
         pattern_result = self._build_direction_pattern(
-            relationship_type=rel_type,
+            relationship_type=relationship_type,
             direction=direction,
             rel_var="r",
         )
@@ -544,7 +534,11 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("update_edge_metadata")
     async def update_edge_metadata(
-        self, from_uid: str, to_uid: str, relationship_type: str, edge_metadata: EdgeMetadata
+        self,
+        from_uid: str,
+        to_uid: str,
+        relationship_type: RelationshipName,
+        edge_metadata: EdgeMetadata,
     ) -> Result[bool]:
         """
         Update edge metadata properties.
@@ -562,10 +556,14 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         Example:
             # Increment traversal count
-            metadata_result = await backend.get_edge_metadata(from_uid, to_uid, "PREREQUISITE")
+            metadata_result = await backend.get_edge_metadata(
+                from_uid, to_uid, RelationshipName.REQUIRES_PREREQUISITE
+            )
             if metadata_result.is_ok and metadata_result.value:
                 updated = metadata_result.value.increment_traversal()
-                await backend.update_edge_metadata(from_uid, to_uid, "PREREQUISITE", updated)
+                await backend.update_edge_metadata(
+                    from_uid, to_uid, RelationshipName.REQUIRES_PREREQUISITE, updated
+                )
         """
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
@@ -593,7 +591,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("increment_traversal_count")
     async def increment_traversal_count(
-        self, from_uid: str, to_uid: str, relationship_type: str
+        self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> Result[bool]:
         """
         Increment traversal count for a relationship.
@@ -614,7 +612,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             await backend.increment_traversal_count(
                 from_uid="ku:programming-101",
                 to_uid="ku:python-basics",
-                relationship_type="PREREQUISITE"
+                relationship_type=RelationshipName.REQUIRES_PREREQUISITE
             )
         """
         query = f"""

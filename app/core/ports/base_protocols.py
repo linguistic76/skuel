@@ -447,7 +447,7 @@ class GraphRelationshipOperations(Protocol):
         self,
         from_uid: str,
         to_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
         properties: Neo4jProperties | None = None,
     ) -> ResultType[bool]:
         """Create (MERGE) a validated graph edge between two entities.
@@ -551,7 +551,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
     async def get_user_entities(
         self,
         user_uid: UserUID,
-        relationship_type: str | None = None,
+        relationship_type: RelationshipName | None = None,
         filters: FilterParams | None = None,
         limit: int = 100,
         offset: int = 0,
