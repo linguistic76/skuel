@@ -1,74 +1,98 @@
 name: Codex Review Gate
 
 # ============================================================================
-# Makes "read & consider the Codex review" an enforced, auditable merge gate.
+# Required merge gate, scoped to ON-REQUEST Codex reviews.
 #
-# Codex posts PR reviews/comments but never a status check, so it cannot itself
-# be required in branch protection. This workflow publishes the required check
-# `Codex Review Gate` that is RED until the PR carries the `codex-considered`
-# label, and GREEN once it does. New commits drop the label (fresh code needs
-# fresh consideration).
+# The gate only bites when a human posts `@codex review` on the PR. Until that
+# requested review is considered (the `codex-considered` label is applied), the
+# gate is RED. PRs where no one posted `@codex review` pass automatically — no
+# friction on routine PRs. (Codex may still AUTO-review via the dashboard; those
+# auto-reviews are advisory and do NOT gate — only an explicit request does.)
 #
-# Codex is ADVISORY — the gate requires that its review was *considered*, never
-# that it was *agreed with*. Claude (the LLM) arbitrates what is actually true
-# and clears the gate by:
-#   1. reading the Codex review (auto-review fires on PR open; or `@codex review`),
+# Codex is ADVISORY — the gate requires its review was *considered*, never that
+# it was *agreed with*. Claude (the LLM) arbitrates what is actually true and
+# clears the gate by:
+#   1. reading the requested Codex review,
 #   2. posting a short "Codex consideration" note (accept / reject + why),
-#   3. applying the `codex-considered` label  (gh pr edit <PR#> --add-label codex-considered).
+#   3. applying the label:  gh pr edit <PR#> --add-label codex-considered
+# A new commit drops the label (changed code must be re-considered).
+#
+# WHY A COMMIT STATUS (not a job check-run): the gate must react to the
+# `@codex review` comment, i.e. the `issue_comment` event. A job's check-run
+# from an issue_comment run does NOT attach to the PR's head commit, so branch
+# protection wouldn't see it — but a status POSTed to the head SHA does. So the
+# required context `Codex Review Gate` is published as a commit status here; the
+# `evaluate` job's own check-run is incidental and not required.
 #
 # NOTE: `main` keeps admin-bypass, so this is a strong, visible, auditable gate
-# and discipline — not an unbreakable lock. To make it a hard lock, set
-# enforce_admins=true in branch protection (also blocks legitimate bypasses).
+# and discipline, not an unbreakable lock. Set enforce_admins=true for a hard
+# lock (also blocks legitimate bypasses, e.g. a Kody billing failure).
 # ============================================================================
 
 on:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
-  pull-requests: write   # remove the considered-label on new commits
+  statuses: write        # POST the "Codex Review Gate" commit status
+  pull-requests: write   # drop the considered-label on new commits
 
 jobs:
-  codex-review-gate:
-    name: Codex Review Gate
+  evaluate:
+    name: evaluate   # incidental — the REQUIRED context is the commit status posted below
+    # issue_comment fires on issues too; only act on PR comments.
+    if: ${{ github.event_name != 'issue_comment' || github.event.issue.pull_request }}
     runs-on: ubuntu-latest
     steps:
-      # A new commit invalidates any prior consideration — drop the label so the
-      # gate goes red again and the (re-)review must be considered afresh.
-      - name: Reset consideration on new commit
-        if: github.event.action == 'synchronize'
+      - name: Evaluate Codex Review Gate
         uses: actions/github-script@v7
         with:
           script: |
-            try {
-              await github.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                name: 'codex-considered',
-              });
-              core.info('New commit pushed — cleared `codex-considered`; re-consider the Codex review.');
-            } catch (e) {
-              core.info('No `codex-considered` label to clear.');
+            const { owner, repo } = context.repo;
+            const prNumber = context.issue.number;
+
+            // A new commit invalidates any prior consideration — drop the label.
+            if (context.eventName === 'pull_request' && context.payload.action === 'synchronize') {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: prNumber, name: 'codex-considered',
+                });
+              } catch (e) { /* label not present — fine */ }
             }
 
-      - name: Require the codex-considered label
-        uses: actions/github-script@v7
-        with:
-          script: |
             const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
+              owner, repo, pull_number: prNumber,
             });
+            const sha = pr.head.sha;
             const considered = (pr.labels || []).some(l => l.name === 'codex-considered');
-            if (considered) {
-              core.info('`codex-considered` present — Codex review considered. Gate green.');
+
+            // Was a Codex review REQUESTED by a human? Exclude bot authors — the
+            // Codex connector's own footer contains the literal "@codex review".
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: prNumber, per_page: 100,
+            });
+            const requested = comments.some(c =>
+              c.user && c.user.type === 'User' && /@codex\s+review/i.test(c.body || '')
+            );
+
+            let state, description;
+            if (!requested) {
+              state = 'success';
+              description = 'No Codex review requested — gate not applicable.';
+            } else if (considered) {
+              state = 'success';
+              description = 'Requested Codex review considered (codex-considered label set).';
             } else {
-              core.setFailed(
-                'Codex review not yet considered. Read the Codex review, post a ' +
-                '"Codex consideration" note, then `gh pr edit ' +
-                '<PR#> --add-label codex-considered`. (A new commit clears it.)'
-              );
+              state = 'failure';
+              description = 'Codex review requested — read it, then add the codex-considered label.';
             }
+
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha, state,
+              context: 'Codex Review Gate',
+              description,
+            });
+            core.info(`Codex Review Gate → ${state}: ${description}`);

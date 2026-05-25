@@ -14,7 +14,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | **Auto-review ON** (app.kodus.io dashboard toggle — Mike-controlled) **+** `@kody start-review`. The dashboard toggle is the real switch; repo `automatedReviewActive: false` alone does not stop it. |
 | **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED** — comment-bot trigger off (cosmetic-only; now also redundant — dashboard auto-review covers it; see below) |
 | **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + dashboard | ⚠️ **PR reviews only — NOT a status check** | **Auto-reviews PRs you open** (dashboard 2026-05-25: "On PR open" + repo "Review my PRs"; needs a paid ChatGPT plan) **+** manual `@codex review` (re-review after pushes) |
-| **Codex Review Gate** | Job in `codex-gate.yml` | This repo | ✅ status check (**required**) | RED until the PR has the `codex-considered` label (applied after Claude reads & considers the Codex review); cleared on every new commit. Makes "consider Codex before merge" enforceable — see below. |
+| **Codex Review Gate** | `codex-gate.yml` (commit status) | This repo | ✅ status check (**required**) | **Scoped to on-request:** RED only when a human posted `@codex review` and it isn't yet considered (`codex-considered` label); PRs with no request pass automatically. Cleared on new commits. See below. |
 
 ### ⚠️ Codex does not appear in `gh pr checks`
 
@@ -132,26 +132,37 @@ gh pr view <PR#> --json comments \
 # want: linguistic76 (a User account) — NOT github-actions[bot] (cosmetic-only)
 ```
 
-## Codex Review Gate (`codex-gate.yml`) — making "consider Codex" enforceable
+## Codex Review Gate (`codex-gate.yml`) — making "consider Codex" enforceable, on request
 
 Codex posts reviews/comments but **never a status check**, so it can't itself be
-required in branch protection. `codex-gate.yml` bridges that: it publishes a
-**required** check, **`Codex Review Gate`**, that is
+required in branch protection. `codex-gate.yml` bridges that with the required
+status **`Codex Review Gate`**, **scoped to explicit requests**:
 
-- 🔴 **RED** until the PR carries the **`codex-considered`** label, and
-- 🟢 **GREEN** once the label is present.
+- A PR with **no `@codex review` request** → 🟢 **GREEN automatically** (gate not
+  applicable; no friction on routine PRs).
+- Once a **human posts `@codex review`** → 🔴 **RED** until the PR carries the
+  **`codex-considered`** label → 🟢 **GREEN** when it does.
 - A **new commit (`synchronize`) auto-removes the label**, so changed code must be
-  re-considered against the (re-)review.
+  re-considered.
 
-**Codex is advisory** — the gate requires the review was *considered*, never that
-it was *agreed with*. Claude (the LLM) arbitrates what's actually true. To clear
-the gate on a PR:
+(Codex may still **auto-review** every PR via the dashboard "On PR open" setting;
+those auto-reviews are advisory FYI and **do not gate** — only an explicit
+`@codex review` does. Turn the dashboard trigger off if you don't want the ambient
+auto-reviews.)
 
-1. Read the Codex review (it auto-posts on open; or `@codex review` for a re-review).
-2. Post a short **"Codex consideration"** comment — what you accept / reject and why.
+**Codex is advisory** — the gate requires the requested review was *considered*,
+never that it was *agreed with*. Claude (the LLM) arbitrates what's actually true.
+To gate a PR on Codex and clear it:
+
+1. `gh pr comment <PR#> --body "@codex review"` (as your account → a real review).
+2. Read the review; post a short **"Codex consideration"** comment — what you
+   accept / reject and why.
 3. Apply the label: `gh pr edit <PR#> --add-label codex-considered`.
 
-The label is the auditable record that step 1–2 happened. **Caveat:** `main` keeps
+The label is the auditable record that steps 1–2 happened. **Implementation note:**
+the gate is a **commit status** (not a job check-run) so the `issue_comment`
+trigger can update it on the PR head SHA — an issue_comment check-run wouldn't
+attach to the PR commit, but a posted status does. **Caveat:** `main` keeps
 admin-bypass (`enforce_admins=false`), so a RED gate is a strong, visible signal +
 audit trail, not an unbreakable lock — fitting "truth rests with Claude, who clears
 it." Set `enforce_admins=true` for a hard lock (also blocks legitimate bypasses,
@@ -192,10 +203,11 @@ Classic protection: **require a PR + two green checks ("CI Gate" and "Codex
 Review Gate"); no human approval required; admins can bypass.** As of 2026-05-25
 **both AI reviewers auto-run** on PRs you open (Codex via its dashboard "On PR
 open"; Kody via its app.kodus.io toggle), and both are also summonable by comment
-(`@codex review` / `@kody start-review`). Codex posts no status check of its own,
-but **`Codex Review Gate`** (see above) is required, so a PR can't go green until
-its Codex review has been considered (`codex-considered` label). Kody runs in
-request-changes mode, so a Kody `CHANGES_REQUESTED` holds the merge too.
+(`@codex review` / `@kody start-review`). Codex posts no status check of its own;
+the required **`Codex Review Gate`** (see above) passes automatically unless someone
+posts `@codex review`, in which case it stays red until that review is considered
+(`codex-considered` label). Kody runs in request-changes mode, so a Kody
+`CHANGES_REQUESTED` holds the merge too.
 
 ```bash
 gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
