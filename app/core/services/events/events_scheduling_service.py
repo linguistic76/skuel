@@ -204,7 +204,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
                     await self.backend.create_relationship(
                         event.uid,
                         reinforces_habit_uid,
-                        RelationshipName.REINFORCES_HABIT.value,
+                        RelationshipName.REINFORCES_HABIT,
                     )
 
         self.logger.info(f"Created {len(created_events)} recurring events")

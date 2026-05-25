@@ -122,7 +122,7 @@ class LateralRelationshipService:
         result = await self.backend.create_relationship(
             source_uid=source_uid,
             target_uid=target_uid,
-            relationship_type=relationship_type.value,
+            relationship_type=relationship_type,
             metadata=rel_metadata,
         )
 
@@ -187,7 +187,7 @@ class LateralRelationshipService:
         result = await self.backend.delete_relationship(
             source_uid=source_uid,
             target_uid=target_uid,
-            relationship_type=relationship_type.value,
+            relationship_type=relationship_type,
         )
 
         if result.is_error:
@@ -492,7 +492,7 @@ class LateralRelationshipService:
 
         For BLOCKS/PREREQUISITE_FOR: source -> target is invalid if target -> ... -> source exists.
         """
-        result = await self.backend.check_no_cycles(source_uid, target_uid, relationship_type.value)
+        result = await self.backend.check_no_cycles(source_uid, target_uid, relationship_type)
 
         if result.is_error:
             return Result.fail(result)
@@ -518,7 +518,7 @@ class LateralRelationshipService:
         result = await self.backend.create_inverse(
             source_uid=source_uid,
             target_uid=target_uid,
-            relationship_type=relationship_type.value,
+            relationship_type=relationship_type,
             metadata=metadata,
         )
         if result.is_error:
@@ -536,7 +536,7 @@ class LateralRelationshipService:
         result = await self.backend.delete_inverse(
             source_uid=source_uid,
             target_uid=target_uid,
-            relationship_type=relationship_type.value,
+            relationship_type=relationship_type,
         )
         if result.is_error:
             logger.error(f"Failed to delete inverse relationship: {result.error}")

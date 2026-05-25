@@ -21,12 +21,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
-from core.utils.validation_helpers import validate_field_name, validate_relationship_type
+from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
     import builtins
@@ -87,7 +88,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         self,
         user_uid: UserUID,
         entity_uid: EntityUID,
-        relationship_type: str | None = None,
+        relationship_type: RelationshipName | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Result[bool]:
         """
@@ -99,7 +100,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         Args:
             user_uid: User UID,
             entity_uid: Entity UID,
-            relationship_type: Neo4j relationship type. Defaults to "OWNS".
+            relationship_type: Neo4j relationship type. Defaults to OWNS.
             metadata: Optional edge properties (created_at, last_accessed, priority, etc.)
 
         Returns:
@@ -110,23 +111,16 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             await backend.create_user_relationship(
                 user_uid="user_123",
                 entity_uid="task_456",
-                relationship_type="OWNS",
+                relationship_type=RelationshipName.OWNS,
                 metadata={"priority": "high", "created_at": datetime.now().isoformat()}
             )
         """
         try:
-            # Default relationship type: OWNS (domain-first architecture)
-            if not relationship_type:
-                relationship_type = "OWNS"
-
-            if not validate_relationship_type(relationship_type):
-                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
-                return Result.fail(
-                    Errors.validation(
-                        f"Invalid relationship type: {relationship_type}",
-                        field="relationship_type",
-                    )
-                )
+            # Default relationship type: OWNS (domain-first architecture). The
+            # RelationshipName type is the injection-safety guarantee — no runtime
+            # validation needed before the interpolation below.
+            if relationship_type is None:
+                relationship_type = RelationshipName.OWNS
 
             # Default metadata
             default_metadata = {
@@ -174,7 +168,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     async def get_user_entities(
         self,
         user_uid: UserUID,
-        relationship_type: str | None = None,
+        relationship_type: RelationshipName | None = None,
         filters: dict[str, Any] | None = None,
         limit: int = 100,
         offset: int = 0,
@@ -219,13 +213,11 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             )
         """
         try:
-            # Default relationship type: OWNS (domain-first architecture)
-            if not relationship_type:
-                relationship_type = "OWNS"
-
-            if not validate_relationship_type(relationship_type):
-                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
-                relationship_type = "OWNS"
+            # Default relationship type: OWNS (domain-first architecture). The
+            # RelationshipName type is the injection-safety guarantee — no runtime
+            # validation needed before interpolation.
+            if relationship_type is None:
+                relationship_type = RelationshipName.OWNS
 
             # Build filter clause
             filter_clauses: builtins.list[str] = []
@@ -293,7 +285,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     async def count_user_entities(
         self,
         user_uid: UserUID,
-        relationship_type: str | None = None,
+        relationship_type: RelationshipName | None = None,
         filters: dict[str, Any] | None = None,
     ) -> Result[int]:
         """
@@ -318,13 +310,11 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             )
         """
         try:
-            # Default relationship type: OWNS (domain-first architecture)
-            if not relationship_type:
-                relationship_type = "OWNS"
-
-            if not validate_relationship_type(relationship_type):
-                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
-                relationship_type = "OWNS"
+            # Default relationship type: OWNS (domain-first architecture). The
+            # RelationshipName type is the injection-safety guarantee — no runtime
+            # validation needed before interpolation.
+            if relationship_type is None:
+                relationship_type = RelationshipName.OWNS
 
             # Build filter clause
             filter_clauses: builtins.list[str] = []
@@ -362,7 +352,10 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("update_relationship_access")
     async def update_relationship_access(
-        self, user_uid: UserUID, entity_uid: EntityUID, relationship_type: str | None = None
+        self,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
+        relationship_type: RelationshipName | None = None,
     ) -> Result[bool]:
         """
         Update relationship metadata when user accesses an entity.
@@ -386,12 +379,10 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             )
         """
         try:
-            if not relationship_type:
-                relationship_type = "OWNS"
-
-            if not validate_relationship_type(relationship_type):
-                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
-                relationship_type = "OWNS"
+            # Default relationship type: OWNS; the RelationshipName type is the
+            # injection-safety guarantee (no runtime validation needed).
+            if relationship_type is None:
+                relationship_type = RelationshipName.OWNS
 
             query = f"""
             MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})
@@ -430,7 +421,10 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("delete_user_relationship")
     async def delete_user_relationship(
-        self, user_uid: UserUID, entity_uid: EntityUID, relationship_type: str | None = None
+        self,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
+        relationship_type: RelationshipName | None = None,
     ) -> Result[bool]:
         """
         Delete user-entity relationship.
@@ -453,12 +447,10 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             )
         """
         try:
-            if not relationship_type:
-                relationship_type = "OWNS"
-
-            if not validate_relationship_type(relationship_type):
-                self.logger.warning(f"Invalid relationship type rejected: {relationship_type!r}")
-                relationship_type = "OWNS"
+            # Default relationship type: OWNS; the RelationshipName type is the
+            # injection-safety guarantee (no runtime validation needed).
+            if relationship_type is None:
+                relationship_type = RelationshipName.OWNS
 
             query = f"""
             MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})

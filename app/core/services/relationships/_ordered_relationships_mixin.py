@@ -214,7 +214,7 @@ class OrderedRelationshipsMixin:
         result = await self.backend.create_relationship_with_properties(
             entity_uid=from_uid,
             target_uid=to_uid,
-            relationship_type=spec.relationship.value,
+            relationship_type=spec.relationship,
             direction=spec.direction,
             edge_properties=edge_properties,
         )

@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -314,12 +315,23 @@ class UnifiedIngestionService:
         """
         from_uid = edge_data["from_uid"]
         to_uid = edge_data["to_uid"]
-        rel_type = edge_data["relationship"]
         props = edge_data["properties"]
 
+        # Convert the validated-but-stringly-typed dict value into a typed
+        # RelationshipName at the boundary — this is where the value re-enters the
+        # typed world, so the enum (not "validated by caller" discipline) is what
+        # guarantees the rel-type interpolation in IngestionWriteBackend is safe.
+        rel_type = RelationshipName.from_string(edge_data["relationship"])
+        if rel_type is None:
+            return Result.fail(
+                Errors.validation(
+                    f"Unknown relationship type: {edge_data['relationship']!r}",
+                    field="relationship",
+                )
+            )
+
         try:
-            # rel_type validated against RelationshipName enum; the Cypher lives
-            # in IngestionWriteBackend below the boundary (ADR-044).
+            # The Cypher lives in IngestionWriteBackend below the boundary (ADR-044).
             records = await self._write_backend.ingest_edge(from_uid, to_uid, rel_type, props)
 
             if not records:

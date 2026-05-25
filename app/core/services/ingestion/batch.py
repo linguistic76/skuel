@@ -25,6 +25,7 @@ import yaml
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.exception_types import (
     DATA_CONVERSION_EXCEPTIONS,
@@ -381,12 +382,25 @@ async def _ingest_edge_batch(
     for edge_data in edge_files:
         from_uid = edge_data["from_uid"]
         to_uid = edge_data["to_uid"]
-        rel_type = edge_data["relationship"]
         props = edge_data["properties"]
 
+        # Convert the validated-but-stringly-typed dict value into a typed
+        # RelationshipName at the boundary; the enum (not caller discipline) is what
+        # makes the rel-type interpolation in IngestionWriteBackend injection-safe.
+        rel_type = RelationshipName.from_string(edge_data["relationship"])
+        if rel_type is None:
+            errors.append(
+                IngestionError(
+                    file=props.get("source_file", "<edge>"),
+                    error=f"Unknown relationship type: {edge_data['relationship']!r}",
+                    stage="edge_ingestion",
+                    error_type="validation",
+                ).to_dict()
+            )
+            continue
+
         try:
-            # rel_type validated against RelationshipName enum; Cypher lives in
-            # IngestionWriteBackend below the boundary (ADR-044).
+            # Cypher lives in IngestionWriteBackend below the boundary (ADR-044).
             records = await write_backend.ingest_edge(from_uid, to_uid, rel_type, props)
             if records:
                 edges_created += 1

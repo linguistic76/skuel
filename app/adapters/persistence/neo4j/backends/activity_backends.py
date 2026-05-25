@@ -863,7 +863,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         )
 
     async def get_transitive_dependencies(
-        self, task_uid: str, rel_type: str, max_depth: int
+        self, task_uid: str, rel_type: RelationshipName, max_depth: int
     ) -> Result[list[str]]:
         """Get transitive dependency UIDs via variable-length path traversal."""
         safe_depth = max(1, min(max_depth, 10))

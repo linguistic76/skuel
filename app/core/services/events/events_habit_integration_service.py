@@ -622,7 +622,7 @@ class EventsHabitIntegrationService:
             events.append(event)
             # Habit reinforcement is a graph edge, not a property.
             await self.backend.create_relationship(
-                event.uid, habit_uid, RelationshipName.REINFORCES_HABIT.value
+                event.uid, habit_uid, RelationshipName.REINFORCES_HABIT
             )
 
             # Publish CalendarEventCreated event (event-driven architecture)

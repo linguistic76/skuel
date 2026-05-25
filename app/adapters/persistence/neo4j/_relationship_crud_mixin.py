@@ -132,7 +132,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     def _build_direction_pattern(
         self,
-        relationship_type: str,
+        relationship_type: RelationshipName,
         direction: Direction,
         source_var: str = "n",
         target_var: str = "related",
@@ -148,7 +148,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         - count_related() (with relationship variable)
 
         Args:
-            relationship_type: The relationship type (e.g., "PREREQUISITE", "OWNS")
+            relationship_type: The relationship type (RelationshipName enum)
             direction: Traversal direction ("outgoing", "incoming", or "both")
             source_var: Variable name for source node (default: "n")
             target_var: Variable name for target node (default: "related")
@@ -159,18 +159,23 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             Result[str] containing the Cypher pattern or validation error
 
         Examples:
-            >>> backend._build_direction_pattern("OWNS", "outgoing")
+            >>> backend._build_direction_pattern(RelationshipName.OWNS, "outgoing")
             Result.ok("(n)-[:OWNS]->(related)")
 
-            >>> backend._build_direction_pattern("PREREQUISITE", "incoming", rel_var="r")
-            Result.ok("(n)<-[r:PREREQUISITE]-(related)")
+            >>> backend._build_direction_pattern(
+            ...     RelationshipName.REQUIRES_PREREQUISITE, "incoming", rel_var="r"
+            ... )
+            Result.ok("(n)<-[r:REQUIRES_PREREQUISITE]-(related)")
 
-            >>> backend._build_direction_pattern("OWNS", "outgoing", target_label="Task")
+            >>> backend._build_direction_pattern(
+            ...     RelationshipName.OWNS, "outgoing", target_label="Task"
+            ... )
             Result.ok("(n)-[:OWNS]->(related:Task)")
         """
         from core.utils.validation_helpers import validate_relationship_type
 
-        # Defense-in-depth: reject unsafe relationship types before Cypher interpolation
+        # Defense-in-depth: the RelationshipName type already guarantees a valid,
+        # injection-safe value; this runtime check is a belt-and-suspenders safety net.
         if not validate_relationship_type(relationship_type):
             return Result.fail(
                 Errors.validation(
@@ -254,7 +259,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         self,
         from_uid: str,
         to_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
         properties: dict[str, Any] | None = None,
     ) -> Result[bool]:
         """
@@ -275,7 +280,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         Args:
             from_uid: Source entity UID (must exist in database)
             to_uid: Target entity UID (must exist in database)
-            relationship_type: Neo4j relationship type (e.g., "APPLIES_KNOWLEDGE", "DEPENDS_ON")
+            relationship_type: Neo4j relationship type (RelationshipName enum)
                               MUST match RelationshipRegistry for source domain
             properties: Optional relationship properties (metadata). Common properties:
                        - confidence: float (0.0-1.0) - relationship confidence score
@@ -300,7 +305,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             result = await backend.create_relationship(
                 from_uid="task:123",
                 to_uid="ku.python-basics",
-                relationship_type="APPLIES_KNOWLEDGE",
+                relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             )
             # ✅ Task -> Knowledge is valid per registry
 
@@ -308,7 +313,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             result = await backend.create_relationship(
                 from_uid="task:123",
                 to_uid="habit:exercise",
-                relationship_type="APPLIES_KNOWLEDGE",
+                relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
             )
             # ❌ Error: APPLIES_KNOWLEDGE expects Knowledge target, not Habit
             ```
@@ -645,12 +650,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             )
             print(f"Goal has {essential_count.value} essential habits")
         """
-        # Extract string value for Cypher query
-        rel_type = relationship_type.value
-
         # Build Cypher pattern using helper (with named relationship variable for property access)
         pattern_result = self._build_direction_pattern(
-            relationship_type=rel_type,
+            relationship_type=relationship_type,
             direction=direction,
             rel_var="r",
         )
