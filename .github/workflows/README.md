@@ -96,8 +96,34 @@ re-enablement only.
 - Skips drafts (`if: github.event.pull_request.draft == false`).
 - Uses the built-in `GITHUB_TOKEN` with `pull-requests: write` (sufficient for
   the `issues.createComment` call — proven on PR #11; no PAT needed).
-- Codex prepends a cosmetic "create a Codex account / connect to github" line
-  because the trigger comes from a bot account; the actual review still follows.
+- A bot-authored `@codex review` (this workflow's `GITHUB_TOKEN` →
+  `github-actions[bot]`) yields ONLY Codex's cosmetic "create a Codex account"
+  line and **no real review** — a bot comment isn't attributed to the connected
+  account. That's why the trigger stays disabled; a *human*-authored
+  `@codex review` is the working path (see next section).
+
+## Manually requesting a Codex review (the reliable recipe)
+
+Codex reviews only on a manual `@codex review`, and **what makes it reliable is
+who authors the comment**: a bot (`github-actions[bot]`) draws only the cosmetic
+"create a Codex account" reply, while the **connected human account**
+(`linguistic76`) gets a real review. The `gh` CLI posts as your authenticated
+account, so the dependable trigger — equivalent to posting it in the web UI — is:
+
+```bash
+gh pr comment <PR#> --body "@codex review"   # authored as linguistic76 (a User) → real review
+```
+
+Verified on **PR #43** (2026-05-25): Codex replied with a substantive verdict
+plus the connected-account "About Codex" footer (not the cosmetic prompt).
+**Reading the result:** a verdict + the "Your team has set up Codex to review…"
+footer means it worked; a "create a Codex account / connect to github" reply with
+no verdict means it's off, disconnected, or weekly-usage-limited.
+
+> To make Codex run automatically on every PR again, the root fix is re-enabling
+> `codex-review.yml`'s comment-bot **but posting with a PAT secret** (author =
+> `linguistic76`, not `github-actions[bot]`) — not the `GITHUB_TOKEN` it used
+> before. Kept manual for now to keep signal clean and spare the weekly usage limit.
 
 ## Verifying / re-enabling a reviewer
 
