@@ -11,9 +11,9 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
-| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | ⚠️ **On-demand only (2026-05-24)** — `@kody start-review`; does NOT auto-review on open or per commit (auto-review toggled **off in the app.kodus.io dashboard** — the real switch; the repo `automatedReviewActive: false` alone did not stop it) |
-| **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED 2026-05-22** — comment-bot trigger off (cosmetic-only; see below) |
-| **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + dashboard | ⚠️ **PR reviews only — NOT a status check** | **Auto-review intentionally OFF** (dashboard); reviews only on a manual `@codex review`; comment-bot also disabled |
+| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) | **Auto-review ON** (app.kodus.io dashboard toggle — Mike-controlled) **+** `@kody start-review`. The dashboard toggle is the real switch; repo `automatedReviewActive: false` alone does not stop it. |
+| **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED** — comment-bot trigger off (cosmetic-only; now also redundant — dashboard auto-review covers it; see below) |
+| **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + dashboard | ⚠️ **PR reviews only — NOT a status check** | **Auto-reviews PRs you open** (dashboard 2026-05-25: "On PR open" + repo "Review my PRs"; needs a paid ChatGPT plan) **+** manual `@codex review` (re-review after pushes) |
 
 ### ⚠️ Codex does not appear in `gh pr checks`
 
@@ -65,22 +65,19 @@ uv run python scripts/skills_validator.py
 
 ## `codex-review.yml`
 
-> ⏸️ **DISABLED 2026-05-22 — two things are off, for two reasons.** (1) This
-> comment-bot trigger: when `@codex review` is posted by `github-actions[bot]`,
-> Codex replies with only the cosmetic "create a Codex account" line and no real
-> review (a bot-posted comment isn't attributed to the connected account), so it
-> added noise without producing reviews — its `pull_request:` trigger is commented
-> out. (2) Codex **cloud auto-review** (the dashboard feature) is **intentionally
-> OFF**: at `chatgpt.com/codex/cloud/settings/code-review` the "Personal auto
-> review preferences" toggle is off and `linguistic76/skuel` is set to "Follow
-> personal preferences" (resolves to off); there's no per-repo hard-off, so the
-> personal toggle is the switch. Codex now reviews **only** on a manual
-> `@codex review`. **Why off:** cloud auto-review was always best-effort — it fired
-> on ~1 of 4 PRs and draws from a weekly shared usage limit. Kody stays the gating
-> reviewer and CI Gate is the required check, so Codex was never part of the gate.
-> **Re-enable** Codex auto-review by flipping the dashboard toggle ON (or setting
-> the repo to "Review all PRs"); re-enable this comment-bot by uncommenting its
-> trigger in `codex-review.yml`. Verify either with the throwaway-PR test below.
+> ⏸️ **This comment-bot stays DISABLED — but Codex cloud auto-review is now ON
+> via the dashboard (2026-05-25), so this bot is redundant.** Two separate things:
+> (1) **This comment-bot trigger** is off: when `@codex review` is posted by
+> `github-actions[bot]`, Codex replies with only the cosmetic "create a Codex
+> account" line and no real review (a bot-posted comment isn't attributed to the
+> connected account), so its `pull_request:` trigger is commented out. (2) Codex
+> **cloud auto-review** (the dashboard feature) is now **ON**: at
+> `chatgpt.com/codex/cloud/settings/code-review` the "Personal Review Trigger
+> Preference" = **"On PR open"** and `linguistic76/skuel`'s "Auto code review" =
+> **"Review my PRs"**, so Codex auto-reviews every PR you open. (A paid ChatGPT
+> plan unlocked this — it was unreliable/off on the free tier.) Kody + CI Gate
+> remain the gate; Codex is advisory. **To stop Codex auto-review,** change the
+> dashboard trigger preference back / set the repo to a non-auto option.
 
 Historical note (why this workflow exists): across PRs #1–#10 Codex's cloud
 auto-review fired on only **3**, and **6 merged with no Codex review at all** — so
@@ -93,7 +90,9 @@ re-enablement only.
 - Triggers on `opened` / `reopened` / `ready_for_review` / `synchronize`.
 - A `sleep 30` + per-PR `concurrency: cancel-in-progress` debounces bursts — a
   flurry of pushes collapses to one trigger.
-- Skips drafts (`if: github.event.pull_request.draft == false`).
+- Job guard `if: github.event_name == 'pull_request' && …draft == false` — runs
+  only on real PR events (skips drafts) and **no-ops on the manual
+  `workflow_dispatch`**, which has no PR/issue context.
 - Uses the built-in `GITHUB_TOKEN` with `pull-requests: write` (sufficient for
   the `issues.createComment` call — proven on PR #11; no PAT needed).
 - A bot-authored `@codex review` (this workflow's `GITHUB_TOKEN` →
@@ -104,9 +103,12 @@ re-enablement only.
 
 ## Manually requesting a Codex review (the reliable recipe)
 
-Codex reviews only on a manual `@codex review`, and **what makes it reliable is
-who authors the comment**: a bot (`github-actions[bot]`) draws only the cosmetic
-"create a Codex account" reply, while the **connected human account**
+Codex **auto-reviews PRs you open** (dashboard, see below), and you can also
+request a review **manually anytime** with `@codex review` — the path for a
+**re-review after you push more commits** (the dashboard trigger is "On PR open",
+not per-push) or if the auto-review didn't fire. What makes the manual call
+reliable is **who authors the comment**: a bot (`github-actions[bot]`) draws only
+the cosmetic "create a Codex account" reply, while the **connected human account**
 (`linguistic76`) gets a real review. The `gh` CLI posts as your authenticated
 account, so the dependable trigger — equivalent to posting it in the web UI — is:
 
@@ -120,10 +122,14 @@ plus the connected-account "About Codex" footer (not the cosmetic prompt).
 footer means it worked; a "create a Codex account / connect to github" reply with
 no verdict means it's off, disconnected, or weekly-usage-limited.
 
-> To make Codex run automatically on every PR again, the root fix is re-enabling
-> `codex-review.yml`'s comment-bot **but posting with a PAT secret** (author =
-> `linguistic76`, not `github-actions[bot]`) — not the `GITHUB_TOKEN` it used
-> before. Kept manual for now to keep signal clean and spare the weekly usage limit.
+Optional — confirm the trigger comment was authored by a **User**, not a bot
+(the whole reliability hinge):
+
+```bash
+gh pr view <PR#> --json comments \
+  -q '[.comments[]|select(.body|test("@codex review"))]|last|.author.login'
+# want: linguistic76 (a User account) — NOT github-actions[bot] (cosmetic-only)
+```
 
 ## Verifying / re-enabling a reviewer
 
@@ -157,10 +163,12 @@ it's working.
 ## Branch protection (`main`)
 
 Classic protection: **require a PR + a green "CI Gate"; no human approval
-required; admins can bypass.** "CI Gate" is the **only automatic gate** — since
-2026-05-24 neither AI reviewer runs on its own (both are summoned by comment). When
-Kody *is* summoned (`@kody start-review`) it still runs in request-changes mode, so
-a Kody `CHANGES_REQUESTED` holds the merge until resolved or dismissed.
+required; admins can bypass.** "CI Gate" is the **only automatic *gate*** — but as
+of 2026-05-25 **both AI reviewers auto-run** on PRs you open (Codex via its
+dashboard "On PR open"; Kody via its app.kodus.io toggle), and both are also
+summonable by comment (`@codex review` / `@kody start-review`). Codex posts no
+status check, so it never blocks; Kody runs in request-changes mode, so a Kody
+`CHANGES_REQUESTED` holds the merge until resolved or dismissed.
 
 ```bash
 gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
@@ -173,23 +181,22 @@ gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
 
 ## One-time dashboard steps (cannot live in the repo)
 
-- **Codex:** auto-review is **intentionally OFF** (2026-05-22). At
-  `chatgpt.com/codex/cloud/settings/code-review` the "Personal auto review
-  preferences" toggle is **off** and `linguistic76/skuel` is set to "Follow
-  personal preferences" (which resolves to off) — there is no per-repo hard-off,
-  so the personal toggle is the switch. Codex reviews only on a manual
-  `@codex review`. The comment-bot (`codex-review.yml`) is disabled too (a
-  bot-posted `@codex review` yields only the cosmetic prompt). To turn auto-review
-  **on**, flip that toggle (or set the repo to "Review all PRs"); it's best-effort
-  and draws from a weekly usage limit (Analytics → Usage).
+- **Codex:** auto-review is **ON** (2026-05-25, on a paid ChatGPT plan — it was
+  unreliable/off on the free tier). At `chatgpt.com/codex/cloud/settings/code-review`:
+  "Personal Review Trigger Preference" = **"On PR open"**, and `linguistic76/skuel`'s
+  "Auto code review" = **"Review my PRs"** (runs on PRs you open). Exhaustive review
+  and credits-use are off. Codex auto-reviews on PR open **and** responds to a manual
+  `@codex review` (the re-review path, since the trigger is "On PR open", not
+  per-push). The in-repo comment-bot (`codex-review.yml`) stays disabled — redundant
+  with auto-review, and a bot-posted `@codex review` is cosmetic-only. To turn
+  auto-review off, change the trigger preference / set the repo to a non-auto option.
 - **Kodus:** two dashboard steps at `app.kodus.io`:
   1. ensure a **BYOK** LLM key is configured (Kody can't review without it);
-  2. **auto-review is OFF** via the **"enable automatic code review"** toggle in the
-     Code Review settings — this is what makes Kody **on-demand only** (`@kody
-     start-review`). ⚠️ The repo `kodus-config.yml`'s `automatedReviewActive: false`
-     did **not** stop auto-review on its own (verified 2026-05-24: pushes kept
-     getting reviewed until the dashboard toggle was turned off, after which they
-     showed a "Code Review Skipped" check) — dashboard-only, exactly like Codex.
-     To restore Kody auto-review, flip that toggle back on.
+  2. **auto-review is currently ON** via the **"enable automatic code review"**
+     toggle in the Code Review settings (Mike-controlled — flip it off to make Kody
+     **on-demand only**, `@kody start-review`). ⚠️ The dashboard toggle is the real
+     switch: the repo `kodus-config.yml`'s `automatedReviewActive: false` did **not**
+     stop auto-review on its own (verified 2026-05-24) — dashboard-only, exactly like
+     Codex. When OFF, pushes show a "Code Review Skipped" check.
   `kodus-config.yml` still governs the rest (review lenses, severity, summary,
   request-changes mode).
