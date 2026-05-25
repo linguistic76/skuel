@@ -249,9 +249,10 @@ Proposed to Accepted (with or without the reconciliation job) or Rejected.
 
 ## Cleanup spotted while planning
 
-- `core/ports/finance_protocols.py:7,12` cites **ADR-051** for the Firefly integration; the
+- ~~`core/ports/finance_protocols.py:7,12` cites **ADR-051** for the Firefly integration; the
   Firefly ADR is **ADR-052**. Fix the two references (one-line doc correction) whenever this
-  area is next touched.
+  area is next touched.~~ **Resolved 2026-05-25:** both references now correctly cite
+  **ADR-052** (verified — no ADR-051 reference remains in `finance_protocols.py`).
 
 ## References
 
