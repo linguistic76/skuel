@@ -119,18 +119,9 @@ async def check_existing_entities(
     if not uids:
         return {}
 
-    query = """
-    UNWIND $uids AS uid
-    OPTIONAL MATCH (n {uid: uid})
-    RETURN uid, n IS NOT NULL AS exists
-    """
+    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 
-    result = await driver.execute_query(
-        query,
-        {"uids": uids},
-    )
-
-    return {record["uid"]: record["exists"] for record in result.records}
+    return await IngestionWriteBackend(driver).check_existing_entities(uids)
 
 
 def parse_file_sync(
@@ -381,6 +372,9 @@ async def _ingest_edge_batch(
     Returns:
         Tuple of (edges_created_count, error_dicts)
     """
+    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
+
+    write_backend = IngestionWriteBackend(driver)
     edges_created = 0
     errors: list[dict[str, str]] = []
 
@@ -390,21 +384,10 @@ async def _ingest_edge_batch(
         rel_type = edge_data["relationship"]
         props = edge_data["properties"]
 
-        # Validated against RelationshipName enum, safe to interpolate
-        query = f"""
-        MATCH (a {{uid: $from_uid}})
-        MATCH (b {{uid: $to_uid}})
-        MERGE (a)-[r:{rel_type}]->(b)
-        SET r += $props
-        RETURN true AS ok
-        """
         try:
-            records, _, _ = await driver.execute_query(
-                query,
-                from_uid=from_uid,
-                to_uid=to_uid,
-                props=props,
-            )
+            # rel_type validated against RelationshipName enum; Cypher lives in
+            # IngestionWriteBackend below the boundary (ADR-044).
+            records = await write_backend.ingest_edge(from_uid, to_uid, rel_type, props)
             if records:
                 edges_created += 1
             else:

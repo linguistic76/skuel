@@ -20,6 +20,34 @@ from core.utils.result_simplified import Result
 
 
 @runtime_checkable
+class TemplateAttachmentOperations(Protocol):
+    """Persistence port for PS↔Activity-Template edge Cypher.
+
+    The 6 Activity Template services delegate their attach/detach/list Cypher
+    here so it lives below the hexagonal boundary (ADR-044). ``edge_name`` is a
+    controlled ``HAS_*_TEMPLATE`` constant supplied by the service, never user
+    input. Implemented by
+    ``adapters/persistence/neo4j/template_attachment_backend.py``.
+    """
+
+    async def attach(
+        self, ps_uid: str, template_uid: str, edge_name: str
+    ) -> Result[list[dict[str, Any]]]:
+        """MERGE the ``edge_name`` edge between PS and template; return matched rows."""
+        ...
+
+    async def detach(
+        self, ps_uid: str, template_uid: str, edge_name: str
+    ) -> Result[list[dict[str, Any]]]:
+        """DELETE the ``edge_name`` edge; return a ``removed`` count row."""
+        ...
+
+    async def list_for_pathstep(self, ps_uid: str, edge_name: str) -> Result[list[dict[str, Any]]]:
+        """Return ``props`` rows for templates attached to ``ps_uid`` via ``edge_name``."""
+        ...
+
+
+@runtime_checkable
 class ActivityTemplateOperations(Protocol):
     """CRUD + PS-attachment surface shared by all 6 Activity Template services.
 

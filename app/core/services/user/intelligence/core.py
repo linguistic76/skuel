@@ -45,8 +45,8 @@ from core.services.user.intelligence.temporal_momentum import TemporalMomentumMi
 
 if TYPE_CHECKING:
     from core.ports.filtered_context_protocols import FilteredContextProvider
+    from core.ports.relationship_backend_protocols import AnalyticsRelationshipOperations
     from core.ports.zpd_protocols import ZPDOperations
-    from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
@@ -87,7 +87,7 @@ class UserContextIntelligence(
     Processing Domains (3):
     - submissions: SubmissionsRelationshipService - Student submissions + journals
     - feedback: ReportRelationshipService - Report loop graph queries
-    - analytics: AnalyticsRelationshipService - Cross-domain analytics
+    - analytics: AnalyticsRelationshipOperations - Cross-domain analytics
 
     Temporal Domain (1):
     - calendar: CalendarService - Schedule-aware intelligence
@@ -128,7 +128,7 @@ class UserContextIntelligence(
         # Processing Domains (3) - REQUIRED
         user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
-        analytics: AnalyticsRelationshipService,
+        analytics: AnalyticsRelationshipOperations,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements

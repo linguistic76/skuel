@@ -1,44 +1,34 @@
 """
-User Relationship Service
-==========================
+User Relationship Backend
+=========================
 
-Cross-domain relationship management for User entities.
+User-centric graph relationship operations, below the hexagonal boundary.
 
-**ARCHITECTURAL PATTERN: Direct Driver (Graph-Native)**
---------------------------------------------------------
-This service uses the DIRECT DRIVER pattern, distinct from the helper-based
-pattern used by other relationship services (tasks, goals, habits, etc.).
+Implements the ``UserRelationshipOperations`` port
+(``core/ports/relationship_backend_protocols.py``). Authors parameterized
+Cypher and runs it through an injected ``Neo4jQueryExecutor`` — every value is
+a ``$param`` placeholder and every label / relationship type comes from the
+``RelationshipName`` enum, so user input never reaches the query body.
 
-**Key Characteristics:**
-- Does NOT inherit from BaseService
-- Takes AsyncDriver directly (not a protocol-based backend)
-- Does NOT use RelationshipCreator or SemanticRelationshipLinker
-- Writes raw Cypher queries directly via driver.session()
-- Simpler, more direct graph operations
-
-**Why This Pattern:**
-- User relationships require specific property handling (e.g., order on PINNED)
-- Direct Cypher provides maximum flexibility for complex queries
-- No need for helper abstraction layer
-
-**Note:** This service is NOT compatible with GenericRelationshipService base class.
-See: /docs/patterns/GENERIC_RELATIONSHIP_SERVICE_HONEST_ASSESSMENT.md
+Replaces denormalized UID list fields on the User model with pure graph
+queries. Core-layer consumers depend on the port, not this class (ADR-044).
 
 Graph Relationships Managed:
 ----------------------------
 - (user)-[:PINNED {order: int}]->(entity) - Ordered pinned entities
+- (user)-[:PINNED_TODAY {pinned_at}]->(entity) - Today-surface pins
 - (user)-[:PURSUING_GOAL]->(goal) - Active/current goals
 - (user)-[:FOLLOWS]->(other_user) - Social following
-- (user)-[:MEMBER_OF]->(team) - Team/group membership
+- (user)-[:MEMBER_OF]->(group) - Group membership
 
 Note: follower_uids removed - use inverse query: MATCH (follower)-[:FOLLOWS]->(user)
 
-Date: October 26, 2025
+See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.infrastructure.batch import BatchCypherBuilder
 from core.models.relationship_names import RelationshipName
@@ -51,6 +41,9 @@ from core.utils.processor_functions import (
 )
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
 
 def _process_pin_success(records: list) -> Result[bool]:
     """Process pin operation result."""
@@ -62,9 +55,9 @@ def _process_unpin_success(records: list) -> Result[bool]:
     return Result.ok(True) if records else Result.fail(Errors.not_found("Pin not found"))
 
 
-class UserRelationshipService:
+class UserRelationshipBackend:
     """
-    Cross-domain relationship service for User entities.
+    Graph relationship backend for User entities.
 
     Provides graph traversal and relationship management for user relationships.
     Replaces denormalized UID list fields with pure Neo4j graph queries.
@@ -73,15 +66,15 @@ class UserRelationshipService:
     - PINNED: User-selected important entities (with order property)
     - PURSUING_GOAL: Active goal relationships
     - FOLLOWS: Social connections
-    - MEMBER_OF: Team/group membership
+    - MEMBER_OF: Group membership
     """
 
-    def __init__(self, executor: Any = None) -> None:
+    def __init__(self, executor: Neo4jQueryExecutor) -> None:
         """
-        Initialize User relationship service.
+        Initialize the user relationship backend.
 
         Args:
-            executor: Query executor for graph queries
+            executor: Neo4j query executor for parameterized Cypher
         """
         self.executor = executor
 

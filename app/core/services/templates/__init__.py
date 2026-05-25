@@ -28,7 +28,7 @@ See:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol
 from core.models.templates.choice_template import ChoiceTemplate
@@ -44,13 +44,11 @@ from core.models.templates.principle_template_dto import PrincipleTemplateDTO
 from core.models.templates.task_template import TaskTemplate
 from core.models.templates.task_template_dto import TaskTemplateDTO
 from core.ports import BackendOperations
+from core.ports.template_protocols import TemplateAttachmentOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 logger = get_logger(__name__)
 
@@ -68,11 +66,11 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
     def __init__(
         self,
         backend: BackendOperations[T],
-        executor: Neo4jQueryExecutor,
+        attachment: TemplateAttachmentOperations,
     ) -> None:
         super().__init__(backend, self._service_name or self.__class__.__name__)
         self.backend = backend
-        self._executor = executor
+        self._attachment = attachment
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
 
     async def attach_to_pathstep(self, ps_uid: str, template_uid: str) -> Result[bool]:
@@ -91,16 +89,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
                     operation="attach_to_pathstep",
                 )
             )
-        query = (
-            "MATCH (ps {uid: $ps_uid}), (t {uid: $template_uid}) "
-            f"MERGE (ps)-[:{self._edge_name}]->(t) "
-            "RETURN ps.uid AS ps_uid, t.uid AS t_uid"
-        )
-        result: Result[list[dict[str, Any]]] = await self._executor.execute_write(
-            query=query,
-            params={"ps_uid": ps_uid, "template_uid": template_uid},
-            operation="attach_template_to_pathstep",
-        )
+        result = await self._attachment.attach(ps_uid, template_uid, self._edge_name)
         if result.is_error:
             return Result.fail(result)
         if not result.value:
@@ -127,17 +116,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
                     operation="detach_from_pathstep",
                 )
             )
-        query = (
-            "MATCH (ps {uid: $ps_uid})-[r:"
-            f"{self._edge_name}"
-            "]->(t {uid: $template_uid}) "
-            "DELETE r RETURN count(r) AS removed"
-        )
-        result: Result[list[dict[str, Any]]] = await self._executor.execute_write(
-            query=query,
-            params={"ps_uid": ps_uid, "template_uid": template_uid},
-            operation="detach_template_from_pathstep",
-        )
+        result = await self._attachment.detach(ps_uid, template_uid, self._edge_name)
         if result.is_error:
             return Result.fail(result)
         removed = bool(result.value and result.value[0].get("removed", 0))
@@ -161,18 +140,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
                     operation="list_for_pathstep",
                 )
             )
-        query = (
-            "MATCH (ps {uid: $ps_uid})-[:"
-            f"{self._edge_name}"
-            "]->(t) "
-            "RETURN properties(t) AS props "
-            "ORDER BY t.created_at"
-        )
-        result: Result[list[dict[str, Any]]] = await self._executor.execute(
-            query=query,
-            params={"ps_uid": ps_uid},
-            operation="list_templates_for_pathstep",
-        )
+        result = await self._attachment.list_for_pathstep(ps_uid, self._edge_name)
         if result.is_error:
             return Result.fail(result)
         return Result.ok([record["props"] for record in result.value])

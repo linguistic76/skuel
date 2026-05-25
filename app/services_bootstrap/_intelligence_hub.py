@@ -32,14 +32,19 @@ async def _create_intelligence_hub(
     Mutates ``services``, ``context_builder``, and ``user_service`` to wire the
     intelligence hub into the running application.
     """
-    from core.services.analytics_relationship_service import AnalyticsRelationshipService
+    from adapters.persistence.neo4j.analytics_relationship_backend import (
+        AnalyticsRelationshipBackend,
+    )
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.services.report import ReportRelationshipService
     from core.services.user.intelligence import UserContextIntelligenceFactory
     from core.services.user_entry import UserEntryRelationshipService
 
     entry_relationship_service = UserEntryRelationshipService(backend=user_entry_backend)
     report_relationship_service = ReportRelationshipService(backend=user_entry_backend)
-    analytics_relationship_service = AnalyticsRelationshipService(driver)
+    # AnalyticsRelationshipBackend runs parameterized Cypher via the executor — wrap
+    # the driver (its methods call executor.execute(), which AsyncDriver lacks).
+    analytics_relationship_service = AnalyticsRelationshipBackend(Neo4jQueryExecutor(driver))
     logger.info("✅ Processing domain relationship services created (UserEntry, Report, Analytics)")
 
     # ── PsEngagementService post-wire to context_builder (ADR-059) ──────────

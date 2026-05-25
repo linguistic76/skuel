@@ -1,8 +1,8 @@
 """Unit tests for ``PsEngagementService.check_auto_complete``.
 
-The method is a wrapper around one Cypher query + Python classification +
-delegate to ``complete_pathstep``. These tests replace the executor with an
-in-memory stub so we can rehearse the branches without Neo4j:
+The method is a wrapper around one ``PsEngagementBackend`` read + Python
+classification + delegate to ``complete_pathstep``. These tests replace the
+backend with an in-memory stub so we can rehearse the branches without Neo4j:
 
   - Instance is not part of an engagement → returns None, never calls complete.
   - Some siblings still pending → returns None, never calls complete.
@@ -29,33 +29,33 @@ from core.utils.result_simplified import Errors, Result
 
 
 @dataclass
-class _StubExecutor:
-    """Captures the query and parameters; returns a canned result."""
+class _StubBackend:
+    """Captures the call args; returns a canned result."""
 
     canned: Any
     called_with: list[dict[str, Any]] | None = None
 
-    async def execute(
-        self, *, query: str, params: dict[str, Any], operation: str
+    async def fetch_auto_complete_siblings(
+        self, student_uid: str, instance_uid: str
     ) -> Result[list[dict[str, Any]]]:
         if self.called_with is None:
             self.called_with = []
-        self.called_with.append({"query": query, "params": params, "operation": operation})
+        self.called_with.append({"student_uid": student_uid, "instance_uid": instance_uid})
         return self.canned
 
 
 def _service_with_stubs(
-    executor: _StubExecutor,
+    backend: _StubBackend,
     complete_mock: AsyncMock | None = None,
 ) -> PsEngagementService:
-    """Build a PsEngagementService with only the executor + complete patched.
+    """Build a PsEngagementService with only the backend + complete patched.
 
-    ``check_auto_complete`` only touches ``self._executor`` and (on success)
+    ``check_auto_complete`` only touches ``self._backend`` and (on success)
     ``self.complete_pathstep`` — skipping the full constructor keeps the test
     focused on the classification + delegation surface.
     """
     svc = PsEngagementService.__new__(PsEngagementService)
-    svc._executor = executor  # type: ignore[assignment]
+    svc._backend = backend  # type: ignore[assignment]
     svc.logger = AsyncMock()  # silences the info/warning logs
     if complete_mock is not None:
         svc.complete_pathstep = complete_mock  # type: ignore[method-assign]
@@ -75,9 +75,9 @@ def _completed_engagement(ps_uid: str = "ps_x") -> Engagement:
 @pytest.mark.anyio
 async def test_returns_none_when_instance_not_in_active_engagement() -> None:
     """Empty query result → no engagement → no-op."""
-    executor = _StubExecutor(canned=Result.ok([]))
+    backend = _StubBackend(canned=Result.ok([]))
     complete = AsyncMock()
-    svc = _service_with_stubs(executor, complete)
+    svc = _service_with_stubs(backend, complete)
 
     res = await svc.check_auto_complete("user_alice", "task_loose")
 
@@ -88,12 +88,12 @@ async def test_returns_none_when_instance_not_in_active_engagement() -> None:
 
 @pytest.mark.anyio
 async def test_returns_none_when_query_fails() -> None:
-    """Cypher failure is propagated as an error Result, complete is not called."""
-    executor = _StubExecutor(
+    """Backend failure is propagated as an error Result, complete is not called."""
+    backend = _StubBackend(
         canned=Result.fail(Errors.database(operation="check_auto_complete", message="boom"))
     )
     complete = AsyncMock()
-    svc = _service_with_stubs(executor, complete)
+    svc = _service_with_stubs(backend, complete)
 
     res = await svc.check_auto_complete("user_alice", "task_x")
 
@@ -104,7 +104,7 @@ async def test_returns_none_when_query_fails() -> None:
 @pytest.mark.anyio
 async def test_pending_sibling_blocks_auto_complete() -> None:
     """A Task still ACTIVE keeps the engagement open."""
-    executor = _StubExecutor(
+    backend = _StubBackend(
         canned=Result.ok(
             [
                 {
@@ -118,7 +118,7 @@ async def test_pending_sibling_blocks_auto_complete() -> None:
         )
     )
     complete = AsyncMock()
-    svc = _service_with_stubs(executor, complete)
+    svc = _service_with_stubs(backend, complete)
 
     res = await svc.check_auto_complete("user_alice", "task_done")
 
@@ -130,7 +130,7 @@ async def test_pending_sibling_blocks_auto_complete() -> None:
 @pytest.mark.anyio
 async def test_all_terminal_fires_complete_with_empty_review() -> None:
     """When every sibling is engagement-terminal, complete is called with review={}."""
-    executor = _StubExecutor(
+    backend = _StubBackend(
         canned=Result.ok(
             [
                 {
@@ -147,7 +147,7 @@ async def test_all_terminal_fires_complete_with_empty_review() -> None:
     )
     expected = _completed_engagement("ps_x")
     complete = AsyncMock(return_value=Result.ok(expected))
-    svc = _service_with_stubs(executor, complete)
+    svc = _service_with_stubs(backend, complete)
 
     res = await svc.check_auto_complete("user_alice", "task_done")
 
@@ -159,7 +159,7 @@ async def test_all_terminal_fires_complete_with_empty_review() -> None:
 @pytest.mark.anyio
 async def test_principle_active_does_not_block() -> None:
     """Principle ACTIVE is engagement-terminal — it never blocks completion."""
-    executor = _StubExecutor(
+    backend = _StubBackend(
         canned=Result.ok(
             [
                 {
@@ -174,7 +174,7 @@ async def test_principle_active_does_not_block() -> None:
     )
     expected = _completed_engagement("ps_x")
     complete = AsyncMock(return_value=Result.ok(expected))
-    svc = _service_with_stubs(executor, complete)
+    svc = _service_with_stubs(backend, complete)
 
     res = await svc.check_auto_complete("user_alice", "task_done")
 
@@ -186,7 +186,7 @@ async def test_principle_active_does_not_block() -> None:
 @pytest.mark.anyio
 async def test_habit_active_blocks() -> None:
     """Habit ACTIVE is NOT engagement-terminal — engagement waits."""
-    executor = _StubExecutor(
+    backend = _StubBackend(
         canned=Result.ok(
             [
                 {
@@ -200,7 +200,7 @@ async def test_habit_active_blocks() -> None:
         )
     )
     complete = AsyncMock()
-    svc = _service_with_stubs(executor, complete)
+    svc = _service_with_stubs(backend, complete)
 
     res = await svc.check_auto_complete("user_alice", "task_done")
 
@@ -212,7 +212,7 @@ async def test_habit_active_blocks() -> None:
 @pytest.mark.anyio
 async def test_malformed_sibling_does_not_auto_complete() -> None:
     """Bad entity_type / status string → defensive return None, log warning."""
-    executor = _StubExecutor(
+    backend = _StubBackend(
         canned=Result.ok(
             [
                 {
@@ -226,7 +226,7 @@ async def test_malformed_sibling_does_not_auto_complete() -> None:
         )
     )
     complete = AsyncMock()
-    svc = _service_with_stubs(executor, complete)
+    svc = _service_with_stubs(backend, complete)
 
     res = await svc.check_auto_complete("user_alice", "task_done")
 
@@ -236,14 +236,13 @@ async def test_malformed_sibling_does_not_auto_complete() -> None:
 
 
 @pytest.mark.anyio
-async def test_query_carries_expected_params() -> None:
-    """Sanity check that the query is parameterized with the call arguments."""
-    executor = _StubExecutor(canned=Result.ok([]))
-    svc = _service_with_stubs(executor, AsyncMock())
+async def test_call_carries_expected_args() -> None:
+    """Sanity check that the backend read is called with the call arguments."""
+    backend = _StubBackend(canned=Result.ok([]))
+    svc = _service_with_stubs(backend, AsyncMock())
 
     await svc.check_auto_complete("user_alice", "task_xyz")
 
-    assert executor.called_with is not None
-    [call] = executor.called_with
-    assert call["params"] == {"student_uid": "user_alice", "instance_uid": "task_xyz"}
-    assert call["operation"] == "check_auto_complete"
+    assert backend.called_with is not None
+    [call] = backend.called_with
+    assert call == {"student_uid": "user_alice", "instance_uid": "task_xyz"}

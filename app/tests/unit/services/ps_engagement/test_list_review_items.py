@@ -1,8 +1,8 @@
 """Unit tests for ``PsEngagementService.list_review_items``.
 
-The method runs a single Cypher read and shapes the rows into
-``ReviewItem`` instances. Tests verify the shape contract — that domain
-labels are extracted (preferring non-``Entity`` labels), titles fall back
+The method delegates a single Cypher read to ``PsEngagementBackend`` and shapes
+the rows into ``ReviewItem`` instances. Tests verify the shape contract — that
+domain labels are extracted (preferring non-``Entity`` labels), titles fall back
 to UIDs when null, and errors propagate.
 
 Real edge lookups against Neo4j are covered by
@@ -22,17 +22,17 @@ from core.services.ps_engagement.ps_engagement_service import (
 from core.utils.result_simplified import Errors, Result
 
 
-def _service_with_executor(executor_mock: AsyncMock) -> PsEngagementService:
-    """Build a PsEngagementService with only the executor wired."""
+def _service_with_backend(backend_mock: AsyncMock) -> PsEngagementService:
+    """Build a PsEngagementService with only the backend wired."""
     svc = PsEngagementService.__new__(PsEngagementService)
-    svc._executor = executor_mock  # type: ignore[attr-defined]
+    svc._backend = backend_mock  # type: ignore[attr-defined]
     return svc
 
 
 @pytest.mark.anyio
 async def test_returns_review_items_with_domain_label() -> None:
-    executor = AsyncMock()
-    executor.execute = AsyncMock(
+    backend = AsyncMock()
+    backend.list_review_items = AsyncMock(
         return_value=Result.ok(
             [
                 {
@@ -50,7 +50,7 @@ async def test_returns_review_items_with_domain_label() -> None:
             ]
         )
     )
-    svc = _service_with_executor(executor)
+    svc = _service_with_backend(backend)
 
     result = await svc.list_review_items("user_alice", "ps_test")
 
@@ -73,8 +73,8 @@ async def test_returns_review_items_with_domain_label() -> None:
 
 @pytest.mark.anyio
 async def test_falls_back_to_entity_label_when_no_domain_label() -> None:
-    executor = AsyncMock()
-    executor.execute = AsyncMock(
+    backend = AsyncMock()
+    backend.list_review_items = AsyncMock(
         return_value=Result.ok(
             [
                 {
@@ -86,7 +86,7 @@ async def test_falls_back_to_entity_label_when_no_domain_label() -> None:
             ]
         )
     )
-    svc = _service_with_executor(executor)
+    svc = _service_with_backend(backend)
 
     result = await svc.list_review_items("user_alice", "ps_test")
 
@@ -96,9 +96,9 @@ async def test_falls_back_to_entity_label_when_no_domain_label() -> None:
 
 @pytest.mark.anyio
 async def test_returns_empty_list_when_no_instances() -> None:
-    executor = AsyncMock()
-    executor.execute = AsyncMock(return_value=Result.ok([]))
-    svc = _service_with_executor(executor)
+    backend = AsyncMock()
+    backend.list_review_items = AsyncMock(return_value=Result.ok([]))
+    svc = _service_with_backend(backend)
 
     result = await svc.list_review_items("user_alice", "ps_test")
 
@@ -107,12 +107,12 @@ async def test_returns_empty_list_when_no_instances() -> None:
 
 
 @pytest.mark.anyio
-async def test_propagates_executor_failure() -> None:
-    executor = AsyncMock()
-    executor.execute = AsyncMock(
+async def test_propagates_backend_failure() -> None:
+    backend = AsyncMock()
+    backend.list_review_items = AsyncMock(
         return_value=Result.fail(Errors.database("list_review_items", "boom"))
     )
-    svc = _service_with_executor(executor)
+    svc = _service_with_backend(backend)
 
     result = await svc.list_review_items("user_alice", "ps_test")
 

@@ -151,7 +151,12 @@ class UnifiedIngestionService:
         if not driver:
             raise ValueError("Neo4j driver is required")
 
+        from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
+
         self.driver = driver
+        # Entity/edge write Cypher lives below the boundary (ADR-044); the bulk
+        # engine still receives the raw driver for node creation.
+        self._write_backend = IngestionWriteBackend(driver)
         self.ingestion_backend = ingestion_backend
         self.default_user_uid = (
             default_user_uid if default_user_uid is not None else DEFAULT_USER_UID
@@ -312,35 +317,16 @@ class UnifiedIngestionService:
         rel_type = edge_data["relationship"]
         props = edge_data["properties"]
 
-        # Validated against RelationshipName enum, safe to interpolate
-        query = f"""
-        MATCH (a {{uid: $from_uid}})
-        MATCH (b {{uid: $to_uid}})
-        MERGE (a)-[r:{rel_type}]->(b)
-        SET r += $props
-        RETURN a.uid AS from_uid, b.uid AS to_uid, type(r) AS rel_type,
-               CASE WHEN r.created_at = $props.created_at THEN true ELSE false END AS created
-        """
-
         try:
-            # rel_type validated against RelationshipName enum above — safe to pass
-            # the interpolated query at the neo4j boundary (driver requires
-            # LiteralString for injection safety, which we've already verified).
-            records, _, _ = await self.driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
-                query,
-                from_uid=from_uid,
-                to_uid=to_uid,
-                props=props,
-            )
+            # rel_type validated against RelationshipName enum; the Cypher lives
+            # in IngestionWriteBackend below the boundary (ADR-044).
+            records = await self._write_backend.ingest_edge(from_uid, to_uid, rel_type, props)
 
             if not records:
                 # One or both entities not found
                 missing: list[str] = []
                 for uid, label in [(from_uid, "from"), (to_uid, "to")]:
-                    check_records, _, _ = await self.driver.execute_query(
-                        "MATCH (n {uid: $uid}) RETURN n.uid", uid=uid
-                    )
-                    if not check_records:
+                    if not await self._write_backend.entity_exists(uid):
                         missing.append(f"{label}={uid}")
                 return Result.fail(
                     Errors.not_found(
@@ -513,15 +499,7 @@ class UnifiedIngestionService:
             owner_uid = entity_data.get("owner_uid")
             if owner_uid:
                 try:
-                    await self.driver.execute_query(
-                        """
-                        MATCH (u:User {uid: $owner_uid})
-                        MATCH (g:Group {uid: $group_uid})
-                        MERGE (u)-[:OWNS]->(g)
-                        """,
-                        owner_uid=owner_uid,
-                        group_uid=entity_data["uid"],
-                    )
+                    await self._write_backend.create_group_ownership(owner_uid, entity_data["uid"])
                 except NEO4J_EXCEPTIONS as e:
                     self.logger.warning(
                         f"Failed to create OWNS edge for group {entity_data['uid']}: {e}"

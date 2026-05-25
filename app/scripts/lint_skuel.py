@@ -14,6 +14,7 @@ ERROR (blocks CI):
   SKUEL002: Semantic type enums (not magic strings)
   SKUEL003: .is_err deprecated - use .is_error
   SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
+  SKUEL021: No raw Cypher in the service layer (lives below the boundary, ADR-044)
 
 WARNING (reported, doesn't block):
   SKUEL004: Confidence thresholds on semantic queries
@@ -478,6 +479,31 @@ async def pwa_manifest(request: Request) -> FileResponse:
 async def pwa_manifest(request: Any) -> FileResponse:  # 400s before any gate runs
     ...""",
     },
+    "SKUEL021": {
+        "title": "No Raw Cypher in the Service Layer",
+        "severity": "ERROR",
+        "description": """ADR-044 places the hexagonal boundary at UniversalNeo4jBackend /
+adapters/persistence/neo4j/. All Cypher lives below that boundary; services orchestrate and
+call backend methods — they do not author Cypher. (SKUEL001 only bans APOC procedures; this
+rule covers raw Cypher generally, which was previously unguarded.)
+
+The detector flags high-signal, paren/sigil-anchored Cypher clauses (MATCH (, MERGE (,
+OPTIONAL MATCH (, CREATE (, UNWIND $, CALL db.) so prose/comments are not caught. Comment
+lines are skipped.
+
+Fix: relocate the query into an adapter backend (adapters/persistence/neo4j/) behind a
+core/ports protocol. See the relationship / ps_engagement / ingestion / query backends for
+the pattern.
+
+Suppress: # skuel-lint: disable=SKUEL021 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL021 -- <reason>""",
+        "good": """# Service delegates to the backend (Cypher lives below the boundary)
+result = await self.backend.get_pinned_entities(user_uid)""",
+        "bad": """# Raw Cypher authored in a core/services file
+result = await self.executor.execute(
+    query="MATCH (u:User {uid: $uid})-[:PINNED]->(e) RETURN e.uid", ...
+)""",
+    },
 }
 
 
@@ -799,6 +825,8 @@ class SkuelLinter:
             if is_service and not is_test:
                 if self._should_run_rule("SKUEL001"):
                     self._check_apoc_in_services(file_path, rel_path, content, lines)
+                if self._should_run_rule("SKUEL021"):
+                    self._check_raw_cypher_in_services(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL002"):
                     self._check_semantic_type_strings(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL004"):
@@ -856,6 +884,67 @@ class SkuelLinter:
                             line_content=line.strip(),
                         )
                     )
+
+    def _check_raw_cypher_in_services(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL021 [ERROR]: No raw Cypher authored in the service layer.
+
+        ADR-044 puts the hexagonal boundary at ``UniversalNeo4jBackend`` /
+        ``adapters/persistence/neo4j/``: all Cypher lives below it. Services
+        orchestrate and call backend methods; they do not author Cypher. (Note
+        SKUEL001 only bans APOC — this rule covers raw Cypher generally.)
+
+        High-signal clause patterns only, to avoid flagging prose. Comment lines
+        are skipped. Relocate the query into an adapter backend behind a
+        ``core/ports`` protocol (see the relationship/ps_engagement/ingestion
+        backends for the pattern).
+
+        Suppress: # skuel-lint: disable=SKUEL021 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL021 -- <reason>
+        """
+        if self._is_file_suppressed(content, "SKUEL021"):
+            return
+
+        # Paren/sigil-anchored clauses that essentially never appear in prose.
+        # (DETACH DELETE is intentionally excluded — real Cypher uses a variable,
+        # `DETACH DELETE n`, which is indistinguishable from docstring prose like
+        # "cascade DETACH DELETE (default False)".)
+        cypher_markers = (
+            "MATCH (",
+            "MERGE (",
+            "OPTIONAL MATCH (",
+            "OPTIONAL MATCH path",
+            "CREATE (",
+            "UNWIND $",
+            "CALL db.",
+        )
+
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if self._is_line_suppressed(line, "SKUEL021"):
+                continue
+            for marker in cypher_markers:
+                if marker in line:
+                    self.result.violations.append(
+                        Violation(
+                            file_path=rel_path,
+                            line_number=line_num,
+                            column=line.find(marker),
+                            severity=Severity.ERROR,
+                            rule_id="SKUEL021",
+                            message=f"Raw Cypher ('{marker.strip()}') authored in the service layer",
+                            suggestion=(
+                                "Relocate the query to an adapter backend "
+                                "(adapters/persistence/neo4j/) behind a core/ports protocol (ADR-044)"
+                            ),
+                            line_content=stripped,
+                        )
+                    )
+                    break
 
     # =========================================================================
     # ERROR RULES

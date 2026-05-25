@@ -159,7 +159,7 @@ class User:
 
         GRAPH-NATIVE PLACEHOLDER: Use service layer for actual query.
         Query: MATCH (user)-[r:PINNED]->(entity) RETURN entity.uid ORDER BY r.order
-        Service: UserRelationshipService.get_pinned_entities(user_uid)
+        Service: UserRelationshipBackend.get_pinned_entities(user_uid)
         """
         return []  # Placeholder - use service layer
 
@@ -258,7 +258,7 @@ class User:
 
         # Check for specific interests
         # GRAPH-NATIVE: current_goals field removed - would query via service layer
-        # if has_active_goals: # Would use UserRelationshipService.has_active_goals(user_uid)
+        # if has_active_goals: # Would use UserRelationshipBackend.has_active_goals(user_uid)
         # return QueryIntent.SPECIFIC
 
         # Default to relationship exploration
@@ -304,7 +304,7 @@ class UserServiceContext:
         Create service context from user model.
 
         GRAPH-NATIVE: current_goal_uids must be provided from service layer query.
-        Use UserRelationshipService.get_current_goals(user_uid) to populate.
+        Use UserRelationshipBackend.get_current_goals(user_uid) to populate.
         """
         return cls(
             user_uid=UserUID(user.uid),

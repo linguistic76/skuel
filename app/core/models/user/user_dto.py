@@ -76,7 +76,7 @@ class UserDTO:
     active_entity_uids: set[str] = field(default_factory=set)
     archived_entity_uids: set[str] = field(default_factory=set)
 
-    # Pinned entities - GRAPH-NATIVE: Query via UserRelationshipService
+    # Pinned entities - GRAPH-NATIVE: Query via UserRelationshipBackend
     # Graph relationship: (user)-[:PINNED {order}]->(entity)
     pinned_entity_uids: list[str] = field(default_factory=list)  # Populated from service layer
 
@@ -84,11 +84,11 @@ class UserDTO:
     interests: list[str] = field(default_factory=list)
     achievements: list[str] = field(default_factory=list)
 
-    # Current goals - GRAPH-NATIVE: Query via UserRelationshipService
+    # Current goals - GRAPH-NATIVE: Query via UserRelationshipBackend
     # Graph relationship: (user)-[:PURSUING_GOAL]->(goal)
     current_goals: list[str] = field(default_factory=list)  # Populated from service layer
 
-    # Social connections - GRAPH-NATIVE: Query via UserRelationshipService
+    # Social connections - GRAPH-NATIVE: Query via UserRelationshipBackend
     # Graph relationship: (user)-[:FOLLOWS]->(other_user)
     # Graph relationship: (follower)-[:FOLLOWS]->(user) [inverse]
     # Graph relationship: (user)-[:MEMBER_OF]->(team)

@@ -61,6 +61,7 @@ def _create_template_services(
     Builds (Phase 4):
     - ``ps_engagement``: PsEngagementService — 4-transition lifecycle facade.
     """
+    from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
     from core.services.ps_engagement import PsEngagementService
     from core.services.templates import (
         ChoiceTemplateService,
@@ -71,13 +72,16 @@ def _create_template_services(
         TaskTemplateService,
     )
 
-    task_templates = TaskTemplateService(backend=task_template_backend, executor=executor)
-    goal_templates = GoalTemplateService(backend=goal_template_backend, executor=executor)
-    habit_templates = HabitTemplateService(backend=habit_template_backend, executor=executor)
-    event_templates = EventTemplateService(backend=event_template_backend, executor=executor)
-    choice_templates = ChoiceTemplateService(backend=choice_template_backend, executor=executor)
+    # One shared attachment backend — stateless, the edge type is passed per call.
+    attachment = TemplateAttachmentBackend(executor)
+
+    task_templates = TaskTemplateService(backend=task_template_backend, attachment=attachment)
+    goal_templates = GoalTemplateService(backend=goal_template_backend, attachment=attachment)
+    habit_templates = HabitTemplateService(backend=habit_template_backend, attachment=attachment)
+    event_templates = EventTemplateService(backend=event_template_backend, attachment=attachment)
+    choice_templates = ChoiceTemplateService(backend=choice_template_backend, attachment=attachment)
     principle_templates = PrincipleTemplateService(
-        backend=principle_template_backend, executor=executor
+        backend=principle_template_backend, attachment=attachment
     )
 
     ps_engagement = PsEngagementService(

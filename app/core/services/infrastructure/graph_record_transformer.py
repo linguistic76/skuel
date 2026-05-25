@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from core.models.enums import Domain
 from core.models.graph_context import (
     ContextRelevance,
     DomainContext,
@@ -22,7 +23,46 @@ from core.models.graph_context import (
     RelationshipStrength,
 )
 from core.ports import get_enum_value
-from core.services.infrastructure.graph_query_builder import determine_domain
+
+
+def determine_domain(node_dict: dict[str, Any], labels: list[str]) -> Domain:
+    """
+    Determine domain from node properties or labels.
+
+    Args:
+        node_dict: Node properties dictionary
+        labels: Node labels list
+
+    Returns:
+        Domain enum value
+    """
+    # Check if domain is in properties
+    if "domain" in node_dict:
+        domain_val = node_dict["domain"]
+        try:
+            return Domain(domain_val) if isinstance(domain_val, str) else domain_val
+        except ValueError:
+            pass
+
+    # Infer from labels
+    label_to_domain = {
+        "Task": Domain.TASKS,
+        "Habit": Domain.HABITS,
+        "Goal": Domain.GOALS,
+        "Event": Domain.EVENTS,
+        "Entity": Domain.KNOWLEDGE,
+        "Lp": Domain.LEARNING,
+        "Finance": Domain.FINANCE,
+        "Choice": Domain.CHOICES,
+        "Principle": Domain.PRINCIPLES,
+        "Journal": Domain.JOURNALS,
+    }
+
+    for label in labels:
+        if label in label_to_domain:
+            return label_to_domain[label]
+
+    return Domain.KNOWLEDGE
 
 
 def transform_records_to_graph_context(

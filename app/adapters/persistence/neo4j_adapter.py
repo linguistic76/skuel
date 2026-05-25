@@ -110,7 +110,7 @@ class Neo4jAdapter:
     def get_schema_service(self) -> Any:
         """Get schema service instance for database introspection"""
         if not self._schema_service:
-            from core.services.schema_service import Neo4jSchemaService
+            from adapters.persistence.neo4j.schema_service import Neo4jSchemaService
 
             self._schema_service = Neo4jSchemaService(self)
         return self._schema_service

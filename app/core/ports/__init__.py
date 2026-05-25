@@ -186,6 +186,7 @@ from .intelligence_protocols import (
     IntelligenceOperations,
     KnowledgeIntelligenceOperations,
 )
+from .ps_engagement_protocols import PsEngagementOperations
 
 # Query types - TypedDicts for type-safe queries and payloads (January 2026)
 from .query_types import (
@@ -214,6 +215,10 @@ from .query_types import (
     PsUpdatePayload,
     TaskUpdatePayload,
     WhereClauseSpec,
+)
+from .relationship_backend_protocols import (
+    AnalyticsRelationshipOperations,
+    UserRelationshipOperations,
 )
 
 # Report protocols — Report stage of the educational loop
@@ -266,7 +271,7 @@ from .service_protocols import (
 from .sharing_protocols import SharingOperations
 
 # Activity Template protocol — PS-owned templates (May 2026)
-from .template_protocols import ActivityTemplateOperations
+from .template_protocols import ActivityTemplateOperations, TemplateAttachmentOperations
 
 # ZPD protocol — Zone of Proximal Development (March 2026)
 from .zpd_protocols import ZPDOperations
@@ -305,6 +310,7 @@ __all__ = [
     "ProgressResult",
     # ========== ACTIVITY TEMPLATE PROTOCOL (1 - May 2026) ==========
     "ActivityTemplateOperations",
+    "TemplateAttachmentOperations",
     # ========== ASKESIS PROTOCOLS (6 - February 2026) ==========
     "AskesisCoreOperations",  # CRUD + context building (6 methods)
     "AskesisDomainSynthesisOperations",
@@ -323,8 +329,11 @@ __all__ = [
     # ========== DOMAIN OPERATION PROTOCOLS (8) ==========
     "ChoicesOperations",
     "Closeable",
+    "AnalyticsRelationshipOperations",
     "CrossDomainAnalyticsOperations",
     "CrossDomainBackendOperations",
+    "PsEngagementOperations",
+    "UserRelationshipOperations",
     # ========== BACKEND PROTOCOLS (ISP-compliant hierarchy) ==========
     # Sub-protocols (for focused dependencies)
     "CrudOperations",  # Basic CRUD (6 methods)

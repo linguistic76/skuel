@@ -17,6 +17,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.graph_context_query_builder import (
+    build_context_query_for_intent,
+)
 from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
@@ -26,6 +29,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.models.query_types import QueryIntent
 
 
 # ============================================================================
@@ -621,8 +625,11 @@ class CrossDomainBackend:
             {"uid": uid},
         )
 
-    async def query_with_intent(self, query: str, uid: str) -> Result[list[dict[str, Any]]]:
-        """Execute a graph context query built by graph_query_builder."""
+    async def query_with_intent(
+        self, intent: QueryIntent, depth: int, uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Build an intent-specific graph-context traversal and execute it for ``uid``."""
+        query = build_context_query_for_intent(intent, depth)
         return await self.executor.execute_query(query, {"uid": uid})
 
     async def get_entity_labels(self, uid: str) -> Result[list[dict[str, Any]]]:
