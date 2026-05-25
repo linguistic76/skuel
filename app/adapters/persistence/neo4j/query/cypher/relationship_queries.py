@@ -18,6 +18,7 @@ Methods:
 
 from typing import Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue
 from core.ports.base_protocols import Direction
 
@@ -230,7 +231,7 @@ def build_multi_relationship_count(
 
 
 def build_batch_relationship_exists(
-    node_label: str,
+    node_label: NeoLabel,
     relationship_types: list[str],
     direction: Direction = "outgoing",
 ) -> tuple[str, dict[str, Any]]:
@@ -283,7 +284,7 @@ def build_batch_relationship_exists(
 
 
 def build_batch_relationship_count(
-    node_label: str,
+    node_label: NeoLabel,
     relationship_types: list[str],
     direction: Direction = "outgoing",
 ) -> tuple[str, dict[str, Any]]:
@@ -330,7 +331,7 @@ def build_batch_relationship_count(
 
 
 def build_batch_relationship_exists_with_filters(
-    node_label: str,
+    node_label: NeoLabel,
     relationship_types: list[str],
     direction: Direction = "outgoing",
     property_filters: dict[str, Any] | None = None,
@@ -382,7 +383,7 @@ def build_batch_relationship_exists_with_filters(
 
 
 def build_batch_get_related_with_filters(
-    node_label: str,
+    node_label: NeoLabel,
     relationship_types: list[str],
     direction: Direction = "outgoing",
     property_filters: dict[str, Any] | None = None,
@@ -437,7 +438,7 @@ def build_batch_get_related_with_filters(
 
 def build_metadata_aware_path_query(
     target_uid: str,
-    node_label: str = "Entity",
+    node_label: NeoLabel = NeoLabel.ENTITY,
     relationship_type: str = "REQUIRES_KNOWLEDGE",
     user_time_budget: int | None = None,
     max_complexity_level: str | None = None,

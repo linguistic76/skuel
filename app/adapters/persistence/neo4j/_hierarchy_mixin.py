@@ -31,6 +31,8 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
+    from core.models.enums.neo_labels import NeoLabel
+
 
 @dataclass(frozen=True)
 class HierarchyConfig:
@@ -48,7 +50,7 @@ class HierarchyConfig:
 
     forward_rel: str
     inverse_rel: str
-    node_label: str
+    node_label: NeoLabel
     domain_name: str
     node_filter: str = ""
 

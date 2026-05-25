@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
     from core.models.semantic import EdgeMetadata
     from core.ports.base_protocols import Direction, RelationshipMetadata
 
@@ -55,7 +56,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
     Requires on concrete class:
         driver: AsyncDriver
         logger: logging.Logger
-        label: str
+        label: NeoLabel
         entity_class: type[T]
         default_filters: FilterParams
         _default_filter_clause: method
@@ -66,7 +67,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
     if TYPE_CHECKING:
         driver: AsyncDriver
         logger: logging.Logger
-        label: str
+        label: NeoLabel
         entity_class: type[T]
         default_filters: FilterParams
 
@@ -81,7 +82,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             source_var: str = "n",
             target_var: str = "related",
             rel_var: str | None = None,
-            target_label: str | None = None,
+            target_label: NeoLabel | None = None,
         ) -> Result[str]: ...
 
     # ============================================================================

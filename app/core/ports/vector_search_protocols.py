@@ -11,10 +11,13 @@ Consumer: Neo4jVectorSearchService
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.ports.query_types import SemanticSearchChunkResult
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.enums.neo_labels import NeoLabel
 
 
 @runtime_checkable
@@ -25,7 +28,9 @@ class VectorSearchBackendOperations(Protocol):
         self, index_name: str, limit: int, embedding: list[float], min_score: float
     ) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_node_embedding(self, label: str, uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_node_embedding(
+        self, label: NeoLabel, uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
 
     async def query_fulltext_index(
         self, index_name: str, query_text: str, limit: int

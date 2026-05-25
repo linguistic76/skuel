@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
+    from core.models.relationship_names import RelationshipName
     from core.ports.base_protocols import Direction
 
 
@@ -38,12 +40,12 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
     """
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
 
     @safe_backend_operation("prerequisite_traversal_raw")
     async def prerequisite_traversal_raw(
@@ -141,7 +143,7 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
         user_uid: UserUID,
         entity_uid: EntityUID,
         mastery_level: float,
-        rel_type: str,
+        rel_type: RelationshipName,
     ) -> Result[bool]:
         """
         Create/update a user mastery relationship on an entity.
@@ -150,7 +152,7 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
             user_uid: User identifier
             entity_uid: Entity identifier
             mastery_level: Mastery level (0.0-1.0)
-            rel_type: Relationship type ("MASTERED" or "STUDYING")
+            rel_type: Relationship type (RelationshipName.MASTERED or .IN_PROGRESS)
 
         Returns:
             Result[bool]: True if successful

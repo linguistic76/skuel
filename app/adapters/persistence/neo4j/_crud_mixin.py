@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
     from adapters.persistence.neo4j.query import UnifiedQueryBuilder
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.models.enums.neo_labels import NeoLabel
 
 
 class _CrudMixin[T: DomainModelProtocol]:
@@ -51,7 +52,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         driver: AsyncDriver
         logger: logging.Logger
         entity_class: type[T]
-        label: str
+        label: NeoLabel
         default_filters: FilterParams
         _create_labels: str
         query_builder: UnifiedQueryBuilder
@@ -68,7 +69,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         driver: AsyncDriver
         logger: logging.Logger
         entity_class: type[T]
-        label: str
+        label: NeoLabel
         default_filters: FilterParams
         _create_labels: str
         query_builder: UnifiedQueryBuilder

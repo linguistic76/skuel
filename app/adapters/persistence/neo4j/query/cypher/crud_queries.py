@@ -17,6 +17,7 @@ Methods:
 from dataclasses import fields, is_dataclass
 from typing import Any, get_origin, get_type_hints
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID, Neo4jValue, UserUID
 from core.utils.logging import get_logger
 
@@ -235,7 +236,7 @@ def build_text_search_query(
 def build_relationship_traversal_query(
     source_uid: str,
     relationship_type: str,
-    target_label: str,
+    target_label: NeoLabel,
     direction: str = "outgoing",
     limit: int = 100,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -416,7 +417,7 @@ def build_graph_aware_search_query(
 
 
 def build_array_contains_query(
-    label: str,
+    label: NeoLabel,
     field: str,
     value: str,
     limit: int = 50,
@@ -475,7 +476,7 @@ def build_array_contains_query(
 
 
 def build_array_any_match_query(
-    label: str,
+    label: NeoLabel,
     field: str,
     values: list[str],
     match_all: bool = False,
@@ -711,7 +712,7 @@ def get_supported_operators() -> list[str]:
 
 
 def build_distinct_values_query(
-    label: str,
+    label: NeoLabel,
     field: str,
     user_uid: UserUID | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -760,7 +761,7 @@ def build_distinct_values_query(
 
 
 def build_hierarchy_query(
-    label: str,
+    label: NeoLabel,
     uid: str,
     relationship_types: list[str] | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -813,7 +814,7 @@ def build_hierarchy_query(
 
 
 def build_prerequisite_traversal_query(
-    label: str,
+    label: NeoLabel,
     uid: str,
     relationship_types: list[str],
     depth: int = 3,
@@ -870,7 +871,7 @@ def build_prerequisite_traversal_query(
 
 
 def build_user_progress_query(
-    label: str,
+    label: NeoLabel,
     user_uid: UserUID,
     entity_uid: EntityUID,
     mastery_threshold: float = 0.8,
@@ -893,7 +894,7 @@ def build_user_progress_query(
         query, params = build_user_progress_query("Entity", "user:123", "ku:python-basics")
     """
     query = f"""
-    MATCH (u:User {{uid: $user_uid}})-[r:MASTERED|STUDYING|COMPLETED]->(e:{label} {{uid: $entity_uid}})
+    MATCH (u:User {{uid: $user_uid}})-[r:MASTERED|IN_PROGRESS|COMPLETED]->(e:{label} {{uid: $entity_uid}})
     RETURN {{
         mastery_level: coalesce(r.level, 0.0),
         is_mastered: coalesce(r.level, 0.0) >= $mastery_threshold,
@@ -914,7 +915,7 @@ def build_user_progress_query(
 
 
 def build_user_curriculum_query(
-    label: str,
+    label: NeoLabel,
     user_uid: UserUID,
     include_completed: bool = False,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -937,7 +938,7 @@ def build_user_curriculum_query(
     rel_filter = "" if include_completed else "WHERE NOT type(r) = 'MASTERED'"
 
     query = f"""
-    MATCH (u:User {{uid: $user_uid}})-[r:STUDYING|MASTERED|ENROLLED_IN]->(n:{label})
+    MATCH (u:User {{uid: $user_uid}})-[r:IN_PROGRESS|MASTERED|ENROLLED_IN]->(n:{label})
     {rel_filter}
     RETURN n
     ORDER BY r.last_accessed DESC

@@ -29,6 +29,7 @@ Convenience Functions:
 
 from typing import Any, TypeVar
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID, Neo4jValue, UserUID
 
 from ._helpers import validate_identifier, validate_label
@@ -287,8 +288,8 @@ def build_goal_aligned_hybrid(
 
 
 def build_registry_validated_query(
-    source_label: str,
-    target_label: str,
+    source_label: NeoLabel,
+    target_label: NeoLabel,
     relationship_type: str,
     source_uid: str | None = None,
     target_uid: str | None = None,
@@ -533,7 +534,7 @@ def build_impact_chain_query(
 
 def build_bidirectional_impact_query(
     entity_uid: EntityUID,
-    entity_label: str,
+    entity_label: NeoLabel,
     max_depth: int = 2,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
@@ -711,7 +712,7 @@ def build_weighted_path_query(
 
 
 def build_normalized_centrality_query(
-    label: str,
+    label: NeoLabel,
     relationship_types: list[str] | None = None,
     weight_property: str = "confidence",
     min_weight: float = 0.0,
@@ -808,7 +809,7 @@ def build_normalized_centrality_query(
 
 
 def build_relationship_weight_stats_query(
-    source_label: str,
+    source_label: NeoLabel,
     relationship_type: str,
     weight_properties: list[str] | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:

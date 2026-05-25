@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import (
         SemanticRelationshipType,
     )
+    from core.models.enums.neo_labels import NeoLabel
     from core.ports.base_protocols import Direction
 
 
@@ -325,7 +326,7 @@ class _TraversalMixin:
 
     async def get_batch_cross_domain_context(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uids: list[str],
     ) -> Result[list[dict[str, Any]]]:
         """Batch-retrieve cross-domain relationship context for entities."""
@@ -351,7 +352,7 @@ class _TraversalMixin:
         self,
         user_uid: str,
         domain_name: str,
-        entity_label: str,
+        entity_label: NeoLabel,
         goal_uid: str | None,
         limit: int,
     ) -> Result[list[dict[str, Any]]]:
@@ -379,7 +380,7 @@ class _TraversalMixin:
     async def get_citation_export(
         self,
         node_uid: str,
-        node_label: str,
+        node_label: NeoLabel,
         relationship_type: str,
         depth: int,
     ) -> Result[list[dict[str, Any]]]:

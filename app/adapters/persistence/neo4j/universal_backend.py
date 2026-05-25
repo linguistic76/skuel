@@ -130,7 +130,7 @@ See Also:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 from core.models.enums.neo_labels import NeoLabel
@@ -314,33 +314,29 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         """
         self.driver = driver
 
-        # Extract string value from NeoLabel if provided
-        label_str = label.value if isinstance(label, NeoLabel) else label
-
-        # Validate label against known labels (codebase self-awareness)
-        if validate_label and not NeoLabel.is_valid(label_str):
-            valid_labels = ", ".join(sorted(NeoLabel.all_labels()))
-            raise ValueError(
-                f"Unknown Neo4j label '{label_str}'. "
-                f"Valid labels: {valid_labels}. "
-                f"Use validate_label=False to skip validation for testing."
-            )
-
-        self.label = label_str
+        # Normalize to NeoLabel — the single typed source for every downstream
+        # Cypher label seam. NeoLabel is a StrEnum, so the stored member
+        # interpolates as its bare value (f"{NeoLabel.TASK}" -> "Task") and
+        # supports every str op (.lower(), ==) used throughout the mixins.
+        self.label: NeoLabel = self._normalize_label(label, validate_label=validate_label)
         self.entity_class = entity_class
         self.graph_intel = graph_intel
         self.prometheus_metrics = prometheus_metrics
         self.default_filters = default_filters or {}
-        self.logger = get_logger(f"skuel.universal.{label_str.lower()}")  # type: ignore[assignment]  # structlog BoundLogger
+        self.logger = get_logger(f"skuel.universal.{self.label.lower()}")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Multi-label support: base_label enables CREATE (n:Entity:Task)
-        base_label_str = base_label.value if isinstance(base_label, NeoLabel) else base_label
-        self.base_label = base_label_str
+        self.base_label: NeoLabel | None = (
+            self._normalize_label(base_label, validate_label=validate_label)
+            if base_label is not None
+            else None
+        )
 
-        # Build the CREATE label string
+        # Build the CREATE label string — a genuine ":"-joined composite, so it
+        # stays str even though each part is a NeoLabel.
         if self.base_label:
             # Multi-label: Entity base + domain-specific
-            self._create_labels = f"{self.base_label}:{self.label}"
+            self._create_labels: str = f"{self.base_label}:{self.label}"
         else:
             # Single-label: non-Entity backends (Finance, Group, etc.)
             self._create_labels = self.label
@@ -352,8 +348,33 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         metrics_status = "metrics-enabled" if prometheus_metrics else "no-metrics"
         labels_status = f"labels={self._create_labels}" if self.base_label else "single-label"
         self.logger.info(
-            f"{label_str} universal backend initialized ({intel_status}, {metrics_status}, {labels_status}) [UnifiedQueryBuilder]"
+            f"{self.label} universal backend initialized ({intel_status}, {metrics_status}, {labels_status}) [UnifiedQueryBuilder]"
         )
+
+    @staticmethod
+    def _normalize_label(label: str | NeoLabel, *, validate_label: bool) -> NeoLabel:
+        """Coerce a label argument to NeoLabel — the typed Cypher-seam source.
+
+        Accepts a NeoLabel directly, or a valid label string (e.g. the ingestion
+        config passes ``"Entity"``). Only when ``validate_label=False`` is an
+        unknown string permitted: it is cast through unchecked for tests using
+        dynamic labels (StrEnum members are str, so it still interpolates).
+
+        Raises:
+            ValueError: If validate_label=True and label is not a valid NeoLabel.
+        """
+        if isinstance(label, NeoLabel):
+            return label
+        if NeoLabel.is_valid(label):
+            return NeoLabel(label)
+        if validate_label:
+            valid_labels = ", ".join(sorted(NeoLabel.all_labels()))
+            raise ValueError(
+                f"Unknown Neo4j label '{label}'. "
+                f"Valid labels: {valid_labels}. "
+                f"Use validate_label=False to skip validation for testing."
+            )
+        return cast("NeoLabel", label)  # test escape hatch: dynamic label not in enum
 
     def _track_db_metrics(self, operation: str, duration: float, is_error: bool = False) -> None:
         """
