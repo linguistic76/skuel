@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
+    from core.models.relationship_names import RelationshipName
     from core.ports.base_protocols import Direction
 
 
@@ -42,13 +44,13 @@ class _SearchRawMixin[T: DomainModelProtocol]:
 
     Requires on concrete class:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
         entity_class: type[T]
     """
 
     if TYPE_CHECKING:
         driver: AsyncDriver
-        label: str
+        label: NeoLabel
         entity_class: type[T]
 
     @safe_backend_operation("text_search_raw")
@@ -104,7 +106,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         self,
         source_uid: str,
         relationship_type: str,
-        target_label: str,
+        target_label: NeoLabel,
         direction: Direction = "outgoing",
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
@@ -292,7 +294,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         self,
         user_uid: UserUID,
         *,
-        user_ownership_relationship: str | None,
+        user_ownership_relationship: RelationshipName | None,
         search_fields: tuple[str, ...],
         search_order_by: str,
         graph_enrichment_patterns: tuple[tuple[str, ...], ...],

@@ -46,7 +46,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     Requires on concrete class:
         driver: AsyncDriver
         logger: logging.Logger
-        label: str
+        label: NeoLabel
         entity_class: type[T]
         default_filters: FilterParams
     """
@@ -54,7 +54,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     if TYPE_CHECKING:
         driver: AsyncDriver
         logger: logging.Logger
-        label: str
+        label: NeoLabel
         entity_class: type[T]
         default_filters: FilterParams
 
@@ -137,7 +137,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         source_var: str = "n",
         target_var: str = "related",
         rel_var: str | None = None,
-        target_label: str | None = None,
+        target_label: NeoLabel | None = None,
     ) -> Result[str]:
         """
         Build Cypher pattern for directional relationship traversal.
@@ -863,7 +863,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     @safe_backend_operation("batch_has_relationship")
     async def batch_has_relationship(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uids: builtins.list[str],
         relationship_type: str,
         direction: str,
@@ -911,7 +911,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     @safe_backend_operation("batch_count_related")
     async def batch_count_related(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uids: builtins.list[str],
         relationship_type: str,
         direction: str,
@@ -959,7 +959,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     @safe_backend_operation("batch_get_related_uids")
     async def batch_get_related_uids(
         self,
-        entity_label: str,
+        entity_label: NeoLabel,
         entity_uids: builtins.list[str],
         relationship_type: str,
         direction: str,

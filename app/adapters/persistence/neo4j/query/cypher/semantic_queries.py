@@ -17,6 +17,7 @@ Methods:
 
 from typing import TYPE_CHECKING
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue
 
 from ._helpers import validate_label
@@ -79,7 +80,7 @@ def build_semantic_context(
 
 def build_domain_context_with_paths(
     node_uid: str,
-    node_label: str,
+    node_label: NeoLabel,
     relationship_types: list[str],
     depth: int = 2,
     min_confidence: float = 0.0,
@@ -353,7 +354,7 @@ def build_cross_domain_bridges(
 
 
 def build_semantic_filter_query(
-    label: str,
+    label: NeoLabel,
     semantic_type: "SemanticRelationshipType",
     min_confidence: float = 0.8,
     direction: str = "outgoing",

@@ -11,9 +11,12 @@ Consumer: HuggingFaceEmbeddingsService
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.enums.neo_labels import NeoLabel
 
 
 @runtime_checkable
@@ -22,7 +25,7 @@ class EmbeddingsBackendOperations(Protocol):
 
     async def store_embedding_metadata(
         self,
-        label: str,
+        label: NeoLabel,
         uid: str,
         embedding: list[float],
         version: str,
@@ -31,7 +34,9 @@ class EmbeddingsBackendOperations(Protocol):
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_embedding_metadata(
-        self, label: str, uid: str
+        self, label: NeoLabel, uid: str
     ) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_cached_embedding(self, label: str, uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_cached_embedding(
+        self, label: NeoLabel, uid: str
+    ) -> Result[list[dict[str, Any]]]: ...

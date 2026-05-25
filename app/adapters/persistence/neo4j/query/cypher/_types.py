@@ -22,6 +22,7 @@ Date Updated: January 2026 (Type Safety Improvements)
 from collections.abc import Sequence
 from typing import Literal, TypedDict, TypeVar
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import UserUID
 
 
@@ -85,7 +86,7 @@ class CypherQueryParams(TypedDict, total=False):
 
     uid: str
     user_uid: UserUID
-    label: str
+    label: NeoLabel
     limit: int
     offset: int
     status: str
@@ -175,13 +176,13 @@ class MatchClauseSpec(TypedDict, total=False):
         target_alias: Target node variable name
     """
 
-    label: str
+    label: NeoLabel
     alias: str
     properties: dict[str, str | int | float | bool]
     rel_type: str
     rel_alias: str
     rel_direction: Literal["outgoing", "incoming", "both"]
-    target_label: str
+    target_label: NeoLabel
     target_alias: str
 
 

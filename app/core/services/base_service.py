@@ -528,7 +528,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     ] = ()
 
     # User ownership relationship (None for shared content like KU)
-    _user_ownership_relationship: ClassVar[str | None] = RelationshipName.OWNS
+    _user_ownership_relationship: ClassVar[RelationshipName | None] = RelationshipName.OWNS
 
     # ========================================================================
     # CURRICULUM/PREREQUISITE CONFIGURATION (January 2026 - Unified)

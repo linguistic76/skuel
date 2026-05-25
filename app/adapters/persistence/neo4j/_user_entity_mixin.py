@@ -35,6 +35,8 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.models.enums.neo_labels import NeoLabel
+
 
 class _UserEntityMixin[T: DomainModelProtocol]:
     """
@@ -46,7 +48,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     Requires on concrete class:
         driver: AsyncDriver
         logger: logging.Logger
-        label: str
+        label: NeoLabel
         entity_class: type[T]
         _inject_default_filters: method (from shell)
     """
@@ -54,7 +56,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     if TYPE_CHECKING:
         driver: AsyncDriver
         logger: logging.Logger
-        label: str
+        label: NeoLabel
         entity_class: type[T]
 
         def _inject_default_filters(
