@@ -53,7 +53,7 @@ class _TraversalMixin:
             self,
             from_uid: str,
             to_uid: str,
-            relationship_type: str,
+            relationship_type: RelationshipName,
             properties: dict[str, Any] | None = None,
         ) -> Result[bool]: ...
 
@@ -95,7 +95,7 @@ class _TraversalMixin:
         return await self.create_relationship(
             from_uid=from_uid,
             to_uid=to_uid,
-            relationship_type=relationship_type.value,
+            relationship_type=relationship_type,
             properties=properties,
         )
 

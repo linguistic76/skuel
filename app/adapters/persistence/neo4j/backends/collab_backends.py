@@ -257,7 +257,7 @@ class LateralRelationshipBackend:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
         metadata: dict[str, Any],
     ) -> Result[list[Neo4jProperties]]:
         """Create a lateral relationship between two entities (idempotent)."""
@@ -280,7 +280,7 @@ class LateralRelationshipBackend:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
     ) -> Result[list[Neo4jProperties]]:
         """Delete a lateral relationship. Returns deleted_count."""
         return await self.executor.execute_query(
@@ -296,7 +296,7 @@ class LateralRelationshipBackend:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
         metadata: dict[str, Any],
     ) -> Result[list[Neo4jProperties]]:
         """Create inverse relationship for asymmetric types (idempotent)."""
@@ -318,7 +318,7 @@ class LateralRelationshipBackend:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
     ) -> Result[list[Neo4jProperties]]:
         """Delete inverse relationship for asymmetric types."""
         return await self.executor.execute_query(
@@ -534,7 +534,7 @@ class LateralRelationshipBackend:
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
     ) -> Result[list[Neo4jProperties]]:
         """Check that creating this relationship won't create a circular dependency."""
         return await self.executor.execute_query(

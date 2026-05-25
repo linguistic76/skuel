@@ -110,6 +110,7 @@ if TYPE_CHECKING:
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
+    from core.models.relationship_names import RelationshipName
     from core.models.task.task import Task
     from core.models.type_hints import EntityUID, FilterParams, Metadata, Neo4jProperties
     from core.utils.result_simplified import Result
@@ -219,7 +220,7 @@ class TasksOperations(
     async def get_user_entities(
         self,
         user_uid: UserUID,
-        relationship_type: str | None = None,
+        relationship_type: RelationshipName | None = None,
         filters: FilterParams | None = None,
         limit: int = 100,
         offset: int = 0,
@@ -311,7 +312,7 @@ class TasksOperations(
         ...
 
     async def get_transitive_dependencies(
-        self, task_uid: str, rel_type: str, max_depth: int
+        self, task_uid: str, rel_type: RelationshipName, max_depth: int
     ) -> Result[builtins.list[str]]:
         """Get transitive dependency UIDs via variable-length path traversal."""
         ...

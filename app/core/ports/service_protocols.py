@@ -596,7 +596,7 @@ class LateralRelationshipBackendOperations(Protocol):
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
         metadata: dict[str, Any],
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns relationship properties
 
@@ -604,14 +604,14 @@ class LateralRelationshipBackendOperations(Protocol):
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {deleted_count}
 
     async def create_inverse(
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
         metadata: dict[str, Any],
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: no RETURN clause
 
@@ -619,7 +619,7 @@ class LateralRelationshipBackendOperations(Protocol):
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: no RETURN clause
 
     async def get_relationships(
@@ -662,5 +662,5 @@ class LateralRelationshipBackendOperations(Protocol):
         self,
         source_uid: str,
         target_uid: str,
-        relationship_type: str,
+        relationship_type: RelationshipName,
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {cycle_count}

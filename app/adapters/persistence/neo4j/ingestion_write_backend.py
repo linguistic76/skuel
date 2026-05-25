@@ -9,9 +9,10 @@ during ingestion and intentionally uses the raw ``AsyncDriver.execute_query``
 tuple API with **exception-based** error flow, matching how the ingestion
 service and batch helpers already handle failures (try/except NEO4J_EXCEPTIONS).
 
-Relationship types and node labels interpolated into queries are validated
-against the ``RelationshipName`` enum / ``ENTITY_CONFIGS`` by the caller — never
-user input (the driver requires a ``LiteralString``, hence the pyright ignores).
+Relationship types interpolated into queries are typed ``RelationshipName`` —
+the enum is the injection-safety guarantee (MyPy rejects raw strings at the call
+site). Node labels are still validated against ``ENTITY_CONFIGS`` by the caller —
+never user input (the driver requires a ``LiteralString``, hence the pyright ignores).
 
 See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 """
@@ -23,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+    from core.models.relationship_names import RelationshipName
+
 
 class IngestionWriteBackend:
     """Raw-driver Cypher for ingestion entity/edge writes and existence checks."""
@@ -31,12 +34,13 @@ class IngestionWriteBackend:
         self._driver = driver
 
     async def ingest_edge(
-        self, from_uid: str, to_uid: str, rel_type: str, props: dict[str, Any]
+        self, from_uid: str, to_uid: str, rel_type: RelationshipName, props: dict[str, Any]
     ) -> list[dict[str, Any]]:
         """MERGE a ``rel_type`` edge between two existing nodes; return matched rows.
 
-        Empty result means one or both endpoints were not found. ``rel_type`` is
-        validated against the RelationshipName enum by the caller.
+        Empty result means one or both endpoints were not found. ``rel_type`` is a
+        ``RelationshipName`` — the enum type makes the interpolation injection-safe
+        (MyPy rejects raw strings at the call site).
         """
         query = f"""
         MATCH (a {{uid: $from_uid}})

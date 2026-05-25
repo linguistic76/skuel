@@ -31,6 +31,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol
+from core.models.relationship_names import RelationshipName
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.choice_template_dto import ChoiceTemplateDTO
 from core.models.templates.event_template import EventTemplate
@@ -57,11 +58,11 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
     """Common CRUD + PS-attachment surface for all 6 Activity Template services.
 
     Subclasses set ``_config``, ``_edge_name``, and ``_service_name``. The edge
-    name is the ``HAS_*_TEMPLATE`` relationship the engagement service walks at
-    spawn time — keep these aligned with ``RelationshipName`` enum values.
+    name is the ``HAS_*_TEMPLATE`` ``RelationshipName`` the engagement service
+    walks at spawn time; the enum typing makes it a compile-time-safe seam.
     """
 
-    _edge_name: ClassVar[str] = ""
+    _edge_name: ClassVar[RelationshipName | None] = None
 
     def __init__(
         self,
@@ -79,7 +80,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
         Idempotent: re-attaching is a no-op. Both nodes must already exist;
         otherwise the MATCH fails and a NotFound is returned.
         """
-        if not self._edge_name:
+        if self._edge_name is None:
             return Result.fail(
                 Errors.system(
                     message=(
@@ -106,7 +107,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
 
         Idempotent: detaching an already-detached pair returns ``Result.ok(False)``.
         """
-        if not self._edge_name:
+        if self._edge_name is None:
             return Result.fail(
                 Errors.system(
                     message=(
@@ -130,7 +131,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
         and adding model rehydration here would just round-trip through DTO
         for no gain in the API surface.
         """
-        if not self._edge_name:
+        if self._edge_name is None:
             return Result.fail(
                 Errors.system(
                     message=(
@@ -148,7 +149,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
 
 class TaskTemplateService(_BaseTemplateService[TaskTemplate]):
     _service_name: ClassVar[str | None] = "task_templates"
-    _edge_name: ClassVar[str] = "HAS_TASK_TEMPLATE"
+    _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_TASK_TEMPLATE
     _config = DomainConfig(
         dto_class=TaskTemplateDTO,
         model_class=TaskTemplate,
@@ -161,7 +162,7 @@ class TaskTemplateService(_BaseTemplateService[TaskTemplate]):
 
 class GoalTemplateService(_BaseTemplateService[GoalTemplate]):
     _service_name: ClassVar[str | None] = "goal_templates"
-    _edge_name: ClassVar[str] = "HAS_GOAL_TEMPLATE"
+    _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_GOAL_TEMPLATE
     _config = DomainConfig(
         dto_class=GoalTemplateDTO,
         model_class=GoalTemplate,
@@ -174,7 +175,7 @@ class GoalTemplateService(_BaseTemplateService[GoalTemplate]):
 
 class HabitTemplateService(_BaseTemplateService[HabitTemplate]):
     _service_name: ClassVar[str | None] = "habit_templates"
-    _edge_name: ClassVar[str] = "HAS_HABIT_TEMPLATE"
+    _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_HABIT_TEMPLATE
     _config = DomainConfig(
         dto_class=HabitTemplateDTO,
         model_class=HabitTemplate,
@@ -187,7 +188,7 @@ class HabitTemplateService(_BaseTemplateService[HabitTemplate]):
 
 class EventTemplateService(_BaseTemplateService[EventTemplate]):
     _service_name: ClassVar[str | None] = "event_templates"
-    _edge_name: ClassVar[str] = "HAS_EVENT_TEMPLATE"
+    _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_EVENT_TEMPLATE
     _config = DomainConfig(
         dto_class=EventTemplateDTO,
         model_class=EventTemplate,
@@ -200,7 +201,7 @@ class EventTemplateService(_BaseTemplateService[EventTemplate]):
 
 class ChoiceTemplateService(_BaseTemplateService[ChoiceTemplate]):
     _service_name: ClassVar[str | None] = "choice_templates"
-    _edge_name: ClassVar[str] = "HAS_CHOICE_TEMPLATE"
+    _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_CHOICE_TEMPLATE
     _config = DomainConfig(
         dto_class=ChoiceTemplateDTO,
         model_class=ChoiceTemplate,
@@ -213,7 +214,7 @@ class ChoiceTemplateService(_BaseTemplateService[ChoiceTemplate]):
 
 class PrincipleTemplateService(_BaseTemplateService[PrincipleTemplate]):
     _service_name: ClassVar[str | None] = "principle_templates"
-    _edge_name: ClassVar[str] = "HAS_PRINCIPLE_TEMPLATE"
+    _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_PRINCIPLE_TEMPLATE
     _config = DomainConfig(
         dto_class=PrincipleTemplateDTO,
         model_class=PrincipleTemplate,
