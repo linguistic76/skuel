@@ -249,7 +249,7 @@ class QueryTemplateRegistry:
         # Get current schema for optimization
         schema_result = await self.schema_service.get_schema_context()
         if schema_result.is_error:
-            return schema_result
+            return Result.fail(schema_result)
 
         schema = schema_result.value
 

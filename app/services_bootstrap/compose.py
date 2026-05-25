@@ -328,11 +328,13 @@ async def compose_services(
             )
         logger.info("✅ System user ready")
 
-        # Create user relationship service (pinning, following, etc.)
-        from core.services.user_relationship_service import UserRelationshipService
+        # Create user relationship backend (pinning, following, etc.)
+        from adapters.persistence.neo4j.user_relationship_backend import (
+            UserRelationshipBackend,
+        )
 
-        user_relationships = UserRelationshipService(executor=query_executor)
-        logger.info("✅ UserRelationshipService created (pinning, following)")
+        user_relationships = UserRelationshipBackend(executor=query_executor)
+        logger.info("✅ UserRelationshipBackend created (pinning, following)")
 
         # Create graph-native authentication service (January 2026)
         # Sessions stored in Neo4j with bcrypt password hashing
@@ -1380,7 +1382,7 @@ async def compose_services(
             transcription=core_services["transcription"],
             # User management
             user=core_services["user"],
-            user_relationships=user_relationships,  # UserRelationshipService (pinning, following)
+            user_relationships=user_relationships,  # UserRelationshipBackend (pinning, following)
             graph_auth=graph_auth,  # Graph-native authentication (January 2026)
             context=context_service,  # Context-aware intelligence (NEW: 2025-11-18)
             # Learning services

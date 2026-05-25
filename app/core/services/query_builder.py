@@ -60,13 +60,13 @@ from adapters.persistence.neo4j.query import (
     TemplateSpec,
     ValidationResult,
 )
+from adapters.persistence.neo4j.query_builders.faceted_query_builder import FacetedQueryBuilder
+from adapters.persistence.neo4j.query_builders.graph_context_builder import GraphContextBuilder
+from adapters.persistence.neo4j.query_builders.query_optimizer import QueryOptimizer
+from adapters.persistence.neo4j.query_builders.query_template_registry import QueryTemplateRegistry
+from adapters.persistence.neo4j.query_builders.query_validator import QueryValidator
 from core.models.query_types import QueryIntent
 from core.models.search_models import FacetSetRequest as FacetSetSchema
-from core.services.query.faceted_query_builder import FacetedQueryBuilder
-from core.services.query.graph_context_builder import GraphContextBuilder
-from core.services.query.query_optimizer import QueryOptimizer
-from core.services.query.query_template_registry import QueryTemplateRegistry
-from core.services.query.query_validator import QueryValidator
 from core.services.search.core_types import FacetSet
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

@@ -14,11 +14,11 @@ Architecture (Decomposition Complete):
 All sub-services can be used independently or via the QueryBuilder facade.
 """
 
-from core.services.query.faceted_query_builder import FacetedQueryBuilder
-from core.services.query.graph_context_builder import GraphContextBuilder
-from core.services.query.query_optimizer import QueryOptimizer
-from core.services.query.query_template_registry import QueryTemplateRegistry
-from core.services.query.query_validator import QueryValidator
+from adapters.persistence.neo4j.query_builders.faceted_query_builder import FacetedQueryBuilder
+from adapters.persistence.neo4j.query_builders.graph_context_builder import GraphContextBuilder
+from adapters.persistence.neo4j.query_builders.query_optimizer import QueryOptimizer
+from adapters.persistence.neo4j.query_builders.query_template_registry import QueryTemplateRegistry
+from adapters.persistence.neo4j.query_builders.query_validator import QueryValidator
 
 __all__ = [
     "FacetedQueryBuilder",

@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
+    from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
@@ -82,7 +83,6 @@ if TYPE_CHECKING:
     )
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_progress_service import UserProgressService
-    from core.services.user_relationship_service import UserRelationshipService
     from core.services.user_service import UserService
     from ui.today.orchestrator import TodayOrchestrator
 
@@ -229,7 +229,7 @@ class Services:
 
     # User management (fundamental)
     user: "UserService | None" = None  # Facade — concrete type per CLAUDE.md
-    user_relationships: "UserRelationshipService | None" = None
+    user_relationships: "UserRelationshipOperations | None" = None
     graph_auth: GraphAuthOperations | None = None  # GraphAuthService - graph-native authentication
     context: UserContextOperations | None = (
         None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)

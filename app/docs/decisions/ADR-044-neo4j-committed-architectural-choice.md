@@ -1,6 +1,6 @@
 ---
 title: ADR-044: Neo4j as Committed Architectural Choice
-updated: 2026-03-05
+updated: 2026-05-24
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, hexagonal]
@@ -59,7 +59,7 @@ The hexagonal boundary in SKUEL is at `UniversalNeo4jBackend` (and its 27 subcla
 
 **What "hexagonal boundary at UniversalNeo4jBackend" means:**
 
-The backend layer contains all Neo4j driver calls, all Cypher strings, all label conventions, all relationship syntax. Service mixins call backend methods (`self.backend.traverse()`, `self.backend.find_by()`) — they do not write Cypher directly. If Neo4j were ever replaced (see Consequences), the backend layer would be rewritten, and the mixin layer would need to be reconsidered — but the domain models and protocols would survive intact.
+The backend layer holds the driver calls, label conventions, and relationship syntax. Service mixins *should* call backend methods (`self.backend.traverse()`, `self.backend.find_by()`) rather than writing Cypher directly — that is the target state, not an invariant the codebase currently upholds everywhere (see **Current State & Known Debt** below). If Neo4j were ever replaced (see Consequences), the backend layer would be rewritten, the mixin layer would need to be reconsidered, and every service still authoring Cypher would have to move too — but the domain models and protocols would survive intact.
 
 ---
 
@@ -112,8 +112,10 @@ The backend layer contains all Neo4j driver calls, all Cypher strings, all label
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Mixin layer accumulates raw Cypher strings | Medium | Medium | SKUEL001 linter rule prohibits direct Cypher in service layer; all Cypher lives in backend or `adapters/persistence/neo4j/query/cypher/` |
-| Graph semantics bleed past the mixin layer into routes | Low | Medium | Routes call service methods; service mixins call backend methods; Cypher never appears in route files |
+| Service layer accumulates raw Cypher strings | **Resolved + guarded** | Medium | Debt paid down (2026-05 — see below) and now enforced by **`SKUEL021`** (ERROR), which flags raw Cypher authored in `core/services/`. Note: `SKUEL001` bans **APOC** only; `SKUEL021` is the rule that covers raw Cypher generally. |
+| Graph semantics bleed past the mixin layer into routes | Low | Medium | Routes call service methods; Cypher never appears in route files |
+
+> ⚠️ **Correction (2026-05-24):** earlier revisions of this ADR claimed "SKUEL001 linter rule prohibits direct Cypher in the service layer; all Cypher lives in the backend." That was never true. `SKUEL001` (`scripts/lint_skuel.py`) bans a fixed list of **APOC** procedures only — raw Cypher in the service layer was unguarded. That gap is now closed by the new **`SKUEL021`** rule (added 2026-05-24, after the debt below was paid down).
 
 ---
 
@@ -139,12 +141,50 @@ Below the boundary: Cypher strings, `AsyncDriver` calls, label conventions.
 
 - Hexagonal boundary: `adapters/persistence/neo4j/universal_backend.py` and `adapters/persistence/neo4j/backends/`
 - Intentionally graph-aware mixins: `core/services/mixins/context_operations_mixin.py`, `core/services/mixins/relationship_operations_mixin.py`
-- Linter enforcement: `SKUEL001` (no APOC/raw Cypher in domain services)
+- Linter enforcement: `SKUEL001` (bans **APOC procedures only** — not raw Cypher)
 - Backend protocol: `core/ports/base_protocols.py` — `BackendOperations[T]`
 
 ### Testing Strategy
 - Protocol compliance: `tests/unit/test_protocol_mixin_compliance.py` (29 tests) — verifies mixin interfaces match protocols
 - Backend isolation: service tests mock `BackendOperations`, not the Neo4j driver — the boundary is respected in tests
+
+### Current State (2026-05-24) — boundary fully closed + guarded
+
+"All Cypher lives below the boundary" is now **true and enforced.** Ports expose
+no driver types, the generic backend and `BaseService` are Cypher-free, routes
+never touch the driver, and `core/services/` no longer authors Cypher. Authoring
+location, not injection, was the original violation — the executor was always a
+proper adapter seam; the Cypher text just used to live above it.
+
+**Relocated below the boundary (2026-05-24)** — each as an adapter backend
+(`adapters/persistence/neo4j/`), most behind a `core/ports` protocol; services
+keep orchestration + result-shaping and call backend methods:
+
+| Was (core/services) | Now (adapter backend) |
+|---|---|
+| `user_relationship_service` *(false "Direct Driver" docstring)* | `UserRelationshipBackend` + `UserRelationshipOperations` |
+| `analytics_relationship_service` *(false "Direct Driver" docstring)* | `AnalyticsRelationshipBackend` + `AnalyticsRelationshipOperations` |
+| `schema_service` | `Neo4jSchemaService` (relocated) |
+| `templates/__init__` attach/detach/list | `TemplateAttachmentBackend` + `TemplateAttachmentOperations` |
+| `infrastructure/graph_query_builder` | `query/graph_context_query_builder` (backend builds by intent) |
+| `ps_engagement/*` (service, gateway, loader) | `PsEngagementBackend` + `PsEngagementOperations` |
+| `ingestion/*` (service, batch, validator) | `IngestionWriteBackend` |
+| `chunks/batch_chunking_service` | `BatchChunkingBackend` |
+| `ps/ps_intelligence_service` | `PsIntelligenceBackend` |
+| `user/user_context_queries` (MEGA / CONSOLIDATED) | relocated to `adapters/persistence/neo4j/` |
+| `query/*` (optimizer, templates, faceted, validator, graph-context) | relocated to `adapters/persistence/neo4j/query_builders/` |
+
+Two latent bugs were fixed en route (a raw driver was passed where executor /
+adapter methods were called, in the analytics and learning-services wiring).
+
+**Enforcement:** new Cypher in the service layer is now blocked by **`SKUEL021`**
+(ERROR, `scripts/lint_skuel.py`). `cross_domain_backend.py` and the backends
+above are the templates for any future graph code.
+
+> ⚠️ The `ingestion` write path and the `ps_engagement` spawn lifecycle were
+> moved faithfully (verbatim Cypher; behavior preserved) and are covered by the
+> relocated unit tests, but a **live smoke-test (real ingest + engage→spawn)** is
+> still advisable before relying on them in production.
 
 ---
 
@@ -152,7 +192,7 @@ Below the boundary: Cypher strings, `AsyncDriver` calls, label conventions.
 
 ### When to Revisit
 - If SKUEL ever adopts a second database for a specific domain (e.g., time-series data for Habits completion history), this ADR should be revisited to define where that boundary sits
-- If `ContextOperationsMixin` or `RelationshipOperationsMixin` begin writing raw Cypher strings directly (currently prohibited by SKUEL001), the boundary has eroded and needs correction
+- New Cypher-authoring in the service layer is now blocked by `SKUEL021` (ERROR). If that rule is ever relaxed or a service legitimately needs a `# skuel-lint: disable=SKUEL021` suppression, treat it as a signal to extend a backend instead — the boundary should stay closed.
 
 ### Evolution Path
 Neo4j is the committed platform for SKUEL across all three deployment stages (Docker → DigitalOcean Droplet → AuraDB). The graph model is not a current-state compromise pending migration; it is the intended final form.
@@ -174,3 +214,5 @@ Neo4j is the committed platform for SKUEL across all three deployment stages (Do
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-03-05 | Claude Code | Initial draft | 1.0 |
+| 2026-05-24 | Claude Code | Corrected false "SKUEL001 prohibits raw Cypher in services" claim (it bans APOC only); added Current State & Known Debt; recorded relocation of relationship/analytics/schema backends below the boundary | 1.1 |
+| 2026-05-24 | Claude Code | Completed the campaign: ALL raw Cypher relocated out of `core/services/` (templates, graph_query_builder, ps_engagement, ingestion, chunks, ps_intelligence, MEGA-QUERY, query/* builders) + added enforcement rule `SKUEL021` so it can't recur | 1.2 |

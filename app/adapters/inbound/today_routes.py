@@ -54,7 +54,7 @@ def create_today_routes(
     rels = services.user_relationships
     assert orchestrator is not None, "TodayOrchestrator not wired in Services container"
     assert tasks is not None, "TasksService not wired in Services container"
-    assert rels is not None, "UserRelationshipService not wired in Services container"
+    assert rels is not None, "UserRelationshipBackend not wired in Services container"
 
     @rt("/today")
     async def today_page(request: Request) -> Any:

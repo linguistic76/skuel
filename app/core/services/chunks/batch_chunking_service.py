@@ -84,7 +84,10 @@ class BatchChunkingService:
             max_concurrency: Parents processed in parallel. Higher = faster but
                 more Neo4j load.
         """
+        from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
+
         self.driver = driver
+        self._backend = BatchChunkingBackend(driver)
         self.chunking_service = chunking_service
         self.content_adapter = content_adapter
         self.event_bus = event_bus
@@ -154,38 +157,11 @@ class BatchChunkingService:
         with chunking_version ≠ current (or no chunks at all — the "ingested
         pre-versioning" case).
         """
-        # We always need body + format from :Content. The chunk version check
-        # is folded into the WHERE clause when force=False.
-        if force:
-            where_clause = ""
-        else:
-            where_clause = """
-            AND (
-                NOT EXISTS {(c)-[:HAS_CHUNK]->(:ContentChunk)}
-                OR EXISTS {
-                    MATCH (c)-[:HAS_CHUNK]->(stale:ContentChunk)
-                    WHERE coalesce(stale.chunking_version, '') <> $current_version
-                }
-            )
-            """
-
-        uid_filter = "AND c.uid IN $parent_uids" if parent_uids is not None else ""
-
-        query = f"""
-        MATCH (c:Content)
-        WHERE c.body IS NOT NULL AND c.body <> ''
-        {uid_filter}
-        {where_clause}
-        RETURN c.uid AS uid, c.body AS body, c.format AS format
-        """
-
-        params: dict[str, Any] = {"current_version": CHUNKING_ALGORITHM_VERSION}
-        if parent_uids is not None:
-            params["parent_uids"] = parent_uids
-
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            return [dict(record) async for record in result]
+        # Candidate-discovery Cypher lives in BatchChunkingBackend below the
+        # boundary (ADR-044).
+        return await self._backend.fetch_regeneration_candidates(
+            parent_uids, force, CHUNKING_ALGORITHM_VERSION
+        )
 
     async def _regenerate_one(self, candidate: dict[str, Any], stats: RegenerationStats) -> None:
         """Regenerate chunks for a single parent. Failures are recorded, not raised."""

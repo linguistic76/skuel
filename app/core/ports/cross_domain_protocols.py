@@ -19,6 +19,8 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from datetime import date, datetime
 
+    from core.models.query_types import QueryIntent
+
 
 @runtime_checkable
 class CrossDomainBackendOperations(Protocol):
@@ -127,7 +129,9 @@ class CrossDomainBackendOperations(Protocol):
 
     async def calculate_knowledge_importance(self, uid: str) -> Result[list[dict[str, Any]]]: ...
 
-    async def query_with_intent(self, query: str, uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def query_with_intent(
+        self, intent: QueryIntent, depth: int, uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_entity_labels(self, uid: str) -> Result[list[dict[str, Any]]]: ...
 

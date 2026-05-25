@@ -472,9 +472,6 @@ class GraphIntelligenceService:
                 GraphDepth.NEIGHBORHOOD
             )
         """
-        from core.services.infrastructure.graph_query_builder import (
-            build_context_query_for_intent,
-        )
         from core.services.infrastructure.graph_record_transformer import (
             transform_records_to_graph_context,
         )
@@ -484,9 +481,7 @@ class GraphIntelligenceService:
             f"intent={intent}, depth={depth}"
         )
 
-        query = build_context_query_for_intent(intent, depth)
-
-        result = await self.backend.query_with_intent(query=query, uid=node_uid)
+        result = await self.backend.query_with_intent(intent=intent, depth=depth, uid=node_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -526,7 +521,7 @@ class GraphIntelligenceService:
             context = await graph_intel.get_entity_context("event_meeting_123", GraphDepth.NEIGHBORHOOD)
         """
         from core.models.query_types import QueryIntent
-        from core.services.infrastructure.graph_query_builder import determine_domain
+        from core.services.infrastructure.graph_record_transformer import determine_domain
 
         # First, determine domain of entity by fetching it
         result = await self.backend.get_entity_labels(uid=entity_uid)

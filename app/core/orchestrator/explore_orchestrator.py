@@ -19,11 +19,11 @@ from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
     from core.services.ps_service import PsService
     from core.services.user_entry.learning_loop_query import LearningLoopQueryService
-    from core.services.user_relationship_service import UserRelationshipService
 
 
 class ExploreOrchestrator:
@@ -38,7 +38,7 @@ class ExploreOrchestrator:
         self,
         ku_service: "KuService",
         ps_service: "PsService",
-        user_relationship_service: "UserRelationshipService",
+        user_relationship_service: "UserRelationshipOperations",
         exercises_service: "ExerciseService",
         learning_loop_query_service: "LearningLoopQueryService",
     ) -> None:

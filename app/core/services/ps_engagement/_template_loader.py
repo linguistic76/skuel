@@ -26,7 +26,7 @@ from core.utils.result_simplified import Errors, Result
 from ._validator import TemplateBundle
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.ports.ps_engagement_protocols import PsEngagementOperations
 
 logger = get_logger(__name__)
 
@@ -36,7 +36,7 @@ class _TemplateLoader:
 
     def __init__(
         self,
-        executor: Neo4jQueryExecutor,
+        backend: PsEngagementOperations,
         task_template_backend: CrudOperations[TaskTemplate],
         goal_template_backend: CrudOperations[GoalTemplate],
         habit_template_backend: CrudOperations[HabitTemplate],
@@ -44,7 +44,7 @@ class _TemplateLoader:
         choice_template_backend: CrudOperations[ChoiceTemplate],
         principle_template_backend: CrudOperations[PrincipleTemplate],
     ) -> None:
-        self._executor = executor
+        self._backend = backend
         self._tasks = task_template_backend
         self._goals = goal_template_backend
         self._habits = habit_template_backend
@@ -108,17 +108,7 @@ class _TemplateLoader:
         )
 
     async def _fetch_template_uids(self, ps_uid: str, rel: RelationshipName) -> Result[list[str]]:
-        # rel.value is from a closed enum, not user input — safe to interpolate.
-        query = f"""
-        MATCH (ps {{uid: $ps_uid}})-[:{rel.value}]->(t)
-        RETURN t.uid AS uid
-        ORDER BY t.uid
-        """
-        result: Result[list[dict[str, Any]]] = await self._executor.execute(
-            query=query,
-            params={"ps_uid": ps_uid},
-            operation=f"fetch_{rel.value.lower()}_uids",
-        )
+        result = await self._backend.fetch_template_uids(ps_uid, rel.value)
         if result.is_error:
             return Result.fail(result)
         records: list[dict[str, Any]] = result.value

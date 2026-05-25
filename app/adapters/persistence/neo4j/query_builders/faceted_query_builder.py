@@ -28,8 +28,10 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
-    from core.services.query.query_optimizer import QueryOptimizer
-    from core.services.query.query_template_registry import QueryTemplateRegistry
+    from adapters.persistence.neo4j.query_builders.query_optimizer import QueryOptimizer
+    from adapters.persistence.neo4j.query_builders.query_template_registry import (
+        QueryTemplateRegistry,
+    )
 
 
 class FacetedQueryBuilder:

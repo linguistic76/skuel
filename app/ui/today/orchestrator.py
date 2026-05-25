@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
+    from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
@@ -44,7 +45,6 @@ if TYPE_CHECKING:
     from core.services.lifepath.lifepath_types import LifePathDesignation
     from core.services.principles_service import PrinciplesService
     from core.services.tasks_service import TasksService
-    from core.services.user_relationship_service import UserRelationshipService
 
 
 logger = get_logger("skuel.orchestrators.today")
@@ -155,7 +155,7 @@ class TodayOrchestrator:
         events_service: EventsService,
         principles_service: PrinciplesService,
         lifepath_service: LifePathService,
-        user_relationship_service: UserRelationshipService,
+        user_relationship_service: UserRelationshipOperations,
     ) -> None:
         self._tasks = tasks_service
         self._goals = goals_service

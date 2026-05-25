@@ -84,8 +84,8 @@ from core.utils.result_simplified import Result
 from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
+    from core.infrastructure.database.schema import SchemaContext
     from core.services.query_builder import QueryBuilder
-    from core.services.schema_service import SchemaContext
 
 T = TypeVar("T")
 logger = get_logger(__name__)
