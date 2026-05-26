@@ -17,11 +17,12 @@ from typing import Any
 
 import pytest
 
+from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
+from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from core.models.ps_content.content_chunks import CHUNKING_ALGORITHM_VERSION
 from core.services.chunks.batch_chunking_service import BatchChunkingService
 from core.services.entity_chunking_service import EntityChunkingService
-from core.services.ingestion import UnifiedIngestionService
 
 
 class _DriverConnection:
@@ -71,7 +72,7 @@ async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
     try:
         chunking_service = EntityChunkingService()
         content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
-        ingestion_service = UnifiedIngestionService(
+        ingestion_service = make_unified_ingestion_service(
             driver=neo4j_driver,
             chunking_service=chunking_service,
             content_adapter=content_adapter,
@@ -107,7 +108,7 @@ async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
 
         # Regenerate with force=False — version mismatch should pick this parent up
         service = BatchChunkingService(
-            driver=neo4j_driver,
+            backend=BatchChunkingBackend(neo4j_driver),
             chunking_service=chunking_service,
             content_adapter=content_adapter,
             event_bus=None,  # skip embedding event in test
@@ -155,7 +156,7 @@ async def test_regenerate_chunks_skips_already_current_when_force_false(neo4j_dr
     try:
         chunking_service = EntityChunkingService()
         content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
-        ingestion_service = UnifiedIngestionService(
+        ingestion_service = make_unified_ingestion_service(
             driver=neo4j_driver,
             chunking_service=chunking_service,
             content_adapter=content_adapter,
@@ -167,7 +168,7 @@ async def test_regenerate_chunks_skips_already_current_when_force_false(neo4j_dr
 
         # Chunks are at current version by default (no manual mutation).
         service = BatchChunkingService(
-            driver=neo4j_driver,
+            backend=BatchChunkingBackend(neo4j_driver),
             chunking_service=chunking_service,
             content_adapter=content_adapter,
             event_bus=None,

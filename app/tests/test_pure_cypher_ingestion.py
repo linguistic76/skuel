@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 import pytest
 
+from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
+
 
 @dataclass
 class MockEntity:
@@ -134,12 +136,11 @@ def test_required_field_validation():
     from unittest.mock import MagicMock
 
     from core.models.enums.entity_enums import EntityType, NonKuDomain
-    from core.services.ingestion import UnifiedIngestionService
 
     # Create mock driver
     mock_driver = MagicMock()
 
-    service = UnifiedIngestionService(driver=mock_driver)
+    service = make_unified_ingestion_service(driver=mock_driver)
 
     # Create a mock file path
     mock_path = Path("/tmp/test-file.yaml")
@@ -198,14 +199,13 @@ def test_user_uid_injection():
     from core.models.enums.entity_enums import EntityType, NonKuDomain
     from core.services.ingestion import (
         ENTITY_CONFIGS,
-        UnifiedIngestionService,
     )
 
     # Create mock driver
     mock_driver = MagicMock()
     custom_user_uid = "user_test_user_123"
 
-    service = UnifiedIngestionService(driver=mock_driver, default_user_uid=custom_user_uid)
+    service = make_unified_ingestion_service(driver=mock_driver, default_user_uid=custom_user_uid)
 
     # Create a mock file path
     mock_path = Path("/tmp/test-task.yaml")
@@ -273,11 +273,10 @@ def test_entity_type_detection():
     from unittest.mock import MagicMock
 
     from core.models.enums.entity_enums import EntityType, NonKuDomain
-    from core.services.ingestion import UnifiedIngestionService
 
     # Create mock driver
     mock_driver = MagicMock()
-    service = UnifiedIngestionService(driver=mock_driver)
+    service = make_unified_ingestion_service(driver=mock_driver)
 
     # Test 1: Explicit type field returns EntityType
     data_with_type = {"type": "task", "title": "Test"}
@@ -340,11 +339,9 @@ async def test_dry_run_validation():
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from core.services.ingestion import UnifiedIngestionService
-
     # Create mock driver (not used in validation)
     mock_driver = MagicMock()
-    service = UnifiedIngestionService(driver=mock_driver)
+    service = make_unified_ingestion_service(driver=mock_driver)
 
     # Create temporary test files
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -442,7 +439,6 @@ async def test_parallel_directory_processing():
 
     from core.services.ingestion import (
         DEFAULT_MAX_CONCURRENT_PARSING,
-        UnifiedIngestionService,
     )
 
     # Create mock driver
@@ -451,7 +447,7 @@ async def test_parallel_directory_processing():
     # Test 1: Default concurrency is 20
     assert DEFAULT_MAX_CONCURRENT_PARSING == 20, "Default should be 20 concurrent"
 
-    service = UnifiedIngestionService(driver=mock_driver)
+    service = make_unified_ingestion_service(driver=mock_driver)
 
     # Test 2: Create directory with multiple files and verify parallel parsing
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -526,7 +522,6 @@ def test_file_size_limits():
 
     from core.services.ingestion import (
         DEFAULT_MAX_FILE_SIZE_BYTES,
-        UnifiedIngestionService,
     )
 
     # Create mock driver
@@ -537,7 +532,7 @@ def test_file_size_limits():
 
     # Test 2: Custom max file size
     custom_limit = 1024  # 1 KB
-    service = UnifiedIngestionService(driver=mock_driver, max_file_size_bytes=custom_limit)
+    service = make_unified_ingestion_service(driver=mock_driver, max_file_size_bytes=custom_limit)
     assert service.max_file_size_bytes == custom_limit
 
     # Test 3: File within limits passes
@@ -576,7 +571,7 @@ def test_file_size_limits():
         assert "too large" in error.message.lower()
 
         # Test 7: Small files still parse correctly
-        service_default = UnifiedIngestionService(driver=mock_driver)  # Default 10 MB limit
+        service_default = make_unified_ingestion_service(driver=mock_driver)  # Default 10 MB limit
 
         small_md = tmppath / "valid.md"
         small_md.write_text("""---

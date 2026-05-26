@@ -21,9 +21,9 @@ from unittest.mock import Mock
 import pytest
 import pytest_asyncio
 
+from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from core.services.ingestion import UnifiedIngestionService
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.ingestion_history import IngestionHistoryService
 from core.services.ingestion.types import DryRunPreview, IncrementalStats
@@ -41,7 +41,9 @@ async def ingestion_service(neo4j_driver):
     executor = Neo4jQueryExecutor(neo4j_driver)
     ingestion_backend = IngestionBackend(executor=executor)
 
-    service = UnifiedIngestionService(driver=neo4j_driver, ingestion_backend=ingestion_backend)
+    service = make_unified_ingestion_service(
+        driver=neo4j_driver, ingestion_backend=ingestion_backend
+    )
 
     yield service
 

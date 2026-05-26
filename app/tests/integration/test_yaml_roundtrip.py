@@ -31,9 +31,11 @@ class TestYAMLRoundTrip:
         3. Export from Neo4j
         4. Verify data matches
         """
+        from adapters.persistence.neo4j.ingestion_service_factory import (
+            make_unified_ingestion_service,
+        )
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.curriculum_dto import CurriculumDTO
-        from core.services.ingestion import UnifiedIngestionService
 
         # Verify connection and clean database
         async with neo4j_driver.session() as session:
@@ -43,7 +45,7 @@ class TestYAMLRoundTrip:
             await session.run("MATCH (n) DETACH DELETE n")
 
         # Create services with shared driver
-        ingestion_service = UnifiedIngestionService(driver=neo4j_driver)
+        ingestion_service = make_unified_ingestion_service(driver=neo4j_driver)
         # Use "Entity" to match what UnifiedIngestionService creates
         # IMPORTANT: Backend must use CurriculumDTO (mutable), not Curriculum (immutable)
         ku_backend = UniversalNeo4jBackend[CurriculumDTO](neo4j_driver, "Entity", CurriculumDTO)

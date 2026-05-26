@@ -516,11 +516,13 @@ async def compose_services(
         # Wires the chunk pipeline end-to-end: chunk generation → Neo4j persistence →
         # ChunkEmbeddingRequested event → background worker.
         from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-        from core.services.ingestion import UnifiedIngestionService
+        from adapters.persistence.neo4j.ingestion_service_factory import (
+            make_unified_ingestion_service,
+        )
 
         ingestion_backend = IngestionBackend(executor=query_executor)
 
-        unified_ingestion = UnifiedIngestionService(
+        unified_ingestion = make_unified_ingestion_service(
             driver=driver,
             ingestion_backend=ingestion_backend,
             embeddings_service=None,  # Optional - will be created later in learning_services
@@ -544,10 +546,11 @@ async def compose_services(
         # isn't running, so publishing ChunkEmbeddingRequested would be a
         # queue-with-no-listener. CORE-tier regen produces fresh chunks; admins
         # sweep embeddings separately via migrate_chunk_embeddings.py.
+        from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
         from core.services.chunks.batch_chunking_service import BatchChunkingService
 
         batch_chunking_service = BatchChunkingService(
-            driver=driver,
+            backend=BatchChunkingBackend(driver),
             chunking_service=chunking_service,
             content_adapter=content_adapter,
             event_bus=event_bus if tier.ai_enabled else None,
