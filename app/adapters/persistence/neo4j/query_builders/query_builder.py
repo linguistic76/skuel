@@ -3,7 +3,7 @@ Query Builder - Persistence-Layer Orchestration
 ================================================
 
 **LAYER**: Persistence adapter (adapters/persistence/neo4j/query_builders/)
-**STATUS**: Legacy - Use UnifiedQueryBuilder for new code
+**STATUS**: Internal orchestration layer — construct via UnifiedQueryBuilder, not directly
 **UPDATED**: May 2026 (relocated below the hexagonal boundary, ADR-044/SKUEL022)
 
 Facade coordinating specialized query building sub-services.
@@ -35,14 +35,15 @@ Infrastructure Layer: CypherGenerator  ← Utilities
 **Recommended Usage:**
 
 ```python
-# ✅ PREFERRED - Use UnifiedQueryBuilder
+# ✅ PUBLIC ENTRY POINT - Use UnifiedQueryBuilder
 from core.models.query import UnifiedQueryBuilder
 
 result = (
     await UnifiedQueryBuilder(driver).template("search").params(...).execute()
 )
 
-# ⚠️ LEGACY - Direct QueryBuilder usage (backward compatibility only)
+# Internal — UnifiedQueryBuilder constructs and delegates to this facade.
+# Direct construction is for the composition root / adapter wiring only.
 from adapters.persistence.neo4j.query_builders import QueryBuilder
 
 qb = QueryBuilder(schema_service)
@@ -93,8 +94,7 @@ class QueryBuilder:
     ======================================================
 
     **LAYER**: Persistence adapter (optimization, templates, validation)
-    **STATUS**: Legacy - Use UnifiedQueryBuilder for new code
-    **UPDATED**: November 10, 2025
+    **STATUS**: Internal orchestration layer — construct via UnifiedQueryBuilder, not directly
 
     Orchestrates query building sub-services and provides template management.
     Decomposed from 1,614-line monolith to 225-line facade + 5 specialized services.
@@ -116,17 +116,22 @@ class QueryBuilder:
     - FacetedQueryBuilder: Faceted search (315 lines)
     - GraphContextBuilder: Graph traversal (68 lines)
 
-    **When to Use QueryBuilder Directly:**
+    **When QueryBuilder is constructed directly:**
 
-    Use ONLY when:
-    1. Implementing new UnifiedQueryBuilder features that need templates
-    2. Testing template functionality in isolation
-    3. Accessing optimization internals for analysis
+    Only at the composition root / adapter wiring, where the live instance is
+    created and handed to UnifiedQueryBuilder:
+    1. services_bootstrap (bootstrap-time construction)
+    2. Neo4jAdapter.get_query_builder() and its index-aware builder
+    3. UnifiedQueryBuilder._ensure_query_builder() (lazy auto-initialization)
+    4. Testing template/optimization functionality in isolation
 
-    **Recommended Usage:**
+    Application code reaches these capabilities through UnifiedQueryBuilder,
+    which delegates template/optimize/validate calls into this facade.
+
+    **Usage:**
 
     ```python
-    # ✅ PREFERRED - Use UnifiedQueryBuilder (auto-initializes QueryBuilder)
+    # ✅ PUBLIC ENTRY POINT - Use UnifiedQueryBuilder (auto-initializes QueryBuilder)
     from core.models.query import UnifiedQueryBuilder
 
     templates = UnifiedQueryBuilder(driver).list_templates()
@@ -134,17 +139,12 @@ class QueryBuilder:
         await UnifiedQueryBuilder(driver).template("search").params(...).execute()
     )
 
-    # ⚠️ ONLY IF NECESSARY - Direct QueryBuilder usage
+    # Internal — direct construction at the composition root / adapter wiring
     from adapters.persistence.neo4j.query_builders import QueryBuilder
 
     qb = QueryBuilder(schema_service)
     templates = qb.get_template_library()
     ```
-
-    **Backward Compatibility:**
-
-    This facade maintains the same API as the original monolithic QueryBuilder,
-    ensuring zero breaking changes for existing code that depends on it.
     """
 
     def __init__(self, schema_service) -> None:
@@ -169,7 +169,8 @@ class QueryBuilder:
         # Register faceted search templates
         self.faceted.register_faceted_templates(self.templates)
 
-        # Expose template library for backward compatibility
+        # Expose the registry's TemplateSpec map; UnifiedQueryBuilder reads this
+        # directly (via getattr) to build its template cache.
         self._template_library = self.templates._template_library
 
     # ========================================================================

@@ -92,7 +92,7 @@ def _create_learning_services(
 
     # Create query builder
     schema_service = Neo4jSchemaService(driver)
-    unified_query_builder = QueryBuilder(schema_service)
+    query_builder = QueryBuilder(schema_service)
 
     # Create atomic Ku service (lightweight ontology/reference nodes)
     from core.services.ku_service import KuService
@@ -125,7 +125,7 @@ def _create_learning_services(
         content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
         ku_backend=atomic_ku_backend,
         chunking_service=chunking_service,
-        query_builder=unified_query_builder,  # QueryBuilder is now REQUIRED
+        query_builder=query_builder,  # QueryBuilder is now REQUIRED
         user_service=user_service,  # KU-Activity Integration
         vector_search_service=vector_search_service,  # GenAI vector search
         embeddings_service=embeddings_service,  # HuggingFace embeddings (bge-large-en-v1.5)
