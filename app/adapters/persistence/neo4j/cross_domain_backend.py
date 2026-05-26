@@ -161,8 +161,9 @@ RETURN pid AS principle_uid,
        count(hc) AS completion_count
 """
 
-# Re-export constants needed by CrossDomainQueryService for score calculation
-FULL_ALIGNMENT_CONNECTION_COUNT: float = 5.0
+# Local aliases for enum / status tuples used within this backend's queries.
+# (FULL_ALIGNMENT_CONNECTION_COUNT moved to core.constants.CrossDomainImpactScore —
+# a magic number belongs in core, not re-exported up across the boundary; SKUEL022.)
 ALIGNMENT_LEVEL = AlignmentLevel
 HABIT_ACTIVE_STATUSES = _HABIT_ACTIVE_STATUSES
 
@@ -1056,6 +1057,5 @@ class CrossDomainBackend:
 __all__ = [
     "ALIGNMENT_LEVEL",
     "CrossDomainBackend",
-    "FULL_ALIGNMENT_CONNECTION_COUNT",
     "HABIT_ACTIVE_STATUSES",
 ]

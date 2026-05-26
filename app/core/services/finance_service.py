@@ -71,6 +71,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.ports.finance_protocols import InvoiceRenderer
     from core.ports.infrastructure_protocols import EventBusOperations
 
 
@@ -162,6 +163,7 @@ class FinanceService:
         backend: FinancesOperations,
         event_bus: EventBusOperations | None = None,
         invoice_backend: Any | None = None,
+        invoice_renderer: InvoiceRenderer | None = None,
     ) -> None:
         """
         Initialize finance facade with all sub-services.
@@ -174,6 +176,9 @@ class FinanceService:
             backend: Protocol-based backend for finance operations - REQUIRED
             event_bus: Event bus for publishing domain events (optional)
             invoice_backend: Backend for invoice operations (optional)
+            invoice_renderer: Outbound PDF renderer for invoices. REQUIRED when
+                invoice_backend is provided — injected at the composition root so
+                the service layer never imports the renderer (ADR-044/SKUEL022).
         """
         if not backend:
             raise ValueError("Finance backend is required")
@@ -185,10 +190,15 @@ class FinanceService:
         self.budget = FinanceBudgetService(backend)
         self.reporting = FinanceReportingService(backend)
 
-        # Invoice service (optional - requires separate backend)
+        # Invoice service (optional - requires separate backend + renderer)
         self.invoice: FinanceInvoiceService | None = None
         if invoice_backend:
-            self.invoice = FinanceInvoiceService(invoice_backend)
+            if invoice_renderer is None:
+                raise ValueError(
+                    "invoice_renderer is required when invoice_backend is provided "
+                    "(SKUEL fail-fast — no graceful degradation)."
+                )
+            self.invoice = FinanceInvoiceService(invoice_backend, invoice_renderer)
             self.logger.info("Invoice service initialized")
 
         # Store references for facade operations

@@ -2,8 +2,15 @@
 Post-Query Processors - Python calculations for computed context fields.
 ========================================================================
 
-Contains functions that process graph_context data after Cypher query returns.
-These handle calculations that can't be done efficiently in Cypher.
+Contains functions that process graph_context data after the Cypher query
+returns. These handle calculations that can't be done efficiently in Cypher.
+
+These are **pure Python** computations over result dicts — no Neo4j, no Cypher.
+They live in ``core/models/`` (alongside ``relationship_registry.PostProcessor``,
+the config that references them by ``processor_name``) and are invoked by
+``ContextOperationsMixin``. They were relocated here from
+``adapters/persistence/neo4j/query/cypher/`` because pure domain computation
+belongs above the hexagonal boundary, not below it (ADR-044 / SKUEL022).
 
 **Usage:**
 

@@ -114,16 +114,6 @@ from .intelligence_queries import (
     search,
 )
 
-# Post-query processors for calculated fields (January 2026)
-from .post_processors import (
-    PROCESSOR_REGISTRY,
-    apply_processor,
-    calculate_habit_streak_summary,
-    calculate_milestone_progress,
-    calculate_task_status_summary,
-    get_processor,
-)
-
 # Relationship queries - counting, batch operations, path queries
 from .relationship_queries import (
     build_batch_get_related_with_filters,
@@ -237,11 +227,4 @@ __all__ = [
     "generate_context_query",
     "get_available_relationships",
     "get_relationship_details",
-    # Post-query processors (January 2026)
-    "PROCESSOR_REGISTRY",
-    "apply_processor",
-    "calculate_habit_streak_summary",
-    "calculate_milestone_progress",
-    "calculate_task_status_summary",
-    "get_processor",
 ]
