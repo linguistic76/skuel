@@ -7,9 +7,9 @@ Two-layer system controlling whether AI/LLM services are enabled.
 CORE: Analytics only — BaseAnalyticsService, UserContextIntelligence,
       GraphIntelligenceService. Pure Python + Cypher. No API costs.
 
-FULL: Analytics + AI — all CORE features plus BaseAIService, OpenAIService,
-      HuggingFaceEmbeddingsService, embeddings, LLM chat, content processing.
-      Costs money per API call.
+FULL: Analytics + AI — all CORE features plus BaseAIService, the LLM chat
+      adapters (ChatCompletionPort) and HuggingFaceEmbeddingsService,
+      embeddings, LLM chat, content processing. Costs money per API call.
 
 Usage:
     from core.config.intelligence_tier import IntelligenceTier

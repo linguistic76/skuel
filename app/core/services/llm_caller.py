@@ -8,7 +8,7 @@ Extracts the model-routing logic that was duplicated in ExerciseReportService
 and hardcoded in JournalOutputGenerator into a single reusable service.
 
 Usage:
-    caller = UnifiedLLMCaller(openai=openai_service, anthropic=anthropic_service)
+    caller = UnifiedLLMCaller(openai=openai_chat_adapter, anthropic=anthropic_chat_adapter)
     result = await caller.generate("prompt", model="gpt-4o-mini")
 """
 
@@ -16,12 +16,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.ai_service import AnthropicService, OpenAIService
+    from core.ports.llm_protocols import ChatCompletionPort
 
 logger = get_logger("skuel.services.llm_caller")
 
@@ -70,11 +69,11 @@ class UnifiedLLMCaller:
 
     def __init__(
         self,
-        openai: OpenAIService | None = None,
-        anthropic: AnthropicService | None = None,
+        openai: ChatCompletionPort | None = None,
+        anthropic: ChatCompletionPort | None = None,
     ) -> None:
         if not openai and not anthropic:
-            raise ValueError("At least one AI service (OpenAI or Anthropic) must be provided")
+            raise ValueError("At least one chat adapter (OpenAI or Anthropic) must be provided")
 
         self.openai = openai
         self.anthropic = anthropic
@@ -108,40 +107,27 @@ class UnifiedLLMCaller:
         Returns:
             Result containing the generated text
         """
-        try:
-            if model.startswith("gpt"):
-                if not self.openai:
-                    return Result.fail(
-                        Errors.integration(
-                            service="OpenAI",
-                            operation="generate",
-                            message="OpenAI service not configured, but GPT model requested",
-                        )
+        if model.startswith("gpt"):
+            if not self.openai:
+                return Result.fail(
+                    Errors.integration(
+                        service="OpenAI",
+                        operation="generate",
+                        message="OpenAI adapter not configured, but GPT model requested",
                     )
-                return await self.openai.generate_completion(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    model=model,
-                    system_prompt=system_prompt,
                 )
-
-            if model.startswith("claude"):
-                if not self.anthropic:
-                    return Result.fail(
-                        Errors.integration(
-                            service="Anthropic",
-                            operation="generate",
-                            message="Anthropic service not configured, but Claude model requested",
-                        )
+            port: ChatCompletionPort = self.openai
+        elif model.startswith("claude"):
+            if not self.anthropic:
+                return Result.fail(
+                    Errors.integration(
+                        service="Anthropic",
+                        operation="generate",
+                        message="Anthropic adapter not configured, but Claude model requested",
                     )
-                return await self.anthropic.generate_completion(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    model=model,
                 )
-
+            port = self.anthropic
+        else:
             return Result.fail(
                 Errors.validation(
                     f"Unknown model: {model}. Must start with 'gpt' or 'claude'",
@@ -149,15 +135,17 @@ class UnifiedLLMCaller:
                 )
             )
 
-        except LLM_EXCEPTIONS as e:
-            self.logger.error(f"LLM error ({model}): {e}")
-            return Result.fail(
-                Errors.integration(
-                    service="LLM",
-                    operation="generate",
-                    message=f"LLM call failed ({model}): {e!s}",
-                )
-            )
+        # The adapter catches SDK exceptions and returns a Result — extract the text.
+        result = await port.complete(
+            [{"role": "user", "content": prompt}],
+            system_prompt=system_prompt,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value.text)
 
     def get_supported_models(self) -> dict[str, list[str]]:
         """Get supported models by provider."""

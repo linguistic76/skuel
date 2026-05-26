@@ -760,10 +760,10 @@ async def compose_services(
         # Create OpenAI service + content enrichment (gated by intelligence tier - ADR-043)
         from core.services.content_enrichment_service import ContentEnrichmentService
 
-        ai_service = None
+        openai_chat = None
         if tier.ai_enabled:
+            from adapters.external.llm import OpenAIChatAdapter
             from core.config.credential_store import get_credential
-            from core.services.ai_service import OpenAIService
 
             openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
             if not openai_api_key or openai_api_key in ("your-openai-api-key-here", "sk-"):
@@ -772,15 +772,18 @@ async def compose_services(
                     "Set INTELLIGENCE_TIER=core to run without LLM features, or "
                     "set OPENAI_API_KEY in the credential store / environment."
                 )
-            ai_service = OpenAIService(api_key=openai_api_key)
-            logger.info("✅ OpenAI service created")
+            # Chat completions for content enrichment / reports go through the
+            # port; the vendor SDK lives in the adapter (W1). One adapter serves
+            # ContentEnrichment, UnifiedLLMCaller and ProgressReportGenerator.
+            openai_chat = OpenAIChatAdapter(api_key=openai_api_key)
+            logger.info("✅ OpenAI chat adapter created")
         else:
-            logger.info("⏭️  OpenAI service skipped (intelligence tier: CORE)")
+            logger.info("⏭️  OpenAI chat adapter skipped (intelligence tier: CORE)")
 
         content_enrichment = ContentEnrichmentService(
             backend=user_entry_backend,
             transcription_service=core_services["transcription"],
-            ai_service=ai_service,  # None in CORE tier — already handles None gracefully
+            chat_port=openai_chat,  # None in CORE tier — already handles None gracefully
             event_bus=event_bus,  # Event-driven architecture
         )
         logger.info("✅ Content enrichment service created")
@@ -806,9 +809,9 @@ async def compose_services(
         from core.services.report import ExerciseReportService
 
         llm_caller = None
-        if ai_service:
+        if openai_chat:
             llm_caller = UnifiedLLMCaller(
-                openai=ai_service,
+                openai=openai_chat,
                 anthropic=None,  # Only OpenAI configured for now
             )
             logger.info("✅ UnifiedLLMCaller created")
@@ -1103,7 +1106,7 @@ async def compose_services(
             executor=query_executor,
             activity_report_service=activity_report_service,
             context_builder=context_builder,
-            openai_service=ai_service,
+            chat_port=openai_chat,
             insight_store=insight_store,
             event_bus=event_bus,
             analytics_service=None,  # Post-wired below after analytics_service creation

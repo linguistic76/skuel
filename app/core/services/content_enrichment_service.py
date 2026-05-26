@@ -18,7 +18,7 @@ Renamed from ContentEnrichmentService to ContentEnrichmentService
 
 from dataclasses import asdict
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
@@ -35,6 +35,9 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import parse_neo4j_json
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.ports.llm_protocols import ChatCompletionPort
 
 
 class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
@@ -80,7 +83,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         self,
         backend: BackendOperations[Entity] | None = None,
         transcription_service=None,
-        ai_service=None,  # For intelligent editing (OpenAI/Anthropic)
+        chat_port: "ChatCompletionPort | None" = None,  # For intelligent editing
         event_bus=None,  # For publishing domain events
     ) -> None:
         """
@@ -89,12 +92,12 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         Args:
             backend: Backend for Ku storage,
             transcription_service: TranscriptionService for audio → text,
-            ai_service: AI service for intelligent editing (e.g., OpenAI),
+            chat_port: Chat-completion adapter for intelligent editing,
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend, "ContentEnrichmentService")
         self.transcription_service = transcription_service
-        self.ai_service = ai_service
+        self.chat_port = chat_port
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.content_enrichment")  # type: ignore[assignment]  # structlog BoundLogger
 
@@ -675,11 +678,11 @@ Preserve the author's voice and authenticity while improving readability.
         Returns:
             Result containing EnrichmentInsights (formatted content, metadata)
         """
-        # Fail-fast: AI service is required for journal formatting
-        if not self.ai_service:
+        # Fail-fast: a chat adapter is required for journal formatting
+        if not self.chat_port:
             return Result.fail(
                 Errors.system(
-                    message="AI service is required for journal formatting - "
+                    message="A chat adapter is required for journal formatting - "
                     "set INTELLIGENCE_TIER=full and configure OPENAI_API_KEY",
                     operation="format_with_llm",
                 )
@@ -688,24 +691,29 @@ Preserve the author's voice and authenticity while improving readability.
         # Build AI prompt with context
         prompt = self._build_editing_prompt(raw_transcript, instructions, context)
 
-        # Call AI service for intelligent editing
-        ai_result = await self.ai_service.generate_completion(
-            prompt=prompt,
+        # Call the chat adapter for intelligent editing. Pass the model
+        # explicitly to preserve the pre-W1 default (the former OpenAIService
+        # path defaulted to gpt-4o-mini; the adapter's own default is gpt-4).
+        ai_result = await self.chat_port.complete(
+            [{"role": "user", "content": prompt}],
+            model="gpt-4o-mini",
             max_tokens=8000,
             temperature=0.3,  # Lower temperature for consistent formatting
         )
 
         if ai_result.is_error:
             self.logger.error(f"AI generation failed: {ai_result.error}")
-            return ai_result
+            return Result.fail(ai_result)
+
+        completion_text = ai_result.value.text
 
         # Debug logging
         self.logger.info(
-            f"AI result value type: {type(ai_result.value)}, value: {ai_result.value[:100] if ai_result.value else 'None'}"
+            f"AI result length: {len(completion_text)}, value: {completion_text[:100] if completion_text else 'None'}"
         )
 
         # Parse AI response
-        insights = self._parse_ai_response(ai_result.value)
+        insights = self._parse_ai_response(completion_text)
 
         # Debug logging
         self.logger.info(
