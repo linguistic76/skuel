@@ -173,14 +173,24 @@ async def main():
 
     driver = await get_driver()
 
-    # Create embeddings service
-    embeddings_service = HuggingFaceEmbeddingsService(driver)
+    # Create embeddings service (inference client behind a port — W1).
+    # The vendor SDK lives in the adapter; a missing HF_API_TOKEN is the
+    # modern "not available" signal (replaces the removed _check_plugin_availability).
+    from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.config.credential_store import get_credential
 
-    # Check if HuggingFace Inference API is available
-    if not await embeddings_service._check_plugin_availability():  # type: ignore[attr-defined]
+    hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
+    if not hf_token:
         logger.error("❌ HuggingFace Inference API not available - cannot generate embeddings")
-        logger.error("   Configure HuggingFace API key in .env (HUGGINGFACE_API_KEY)")
+        logger.error("   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env")
         return
+
+    embeddings_service = HuggingFaceEmbeddingsService(
+        backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
+        embedding_client=HuggingFaceEmbeddingAdapter(api_key=hf_token),
+    )
 
     # Priority entity labels
     if args.label:

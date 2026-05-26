@@ -419,17 +419,26 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
         await driver.verify_connectivity()
         logger.info("✅ Connected to Neo4j")
 
-        # Create embeddings service
-        service = HuggingFaceEmbeddingsService(driver)
+        # Create embeddings service (inference client behind a port — W1).
+        # The vendor SDK lives in the adapter; a missing HF_API_TOKEN is the
+        # modern "not available" signal (replaces the removed _check_plugin_availability).
+        from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+        from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+        from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+        from core.config.credential_store import get_credential
 
-        # Check embeddings service availability
-        plugin_available = await service._check_plugin_availability()  # type: ignore[attr-defined]
-        if not plugin_available:
+        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
+        if not hf_token:
             logger.error("❌ Embeddings service not available")
             logger.error(
                 "   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env to run this benchmark"
             )
             return 1
+
+        service = HuggingFaceEmbeddingsService(
+            backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
+            embedding_client=HuggingFaceEmbeddingAdapter(api_key=hf_token),
+        )
 
         # Get sample nodes
         logger.info(f"Getting sample of {args.sample} nodes...")

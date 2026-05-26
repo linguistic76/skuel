@@ -2,11 +2,19 @@
 Embeddings Protocols
 ====================
 
-Protocol for the EmbeddingsBackend — Neo4j operations for storing
-and retrieving embedding vectors and metadata on entity nodes.
+Two distinct boundaries:
 
-Implementation: adapters/persistence/neo4j/embeddings_backend.py
-Consumer: HuggingFaceEmbeddingsService
+- ``EmbeddingsBackendOperations`` — Neo4j STORAGE of embedding vectors and
+  metadata on entity nodes.
+  Implementation: adapters/persistence/neo4j/embeddings_backend.py
+
+- ``EmbeddingClientOperations`` — the model-call boundary that turns text into
+  a vector (e.g. the HuggingFace Inference API). Keeps the ``huggingface_hub``
+  SDK out of ``core/`` (ADR-044 / W1).
+  Implementation: adapters/external/embeddings/huggingface_adapter.py
+
+Consumer of both: HuggingFaceEmbeddingsService (caching, versioning, storage
+orchestration around the inference client).
 """
 
 from __future__ import annotations
@@ -40,3 +48,35 @@ class EmbeddingsBackendOperations(Protocol):
     async def get_cached_embedding(
         self, label: NeoLabel, uid: str
     ) -> Result[list[dict[str, Any]]]: ...
+
+
+@runtime_checkable
+class EmbeddingClientOperations(Protocol):
+    """Inference-side embedding generation: text → vector.
+
+    This is the model-call boundary, distinct from EmbeddingsBackendOperations
+    (which persists vectors in Neo4j). The concrete adapter owns the vendor SDK
+    (huggingface_hub) and the transport-level retry; the consuming core service
+    keeps the caching/versioning/storage logic and reads ``model``/``dimension``
+    off this port for metrics and validation.
+
+    Implementation: adapters/external/embeddings/huggingface_adapter.py
+    """
+
+    @property
+    def model(self) -> str:
+        """The embedding model identifier (e.g. ``'BAAI/bge-large-en-v1.5'``)."""
+        ...
+
+    @property
+    def dimension(self) -> int:
+        """The embedding vector dimension (e.g. ``1024``)."""
+        ...
+
+    async def embed(self, text: str) -> Result[list[float]]:
+        """Generate an embedding vector for a single text.
+
+        Returns ``Result.ok(vector)`` or ``Result.fail(integration_error)``.
+        Transport-level retry on transient failures is the adapter's concern.
+        """
+        ...

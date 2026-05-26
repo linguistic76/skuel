@@ -2,15 +2,17 @@
 HuggingFace Embeddings Service
 ==============================
 
-Generates embeddings via HuggingFace Inference API using BAAI/bge-large-en-v1.5.
+Orchestrates embedding generation: caching, version tracking, dimension
+validation, metrics, and Neo4j storage around an injected inference client.
 
 ARCHITECTURE:
 - Model: BAAI/bge-large-en-v1.5 (1024 dims) — sentence-transformers-compatible,
   hosted on HuggingFace. Top-tier retrieval quality on MTEB benchmarks.
-- Client: huggingface_hub.AsyncInferenceClient (NOT sentence-transformers package —
-  that's for local inference. We use the async API for serverless, no-GPU deployment.)
-- API key: HF_API_TOKEN environment variable (REQUIRED — constructor raises if missing)
-- Stores embeddings in Neo4j via EmbeddingsBackend
+- Inference client: injected via the ``EmbeddingClientOperations`` port. The
+  vendor SDK (``huggingface_hub.AsyncInferenceClient``) lives below the
+  hexagonal boundary in ``adapters/external/embeddings/`` (W1 / ADR-044); the
+  API key is read at the composition root, not here.
+- Stores embeddings in Neo4j via EmbeddingsBackend (``EmbeddingsBackendOperations``)
 
 MIGRATION (March 2026):
 - Replaces Neo4jGenAIEmbeddingsService (OpenAI text-embedding-3-small via GenAI plugin)
@@ -26,14 +28,14 @@ import math
 import time
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
-from tenacity import retry, stop_after_attempt, wait_exponential
-
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports.embeddings_protocols import EmbeddingsBackendOperations
+    from core.ports.embeddings_protocols import (
+        EmbeddingClientOperations,
+        EmbeddingsBackendOperations,
+    )
 
 logger = get_logger("skuel.embeddings")
 
@@ -50,12 +52,15 @@ MAX_CHARS = 2000  # ~512 tokens, conservative estimate
 
 class HuggingFaceEmbeddingsService:
     """
-    Embeddings service using HuggingFace Inference API.
+    Embeddings service orchestrating an injected HuggingFace inference client.
 
-    Uses BAAI/bge-large-en-v1.5 (1024 dimensions) via InferenceClient.feature_extraction().
+    Owns caching, version tracking, dimension validation, metrics, and Neo4j
+    storage. The actual text → vector call is delegated to an
+    ``EmbeddingClientOperations`` adapter (BAAI/bge-large-en-v1.5, 1024 dims).
 
     Setup:
-    - Requires HF_API_TOKEN environment variable
+    - Inference client injected at the composition root (no SDK or credential
+      reads here — W1 / ADR-044)
     - No Neo4j plugin dependency (pure Python-side embedding generation)
     - Stores embeddings in Neo4j via EmbeddingsBackend
 
@@ -65,62 +70,23 @@ class HuggingFaceEmbeddingsService:
     def __init__(
         self,
         backend: "EmbeddingsBackendOperations",
-        model: str = DEFAULT_MODEL,
-        dimension: int = DEFAULT_DIMENSION,
+        embedding_client: "EmbeddingClientOperations",
         prometheus_metrics: Any | None = None,
     ) -> None:
         self.backend = backend
-        self.model = model
-        self.dimension = dimension
+        self._embedding_client = embedding_client
+        # model/dimension are sourced from the inference client (single source of
+        # truth) — read by metrics, dimension validation, and storage metadata.
+        self.model = embedding_client.model
+        self.dimension = embedding_client.dimension
         self.logger = logger
         self.prometheus_metrics = prometheus_metrics
-
-        # Initialize async HuggingFace client (non-blocking I/O)
-        from core.config.credential_store import get_credential
-
-        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
-        if not hf_token:
-            # Fail-fast at the wiring layer. The bootstrap try/except in
-            # _learning_services.py wraps this with the user-facing tier guidance.
-            raise ValueError(
-                "HF_API_TOKEN is required to construct HuggingFaceEmbeddingsService. "
-                "Set it in the keychain (scripts/migrate_secrets_to_keychain.py) or env, "
-                "or run with INTELLIGENCE_TIER=core to skip embedding services."
-            )
-        from huggingface_hub import AsyncInferenceClient
-
-        self._client = AsyncInferenceClient(model=self.model, token=hf_token)
-        self.logger.info(f"HuggingFace embeddings client initialized (model={self.model})")
-
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def _call_hf_api(self, text: str) -> list[float]:
-        """
-        Raw HuggingFace API call with automatic retry on transient failures.
-
-        Retries up to 3 times with exponential backoff (2s, 4s, 8s) for
-        network errors, 503 cold starts, and 429 rate limits.
-
-        Raises on failure so tenacity can retry.
-        """
-        raw = await self._client.feature_extraction(text)
-
-        # Extract the embedding vector from the response
-        # feature_extraction returns a numpy array or nested list
-        if isinstance(raw, np.ndarray):
-            # Shape could be (1, dim) or (dim,) depending on API response
-            return raw[0].tolist() if raw.ndim == 2 else raw.tolist()
-        elif isinstance(raw, list):
-            # May be nested [[float, ...]] or flat [float, ...]
-            return raw[0] if raw and isinstance(raw[0], list) else raw
-        else:
-            msg = f"Unexpected response type: {type(raw).__name__}"
-            raise TypeError(msg)
 
     async def create_embedding(
         self, text: str, metadata: dict[str, Any] | None = None
     ) -> Result[list[float]]:
         """
-        Create embedding using HuggingFace Inference API.
+        Create an embedding, delegating the model call to the inference client.
 
         Args:
             text: Text to embed
@@ -138,45 +104,38 @@ class HuggingFaceEmbeddingsService:
             self.logger.warning(f"Text truncated to {MAX_CHARS} chars for token limit")
 
         start_time = time.time()
+        result = await self._embedding_client.embed(text)
+        duration = time.time() - start_time
 
-        try:
-            embedding = await self._call_hf_api(text)
-            duration = time.time() - start_time
-
-            # Track metrics
-            if self.prometheus_metrics:
-                self.prometheus_metrics.ai.ai_requests_total.labels(
-                    operation="embeddings", model=self.model
-                ).inc()
-                self.prometheus_metrics.ai.ai_duration_seconds.labels(
-                    operation="embeddings", model=self.model
-                ).observe(duration)
-
-            # Validate dimension
-            if len(embedding) != self.dimension:
-                return Result.fail(
-                    Errors.integration(
-                        service="HuggingFace",
-                        message=f"Expected {self.dimension}d embedding, got {len(embedding)}d",
-                    )
-                )
-
-            return Result.ok(embedding)
-
-        except Exception as e:  # safety-net: HuggingFace API raises varied exceptions (HTTP, connection, type errors)
-            duration = time.time() - start_time
-
+        if result.is_error:
             if self.prometheus_metrics:
                 self.prometheus_metrics.ai.ai_errors_total.labels(
-                    operation="embeddings", error_type=type(e).__name__
+                    operation="embeddings", error_type="integration"
                 ).inc()
+            self.logger.error(f"Embedding generation failed: {result.error}")
+            return Result.fail(result)
 
-            self.logger.error(f"Embedding generation failed ({type(e).__name__}): {e}")
+        embedding = result.value
+
+        # Track metrics
+        if self.prometheus_metrics:
+            self.prometheus_metrics.ai.ai_requests_total.labels(
+                operation="embeddings", model=self.model
+            ).inc()
+            self.prometheus_metrics.ai.ai_duration_seconds.labels(
+                operation="embeddings", model=self.model
+            ).observe(duration)
+
+        # Validate dimension
+        if len(embedding) != self.dimension:
             return Result.fail(
                 Errors.integration(
-                    service="HuggingFace", message=f"Embedding generation failed: {e}"
+                    service="HuggingFace",
+                    message=f"Expected {self.dimension}d embedding, got {len(embedding)}d",
                 )
             )
+
+        return Result.ok(embedding)
 
     async def create_batch_embeddings(
         self, texts: list[str], metadata_list: list[dict[str, Any]] | None = None
