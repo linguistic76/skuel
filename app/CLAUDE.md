@@ -283,7 +283,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 - Use `Errors` factory for creating errors
 - Six error types: Validation, NotFound, Database, Integration, Business, System
 - **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). ✅ Zero violations — persistence layer uses `NEO4J_EXCEPTIONS`, API/UI boundaries use `# safety-net:` annotations.
-- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021.
+- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022.
 
 **See:** `/docs/patterns/ERROR_HANDLING.md`
 
@@ -531,6 +531,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 - SKUEL019: Credential reads must use `get_credential()` — never raw `os.getenv()` on catalog/credential-shaped names
 - SKUEL020: FastHTML `@rt`/`@app.get|post|...` handlers must annotate `request: Request` (not `request: Any`) [ERROR] — `Any` makes FastHTML 400 "Missing required field: request" before any gate runs (AST rule; mypy/ruff/route audit don't catch it)
 - SKUEL021: No raw Cypher in `core/services/` [ERROR] — all Cypher lives below the boundary in `adapters/persistence/neo4j/` (ADR-044). SKUEL001 bans only APOC; SKUEL021 covers raw Cypher generally. Relocate queries to an adapter backend behind a `core/ports` protocol.
+- SKUEL022: No `adapters/` imports in `core/` [ERROR] — the hexagonal dependency direction is core → adapter (ADR-044), never the reverse. AST rule; flags module-level AND function-local `import adapters`/`from adapters import` in any `core/` file. `TYPE_CHECKING`-only imports are exempt (they never execute, so they can't create a runtime dependency). Depend on a `core/ports` protocol and inject the concrete adapter at the composition root (`services_bootstrap/` or a factory below the boundary).
 
 **MyPy:** `./dev quality` enforces **0 MyPy errors**. Per-module strictness overrides in `pyproject.toml`. Four globally-disabled codes: `type-var`, `arg-type`, `var-annotated`, `type-arg`. `assignment` is **enabled** — catches trailing-comma tuple bugs and real type mismatches. `core.services.*`, `core.ports.*` enforce `disallow_untyped_defs`. Domain backends suppress `misc` (MRO mixin conflicts). Narrow Neo4j property types with `int()`/`float()`/`str()` casts before arithmetic. Every new `Any` needs a `# boundary:` comment or should use a specific type.
 
