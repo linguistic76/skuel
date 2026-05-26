@@ -2,8 +2,11 @@
 LLM Service for Natural Language Generation
 ============================================
 
-Provides LLM integration for Askesis and other services.
-Supports multiple LLM providers (OpenAI, Anthropic, local models).
+Provides LLM integration for Askesis and other services: prompt building,
+RAG context formatting, and the Askesis system prompts. The actual provider
+call is delegated to an injected ``ChatCompletionPort`` (W1 / ADR-044) — the
+vendor SDKs live in ``adapters/external/llm/``. When no port is wired
+(MOCK/LOCAL provider, or tests), ``generate`` returns canned mock responses.
 """
 
 __version__ = "1.0"
@@ -14,13 +17,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-import anthropic
-from anthropic.types import TextBlock
-from openai import AsyncOpenAI
-
-from core.config import get_openai_key
 from core.ports.base_protocols import EnumLike
-from core.utils.exception_types import ANTHROPIC_EXCEPTIONS, OPENAI_EXCEPTIONS
+from core.ports.llm_protocols import ChatCompletionPort, ChatMessage
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +34,14 @@ class LLMProvider(StrEnum):
 
 @dataclass
 class LLMConfig:
-    """Configuration for LLM service"""
+    """Configuration for LLM service.
+
+    The provider/model select behaviour at the composition root (which adapter
+    to inject) and label the LLMResponse. The API key is no longer held here —
+    it is read at the root and passed to the chat adapter (W1).
+    """
 
     provider: LLMProvider = LLMProvider.MOCK
-    api_key: str | None = None
     model_name: str = "gpt-3.5-turbo"
     temperature: float = 0.7
     max_tokens: int = 500
@@ -62,48 +64,20 @@ class LLMService:
     Service for interacting with Large Language Models.
     """
 
-    def __init__(self, config: LLMConfig | None = None) -> None:
+    def __init__(
+        self, config: LLMConfig | None = None, chat_port: ChatCompletionPort | None = None
+    ) -> None:
         """
-        Initialize LLM service with configuration.
+        Initialize LLM service with configuration and an optional chat port.
 
         Args:
             config: LLM configuration
+            chat_port: Provider-agnostic chat-completion adapter. When ``None``
+                (MOCK/LOCAL provider, or tests), ``generate`` returns canned
+                mock responses with no external calls.
         """
         self.config = config or LLMConfig()
-        self.client: AsyncOpenAI | anthropic.Anthropic | None = None
-        self._initialize_provider()
-
-    def _initialize_provider(self) -> None:
-        """Initialize the LLM provider based on config."""
-        if self.config.provider == LLMProvider.OPENAI:
-            self._init_openai()
-        elif self.config.provider == LLMProvider.ANTHROPIC:
-            self._init_anthropic()
-        elif self.config.provider == LLMProvider.LOCAL:
-            self._init_local()
-        else:
-            # Mock provider for testing
-            logger.info("Using mock LLM provider")
-
-    def _init_openai(self) -> None:
-        """Initialize OpenAI client."""
-        api_key = self.config.api_key or get_openai_key()
-        self.client = AsyncOpenAI(api_key=api_key)
-        logger.info("OpenAI LLM provider initialized (modern API v1.x+)")
-
-    def _init_anthropic(self) -> None:
-        """Initialize Anthropic client."""
-        from core.config.credential_store import get_credential
-
-        self.client = anthropic.Anthropic(
-            api_key=self.config.api_key or get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
-        )
-        logger.info("Anthropic LLM provider initialized")
-
-    def _init_local(self) -> None:
-        """Initialize local model (e.g., Ollama)."""
-        logger.info("Local LLM provider initialized")
-        # Would connect to local model server
+        self.chat_port = chat_port
 
     async def generate(
         self,
@@ -137,129 +111,40 @@ class LLMService:
         if context:
             full_prompt = f"Context: {context}\n\nQuery: {prompt}"
 
-        # Generate based on provider
-        if self.config.provider == LLMProvider.OPENAI:
-            return await self._generate_openai(
-                full_prompt, system_prompt, temperature, max_tokens, conversation_history
-            )
-        elif self.config.provider == LLMProvider.ANTHROPIC:
-            return await self._generate_anthropic(
-                full_prompt, system_prompt, temperature, max_tokens, conversation_history
-            )
-        elif self.config.provider == LLMProvider.LOCAL:
-            return await self._generate_local(full_prompt, system_prompt, temperature, max_tokens)
-        else:
+        # No chat port wired (MOCK/LOCAL provider, or tests) → mock response.
+        if self.chat_port is None:
             return await self._generate_mock(full_prompt, system_prompt)
 
-    async def _generate_openai(
-        self,
-        prompt: str,
-        system_prompt: str | None,
-        temperature: float,
-        max_tokens: int,
-        conversation_history: list[dict[str, str]] | None = None,
-    ) -> LLMResponse:
-        """Generate using OpenAI API (modern v1.x+ syntax)."""
-        if not isinstance(self.client, AsyncOpenAI):
+        # Build the conversation (system prompt is passed separately so each
+        # adapter places it where its SDK expects).
+        messages: list[ChatMessage] = [
+            {"role": m["role"], "content": m["content"]} for m in (conversation_history or [])
+        ]
+        messages.append({"role": "user", "content": full_prompt})
+
+        result = await self.chat_port.complete(
+            messages,
+            system_prompt=system_prompt,
+            model=self.config.model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        if result.is_error:
             return LLMResponse(
                 content="",
-                provider=LLMProvider.OPENAI,
+                provider=self.config.provider,
                 model=self.config.model_name,
-                error="OpenAI client not initialized",
-            )
-        try:
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            if conversation_history:
-                messages.extend(conversation_history)
-            messages.append({"role": "user", "content": prompt})
-
-            # Modern OpenAI API (v1.x+)
-            response = await self.client.chat.completions.create(
-                model=self.config.model_name,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
+                error=str(result.expect_error()),
             )
 
-            return LLMResponse(
-                content=response.choices[0].message.content,
-                provider=LLMProvider.OPENAI,
-                model=self.config.model_name,
-                usage=response.usage.model_dump() if response.usage else None,
-            )
-        except OPENAI_EXCEPTIONS as e:
-            logger.error(f"OpenAI generation failed: {e}")
-            return LLMResponse(
-                content="", provider=LLMProvider.OPENAI, model=self.config.model_name, error=str(e)
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"OpenAI generation failed unexpectedly ({type(e).__name__}): {e}")
-            return LLMResponse(
-                content="", provider=LLMProvider.OPENAI, model=self.config.model_name, error=str(e)
-            )
-
-    async def _generate_anthropic(
-        self,
-        prompt: str,
-        system_prompt: str | None,
-        temperature: float,
-        max_tokens: int,
-        conversation_history: list[dict[str, str]] | None = None,
-    ) -> LLMResponse:
-        """Generate using Anthropic API."""
-        if not isinstance(self.client, anthropic.Anthropic):
-            return LLMResponse(
-                content="",
-                provider=LLMProvider.ANTHROPIC,
-                model=self.config.model_name,
-                error="Anthropic client not initialized",
-            )
-        try:
-            all_messages: list[dict[str, str]] = (
-                list(conversation_history) if conversation_history else []
-            )
-            all_messages.append({"role": "user", "content": prompt})
-
-            message = self.client.messages.create(
-                model=self.config.model_name,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                system=system_prompt or "",
-                messages=all_messages,
-            )
-
-            first_block = message.content[0]
-            content = first_block.text if isinstance(first_block, TextBlock) else ""
-            return LLMResponse(
-                content=content,
-                provider=LLMProvider.ANTHROPIC,
-                model=self.config.model_name,
-            )
-        except ANTHROPIC_EXCEPTIONS as e:
-            logger.error(f"Anthropic generation failed: {e}")
-            return LLMResponse(
-                content="",
-                provider=LLMProvider.ANTHROPIC,
-                model=self.config.model_name,
-                error=str(e),
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Anthropic generation failed unexpectedly ({type(e).__name__}): {e}")
-            return LLMResponse(
-                content="",
-                provider=LLMProvider.ANTHROPIC,
-                model=self.config.model_name,
-                error=str(e),
-            )
-
-    async def _generate_local(
-        self, prompt: str, system_prompt: str | None, _temperature: float, _max_tokens: int
-    ) -> LLMResponse:
-        """Generate using local model."""
-        # Would call local model API
-        return await self._generate_mock(prompt, system_prompt)
+        completion = result.value
+        return LLMResponse(
+            content=completion.text,
+            provider=self.config.provider,
+            model=completion.model or self.config.model_name,
+            usage=completion.usage,
+        )
 
     async def _generate_mock(self, prompt: str, _system_prompt: str | None) -> LLMResponse:
         """Generate mock response for testing."""
@@ -550,37 +435,3 @@ class LLMService:
                 base_prompt
                 + "Provide helpful, accurate, and relevant information. Be professional and clear."
             )
-
-
-# Factory function
-def create_llm_service(
-    provider: str | None = None, api_key: str | None = None, model: str | None = None
-) -> LLMService:
-    """
-    Create an LLM service with the specified configuration.
-
-    Args:
-        provider: LLM provider name,
-        api_key: API key for the provider,
-        model: Model name to use
-
-    Returns:
-        Configured LLM service
-    """
-    config = LLMConfig()
-
-    if provider:
-        config.provider = LLMProvider(provider.lower())
-    if api_key:
-        config.api_key = api_key
-    if model:
-        config.model_name = model
-
-    # Set default system prompt for Askesis
-    config.system_prompt = (
-        "You are Askesis, an intelligent learning assistant. "
-        "You help users learn, practice, and explore knowledge. "
-        "Be helpful, educational, and encouraging."
-    )
-
-    return LLMService(config)
