@@ -793,6 +793,14 @@ class SkuelLinter:
             rel_path = file_path.relative_to(self.root_dir)
             is_test = "test_" in file_path.name or "/tests/" in str(file_path)
             is_service = "/services/" in str(file_path) and file_path.suffix == ".py"
+            # SKUEL001 (APOC) + SKUEL021 (raw Cypher) enforce the ADR-044 hexagonal
+            # boundary. That boundary also covers the pure core/ingestion package —
+            # the bulk-upsert engine, Cypher executor, and vector ops were relocated
+            # out of it (PRs #53/#54), so it must stay Cypher-free too. Other
+            # service-only rules remain gated on is_service.
+            is_below_boundary = is_service or (
+                "/core/ingestion/" in str(file_path) and file_path.suffix == ".py"
+            )
 
             # Run applicable rules
             if self._should_run_rule("SKUEL003"):
@@ -822,11 +830,14 @@ class SkuelLinter:
             if self._should_run_rule("SKUEL006"):
                 self._check_todo_comments(file_path, rel_path, content, lines)
 
-            if is_service and not is_test:
+            # Boundary rules (ADR-044): also cover the pure core/ingestion package.
+            if is_below_boundary and not is_test:
                 if self._should_run_rule("SKUEL001"):
                     self._check_apoc_in_services(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL021"):
                     self._check_raw_cypher_in_services(file_path, rel_path, content, lines)
+
+            if is_service and not is_test:
                 if self._should_run_rule("SKUEL002"):
                     self._check_semantic_type_strings(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL004"):
