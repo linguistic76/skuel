@@ -32,7 +32,9 @@ FORBIDDEN_PATTERNS = (
 def test_core_ingestion_has_no_neo4j_driver_or_session_access() -> None:
     """core/ingestion must stay above the hexagonal boundary — no driver/session."""
     offenders: list[str] = []
-    for py_file in sorted(INGESTION_DIR.glob("*.py")):
+    # rglob (not glob) so modules added under future subdirectories of
+    # core/ingestion/ can't bypass the boundary guard.
+    for py_file in sorted(INGESTION_DIR.rglob("*.py")):
         content = py_file.read_text(encoding="utf-8")
         for line_num, line in enumerate(content.splitlines(), start=1):
             stripped = line.strip()
