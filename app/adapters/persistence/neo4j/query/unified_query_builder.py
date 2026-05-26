@@ -84,8 +84,8 @@ from core.utils.result_simplified import Result
 from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
     from core.infrastructure.database.schema import SchemaContext
-    from core.services.query_builder import QueryBuilder
 
 T = TypeVar("T")
 logger = get_logger(__name__)
@@ -565,7 +565,7 @@ class UnifiedQueryBuilder:
         if not self.query_builder_service:
             # Try to create QueryBuilder with schema_service if available
             try:
-                from core.services.query_builder import QueryBuilder
+                from adapters.persistence.neo4j.query_builders import QueryBuilder
 
                 self.query_builder_service = QueryBuilder(self._schema_service)
                 logger.info("Auto-initialized QueryBuilder for template support")

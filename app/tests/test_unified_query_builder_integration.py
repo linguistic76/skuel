@@ -23,7 +23,7 @@ Created: November 10, 2025
 import pytest
 
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder
-from core.services.query_builder import QueryBuilder
+from adapters.persistence.neo4j.query_builders import QueryBuilder
 
 # ============================================================================
 # TESTS: Template Discovery

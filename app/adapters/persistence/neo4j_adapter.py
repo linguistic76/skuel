@@ -118,7 +118,7 @@ class Neo4jAdapter:
     def get_query_builder(self) -> Any:
         """Get unified query builder instance"""
         if not getattr(self, "_query_builder", None):
-            from core.services.query_builder import QueryBuilder
+            from adapters.persistence.neo4j.query_builders import QueryBuilder
 
             schema_service = self.get_schema_service()
             self._query_builder = QueryBuilder(schema_service)
@@ -623,7 +623,7 @@ class Neo4jAdapter:
     def get_index_aware_builder(self) -> Any:
         """Get the index-aware query builder service"""
         if not getattr(self, "_index_aware_builder", None):
-            from core.services.query_builder import QueryBuilder
+            from adapters.persistence.neo4j.query_builders import QueryBuilder
 
             self._index_aware_builder = QueryBuilder(self.get_schema_service())
         return self._index_aware_builder
