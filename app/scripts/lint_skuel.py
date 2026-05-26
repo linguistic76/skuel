@@ -794,12 +794,18 @@ class SkuelLinter:
             is_test = "test_" in file_path.name or "/tests/" in str(file_path)
             is_service = "/services/" in str(file_path) and file_path.suffix == ".py"
             # SKUEL001 (APOC) + SKUEL021 (raw Cypher) enforce the ADR-044 hexagonal
-            # boundary. That boundary also covers the pure core/ingestion package —
-            # the bulk-upsert engine, Cypher executor, and vector ops were relocated
-            # out of it (PRs #53/#54), so it must stay Cypher-free too. Other
-            # service-only rules remain gated on is_service.
+            # boundary. Beyond core/services/, that boundary also covers two pure
+            # core packages that must stay Cypher-free:
+            #   - core/ingestion/ — bulk-upsert engine, Cypher executor, vector ops
+            #     were relocated below the boundary (PRs #53/#54).
+            #   - core/infrastructure/ — BatchCypherBuilder was relocated to the
+            #     neo4j adapter and the dead ontology generator deleted, leaving
+            #     only Cypher-free schema/relationship/monitoring helpers.
+            # Other service-only rules remain gated on is_service.
+            path_str = str(file_path)
             is_below_boundary = is_service or (
-                "/core/ingestion/" in str(file_path) and file_path.suffix == ".py"
+                file_path.suffix == ".py"
+                and ("/core/ingestion/" in path_str or "/core/infrastructure/" in path_str)
             )
 
             # Run applicable rules

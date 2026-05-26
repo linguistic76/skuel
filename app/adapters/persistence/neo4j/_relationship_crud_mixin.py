@@ -517,7 +517,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             result = await backend.delete_relationships_batch(relationships)
             print(f"Deleted {result.value} relationships")
         """
-        from core.infrastructure.batch import BatchCypherBuilder
+        from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
         if not relationships:
             return Result.ok(0)
@@ -839,7 +839,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         # BATCH CREATION (All validations passed)
         # ========================================================================
         # Uses BatchCypherBuilder for pure Cypher query generation
-        from core.infrastructure.batch import BatchCypherBuilder
+        from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
         # Generate queries grouped by relationship type
         queries = BatchCypherBuilder.build_relationship_create_queries(relationships)

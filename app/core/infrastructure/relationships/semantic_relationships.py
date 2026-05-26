@@ -338,31 +338,6 @@ class SemanticTriple:
         """Human-readable representation."""
         return f"({self.subject}) --[{self.predicate.local_name}]--> ({self.object})"
 
-    def to_cypher_merge(self) -> str:
-        """Convert to Cypher MERGE statement."""
-        rel_label = self.predicate.local_name.upper()
-        props = self.metadata.to_neo4j_properties()
-
-        # Build properties string
-        props_str = ", ".join(f"{k}: ${k}" for k in props)
-
-        return f"""
-        MERGE (s {{uid: $subject}})
-        MERGE (o {{uid: $object}})
-        MERGE (s)-[r:{rel_label}]->(o)
-        ON CREATE SET r = {{{props_str}}}
-        ON MATCH SET r += {{{props_str}}}
-        """
-
-    def to_cypher_params(self) -> dict[str, Any]:
-        """Get parameters for Cypher query."""
-        params = {
-            "subject": self.subject,
-            "object": self.object,
-        }
-        params.update(self.metadata.to_neo4j_properties())
-        return params
-
     def get_inverse(self) -> Optional["SemanticTriple"]:
         """Create inverse triple if relationship has an inverse."""
         inverse_predicate = self.predicate.get_inverse()

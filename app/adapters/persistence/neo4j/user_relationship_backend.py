@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.infrastructure.batch import BatchCypherBuilder
+from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.processor_functions import (

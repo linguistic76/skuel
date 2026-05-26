@@ -144,6 +144,7 @@ from .semantic_queries import (
     build_prerequisite_chain,
     build_semantic_context,
     build_semantic_filter_query,
+    build_semantic_merge,
     build_semantic_traversal,
 )
 
@@ -212,6 +213,7 @@ __all__ = [
     # Semantic queries
     "build_semantic_context",
     "build_semantic_filter_query",
+    "build_semantic_merge",
     "build_semantic_traversal",
     # Domain queries - prerequisites
     "build_simple_prerequisite_chain",

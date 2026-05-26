@@ -411,7 +411,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             ]
             result = await backend.get_relationships_batch(relationships)
         """
-        from core.infrastructure.batch import BatchCypherBuilder
+        from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
         if not relationships:
             return Result.ok([])
@@ -454,7 +454,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             ]
             result = await backend.count_relationships_batch(requests)
         """
-        from core.infrastructure.batch import BatchCypherBuilder
+        from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
         if not requests:
             return Result.ok({})
