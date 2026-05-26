@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.outbound.invoice_renderer import render_invoice_pdf
 from core.models.finance.invoice import (
     InvoicePure,
     InvoiceStatus,
@@ -36,6 +35,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.base_protocols import BackendOperations
+    from core.ports.finance_protocols import InvoiceRenderer
 
 logger = get_logger("finance.invoice")
 
@@ -50,14 +50,18 @@ class FinanceInvoiceService:
     def __init__(
         self,
         backend: BackendOperations[InvoicePure],
+        renderer: InvoiceRenderer,
     ) -> None:
         """
         Initialize invoice service.
 
         Args:
             backend: Protocol-based backend for invoice operations
+            renderer: Outbound PDF renderer (injected at the composition root so
+                the service never imports the concrete adapter — ADR-044/SKUEL022)
         """
         self.backend = backend
+        self.renderer = renderer
         self.logger = get_logger("finance.invoice")
 
     @property
@@ -258,7 +262,7 @@ class FinanceInvoiceService:
         invoice = result.value
 
         try:
-            pdf_bytes = render_invoice_pdf(invoice)
+            pdf_bytes = self.renderer(invoice)
             self.logger.info(f"Generated PDF for invoice {uid}")
             return Result.ok(pdf_bytes)
 

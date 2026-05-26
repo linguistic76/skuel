@@ -21,9 +21,12 @@ See: /docs/patterns/protocol_architecture.md,
 
 from __future__ import annotations
 
-from typing import Literal, Protocol, TypedDict, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, runtime_checkable
 
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.finance.invoice import InvoicePure
 
 # ============================================================================
 # BOOKS
@@ -190,6 +193,27 @@ class FireflyOperations(Protocol):
         ...
 
 
+# ============================================================================
+# INVOICE RENDERING
+# ============================================================================
+
+
+@runtime_checkable
+class InvoiceRenderer(Protocol):
+    """Renders an invoice domain model to PDF bytes.
+
+    A callable port over the outbound PDF renderer (WeasyPrint, in
+    ``adapters/outbound/invoice_renderer.py``). FinanceInvoiceService depends on
+    this protocol and receives the concrete renderer by injection at the
+    composition root, so the service never imports the adapter — keeping the
+    dependency direction core → adapter only (ADR-044 / SKUEL022).
+    """
+
+    def __call__(self, invoice: InvoicePure) -> bytes:
+        """Render ``invoice`` to PDF file content."""
+        ...
+
+
 __all__ = [
     "FireflyAccountBalance",
     "FireflyBook",
@@ -199,4 +223,5 @@ __all__ = [
     "FireflyOperations",
     "FireflyTransaction",
     "FireflyTransactionCreate",
+    "InvoiceRenderer",
 ]
