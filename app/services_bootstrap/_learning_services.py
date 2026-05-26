@@ -54,14 +54,24 @@ def _create_learning_services(
         logger.info("⏭️  Embedding services skipped (intelligence tier: CORE)")
     else:
         try:
+            from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
             from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+            from core.config.credential_store import get_credential
             from core.services.embeddings_service import HuggingFaceEmbeddingsService
             from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+
+            # Inference client (vendor SDK) lives below the hexagonal boundary.
+            # Read the credential here at the composition root and inject the
+            # adapter — the core service holds no SDK or credential reads (W1).
+            # Empty token → adapter raises ValueError, wrapped below with tier guidance.
+            hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
+            embedding_client = HuggingFaceEmbeddingAdapter(api_key=hf_token)
 
             # Create HuggingFace embeddings service
             embeddings_backend = EmbeddingsBackend(executor=query_executor)
             embeddings_service = HuggingFaceEmbeddingsService(
                 backend=embeddings_backend,
+                embedding_client=embedding_client,
                 prometheus_metrics=prometheus_metrics,
             )
             logger.info("✅ HuggingFace embeddings service created (BAAI/bge-large-en-v1.5)")

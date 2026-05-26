@@ -33,20 +33,23 @@ def mock_backend():
 
 
 @pytest.fixture
-def embeddings_service(mock_backend, monkeypatch):
-    """Create embeddings service with mock backend and mock HF client."""
-    # HF_API_TOKEN is required by the constructor; tests then swap _client for a mock
-    monkeypatch.setenv("HF_API_TOKEN", "test-token")
-    service = HuggingFaceEmbeddingsService(mock_backend)
-    service._client = MagicMock()
-    return service
+def embeddings_service(mock_backend):
+    """Create embeddings service with mock backend and mock inference client.
+
+    The inference client (EmbeddingClientOperations) is injected; tests drive
+    its ``embed`` method directly. The vendor SDK now lives in the adapter, so
+    there is no HF_API_TOKEN / _client to set up here.
+    """
+    mock_client = MagicMock()
+    mock_client.model = "BAAI/bge-large-en-v1.5"
+    mock_client.dimension = DIM
+    mock_client.embed = AsyncMock()
+    return HuggingFaceEmbeddingsService(mock_backend, embedding_client=mock_client)
 
 
-def _hf_embedding(embedding):
-    """Configure mock HF client to return a specific embedding."""
-    import numpy as np
-
-    return np.array(embedding)
+def _embed_ok(embedding):
+    """Wrap an embedding as the inference client's ``embed`` Result.ok return."""
+    return Result.ok(list(embedding))
 
 
 @pytest.mark.asyncio
@@ -70,7 +73,7 @@ async def test_cache_hit_avoids_api_call(embeddings_service, mock_backend):
     async def fail_if_called(_text):
         raise AssertionError("HF API should not be called on cache hit")
 
-    embeddings_service._client.feature_extraction = AsyncMock(side_effect=fail_if_called)
+    embeddings_service._embedding_client.embed = AsyncMock(side_effect=fail_if_called)
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.python", label="Entity", text="Python programming"
@@ -99,9 +102,7 @@ async def test_cache_miss_makes_api_call(embeddings_service, mock_backend):
     mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.python"}])
 
     # Mock HF client to return embedding
-    embeddings_service._client.feature_extraction = AsyncMock(
-        return_value=_hf_embedding([0.5] * DIM)
-    )
+    embeddings_service._embedding_client.embed = AsyncMock(return_value=_embed_ok([0.5] * DIM))
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.python", label="Entity", text="Python programming"
@@ -112,7 +113,7 @@ async def test_cache_miss_makes_api_call(embeddings_service, mock_backend):
     assert len(result.value) == DIM
 
     # SHOULD have called HF API (cache miss)
-    embeddings_service._client.feature_extraction.assert_called_once()
+    embeddings_service._embedding_client.embed.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -126,16 +127,14 @@ async def test_cache_miss_no_embedding(embeddings_service, mock_backend):
     mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.new"}])
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = AsyncMock(
-        return_value=_hf_embedding([0.3] * DIM)
-    )
+    embeddings_service._embedding_client.embed = AsyncMock(return_value=_embed_ok([0.3] * DIM))
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.new", label="Entity", text="New knowledge unit"
     )
 
     assert result.is_ok
-    embeddings_service._client.feature_extraction.assert_called_once()
+    embeddings_service._embedding_client.embed.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -149,9 +148,7 @@ async def test_cache_stores_metadata_on_miss(embeddings_service, mock_backend):
     mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.test"}])
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = AsyncMock(
-        return_value=_hf_embedding([0.4] * DIM)
-    )
+    embeddings_service._embedding_client.embed = AsyncMock(return_value=_embed_ok([0.4] * DIM))
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.test", label="Entity", text="Test content"
@@ -191,7 +188,7 @@ async def test_multiple_calls_use_cache(embeddings_service, mock_backend):
         assert result.is_ok
 
     # Should have made 0 HF API calls (all cache hits)
-    embeddings_service._client.feature_extraction.assert_not_called()
+    embeddings_service._embedding_client.embed.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -222,9 +219,7 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_backen
     mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.javascript"}])
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = AsyncMock(
-        return_value=_hf_embedding([0.7] * DIM)
-    )
+    embeddings_service._embedding_client.embed = AsyncMock(return_value=_embed_ok([0.7] * DIM))
 
     # First node: cache hit
     result1 = await embeddings_service.get_or_create_embedding(
@@ -252,9 +247,7 @@ async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_b
     )
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = AsyncMock(
-        return_value=_hf_embedding([0.8] * DIM)
-    )
+    embeddings_service._embedding_client.embed = AsyncMock(return_value=_embed_ok([0.8] * DIM))
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.test", label="Entity", text="Test"
@@ -283,9 +276,7 @@ async def test_stale_version_regenerates(embeddings_service, mock_backend):
     mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.stale"}])
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = AsyncMock(
-        return_value=_hf_embedding([0.9] * DIM)
-    )
+    embeddings_service._embedding_client.embed = AsyncMock(return_value=_embed_ok([0.9] * DIM))
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.stale", label="Entity", text="Stale content"
@@ -293,4 +284,4 @@ async def test_stale_version_regenerates(embeddings_service, mock_backend):
 
     assert result.is_ok
     # Should have regenerated
-    embeddings_service._client.feature_extraction.assert_called_once()
+    embeddings_service._embedding_client.embed.assert_called_once()
