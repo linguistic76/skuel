@@ -42,6 +42,12 @@ def make_unified_ingestion_service(driver: AsyncDriver, **kwargs: Any) -> Unifie
     Returns:
         A fully-wired UnifiedIngestionService.
     """
+    if driver is None:
+        # Fail fast on a misconfigured startup, mirroring the pre-inversion service
+        # constructor — otherwise the None driver only surfaces later as an
+        # AttributeError deep inside a backend query, bypassing Neo4j error handling.
+        raise ValueError("Neo4j driver is required to build the ingestion backends")
+
     from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
     from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
     from core.services.ingestion import UnifiedIngestionService

@@ -14,6 +14,13 @@ import pytest
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 
 
+def test_factory_rejects_none_driver():
+    """make_unified_ingestion_service fails fast on a missing driver (mirrors the
+    pre-inversion constructor), instead of deferring to a later AttributeError."""
+    with pytest.raises(ValueError, match="driver is required"):
+        make_unified_ingestion_service(None)
+
+
 @dataclass
 class MockEntity:
     """Mock entity with connections for testing"""

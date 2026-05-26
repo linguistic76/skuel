@@ -2149,7 +2149,14 @@ class SkuelLinter:
         if isinstance(test, ast.Name):
             return test.id == "TYPE_CHECKING"
         if isinstance(test, ast.Attribute):
-            return test.attr == "TYPE_CHECKING"
+            # Only `typing.TYPE_CHECKING`, not an arbitrary `obj.TYPE_CHECKING`
+            # (e.g. `settings.TYPE_CHECKING` could be a real runtime flag — exempting
+            # imports under it would be a false-negative bypass of SKUEL022).
+            return (
+                test.attr == "TYPE_CHECKING"
+                and isinstance(test.value, ast.Name)
+                and test.value.id == "typing"
+            )
         return False
 
     def _check_core_imports_adapter(
@@ -2185,13 +2192,16 @@ class SkuelLinter:
         except SyntaxError:
             return
 
-        # Collect line numbers inside `if TYPE_CHECKING:` blocks — exempt.
+        # Collect line numbers inside the BODY of `if TYPE_CHECKING:` blocks — exempt.
+        # Only the `if` body, never the `else`/`elif` branch: an import under
+        # `else:` (or `elif`) DOES execute at runtime, so it must still be flagged.
         type_checking_lines: set[int] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.If) and self._is_type_checking_test(node.test):
-                for child in ast.walk(node):
-                    if hasattr(child, "lineno"):
-                        type_checking_lines.add(child.lineno)
+                for stmt in node.body:
+                    for child in ast.walk(stmt):
+                        if hasattr(child, "lineno"):
+                            type_checking_lines.add(child.lineno)
 
         for node in ast.walk(tree):
             imported_modules: list[str] = []

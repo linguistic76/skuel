@@ -1507,6 +1507,32 @@ class TestSKUEL022:
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
+    def test_else_branch_of_type_checking_not_exempt(self) -> None:
+        """An adapter import in the `else:` of a TYPE_CHECKING block DOES execute."""
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.user_backend import UserBackend\n"
+            "else:\n"
+            "    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 6  # the else-branch import, not the if-body one
+
+    def test_non_typing_attribute_guard_not_exempt(self) -> None:
+        """`if settings.TYPE_CHECKING:` is a runtime guard, not the typing sentinel."""
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "if settings.TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.user_backend import UserBackend\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL022"
+
     def test_relative_import_not_flagged(self) -> None:
         """`from . import x` (relative, within core) is not an adapters import."""
         linter = make_linter(["SKUEL022"])
