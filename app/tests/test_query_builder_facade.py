@@ -11,7 +11,7 @@ Tests:
 
 def test_import_facade():
     """Test 1: Import QueryBuilder facade"""
-    from core.services.query_builder import QueryBuilder
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
 
     assert QueryBuilder is not None
 
@@ -35,7 +35,7 @@ def test_import_sub_services():
 
 def test_initialize_facade():
     """Test 3: Initialize QueryBuilder facade"""
-    from core.services.query_builder import QueryBuilder
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
 
     qb = QueryBuilder(schema_service=None)
     assert qb is not None
@@ -46,11 +46,11 @@ def test_sub_services_initialized():
     from adapters.persistence.neo4j.query_builders import (
         FacetedQueryBuilder,
         GraphContextBuilder,
+        QueryBuilder,
         QueryOptimizer,
         QueryTemplateRegistry,
         QueryValidator,
     )
-    from core.services.query_builder import QueryBuilder
 
     qb = QueryBuilder(schema_service=None)
 
@@ -69,7 +69,7 @@ def test_sub_services_initialized():
 
 def test_delegation_methods_exist():
     """Test 5: Verify all delegation methods exist"""
-    from core.services.query_builder import QueryBuilder
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
 
     qb = QueryBuilder(schema_service=None)
 
@@ -100,7 +100,7 @@ def test_delegation_methods_exist():
 
 def test_backward_compatibility():
     """Test 6: Verify backward compatibility"""
-    from core.services.query_builder import QueryBuilder
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
 
     qb = QueryBuilder(schema_service=None)
 
@@ -111,8 +111,8 @@ def test_backward_compatibility():
 
 def test_graph_context_delegation():
     """Test 7: Test GraphContextBuilder delegation"""
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
     from core.models.query_types import QueryIntent
-    from core.services.query_builder import QueryBuilder
 
     qb = QueryBuilder(schema_service=None)
 
@@ -126,7 +126,7 @@ def test_graph_context_delegation():
 
 def test_template_library_access():
     """Test 8: Test template library access"""
-    from core.services.query_builder import QueryBuilder
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
 
     qb = QueryBuilder(schema_service=None)
 

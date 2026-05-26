@@ -257,7 +257,7 @@ BaseService provides `_records_to_domain_models()` helper for this pattern.
 
 ### QueryBuilder - Service Layer Facade (Legacy)
 
-**Location:** `/core/services/query_builder.py`
+**Location:** `/adapters/persistence/neo4j/query_builders/query_builder.py`
 
 **Status:** Legacy - Use UnifiedQueryBuilder for new code
 
@@ -292,7 +292,7 @@ templates = UnifiedQueryBuilder(driver).list_templates()
 result = await UnifiedQueryBuilder(driver).template("search").params(...).execute()
 
 # ⚠️ LEGACY - Direct QueryBuilder usage (backward compatibility only)
-from core.services.query_builder import QueryBuilder
+from adapters.persistence.neo4j.query_builders import QueryBuilder
 
 qb = QueryBuilder(schema_service)
 templates = qb.get_template_library()
@@ -363,16 +363,16 @@ count = await builder.for_model(Task).count(status='completed')
 
 **Security (March 2026):** `ModelQueryBuilder.order_by()` validates field names via `validate_field_name()` — invalid fields (e.g. injection attempts) are silently ignored with a logged warning.
 
-### Layer 2: Service Layer → QueryBuilder (Facade)
+### Layer 2: Orchestration Layer → QueryBuilder (Facade)
 
-**Location:** `/core/services/query_builder.py`
+**Location:** `/adapters/persistence/neo4j/query_builders/query_builder.py`
 
 **Purpose:** Orchestration facade coordinating 5 sub-services
 
 **Status:** Legacy - maintained for backward compatibility
 
 ```python
-from core.services.query_builder import QueryBuilder
+from adapters.persistence.neo4j.query_builders import QueryBuilder
 
 # ⚠️ LEGACY - Only use if absolutely necessary
 qb = QueryBuilder(schema_service)
@@ -465,7 +465,7 @@ query, params = CypherGenerator.build_prerequisite_chain(
 
 ```python
 # ❌ OLD - Direct QueryBuilder usage
-from core.services.query_builder import QueryBuilder
+from adapters.persistence.neo4j.query_builders import QueryBuilder
 qb = QueryBuilder(schema_service)
 result = await qb.search(labels=["Ku"], search_text="quantum")
 
@@ -782,7 +782,7 @@ This is the **primary query architecture documentation**. Start here.
 | UnifiedQueryBuilder (facade) | `/adapters/persistence/neo4j/query/unified_query_builder.py` |
 | Cypher Query Generators | `/adapters/persistence/neo4j/query/cypher/` |
 | Query Models (adapter-layer) | `/adapters/persistence/neo4j/query/_query_models.py` |
-| QueryBuilder (legacy service) | `/core/services/query_builder.py` |
+| QueryBuilder (legacy facade) | `/adapters/persistence/neo4j/query_builders/query_builder.py` |
 | GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
 | QueryIntent enum | `/core/models/query_types.py` |
 

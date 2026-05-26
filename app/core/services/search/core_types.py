@@ -35,8 +35,8 @@ class FacetSet:
     search queries against Neo4j or other backends.
 
     Used by:
-        - core/services/query/faceted_query_builder.py
-        - core/services/query_builder.py
+        - adapters/persistence/neo4j/query_builders/faceted_query_builder.py
+        - adapters/persistence/neo4j/query_builders/query_builder.py
     """
 
     domain: Domain | None = None
