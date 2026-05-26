@@ -19,7 +19,8 @@ import yaml
 from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
-from core.ingestion.vector_operations import Vector, VectorOperations, VectorSpace
+from adapters.persistence.neo4j.vector_operations import VectorOperations
+from core.ingestion.vectors import Vector, VectorSpace
 from core.models.curriculum import Curriculum
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
