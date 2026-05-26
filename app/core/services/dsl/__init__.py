@@ -40,7 +40,9 @@ The @context() tag values are now parsed to `EntityType` or `NonKuDomain` enum v
 
 ```python
 # === PHASE 1: LLM Bridge (Natural Text -> DSL) ===
-from core.services.dsl import LLMDSLBridgeService, create_llm_dsl_bridge
+# The bridge depends only on a ChatCompletionPort; the factory that builds the
+# OpenAI chat adapter lives below the boundary (W1 / SKUEL022).
+from adapters.external.llm import create_llm_dsl_bridge
 
 bridge = create_llm_dsl_bridge()  # Uses OPENAI_API_KEY from env
 
@@ -158,7 +160,6 @@ from core.services.dsl.dsl_knowledge_connector import (
 from core.services.dsl.llm_dsl_bridge import (
     DSLTransformResult,
     LLMDSLBridgeService,
-    create_llm_dsl_bridge,
 )
 
 __all__ = [
@@ -192,7 +193,6 @@ __all__ = [
     "activity_to_goal_dict",
     "activity_to_habit_dict",
     "activity_to_task_request",
-    "create_llm_dsl_bridge",
     "is_activity_line",
     "parse_activity_line",
     "parse_journal_text",
