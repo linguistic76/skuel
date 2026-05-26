@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
     from core.infrastructure.relationships.semantic_relationships import (
         SemanticRelationshipType,
+        SemanticTriple,
     )
     from core.models.type_hints import Neo4jProperties
 
@@ -54,10 +55,17 @@ class _SemanticMixin:
     # ========================================================================
 
     async def create_semantic_relationship(
-        self, cypher: str, params: dict[str, Any]
+        self, triple: SemanticTriple
     ) -> Result[list[Neo4jProperties]]:
-        """Execute a SemanticTriple.to_cypher_merge() query."""
-        return await self.execute_query(cypher, params)
+        """Persist a single semantic triple as a MERGE'd relationship.
+
+        The triple (a domain object) is handed down from the service; the
+        Cypher is authored here, below the hexagonal boundary (ADR-044).
+        """
+        from adapters.persistence.neo4j.query import build_semantic_merge
+
+        query, params = build_semantic_merge(triple)
+        return await self.execute_query(query, params)
 
     async def query_semantic_neighborhood(
         self,

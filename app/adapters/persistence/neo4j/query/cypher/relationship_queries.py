@@ -267,7 +267,7 @@ def build_batch_relationship_exists(
         - After: 1 query x 50-200ms = 50-200ms
         - Improvement: 10-100x faster for bulk operations
     """
-    from core.infrastructure.batch import BatchCypherBuilder
+    from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
     # Validate direction (maintained for backward compatibility)
     if direction not in ("outgoing", "incoming", "both"):
@@ -314,7 +314,7 @@ def build_batch_relationship_count(
         result = await backend.execute_query(query, {"uids": task_uids})
         # Returns: [{"uid": "task:1", "count": 3}, {"uid": "task:2", "count": 0}, ...]
     """
-    from core.infrastructure.batch import BatchCypherBuilder
+    from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
     # Validate direction (maintained for backward compatibility)
     if direction not in ("outgoing", "incoming", "both"):
@@ -365,7 +365,7 @@ def build_batch_relationship_exists_with_filters(
             property_filters={"strength__gte": 0.8}
         )
     """
-    from core.infrastructure.batch import BatchCypherBuilder
+    from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
     # Validate direction (maintained for backward compatibility)
     if direction not in ("outgoing", "incoming", "both"):
@@ -418,7 +418,7 @@ def build_batch_get_related_with_filters(
         )
         # Returns: [{"uid": "ku:python", "related_uids": ["ku:basics", "ku:functions"]}, ...]
     """
-    from core.infrastructure.batch import BatchCypherBuilder
+    from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
     # Validate direction (maintained for backward compatibility)
     if direction not in ("outgoing", "incoming", "both"):

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.infrastructure.batch.batch_cypher_builder import BatchCypherBuilder
+from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID

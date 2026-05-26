@@ -20,10 +20,13 @@ from typing import TYPE_CHECKING
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue
 
-from ._helpers import validate_label
+from ._helpers import validate_identifier, validate_label
 
 if TYPE_CHECKING:
-    from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+    from core.infrastructure.relationships.semantic_relationships import (
+        SemanticRelationshipType,
+        SemanticTriple,
+    )
 
 
 def build_semantic_context(
@@ -74,6 +77,42 @@ def build_semantic_context(
     """
 
     parameters: dict[str, Neo4jValue] = {"uid": node_uid, "min_confidence": min_confidence}
+
+    return cypher, parameters
+
+
+def build_semantic_merge(
+    triple: "SemanticTriple",
+) -> tuple[str, dict[str, Neo4jValue]]:
+    """
+    Build the MERGE query + params that persist a single semantic triple.
+
+    The relationship label is sourced from the ``SemanticRelationshipType``
+    enum (a closed vocabulary) and validated as a safe identifier before
+    interpolation; the triple's metadata is written as edge properties.
+
+    Args:
+        triple: The semantic triple (subject-predicate-object + metadata)
+
+    Returns:
+        Tuple of (cypher_query, parameters)
+    """
+    rel_label = triple.predicate.to_neo4j_name()
+    validate_identifier(rel_label, "relationship type")
+
+    props = triple.metadata.to_neo4j_properties()
+    props_str = ", ".join(f"{k}: ${k}" for k in props)
+
+    cypher = f"""
+    MERGE (s {{uid: $subject}})
+    MERGE (o {{uid: $object}})
+    MERGE (s)-[r:{rel_label}]->(o)
+    ON CREATE SET r = {{{props_str}}}
+    ON MATCH SET r += {{{props_str}}}
+    """
+
+    parameters: dict[str, Neo4jValue] = {"subject": triple.subject, "object": triple.object}
+    parameters.update(props)
 
     return cypher, parameters
 
