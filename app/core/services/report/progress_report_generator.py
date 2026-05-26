@@ -27,7 +27,7 @@ from core.models.enums import EntityStatus
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.backends.misc_backends import ActivityReportGeneratorBackend
     from core.ports import QueryExecutor
-    from core.services.ai_service import OpenAIService
+    from core.ports.llm_protocols import ChatCompletionPort
     from core.services.analytics_service import AnalyticsService
     from core.services.insight.insight_store import InsightStore
     from core.services.knowledge.activity_knowledge_intelligence_service import (
@@ -79,7 +79,7 @@ class ProgressReportGenerator:
         executor: "QueryExecutor",
         activity_report_service: "ActivityReportService",
         context_builder: "UserContextBuilder",
-        openai_service: "OpenAIService | None" = None,
+        chat_port: "ChatCompletionPort | None" = None,
         insight_store: "InsightStore | None" = None,
         event_bus: EventBusOperations | None = None,
         analytics_service: "AnalyticsService | None" = None,
@@ -89,7 +89,7 @@ class ProgressReportGenerator:
         self.executor = executor
         self.activity_report_service = activity_report_service
         self.context_builder = context_builder
-        self.openai_service = openai_service
+        self.chat_port = chat_port
         self.insight_store = insight_store
         self.event_bus = event_bus
         self.analytics_service = analytics_service
@@ -177,7 +177,7 @@ class ProgressReportGenerator:
                 else await self._fetch_previous_annotation(user_uid, start_date)
             )
 
-            if self.openai_service:
+            if self.chat_port:
                 llm_result = await self._generate_llm_report(
                     completions,
                     insights,
@@ -561,20 +561,23 @@ class ProgressReportGenerator:
         Returns:
             Result[str] — LLM-generated report text
         """
-        if not self.openai_service:
+        if not self.chat_port:
             return Result.fail(
-                Errors.integration("OpenAI", "generate", "No LLM service configured")
+                Errors.integration("OpenAI", "generate", "No chat adapter configured")
             )
 
         prompt = self._build_llm_prompt(
             completions, insights, time_period, depth, previous_annotation, intelligence
         )
-        return await self.openai_service.generate_completion(
-            prompt=prompt,
+        result = await self.chat_port.complete(
+            [{"role": "user", "content": prompt}],
+            model="gpt-4o-mini",
             max_tokens=2000 if depth == "detailed" else 1000,
             temperature=0.7,
-            model="gpt-4o-mini",
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value.text)
 
     def _build_llm_prompt(
         self,
