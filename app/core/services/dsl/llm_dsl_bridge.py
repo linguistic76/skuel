@@ -45,13 +45,16 @@ The bridge uses a two-phase approach:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 from core.prompts import PROMPT_REGISTRY
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.ports.llm_protocols import ChatCompletionPort
 
 # ============================================================================
 # TRANSFORMATION RESULT
@@ -153,7 +156,7 @@ class LLMDSLBridgeService:
     **Usage:**
 
     ```python
-    bridge = LLMDSLBridgeService(openai_client=client)
+    bridge = LLMDSLBridgeService(chat_port=openai_chat_adapter)
 
     # Transform natural text to DSL
     result = await bridge.transform(
@@ -195,7 +198,7 @@ class LLMDSLBridgeService:
 
     def __init__(
         self,
-        openai_client: Any = None,
+        chat_port: "ChatCompletionPort | None" = None,
         model: str = "gpt-4o-mini",
         use_compact_prompt: bool = False,
     ) -> None:
@@ -203,11 +206,13 @@ class LLMDSLBridgeService:
         Initialize the LLM DSL Bridge.
 
         Args:
-            openai_client: OpenAI client for LLM calls
+            chat_port: Chat-completion adapter for LLM calls. When None,
+                transform() returns an integration error (use transform_sync
+                for the rule-based path).
             model: Model to use for transformation (default: gpt-4o-mini)
             use_compact_prompt: Use shorter prompt to reduce tokens
         """
-        self.client = openai_client
+        self.chat_port = chat_port
         self.model = model
         self.use_compact_prompt = use_compact_prompt
         self.logger = get_logger("skuel.dsl.llm_bridge")
@@ -240,11 +245,11 @@ class LLMDSLBridgeService:
                 )
             )
 
-        if not self.client:
+        if not self.chat_port:
             return Result.fail(
                 Errors.integration(
                     service="OpenAI",
-                    message="OpenAI client not configured for LLM DSL Bridge",
+                    message="Chat adapter not configured for LLM DSL Bridge",
                     operation="transform",
                 )
             )
@@ -372,23 +377,21 @@ class LLMDSLBridgeService:
     @with_error_handling(error_type="integration", operation="call_llm")
     async def _call_llm(self, prompt: str) -> Result[str]:
         """Call the LLM with the prompt and return the response."""
-        response = await self.client.chat.completions.create(
+        # transform() guarantees chat_port is set before reaching here.
+        assert self.chat_port is not None
+        result = await self.chat_port.complete(
+            [{"role": "user", "content": prompt}],
+            system_prompt=(
+                "You are a structured data extraction assistant. "
+                "Output only the requested format, no explanations."
+            ),
             model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a structured data extraction assistant. Output only the requested format, no explanations.",
-                },
-                {
-                    "role": "user",
-                    "content": prompt,
-                },
-            ],
             temperature=0.3,  # Lower temperature for more consistent output
             max_tokens=2000,
         )
-
-        content = response.choices[0].message.content
+        if result.is_error:
+            return Result.fail(result)
+        content = result.value.text
         return Result.ok(content.strip() if content else "")
 
     def _parse_llm_output(self, output: str) -> list[str]:
@@ -562,34 +565,7 @@ class LLMDSLBridgeService:
         return lines
 
 
-# ============================================================================
-# FACTORY FUNCTION
-# ============================================================================
-
-
-def create_llm_dsl_bridge(
-    openai_api_key: str | None = None,
-    model: str = "gpt-4o-mini",
-) -> LLMDSLBridgeService:
-    """
-    Factory function to create an LLM DSL Bridge with proper configuration.
-
-    Args:
-        openai_api_key: OpenAI API key (uses env var if not provided)
-        model: Model to use (default: gpt-4o-mini for cost efficiency)
-
-    Returns:
-        Configured LLMDSLBridgeService instance
-    """
-    from openai import AsyncOpenAI
-
-    from core.config.credential_store import get_credential
-
-    api_key = openai_api_key or get_credential("OPENAI_API_KEY", fallback_to_env=True)
-
-    if not api_key:
-        # Return service without client (will use rule-based fallback)
-        return LLMDSLBridgeService(openai_client=None, model=model)
-
-    client = AsyncOpenAI(api_key=api_key)
-    return LLMDSLBridgeService(openai_client=client, model=model)
+# NOTE: the create_llm_dsl_bridge() factory moved below the hexagonal boundary
+# to adapters/external/llm/dsl_bridge_factory.py — it constructs the OpenAI
+# chat adapter, which core/ must not import (ADR-044 / SKUEL022). Inject a
+# ChatCompletionPort into LLMDSLBridgeService directly, or use that factory.
