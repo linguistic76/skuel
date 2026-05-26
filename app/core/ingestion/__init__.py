@@ -4,18 +4,19 @@ Ingestion core helpers.
 Pure, transport-agnostic ingestion pieces that stay above the hexagonal boundary:
 - ``batch_preparer`` — entity → Neo4j-ready dict transformation (no Cypher, no driver)
 - ``ingestion_types`` — cross-boundary types (RelationshipConfig, IngestionResult)
-- ``vector_operations`` — Vector value object + (to be relocated) vector backend
+- ``vectors`` — Vector value object + VectorSpace enum (pure math)
 
-The bulk-upsert engine, Cypher executor, and Cypher templates were relocated below
-the boundary to ``adapters/persistence/neo4j/`` (ADR-044).
+The bulk-upsert engine, Cypher executor, Cypher templates, and the graph-backed
+VectorOperations were relocated below the boundary to ``adapters/persistence/neo4j/``
+(ADR-044).
 """
 
 from .ingestion_types import IngestionResult, RelationshipConfig
-from .vector_operations import Vector, VectorOperations
+from .vectors import Vector, VectorSpace
 
 __all__ = [
     "IngestionResult",
     "RelationshipConfig",
     "Vector",
-    "VectorOperations",
+    "VectorSpace",
 ]

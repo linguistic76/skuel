@@ -1,122 +1,41 @@
 """
-Vector modeling for directional change and trajectories.
+Vector Operations Backend
+=========================
 
-Vectors represent direction + magnitude in conceptual spaces,
-perfect for modeling learning paths, goal progress, and life strategies.
+Neo4j-backed vector operations, below the hexagonal boundary (ADR-044). Relocated
+from ``core/ingestion/vector_operations.py``: the driver-holding class and its
+inline Cypher live in the adapter layer, while the pure ``Vector`` value object +
+``VectorSpace`` enum stay in ``core/ingestion/vectors.py``.
+
+Exception-based error flow (raises/catches ``NEO4J_EXCEPTIONS``), matching the
+other ingestion backends.
+
+⚠️ PRE-EXISTING STATUS (carried over verbatim by the ADR-044 relocation, NOT
+introduced here): the only importer is ``scripts/ingest_knowledge_vault.py``,
+which itself uses a stale ``Result.is_ok()``/``.unwrap()`` API and was never
+runnable. ``create_vector`` / ``compute_resultant`` / ``find_aligned_vectors`` /
+``track_vector_progress`` store and read ``components`` as a Neo4j *map* property,
+which Neo4j rejects ("Property values can only be of primitive types or arrays
+thereof"), so they are non-functional against a real database. Only
+``create_vectorized_edge`` (which does not persist the map) works. This is dead
+code pending a delete-vs-redesign decision — see the PR that relocated it. The
+relocation deliberately preserves behaviour; it does not fix these bugs.
 """
 
-from dataclasses import dataclass, field
-from datetime import date, datetime
-from enum import StrEnum
-from typing import Any
+from __future__ import annotations
 
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
+from core.ingestion.vectors import Vector, VectorSpace
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+
 logger = get_logger(__name__)
-
-
-class VectorSpace(StrEnum):
-    """Conceptual spaces where vectors operate."""
-
-    LIFE_STRATEGY = "life-strategy"
-    LEARNING = "learning"
-    GOALS = "goals"
-    HABITS = "habits"
-    WELLBEING = "wellbeing"
-    CAREER = "career"
-    FINANCE = "finance"
-
-
-@dataclass(frozen=True)
-class Vector:
-    """
-    A vector in a conceptual space.
-
-    Vectors can be:
-    1. First-class nodes - Named trajectories that can be referenced
-    2. Edge properties - Transitions between states
-    """
-
-    uid: str
-    title: str
-    space: VectorSpace
-    components: dict[str, float]  # Named axes with magnitudes
-    magnitude: float | None = None  # Computed or provided
-    origin: str | None = None  # Starting state/node UID
-    target: str | None = None  # Target state/node UID
-    timeframe_start: date | None = None
-    timeframe_end: date | None = None
-    notes: str | None = None
-    connections: dict[str, list[str]] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Compute magnitude if not provided."""
-        if self.magnitude is None and self.components:
-            # Calculate Euclidean magnitude
-            sum_squares = sum(v**2 for v in self.components.values())
-            object.__setattr__(self, "magnitude", sum_squares**0.5)
-
-    def dot_product(self, other: "Vector") -> float:
-        """
-        Calculate dot product with another vector.
-
-        Useful for finding alignment between vectors.
-        """
-        if self.space != other.space:
-            raise ValueError(
-                f"Cannot compute dot product across different spaces: {self.space} vs {other.space}"
-            )
-
-        result = 0.0
-        for axis, value in self.components.items():
-            if axis in other.components:
-                result += value * other.components[axis]
-        return result
-
-    def add(self, other: "Vector") -> "Vector":
-        """
-        Add two vectors to get resultant direction.
-
-        Useful for combining multiple influences.
-        """
-        if self.space != other.space:
-            raise ValueError(
-                f"Cannot add vectors from different spaces: {self.space} vs {other.space}"
-            )
-
-        # Combine components
-        combined = dict(self.components)
-        for axis, value in other.components.items():
-            combined[axis] = combined.get(axis, 0.0) + value
-
-        return Vector(
-            uid=f"{self.uid}+{other.uid}",
-            title=f"{self.title} + {other.title}",
-            space=self.space,
-            components=combined,
-            notes=f"Resultant of {self.uid} and {other.uid}",
-        )
-
-    def scale(self, factor: float) -> "Vector":
-        """Scale vector by a factor."""
-        scaled_components = {k: v * factor for k, v in self.components.items()}
-
-        return Vector(
-            uid=f"{self.uid}*{factor}",
-            title=f"{self.title} (scaled {factor}x)",
-            space=self.space,
-            components=scaled_components,
-            notes=f"Scaled version of {self.uid}",
-        )
-
-    def normalize(self) -> "Vector":
-        """Create unit vector (magnitude = 1)."""
-        if not self.magnitude or self.magnitude == 0:
-            return self
-
-        return self.scale(1.0 / self.magnitude)
 
 
 class VectorOperations:
@@ -130,7 +49,7 @@ class VectorOperations:
     - Finding aligned vectors
     """
 
-    def __init__(self, driver) -> None:
+    def __init__(self, driver: AsyncDriver) -> None:
         """Initialize with Neo4j driver."""
         self.driver = driver
         self.logger = get_logger(__name__)
@@ -248,7 +167,7 @@ class VectorOperations:
 
         try:
             async with self.driver.session() as session:
-                await session.run(
+                await session.run(  # pyright: ignore[reportArgumentType, reportCallIssue]
                     query,
                     {
                         "origin": origin_uid,
