@@ -602,7 +602,7 @@ class TestUserContextBuilder:
 
         # Setup: Create test user directly via Cypher (bypassing UserService serialization bug)
         test_user_uid = "user_context_builder_test"
-        driver = user_service.context_builder.executor.driver
+        driver = user_service.context_builder._query_executor.executor.driver
 
         # Clean up any existing test data from previous runs
         async with driver.session() as session:
@@ -907,7 +907,7 @@ class TestEntitiesRichField:
         from core.models.user.user import User
 
         user_uid = "user_ar_no_period"
-        driver = user_service.context_builder.executor.driver
+        driver = user_service.context_builder._query_executor.executor.driver
         async with driver.session() as session:
             await session.run(
                 "CREATE (u:User {uid: $uid, title: 'AR No Period', "
@@ -930,7 +930,7 @@ class TestEntitiesRichField:
         from core.models.user.user import User
 
         user_uid = "user_ar_with_period"
-        driver = user_service.context_builder.executor.driver
+        driver = user_service.context_builder._query_executor.executor.driver
 
         async with driver.session() as session:
             await session.run(

@@ -64,23 +64,9 @@ async def skuel_app():
 
     container = await bootstrap_skuel()
 
-    # Post-bootstrap fix: UserService.__init__ passes raw driver to UserContextBuilder,
-    # but UserContextBuilder expects a QueryExecutor. Rebuild the context_builder and stats
-    # with a proper Neo4jQueryExecutor wrapper.
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from core.services.user.user_context_builder import UserContextBuilder
-    from core.services.user.user_stats_aggregator import UserStatsAggregator
-
-    user_service = container.services.user
-    if user_service and getattr(user_service, "context_builder", None):
-        raw_driver = user_service.context_builder.executor
-        # If executor is a raw AsyncDriver (not already a QueryExecutor), wrap it
-        if not isinstance(raw_driver, Neo4jQueryExecutor):
-            query_executor = Neo4jQueryExecutor(raw_driver)
-            user_service.context_builder = UserContextBuilder(query_executor)
-            user_service.stats = UserStatsAggregator(
-                user_service.core, user_service.context_builder, query_executor
-            )
+    # UserContextBuilder is built at the composition root with an injected
+    # UserContextQueryExecutor (ADR-044/SKUEL022), so the old post-bootstrap
+    # rebuild that wrapped a raw driver is no longer needed.
 
     yield container.app
 
