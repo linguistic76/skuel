@@ -13,11 +13,19 @@
 
 | Domain | File | Status |
 |--------|------|--------|
-| Tasks | `/core/services/tasks/tasks_ai_service.py` | Planned |
-| Goals | `/core/services/goals/goaps_ai_service.py` | Planned |
+| Tasks | `/core/services/tasks/tasks_ai_service.py` | Implemented |
+| Goals | `/core/services/goals/goals_ai_service.py` | Implemented |
+| Habits | `/core/services/habits/habits_ai_service.py` | Implemented |
+| Events | `/core/services/events/events_ai_service.py` | Implemented |
+| Choices | `/core/services/choices/choices_ai_service.py` | Implemented |
+| Principles | `/core/services/principles/principles_ai_service.py` | Implemented |
+| PathStep (PS) | `/core/services/ps/ps_ai_service.py` | Implemented |
+| LearningPath (LP) | `/core/services/lp/lp_ai_service.py` | Implemented |
+| Askesis (cross-cutting) | `/core/services/askesis_ai_service.py` | Implemented |
+| Context-aware (cross-cutting) | `/core/services/context_aware_ai_service.py` | Implemented |
 | KU | `/core/services/ku/ku_ai_service.py` | Planned |
 
-**Note:** Domain AI services are planned but not yet implemented (January 2026).
+**Note:** All 6 Activity Domain AI services + the PS/LP Curriculum AI services + the cross-cutting Askesis/ContextAware services are implemented and wired via `services_bootstrap/_ai_wiring.py`. `KuAIService` remains planned (no `ku_ai_service.py` yet).
 
 ---
 

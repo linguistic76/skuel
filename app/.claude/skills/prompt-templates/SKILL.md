@@ -35,7 +35,7 @@ Before `core/prompts/` (March 2026), prompts lived in three places:
 
 - **File-per-service** — `core/services/report/prompts/`, `core/services/submissions/journal_prompts/`
 - **Inline string constants** — `DOMAIN_RECOGNITION_PROMPT` in `llm_dsl_bridge.py` (141 lines)
-- **Hardcoded system prompt bug** — `OpenAIService` always sent "formats journal transcripts"
+- **Hardcoded system prompt bug** — the journal LLM path always sent "formats journal transcripts"
 
 PROMPT_REGISTRY solves all three: one import, one location, one editing surface.
 
@@ -184,18 +184,28 @@ signals provide variables like `{journal_open_questions}` and `{user_momentum}`.
 
 ---
 
-## System Prompt Pattern (`OpenAIService`)
+## System Prompt Pattern (`ChatCompletionPort`)
 
-`OpenAIService.generate_completion()` accepts `system_prompt: str | None = None`.
-When `None`, no system message is sent (templates are self-contained). Use it only for
-role framing that doesn't belong in the template itself:
+The chat-completion boundary (`core/ports/llm_protocols.py`, W1 / ADR-063) takes the system
+prompt *separately* from the conversation:
+`ChatCompletionPort.complete(messages, *, system_prompt: str | None = None, model=..., ...)`.
+When `None`, no system message is sent (templates are self-contained). Use it only for role
+framing that doesn't belong in the template itself — each adapter then places it where its SDK
+expects (OpenAI: a system message; Anthropic: the `system=` parameter).
 
 ```python
-await openai_service.generate_completion(
-    prompt=PROMPT_REGISTRY.render("my_template", ...),
+result = await chat_port.complete(
+    [{"role": "user", "content": PROMPT_REGISTRY.render("my_template", ...)}],
     system_prompt="You are a personal development coach.",  # Optional role framing
+    model="gpt-4o-mini",
 )
+report_text = result.value.text  # read .text off the returned LLMCompletion
 ```
+
+Consumers that take an injected chat port today: `ProgressReportGenerator`,
+`ContentEnrichmentService`, and `UnifiedLLMCaller` (which routes by model prefix and exposes
+`generate(prompt, *, system_prompt=...) -> Result[str]`). The vendor SDKs live below the
+boundary in `adapters/external/llm/`; see ADR-063.
 
 ---
 

@@ -4,6 +4,8 @@
 **Date:** 2026-03-04
 **Deciders:** Mike, Claude
 
+> **SDK wiring superseded by [ADR-063](ADR-063-llm-embeddings-sdk-ports.md) (W1, 2026-05-26).** The tier-toggle decision below — CORE vs FULL and the gating points — is unchanged. Only the vendor-SDK services moved: `OpenAIService` no longer exists. The OpenAI/Anthropic chat clients now live behind `ChatCompletionPort` in `adapters/external/llm/`, and the HuggingFace embedding client behind `EmbeddingClientOperations` in `adapters/external/embeddings/`. Read `OpenAIService` below as "the OpenAI chat adapter + its consumers (`ContentEnrichmentService` / `UnifiedLLMCaller` / `ProgressReportGenerator`)".
+
 ## Context
 
 SKUEL has an implicit two-layer intelligence split enforced architecturally:
