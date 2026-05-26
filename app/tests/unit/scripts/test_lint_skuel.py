@@ -44,6 +44,7 @@ def lint_content(
 
     # Determine context flags
     is_test = "test_" in fp.name or "/tests/" in str(fp)
+    is_core = "/core/" in str(fp) and fp.suffix == ".py"
 
     # Run applicable rules based on the same logic as _lint_file
     if linter._should_run_rule("SKUEL003"):
@@ -89,6 +90,9 @@ def lint_content(
 
     if is_adapter and linter._should_run_rule("SKUEL008"):
         linter._check_backend_wrappers(fp, rel, content)
+
+    if is_core and not is_test and linter._should_run_rule("SKUEL022"):
+        linter._check_core_imports_adapter(fp, rel, content, lines)
 
     return linter.result.violations
 
@@ -1442,3 +1446,120 @@ class TestSKUEL020:
         assert len(violations) == 1
         assert "request: Request" in violations[0].suggestion
         assert "from adapters.inbound.fasthtml_types import Request" in violations[0].suggestion
+
+
+# ============================================================================
+# SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
+# ============================================================================
+
+
+class TestSKUEL022:
+    def test_detects_module_level_from_import(self) -> None:
+        linter = make_linter(["SKUEL022"])
+        content = "from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL022"
+        assert violations[0].severity == Severity.ERROR
+        assert "cross_domain_backend" in violations[0].message
+
+    def test_detects_plain_import(self) -> None:
+        linter = make_linter(["SKUEL022"])
+        content = "import adapters.persistence.neo4j.cross_domain_backend\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL022"
+
+    def test_detects_function_local_import(self) -> None:
+        """A function-local import is the same runtime dependency, just deferred."""
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "def build(executor):\n"
+            "    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend\n"
+            "    return PsEngagementBackend(executor)\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL022"
+        assert violations[0].line_number == 2
+
+    def test_type_checking_import_exempt(self) -> None:
+        """An import under `if TYPE_CHECKING:` never executes — no runtime dependency."""
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_typing_dot_type_checking_exempt(self) -> None:
+        """`if typing.TYPE_CHECKING:` (Attribute form) is also exempt."""
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "import typing\n"
+            "\n"
+            "if typing.TYPE_CHECKING:\n"
+            "    from adapters.outbound.invoice_renderer import render_invoice_pdf\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_relative_import_not_flagged(self) -> None:
+        """`from . import x` (relative, within core) is not an adapters import."""
+        linter = make_linter(["SKUEL022"])
+        content = "from . import sibling_module\nfrom .helpers import thing\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_non_adapter_import_clean(self) -> None:
+        linter = make_linter(["SKUEL022"])
+        content = "from core.ports import BackendOperations\nimport core.constants\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_adapter_file_not_flagged(self) -> None:
+        """Only core/ files are checked — adapters importing adapters is fine."""
+        linter = make_linter(["SKUEL022"])
+        content = "from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend\n"
+        violations = lint_content(
+            linter, content, file_path="adapters/persistence/neo4j/foo.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_composition_root_not_flagged(self) -> None:
+        """services_bootstrap/ is the composition root — it SHOULD import adapters."""
+        linter = make_linter(["SKUEL022"])
+        content = "from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend\n"
+        violations = lint_content(
+            linter, content, file_path="services_bootstrap/compose.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_skips_test_files(self) -> None:
+        linter = make_linter(["SKUEL022"])
+        content = "from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend\n"
+        violations = lint_content(
+            linter, content, file_path="core/services/test_example.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "from adapters.persistence.neo4j.x import Y  "
+            "# skuel-lint: disable=SKUEL022 -- composition factory below the boundary\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL022 -- composition helper\n"
+            "from adapters.persistence.neo4j.x import Y\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0

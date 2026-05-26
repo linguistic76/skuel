@@ -45,6 +45,9 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 |------|---------|-------------|
 | **SKUEL002** | Magic semantic strings | Use `SemanticRelationshipType` enum |
 | **SKUEL003** | `.is_err` usage | Use `.is_error` instead [auto-fix] |
+| **SKUEL020** | `request: Any` on `@rt`/`@app.*` handlers | Annotate `request: Request` (AST rule) |
+| **SKUEL021** | Raw Cypher in `core/services/` | Relocate below the boundary (ADR-044) |
+| **SKUEL022** | `adapters/` imports in `core/` | Depend on a `core/ports` protocol; inject the adapter (ADR-044) |
 
 ### WARNING (reported, doesn't block)
 | Rule | Pattern | Enforcement |
@@ -407,6 +410,42 @@ if not api_key:
 - `# skuel-lint: disable-file=SKUEL019 -- <reason>` (file)
 
 **See:** `docs/roadmap/secrets-out-of-worktree.md` — full credential storage architecture and the `fed4287f` fail-fast wiring that makes this rule load-bearing.
+
+## Rule: SKUEL022 - core/ Must Not Import adapters/
+
+**Pattern:** The hexagonal dependency direction is **core → adapter**, never the reverse (ADR-044). A module under `core/` that imports from `adapters/` inverts it — `core` defines ports (`core/ports`) and receives concrete adapters by injection at the composition root, it does not reach down into them. This is the import-direction sibling of SKUEL021 (which bans raw Cypher in services): together they keep `core/` independent of the Neo4j adapter.
+
+```python
+# ❌ VIOLATION (ERROR) — module-level adapter import in a core/ file
+from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+
+# ❌ VIOLATION (ERROR) — hidden inside a function (same runtime dependency, deferred)
+def __init__(self, executor) -> None:
+    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+    self._backend = PsEngagementBackend(executor)
+
+# ✅ CORRECT — depend on a core/ports protocol; inject the adapter at composition
+def __init__(self, backend: PsEngagementOperations) -> None:
+    self._backend = backend
+
+# ✅ CORRECT — type-only import under TYPE_CHECKING (never executes, exempt)
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+```
+
+**AST-based, runtime scope:** flags `import adapters...` / `from adapters... import ...` at module scope **and inside functions**. A function-local import is the same core→adapter runtime dependency, just deferred past module load — it's the dodge a module-level-only check (e.g. a line-anchored grep) would miss.
+
+**TYPE_CHECKING is exempt:** an import under `if TYPE_CHECKING:` (or `if typing.TYPE_CHECKING:`) never executes, so it *cannot* create a runtime dependency — you can't smuggle a real runtime import through it (it would `NameError`). Typing `self.backend` against a concrete adapter class under `TYPE_CHECKING` is a separate, lower-priority purity concern (type against `core/ports` instead), not a layering violation. Relative imports (`from . import x`) are not adapter imports and are never flagged.
+
+**Scope:** all of `core/` (not just `core/services/`). `adapters/`, `services_bootstrap/` (the composition root — it SHOULD import adapters), `ui/`, and `routes/` are not checked. Test files are skipped.
+
+**How to fix a violation:** move the adapter construction to the composition root (`services_bootstrap/`) or a factory below the boundary, and inject the result behind a `core/ports` protocol. See the PsEngagement (port injection), UnifiedIngestion (`adapters/persistence/neo4j/ingestion_service_factory.py`), and finance-renderer (`InvoiceRenderer` port) inversions for the patterns.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL022` covers module-level, plain `import`, function-local, both `TYPE_CHECKING` forms, relative imports, adapter/composition-root/test-file exemptions, and suppression. The real `core/` tree is held clean by `./dev quality` (which runs `lint_skuel.py`) in CI.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL022 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL022 -- <reason>` (file)
 
 ## Running the Linters
 

@@ -15,6 +15,7 @@ ERROR (blocks CI):
   SKUEL003: .is_err deprecated - use .is_error
   SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
   SKUEL021: No raw Cypher in the service layer (lives below the boundary, ADR-044)
+  SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
 
 WARNING (reported, doesn't block):
   SKUEL004: Confidence thresholds on semantic queries
@@ -504,6 +505,45 @@ result = await self.executor.execute(
     query="MATCH (u:User {uid: $uid})-[:PINNED]->(e) RETURN e.uid", ...
 )""",
     },
+    "SKUEL022": {
+        "title": "core/ Must Not Import adapters/",
+        "severity": "ERROR",
+        "description": """The hexagonal dependency direction is core → adapter, never the
+reverse (ADR-044). A module under core/ that imports from adapters/ inverts that
+direction: core is meant to define ports (protocols) and receive concrete adapters by
+injection at the composition root, not reach down into them.
+
+AST-based: flags `import adapters...` / `from adapters... import ...` at module scope
+OR inside a function (a function-local import is the same runtime dependency, just
+deferred past module load — and is the dodge a module-level-only check would miss).
+
+TYPE_CHECKING-only imports are EXEMPT: an import under `if TYPE_CHECKING:` never executes,
+so it cannot create a runtime core→adapter dependency (you can't smuggle a real runtime
+dependency through it — it would NameError at runtime). Typing `self.backend` against a
+concrete adapter class under TYPE_CHECKING is a separate, lower-priority purity concern,
+not a layering violation.
+
+Fix: depend on a core/ports protocol and receive the concrete adapter by injection;
+build the adapter at the composition root (services_bootstrap/, or a factory below the
+boundary). See the PsEngagement / ingestion / finance-renderer inversions for the pattern.
+
+Suppress: # skuel-lint: disable=SKUEL022 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL022 -- <reason>""",
+        "good": """# core service depends on a port; the adapter is injected at composition
+def __init__(self, backend: PsEngagementOperations) -> None:
+    self._backend = backend
+
+# TYPE_CHECKING-only adapter import for an annotation is fine (never executes)
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend""",
+        "bad": """# Runtime import of an adapter inside a core/ module — wrong direction
+from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+
+def __init__(self, executor) -> None:
+    # ...or hidden inside a function (still a runtime core→adapter dependency):
+    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+    self._backend = PsEngagementBackend(executor)""",
+    },
 }
 
 
@@ -807,6 +847,9 @@ class SkuelLinter:
                 file_path.suffix == ".py"
                 and ("/core/ingestion/" in path_str or "/core/infrastructure/" in path_str)
             )
+            # SKUEL022 (import direction) covers ALL of core/, not just services:
+            # nothing under core/ may import adapters/ at runtime (ADR-044).
+            is_core = "/core/" in path_str and file_path.suffix == ".py"
 
             # Run applicable rules
             if self._should_run_rule("SKUEL003"):
@@ -842,6 +885,10 @@ class SkuelLinter:
                     self._check_apoc_in_services(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL021"):
                     self._check_raw_cypher_in_services(file_path, rel_path, content, lines)
+
+            # Import-direction rule (ADR-044): all of core/, not just services.
+            if is_core and not is_test and self._should_run_rule("SKUEL022"):
+                self._check_core_imports_adapter(file_path, rel_path, content, lines)
 
             if is_service and not is_test:
                 if self._should_run_rule("SKUEL002"):
@@ -2088,6 +2135,99 @@ class SkuelLinter:
                     suggestion=(
                         "Change to `request: Request` and add a runtime import "
                         "`from adapters.inbound.fasthtml_types import Request`"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+    @staticmethod
+    def _is_type_checking_test(test: ast.expr) -> bool:
+        """True if ``test`` is the ``TYPE_CHECKING`` guard of an ``if`` block.
+
+        Matches ``TYPE_CHECKING`` (Name) and ``typing.TYPE_CHECKING`` (Attribute).
+        """
+        if isinstance(test, ast.Name):
+            return test.id == "TYPE_CHECKING"
+        if isinstance(test, ast.Attribute):
+            return test.attr == "TYPE_CHECKING"
+        return False
+
+    def _check_core_imports_adapter(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL022 [ERROR]: a ``core/`` module must not import from ``adapters/``.
+
+        The hexagonal dependency direction is core → adapter (ADR-044). A runtime
+        import of an adapter inside ``core/`` inverts it. Flagged at module scope AND
+        inside functions (a function-local import is the same runtime dependency,
+        deferred past module load — the dodge a module-level-only check would miss).
+
+        ``TYPE_CHECKING``-only imports are exempt: they never execute, so they cannot
+        create a runtime dependency. Typing an annotation against a concrete adapter
+        class under ``if TYPE_CHECKING:`` is a separate purity concern, not a layering
+        violation.
+
+        Fix: depend on a ``core/ports`` protocol and inject the concrete adapter at the
+        composition root (``services_bootstrap/`` or a factory below the boundary).
+
+        Suppress: # skuel-lint: disable=SKUEL022 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL022 -- <reason>
+        """
+        if self._is_file_suppressed(content, "SKUEL022"):
+            return
+        # Cheap pre-filter: only parse files that mention adapters at all.
+        if "adapters" not in content:
+            return
+
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return
+
+        # Collect line numbers inside `if TYPE_CHECKING:` blocks — exempt.
+        type_checking_lines: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.If) and self._is_type_checking_test(node.test):
+                for child in ast.walk(node):
+                    if hasattr(child, "lineno"):
+                        type_checking_lines.add(child.lineno)
+
+        for node in ast.walk(tree):
+            imported_modules: list[str] = []
+            if isinstance(node, ast.ImportFrom):
+                # Ignore relative imports (node.module is None for `from . import x`).
+                if node.module:
+                    imported_modules.append(node.module)
+            elif isinstance(node, ast.Import):
+                imported_modules.extend(alias.name for alias in node.names)
+            else:
+                continue
+
+            if not any(m == "adapters" or m.startswith("adapters.") for m in imported_modules):
+                continue
+            if node.lineno in type_checking_lines:
+                continue  # TYPE_CHECKING-only — cannot create a runtime dependency
+
+            line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL022"):
+                continue
+
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=node.lineno,
+                    column=node.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL022",
+                    message=(
+                        f"core/ module imports adapter '{imported_modules[0]}' at runtime "
+                        f"— wrong dependency direction (core → adapter only, ADR-044)"
+                    ),
+                    suggestion=(
+                        "Depend on a core/ports protocol and inject the concrete adapter "
+                        "at the composition root; or move a type-only import under "
+                        "`if TYPE_CHECKING:`"
                     ),
                     line_content=line.strip(),
                 )
