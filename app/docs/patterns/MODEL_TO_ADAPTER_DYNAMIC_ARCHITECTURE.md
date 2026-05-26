@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-04-11
+updated: 2026-05-26
 category: patterns
 related_skills: []
 related_docs:
@@ -8,12 +8,36 @@ related_docs:
 ---
 
 # Model-to-Adapter Dynamic Architecture
-**Date:** October 3, 2025 (Updated: April 11, 2026)
+**Date:** October 3, 2025 (Updated: May 26, 2026)
 **Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11-14). `execute_query()` standardization complete (Phase 9). PsBackend decomposed into 5 mixins (Phase 10). LpBackend decomposed into 3 mixins (Phase 12). 5 new standalone backends for infrastructure services (Phase 13). Final execute_query cleanup across 11 services (Phase 14). Fail-fast dependency philosophy enforced across all services.
 
 ## Executive Summary
 
 The architecture is **100% dynamic** for model-to-adapter connections. The introspection-based design with `UniversalNeo4jBackend` and `Neo4jGenericMapper` means changes to domain models automatically ripple to adapters.
+
+---
+
+## May 2026 Update: AI Vendor SDKs Below the Boundary (W1 / ADR-063)
+
+The hexagonal-boundary principle that put all Neo4j Cypher below `adapters/persistence/neo4j/` (ADR-044, SKUEL021/SKUEL022) was extended to the **external vendor SDKs**. The `openai`, `anthropic`, and `huggingface_hub` clients were moved out of `core/services/` into `adapters/external/`, behind real `core/ports` protocols — the same way the Neo4j driver sits behind `UniversalNeo4jBackend`.
+
+```
+adapters/external/
+    llm/
+        openai_adapter.py        # OpenAIChatAdapter — implements ChatCompletionPort
+        anthropic_adapter.py     # AnthropicChatAdapter — implements ChatCompletionPort
+        dsl_bridge_factory.py    # create_llm_dsl_bridge() — reads credential, builds OpenAIChatAdapter
+    embeddings/
+        huggingface_adapter.py   # HuggingFace inference client — implements EmbeddingClientOperations
+    deepgram/
+        adapter.py               # Deepgram transcription adapter
+```
+
+**Ports** (`core/ports/`): `llm_protocols.py` (`ChatCompletionPort.complete(messages, *, system_prompt, model, ...) -> Result[LLMCompletion]`) and `embeddings_protocols.py` (`EmbeddingClientOperations.embed(text) -> Result[list[float]]`, plus the Neo4j-storage `EmbeddingsBackendOperations`).
+
+**Consumers stay in `core/`, SDK-free:** `LLMService`, `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `HuggingFaceEmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port — they never construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. `core/services/ai_service.py` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/test_llm_sdk_boundary.py`.
+
+**See:** `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`.
 
 ---
 

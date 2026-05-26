@@ -41,6 +41,8 @@ SKUEL separates intelligence into two layers:
 - Natural language insights (AI-generated explanations)
 - Intelligent recommendations (context-aware suggestions)
 
+**Where the vendor SDKs live (W1 / ADR-063):** A `BaseAIService` depends on `LLMService` and `HuggingFaceEmbeddingsService` (the `llm` / `embeddings` instance attributes below). Those two services no longer construct any SDK client — each takes an **injected** port: `LLMService(chat_port=ChatCompletionPort)` and `HuggingFaceEmbeddingsService(embedding_client=EmbeddingClientOperations)`. The concrete `openai` / `anthropic` / `huggingface_hub` clients live below the hexagonal boundary in `adapters/external/llm/` and `adapters/external/embeddings/`; the composition root reads the credential and injects the adapter. So `core/` — including every AI service — is free of vendor-SDK clients (guarded by `tests/test_llm_sdk_boundary.py`). See `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`.
+
 ### Class Hierarchy
 
 ```
