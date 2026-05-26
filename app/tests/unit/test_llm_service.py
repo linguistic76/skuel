@@ -25,12 +25,19 @@ def _port(completion: LLMCompletion | None = None, error=None):
 
 @pytest.mark.asyncio
 async def test_no_port_returns_mock_response():
-    service = LLMService()  # no chat_port → mock
+    service = LLMService()  # default MOCK provider, no chat_port → mock
     resp = await service.generate("How do I learn Python?")
     assert isinstance(resp, LLMResponse)
     assert resp.provider == LLMProvider.MOCK
     assert resp.content  # non-empty canned response
     assert resp.error is None
+
+
+@pytest.mark.parametrize("provider", [LLMProvider.OPENAI, LLMProvider.ANTHROPIC])
+def test_real_provider_without_port_fails_fast(provider):
+    """A real provider with no chat_port must raise (no silent mock fallback)."""
+    with pytest.raises(ValueError, match="requires a"):
+        LLMService(config=LLMConfig(provider=provider))
 
 
 @pytest.mark.asyncio

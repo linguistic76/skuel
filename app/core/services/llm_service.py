@@ -72,11 +72,26 @@ class LLMService:
 
         Args:
             config: LLM configuration
-            chat_port: Provider-agnostic chat-completion adapter. When ``None``
-                (MOCK/LOCAL provider, or tests), ``generate`` returns canned
-                mock responses with no external calls.
+            chat_port: Provider-agnostic chat-completion adapter. Required for
+                real providers (OPENAI/ANTHROPIC). When ``None`` with a
+                MOCK/LOCAL provider, ``generate`` returns canned mock responses
+                with no external calls.
+
+        Raises:
+            ValueError: If a real provider (OPENAI/ANTHROPIC) is configured
+                without a ``chat_port`` — fail-fast so a miswired service
+                surfaces at bootstrap instead of silently returning mock text.
         """
         self.config = config or LLMConfig()
+        if chat_port is None and self.config.provider in (
+            LLMProvider.OPENAI,
+            LLMProvider.ANTHROPIC,
+        ):
+            raise ValueError(
+                f"LLMService configured for provider '{self.config.provider}' requires a "
+                "chat_port (the composition root wires one). Use LLMProvider.MOCK or "
+                "LLMProvider.LOCAL for mock responses without an adapter."
+            )
         self.chat_port = chat_port
 
     async def generate(
@@ -111,7 +126,8 @@ class LLMService:
         if context:
             full_prompt = f"Context: {context}\n\nQuery: {prompt}"
 
-        # No chat port wired (MOCK/LOCAL provider, or tests) → mock response.
+        # No chat port ⇒ MOCK/LOCAL provider (the constructor enforces that real
+        # providers are wired with a port) → canned mock response, no external call.
         if self.chat_port is None:
             return await self._generate_mock(full_prompt, system_prompt)
 
