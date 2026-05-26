@@ -578,6 +578,7 @@ async def compose_services(
         if not tier.ai_enabled:
             logger.info("⏭️  LLM service skipped (intelligence tier: CORE)")
         else:
+            from adapters.external.llm import OpenAIChatAdapter
             from core.config.credential_store import get_credential
             from core.services.llm_service import LLMConfig, LLMProvider, LLMService
 
@@ -590,12 +591,15 @@ async def compose_services(
                 )
 
             try:
+                # Chat completions go through the port; the vendor SDK lives in
+                # the adapter (W1). The API key is read here at the root and
+                # injected — LLMService holds no SDK or credential.
+                chat_port = OpenAIChatAdapter(api_key=openai_api_key, default_model="gpt-4")
                 llm_config = LLMConfig(
                     provider=LLMProvider.OPENAI,
-                    api_key=openai_api_key,
                     model_name="gpt-4",  # GPT-4 for high-quality RAG and intelligence insights
                 )
-                llm_service = LLMService(config=llm_config)
+                llm_service = LLMService(config=llm_config, chat_port=chat_port)
                 logger.info(
                     "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
                 )
