@@ -153,7 +153,7 @@ class PostProcessor:
     ```
 
     **Available Processors:**
-    Processors are registered in `core/models/query/cypher/post_processors.py`:
+    Processors are registered in `core/models/post_processors.py`:
     - calculate_milestone_progress: Count total/completed milestones
     - (add more as needed)
 

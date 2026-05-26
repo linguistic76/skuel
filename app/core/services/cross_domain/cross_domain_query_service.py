@@ -26,7 +26,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from adapters.persistence.neo4j.cross_domain_backend import FULL_ALIGNMENT_CONNECTION_COUNT
+from core.constants import CrossDomainImpactScore
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.type_hints import EntityUID, UserUID
 from core.services.cross_domain.cross_domain_types import (
@@ -111,7 +111,11 @@ class CrossDomainQueryService:
         )
 
         total = len(aligned_goals) + len(aligned_habits)
-        score = min(1.0, total / FULL_ALIGNMENT_CONNECTION_COUNT) if total else 0.0
+        score = (
+            min(1.0, total / CrossDomainImpactScore.FULL_ALIGNMENT_CONNECTION_COUNT)
+            if total
+            else 0.0
+        )
         level = AlignmentLevel.from_score(score)
 
         return Result.ok(

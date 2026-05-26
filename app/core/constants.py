@@ -646,8 +646,14 @@ class CrossDomainImpactScore:
     Scoring constants for cross-domain knowledge impact assessment.
 
     Used by: KnowledgeAnalyticsEngine._calculate_cross_domain_impact_score(),
-             learning pattern detection methods
+             learning pattern detection methods,
+             CrossDomainQueryService principle-alignment scoring
     """
+
+    # Number of aligned connections (goals + habits) that represents full
+    # principle alignment — the divisor in CrossDomainQueryService's
+    # alignment score: min(1.0, connection_count / FULL_ALIGNMENT_CONNECTION_COUNT).
+    FULL_ALIGNMENT_CONNECTION_COUNT: Final = 5.0
 
     # Domain count scoring
     SINGLE_DOMAIN_SCORE: Final = 0.2

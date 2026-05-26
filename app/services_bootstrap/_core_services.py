@@ -33,6 +33,7 @@ def _create_core_services(
 
     # Create DeepgramAdapter (REQUIRED - fail-fast if key missing)
     # Options loaded from config/deepgram.toml — see docs/configuration/DEEPGRAM_CONFIG.md
+    from adapters.outbound.invoice_renderer import render_invoice_pdf
     from core.config.deepgram_config import load_deepgram_config
     from core.services.finance_service import FinanceService
     from core.services.transcription import TranscriptionService
@@ -45,6 +46,9 @@ def _create_core_services(
             backend=finance_backend,
             event_bus=event_bus,  # Event-driven architecture
             invoice_backend=invoice_backend,  # Invoice management
+            # Inject the concrete PDF renderer at the composition root (the
+            # service depends only on the InvoiceRenderer port — ADR-044/SKUEL022)
+            invoice_renderer=render_invoice_pdf,
         ),
         "transcription": TranscriptionService(
             backend=transcription_backend,
