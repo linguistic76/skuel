@@ -1,20 +1,26 @@
 """
-Query Builder Service - Service Layer Orchestration
-====================================================
+Query Builder - Persistence-Layer Orchestration
+================================================
 
-**LAYER**: Service Layer (optimization, templates, validation)
+**LAYER**: Persistence adapter (adapters/persistence/neo4j/query_builders/)
 **STATUS**: Legacy - Use UnifiedQueryBuilder for new code
-**UPDATED**: November 10, 2025
+**UPDATED**: May 2026 (relocated below the hexagonal boundary, ADR-044/SKUEL022)
 
 Facade coordinating specialized query building sub-services.
 Decomposed from 1,614-line monolith (November 10, 2025).
+
+This facade authors and optimizes Cypher, so it lives below the hexagonal
+boundary alongside the sub-services it orchestrates and its only consumers
+(UnifiedQueryBuilder, Neo4jAdapter). It was previously misplaced in
+core/services/, where it pulled its sub-services *up* across the boundary —
+relocated here so the dependency direction stays core → adapter only.
 
 **Three-Layer Architecture:**
 
 ```
 Application Layer: UnifiedQueryBuilder  ← USE THIS
     ↓
-Service Layer: QueryBuilder  ← This file (orchestration)
+Orchestration Layer: QueryBuilder  ← This file (optimization, templates)
     ↓
 Infrastructure Layer: CypherGenerator  ← Utilities
 ```
@@ -37,7 +43,7 @@ result = (
 )
 
 # ⚠️ LEGACY - Direct QueryBuilder usage (backward compatibility only)
-from core.services.query_builder import QueryBuilder
+from adapters.persistence.neo4j.query_builders import QueryBuilder
 
 qb = QueryBuilder(schema_service)
 ```
@@ -83,10 +89,10 @@ class TemplateRegistration:
 
 class QueryBuilder:
     """
-    Query Builder Facade - Service Layer Orchestration
-    ===================================================
+    Query Builder Facade - Persistence-Layer Orchestration
+    ======================================================
 
-    **LAYER**: Service Layer (optimization, templates, validation)
+    **LAYER**: Persistence adapter (optimization, templates, validation)
     **STATUS**: Legacy - Use UnifiedQueryBuilder for new code
     **UPDATED**: November 10, 2025
 
@@ -98,7 +104,7 @@ class QueryBuilder:
     ```
     Application Layer: UnifiedQueryBuilder  ← USE THIS (user-facing API)
         ↓
-    Service Layer: QueryBuilder  ← YOU ARE HERE (optimization, templates)
+    Orchestration Layer: QueryBuilder  ← YOU ARE HERE (optimization, templates)
         ↓
     Infrastructure Layer: CypherGenerator  ← Utilities
     ```
@@ -129,7 +135,7 @@ class QueryBuilder:
     )
 
     # ⚠️ ONLY IF NECESSARY - Direct QueryBuilder usage
-    from core.services.query_builder import QueryBuilder
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
 
     qb = QueryBuilder(schema_service)
     templates = qb.get_template_library()

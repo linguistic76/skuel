@@ -16,6 +16,10 @@ All sub-services can be used independently or via the QueryBuilder facade.
 
 from adapters.persistence.neo4j.query_builders.faceted_query_builder import FacetedQueryBuilder
 from adapters.persistence.neo4j.query_builders.graph_context_builder import GraphContextBuilder
+from adapters.persistence.neo4j.query_builders.query_builder import (
+    QueryBuilder,
+    TemplateRegistration,
+)
 from adapters.persistence.neo4j.query_builders.query_optimizer import QueryOptimizer
 from adapters.persistence.neo4j.query_builders.query_template_registry import QueryTemplateRegistry
 from adapters.persistence.neo4j.query_builders.query_validator import QueryValidator
@@ -23,7 +27,9 @@ from adapters.persistence.neo4j.query_builders.query_validator import QueryValid
 __all__ = [
     "FacetedQueryBuilder",
     "GraphContextBuilder",
+    "QueryBuilder",
     "QueryOptimizer",
     "QueryTemplateRegistry",
     "QueryValidator",
+    "TemplateRegistration",
 ]
