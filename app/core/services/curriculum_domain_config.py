@@ -217,6 +217,7 @@ def create_ps_sub_services(
     user_service: Any | None = None,
     _vector_search_service: Any | None = None,
     _embeddings_service: Any | None = None,
+    ps_intelligence_backend: Any | None = None,
 ) -> "PsSubServices":
     """Factory function to create all 12 PsService sub-services.
 
@@ -258,6 +259,7 @@ def create_ps_sub_services(
         backend=backend,
         graph_intel=graph_intel,
         relationship_service=relationships,
+        intelligence_backend=ps_intelligence_backend,
     )
 
     # Step 3: Create core

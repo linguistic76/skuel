@@ -37,6 +37,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.enums.neo_labels import NeoLabel
@@ -168,7 +169,7 @@ async def engagement_service(
     instance_backends: dict[str, Any],
 ) -> PsEngagementService:
     return PsEngagementService(
-        executor=executor,
+        backend=PsEngagementBackend(executor),
         ps_service=_StubPsService(ps_backend),
         task_template_backend=template_backends["task"],
         goal_template_backend=template_backends["goal"],

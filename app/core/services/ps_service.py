@@ -173,6 +173,7 @@ class PsService:
         user_service: Any | None = None,
         vector_search_service: Any | None = None,
         embeddings_service: Any | None = None,
+        ps_intelligence_backend: Any | None = None,
     ) -> None:
         """Initialize facade with sub-services via factory.
 
@@ -189,6 +190,9 @@ class PsService:
             user_service: UserService for UserContext access (optional)
             vector_search_service: Optional for semantic search
             embeddings_service: Optional for embedding generation
+            ps_intelligence_backend: PsIntelligenceBackend built at the composition
+                root and injected so the intelligence sub-service never imports the
+                adapter (ADR-044/SKUEL022). Optional (None in tests).
         """
         if not backend:
             raise ValueError(
@@ -226,6 +230,7 @@ class PsService:
             user_service=user_service,
             _vector_search_service=vector_search_service,
             _embeddings_service=embeddings_service,
+            ps_intelligence_backend=ps_intelligence_backend,
         )
 
         # Assign sub-services from factory
