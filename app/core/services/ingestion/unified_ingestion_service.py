@@ -36,8 +36,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from neo4j import AsyncDriver
-
+    from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
+    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
@@ -93,7 +93,11 @@ class UnifiedIngestionService:
     - Creates graph-native relationships
 
     Usage:
-        service = UnifiedIngestionService(driver)
+        from adapters.persistence.neo4j.ingestion_service_factory import (
+            make_unified_ingestion_service,
+        )
+
+        service = make_unified_ingestion_service(driver)
 
         # Single file
         result = await service.ingest_file(Path("ku.machine-learning.md"))
@@ -110,7 +114,8 @@ class UnifiedIngestionService:
 
     def __init__(
         self,
-        driver: AsyncDriver,
+        write_backend: IngestionWriteBackend,
+        bulk_backend: BulkUpsertBackend,
         default_user_uid: UserUID | None = None,
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
         embeddings_service: Any | None = None,
@@ -125,9 +130,11 @@ class UnifiedIngestionService:
         Initialize unified ingestion service.
 
         Args:
-            driver: Neo4j async driver. Used only to construct the ingestion
-                    write + bulk-upsert backends (ADR-044); the service does not
-                    author Cypher or open sessions itself.
+            write_backend: IngestionWriteBackend for edge/existence/ownership writes.
+            bulk_backend: BulkUpsertBackend for node upsert + constraints + delete.
+                Both are built at the composition root and injected so this service
+                never imports the adapter (ADR-044 / SKUEL022); use
+                ``make_unified_ingestion_service(driver, ...)`` to build them.
             default_user_uid: Default user UID for entities without explicit user_uid.
                               If not provided, uses SKUEL_DEFAULT_USER_UID env var or "user:system".
             max_file_size_bytes: Maximum file size in bytes (default: 10 MB).
@@ -150,19 +157,16 @@ class UnifiedIngestionService:
                           wired, ``audience: public`` uploads are rejected as
                           forbidden.
         """
-        if not driver:
-            raise ValueError("Neo4j driver is required")
+        if write_backend is None or bulk_backend is None:
+            raise ValueError("IngestionWriteBackend and BulkUpsertBackend are required")
 
-        from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
-        from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
-
-        self.driver = driver
         # All ingestion Cypher lives below the boundary (ADR-044): edge/existence
         # writes in IngestionWriteBackend, node upsert + constraints + delete in
-        # BulkUpsertBackend. The service orchestrates and calls these backends; it
-        # no longer authors Cypher or opens sessions itself.
-        self._write_backend = IngestionWriteBackend(driver)
-        self._bulk_backend = BulkUpsertBackend(driver)
+        # BulkUpsertBackend. Both are injected at the composition root; the service
+        # orchestrates and calls these backends and never authors Cypher, opens
+        # sessions, or imports the adapter (SKUEL022).
+        self._write_backend = write_backend
+        self._bulk_backend = bulk_backend
         self.ingestion_backend = ingestion_backend
         self.default_user_uid = (
             default_user_uid if default_user_uid is not None else DEFAULT_USER_UID

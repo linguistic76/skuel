@@ -24,12 +24,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from adapters.inbound.ingestion_api import create_ingestion_api_routes
+from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
+from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from core.models.enums import UserRole
 from core.models.ps_content.content_chunks import CHUNKING_ALGORITHM_VERSION
 from core.services.chunks.batch_chunking_service import BatchChunkingService
 from core.services.entity_chunking_service import EntityChunkingService
-from core.services.ingestion import UnifiedIngestionService
 from core.utils.result_simplified import Result
 
 
@@ -119,7 +120,7 @@ async def test_regenerate_route_replaces_stale_chunks(neo4j_driver):
     try:
         chunking_service = EntityChunkingService()
         content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
-        ingestion_service = UnifiedIngestionService(
+        ingestion_service = make_unified_ingestion_service(
             driver=neo4j_driver,
             chunking_service=chunking_service,
             content_adapter=content_adapter,
@@ -150,7 +151,7 @@ async def test_regenerate_route_replaces_stale_chunks(neo4j_driver):
             )
 
         batch_service = BatchChunkingService(
-            driver=neo4j_driver,
+            backend=BatchChunkingBackend(neo4j_driver),
             chunking_service=chunking_service,
             content_adapter=content_adapter,
             event_bus=None,

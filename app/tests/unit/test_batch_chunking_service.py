@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
 from core.services.chunks.batch_chunking_service import (
     BatchChunkingService,
     RegenerationStats,
@@ -83,7 +84,7 @@ class TestRegenerateChunks:
             {"uid": "ps:test:2", "body": "content two", "format": "markdown"},
         ]
         service = BatchChunkingService(
-            driver=_make_driver_returning(rows),
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=True),
         )
@@ -106,7 +107,7 @@ class TestRegenerateChunks:
             {"uid": "ps:test:2", "body": "   ", "format": "markdown"},  # whitespace only
         ]
         service = BatchChunkingService(
-            driver=_make_driver_returning(rows),
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=True),
         )
@@ -124,7 +125,7 @@ class TestRegenerateChunks:
     async def test_chunking_failure_recorded_per_uid_not_raised(self) -> None:
         rows = [{"uid": "ps:test:1", "body": "broken content", "format": "markdown"}]
         service = BatchChunkingService(
-            driver=_make_driver_returning(rows),
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
             chunking_service=_make_chunking_service(success=False),
             content_adapter=_make_adapter(success=True),
         )
@@ -141,7 +142,7 @@ class TestRegenerateChunks:
     async def test_store_failure_recorded_per_uid(self) -> None:
         rows = [{"uid": "ps:test:1", "body": "content", "format": "markdown"}]
         service = BatchChunkingService(
-            driver=_make_driver_returning(rows),
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=False),  # store returns False
         )
@@ -170,7 +171,7 @@ class TestRegenerateChunks:
         )
 
         service = BatchChunkingService(
-            driver=_make_driver_returning(rows),
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
             chunking_service=chunking_service,
             content_adapter=_make_adapter(success=True),
         )
@@ -191,7 +192,7 @@ class TestRegenerateChunks:
         event_bus.publish_async = AsyncMock()
 
         service = BatchChunkingService(
-            driver=_make_driver_returning(rows),
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=True),
             event_bus=event_bus,
@@ -206,7 +207,7 @@ class TestRegenerateChunks:
     async def test_no_event_published_when_event_bus_none(self) -> None:
         rows = [{"uid": "ps:test:1", "body": "content", "format": "markdown"}]
         service = BatchChunkingService(
-            driver=_make_driver_returning(rows),
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
             chunking_service=_make_chunking_service(success=True),
             content_adapter=_make_adapter(success=True),
             event_bus=None,

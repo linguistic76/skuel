@@ -30,6 +30,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
     from core.ports import EventBusOperations
 
 logger = get_logger("skuel.services.chunks.batch")
@@ -66,7 +67,7 @@ class BatchChunkingService:
 
     def __init__(
         self,
-        driver: Any,
+        backend: BatchChunkingBackend,
         chunking_service: Any,  # EntityChunkingService — boundary, no protocol extracted
         content_adapter: Any,  # Neo4jContentAdapter — boundary
         event_bus: EventBusOperations | None = None,
@@ -74,7 +75,9 @@ class BatchChunkingService:
     ) -> None:
         """
         Args:
-            driver: Neo4j async driver, for direct queries against :Content nodes.
+            backend: BatchChunkingBackend for :Content candidate queries. Built at
+                the composition root and injected so this service never imports
+                the adapter (ADR-044 / SKUEL022).
             chunking_service: Produces fresh chunks from raw body text.
             content_adapter: Persists chunks via store_content_with_chunks (idempotent).
             event_bus: If provided, publishes ChunkEmbeddingRequested for each
@@ -84,10 +87,7 @@ class BatchChunkingService:
             max_concurrency: Parents processed in parallel. Higher = faster but
                 more Neo4j load.
         """
-        from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
-
-        self.driver = driver
-        self._backend = BatchChunkingBackend(driver)
+        self._backend = backend
         self.chunking_service = chunking_service
         self.content_adapter = content_adapter
         self.event_bus = event_bus
