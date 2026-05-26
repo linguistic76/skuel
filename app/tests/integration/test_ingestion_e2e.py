@@ -16,12 +16,12 @@ Requires: Docker running with Neo4j testcontainer.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
 
+from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.ingestion import UnifiedIngestionService
 from core.services.ingestion.batch import ingest_directory
@@ -131,11 +131,6 @@ description: This YAML has no type field
     )
 
     return test_dir
-
-
-def _mock_get_engine(entity_type: Any) -> Mock:
-    """Mock engine — not called during dry-run."""
-    return Mock()
 
 
 # ============================================================================
@@ -299,9 +294,8 @@ async def test_error_handling_invalid_directory(neo4j_driver):
     """Test that non-existent directory returns proper error."""
     result = await ingest_directory(
         directory=Path("/nonexistent/path/to/nowhere"),
-        engines={},
-        get_engine=_mock_get_engine,
-        driver=neo4j_driver,
+        write_backend=IngestionWriteBackend(neo4j_driver),
+        bulk_backend=Mock(),
         pattern="*.md",
         dry_run=True,
     )
@@ -315,9 +309,8 @@ async def test_error_handling_malformed_files(neo4j_driver, error_files_director
     """Test that malformed files produce validation errors in dry-run preview."""
     result = await ingest_directory(
         directory=error_files_directory,
-        engines={},
-        get_engine=_mock_get_engine,
-        driver=neo4j_driver,
+        write_backend=IngestionWriteBackend(neo4j_driver),
+        bulk_backend=Mock(),
         pattern="*",  # Collect all files (MD + YAML)
         dry_run=True,
     )
@@ -343,15 +336,14 @@ async def test_error_handling_driver_required_for_dry_run(tmp_path):
 
     result = await ingest_directory(
         directory=test_dir,
-        engines={},
-        get_engine=_mock_get_engine,
-        driver=None,
+        write_backend=None,
+        bulk_backend=Mock(),
         pattern="*.md",
         dry_run=True,
     )
 
     assert result.is_error
-    assert "driver required" in result.expect_error().message.lower()
+    assert "write backend required" in result.expect_error().message.lower()
 
 
 # ============================================================================

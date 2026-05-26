@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from core.constants import SYSTEM_USER_UID
-from core.ingestion.bulk_ingestion import RelationshipConfig
+from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_registry import (
     ENTITY_TYPE_TO_LABEL,

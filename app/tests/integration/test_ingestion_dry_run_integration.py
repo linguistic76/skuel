@@ -13,7 +13,7 @@ Requires: Docker running with Neo4j testcontainer.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 import pytest
@@ -22,6 +22,7 @@ import pytest_asyncio
 if TYPE_CHECKING:
     from pathlib import Path
 
+from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.types import DryRunPreview, IngestionStats
 
@@ -186,11 +187,6 @@ async def pre_existing_ku(neo4j_driver):
 # ============================================================================
 
 
-def _mock_get_engine(entity_type: Any) -> Mock:
-    """Provide a mock engine (not used in dry-run path)."""
-    return Mock()
-
-
 # ============================================================================
 # TEST 1: Dry-run returns DryRunPreview with real file parsing
 # ============================================================================
@@ -201,9 +197,8 @@ async def test_dry_run_returns_preview(neo4j_driver, sample_ku_file):
     """Test that dry-run mode returns DryRunPreview with real Neo4j and real file parsing."""
     result = await ingest_directory(
         directory=sample_ku_file,
-        engines={},
-        get_engine=_mock_get_engine,
-        driver=neo4j_driver,
+        write_backend=IngestionWriteBackend(neo4j_driver),
+        bulk_backend=Mock(),
         pattern="*.md",
         dry_run=True,
     )
@@ -227,9 +222,8 @@ async def test_dry_run_categorizes_creates_and_updates(neo4j_driver, two_ku_file
     """Test that dry-run correctly categorizes files as creates vs updates."""
     result = await ingest_directory(
         directory=two_ku_files,
-        engines={},
-        get_engine=_mock_get_engine,
-        driver=neo4j_driver,
+        write_backend=IngestionWriteBackend(neo4j_driver),
+        bulk_backend=Mock(),
         pattern="*.md",
         dry_run=True,
     )
@@ -259,9 +253,8 @@ async def test_dry_run_includes_validation_errors(neo4j_driver, validation_error
     """Test that dry-run includes validation errors for malformed files."""
     result = await ingest_directory(
         directory=validation_error_files,
-        engines={},
-        get_engine=_mock_get_engine,
-        driver=neo4j_driver,
+        write_backend=IngestionWriteBackend(neo4j_driver),
+        bulk_backend=Mock(),
         pattern="*",  # Collect all files (MD + YAML)
         dry_run=True,
     )
@@ -293,9 +286,8 @@ async def test_dry_run_empty_directory(neo4j_driver, tmp_path):
 
     result = await ingest_directory(
         directory=test_dir,
-        engines={},
-        get_engine=_mock_get_engine,
-        driver=neo4j_driver,
+        write_backend=IngestionWriteBackend(neo4j_driver),
+        bulk_backend=Mock(),
         pattern="*.md",
         dry_run=True,
     )
@@ -353,9 +345,8 @@ async def test_dry_run_batch_uid_check(neo4j_driver, ten_ku_files):
     try:
         result = await ingest_directory(
             directory=ten_ku_files,
-            engines={},
-            get_engine=_mock_get_engine,
-            driver=neo4j_driver,
+            write_backend=IngestionWriteBackend(neo4j_driver),
+            bulk_backend=Mock(),
             pattern="*.md",
             dry_run=True,
         )

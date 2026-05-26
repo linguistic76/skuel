@@ -2,18 +2,28 @@
 Ingestion Protocols
 ====================
 
-Protocols for the IngestionBackend — ingestion audit trail and
-incremental ingestion state tracking.
+Protocols for the ingestion persistence layer (ADR-044). Three contracts:
 
-Implementation: adapters/persistence/neo4j/ingestion_backend.py
-Consumers: IngestionHistoryService, IngestionTracker
+- ``IngestionBackendOperations`` — ingestion audit trail + incremental state.
+  Implementation: adapters/persistence/neo4j/ingestion_backend.py
+- ``IngestionWriteOperations`` — entity/edge graph writes + existence checks.
+  Implementation: adapters/persistence/neo4j/ingestion_write_backend.py
+- ``BulkUpsertOperations`` — bulk node upsert / constraints / delete.
+  Implementation: adapters/persistence/neo4j/bulk_upsert_backend.py
+
+Consumers: UnifiedIngestionService, batch helpers, validator, IngestionTracker.
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig
+    from core.models.enums.neo_labels import NeoLabel
+    from core.models.relationship_names import RelationshipName
 
 
 @runtime_checkable
@@ -66,3 +76,60 @@ class IngestionBackendOperations(Protocol):
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def delete_ingestion_metadata(self, paths: list[str]) -> Result[list[dict[str, Any]]]: ...
+
+
+@runtime_checkable
+class IngestionWriteOperations(Protocol):
+    """Entity/edge graph writes and existence checks for the ingestion pipeline.
+
+    Exception-based (raises ``NEO4J_EXCEPTIONS``), matching how the ingestion
+    service and batch helpers already handle failures. ``rel_type`` is a
+    ``RelationshipName`` and ``label`` a ``NeoLabel`` — the enums are the
+    injection-safety guarantee for the interpolated Cypher.
+    """
+
+    async def ingest_edge(
+        self, from_uid: str, to_uid: str, rel_type: RelationshipName, props: dict[str, Any]
+    ) -> list[dict[str, Any]]: ...
+
+    async def entity_exists(self, uid: str) -> bool: ...
+
+    async def create_group_ownership(self, owner_uid: str, group_uid: str) -> None: ...
+
+    async def check_existing_entities(self, uids: list[str]) -> dict[str, bool]: ...
+
+    async def find_existing_uids_for_label(self, label: NeoLabel, uids: list[str]) -> list[str]: ...
+
+
+@runtime_checkable
+class BulkUpsertOperations(Protocol):
+    """Bulk node upsert / constraint / delete Cypher for ingestion (ADR-044).
+
+    Stateless w.r.t. entity label — the ``entity_label``/``base_label`` are passed
+    per call (sourced from ``ENTITY_CONFIGS``, trusted), so the per-label
+    constraint-once bookkeeping stays in the orchestrating service.
+    """
+
+    async def ensure_constraints(self, entity_label: str) -> Result[list[str]]: ...
+
+    async def upsert_batch(
+        self,
+        entity_label: str,
+        base_label: str | None,
+        entities: list[dict[str, Any]],
+        batch_size: int = 1000,
+        template_name: str | None = None,
+    ) -> Result[IngestionResult]: ...
+
+    async def upsert_with_relationships(
+        self,
+        entity_label: str,
+        base_label: str | None,
+        entities: list[dict[str, Any]],
+        relationship_config: dict[str, RelationshipConfig],
+        batch_size: int = 500,
+    ) -> Result[IngestionResult]: ...
+
+    async def delete_batch(
+        self, entity_label: str, uids: list[str], cascade: bool = False
+    ) -> Result[IngestionResult]: ...

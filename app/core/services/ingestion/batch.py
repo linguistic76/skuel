@@ -14,16 +14,16 @@ Key Features:
 Extracted from unified_ingestion_service.py for separation of concerns.
 """
 
+from __future__ import annotations
+
 import asyncio
 import re
 from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 
-from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -55,6 +55,11 @@ from .validator import (
     validate_relationship_targets,
     validate_required_fields,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from core.ports.ingestion_protocols import BulkUpsertOperations, IngestionWriteOperations
 
 logger = get_logger("skuel.services.ingestion.batch")
 
@@ -104,14 +109,15 @@ def create_error(
 
 
 async def check_existing_entities(
-    driver: Any,
+    write_backend: IngestionWriteOperations,
     uids: list[str],
 ) -> dict[str, bool]:
     """
     Check which UIDs already exist in Neo4j.
 
     Args:
-        driver: Neo4j async driver
+        write_backend: Ingestion write backend (existence Cypher lives below the
+            boundary, ADR-044)
         uids: List of UIDs to check
 
     Returns:
@@ -120,9 +126,7 @@ async def check_existing_entities(
     if not uids:
         return {}
 
-    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
-
-    return await IngestionWriteBackend(driver).check_existing_entities(uids)
+    return await write_backend.check_existing_entities(uids)
 
 
 def parse_file_sync(
@@ -360,22 +364,20 @@ async def parse_file_for_batch(
 
 
 async def _ingest_edge_batch(
-    driver: Any,
+    write_backend: IngestionWriteOperations,
     edge_files: list[dict[str, Any]],
 ) -> tuple[int, list[dict[str, str]]]:
     """
     Ingest a batch of prepared edge data into Neo4j.
 
     Args:
-        driver: Neo4j async driver
+        write_backend: Ingestion write backend (edge Cypher lives below the
+            boundary, ADR-044)
         edge_files: List of prepared edge dicts (from prepare_edge_data)
 
     Returns:
         Tuple of (edges_created_count, error_dicts)
     """
-    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
-
-    write_backend = IngestionWriteBackend(driver)
     edges_created = 0
     errors: list[dict[str, str]] = []
 
@@ -426,9 +428,8 @@ async def _ingest_edge_batch(
 
 async def ingest_directory(
     directory: Path,
-    engines: dict[EntityType | NonKuDomain, BulkIngestionEngine[Any]],  # noqa: ARG001 - Modified by get_engine
-    get_engine: Any,  # Callable to get/create engine
-    driver: Any = None,  # Neo4j driver for raw queries (validation, existence checks)
+    write_backend: IngestionWriteOperations | None = None,  # edges, existence checks (ADR-044)
+    bulk_backend: BulkUpsertOperations | None = None,  # node upsert + constraints (ADR-044)
     ingestion_backend: Any = None,  # IngestionBackend for ingestion tracking
     pattern: str = "*",
     batch_size: int = 500,
@@ -448,9 +449,11 @@ async def ingest_directory(
 
     Args:
         directory: Directory to scan
-        engines: Engine cache (keyed by EntityType | NonKuDomain) - populated by get_engine as side effect
-        get_engine: Function to get/create engine for entity type (modifies engines dict)
-        driver: Neo4j driver (required for ingestion_mode != "full")
+        write_backend: Ingestion write backend — edges + existence checks (required
+            for dry-run preview and edge ingestion). Cypher lives below the
+            hexagonal boundary (ADR-044).
+        bulk_backend: Bulk upsert backend — node upsert + constraints (required for
+            non-dry-run ingestion).
         ingestion_backend: IngestionBackend for incremental tracking (optional)
         pattern: Glob pattern for files (default: "*" for all supported)
         batch_size: Batch size for bulk operations
@@ -482,11 +485,11 @@ async def ingest_directory(
             )
         )
 
-    if dry_run and driver is None:
+    if dry_run and write_backend is None:
         return Result.fail(
             Errors.validation(
-                "Neo4j driver required for dry-run mode (to check existing entities)",
-                field="driver",
+                "Ingestion write backend required for dry-run mode (to check existing entities)",
+                field="write_backend",
             )
         )
 
@@ -604,12 +607,12 @@ async def ingest_directory(
 
     # Optional: Validate relationship targets before ingestion
     validation_warnings: list[str] = []
-    if validate_targets and driver is not None:
+    if validate_targets and write_backend is not None:
         for entity_type, entities in entities_by_type.items():
             config = ENTITY_CONFIGS.get(entity_type)
             if config and config.relationship_config:
                 validation_result = await validate_relationship_targets(
-                    entities, config.relationship_config, driver
+                    entities, config.relationship_config, write_backend
                 )
                 if validation_result.is_ok and not validation_result.value.valid:
                     for warning in validation_result.value.warnings:
@@ -617,14 +620,14 @@ async def ingest_directory(
                         validation_warnings.append(warning)
 
     # DRY-RUN MODE: Preview changes without writing to Neo4j
-    if dry_run and driver is not None:
+    if dry_run and write_backend is not None:
         # Collect all UIDs to check existence
         all_uids: list[str] = []
         for entities in entities_by_type.values():
             all_uids.extend(entity.get("uid", "") for entity in entities if entity.get("uid"))
 
         # Check which entities already exist
-        exists_map = await check_existing_entities(driver, all_uids)
+        exists_map = await check_existing_entities(write_backend, all_uids)
 
         # Categorize files
         files_to_create: list[dict[str, Any]] = []
@@ -704,20 +707,29 @@ async def ingest_directory(
         return Result.ok(preview)
 
     # Batch ingest by entity type
+    if entities_by_type and bulk_backend is None:
+        return Result.fail(
+            Errors.validation(
+                "Bulk upsert backend required for ingestion",
+                field="bulk_backend",
+            )
+        )
+
     total_nodes_created = 0
     total_nodes_updated = 0
     total_relationships_created = 0
 
     for entity_type, entities in entities_by_type.items():
         config = ENTITY_CONFIGS.get(entity_type)
-        if not config:
+        if not config or bulk_backend is None:
             continue
 
-        engine = get_engine(entity_type)
-        await engine.ensure_constraints()
+        await bulk_backend.ensure_constraints(config.entity_label)
 
         rel_config = config.relationship_config or {}
-        result = await engine.upsert_with_relationships(
+        result = await bulk_backend.upsert_with_relationships(
+            entity_label=config.entity_label,
+            base_label=config.base_label,
             entities=entities,
             relationship_config=rel_config,
             batch_size=batch_size,
@@ -742,8 +754,8 @@ async def ingest_directory(
 
     # Ingest edge files (after entities, so referenced nodes likely exist)
     total_edges_created = 0
-    if edge_files and driver is not None:
-        total_edges_created, edge_errors = await _ingest_edge_batch(driver, edge_files)
+    if edge_files and write_backend is not None:
+        total_edges_created, edge_errors = await _ingest_edge_batch(write_backend, edge_files)
         errors.extend(edge_errors)
         if total_edges_created:
             logger.info(f"Ingested {total_edges_created} edges from {len(edge_files)} edge files")

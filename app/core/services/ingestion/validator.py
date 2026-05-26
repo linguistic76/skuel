@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from neo4j import AsyncDriver
+    from core.ports.ingestion_protocols import IngestionWriteOperations
 
 from core.constants import SYSTEM_USER_UID
 from core.models.enums.entity_enums import EntityType, NonKuDomain
@@ -498,7 +498,7 @@ async def validate_directory(
 async def validate_relationship_targets(
     entities: list[dict[str, Any]],
     relationship_config: dict[str, Any],
-    driver: AsyncDriver,
+    write_backend: IngestionWriteOperations,
 ) -> Result[RelationshipValidationResult]:
     """
     Validate that all UIDs referenced in relationships actually exist in Neo4j.
@@ -509,7 +509,8 @@ async def validate_relationship_targets(
     Args:
         entities: List of prepared entity dicts (with connections.* keys)
         relationship_config: Relationship configuration from ENTITY_CONFIGS
-        driver: Neo4j async driver
+        write_backend: Ingestion write backend (existence Cypher lives below the
+            boundary, ADR-044)
 
     Returns:
         Result[RelationshipValidationResult] with validation details
@@ -518,7 +519,7 @@ async def validate_relationship_targets(
         result = await validate_relationship_targets(
             entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
             relationship_config=ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config,
-            driver=driver,
+            write_backend=write_backend,
         )
         if not result.value.valid:
             logger.warning(f"Missing targets: {result.value.missing_uids}")
@@ -560,14 +561,11 @@ async def validate_relationship_targets(
     if not uids_by_label:
         return Result.ok(validation)
 
-    # Query Neo4j to find which UIDs exist
+    # Query Neo4j to find which UIDs exist. The label is derived from
+    # ENTITY_CONFIGS (trusted); the existence Cypher lives in the write backend
+    # below the boundary (ADR-044).
     existing_uids: set[str] = set()
 
-    # The label is derived from ENTITY_CONFIGS (trusted). Existence Cypher lives
-    # in IngestionWriteBackend below the boundary (ADR-044).
-    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
-
-    write_backend = IngestionWriteBackend(driver)
     try:
         for label, uids in uids_by_label.items():
             existing_uids.update(

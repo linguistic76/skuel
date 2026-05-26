@@ -216,7 +216,7 @@ def _prepare_core(
             entity_data["owner_uid"] = owner_uid
         entity_data.setdefault("is_active", True)
 
-    # Flatten relationship data for BulkIngestionEngine
+    # Flatten relationship data for the bulk-upsert backend
     # Format: "connections.requires" -> flat key in metadata
     # Target UIDs must be normalized (colon -> dot) to match stored UIDs
     connections = entity_data.pop("connections", {})
