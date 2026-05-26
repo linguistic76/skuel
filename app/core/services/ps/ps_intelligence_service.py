@@ -74,6 +74,7 @@ class PsIntelligenceService(
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
         executor: Any | None = None,
+        intelligence_backend: PsIntelligenceBackend | None = None,
     ) -> None:
         """
         Initialize PsIntelligenceService.
@@ -87,12 +88,12 @@ class PsIntelligenceService(
             event_bus=event_bus,
         )
 
-        from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
-
-        # Query executor for direct Cypher access; the Cypher itself lives in
-        # PsIntelligenceBackend below the boundary (ADR-044).
+        # Query executor for direct Cypher access. The executor-backed
+        # PsIntelligenceBackend (whose Cypher lives below the boundary, ADR-044)
+        # is built at the composition root and injected — this service never
+        # imports the adapter (SKUEL022).
         self.executor = executor
-        self._backend = PsIntelligenceBackend(executor)
+        self._backend = intelligence_backend
 
         self._init_context_loader(
             get_entity=self.backend.get,
@@ -211,7 +212,7 @@ class PsIntelligenceService(
 
     def _require_backend(self) -> Result[PsIntelligenceBackend]:
         """Fail-fast guard for backend (executor) availability."""
-        if not self.executor:
+        if not self.executor or self._backend is None:
             return Result.fail(
                 Errors.system(
                     message="GraphQueryExecutor not initialized - backend driver required",
@@ -438,7 +439,7 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has prerequisites")
         """
-        if not self.executor:
+        if not self.executor or self._backend is None:
             return Result.fail(
                 Errors.system(message="Query executor not available", operation="has_prerequisites")
             )
@@ -463,7 +464,7 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has guidance")
         """
-        if not self.executor:
+        if not self.executor or self._backend is None:
             return Result.fail(
                 Errors.system(message="Query executor not available", operation="has_guidance")
             )
@@ -488,7 +489,7 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has practice opportunities")
         """
-        if not self.executor:
+        if not self.executor or self._backend is None:
             return Result.fail(
                 Errors.system(
                     message="Query executor not available",

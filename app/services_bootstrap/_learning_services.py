@@ -111,7 +111,11 @@ def _create_learning_services(
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
 
     # Create path step service (PS operations)
-    # PsBackend passed in from _backends.py with all 5 domain mixins
+    # PsBackend passed in from _backends.py with all 5 domain mixins.
+    # PsIntelligenceBackend built here (composition root) and injected — the PS
+    # intelligence service never imports the adapter (ADR-044 / SKUEL022).
+    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
+
     ps_service = PsService(
         backend=knowledge_backend,
         executor=query_executor,
@@ -125,6 +129,7 @@ def _create_learning_services(
         user_service=user_service,  # KU-Activity Integration
         vector_search_service=vector_search_service,  # GenAI vector search
         embeddings_service=embeddings_service,  # HuggingFace embeddings (bge-large-en-v1.5)
+        ps_intelligence_backend=PsIntelligenceBackend(query_executor),
     )
 
     # Create path service (LP operations - delegates PS operations to PsService)
