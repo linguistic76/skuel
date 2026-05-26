@@ -29,7 +29,7 @@ Responsibilities:
 """
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
 from core.models.user import User
@@ -42,6 +42,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
     from core.services.ps_engagement import PsEngagementService
     from core.services.user_service import UserService
     from core.services.zpd.zpd_service import ZPDService
@@ -75,28 +76,29 @@ class UserContextBuilder:
 
     def __init__(
         self,
-        executor: Any,
+        query_executor: "UserContextQueryExecutor",
         user_service: "UserService | None" = None,
     ) -> None:
         """
         Initialize context builder with composed modules.
 
         Args:
-            executor: Query executor for graph queries
+            query_executor: UserContextQueryExecutor (MEGA / CONSOLIDATED Cypher).
+                Built at the composition root and injected so this central module
+                never imports the adapter (ADR-044 / SKUEL022).
             user_service: UserService for user resolution (enables simplified build() API)
 
         Raises:
-            ValueError: If executor is None
+            ValueError: If query_executor is None
 
         Note:
             user_service can be wired post-construction to resolve circular dependencies.
             When user_service is available, use build(user_uid) for the simplified API.
             When user_service is None, use build_user_context(user_uid, user) instead.
         """
-        if not executor:
-            raise ValueError("QueryExecutor is required for context building")
+        if query_executor is None:
+            raise ValueError("UserContextQueryExecutor is required for context building")
 
-        self.executor = executor
         self.user_service = user_service
         self.zpd_service: ZPDService | None = None
         # PsEngagementService is post-wired by services_bootstrap/_intelligence_hub.py
@@ -104,12 +106,9 @@ class UserContextBuilder:
         # is constructed before template_services run, so it can't be a ctor arg.
         self.ps_engagement_service: PsEngagementService | None = None
 
-        # Compose modules for separation of concerns. The query executor (MEGA /
-        # CONSOLIDATED Cypher) lives below the boundary (ADR-044) — lazy-imported
-        # to keep the dependency direction clean for this central module.
-        from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
-
-        self._query_executor = UserContextQueryExecutor(executor)
+        # Compose modules for separation of concerns. The query executor (whose
+        # MEGA / CONSOLIDATED Cypher lives below the boundary, ADR-044) is injected.
+        self._query_executor = query_executor
         self._extractor = UserContextExtractor()
         self._populator = UserContextPopulator()
 

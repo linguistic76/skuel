@@ -30,7 +30,7 @@ from core.ports.infrastructure_protocols import (
 )
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from core.models.context_types import DailyWorkPlan, PathStep
 from core.services.user import UserContext
 from core.services.user.intelligence import UserContextIntelligenceFactory
@@ -69,7 +69,7 @@ class UserService:
     def __init__(
         self,
         user_repo: UserOperations,
-        driver: "AsyncDriver | None" = None,
+        query_executor: "UserContextQueryExecutor | None" = None,
         event_bus: EventBusOperations | None = None,
         intelligence_factory: UserContextIntelligenceFactory | None = None,
         metrics_cache=None,
@@ -79,7 +79,9 @@ class UserService:
 
         Args:
             user_repo: Repository implementation for user persistence (protocol-based)
-            driver: Optional Neo4j driver for cross-domain queries (context building)
+            query_executor: Optional UserContextQueryExecutor for cross-domain context
+                building. Built at the composition root and injected so neither this
+                service nor UserContextBuilder imports the adapter (ADR-044/SKUEL022).
             event_bus: Event bus for publishing domain events (protocol-based)
             intelligence_factory: Factory for creating UserContextIntelligence instances
                                   (wired with all 9 domain relationship services)
@@ -98,13 +100,13 @@ class UserService:
             user_repo, event_bus=event_bus, metrics_cache=metrics_cache
         )
 
-        # Context builder requires Neo4j driver
-        if driver:
-            self.context_builder = UserContextBuilder(driver, user_service=self)
+        # Context builder requires the injected query executor
+        if query_executor is not None:
+            self.context_builder = UserContextBuilder(query_executor, user_service=self)
         else:
             self.context_builder = None  # type: ignore[assignment]
             logger.warning(
-                "UserService initialized without driver - context operations unavailable"
+                "UserService initialized without query_executor - context operations unavailable"
             )
 
         # Stats aggregator requires context_builder + cross_domain_backend
@@ -830,7 +832,7 @@ class UserService:
 
 def create_user_service(
     user_repo: UserOperations,
-    driver: Any | None = None,
+    query_executor: Any | None = None,
     event_bus: Any | None = None,
     intelligence_factory: UserContextIntelligenceFactory | None = None,
     metrics_cache=None,
@@ -840,7 +842,8 @@ def create_user_service(
 
     Args:
         user_repo: User repository implementation
-        driver: Optional Neo4j driver for cross-domain aggregation queries
+        query_executor: Optional UserContextQueryExecutor for cross-domain context
+            building (built at the composition root; ADR-044/SKUEL022)
         event_bus: Event bus for publishing domain events (optional)
         intelligence_factory: Factory for creating UserContextIntelligence instances
                               (wired with all 9 domain relationship services)
@@ -849,4 +852,4 @@ def create_user_service(
     Returns:
         UserService: Configured user service instance (facade pattern)
     """
-    return UserService(user_repo, driver, event_bus, intelligence_factory, metrics_cache)
+    return UserService(user_repo, query_executor, event_bus, intelligence_factory, metrics_cache)
