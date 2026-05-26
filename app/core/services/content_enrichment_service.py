@@ -691,9 +691,12 @@ Preserve the author's voice and authenticity while improving readability.
         # Build AI prompt with context
         prompt = self._build_editing_prompt(raw_transcript, instructions, context)
 
-        # Call the chat adapter for intelligent editing
+        # Call the chat adapter for intelligent editing. Pass the model
+        # explicitly to preserve the pre-W1 default (the former OpenAIService
+        # path defaulted to gpt-4o-mini; the adapter's own default is gpt-4).
         ai_result = await self.chat_port.complete(
             [{"role": "user", "content": prompt}],
+            model="gpt-4o-mini",
             max_tokens=8000,
             temperature=0.3,  # Lower temperature for consistent formatting
         )
