@@ -105,6 +105,7 @@ if TYPE_CHECKING:
 
     from core.infrastructure.relationships.semantic_relationships import (
         SemanticRelationshipType,
+        SemanticTriple,
     )
     from core.models.enums.neo_labels import NeoLabel
     from core.models.exercises.exercise import Exercise
@@ -817,9 +818,13 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     # SEMANTIC OPERATIONS    # =========================================================================
 
     async def create_semantic_relationship(
-        self, cypher: str, params: dict[str, Any]
-    ) -> Result[list[dict[str, Any]]]:  # boundary: arbitrary Cypher
-        """Execute a SemanticTriple.to_cypher_merge() query."""
+        self, triple: SemanticTriple
+    ) -> Result[list[dict[str, Any]]]:  # boundary: neo4j record shape
+        """Persist a single semantic triple as a MERGE'd relationship.
+
+        Takes the domain triple; the adapter authors the Cypher below the
+        hexagonal boundary (ADR-044).
+        """
         ...
 
     async def query_semantic_neighborhood(

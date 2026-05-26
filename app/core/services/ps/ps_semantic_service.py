@@ -118,10 +118,7 @@ class PsSemanticService:
         Returns:
             Result indicating success
         """
-        query = triple.to_cypher_merge()
-        params = triple.to_cypher_params()
-
-        await self.repo.create_semantic_relationship(query, params)
+        await self.repo.create_semantic_relationship(triple)
 
         self.logger.debug(f"Created semantic relationship: {triple}")
         return Result.ok(True)

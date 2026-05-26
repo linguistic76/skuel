@@ -219,7 +219,7 @@ class Neo4jQueryExecutor:
         Returns:
             Result[int] with count of relationships created
         """
-        from core.infrastructure.batch import BatchCypherBuilder
+        from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
         if not relationships:
             return Result.ok(0)

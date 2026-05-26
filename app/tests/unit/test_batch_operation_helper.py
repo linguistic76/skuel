@@ -15,7 +15,7 @@ Tests cover:
 
 import pytest
 
-from core.infrastructure.batch import BatchCypherBuilder, BatchQueryResult
+from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder, BatchQueryResult
 
 
 class TestBuildRelationshipExistsQuery:

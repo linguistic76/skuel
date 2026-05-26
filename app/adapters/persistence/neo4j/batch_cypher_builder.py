@@ -37,8 +37,8 @@ Pattern Categories:
 
 Performance Impact:
 ==================
-- Before: N queries × 15-60ms = N × 15-60ms (1.5-6 seconds for 100 items)
-- After: 1 query × 50-200ms = 50-200ms
+- Before: N queries x 15-60ms = N x 15-60ms (1.5-6 seconds for 100 items)
+- After: 1 query x 50-200ms = 50-200ms
 - Improvement: 10-100x faster for bulk operations
 
 See Also:
@@ -85,7 +85,7 @@ class BatchCypherBuilder:
 
     **Batch Existence Check:**
     ```python
-    from core.infrastructure.batch import BatchCypherBuilder
+    from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
     # Generate batch existence check query
     result = BatchCypherBuilder.build_relationship_exists_query(
