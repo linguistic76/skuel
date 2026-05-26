@@ -22,6 +22,7 @@ import pytest_asyncio
 from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 
 # Domain models - use domain-specific types
 from core.models.curriculum import Curriculum
@@ -572,7 +573,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context using UserContextBuilder (THE real pipeline)
-        builder = UserContextBuilder(Neo4jQueryExecutor(neo4j_driver))
+        builder = UserContextBuilder(UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)))
         test_user = User(uid=test_user_uid, title="Builder Test User", email="builder@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -649,7 +650,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context via builder pipeline
-        builder = UserContextBuilder(Neo4jQueryExecutor(neo4j_driver))
+        builder = UserContextBuilder(UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)))
         test_user = User(uid=test_user_uid, title="Learning Path User", email="lp@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -692,7 +693,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context (should not fail on empty data)
-        builder = UserContextBuilder(Neo4jQueryExecutor(neo4j_driver))
+        builder = UserContextBuilder(UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)))
         test_user = User(uid=test_user_uid, title="Empty Curriculum User", email="empty@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)
@@ -807,7 +808,7 @@ class TestCurriculumContextBuilder:
             )
 
         # Test: Build context with COMPLETE domain integration
-        builder = UserContextBuilder(Neo4jQueryExecutor(neo4j_driver))
+        builder = UserContextBuilder(UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)))
         test_user = User(uid=test_user_uid, title="Integrated User", email="integrated@test.com")
 
         context_result = await builder.build_user_context(test_user_uid, test_user)

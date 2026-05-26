@@ -249,16 +249,19 @@ async def user_service(neo4j_driver):
     from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from adapters.persistence.neo4j.user_backend import UserBackend
+    from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
     from core.services.user_service import UserService
 
     # UserBackend is the dedicated identity backend — has get_user_by_username etc.
     # UniversalNeo4jBackend[User] lacks these domain-specific methods.
     user_backend = UserBackend(neo4j_driver)
 
-    # UserService's driver param is consumed by UserContextBuilder which expects
-    # a QueryExecutor (not a raw AsyncDriver). Mirror the production pattern.
+    # UserService takes an injected UserContextQueryExecutor for context building
+    # (built at the composition root in production). Mirror that here.
     query_executor = Neo4jQueryExecutor(neo4j_driver)
-    service = UserService(user_repo=user_backend, driver=query_executor)
+    service = UserService(
+        user_repo=user_backend, query_executor=UserContextQueryExecutor(query_executor)
+    )
 
     # Wire the cross-domain backend so the stats aggregator (used by
     # get_profile_hub_data) is initialized — mirrors services_bootstrap.
@@ -525,6 +528,7 @@ async def services(neo4j_driver):
 
     # Create QueryExecutor adapter for services that require it
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 
     query_executor = Neo4jQueryExecutor(neo4j_driver)
 
@@ -585,8 +589,10 @@ async def services(neo4j_driver):
         cross_domain_query=cross_domain_query,
     )
 
-    # Create Users service (pass query_executor, not raw driver — UserContextBuilder expects QueryExecutor)
-    users_service = UserService(user_repo=users_backend, driver=query_executor)
+    # Create Users service (inject the UserContextQueryExecutor for context building)
+    users_service = UserService(
+        user_repo=users_backend, query_executor=UserContextQueryExecutor(query_executor)
+    )
 
     # PATCH: Expose backends through core services for test access
     # Tests expect services.{domain}.core.backend.driver

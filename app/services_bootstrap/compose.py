@@ -301,12 +301,18 @@ async def compose_services(
         choice_template_backend = backends["choice_template_backend"]
         principle_template_backend = backends["principle_template_backend"]
 
-        # Create user service FIRST (foundation service with no dependencies)
+        # Create user service FIRST (foundation service with no dependencies).
+        # The UserContextQueryExecutor (MEGA/CONSOLIDATED Cypher, below the boundary)
+        # is built here and injected, so neither UserService nor UserContextBuilder
+        # imports the adapter (ADR-044/SKUEL022). Shared by the builder created below.
+        from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
         from core.services.user_service import create_user_service
+
+        user_context_query_executor = UserContextQueryExecutor(query_executor)
 
         user_service = create_user_service(
             users_backend,
-            query_executor,
+            user_context_query_executor,
             event_bus=event_bus,
             metrics_cache=metrics_cache,
         )
@@ -383,7 +389,7 @@ async def compose_services(
         # This eliminates repetitive user lookup in every service method.
         from core.services.user import UserContextBuilder, UserContextService
 
-        context_builder = UserContextBuilder(query_executor, user_service=user_service)
+        context_builder = UserContextBuilder(user_context_query_executor, user_service=user_service)
         context_service = UserContextService(
             context_builder=context_builder,
             user_service=user_service,
