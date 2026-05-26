@@ -63,7 +63,7 @@ INTELLIGENCE_TIER=core
 - `Neo4jVectorSearchService` — not created
 - `EmbeddingBackgroundWorker` — not started
 - `LLMService` — not created
-- `OpenAIService` — not created
+- OpenAI / Anthropic chat adapters + the HuggingFace embedding client (`adapters/external/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`) — not constructed (no API keys read, no vendor SDK clients; W1 / ADR-063)
 - All 12 `BaseAIService` instances — not created
 - Search falls back to keyword (fulltext indexes)
 - Askesis is **not created** (requires FULL tier — no degraded mode)
@@ -143,9 +143,9 @@ All in `services_bootstrap/compose.py`:
 
 | Gate | What It Controls | Core Behavior |
 |------|-----------------|---------------|
-| Embeddings block | `HuggingFaceEmbeddingsService`, `Neo4jVectorSearchService` | Skipped |
-| LLM block | `LLMService` | Skipped |
-| OpenAI block | `OpenAIService`, `ExerciseReportService`, `JournalOutputGenerator` | Skipped |
+| Embeddings block | `HuggingFaceEmbeddingsService`, `Neo4jVectorSearchService` (embedding client adapter not built) | Skipped |
+| LLM block | `LLMService` (built with an injected `OpenAIChatAdapter` chat port at FULL) | Skipped |
+| Chat-adapter block | `OpenAIChatAdapter` (`ChatCompletionPort`, `adapters/external/llm/`) → `ContentEnrichmentService`, `UnifiedLLMCaller`, `ProgressReportGenerator` | Adapter not built; consumers receive `chat_port=None` and degrade |
 
 Everything downstream of these three blocks naturally degrades via None-propagation.
 

@@ -96,7 +96,7 @@ Three service groups are gated:
 
 1. **Embeddings** — `HuggingFaceEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
 2. **LLM** — `LLMService` — skipped in CORE
-3. **OpenAI** — `OpenAIService`, `ExerciseReportService`, `JournalOutputGenerator` — skipped in CORE
+3. **Chat adapter** — the `OpenAIChatAdapter` (`ChatCompletionPort`, in `adapters/external/llm/`) and its consumers `ContentEnrichmentService` / `UnifiedLLMCaller` / `ProgressReportGenerator` — skipped in CORE (W1 / ADR-063)
 
 Services that depend on these (12 AI intelligence services, embedding background worker, etc.) are automatically skipped when their dependencies are `None`.
 

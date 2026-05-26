@@ -308,10 +308,11 @@ histogram_quantile(0.50, rate(skuel_embedding_batch_size_bucket[5m]))
 sum by (entity_type) (rate(skuel_embeddings_processed_total[5m]))
 ```
 
-**Instrumentation Locations**:
-- OpenAI calls: `core/services/neo4j_genai_embeddings_service.py:138-160`
-- Embedding worker: `core/services/background/embedding_worker.py:165-180`
-- Prometheus metrics passed to backends in `compose_services()` via `prometheus_metrics=` parameter
+**Instrumentation Locations** (the vendor SDK calls live below the hexagonal boundary in `adapters/external/`; the metrics are recorded in the consuming core services that hold the injected `prometheus_metrics` — W1 / ADR-063):
+- Embedding inference call (text → vector): `adapters/external/embeddings/huggingface_adapter.py` (HuggingFace `feature_extraction`); metrics recorded in `core/services/embeddings_service.py`
+- LLM chat-completion calls: `adapters/external/llm/{openai,anthropic}_adapter.py`
+- Embedding worker: `core/services/background/embedding_worker.py`
+- Prometheus metrics passed to services/backends in `compose_services()` via `prometheus_metrics=` parameter
 
 **Key Alerts** (see `ALERTING.md`):
 - `HighAIErrorRate` - >20% API failures
