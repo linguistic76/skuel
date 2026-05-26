@@ -33,14 +33,17 @@ def mock_backend():
 
 
 @pytest.fixture
-def embeddings_service(mock_backend, monkeypatch):
-    """Create embeddings service with mock backend.
+def embeddings_service(mock_backend):
+    """Create embeddings service with mock backend + inference client.
 
-    HF_API_TOKEN is set so the constructor's fail-fast check passes; the real
-    AsyncInferenceClient is never called because tests patch service methods.
+    These tests exercise version/metadata storage logic, which uses the backend
+    — the injected inference client is never called.
     """
-    monkeypatch.setenv("HF_API_TOKEN", "test-token")
-    return HuggingFaceEmbeddingsService(mock_backend)
+    mock_client = MagicMock()
+    mock_client.model = "BAAI/bge-large-en-v1.5"
+    mock_client.dimension = DIM
+    mock_client.embed = AsyncMock()
+    return HuggingFaceEmbeddingsService(mock_backend, embedding_client=mock_client)
 
 
 @pytest.mark.asyncio

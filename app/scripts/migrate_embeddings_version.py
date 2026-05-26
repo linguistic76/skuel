@@ -334,15 +334,24 @@ CAUTION: This makes API calls to the HuggingFace Inference API. Rate limits appl
         await driver.verify_connectivity()
         logger.info("✅ Connected to Neo4j")
 
-        # Create embeddings service
-        service = HuggingFaceEmbeddingsService(driver)
+        # Create embeddings service (inference client behind a port — W1).
+        # The vendor SDK lives in the adapter; a missing HF_API_TOKEN is the
+        # modern "not available" signal (replaces the removed _check_plugin_availability).
+        from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+        from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+        from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+        from core.config.credential_store import get_credential
 
-        # Check embeddings service availability
-        plugin_available = await service._check_plugin_availability()  # type: ignore[attr-defined]
-        if not plugin_available and not args.dry_run:
+        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
+        if not hf_token:
             logger.error("❌ Embeddings service not available")
             logger.error("   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env")
             return 1
+
+        service = HuggingFaceEmbeddingsService(
+            backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
+            embedding_client=HuggingFaceEmbeddingAdapter(api_key=hf_token),
+        )
 
         # Run migration
         summary = await migrate_embeddings(

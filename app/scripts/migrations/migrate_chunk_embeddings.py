@@ -175,9 +175,19 @@ async def migrate_chunk_embeddings(
     )
     await neo4j_connection.connect()
 
-    embeddings_service = HuggingFaceEmbeddingsService(  # type: ignore[call-arg]
-        driver=driver,
-        model=config.genai.embedding_model,
+    # Inference client behind a port (W1) — vendor SDK lives in the adapter.
+    # Construction fail-fasts if HF_API_TOKEN is missing.
+    from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.config.credential_store import get_credential
+
+    embeddings_service = HuggingFaceEmbeddingsService(
+        backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
+        embedding_client=HuggingFaceEmbeddingAdapter(
+            api_key=get_credential("HF_API_TOKEN", fallback_to_env=True) or "",
+            model=config.genai.embedding_model,
+        ),
     )
 
     content_adapter = Neo4jContentAdapter(neo4j_connection)

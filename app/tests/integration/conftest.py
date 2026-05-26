@@ -822,23 +822,27 @@ async def populated_test_data(skuel_app):
 
 
 @pytest.fixture
-def embeddings_service(monkeypatch):
-    """Create embeddings service with mock driver for integration tests.
+def embeddings_service():
+    """Create embeddings service with mock backend + inference client.
 
     Tests that use this fixture immediately override service methods (e.g.,
-    create_batch_embeddings) with AsyncMock, so the mock driver is sufficient.
-    HF_API_TOKEN is set so the constructor's fail-fast check passes.
+    create_batch_embeddings) with AsyncMock, so a mock backend + mock inference
+    client is sufficient. The vendor SDK now lives in the adapter, so there is
+    no HF_API_TOKEN to set up here.
     """
     from unittest.mock import AsyncMock, MagicMock
 
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
-    monkeypatch.setenv("HF_API_TOKEN", "test-token")
     mock_backend = MagicMock()
     mock_backend.store_embedding_metadata = AsyncMock()
     mock_backend.get_embedding_metadata = AsyncMock()
     mock_backend.get_cached_embedding = AsyncMock()
-    return HuggingFaceEmbeddingsService(mock_backend)
+    mock_client = MagicMock()
+    mock_client.model = "BAAI/bge-large-en-v1.5"
+    mock_client.dimension = 1024
+    mock_client.embed = AsyncMock()
+    return HuggingFaceEmbeddingsService(mock_backend, embedding_client=mock_client)
 
 
 @pytest.fixture

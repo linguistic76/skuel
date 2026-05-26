@@ -447,44 +447,39 @@ async def test_graceful_degradation_unavailable_service(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_embedding_service_initialization(neo4j_driver, monkeypatch):
-    """Test HuggingFace embeddings service initialization."""
+async def test_embedding_service_initialization(neo4j_driver):
+    """Test HuggingFace embeddings service initialization.
+
+    model/dimension are now sourced from the injected inference client
+    (EmbeddingClientOperations); the vendor SDK lives in the adapter.
+    """
+    from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
     from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-    monkeypatch.setenv("HF_API_TOKEN", "test-token")
+    embedding_client = HuggingFaceEmbeddingAdapter(api_key="test-token")
     embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     embeddings_service = HuggingFaceEmbeddingsService(
-        backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
+        backend=embeddings_backend, embedding_client=embedding_client
     )
 
     assert embeddings_service.model == "BAAI/bge-large-en-v1.5"
     assert embeddings_service.dimension == DIM
-    assert embeddings_service._client is not None
+    assert embeddings_service._embedding_client is embedding_client
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_embeddings_service_fail_fast_without_token(neo4j_driver, monkeypatch):
-    """Constructor must raise immediately when HF_API_TOKEN is missing.
+async def test_embedding_adapter_fail_fast_without_token():
+    """Adapter constructor must raise immediately when the API key is missing.
 
     Fail-fast contract: FULL-tier deps that silently degrade to None are a bug.
-    The wiring layer in _learning_services.py wraps this with tier guidance.
+    The credential is read at the composition root and passed in; an empty key
+    raises here, and the wiring layer wraps it with INTELLIGENCE_TIER guidance.
     """
-    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-
-    monkeypatch.delenv("HF_API_TOKEN", raising=False)
-    # Block keychain fallback so the credential lookup returns None
-    monkeypatch.setenv("SKUEL_CREDENTIAL_BACKEND", "fernet-missing-master-key")
-    monkeypatch.delenv("SKUEL_MASTER_KEY", raising=False)
-
-    embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
 
     with pytest.raises(ValueError, match="HF_API_TOKEN"):
-        HuggingFaceEmbeddingsService(
-            backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
-        )
+        HuggingFaceEmbeddingAdapter(api_key="")
 
 
 @pytest.mark.integration
