@@ -1447,6 +1447,79 @@ class TestSKUEL020:
         assert "request: Request" in violations[0].suggestion
         assert "from adapters.inbound.fasthtml_types import Request" in violations[0].suggestion
 
+    # --- annotation matching is precise (loose `*.Request` tail is rejected) ---
+
+    def test_non_starlette_attribute_request_flagged(self) -> None:
+        """`request: foo.Request` is not a real Starlette Request — it would 400, so
+        the loose `*.Request` tail must NOT be accepted (mirrors the SKUEL022 fix)."""
+        linter = make_linter(["SKUEL020"])
+        content = '@rt("/x")\nasync def h(request: foo.Request) -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL020"
+        assert "foo.Request" in violations[0].message
+
+    def test_string_forward_ref_non_request_flagged(self) -> None:
+        """The string-forward-ref form is held to the same allowlist."""
+        linter = make_linter(["SKUEL020"])
+        content = '@rt("/x")\nasync def h(request: "weird.Request") -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL020"
+
+    def test_string_forward_ref_bare_request_clean(self) -> None:
+        """`request: "Request"` (string) names the canonical class — exempt."""
+        linter = make_linter(["SKUEL020"])
+        content = '@rt("/x")\nasync def h(request: "Request") -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_string_forward_ref_qualified_request_clean(self) -> None:
+        """`request: "starlette.requests.Request"` (string) is the real class — exempt."""
+        linter = make_linter(["SKUEL020"])
+        content = (
+            '@rt("/x")\n'
+            'async def h(request: "starlette.requests.Request") -> Any:\n'
+            "    return None\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    # --- decorator matching is precise ---
+
+    def test_websocket_decorator_not_treated_as_route(self) -> None:
+        """`@app.ws(...)` registers a websocket handler (no `request` injection), so
+        its `request: Any` is NOT the SKUEL020 400 hazard and must not be flagged."""
+        linter = make_linter(["SKUEL020"])
+        content = '@app.ws("/x")\nasync def h(request: Any) -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_non_routing_attribute_not_treated_as_route(self) -> None:
+        """An arbitrary `@app.middleware`-style attr is not a routing verb."""
+        linter = make_linter(["SKUEL020"])
+        content = '@app.middleware("http")\nasync def h(request: Any) -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_routing_verb_on_unknown_base_not_matched(self) -> None:
+        """`@blueprint.get(...)` uses a routing verb but the base is not `app`/`rt`,
+        so it is not the FastHTML router and is not matched."""
+        linter = make_linter(["SKUEL020"])
+        content = '@blueprint.get("/x")\nasync def h(request: Any) -> Any:\n    return None\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_rt_name_decorator_matches_by_convention(self) -> None:
+        """`@rt` (Name) is always treated as the FastHTML router. The AST cannot tell a
+        rebound local `rt` from the real router, and the repo convention is `rt` == the
+        router, so this is accepted (a non-router `@rt` would be a deliberate misnomer)."""
+        linter = make_linter(["SKUEL020"])
+        content = "@rt\nasync def h(request: Any) -> Any:\n    return None\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL020"
+
 
 # ============================================================================
 # SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
@@ -1586,6 +1659,74 @@ class TestSKUEL022:
         content = (
             "# skuel-lint: disable-file=SKUEL022 -- composition helper\n"
             "from adapters.persistence.neo4j.x import Y\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    # --- the orelse/exemption boundary is exact (the compound-node-walk bug class) ---
+
+    def test_elif_after_type_checking_not_exempt(self) -> None:
+        """`elif` (an `If` in the outer `orelse`) executes at runtime — its adapter
+        import is flagged, even though the leading `if TYPE_CHECKING:` body is exempt."""
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.user_backend import UserBackend\n"
+            "elif FEATURE_FLAG:\n"
+            "    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 6  # the elif-branch import only
+
+    def test_try_and_except_bodies_both_flagged(self) -> None:
+        """Imports in both the `try` and `except` bodies execute at runtime."""
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "try:\n"
+            "    from adapters.persistence.neo4j.fast_backend import FastBackend\n"
+            "except ImportError:\n"
+            "    from adapters.persistence.neo4j.slow_backend import SlowBackend\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 2
+        assert {v.line_number for v in violations} == {2, 4}
+
+    def test_with_block_import_flagged(self) -> None:
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "with open_context() as ctx:\n"
+            "    from adapters.persistence.neo4j.user_backend import UserBackend\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 2
+
+    def test_for_block_import_flagged(self) -> None:
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "for name in modules:\n"
+            "    from adapters.persistence.neo4j.user_backend import UserBackend\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 2
+
+    def test_nested_if_else_under_type_checking_fully_exempt(self) -> None:
+        """A whole nested `if/else` *inside* a TYPE_CHECKING body never executes — both
+        branches are exempt. Confirms the body walk still descends into nested
+        structures (the legitimate use) while not leaking across sibling fields."""
+        linter = make_linter(["SKUEL022"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    if USE_FAST:\n"
+            "        from adapters.persistence.neo4j.fast_backend import FastBackend\n"
+            "    else:\n"
+            "        from adapters.persistence.neo4j.slow_backend import SlowBackend\n"
         )
         violations = lint_content(linter, content)
         assert len(violations) == 0

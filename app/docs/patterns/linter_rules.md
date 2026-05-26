@@ -447,6 +447,30 @@ if TYPE_CHECKING:
 - `# skuel-lint: disable=SKUEL022 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL022 -- <reason>` (file)
 
+## Authoring AST Rules
+
+Two bug classes recur when writing AST-based rules (SKUEL020, SKUEL022). Both are
+load-bearing and both are easy to reintroduce — guard new AST rules against them.
+
+1. **Iterate the field, never walk the compound node.** When collecting the
+   lines/nodes *inside* a compound statement (`If`, `Try`, `For`, `While`, `With`,
+   `FunctionDef`), iterate the specific field (`node.body`) — never `ast.walk(node)`
+   on the whole node. `ast.walk` also descends into the *sibling* fields (`orelse`,
+   `handlers`, `finalbody`, a loop's `else`), which execute at runtime. Walking the
+   whole `if TYPE_CHECKING:` node, for instance, sweeps its `else:` branch into the
+   "type-only, exempt" set and silently bypasses SKUEL022 (the bug PR #64 fixed).
+   Recursing *within* `node.body` into nested structures is correct; jumping to a
+   sibling field is the leak.
+2. **Pin the base of a Name/Attribute match — don't accept a loose tail.** Matching
+   `attr == "Foo"` (or `id == "foo"`) without validating the base/binding accepts
+   unintended targets: `anything.Foo`, a local var shadowing a known name. SKUEL022's
+   `_is_type_checking_test` pins the Attribute form to `typing.TYPE_CHECKING` (so
+   `settings.TYPE_CHECKING` is not exempted); SKUEL020's `_annotation_is_request`
+   checks the full dotted name against an allowlist (`VALID_REQUEST_QUALNAMES`) so
+   `foo.Request` is flagged, not waved through. A wrongly-loose match in an *exemption*
+   path is a false-negative bypass; tightening it can at worst produce a safe,
+   suppressible false-positive.
+
 ## Running the Linters
 
 **Primary interface — use `./dev` commands:**
