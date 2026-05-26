@@ -22,7 +22,7 @@ Key Design Decisions (ADR-014):
 - Format Support: Both MD + YAML as first-class citizens
 - Architecture: Single unified service (one path forward)
 - UID Format: Dot notation (`ku.filename`) - normalized from colon format
-- Performance: BulkIngestionEngine for batch operations (10-100x faster)
+- Performance: BulkUpsertBackend for batch operations (10-100x faster)
 
 See: /docs/decisions/ADR-014-unified-ingestion.md
 """
@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
-from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -90,7 +89,7 @@ class UnifiedIngestionService:
     - Auto-detects file format (MD vs YAML)
     - Routes to appropriate entity type (20 entity types)
     - Normalizes UIDs to dot notation
-    - Uses BulkIngestionEngine for batch performance
+    - Uses BulkUpsertBackend for batch performance
     - Creates graph-native relationships
 
     Usage:
@@ -126,7 +125,9 @@ class UnifiedIngestionService:
         Initialize unified ingestion service.
 
         Args:
-            driver: Neo4j async driver (for BulkIngestionEngine and raw queries)
+            driver: Neo4j async driver. Used only to construct the ingestion
+                    write + bulk-upsert backends (ADR-044); the service does not
+                    author Cypher or open sessions itself.
             default_user_uid: Default user UID for entities without explicit user_uid.
                               If not provided, uses SKUEL_DEFAULT_USER_UID env var or "user:system".
             max_file_size_bytes: Maximum file size in bytes (default: 10 MB).
@@ -152,12 +153,16 @@ class UnifiedIngestionService:
         if not driver:
             raise ValueError("Neo4j driver is required")
 
+        from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
         from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 
         self.driver = driver
-        # Entity/edge write Cypher lives below the boundary (ADR-044); the bulk
-        # engine still receives the raw driver for node creation.
+        # All ingestion Cypher lives below the boundary (ADR-044): edge/existence
+        # writes in IngestionWriteBackend, node upsert + constraints + delete in
+        # BulkUpsertBackend. The service orchestrates and calls these backends; it
+        # no longer authors Cypher or opens sessions itself.
         self._write_backend = IngestionWriteBackend(driver)
+        self._bulk_backend = BulkUpsertBackend(driver)
         self.ingestion_backend = ingestion_backend
         self.default_user_uid = (
             default_user_uid if default_user_uid is not None else DEFAULT_USER_UID
@@ -203,37 +208,20 @@ class UnifiedIngestionService:
                 "⚠️ Content adapter wired but event_bus missing — chunk embeddings will not be generated"
             )
 
-        # Lazy-initialized engines per domain type (keyed by EntityType/NonKuDomain)
-        self._engines: dict[EntityType | NonKuDomain, BulkIngestionEngine[Any]] = {}
-        # Track which engines have had constraints ensured (avoid per-file round-trip)
+        # Track which entity types have had constraints ensured (avoid per-file
+        # round-trip). The Cypher lives in BulkUpsertBackend; this set is the
+        # orchestration bookkeeping that stays in the service.
         self._constraints_ensured: set[EntityType | NonKuDomain] = set()
 
-    def _get_engine(self, entity_type: EntityType | NonKuDomain) -> BulkIngestionEngine[Any]:
-        """Get or create a BulkIngestionEngine for the entity type."""
-        if entity_type not in self._engines:
-            config = ENTITY_CONFIGS.get(entity_type)
-            if not config:
-                raise ValueError(f"Unknown entity type: {entity_type}")
-
-            # Create engine with placeholder type (BulkIngestionEngine uses dict internally)
-            self._engines[entity_type] = BulkIngestionEngine(
-                driver=self.driver,
-                entity_type=dict,  # Engines work with dicts
-                entity_label=config.entity_label,
-                base_label=config.base_label,
-            )
-        return self._engines[entity_type]
-
-    async def _get_engine_with_constraints(
-        self,
-        entity_type: EntityType | NonKuDomain,
-    ) -> BulkIngestionEngine[Any]:
-        """Get engine and ensure constraints once per entity type per service lifetime."""
-        engine = self._get_engine(entity_type)
-        if entity_type not in self._constraints_ensured:
-            await engine.ensure_constraints()
-            self._constraints_ensured.add(entity_type)
-        return engine
+    async def _ensure_constraints(self, entity_type: EntityType | NonKuDomain) -> None:
+        """Ensure constraints once per entity type per service lifetime."""
+        if entity_type in self._constraints_ensured:
+            return
+        config = ENTITY_CONFIGS.get(entity_type)
+        if not config:
+            raise ValueError(f"Unknown entity type: {entity_type}")
+        await self._bulk_backend.ensure_constraints(config.entity_label)
+        self._constraints_ensured.add(entity_type)
 
     # ========================================================================
     # DELEGATED METHODS (for backward compatibility)
@@ -304,7 +292,7 @@ class UnifiedIngestionService:
         """
         Ingest a standalone edge (relationship) into Neo4j.
 
-        Uses raw Cypher (not BulkIngestionEngine) since edges create
+        Uses the edge-write backend (not the bulk node upsert) since edges create
         relationships, not nodes.
 
         Args:
@@ -385,7 +373,7 @@ class UnifiedIngestionService:
         Ingest a single file (MD or YAML) into Neo4j.
 
         Auto-detects format and entity type, normalizes UID,
-        and persists using BulkIngestionEngine. If the file declares
+        and persists using BulkUpsertBackend. If the file declares
         type: Edge, it is ingested as a relationship instead of a node.
 
         Args:
@@ -489,12 +477,14 @@ class UnifiedIngestionService:
             if ku_content_body:
                 entity_data["word_count"] = len(ku_content_body.split())
 
-        # Get engine (constraints ensured once per entity type, not per file)
-        engine = await self._get_engine_with_constraints(entity_type)
+        # Ensure constraints once per entity type, not per file.
+        await self._ensure_constraints(entity_type)
 
-        # Ingest with relationships
+        # Ingest with relationships (node upsert + edge creation below the boundary)
         rel_config = config.relationship_config or {}
-        result = await engine.upsert_with_relationships(
+        result = await self._bulk_backend.upsert_with_relationships(
+            entity_label=config.entity_label,
+            base_label=config.base_label,
             entities=[entity_data],
             relationship_config=rel_config,
         )
@@ -629,9 +619,8 @@ class UnifiedIngestionService:
         """
         return await ingest_directory(
             directory=directory,
-            engines=self._engines,
-            get_engine=self._get_engine,
-            driver=self.driver,
+            write_backend=self._write_backend,
+            bulk_backend=self._bulk_backend,
             ingestion_backend=self.ingestion_backend,
             pattern=pattern,
             batch_size=batch_size,

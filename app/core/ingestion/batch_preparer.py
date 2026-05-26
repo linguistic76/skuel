@@ -7,7 +7,7 @@ Extracted from CypherExecutor to separate data transformation from database exec
 CONNECTION DATA FLOW:
     1. YAML frontmatter → MarkdownSyncService stores in metadata._connections
     2. HERE: Extract and flatten to dotted keys (Neo4j can't store nested maps)
-    3. BulkIngestionEngine: Uses filtered _node_props to exclude from node storage
+    3. BulkUpsertBackend: Uses filtered _node_props to exclude from node storage
     4. Cypher template: Creates graph edges via FOREACH + MERGE
     5. Result: Edges exist in graph, properties don't exist in nodes
 """

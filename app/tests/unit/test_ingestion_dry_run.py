@@ -21,6 +21,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
 from core.services.ingestion.batch import check_existing_entities, ingest_directory
 
 # ============================================================================
@@ -104,7 +105,7 @@ def mock_driver_with_uids(mock_existing_uids):
 @pytest.mark.asyncio
 async def test_check_existing_entities_empty_list(mock_neo4j_driver):
     """Test checking empty UID list returns empty dict."""
-    result = await check_existing_entities(mock_neo4j_driver, [])
+    result = await check_existing_entities(IngestionWriteBackend(mock_neo4j_driver), [])
     assert result == {}
 
 
@@ -117,7 +118,7 @@ async def test_check_existing_entities_with_uids(mock_driver_with_uids):
         "ku_another-existing_456",
     ]
 
-    result = await check_existing_entities(mock_driver_with_uids, uids)
+    result = await check_existing_entities(IngestionWriteBackend(mock_driver_with_uids), uids)
 
     assert result["ku_existing-content_123"] is True
     assert result["ku_another-existing_456"] is True
@@ -130,7 +131,7 @@ async def test_check_existing_entities_all_new(mock_driver_with_uids):
     """Test checking UIDs that don't exist."""
     uids = ["ku_brand-new_111", "ku_never-seen_222"]
 
-    result = await check_existing_entities(mock_driver_with_uids, uids)
+    result = await check_existing_entities(IngestionWriteBackend(mock_driver_with_uids), uids)
 
     assert result["ku_brand-new_111"] is False
     assert result["ku_never-seen_222"] is False
@@ -174,9 +175,6 @@ async def test_dry_run_includes_relationships(
         None,
     )
 
-    def mock_get_engine(entity_type):
-        return Mock()
-
     # Mock ENTITY_CONFIGS with source_field -> RelationshipConfig mapping
     # (matches real config shape: source_field is the key in entity data)
     with patch("core.services.ingestion.batch.ENTITY_CONFIGS") as mock_configs:
@@ -197,9 +195,8 @@ async def test_dry_run_includes_relationships(
 
         result = await ingest_directory(
             directory=test_dir,
-            engines={},
-            get_engine=mock_get_engine,
-            driver=mock_driver_with_uids,
+            write_backend=IngestionWriteBackend(mock_driver_with_uids),
+            bulk_backend=Mock(),
             pattern="*.md",
             dry_run=True,
         )
@@ -227,20 +224,16 @@ async def test_dry_run_requires_driver(tmp_path):
     test_dir = tmp_path / "test_vault"
     test_dir.mkdir()
 
-    def mock_get_engine(entity_type):
-        return Mock()
-
     result = await ingest_directory(
         directory=test_dir,
-        engines={},
-        get_engine=mock_get_engine,
-        driver=None,  # No driver provided
+        write_backend=None,  # No write backend provided
+        bulk_backend=Mock(),
         pattern="*.md",
         dry_run=True,
     )
 
     assert result.is_error
-    assert "driver required" in result.expect_error().message.lower()
+    assert "write backend required" in result.expect_error().message.lower()
 
 
 @pytest.mark.asyncio
@@ -248,14 +241,10 @@ async def test_dry_run_nonexistent_directory(mock_driver_with_uids):
     """Test dry-run with non-existent directory."""
     non_existent = Path("/nonexistent/path")
 
-    def mock_get_engine(entity_type):
-        return Mock()
-
     result = await ingest_directory(
         directory=non_existent,
-        engines={},
-        get_engine=mock_get_engine,
-        driver=mock_driver_with_uids,
+        write_backend=IngestionWriteBackend(mock_driver_with_uids),
+        bulk_backend=Mock(),
         pattern="*.md",
         dry_run=True,
     )

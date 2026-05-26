@@ -18,7 +18,7 @@ from typing import Any
 import yaml
 from neo4j import AsyncGraphDatabase
 
-from core.ingestion.bulk_ingestion import BulkIngestionEngine
+from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
 from core.ingestion.vector_operations import Vector, VectorOperations, VectorSpace
 from core.models.curriculum import Curriculum
 from core.utils.logging import get_logger
@@ -140,13 +140,11 @@ class VaultIngester:
         if not items:
             return Result.ok({"message": "No curriculum entities found"})
 
-        # Create bulk ingestion engine
-        engine = BulkIngestionEngine(
-            driver=self.driver, entity_type=Curriculum, entity_label="Curriculum"
-        )
+        # Create bulk upsert backend (Cypher lives below the boundary, ADR-044)
+        engine = BulkUpsertBackend(self.driver)
 
         # Ensure constraints exist
-        await engine.ensure_constraints()
+        await engine.ensure_constraints("Curriculum")
 
         # Define relationship configuration
         rel_config = {
@@ -181,7 +179,11 @@ class VaultIngester:
         # Perform bulk ingestion with relationships
         logger.info(f"Starting bulk ingestion of {len(entities)} curriculum entities")
         result = await engine.upsert_with_relationships(
-            entities=entities, relationship_config=rel_config, batch_size=batch_size
+            entity_label="Curriculum",
+            base_label=None,
+            entities=entities,
+            relationship_config=rel_config,
+            batch_size=batch_size,
         )
 
         if result.is_ok():
@@ -208,20 +210,22 @@ class VaultIngester:
         if not items:
             return Result.ok({"message": "No LifePrinciples found"})
 
-        # Create bulk ingestion engine
-        engine = BulkIngestionEngine(
-            driver=self.driver, entity_type=Curriculum, entity_label="LifePrinciple"
-        )
+        # Create bulk upsert backend (Cypher lives below the boundary, ADR-044)
+        engine = BulkUpsertBackend(self.driver)
 
         # Ensure constraints exist
-        await engine.ensure_constraints()
+        await engine.ensure_constraints("LifePrinciple")
 
         # Define relationship configuration
 
         # Perform bulk ingestion
         logger.info(f"Starting bulk ingestion of {len(items)} LifePrinciples")
         result = await engine.upsert_batch(
-            entities=items, batch_size=batch_size, template_name="bulk_life_principles"
+            entity_label="LifePrinciple",
+            base_label=None,
+            entities=items,
+            batch_size=batch_size,
+            template_name="bulk_life_principles",
         )
 
         if result.is_ok():
