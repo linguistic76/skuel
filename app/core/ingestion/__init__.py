@@ -1,19 +1,21 @@
 """
-Neo4j-native bulk ingestion infrastructure.
+Ingestion core helpers.
 
-This module provides generic patterns for bulk operations using Cypher templates,
-completing the generic programming evolution by extending it to graph-native operations.
+Pure, transport-agnostic ingestion pieces that stay above the hexagonal boundary:
+- ``batch_preparer`` — entity → Neo4j-ready dict transformation (no Cypher, no driver)
+- ``ingestion_types`` — cross-boundary types (RelationshipConfig, IngestionResult)
+- ``vector_operations`` — Vector value object + (to be relocated) vector backend
+
+The bulk-upsert engine, Cypher executor, and Cypher templates were relocated below
+the boundary to ``adapters/persistence/neo4j/`` (ADR-044).
 """
 
-from .bulk_ingestion import BulkIngestionEngine, IngestionResult
-from .cypher_executor import CypherExecutor, CypherTemplate
+from .ingestion_types import IngestionResult, RelationshipConfig
 from .vector_operations import Vector, VectorOperations
 
 __all__ = [
-    "BulkIngestionEngine",
-    "CypherExecutor",
-    "CypherTemplate",
     "IngestionResult",
+    "RelationshipConfig",
     "Vector",
     "VectorOperations",
 ]

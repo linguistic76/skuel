@@ -37,13 +37,10 @@ async def main() -> None:
     driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
 
     try:
-        from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
         from core.services.ingestion import UnifiedIngestionService
 
-        executor = Neo4jQueryExecutor(driver)
         ingestion = UnifiedIngestionService(
             driver=driver,
-            executor=executor,
             embeddings_service=None,
             chunking_service=None,
         )

@@ -89,22 +89,10 @@ def test_connection_property_filtering():
 def test_cypher_template_generation():
     """Test that generated Cypher template uses item._node_props"""
 
-    from core.ingestion.bulk_ingestion import BulkIngestionEngine, RelationshipConfig
-
-    # Create mock engine (no real driver needed for template generation)
-    class MockEntity:
-        pass
-
-    # We need a real AsyncDriver for initialization, but we won't use it
-    # So we create a minimal mock that satisfies type checking
-    class MockDriver:
-        pass
-
-    engine = BulkIngestionEngine(
-        driver=MockDriver(),  # type: ignore[arg-type]
-        entity_type=MockEntity,
-        entity_label="Entity",
-    )
+    # Cypher generation lives below the boundary now (ADR-044); it's a pure
+    # function, so no driver/engine instance is needed.
+    from adapters.persistence.neo4j.bulk_upsert_backend import build_relationship_template
+    from core.ingestion.ingestion_types import RelationshipConfig
 
     # Define relationship config
     rel_config: dict[str, RelationshipConfig] = {
@@ -116,7 +104,7 @@ def test_cypher_template_generation():
     }
 
     # Generate template
-    template = engine._build_relationship_template(rel_config)
+    template = build_relationship_template("Entity", None, rel_config)
 
     # Verify template does NOT contain APOC function calls
     assert "apoc.map.removeKeys" not in template.template
