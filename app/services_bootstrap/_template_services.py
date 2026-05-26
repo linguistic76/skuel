@@ -61,6 +61,7 @@ def _create_template_services(
     Builds (Phase 4):
     - ``ps_engagement``: PsEngagementService — 4-transition lifecycle facade.
     """
+    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
     from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
     from core.services.ps_engagement import PsEngagementService
     from core.services.templates import (
@@ -85,7 +86,7 @@ def _create_template_services(
     )
 
     ps_engagement = PsEngagementService(
-        executor=executor,
+        backend=PsEngagementBackend(executor),
         ps_service=ps_service,
         task_template_backend=task_template_backend,
         goal_template_backend=goal_template_backend,

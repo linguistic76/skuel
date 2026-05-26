@@ -52,7 +52,7 @@ from core.models.templates.goal_template import GoalTemplate
 from core.models.templates.habit_template import HabitTemplate
 from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.task_template import TaskTemplate
-from core.ports import CrudOperations
+from core.ports import CrudOperations, PsEngagementOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -63,7 +63,6 @@ from ._validator import TemplateBundle, _PsValidator
 from .engagement import Engagement
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.pathways.path_step import PathStep
 
 logger = get_logger(__name__)
@@ -99,7 +98,7 @@ class PsEngagementService:
 
     def __init__(
         self,
-        executor: Neo4jQueryExecutor,
+        backend: PsEngagementOperations,
         ps_service: Any,
         task_template_backend: CrudOperations[TaskTemplate],
         goal_template_backend: CrudOperations[GoalTemplate],
@@ -114,17 +113,17 @@ class PsEngagementService:
         choices_backend: CrudOperations[Choice],
         principles_backend: CrudOperations[Principle],
     ) -> None:
-        if executor is None or ps_service is None:
+        if backend is None or ps_service is None:
             raise ValueError(
-                "PsEngagementService requires both executor and ps_service "
+                "PsEngagementService requires both backend and ps_service "
                 "(SKUEL fail-fast — no graceful degradation)."
             )
-        from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
 
         self._ps_service = ps_service
-        # All lifecycle Cypher lives in the backend (ADR-044); helpers and this
-        # facade keep orchestration + domain reconstruction only.
-        self._backend = PsEngagementBackend(executor)
+        # All lifecycle Cypher lives in the backend (ADR-044), injected at the
+        # composition root behind the PsEngagementOperations port; helpers and
+        # this facade keep orchestration + domain reconstruction only.
+        self._backend = backend
 
         self._validator = _PsValidator()
         self._loader = _TemplateLoader(
