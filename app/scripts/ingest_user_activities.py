@@ -37,9 +37,11 @@ async def main() -> None:
     driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
 
     try:
-        from core.services.ingestion import UnifiedIngestionService
+        from adapters.persistence.neo4j.ingestion_service_factory import (
+            make_unified_ingestion_service,
+        )
 
-        ingestion = UnifiedIngestionService(
+        ingestion = make_unified_ingestion_service(
             driver=driver,
             embeddings_service=None,
             chunking_service=None,

@@ -11,8 +11,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
-from core.services.ingestion import UnifiedIngestionService
 from core.utils.logging import get_logger
 
 # Load .env file from project root
@@ -41,7 +41,7 @@ async def main():
         print("✅ Neo4j connection verified")
 
         # Create ingestion service
-        ingestion_service = UnifiedIngestionService(driver)
+        ingestion_service = make_unified_ingestion_service(driver)
         print("✅ Ingestion service created")
 
         # Count files first

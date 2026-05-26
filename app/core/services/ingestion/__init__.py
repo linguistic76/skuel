@@ -25,9 +25,11 @@ Key Features (2026):
 - Configurable user UID: Via SKUEL_DEFAULT_USER_UID env var
 
 Usage:
-    from core.services.ingestion import UnifiedIngestionService
+    from adapters.persistence.neo4j.ingestion_service_factory import (
+        make_unified_ingestion_service,
+    )
 
-    service = UnifiedIngestionService(driver)
+    service = make_unified_ingestion_service(driver)
 
     # Full ingestion (default, processes all files)
     result = await service.ingest_directory(Path("/vault"))

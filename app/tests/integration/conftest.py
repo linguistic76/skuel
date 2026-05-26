@@ -236,9 +236,9 @@ def ku_service(ku_backend):
 @pytest_asyncio.fixture
 async def ingestion_service(neo4j_driver):
     """Create real UnifiedIngestionService."""
-    from core.services.ingestion import UnifiedIngestionService
+    from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 
-    service = UnifiedIngestionService(driver=neo4j_driver)
+    service = make_unified_ingestion_service(driver=neo4j_driver)
 
     yield service
 
