@@ -2022,10 +2022,44 @@ class SkuelLinter:
                 )
 
     # SKUEL020: decorator attributes that register a route on `app`/`rt`.
+    # `ws`/`websocket` are deliberately absent: FastHTML websocket handlers receive
+    # a `ws` connection, not a `request`, so the "Missing required field: request"
+    # 400 this rule guards cannot bite them.
     ROUTE_DECORATOR_ATTRS: ClassVar[frozenset[str]] = frozenset(
         {"route", "get", "post", "put", "delete", "patch"}
     )
     ROUTE_DECORATOR_BASES: ClassVar[frozenset[str]] = frozenset({"app", "rt"})
+
+    # SKUEL020: the only annotations that resolve to a real Starlette ``Request``.
+    # The codebase canonically uses the bare ``Request`` Name (re-exported from
+    # ``adapters.inbound.fasthtml_types``); the qualified spellings below are the
+    # only other forms that name the same class. An arbitrary ``*.Request`` (e.g.
+    # the `requests` HTTP library's ``requests.Request``, or a local class shadowing
+    # the name) is NOT a FastHTML request and would 400 — so it must be flagged, not
+    # exempted (this mirrors the SKUEL022 base-pinning fix: don't accept a loose tail
+    # match). An unusual-but-valid alias produces a safe, suppressible false-positive.
+    VALID_REQUEST_QUALNAMES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "Request",  # canonical bare Name (re-exported via fasthtml_types)
+            "starlette.requests.Request",  # fully-qualified Starlette
+            "fasthtml_types.Request",  # module-qualified local alias
+            "adapters.inbound.fasthtml_types.Request",  # fully-qualified local alias
+        }
+    )
+
+    @staticmethod
+    def _dotted_name(node: ast.expr) -> str | None:
+        """Return the dotted path of a Name/Attribute chain (``a.b.C``), else None.
+
+        ``Name('Request')`` -> ``"Request"``; ``Attribute(Attribute(Name('a'),'b'),'C')``
+        -> ``"a.b.C"``. Returns None for any other expression (subscript, call, ...).
+        """
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            base = SkuelLinter._dotted_name(node.value)
+            return f"{base}.{node.attr}" if base is not None else None
+        return None
 
     @staticmethod
     def _is_route_decorator(dec: ast.expr) -> bool:
@@ -2057,18 +2091,21 @@ class SkuelLinter:
     def _annotation_is_request(annotation: ast.expr | None) -> bool:
         """True if the annotation is acceptable for a FastHTML ``request`` param.
 
-        Accepts ``Request`` (Name), ``*.Request`` (Attribute, e.g.
-        ``starlette.requests.Request``), the string form ``"Request"``, and the
-        unannotated case (FastHTML injects the request when there is no hint).
+        Accepts the unannotated case (FastHTML injects the request when there is no
+        hint) and any spelling in :data:`VALID_REQUEST_QUALNAMES` — the bare
+        ``Request`` Name, the fully-qualified ``starlette.requests.Request``
+        Attribute, the ``fasthtml_types`` alias forms, and their string-forward-ref
+        equivalents. A loose ``*.Request`` tail match is deliberately rejected: an
+        annotation like ``request: foo.Request`` is not a real Starlette Request and
+        would 400 at runtime — the exact failure SKUEL020 guards — so it is flagged.
         """
         if annotation is None:
             return True
-        if isinstance(annotation, ast.Name):
-            return annotation.id == "Request"
-        if isinstance(annotation, ast.Attribute):
-            return annotation.attr == "Request"
+        if isinstance(annotation, ast.Name | ast.Attribute):
+            return SkuelLinter._dotted_name(annotation) in SkuelLinter.VALID_REQUEST_QUALNAMES
         if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
-            return annotation.value.split(".")[-1] == "Request"
+            # String forward-ref, e.g. "Request" or "starlette.requests.Request".
+            return annotation.value.strip() in SkuelLinter.VALID_REQUEST_QUALNAMES
         return False
 
     def _check_request_annotation(
@@ -2139,6 +2176,20 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    # -------------------------------------------------------------------------
+    # Authoring AST rules — the "iterate the field, never walk the node" rule.
+    #
+    # When a rule collects the lines/nodes *inside* a compound statement (``If``,
+    # ``Try``, ``For``, ``While``, ``With``, ``FunctionDef``), iterate the specific
+    # field (``node.body``) — never ``ast.walk(node)`` on the whole node. ``ast.walk``
+    # also descends into the *sibling* fields (``orelse``, ``handlers``, ``finalbody``,
+    # a loop's ``else``), which execute at runtime. Walking the whole ``if
+    # TYPE_CHECKING:`` node, for example, would sweep its ``else:`` branch into the
+    # "type-only, exempt" set and silently bypass SKUEL022 — the exact bug PR #64
+    # fixed. Descending *within* ``node.body`` (recursing into nested structures) is
+    # correct and expected; it's the jump to a sibling field that leaks.
+    # -------------------------------------------------------------------------
 
     @staticmethod
     def _is_type_checking_test(test: ast.expr) -> bool:
