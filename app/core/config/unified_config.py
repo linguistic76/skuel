@@ -259,11 +259,16 @@ class DatabaseConfig:
     neo4j_password: str = field(default_factory=_get_neo4j_password)
     neo4j_database: str = os.getenv("NEO4J_DATABASE", "neo4j")
 
-    # Connection pool
+    # Connection pool / driver-level timeouts (applied at AsyncGraphDatabase.driver).
+    # NOTE: these bound connection establishment, pool acquisition, and managed-
+    # transaction retry — NOT a single query's execution time. A per-query
+    # server-side timeout (query_timeout/transaction_timeout below) is unwired
+    # pending a session chokepoint; see neo4j_connection.py.
     max_connection_pool_size: int = 50
     max_connection_lifetime: int = 3600
     connection_timeout: float = 30.0
-    max_retry_time: float = 30.0
+    connection_acquisition_timeout: float = 60.0
+    max_retry_time: float = 30.0  # -> driver max_transaction_retry_time
     encrypted: bool = False
 
     # Query settings
@@ -284,7 +289,12 @@ class DatabaseConfig:
             neo4j_password=_get_neo4j_password(),
             neo4j_database=os.getenv("NEO4J_DATABASE", "neo4j"),
             max_connection_pool_size=int(os.getenv("NEO4J_MAX_CONNECTION_POOL_SIZE", "50")),
+            max_connection_lifetime=int(os.getenv("NEO4J_MAX_CONNECTION_LIFETIME", "3600")),
             connection_timeout=float(os.getenv("NEO4J_CONNECTION_TIMEOUT", "30")),
+            connection_acquisition_timeout=float(
+                os.getenv("NEO4J_CONNECTION_ACQUISITION_TIMEOUT", "60")
+            ),
+            max_retry_time=float(os.getenv("NEO4J_MAX_TRANSACTION_RETRY_TIME", "30")),
             encrypted=os.getenv("NEO4J_ENCRYPTED", "false").lower() == "true",
         )
 
