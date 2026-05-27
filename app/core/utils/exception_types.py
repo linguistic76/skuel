@@ -95,14 +95,16 @@ LLM_EXCEPTIONS: tuple[type[BaseException], ...] = (*OPENAI_EXCEPTIONS, *ANTHROPI
 # FIREFLY III HTTP CLIENT EXCEPTIONS
 # ============================================================================
 
+# Import the exception CLASSES by name (never `import httpx`, which would expose
+# httpx.Client below the boundary — see tests/test_llm_sdk_boundary.py).
 try:
-    import httpx
+    from httpx import HTTPError, InvalidURL, NetworkError, TimeoutException
 
     FIREFLY_EXCEPTIONS: tuple[type[BaseException], ...] = (
-        httpx.HTTPError,
-        httpx.TimeoutException,
-        httpx.NetworkError,
-        httpx.InvalidURL,
+        HTTPError,
+        TimeoutException,
+        NetworkError,
+        InvalidURL,
     )
 except ImportError:
     FIREFLY_EXCEPTIONS = ()

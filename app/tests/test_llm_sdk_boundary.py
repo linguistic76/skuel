@@ -32,10 +32,13 @@ TWO TIERS
    ``core/`` — and only in ``core/utils/exception_types.py``. Several core
    services narrow-catch ``LLM_EXCEPTIONS`` / ``NEO4J_EXCEPTIONS`` /
    ``FIREFLY_EXCEPTIONS`` and cannot import those tuples from ``adapters/``
-   without violating SKUEL022, so the tuples must live in ``core/``. The
-   *location* restriction (only ``exception_types.py``) is the hard, enforced
-   guarantee; "exception classes only, never the client" is the documented
-   intent — kept honest by the single-file blast radius and the canary below.
+   without violating SKUEL022, so the tuples must live in ``core/``. TWO
+   guarantees are enforced (not merely documented): (a) *location* — only
+   ``exception_types.py`` may import them; and (b) *what* — only their exception
+   CLASSES, never a client. A bare ``import openai`` / ``from httpx import
+   Client`` in that file is rejected: every symbol imported from a Tier-2
+   package must resolve to a ``BaseException`` subclass
+   (``test_exception_types_imports_only_exception_classes_from_tier2``).
 
    ``huggingface_hub`` is deliberately absent from BOTH tiers: it has no
    exception tuple (the HF embeddings adapter uses a broad safety-net catch),
@@ -53,6 +56,7 @@ See: docs/decisions/ADR-063-llm-embeddings-sdk-ports.md,
 from __future__ import annotations
 
 import ast
+import importlib
 import sys
 from pathlib import Path
 
@@ -191,6 +195,49 @@ def test_exception_class_exemptions_are_still_load_bearing() -> None:
     assert not dead, (
         f"{_EXCEPTION_CLASS_FILE} no longer imports {sorted(dead)} — remove them from "
         "EXCEPTION_CLASS_ONLY so the boundary guard tightens."
+    )
+
+
+def test_exception_types_imports_only_exception_classes_from_tier2() -> None:
+    """Enforce — not just document — the Tier-2 invariant inside exception_types.py.
+
+    The location exemption (only this file may import openai/anthropic/neo4j/httpx)
+    is necessary but not sufficient: a ``from openai import OpenAI`` / ``from neo4j
+    import GraphDatabase`` / ``from httpx import Client`` *here* would still drag a
+    CLIENT below the boundary. So require that every Tier-2 symbol imported in this
+    file resolves to a ``BaseException`` subclass, and forbid the bare ``import
+    <pkg>`` form (it exposes ``<pkg>.Client`` / ``<pkg>.GraphDatabase`` as attributes).
+    """
+    tree = ast.parse((_APP_ROOT / _EXCEPTION_CLASS_FILE).read_text(encoding="utf-8"))
+    offenders: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            offenders.extend(
+                f"line {node.lineno}: `import {alias.name}` pulls the whole module (exposes its "
+                f"client) — use `from {alias.name} import <ExceptionClass>`"
+                for alias in node.names
+                if alias.name.split(".")[0] in EXCEPTION_CLASS_ONLY
+            )
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            if node.module.split(".")[0] not in EXCEPTION_CLASS_ONLY:
+                continue
+            try:
+                mod = importlib.import_module(node.module)
+            except ImportError:
+                continue  # package absent → exception tuple degrades to (); nothing to leak
+            for alias in node.names:
+                obj = getattr(mod, alias.name, None)
+                if not (isinstance(obj, type) and issubclass(obj, BaseException)):
+                    offenders.append(
+                        f"line {node.lineno}: `from {node.module} import {alias.name}` is not a "
+                        "BaseException subclass — only exception CLASSES may cross the boundary here"
+                    )
+
+    assert not offenders, (
+        f"{_EXCEPTION_CLASS_FILE} may import the Tier-2 packages "
+        f"({', '.join(sorted(EXCEPTION_CLASS_ONLY))}) for their EXCEPTION CLASSES ONLY — never a "
+        "client. Move any client below the boundary into adapters/external/ (ADR-063):\n  "
+        + "\n  ".join(offenders)
     )
 
 
