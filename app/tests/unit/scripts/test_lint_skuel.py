@@ -312,6 +312,54 @@ class TestSKUEL001:
         violations = lint_content(linter, 'query = "CALL apoc.meta.data()"')
         assert len(violations) == 1
 
+    # --- docstring-aware: APOC mentioned in documentation is not a violation ---
+    # (the gate now covers all of core/, so prose mentioning a banned proc — e.g. a
+    #  doc explaining why APOC is banned — must not trip this CRITICAL rule.)
+
+    def test_skips_apoc_in_module_docstring(self) -> None:
+        linter = make_linter(["SKUEL001"])
+        content = '"""Cypher only here.\n\nDo NOT use apoc.meta.data() — APOC is adapter-only.\n"""\nx = 1'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_apoc_in_function_docstring(self) -> None:
+        linter = make_linter(["SKUEL001"])
+        content = (
+            "def fetch():\n"
+            '    """Fetch nodes.\n\n'
+            "    Historically this used apoc.path.subgraphAll; now pure Cypher.\n"
+            '    """\n'
+            "    return None\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_apoc_in_comment(self) -> None:
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(linter, "# apoc.schema.assert(...) is banned below the boundary")
+        assert len(violations) == 0
+
+    def test_skips_apoc_in_core_utils_docstring(self) -> None:
+        """Same widened-gate concern as SKUEL021: core/utils docstrings may name APOC."""
+        linter = make_linter(["SKUEL001"])
+        content = '"""Maps rows.\n\n    Avoid apoc.map.fromPairs() — use a dict.\n"""\nrows = []'
+        violations = lint_content(
+            linter, content, file_path="core/utils/neo4j_mapper.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_detects_apoc_in_used_string_core_utils(self) -> None:
+        """The widened gate still catches a real APOC leak in core/utils (is_core)."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(
+            linter,
+            'q = "CALL apoc.meta.data()"',
+            file_path="core/utils/helper.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.CRITICAL
+
 
 # ============================================================================
 # SKUEL002: Semantic type strings

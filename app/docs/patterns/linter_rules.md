@@ -38,7 +38,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 ### CRITICAL (blocks CI)
 | Rule | Pattern | Enforcement |
 |------|---------|-------------|
-| **SKUEL001** | APOC in services | Use CypherGenerator, not APOC in domain services |
+| **SKUEL001** | Banned APOC procedures anywhere in `core/` | Use CypherGenerator / pure Cypher below the boundary (ADR-044); docstring-aware |
 
 ### ERROR (blocks CI)
 | Rule | Pattern | Enforcement |
@@ -413,7 +413,7 @@ if not api_key:
 
 ## Rule: SKUEL021 - No Raw Cypher Above the Boundary
 
-**Pattern:** ADR-044 puts the hexagonal boundary at `UniversalNeo4jBackend` / `adapters/persistence/neo4j/` — all Cypher lives below it. Code above the boundary (all of `core/`) orchestrates and calls backend methods; it does not author Cypher. (SKUEL001 bans only APOC; SKUEL021 covers raw Cypher generally — both now share the same all-of-`core/` scope, as does SKUEL022.)
+**Pattern:** ADR-044 puts the hexagonal boundary at `UniversalNeo4jBackend` / `adapters/persistence/neo4j/` — all Cypher lives below it. Code above the boundary (all of `core/`) orchestrates and calls backend methods; it does not author Cypher. (SKUEL001 bans only APOC; SKUEL021 covers raw Cypher generally — both now share the same all-of-`core/` scope, as does SKUEL022, and both skip APOC/Cypher named in docstrings and comments.)
 
 ```python
 # ❌ VIOLATION (ERROR) — Cypher authored in a core/ module and used

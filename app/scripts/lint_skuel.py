@@ -920,7 +920,16 @@ class SkuelLinter:
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
     ) -> None:
         """
-        SKUEL001 [CRITICAL]: No APOC path procedures in domain services.
+        SKUEL001 [CRITICAL]: No banned APOC procedures above the hexagonal boundary.
+
+        APOC belongs to the Neo4j adapter, not core/ (ADR-044); domain code uses pure
+        Cypher / CypherGenerator. A line scan (so it catches APOC both inside a Cypher
+        string and as the synthetic ``apoc.x.y(...)`` attribute form), but
+        docstring-aware: comment lines and lines inside an inert docstring /
+        ``USAGE EXAMPLES`` block are skipped via AST — an APOC mention in
+        documentation (e.g. explaining *why* APOC is banned) is prose, not a
+        violation. This keeps the rule correct now that its gate covers all of core/
+        (mirrors SKUEL021's docstring-skip). CRITICAL and intentionally unsuppressable.
         """
         banned_apoc = [
             "apoc.path.subgraphNodes",
@@ -934,7 +943,17 @@ class SkuelLinter:
             "apoc.meta.",
         ]
 
+        try:
+            doc_lines = self._inert_string_line_ranges(ast.parse(content))
+        except SyntaxError:
+            doc_lines = set()
+
         for line_num, line in enumerate(lines, start=1):
+            if line_num in doc_lines:
+                continue
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
             for apoc_proc in banned_apoc:
                 if apoc_proc in line:
                     self.result.violations.append(
@@ -944,9 +963,9 @@ class SkuelLinter:
                             column=line.find(apoc_proc),
                             severity=Severity.CRITICAL,
                             rule_id="SKUEL001",
-                            message=f"APOC procedure '{apoc_proc}' in domain service",
+                            message=f"APOC procedure '{apoc_proc}' authored above the boundary",
                             suggestion="Use CypherGenerator or pure Cypher instead",
-                            line_content=line.strip(),
+                            line_content=stripped,
                         )
                     )
 
@@ -984,6 +1003,28 @@ class SkuelLinter:
             ):
                 inert.add(id(node.value))
         return inert
+
+    @staticmethod
+    def _inert_string_line_ranges(tree: ast.AST) -> set[int]:
+        """Line numbers covered by inert bare-string-expression statements.
+
+        Same inert set as :meth:`_inert_string_constant_ids` (docstrings + mid-body
+        ``USAGE EXAMPLES`` blocks), but expressed as the *lines* they occupy — for
+        line-scan rules (SKUEL001) that want to skip documentation prose rather than
+        walk string Constants. An APOC/Cypher mention inside such a block is
+        documentation, not a violation.
+        """
+        doc_lines: set[int] = set()
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Expr)
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                const = node.value
+                end = const.end_lineno if const.end_lineno is not None else const.lineno
+                doc_lines.update(range(const.lineno, end + 1))
+        return doc_lines
 
     def _check_raw_cypher_in_services(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
