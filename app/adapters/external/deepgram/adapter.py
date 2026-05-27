@@ -27,7 +27,6 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +34,7 @@ import aiofiles  # type: ignore[import-untyped]
 from deepgram import DeepgramClient, PrerecordedOptions
 from deepgram.options import DeepgramClientOptions
 
+from core.ports.transcription_protocols import TranscriptionResult
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import _HasToDict
@@ -45,23 +45,15 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@dataclass
-class TranscriptionResult:
-    """Result from Deepgram transcription."""
-
-    transcript_text: str
-    confidence_score: float
-    duration_seconds: float
-    word_count: int
-    raw_response: dict[str, Any] | None = None
-
-
 class DeepgramAdapter:
     """
-    Thin adapter for Deepgram audio transcription API.
+    Thin adapter for Deepgram audio transcription API — implements
+    ``core.ports.transcription_protocols.TranscriptionPort``.
 
-    Does ONE thing: audio file → API call → transcript.
-    No persistence, no state, no business logic.
+    Does ONE thing: audio file → API call → transcript. No persistence, no
+    state, no business logic. The ``deepgram`` SDK and response parsing stay
+    here, below the boundary; core depends only on ``TranscriptionPort`` +
+    the ``TranscriptionResult`` DTO.
 
     All options are driven by DeepgramConfig (loaded from config/deepgram.toml).
     """
@@ -304,4 +296,4 @@ class DeepgramAdapter:
         return 0.0
 
 
-__all__ = ["DeepgramAdapter", "TranscriptionResult"]
+__all__ = ["DeepgramAdapter"]
