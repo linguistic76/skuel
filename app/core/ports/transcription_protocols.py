@@ -40,6 +40,7 @@ class TranscriptionResult:
     confidence_score: float
     duration_seconds: float
     word_count: int
+    # boundary: provider's raw JSON response — heterogeneous, debugging/extraction only
     raw_response: dict[str, Any] | None = None
 
 
@@ -55,6 +56,8 @@ class TranscriptionPort(Protocol):
     async def transcribe(
         self,
         audio_path: str | Path,
+        # boundary: per-call provider option overrides — heterogeneous (str/bool/int/
+        # list), keys match DeepgramConfig fields
         **overrides: Any,
     ) -> Result[TranscriptionResult]:
         """Transcribe an audio file.
