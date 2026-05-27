@@ -484,7 +484,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         2. Property filters from request.to_property_filters()
         3. Text search on _search_fields
         4. Graph pattern enrichment from _graph_enrichment_patterns
-        5. Relationship filters from request.to_graph_patterns()
+        5. Relationship filters from request.to_relationship_filters()
 
         Args:
             request: SearchRequest with query and facets
@@ -500,7 +500,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Extract request parameters
         property_filters = request.to_property_filters()
         query_text = getattr(request, "query_text", None)
-        graph_patterns = request.to_graph_patterns() if request.has_relationship_filters() else None
+        relationship_filters = (
+            request.to_relationship_filters() if request.has_relationship_filters() else None
+        )
         limit = getattr(request, "limit", 50)
 
         result = await self.backend.faceted_search_raw(
@@ -511,7 +513,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             graph_enrichment_patterns=self._graph_enrichment_patterns,
             property_filters=property_filters,
             query_text=query_text,
-            graph_patterns=graph_patterns,
+            relationship_filters=relationship_filters,
             limit=limit,
         )
         if result.is_error:

@@ -71,6 +71,7 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.relationship_filters import RelationshipFilters
 from core.models.type_hints import UserUID
 
 # ============================================================================
@@ -469,158 +470,31 @@ class SearchRequest(BaseModel):
 
         return label_mapping.get(self.domain)
 
-    def to_graph_patterns(self) -> dict[str, str]:
-        """
-        Convert relationship filters to Cypher graph patterns.
+    def to_relationship_filters(self) -> RelationshipFilters:
+        """Capture the active relationship-filter flags as transport intent.
 
-        This is the core of graph-native search - converting boolean flags into
-        Cypher relationship patterns that leverage Neo4j's graph structure.
+        The boolean flags below cross the hexagonal boundary as a plain
+        ``RelationshipFilters`` object. The Cypher WHERE-clause fragments that
+        realize each flag are authored below the boundary (ADR-044) in
+        ``adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py``
+        — a core model must not build Cypher (SKUEL021).
 
         Returns:
-            Dictionary mapping pattern names to Cypher WHERE clause fragments
-
-        Note:
-            Patterns reference $user_uid as a Cypher query parameter placeholder.
-            The actual user_uid value is provided at query EXECUTION time via params dict,
-            not at pattern building time.
-
-        Example:
-            >>> request = SearchRequest(ready_to_learn=True, domain="knowledge")
-            >>> patterns = request.to_graph_patterns()
-            >>> patterns["ready_to_learn"]
-            'NOT EXISTS { MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity) ... }'
-
-            >>> # Later, at query execution:
-            >>> params = {"user_uid": "user_123"}  # $user_uid gets filled here
-            >>> results = await execute_query(cypher_with_patterns, params)
+            RelationshipFilters mirroring this request's relationship flags.
         """
-        patterns = {}
-
-        # Pattern 1: Ready to learn (all prerequisites mastered)
-        if self.ready_to_learn:
-            patterns["ready_to_learn"] = """
-            NOT EXISTS {
-                MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-                WHERE NOT EXISTS {
-                    MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
-                }
-            }
-            """
-
-        # Pattern 2: Builds on mastered knowledge (related to what user knows)
-        if self.builds_on_mastered:
-            patterns["builds_on_mastered"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
-                WHERE (mastered)-[:ENABLES_LEARNING|RELATED_TO]-(ku)
-            }
-            """
-
-        # Pattern 3: In active learning path
-        if self.in_active_path:
-            patterns["in_active_path"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
-                      -[:CONTAINS_STEP]->(ps:PathStep)
-                      -[:REQUIRES_KNOWLEDGE]->(ku)
-                WHERE lp.status = 'active'
-            }
-            """
-
-        # Pattern 4: Supports active goals
-        if self.supports_goals:
-            patterns["supports_goals"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:PURSUING_GOAL]->(goal:Goal)
-                      -[:REQUIRES_KNOWLEDGE]->(ku)
-                WHERE goal.status IN ['active', 'in_progress']
-            }
-            """
-
-        # Pattern 5: Builds on active habits
-        if self.builds_on_habits:
-            patterns["builds_on_habits"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:PRACTICES]->(habit:Habit)
-                      -[:APPLIES_KNOWLEDGE]->(ku)
-                WHERE habit.status IN ['active', 'in_progress']
-                  AND habit.is_active = true
-            }
-            """
-
-        # Pattern 6: Applied in recent tasks
-        if self.applied_in_tasks:
-            patterns["applied_in_tasks"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:OWNS]->(task:Task)
-                      -[:APPLIES_KNOWLEDGE]->(ku)
-                WHERE task.status IN ['completed', 'in_progress']
-                  AND task.updated_at >= datetime() - duration({days: 30})
-            }
-            """
-
-        # Pattern 7: Aligned with principles
-        if self.aligned_with_principles:
-            patterns["aligned_with_principles"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:ADHERES_TO]->(principle:Principle)
-                      -[:EMBODIES_KNOWLEDGE]->(ku)
-                WHERE principle.status = 'adopted'
-                  OR principle.priority >= 0.7
-            }
-            """
-
-        # Pattern 8: Next logical step
-        if self.next_logical_step:
-            patterns["next_logical_step"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
-                      -[:ENABLES_LEARNING]->(ku)
-                WHERE NOT EXISTS {
-                    MATCH (user)-[:MASTERED]->(ku)
-                }
-                AND NOT EXISTS {
-                    MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-                    WHERE NOT EXISTS {
-                        MATCH (user)-[:MASTERED]->(prereq)
-                    }
-                }
-            }
-            """
-
-        # ====================================================================
-        # PEDAGOGICAL PATTERNS (Learning progress tracking)
-        # ====================================================================
-
-        # Pattern 9: Not yet viewed - show unseen content
-        if self.not_yet_viewed:
-            patterns["not_yet_viewed"] = """
-            NOT EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:VIEWED|IN_PROGRESS|MASTERED]->(ku)
-            }
-            """
-
-        # Pattern 10: Viewed but not mastered - in-progress content
-        if self.viewed_not_mastered:
-            patterns["viewed_not_mastered"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:VIEWED|IN_PROGRESS]->(ku)
-            }
-            AND NOT EXISTS {
-                MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
-            }
-            """
-
-        # Pattern 11: Ready for review (mastered but not reviewed recently)
-        if self.ready_to_review:
-            patterns["ready_to_review"] = """
-            EXISTS {
-                MATCH (user:User {uid: $user_uid})-[m:MASTERED]->(ku)
-                WHERE m.mastered_at <= datetime() - duration({days: 30})
-            }
-            """
-
-        return patterns
+        return RelationshipFilters(
+            ready_to_learn=self.ready_to_learn,
+            builds_on_mastered=self.builds_on_mastered,
+            in_active_path=self.in_active_path,
+            supports_goals=self.supports_goals,
+            builds_on_habits=self.builds_on_habits,
+            applied_in_tasks=self.applied_in_tasks,
+            aligned_with_principles=self.aligned_with_principles,
+            next_logical_step=self.next_logical_step,
+            not_yet_viewed=self.not_yet_viewed,
+            viewed_not_mastered=self.viewed_not_mastered,
+            ready_to_review=self.ready_to_review,
+        )
 
     def has_relationship_filters(self) -> bool:
         """Check if any relationship-based filters are active."""
