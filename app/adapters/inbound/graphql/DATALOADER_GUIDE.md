@@ -58,7 +58,7 @@ DataLoaders automatically:
 
 ### DataLoaders Available (Phase 4)
 
-Located in: `/routes/graphql/context.py`
+Located in: `/adapters/inbound/graphql/context.py`
 
 | DataLoader | Purpose | Batches |
 |------------|---------|---------|
@@ -74,7 +74,7 @@ Located in: `/routes/graphql/context.py`
 ### 1. DataLoader Creation (Per Request)
 
 ```python
-# routes/graphql/context.py
+# adapters/inbound/graphql/context.py
 
 def create_graphql_context(services, search_router, user_uid=None):
     """Create GraphQL context with fresh DataLoaders for each request."""
@@ -108,7 +108,7 @@ def create_graphql_context(services, search_router, user_uid=None):
 ### 2. Shared Batch Loading Helper
 
 ```python
-# routes/graphql/context.py
+# adapters/inbound/graphql/context.py
 
 async def _batch_load(
     keys: list[str],
@@ -144,7 +144,7 @@ async def _batch_load(
 ### 3. Using DataLoaders in Resolvers
 
 ```python
-# routes/graphql/types.py
+# adapters/inbound/graphql/types.py
 
 @strawberry.type
 class PathStep:

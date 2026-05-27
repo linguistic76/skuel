@@ -4,7 +4,7 @@ GraphQL Type Definitions
 
 Strawberry type definitions for SKUEL GraphQL API.
 
-Conversion logic lives in ``routes.graphql.mappers`` — these types are
+Conversion logic lives in ``adapters.inbound.graphql.mappers`` — these types are
 purely schema definitions plus ``@strawberry.field`` resolvers.
 """
 
@@ -17,8 +17,8 @@ from strawberry.types import (
     Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
 )
 
-from routes.graphql.context import GraphQLContext
-from routes.graphql.query_helpers import GraphQLQueryHelpers, unwrap_list
+from adapters.inbound.graphql.context import GraphQLContext
+from adapters.inbound.graphql.query_helpers import GraphQLQueryHelpers, unwrap_list
 
 if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep as LsModel
@@ -99,7 +99,7 @@ class LearningPath:
         Each step can nest its knowledge unit, solving N+1 problems.
         Uses mapper for explicit DTO conversion.
         """
-        from routes.graphql.mappers import path_step_from_domain
+        from adapters.inbound.graphql.mappers import path_step_from_domain
 
         context: GraphQLContext = info.context
 
@@ -137,7 +137,7 @@ class PathStep:
 
         Uses DataLoader for batching when loading multiple steps.
         """
-        from routes.graphql.mappers import knowledge_node_from_dto
+        from adapters.inbound.graphql.mappers import knowledge_node_from_dto
 
         context: GraphQLContext = info.context
 

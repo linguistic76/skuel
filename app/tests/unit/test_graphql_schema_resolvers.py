@@ -1,12 +1,12 @@
 # mypy: disable-error-code="call-arg,misc"
 # Strawberry decorators generate __init__ dynamically; mypy can't see the
-# inferred constructor args. Mirrors the routes.graphql.* override.
+# inferred constructor args. Mirrors the adapters.inbound.graphql.* override.
 """
 Unit Tests for GraphQL Schema Resolvers
 ========================================
 
 Tests all Query resolvers, helper functions, and schema factory in
-``routes/graphql/schema.py`` using mocked services and DataLoaders.
+``adapters/inbound/graphql/schema.py`` using mocked services and DataLoaders.
 
 No Neo4j required — everything is stubbed.
 """
@@ -22,18 +22,18 @@ import pytest
 import strawberry
 from strawberry.types import Info
 
-from core.models.type_hints import UserUID
-from routes.graphql.config import validate_list_limit, validate_query_depth
-from routes.graphql.context import GraphQLContext, _batch_load, create_graphql_context
-from routes.graphql.query_helpers import unwrap_list, unwrap_optional, unwrap_result
-from routes.graphql.schema import (
+from adapters.inbound.graphql.config import validate_list_limit, validate_query_depth
+from adapters.inbound.graphql.context import GraphQLContext, _batch_load, create_graphql_context
+from adapters.inbound.graphql.query_helpers import unwrap_list, unwrap_optional, unwrap_result
+from adapters.inbound.graphql.schema import (
     Query,
     build_low_progress_blocker,
     build_missing_prerequisite_blocker,
     check_deprecated_content,
     create_graphql_schema,
 )
-from routes.graphql.types import Blocker, KnowledgeNode
+from adapters.inbound.graphql.types import Blocker, KnowledgeNode
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # Stubs and helpers
@@ -342,14 +342,14 @@ class TestValidateQueryDepth:
 
 class TestRequireUserUid:
     def test_returns_uid(self) -> None:
-        from routes.graphql.auth import require_user_uid
+        from adapters.inbound.graphql.auth import require_user_uid
 
         ctx = _make_context(user_uid="user_abc")
         info = _make_info(ctx)
         assert require_user_uid(info) == "user_abc"
 
     def test_raises_on_empty(self) -> None:
-        from routes.graphql.auth import require_user_uid
+        from adapters.inbound.graphql.auth import require_user_uid
 
         ctx = _make_context(user_uid="")
         info = _make_info(ctx)
@@ -360,7 +360,7 @@ class TestRequireUserUid:
 class TestResolveTargetUser:
     @pytest.mark.asyncio
     async def test_no_override_returns_caller(self) -> None:
-        from routes.graphql.auth import resolve_target_user
+        from adapters.inbound.graphql.auth import resolve_target_user
 
         ctx = _make_context(user_uid="user_caller")
         info = _make_info(ctx)
@@ -369,7 +369,7 @@ class TestResolveTargetUser:
 
     @pytest.mark.asyncio
     async def test_override_requires_admin(self) -> None:
-        from routes.graphql.auth import resolve_target_user
+        from adapters.inbound.graphql.auth import resolve_target_user
 
         user_service = AsyncMock()
         caller_user = MagicMock()
@@ -387,7 +387,7 @@ class TestResolveTargetUser:
 
     @pytest.mark.asyncio
     async def test_override_allowed_for_admin(self) -> None:
-        from routes.graphql.auth import resolve_target_user
+        from adapters.inbound.graphql.auth import resolve_target_user
 
         user_service = AsyncMock()
         caller_user = MagicMock()
@@ -405,7 +405,7 @@ class TestResolveTargetUser:
 
     @pytest.mark.asyncio
     async def test_override_no_user_service_raises(self) -> None:
-        from routes.graphql.auth import resolve_target_user
+        from adapters.inbound.graphql.auth import resolve_target_user
 
         services = MagicMock()
         services.user = None
@@ -517,7 +517,7 @@ class TestKnowledgeUnitsResolver:
 class TestSearchKnowledgeResolver:
     @pytest.mark.asyncio
     async def test_returns_results(self) -> None:
-        from routes.graphql.types import SearchInput
+        from adapters.inbound.graphql.types import SearchInput
 
         search_router = AsyncMock()
         search_response = FakeSearchResponse(
@@ -539,7 +539,7 @@ class TestSearchKnowledgeResolver:
 
     @pytest.mark.asyncio
     async def test_no_router_returns_empty(self) -> None:
-        from routes.graphql.types import SearchInput
+        from adapters.inbound.graphql.types import SearchInput
 
         ctx = _make_context(search_router=None, user_uid="user_test")
         info = _make_info(ctx)
@@ -549,7 +549,7 @@ class TestSearchKnowledgeResolver:
 
     @pytest.mark.asyncio
     async def test_error_returns_empty(self) -> None:
-        from routes.graphql.types import SearchInput
+        from adapters.inbound.graphql.types import SearchInput
 
         search_router = AsyncMock()
         search_router.faceted_search.return_value = FakeResult(error="search failed")
@@ -1306,7 +1306,7 @@ class TestDiscoverCrossDomainResolver:
 class TestMutationPlaceholder:
     @pytest.mark.asyncio
     async def test_placeholder(self) -> None:
-        from routes.graphql.schema import Mutation
+        from adapters.inbound.graphql.schema import Mutation
 
         result = await Mutation().placeholder()
         assert "REST API" in result
@@ -1352,7 +1352,7 @@ class TestCreateGraphqlSchema:
 class TestGraphQLQueryHelpers:
     @pytest.mark.asyncio
     async def test_get_prerequisites(self) -> None:
-        from routes.graphql.query_helpers import GraphQLQueryHelpers
+        from adapters.inbound.graphql.query_helpers import GraphQLQueryHelpers
 
         services = MagicMock()
         services.ps.get_prerequisites = AsyncMock(
@@ -1366,7 +1366,7 @@ class TestGraphQLQueryHelpers:
 
     @pytest.mark.asyncio
     async def test_get_prerequisites_no_service(self) -> None:
-        from routes.graphql.query_helpers import GraphQLQueryHelpers
+        from adapters.inbound.graphql.query_helpers import GraphQLQueryHelpers
 
         services = MagicMock()
         services.ps = None
@@ -1377,7 +1377,7 @@ class TestGraphQLQueryHelpers:
 
     @pytest.mark.asyncio
     async def test_get_enables(self) -> None:
-        from routes.graphql.query_helpers import GraphQLQueryHelpers
+        from adapters.inbound.graphql.query_helpers import GraphQLQueryHelpers
 
         services = MagicMock()
         services.ps.get_enables = AsyncMock(
@@ -1391,7 +1391,7 @@ class TestGraphQLQueryHelpers:
 
     @pytest.mark.asyncio
     async def test_get_enables_no_service(self) -> None:
-        from routes.graphql.query_helpers import GraphQLQueryHelpers
+        from adapters.inbound.graphql.query_helpers import GraphQLQueryHelpers
 
         services = MagicMock()
         services.ps = None
@@ -1402,7 +1402,7 @@ class TestGraphQLQueryHelpers:
 
     @pytest.mark.asyncio
     async def test_get_task_knowledge_returns_none(self) -> None:
-        from routes.graphql.query_helpers import GraphQLQueryHelpers
+        from adapters.inbound.graphql.query_helpers import GraphQLQueryHelpers
 
         ctx = _make_context()
         result = await GraphQLQueryHelpers.get_task_knowledge(ctx, "task_1")
@@ -1459,7 +1459,7 @@ class TestKnowledgeNodeResolvers:
 class TestTaskKnowledgeResolver:
     @pytest.mark.asyncio
     async def test_returns_none(self) -> None:
-        from routes.graphql.types import Task
+        from adapters.inbound.graphql.types import Task
 
         ctx = _make_context()
         info = _make_info(ctx)
@@ -1472,7 +1472,7 @@ class TestTaskKnowledgeResolver:
 class TestLearningPathStepsResolver:
     @pytest.mark.asyncio
     async def test_returns_steps(self) -> None:
-        from routes.graphql.types import LearningPath
+        from adapters.inbound.graphql.types import LearningPath
 
         steps = [
             FakePathStep(uid="ls_1", title="Step 1"),
@@ -1493,7 +1493,7 @@ class TestLearningPathStepsResolver:
 
     @pytest.mark.asyncio
     async def test_no_lp_service(self) -> None:
-        from routes.graphql.types import LearningPath
+        from adapters.inbound.graphql.types import LearningPath
 
         services = MagicMock()
         services.lp = None
@@ -1508,7 +1508,7 @@ class TestLearningPathStepsResolver:
 class TestPathStepKnowledgeResolver:
     @pytest.mark.asyncio
     async def test_found(self) -> None:
-        from routes.graphql.types import PathStep
+        from adapters.inbound.graphql.types import PathStep
 
         ku = FakeKU(uid="ku_1", title="Found")
         ctx = _make_context(knowledge_loader=_make_loader({"ku_1": ku}))
@@ -1528,7 +1528,7 @@ class TestPathStepKnowledgeResolver:
 
     @pytest.mark.asyncio
     async def test_not_found(self) -> None:
-        from routes.graphql.types import PathStep
+        from adapters.inbound.graphql.types import PathStep
 
         ctx = _make_context(knowledge_loader=_make_loader({}))
         info = _make_info(ctx)
@@ -1884,7 +1884,7 @@ class TestLearningProgressSubscription:
         A non-admin caller is rejected before any event-bus subscription —
         fail-closed, so the resolver never leaks another user's progress.
         """
-        from routes.graphql.schema import Subscription
+        from adapters.inbound.graphql.schema import Subscription
 
         user_service = AsyncMock()
         caller_user = MagicMock()
@@ -1910,7 +1910,7 @@ class TestLearningProgressSubscription:
     @pytest.mark.asyncio
     async def test_no_event_bus_yields_zero(self) -> None:
         """Line 1114-1118: no event bus yields 0.0 and returns."""
-        from routes.graphql.schema import Subscription
+        from adapters.inbound.graphql.schema import Subscription
 
         services = MagicMock()
         services.event_bus = None
@@ -1919,16 +1919,14 @@ class TestLearningProgressSubscription:
         info = _make_info(ctx)
 
         sub = Subscription()
-        values = [
-            v async for v in sub.learning_progress(info, path_uid="lp_1")
-        ]
+        values = [v async for v in sub.learning_progress(info, path_uid="lp_1")]
 
         assert values == [0.0]
 
     @pytest.mark.asyncio
     async def test_no_services_yields_zero(self) -> None:
         """Edge case: services object is falsy (line 1112)."""
-        from routes.graphql.schema import Subscription
+        from adapters.inbound.graphql.schema import Subscription
 
         # Bypass _make_context default to actually pass None for services
         ctx = GraphQLContext(
@@ -1943,9 +1941,7 @@ class TestLearningProgressSubscription:
         info = _make_info(ctx)
 
         sub = Subscription()
-        values = [
-            v async for v in sub.learning_progress(info, path_uid="lp_1")
-        ]
+        values = [v async for v in sub.learning_progress(info, path_uid="lp_1")]
 
         assert values == [0.0]
 
@@ -1954,7 +1950,7 @@ class TestLearningProgressSubscription:
         """Lines 1120-1142: event bus subscribes, handler filters, generator yields."""
         import asyncio
 
-        from routes.graphql.schema import Subscription
+        from adapters.inbound.graphql.schema import Subscription
 
         event_bus = MagicMock()
         captured_handler: list[Any] = []
@@ -2032,7 +2028,7 @@ class TestLearningProgressSubscription:
         """Line 1143-1146: TimeoutError triggers continue (keepalive), then next value yielded."""
         import asyncio
 
-        from routes.graphql.schema import Subscription
+        from adapters.inbound.graphql.schema import Subscription
 
         event_bus = MagicMock()
         captured_handler: list[Any] = []
@@ -2100,7 +2096,7 @@ class TestLearningProgressSubscription:
         """Line 1150-1153: exception in unsubscribe is silently caught."""
         import asyncio
 
-        from routes.graphql.schema import Subscription
+        from adapters.inbound.graphql.schema import Subscription
 
         event_bus = MagicMock()
         captured_handler: list[Any] = []

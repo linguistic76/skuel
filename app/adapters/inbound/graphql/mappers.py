@@ -18,13 +18,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from routes.graphql.protocols import (
+    from adapters.inbound.graphql.protocols import (
         KnowledgeNodeLike,
         LearningPathLike,
         PathStepMappable,
         TaskLike,
     )
-    from routes.graphql.types import KnowledgeNode, LearningPath, PathStep, Task
+    from adapters.inbound.graphql.types import KnowledgeNode, LearningPath, PathStep, Task
 
 
 def knowledge_node_from_dto(dto: KnowledgeNodeLike) -> KnowledgeNode:
@@ -33,7 +33,7 @@ def knowledge_node_from_dto(dto: KnowledgeNodeLike) -> KnowledgeNode:
     Accepts PathStep, CurriculumDTO, EntityDTO, or any object satisfying
     KnowledgeNodeLike protocol.
     """
-    from routes.graphql.types import KnowledgeNode
+    from adapters.inbound.graphql.types import KnowledgeNode
 
     return KnowledgeNode(
         uid=dto.uid,
@@ -47,7 +47,7 @@ def knowledge_node_from_dto(dto: KnowledgeNodeLike) -> KnowledgeNode:
 
 def knowledge_node_from_search_dict(item: dict[str, Any]) -> KnowledgeNode:
     """Convert a SearchRouter faceted_search result dict to KnowledgeNode."""
-    from routes.graphql.types import KnowledgeNode
+    from adapters.inbound.graphql.types import KnowledgeNode
 
     return KnowledgeNode(
         uid=item.get("uid", ""),
@@ -61,7 +61,7 @@ def knowledge_node_from_search_dict(item: dict[str, Any]) -> KnowledgeNode:
 
 def task_from_dto(dto: TaskLike) -> Task:
     """Convert a Task domain model to GraphQL Task type."""
-    from routes.graphql.types import Task
+    from adapters.inbound.graphql.types import Task
 
     return Task(
         uid=dto.uid,
@@ -74,7 +74,7 @@ def task_from_dto(dto: TaskLike) -> Task:
 
 def learning_path_from_dto(dto: LearningPathLike) -> LearningPath:
     """Convert a LP domain model to GraphQL LearningPath type."""
-    from routes.graphql.types import LearningPath
+    from adapters.inbound.graphql.types import LearningPath
 
     return LearningPath(
         uid=dto.uid,
@@ -100,7 +100,7 @@ def path_step_from_domain(step: PathStepMappable, step_number: int) -> PathStep:
     Returns:
         PathStep GraphQL DTO with only fields needed by API
     """
-    from routes.graphql.types import PathStep
+    from adapters.inbound.graphql.types import PathStep
 
     return PathStep(
         step_number=step_number,

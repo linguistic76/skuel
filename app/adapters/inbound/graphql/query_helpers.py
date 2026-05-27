@@ -15,14 +15,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from adapters.inbound.graphql.context import GraphQLContext
 from core.utils.logging import get_logger
-from routes.graphql.context import GraphQLContext
 
 if TYPE_CHECKING:
+    from adapters.inbound.graphql.types import KnowledgeNode
     from core.utils.result_simplified import Result
-    from routes.graphql.types import KnowledgeNode
 
-from routes.graphql.mappers import knowledge_node_from_dto
+from adapters.inbound.graphql.mappers import knowledge_node_from_dto
 
 logger = get_logger("skuel.graphql.query_helpers")
 
