@@ -70,13 +70,16 @@ result = await tasks_search.search("urgent deadline", user_uid="user.123")
 
 ```python
 request = SearchRequest(
-    query="python",
-    filters={"domain": "tech"},
-    graph_patterns=["ready_to_learn", "supports_goals"],
-    user_uid="user.123"
+    query_text="python",
+    domain=Domain.KNOWLEDGE,
+    ready_to_learn=True,   # relationship filters are first-class bool fields
+    supports_goals=True,
+    user_uid="user.123",
 )
-result = await ku_search.graph_aware_faceted_search(request)
+result = await ku_search.graph_aware_faceted_search(request, user_uid="user.123")
 ```
+
+> Relationship filters are boolean fields on `SearchRequest` (not a `graph_patterns` list). The service captures the active set via `request.to_relationship_filters()` and the backend authors the Cypher below the boundary (ADR-044).
 
 #### `search_by_tags(tags: list[str], match_all: bool = False, user_uid: UserUID | None = None) -> Result[list[Model]]`
 Array field search with AND/OR semantics.
@@ -533,13 +536,13 @@ result = await router.faceted_search(SearchRequest(
 ### Graph-aware search with relationship filters
 
 ```python
-# Find KUs connected to ones you've mastered
+# Find KUs whose prerequisites you've already mastered
 request = SearchRequest(
-    query="advanced",
-    graph_patterns=["ready_to_learn"],  # Has prerequisites mastered
-    user_uid="user.123"
+    query_text="advanced",
+    ready_to_learn=True,  # boolean relationship-filter field
+    user_uid="user.123",
 )
-result = await ku_search.graph_aware_faceted_search(request)
+result = await ku_search.graph_aware_faceted_search(request, user_uid="user.123")
 ```
 
 ---
