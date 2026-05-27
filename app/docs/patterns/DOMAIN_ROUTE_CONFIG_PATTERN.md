@@ -145,15 +145,13 @@ When sub-configs are present, `register_domain_routes()` executes in this order:
 - Services override inherited CRUD methods for domain-specific logic (events, authority checks, ownership)
 
 
-**2026-02-03: UI Factory Signature Standardization**
-- All UI factories now accept standard `services: Any = None` parameter
-- Removed domain-specific `ui_related_services` configurations
-- UI routes can access related services via the services container if needed
-- See migration doc: `/docs/migrations/UI_FACTORY_SIGNATURE_STANDARDIZATION_2026-02-03.md`
+**2026-02-03: UI Factory Signature Standardization (superseded)**
+- A 2026-02-03 pass tried to standardize all UI factories on a single `services: Any = None` container. The codebase did **not** retain this — current UI factories take their related services as explicit **named kwargs** injected via `ui_related_services` (see § Service Mapping Contract and Example 2). The surviving `services`/`user_service: Any = None` params are vestigial, commented `# kept for DomainRouteConfig signature compat`.
+- Historical record (point-in-time, not current guidance): `/docs/migrations/UI_FACTORY_SIGNATURE_STANDARDIZATION_2026-02-03.md`
 
 ### Service Mapping Contract
 
-The `api_related_services` dictionary uses a specific mapping pattern (note: `ui_related_services` is now deprecated as of 2026-02-03):
+Both `api_related_services` and `ui_related_services` use the same `{kwarg_name: container_attr}` mapping pattern — `register_domain_routes()` resolves each entry and passes it to the factory as a named kwarg:
 
 ```python
 {
@@ -344,23 +342,26 @@ def create_{domain}_api_routes(
     return []
 ```
 
-### UI Factory Signature (Standardized 2026-02-03)
+### UI Factory Signature
 
 ```python
 def create_{domain}_ui_routes(
-    _app: Any,
-    rt: Any,
-    primary_service: ServiceType,
-    services: Any = None,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    {domain}_service: ServiceType,
+    # Related services are injected BY NAME via ui_related_services — each an explicit kwarg:
+    connection_fetch_backend: ConnectionFetchOperations,
+    goals_service: GoalsService | None = None,   # optional ones default to None
 ) -> list[Any]:
     """
     Create {domain} UI routes.
 
     Args:
-        _app: FastHTML application instance (unused, kept for signature consistency)
+        app: FastHTML application instance
         rt: Route decorator
-        primary_service: {Domain}Service instance
-        services: Full services container (unused, kept for API compatibility)
+        {domain}_service: {Domain}Service instance (primary service, positional)
+        connection_fetch_backend / goals_service / ...: related services injected by
+            name via ui_related_services (kwarg_name must match the param name)
 
     Returns:
         Empty list (sub-factory contract — DomainRouteConfig calls .extend() on result)
@@ -370,16 +371,15 @@ def create_{domain}_ui_routes(
 ```
 
 **Key requirements:**
-1. **First param:** `app` (FastHTML app instance, prefixed with `_` in UI factories if unused)
+1. **First param:** `app` (FastHTML app instance, prefixed with `_` only if unused)
 2. **Second param:** `rt` (route decorator)
-3. **Third param:** `primary_service` (the domain's main service)
-4. **Fourth param (UI only):** `services: Any = None` (standard container parameter)
-5. **Kwargs (API only):** `**related_services` with defaults (e.g., `user_service: Any = None`)
-6. **Two-layer return contract:**
+3. **Third param:** `primary_service` (the domain's main service, positional)
+4. **Related services (both API and UI):** declared as explicit **named** kwargs, injected by `register_domain_routes()` from `api_related_services` / `ui_related_services`. Required ones (e.g. `connection_fetch_backend` since PR #75) have no default; optional ones default to `None`. The registration path passes only `primary_service` + these named kwargs — it does **not** inject a whole `services` container.
+5. **Two-layer return contract:**
    - **Sub-factories** (`api_factory`/`ui_factory`): return `list[Any]` — never `None`. `register_domain_routes()` calls `.extend()` on the result.
    - **Top-level orchestrators** (`create_{domain}_routes`): return `None` — bootstrap discards the value.
 
-**Note:** UI factories use a standardized `services` parameter instead of `**related_services` kwargs for consistency across all domains.
+**Note:** A whole-`services` container is the convention for the separate **Orchestrator / Manual hub** wiring (home, explore, today, settings, lifepath, system — wired by hand in bootstrap), not for the DomainRouteConfig path, which injects named services via `ui_related_services`.
 
 ## Route Wiring Patterns
 
@@ -603,13 +603,15 @@ HABITS_CONFIG = DomainRouteConfig(
         "user_service": "user",  # user_service=services.user
         "goals_service": "goals",  # goals_service=services.goals
     },
+    ui_related_services={
+        "connection_fetch_backend": "connection_fetch_backend",  # → UI factory kwarg (PR #75)
+    },
 )
 ```
 
 **Key features:**
-- API factory needs user_service and goals_service
-- UI factory uses standard `services` parameter (no ui_related_services needed)
-- Demonstrates standardized UI factory signature (2026-02-03 update)
+- API factory needs user_service and goals_service (via `api_related_services`)
+- UI factory receives `connection_fetch_backend` (the `ConnectionFetchOperations` port) as a named kwarg via `ui_related_services` — same mapping mechanism, UI side
 
 ### Example 3: Multi-Service with UI Dependencies (Finance)
 
@@ -786,7 +788,7 @@ LIFEPATH_CONFIG = DomainRouteConfig(
 - Self-contained service facade (no api_related_services needed)
 - All dependencies accessed via facade sub-services (.core, .alignment, .vision, .intelligence)
 - Complex drawer layout UI with 7 presentation helper functions
-- Standard 2026-02-03 UI factory signature: `services: Any = None`
+- Carries a vestigial `services: Any = None` param (left over from the 2026-02-03 pass) — it stays `None` because `ui_related_services` is empty here; the factory needs no injected services (self-contained via the facade)
 - Main file reduced from 589 → 32 lines (94.6% reduction)
 - Demonstrates that even complex drawer layouts work with DomainRouteConfig
 
@@ -1171,8 +1173,8 @@ Logs show "API routes: 15 endpoints" but no "UI routes: X endpoints"
 
 **Fix:**
 1. Verify `ui_factory` is set: `ui_factory=create_{domain}_ui_routes`
-2. Ensure UI factory uses standard signature: `def create_{domain}_ui_routes(_app, rt, {domain}_service, services=None)`
-3. As of 2026-02-03, `ui_related_services` is deprecated - UI factories use standard `services` parameter
+2. Ensure the UI factory signature matches: `def create_{domain}_ui_routes(app, rt, {domain}_service, <named related services>)` — related services are positional/keyword params, not a `services` container
+3. If the UI factory needs related services (e.g. `connection_fetch_backend`), wire them via `ui_related_services={"kwarg_name": "container_attr"}` so `register_domain_routes()` injects them by name
 
 ### Issue: TypeError with api_factory=None (UI-only pattern)
 
