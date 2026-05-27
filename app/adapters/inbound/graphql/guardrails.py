@@ -19,7 +19,7 @@ native Strawberry equivalent (depth / token / alias limits use the built-ins):
   single runaway field is bounded (the whole-operation ceiling is enforced
   separately at the adapter boundary, see ``graphql_routes.py``).
 
-See: routes/graphql/config.py (the limits), routes/graphql/schema.py (wiring).
+See: adapters/inbound/graphql/config.py (the limits), adapters/inbound/graphql/schema.py (wiring).
 """
 
 from __future__ import annotations
@@ -28,8 +28,6 @@ import asyncio
 import inspect
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
-
-from strawberry.extensions import AddValidationRules, SchemaExtension
 
 from graphql import (
     GraphQLError,
@@ -49,6 +47,7 @@ from graphql.language import (
     OperationDefinitionNode,
 )
 from graphql.validation import ValidationRule
+from strawberry.extensions import AddValidationRules, SchemaExtension
 
 if TYPE_CHECKING:
     from collections.abc import Callable

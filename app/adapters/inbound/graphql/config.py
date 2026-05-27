@@ -22,7 +22,7 @@ class GraphQLConfig:
     concern that already has a home in ``DatabaseConfig.query_timeout`` and
     governs the app-wide executor, not just GraphQL.
 
-    See: routes/graphql/guardrails.py (complexity + resolver-timeout extensions),
+    See: adapters/inbound/graphql/guardrails.py (complexity + resolver-timeout extensions),
     adapters/inbound/graphql_routes.py (request timeout), schema.py (wiring).
     """
 

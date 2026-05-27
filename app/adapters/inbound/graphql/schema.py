@@ -25,27 +25,27 @@ from strawberry.types import (
     Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
 )
 
+from adapters.inbound.graphql.auth import require_user_uid, resolve_target_user
+from adapters.inbound.graphql.config import get_graphql_config, validate_list_limit
+from adapters.inbound.graphql.context import GraphQLContext
+from adapters.inbound.graphql.guardrails import QueryComplexityLimiter, ResolverTimeoutExtension
 from core.constants import ConfidenceLevel, QueryLimit
 from core.models.enums import Domain
 from core.services.adaptive_lp_types import KnowledgeState
-from routes.graphql.auth import require_user_uid, resolve_target_user
-from routes.graphql.config import get_graphql_config, validate_list_limit
-from routes.graphql.context import GraphQLContext
-from routes.graphql.guardrails import QueryComplexityLimiter, ResolverTimeoutExtension
 
 if TYPE_CHECKING:
+    from adapters.inbound.graphql.protocols import CurriculumEntityLike, PathStepLike
     from core.models.pathways.path_step import PathStep as LsModel
     from core.utils.result_simplified import Result
-    from routes.graphql.protocols import CurriculumEntityLike, PathStepLike
-from routes.graphql.mappers import (
+from adapters.inbound.graphql.mappers import (
     knowledge_node_from_dto,
     knowledge_node_from_search_dict,
     learning_path_from_dto,
     path_step_from_domain,
     task_from_dto,
 )
-from routes.graphql.query_helpers import unwrap_list, unwrap_result
-from routes.graphql.types import (
+from adapters.inbound.graphql.query_helpers import unwrap_list, unwrap_result
+from adapters.inbound.graphql.types import (
     Blocker,
     CrossDomainOpportunity,
     DashboardData,
@@ -640,7 +640,7 @@ class Query:
         Returns:
             Complete prerequisite tree with mastery status
         """
-        from routes.graphql.types import PrerequisiteNode
+        from adapters.inbound.graphql.types import PrerequisiteNode
 
         context: GraphQLContext = info.context
 
@@ -776,7 +776,7 @@ class Query:
         Returns:
             Complete dependency graph with nodes and edges
         """
-        from routes.graphql.types import DependencyEdge
+        from adapters.inbound.graphql.types import DependencyEdge
 
         context: GraphQLContext = info.context
 

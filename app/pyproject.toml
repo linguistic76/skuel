@@ -175,7 +175,7 @@ show_column_numbers = true
 show_error_context = true
 
 # Files to check (gradual migration strategy)
-files = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui", "routes"]
+files = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui"]
 exclude = [
     "build/",
     "dist/",
@@ -255,11 +255,11 @@ warn_unreachable = true
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-# Bootstrap + routes: no frozen-dataclass post-init normalization or Neo4j
+# Bootstrap: no frozen-dataclass post-init normalization or Neo4j
 # JSON-string boundary here, so warn_unreachable catches dead defensive
 # code without false positives. See pyproject.toml:154 for why this is
 # scoped per-module rather than enabled globally.
-module = ["services_bootstrap.*", "routes.*"]
+module = ["services_bootstrap.*"]
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
@@ -323,7 +323,7 @@ warn_return_any = true
 [[tool.mypy.overrides]]
 # GraphQL schema files - Strawberry generates __init__ methods dynamically
 # MyPy doesn't understand Strawberry's @strawberry.type decorator
-module = ["routes.graphql.*"]
+module = ["adapters.inbound.graphql.*"]
 disable_error_code = ["call-arg", "misc"]  # Disable constructor argument checking for Strawberry types
 warn_return_any = false
 
@@ -371,7 +371,7 @@ disable_error_code = ["method-assign", "type-var", "misc"]
 # See: docs/patterns/linter_rules.md § Pyright
 
 [tool.pyright]
-include = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui", "routes"]
+include = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui"]
 exclude = [
     "**/__pycache__",
     ".venv",
@@ -439,12 +439,11 @@ pythonpath = ["."]
 # Note: --cov-fail-under removed because different test types have different coverage expectations
 # - Integration tests: Focus on core/services (high coverage expected)
 # - Service tests: Include core + adapters (medium coverage expected)
-# - Full suite: Includes UI/routes (lower coverage is normal - UI not tested)
+# - Full suite: Includes UI (lower coverage is normal - UI not tested)
 addopts = [
     "--cov=core",
     "--cov=adapters",
     "--cov=components",
-    "--cov=routes",
     "--cov-report=html:htmlcov",
     "--cov-report=term-missing",
     "--cov-report=xml",
@@ -657,7 +656,6 @@ fixable = ["ALL"]
 "adapters/inbound/*ui*.py" = ["F405", "RUF001", "ARG001", "ARG004", "ANN202"]  # UI components + request param + no return types
 "adapters/inbound/*_routes.py" = ["F405", "ARG001", "ANN202", "F811"]  # Route handlers + FastHTML + duplicate imports
 "adapters/inbound/*_api.py" = ["RUF003", "ARG001", "ARG005", "ANN202"]  # API routes + unused params (incl lambda) + no return types
-"routes/**/*.py" = ["F405"]                                # Route files use FastHTML star imports
 
 # UI component files - PascalCase function names are intentional (FastHTML convention)
 "adapters/inbound/*_components.py" = ["N802"]       # UI component functions use PascalCase
@@ -715,7 +713,7 @@ fixable = ["ALL"]
 "core/models/relationships/*.py" = ["F822", "ARG003", "PERF401"]  # Re-exports + class methods + performance patterns
 
 # GraphQL schema - Strawberry patterns
-"routes/graphql/*.py" = ["RUF001", "ARG", "F811", "F822", "PERF", "SIM105"]  # Framework patterns + subscriptions
+"adapters/inbound/graphql/*.py" = ["RUF001", "ARG", "F811", "F822", "PERF", "SIM105"]  # Framework patterns + subscriptions
 
 # Core models - query models have protocol-based interfaces
 "core/models/query/_query_models.py" = ["ARG001"]  # Query model protocols need consistent signatures

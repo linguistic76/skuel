@@ -47,7 +47,7 @@ async def knowledge_units(self, info: Info, limit: int | None = None) -> list[Kn
 **Location of Cypher Queries:**
 - ✅ `/adapters/persistence/neo4j/` - Backend implementations
 - ✅ `/adapters/persistence/neo4j/query/` - Query builders
-- ❌ `/routes/graphql/` - GraphQL resolvers (NO Cypher here!)
+- ❌ `/adapters/inbound/graphql/` - GraphQL resolvers (NO Cypher here!)
 
 ---
 
@@ -63,7 +63,7 @@ async def knowledge_units(self, info: Info, limit: int | None = None) -> list[Kn
 **Implementation:**
 
 ```python
-# Configuration (/routes/graphql/config.py)
+# Configuration (/adapters/inbound/graphql/config.py)
 @dataclass
 class GraphQLConfig:
     max_list_size: int = 100        # Maximum items in any list
@@ -183,7 +183,7 @@ async def knowledge_unit(
     return knowledge_node_from_dto(ku)
 
 # ✅ EVEN BETTER - Use unwrap_result() helper for list queries
-from routes.graphql.query_helpers import unwrap_result
+from adapters.inbound.graphql.query_helpers import unwrap_result
 
 result = await context.services.ps.core.list(limit=safe_limit, filters=filters)
 entities, _count = unwrap_result(result, ([], 0))
@@ -286,10 +286,10 @@ async def test_depth_guardrail():
 
 ## Configuration
 
-All guardrail settings in `/routes/graphql/config.py`:
+All guardrail settings in `/adapters/inbound/graphql/config.py`:
 
 ```python
-from routes.graphql.config import GraphQLConfig, get_graphql_config
+from adapters.inbound.graphql.config import GraphQLConfig, get_graphql_config
 
 # Get current configuration
 config = get_graphql_config()

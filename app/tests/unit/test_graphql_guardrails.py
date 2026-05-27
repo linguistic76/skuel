@@ -1,8 +1,8 @@
 # mypy: disable-error-code="call-arg,misc"
 # Strawberry decorators generate __init__ dynamically; mypy can't see the
-# inferred constructor args. Mirrors the routes.graphql.* override.
+# inferred constructor args. Mirrors the adapters.inbound.graphql.* override.
 """
-Unit tests for GraphQL guardrail extensions (routes/graphql/guardrails.py).
+Unit tests for GraphQL guardrail extensions (adapters/inbound/graphql/guardrails.py).
 
 Covers the two custom extensions with no native Strawberry equivalent:
 - QueryComplexityLimiter — additive, type-weighted field-cost budget
@@ -23,7 +23,7 @@ import warnings
 import pytest
 import strawberry
 
-from routes.graphql.guardrails import QueryComplexityLimiter, ResolverTimeoutExtension
+from adapters.inbound.graphql.guardrails import QueryComplexityLimiter, ResolverTimeoutExtension
 
 
 @strawberry.type
@@ -129,7 +129,7 @@ class TestResolverTimeoutExtension:
 class TestSchemaExtensionWiring:
     def test_create_graphql_schema_has_no_instance_deprecation(self) -> None:
         """Extensions must be factory callables, not instances (Strawberry deprecation)."""
-        from routes.graphql.schema import create_graphql_schema
+        from adapters.inbound.graphql.schema import create_graphql_schema
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")

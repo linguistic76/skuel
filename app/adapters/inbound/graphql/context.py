@@ -11,9 +11,9 @@ from typing import Any
 
 from strawberry.dataloader import DataLoader
 
+from adapters.inbound.graphql.config import get_graphql_config
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from routes.graphql.config import get_graphql_config
 from services_bootstrap import Services
 
 logger = get_logger(__name__)

@@ -10,14 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from routes.graphql.mappers import (
+from adapters.inbound.graphql.mappers import (
     knowledge_node_from_dto,
     knowledge_node_from_search_dict,
     learning_path_from_dto,
     path_step_from_domain,
     task_from_dto,
 )
-from routes.graphql.types import KnowledgeNode, LearningPath, PathStep, Task
+from adapters.inbound.graphql.types import KnowledgeNode, LearningPath, PathStep, Task
 
 # --------------------------------------------------------------------------
 # Minimal protocol-satisfying stubs

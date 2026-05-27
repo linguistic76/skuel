@@ -31,9 +31,9 @@ from fasthtml.common import (
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
+from adapters.inbound.graphql.config import get_graphql_config
 from core.utils.logging import get_logger
-from routes.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
-from routes.graphql.config import get_graphql_config
 from services_bootstrap import Services
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody, CardHeader, CardTitle

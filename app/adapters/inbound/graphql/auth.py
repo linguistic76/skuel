@@ -22,9 +22,9 @@ from strawberry.types import (
     Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
 )
 
+from adapters.inbound.graphql.context import GraphQLContext
 from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
-from routes.graphql.context import GraphQLContext
 
 
 def require_user_uid(info: Info[GraphQLContext, Any]) -> UserUID:

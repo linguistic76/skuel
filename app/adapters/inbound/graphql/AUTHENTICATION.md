@@ -11,7 +11,7 @@ Authentication is a **two-layer** system:
 | Layer | Responsibility | Module |
 |-------|---------------|--------|
 | **HTTP** | Reject unauthenticated requests (401) | `adapters/inbound/graphql_routes.py` |
-| **Resolver** | Extract user_uid from context (defense-in-depth) | `routes/graphql/auth.py` |
+| **Resolver** | Extract user_uid from context (defense-in-depth) | `adapters/inbound/graphql/auth.py` |
 
 ### Error Strategy (March 2026)
 
@@ -49,7 +49,7 @@ Authentication is a **two-layer** system:
 Standard way to get the authenticated user in resolvers. Use when the resolver always operates on the current user's data.
 
 ```python
-from routes.graphql.auth import require_user_uid
+from adapters.inbound.graphql.auth import require_user_uid
 
 @strawberry.field
 async def tasks(self, info: Info[GraphQLContext, Any]) -> list[Task]:
@@ -62,7 +62,7 @@ async def tasks(self, info: Info[GraphQLContext, Any]) -> list[Task]:
 For resolvers that accept an optional `user_uid` override (admin queries). Falls back to the authenticated user. When a `user_uid` override is provided, the caller must have ADMIN role — raises `PermissionError` otherwise.
 
 ```python
-from routes.graphql.auth import resolve_target_user
+from adapters.inbound.graphql.auth import resolve_target_user
 
 @strawberry.field
 async def learning_path_with_context(
