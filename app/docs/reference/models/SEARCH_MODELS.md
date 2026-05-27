@@ -211,21 +211,21 @@ def get_graph_label() -> str | None:
     #          "tasks" → "Task"
 ```
 
-#### to_graph_patterns()
+#### to_relationship_filters()
 
-Convert relationship filters to Cypher graph patterns.
+Capture the active relationship-filter flags as transport intent.
 
 ```python
-def to_graph_patterns() -> dict[str, str]:
+def to_relationship_filters() -> RelationshipFilters:
     """
-    Convert boolean flags into Cypher relationship patterns.
-    Core of graph-native search.
+    Capture the boolean relationship flags as a frozen RelationshipFilters
+    intent that crosses the hexagonal boundary.
 
-    Returns: {pattern_name: cypher_where_clause}
+    Returns: RelationshipFilters (pure data — no Cypher)
     """
 ```
 
-**Note:** Patterns reference `$user_uid` as a Cypher query parameter placeholder. The actual user_uid value is provided at query execution time.
+**Boundary (ADR-044):** A core model must not author Cypher (SKUEL021). The flag→Cypher-fragment mapping lives **below the boundary** in `adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py::build_relationship_filter_fragments`. Those fragments anchor on `(entity)` and reference `$user_uid` as a Cypher query parameter placeholder (filled at execution time). This replaced the former `to_graph_patterns() -> dict[str, str]`, which authored Cypher in `core/` — the "inverted boundary" anti-pattern.
 
 #### has_relationship_filters()
 

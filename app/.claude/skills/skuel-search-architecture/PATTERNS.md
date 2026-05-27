@@ -98,7 +98,7 @@ search_request = SearchRequest(
 **Trade-offs**:
 - Facets are first-class `SearchRequest` fields (not buried in dicts) — type-safe
 - `to_property_filters()` converts enum values to strings for Cypher
-- `to_graph_patterns()` generates EXISTS subqueries for graph pattern filters
+- `to_relationship_filters()` captures the active relationship flags as a frozen `RelationshipFilters` intent — the EXISTS subqueries are authored **below the boundary** (ADR-044), not in the request model (SKUEL021)
 
 **Real-world usage**: `search_routes.py` → `SearchRouter.faceted_search()`
 
@@ -154,7 +154,7 @@ request = SearchRequest(
 | `viewed_not_mastered` | User has VIEWED but not MASTERED |
 | `ready_to_review` | MASTERED but due for review |
 
-**Real-world usage**: `search_routes.py` checkboxes → `SearchRequest.to_graph_patterns()`
+**Real-world usage**: `search_routes.py` checkboxes → `SearchRequest` bool fields → `to_relationship_filters()` → (below the boundary) `build_relationship_filter_fragments()` → Cypher EXISTS subqueries in `faceted_search_raw`
 
 ---
 

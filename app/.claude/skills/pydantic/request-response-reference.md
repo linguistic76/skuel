@@ -416,14 +416,18 @@ class SearchRequest(BaseModel):
             filters["domain"] = self.domain.value
         return filters
 
-    def to_graph_patterns(self) -> dict[str, str]:
-        """Convert boolean filters to Cypher EXISTS patterns"""
-        patterns = {}
-        if self.ready_to_learn:
-            patterns["ready_to_learn"] = "NOT EXISTS { ... }"
-        if self.supports_goals:
-            patterns["supports_goals"] = "EXISTS { ... }"
-        return patterns
+    def to_relationship_filters(self) -> RelationshipFilters:
+        """Capture active relationship flags as a frozen intent (NOT Cypher).
+
+        A request model must not author Cypher (SKUEL021 / ADR-044). It hands
+        the active-flag *intent* down; the flag→Cypher mapping lives below the
+        boundary in adapters/.../relationship_filter_fragments.py.
+        """
+        return RelationshipFilters(
+            ready_to_learn=self.ready_to_learn,
+            supports_goals=self.supports_goals,
+            ...
+        )
 
     def has_graph_filters(self) -> bool:
         """Check if any graph-aware filters are active"""
