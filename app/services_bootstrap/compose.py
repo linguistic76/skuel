@@ -272,9 +272,12 @@ async def compose_services(
         # ========================================================================
         # CREATE DOMAIN BACKENDS (100% Dynamic Pattern)
         # ========================================================================
-        backends = create_all_backends(driver, prometheus_metrics=prometheus_metrics)
+        backends = create_all_backends(
+            driver, query_executor, prometheus_metrics=prometheus_metrics
+        )
 
         # Unpack backends for readability
+        connection_fetch_backend = backends["connection_fetch_backend"]
         tasks_backend = backends["tasks_backend"]
         events_backend = backends["events_backend"]
         habits_backend = backends["habits_backend"]
@@ -1423,6 +1426,7 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
             neo4j_driver=driver,
             query_executor=query_executor,
+            connection_fetch_backend=connection_fetch_backend,  # Activity UI connections
             insight_store=insight_store,  # Event-driven insights
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,

@@ -26,7 +26,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
-from core.utils.connection_fetcher import TASK_CONNECTION_CONFIG
+from core.utils.connection_configs import TASK_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_tasks
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
@@ -38,6 +38,7 @@ from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.tasks_service import TasksService
@@ -49,6 +50,7 @@ def create_tasks_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     tasks_service: TasksService,
+    connection_fetch_backend: ConnectionFetchOperations,
     user_service: Any = None,  # kept for DomainRouteConfig signature compat
     goals_service: GoalsService | None = None,
     habits_service: HabitsService | None = None,
@@ -61,7 +63,7 @@ def create_tasks_ui_routes(
         filter_params=(("status", "active"), ("priority", "all"), ("sort_by", "priority")),
         get_all=tasks_service.get_user_tasks,
         get_one=tasks_service.get_task,
-        backend=tasks_service.core.backend,
+        backend=connection_fetch_backend,
         filter_fn=filter_tasks,
         connection_config=TASK_CONNECTION_CONFIG,
         filter_config=FILTER_CONFIGS["tasks"],

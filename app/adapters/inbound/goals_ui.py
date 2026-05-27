@@ -25,7 +25,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
-from core.utils.connection_fetcher import GOAL_CONNECTION_CONFIG
+from core.utils.connection_configs import GOAL_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_goals
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
@@ -37,6 +37,7 @@ from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
 
 logger = get_logger("skuel.routes.goals_ui")
@@ -46,6 +47,7 @@ def create_goals_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     goals_service: GoalsService,
+    connection_fetch_backend: ConnectionFetchOperations,
 ) -> list[Any]:
     """Register Goals UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
@@ -55,7 +57,7 @@ def create_goals_ui_routes(
         filter_params=(("status", "active"), ("sort_by", "target_date")),
         get_all=goals_service.get_user_goals,
         get_one=goals_service.get_goal,
-        backend=goals_service.core.backend,
+        backend=connection_fetch_backend,
         filter_fn=filter_goals,
         connection_config=GOAL_CONNECTION_CONFIG,
         filter_config=FILTER_CONFIGS["goals"],

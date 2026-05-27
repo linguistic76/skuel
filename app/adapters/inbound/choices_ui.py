@@ -24,7 +24,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
-from core.utils.connection_fetcher import CHOICE_CONNECTION_CONFIG
+from core.utils.connection_configs import CHOICE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_choices
 from core.utils.logging import get_logger
 from ui.activities.choices_form import ChoiceCreateForm, ChoiceEditForm
@@ -36,6 +36,7 @@ from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.choices_service import ChoicesService
 
 logger = get_logger("skuel.routes.choices_ui")
@@ -45,6 +46,7 @@ def create_choices_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     choices_service: ChoicesService,
+    connection_fetch_backend: ConnectionFetchOperations,
 ) -> list[Any]:
     """Register Choices UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
@@ -54,7 +56,7 @@ def create_choices_ui_routes(
         filter_params=(("status", "pending"), ("sort_by", "deadline")),
         get_all=choices_service.get_user_choices,
         get_one=choices_service.get_choice,
-        backend=choices_service.core.backend,
+        backend=connection_fetch_backend,
         filter_fn=filter_choices,
         connection_config=CHOICE_CONNECTION_CONFIG,
         filter_config=FILTER_CONFIGS["choices"],
