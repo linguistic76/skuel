@@ -2,8 +2,16 @@
 Neo4j Connection Wrapper
 ========================
 
-Simple connection wrapper for Neo4j database operations.
-Used by migration and index scripts.
+The app-wide Neo4j connection. ``get_connection()`` is the singleton accessor used
+at the composition root (``services_bootstrap``) to build the shared ``AsyncDriver``,
+and ``Neo4jConnection`` is also instantiated directly by migration / index scripts.
+
+Driver-level timeouts and pool sizing come from ``DatabaseConfig`` and are applied
+here at ``AsyncGraphDatabase.driver(...)``. These bound connection establishment,
+pool acquisition, and managed-transaction retry — they do NOT cap a single query's
+execution time. A per-query server-side timeout (``neo4j.Query(timeout=)``) has no
+single chokepoint (the ``UniversalNeo4jBackend`` mixins each open their own sessions)
+and is tracked as a separate persistence-layer task.
 """
 
 __version__ = "1.0"
@@ -26,8 +34,10 @@ _connection_instance = None
 
 
 class Neo4jConnection:
-    """
-    Simple Neo4j connection wrapper for script operations.
+    """Neo4j connection wrapper backing the app-wide ``get_connection()`` singleton.
+
+    Also instantiated directly by scripts. Applies driver-level timeout / pool config
+    from ``DatabaseConfig``.
     """
 
     def __init__(
@@ -65,13 +75,36 @@ class Neo4jConnection:
             or get_credential("NEO4J_PASSWORD", fallback_to_env=True)
         )
 
+        # Driver-level timeouts / pool config from DatabaseConfig (Stage-agnostic,
+        # .env-tunable). Bounds connection establishment, pool acquisition, and
+        # managed-transaction retry — NOT a single query's execution time.
+        self._driver_config: dict[str, Any] = {
+            "connection_timeout": float(getattr(db_config, "connection_timeout", 30.0)),
+            "connection_acquisition_timeout": float(
+                getattr(db_config, "connection_acquisition_timeout", 60.0)
+            ),
+            "max_transaction_retry_time": float(getattr(db_config, "max_retry_time", 30.0)),
+            "max_connection_pool_size": int(getattr(db_config, "max_connection_pool_size", 50)),
+            "max_connection_lifetime": int(getattr(db_config, "max_connection_lifetime", 3600)),
+        }
+
         self.driver: AsyncDriver | None = None
 
     async def connect(self) -> AsyncDriver:
         """Establish connection to Neo4j and return the live driver."""
         if not self.driver:
-            self.driver = AsyncGraphDatabase.driver(self.uri, auth=(self.username, self.password))
-            logger.info(f"Connected to Neo4j at {self.uri}")
+            self.driver = AsyncGraphDatabase.driver(
+                self.uri, auth=(self.username, self.password), **self._driver_config
+            )
+            logger.info(
+                "Connected to Neo4j at %s (connection_timeout=%ss, acquisition_timeout=%ss, "
+                "max_transaction_retry_time=%ss, pool=%s)",
+                self.uri,
+                self._driver_config["connection_timeout"],
+                self._driver_config["connection_acquisition_timeout"],
+                self._driver_config["max_transaction_retry_time"],
+                self._driver_config["max_connection_pool_size"],
+            )
         return self.driver
 
     async def close(self):
