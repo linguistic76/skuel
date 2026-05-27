@@ -28,7 +28,7 @@ DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80
 | `api_factory` | `Callable \| None` | No | Function that registers API routes. Defaults to `None` for UI-only domains |
 | `ui_factory` | `Callable \| None` | No | Function that registers UI routes. Defaults to `None` for API-only domains |
 | `api_related_services` | `dict[str, str]` | No | Service dependencies for the API factory (see Service Mapping Contract) |
-| `ui_related_services` | `dict[str, str]` | No | Service dependencies for the UI factory (deprecated as of 2026-02-03 — UI factories use standard `services` param) |
+| `ui_related_services` | `dict[str, str]` | No | Service dependencies for the UI factory — `{kwarg_name: container_attr}`, injected as named kwargs (same mechanism as `api_related_services`) |
 
 \* Both default to `None`. At least one of `api_factory` or `ui_factory` must be provided.
 
@@ -409,24 +409,25 @@ def create_{domain}_api_routes(
     return []
 ```
 
-### UI Factory (standardized 2026-02-03)
+### UI Factory
 
 ```python
 def create_{domain}_ui_routes(
-    _app: Any,                       # FastHTML app (prefixed _ if unused)
-    rt: Any,                         # Route decorator
-    {domain}_service: ServiceType,   # Primary service (positional)
-    services: Any = None,            # Full container (standard param, replaces ui_related_services)
-) -> list[Any]:                      # Sub-factory: must return list[Any] (DomainRouteConfig contract)
+    app: FastHTMLApp,                            # FastHTML app
+    rt: RouteDecorator,                          # Route decorator
+    {domain}_service: ServiceType,               # Primary service (positional)
+    connection_fetch_backend: ConnectionFetchOperations,  # related service, injected by name via ui_related_services
+    goals_service: GoalsService | None = None,   # optional related services default to None
+) -> list[Any]:                                  # Sub-factory: must return list[Any] (DomainRouteConfig contract)
     ...
     return []
 ```
 
 **Key requirements:**
 1. Positional order: `app`, `rt`, `primary_service` — always in this order
-2. All related services must have defaults (typically `None`) — they may not be bootstrapped yet
+2. Optional related services default to `None` (they may not be bootstrapped yet); always-present infrastructure (e.g. `connection_fetch_backend`) can be a required param with no default
 3. **Two-layer return contract:** Sub-factories (wired into `DomainRouteConfig.api_factory`/`ui_factory`) return `list[Any]` — never `None` — because `register_domain_routes()` calls `.extend()` on the result. Top-level orchestrators (`create_{domain}_routes`) return `None` — bootstrap discards the value.
-4. UI factories use a single `services: Any = None` parameter instead of individual kwargs (2026-02-03 standardization)
+4. Related services are explicit **named** kwargs injected via `ui_related_services` — `register_domain_routes()` passes `primary_service` + those kwargs, never a whole `services` container. (A whole-`services` container is the separate Orchestrator/Manual hub convention — see Anti-Pattern #1.)
 
 ---
 
@@ -495,21 +496,6 @@ if config.api_factory:
 ```
 
 Don't refactor `register_domain_routes()` without preserving both null guards (api_factory and ui_factory).
-
-### 5. Using ui_related_services for new code
-
-```python
-# BAD — deprecated as of 2026-02-03
-ui_related_services={
-    "user_service": "user_service",
-}
-
-# GOOD — UI factories receive the full services container via standard param
-# In the UI factory:
-def create_tasks_ui_routes(_app, rt, tasks_service, services=None):
-    if services:
-        user_service = services.user  # Access via container if needed
-```
 
 ---
 
