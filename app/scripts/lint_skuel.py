@@ -920,9 +920,20 @@ class SkuelLinter:
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
     ) -> None:
         """
-        SKUEL001 [CRITICAL]: No APOC path procedures in domain services.
+        SKUEL001 [CRITICAL]: No banned APOC procedures authored above the boundary.
+
+        APOC is a Neo4j server-side procedure namespace invoked via ``CALL apoc...``
+        inside Cypher — it belongs to the adapter, not core/ (ADR-044); domain code
+        uses pure Cypher / CypherGenerator. Like SKUEL021, this is AST-based: a banned
+        procedure only matters when it appears in a *used* string literal (the Cypher
+        a service would hand to the driver, incl. f-string parts). Inert bare-string
+        statements — docstrings AND mid-body ``USAGE EXAMPLES`` blocks — are skipped by
+        node identity, and comments (full-line AND inline) are not string nodes at all,
+        so an APOC name in documentation/prose (e.g. explaining *why* APOC is banned)
+        never trips this rule. That keeps it correct now that its gate covers all of
+        core/. CRITICAL and intentionally unsuppressable.
         """
-        banned_apoc = [
+        banned_apoc = (
             "apoc.path.subgraphNodes",
             "apoc.path.subgraphAll",
             "apoc.path.expandConfig",
@@ -932,23 +943,42 @@ class SkuelLinter:
             "apoc.map.",
             "apoc.schema.",
             "apoc.meta.",
-        ]
+        )
 
-        for line_num, line in enumerate(lines, start=1):
-            for apoc_proc in banned_apoc:
-                if apoc_proc in line:
-                    self.result.violations.append(
-                        Violation(
-                            file_path=rel_path,
-                            line_number=line_num,
-                            column=line.find(apoc_proc),
-                            severity=Severity.CRITICAL,
-                            rule_id="SKUEL001",
-                            message=f"APOC procedure '{apoc_proc}' in domain service",
-                            suggestion="Use CypherGenerator or pure Cypher instead",
-                            line_content=line.strip(),
-                        )
-                    )
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return
+
+        inert_ids = self._inert_string_constant_ids(tree)
+        reported_lines: set[int] = set()
+
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            if id(node) in inert_ids:
+                continue
+            apoc_proc = next((p for p in banned_apoc if p in node.value), None)
+            if apoc_proc is None:
+                continue
+
+            line_num = node.lineno
+            if line_num in reported_lines:
+                continue
+            reported_lines.add(line_num)
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.CRITICAL,
+                    rule_id="SKUEL001",
+                    message=f"APOC procedure '{apoc_proc}' authored above the boundary",
+                    suggestion="Use CypherGenerator or pure Cypher instead",
+                    line_content=line.strip(),
+                )
+            )
 
     # Paren/sigil-anchored Cypher clause markers that essentially never appear in
     # prose. (DETACH DELETE is intentionally excluded — real Cypher uses a variable,
