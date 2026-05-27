@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from core.models.enums.neo_labels import NeoLabel
+    from core.models.relationship_filters import RelationshipFilters
     from core.models.relationship_names import RelationshipName
     from core.ports.base_protocols import Direction
 
@@ -300,7 +301,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         graph_enrichment_patterns: tuple[tuple[str, ...], ...],
         property_filters: dict[str, Any],
         query_text: str | None = None,
-        graph_patterns: dict[str, str] | None = None,
+        relationship_filters: RelationshipFilters | None = None,
         limit: int = 50,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
@@ -315,12 +316,17 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             graph_enrichment_patterns: Tuples of (rel_type, target_label, context_name[, direction])
             property_filters: Exact-match property filters
             query_text: Optional text search
-            graph_patterns: Optional graph pattern filters
+            relationship_filters: Optional graph-aware relationship-filter intent;
+                its Cypher WHERE-clause fragments are authored below the boundary
             limit: Maximum results
 
         Returns:
             Result[list[dict]]: Records with entity data and enrichment collections
         """
+        from adapters.persistence.neo4j.query.cypher import (
+            build_relationship_filter_fragments,
+        )
+
         cypher_parts: builtins.list[str] = []
         params: dict[str, Any] = {"user_uid": user_uid}
 
@@ -349,11 +355,9 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             if text_conditions:
                 where_clauses.append(f"({' OR '.join(text_conditions)})")
 
-        # 4. Graph patterns from request
-        if graph_patterns:
-            for pattern_cypher in graph_patterns.values():
-                adjusted_pattern = pattern_cypher.replace("(ku)", "(entity)")
-                where_clauses.append(adjusted_pattern.strip())
+        # 4. Relationship filters from request (Cypher authored below the boundary)
+        if relationship_filters is not None:
+            where_clauses.extend(build_relationship_filter_fragments(relationship_filters))
 
         cypher_parts.append(f"WHERE {' AND '.join(where_clauses)}")
 
