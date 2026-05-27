@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -109,6 +110,16 @@ _AI_STATUS_DOMAINS: dict[str, str] = {
     "lp": "learning_paths",
 }
 
+# Owner-scoped AI domains: the 6 Activity Domains are USER_OWNED, so an AI route
+# that takes an entity uid must verify the caller owns it (404 otherwise) — else any
+# authenticated user could read another user's private entity (and burn LLM budget)
+# via the AI endpoint. ps/lp are SHARED (public-read curriculum) and are not gated.
+# Derived from the domain (not per-route) so a new owner-scoped AI route is
+# protected by default — see core/services/ AI facades.
+_USER_OWNED_AI_DOMAINS: frozenset[str] = frozenset(
+    {"tasks", "goals", "habits", "events", "choices", "principles"}
+)
+
 
 # ---------------------------------------------------------------------------
 # Shared handler (unchanged)
@@ -134,12 +145,13 @@ async def _ai_route(
     domain_label: str,
     method_name: str,
     args: tuple[Any, ...],
+    entity_uid: str | None = None,
     wrap_key: str | None = None,
 ) -> dict[str, Any] | JSONResponse:
     """Shared handler for all AI routes.
 
-    Handles auth, AI availability check, method call, error propagation,
-    and optional response wrapping.
+    Handles auth, ownership verification (USER_OWNED domains), AI availability
+    check, method call, error propagation, and optional response wrapping.
 
     Args:
         request: Starlette request
@@ -148,12 +160,24 @@ async def _ai_route(
         domain_label: Human-readable domain name for error messages
         method_name: AI service method to call
         args: Positional args to pass to the method
+        entity_uid: The entity UID the route operates on, used for the ownership
+            gate on USER_OWNED domains. None for query-based routes (e.g. semantic
+            search) that take no single owned entity.
         wrap_key: If set, wrap result.value as {wrap_key: value}; otherwise return raw
     """
-    require_authenticated_user(request)
+    user_uid = require_authenticated_user(request)
     facade = getattr(services, domain_attr)
     if not facade.ai:
         return _ai_unavailable_response(domain_label)
+    # Ownership gate: never expose one user's private entity (or spend LLM budget on
+    # it) through an AI route. 404 (not 403) so we don't confirm the uid's existence.
+    if entity_uid is not None and domain_attr in _USER_OWNED_AI_DOMAINS:
+        ownership_error = await verify_entity_ownership(facade, entity_uid, user_uid, domain_label)
+        if ownership_error:
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"{domain_label} entity not found"},
+            )
     result = await getattr(facade.ai, method_name)(*args)
     if result.is_error:
         return JSONResponse(status_code=400, content={"error": str(result.error)})
@@ -180,6 +204,7 @@ def _make_uid_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) -> Non
             spec.domain_label,
             spec.method_name,
             (uid,),
+            entity_uid=uid,
             wrap_key=spec.wrap_key,
         )
 
@@ -200,6 +225,7 @@ def _make_uid_limit_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) 
             spec.domain_label,
             spec.method_name,
             (uid, limit),
+            entity_uid=uid,
             wrap_key=spec.wrap_key,
         )
 
@@ -220,6 +246,7 @@ def _make_query_limit_route(rt: Any, path: str, services: Any, spec: AIRouteSpec
             spec.domain_label,
             spec.method_name,
             (query, limit),
+            entity_uid=None,  # query-based: no single owned entity to gate
             wrap_key=spec.wrap_key,
         )
 
@@ -239,6 +266,7 @@ def _make_uid_level_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) 
             spec.domain_label,
             spec.method_name,
             (uid, level),
+            entity_uid=uid,
             wrap_key=spec.wrap_key,
         )
 
