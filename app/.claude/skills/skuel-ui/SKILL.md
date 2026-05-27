@@ -192,7 +192,8 @@ async def task_detail_content_fragment(request: Request) -> Any:
     if task_result.is_error or task_result.value.user_uid != user_uid:
         return Div(render_error_banner("Task not found"), id="task-detail-content")
     task = task_result.value
-    connections_map = await fetch_entity_connections(backend, config, [task.uid])
+    # connection_fetch_backend implements the ConnectionFetchOperations port (below the boundary, ADR-044)
+    connections_map = await connection_fetch_backend.fetch_entity_connections(config, [task.uid])
     return TaskDetailView(task, connections_map.get(task.uid, []))
 ```
 
@@ -392,7 +393,7 @@ When building a new SKUEL page or feature, verify:
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/activities/filter_bar.py` | Config-driven `ActivityFilterBar` component (`FilterBarConfig`, `FilterSelect`) — shared across all 6 Activity Domains |
 | `/ui/activities/_shared.py` | Shared Activity Domain UI utilities (`MetadataField`, `safe_id`, `CONNECTION_ICONS`, `ConnectionBadges`, `ConnectionSummary`). Connection dicts use `connected_uid`/`connected_type` keys. |
-| `/core/utils/connection_fetcher.py` | Unified `fetch_entity_connections()` — batch cross-domain connection query with per-domain `ConnectionConfig` constants |
+| `/core/utils/connection_configs.py` | Pure-data `ConnectionConfig` + 6 per-domain constants. The batch connection Cypher lives below the boundary in `ConnectionFetchBackend` (behind `ConnectionFetchOperations`, ADR-044); UI factories receive the port as `ActivityUIConfig.backend` |
 | `/core/utils/entity_filters.py` | `filter_tasks/goals/habits/events/choices/principles()` — business filtering/sorting logic extracted from UI views |
 | `/adapters/inbound/activity_ui_factory.py` | `ActivityUIConfig` dataclass + `create_activity_ui_routes()` — shared factory generating 5 routes per Activity Domain (page shell, content fragment, list-fragment, detail shell, detail content). Each `{domain}_ui.py` is ~50 lines creating an `ActivityUIConfig` and delegating here |
 | `/ui/journals/` | Journal UI rendering: `cards.py`, `components.py`, `forms.py` — extracted from `journals_ui.py` |
