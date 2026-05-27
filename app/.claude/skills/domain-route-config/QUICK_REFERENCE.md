@@ -263,4 +263,4 @@ api_related_services={
 | `TypeError: unsupported operand type(s) for +: 'NoneType' and 'list'` | Sub-factory returns `None` instead of `[]` | Add `return []` at end of sub-factory (api_factory/ui_factory must return `list[Any]`) |
 | `TypeError: missing required keyword argument` | Factory param not in `api_related_services` | Add the mapping to `api_related_services` |
 | Wrong service injected silently | `container_attr` points to wrong service | Verify key → value mapping matches intent |
-| UI factory gets unexpected kwargs | Using `ui_related_services` (deprecated) | Switch to `services: Any = None` param in UI factory |
+| `TypeError: unexpected keyword argument` in UI factory | A `ui_related_services` kwarg_name has no matching param on the UI factory | Make each `ui_related_services` kwarg_name match an explicit param on the factory signature |
