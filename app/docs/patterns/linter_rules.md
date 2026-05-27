@@ -46,7 +46,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL002** | Magic semantic strings | Use `SemanticRelationshipType` enum |
 | **SKUEL003** | `.is_err` usage | Use `.is_error` instead [auto-fix] |
 | **SKUEL020** | `request: Any` on `@rt`/`@app.*` handlers | Annotate `request: Request` (AST rule) |
-| **SKUEL021** | Raw Cypher in `core/services/` | Relocate below the boundary (ADR-044) |
+| **SKUEL021** | Raw Cypher anywhere in `core/` | Relocate below the boundary (ADR-044) |
 | **SKUEL022** | `adapters/` imports in `core/` | Depend on a `core/ports` protocol; inject the adapter (ADR-044) |
 
 ### WARNING (reported, doesn't block)
@@ -411,9 +411,45 @@ if not api_key:
 
 **See:** `docs/roadmap/secrets-out-of-worktree.md` — full credential storage architecture and the `fed4287f` fail-fast wiring that makes this rule load-bearing.
 
+## Rule: SKUEL021 - No Raw Cypher Above the Boundary
+
+**Pattern:** ADR-044 puts the hexagonal boundary at `UniversalNeo4jBackend` / `adapters/persistence/neo4j/` — all Cypher lives below it. Code above the boundary (all of `core/`) orchestrates and calls backend methods; it does not author Cypher. (SKUEL001 bans only APOC; SKUEL021 covers raw Cypher generally — both now share the same all-of-`core/` scope, as does SKUEL022.)
+
+```python
+# ❌ VIOLATION (ERROR) — Cypher authored in a core/ module and used
+query = "MATCH (n:Task) WHERE n.uid = $uid RETURN n"
+rows = await self.executor.execute_query(query, {"uid": uid})
+
+# ❌ VIOLATION — a marker interpolated into an f-string is still authored Cypher
+q = f"MATCH (n) WHERE n.id = {uid} RETURN n"
+
+# ✅ CORRECT — call a backend method; the Cypher lives below the boundary
+rows = await self.backend.get_tasks(user_uid)
+
+# ✅ NOT FLAGGED — Cypher inside a docstring / USAGE EXAMPLES block is documentation
+def fetch() -> None:
+    """Fetch tasks.
+
+    Example:
+        MATCH (n:Task) RETURN n
+    """
+```
+
+**AST-based, docstring-aware:** Cypher only matters when it is *used* (assigned, passed, returned, interpolated). The checker walks string `Constant` nodes (including f-string literal parts) for high-signal clause markers (`MATCH (`, `MERGE (`, `OPTIONAL MATCH (`, `OPTIONAL MATCH path`, `CREATE (`, `UNWIND $`, `CALL db.`). String literals that are **inert bare-expression statements** — module/class/function docstrings AND mid-body `USAGE EXAMPLES` blocks — are skipped by node identity. This is why the rule can cover `core/utils`, whose docstrings legitimately quote Cypher (processor_functions.py, neo4j_mapper.py, …), without false-positiving. `DETACH DELETE` is intentionally not a marker (a bare `DETACH DELETE n` is indistinguishable from docstring prose). One violation per source line (collapses the several `Constant` parts an f-string splits into).
+
+**Scope:** all of `core/` (mirrors SKUEL022). It grew from `core/services|ingestion|infrastructure` to all of `core/` once the last Cypher-authoring leaks were relocated below the boundary — `core/utils/connection_fetcher.py` (PR #75) and `core/models/search_request.py::to_graph_patterns` (PR #78). `adapters/persistence/neo4j/` is below the boundary and is not checked. Test files are skipped.
+
+**How to fix a violation:** relocate the query into an adapter backend in `adapters/persistence/neo4j/` behind a `core/ports` protocol, and inject it at the composition root. For an "inverted boundary" case (a `core/` model/util that builds a Cypher string handed to a passthrough executor), pass the domain *intent* down and author the Cypher below the boundary — see `ConnectionFetchBackend` / `ConnectionFetchOperations` (PR #75) and `build_relationship_filter_fragments` (PR #78) for the patterns.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL021` covers used Cypher in `core/services`/`core/utils`/`core/models`, f-strings, passed/returned strings, docstring + `USAGE EXAMPLES` + comment skips, multi-line collapse, and suppression. `tests/test_core_utils_boundary.py` additionally bans execution primitives (neo4j driver imports, `.execute_query(` calls) that SKUEL021 does not cover. The real `core/` tree is held clean by `./dev quality` in CI.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL021 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL021 -- <reason>` (file)
+
 ## Rule: SKUEL022 - core/ Must Not Import adapters/
 
-**Pattern:** The hexagonal dependency direction is **core → adapter**, never the reverse (ADR-044). A module under `core/` that imports from `adapters/` inverts it — `core` defines ports (`core/ports`) and receives concrete adapters by injection at the composition root, it does not reach down into them. This is the import-direction sibling of SKUEL021 (which bans raw Cypher in services): together they keep `core/` independent of the Neo4j adapter.
+**Pattern:** The hexagonal dependency direction is **core → adapter**, never the reverse (ADR-044). A module under `core/` that imports from `adapters/` inverts it — `core` defines ports (`core/ports`) and receives concrete adapters by injection at the composition root, it does not reach down into them. This is the import-direction sibling of SKUEL021 (which bans raw Cypher anywhere in `core/`): together — with SKUEL001 (APOC) — they keep `core/` independent of the Neo4j adapter, all three on the same all-of-`core/` scope.
 
 ```python
 # ❌ VIOLATION (ERROR) — module-level adapter import in a core/ file
@@ -449,7 +485,7 @@ if TYPE_CHECKING:
 
 ## Authoring AST Rules
 
-Two bug classes recur when writing AST-based rules (SKUEL020, SKUEL022). Both are
+Two bug classes recur when writing AST-based rules (SKUEL020, SKUEL021, SKUEL022). Both are
 load-bearing and both are easy to reintroduce — guard new AST rules against them.
 
 1. **Iterate the field, never walk the compound node.** When collecting the
