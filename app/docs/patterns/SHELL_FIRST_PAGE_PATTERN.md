@@ -101,7 +101,8 @@ async def task_detail_content_fragment(request: Request) -> Any:
     if task_result.is_error or task_result.value.user_uid != user_uid:
         return Div(render_error_banner("Task not found"), id="task-detail-content")
     task = task_result.value
-    connections_map = await fetch_entity_connections(backend, config, [task.uid])
+    # connection_fetch_backend implements the ConnectionFetchOperations port (below the boundary, ADR-044)
+    connections_map = await connection_fetch_backend.fetch_entity_connections(config, [task.uid])
     return TaskDetailView(task, connections_map.get(task.uid, []))
 ```
 

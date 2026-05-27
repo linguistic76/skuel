@@ -17,6 +17,20 @@ The architecture is **100% dynamic** for model-to-adapter connections. The intro
 
 ---
 
+## May 2026 Update: Connection-Fetch Backend Below the Boundary (ADR-044)
+
+`core/utils/connection_fetcher.py` — which both authored AND executed cross-domain Cypher via an injected `QueryExecutor` — was the last live raw-Cypher leak in `core/`. Its two queries moved verbatim into a new standalone **`ConnectionFetchBackend`** (`adapters/persistence/neo4j/connection_fetch_backend.py`) behind the **`ConnectionFetchOperations`** port (`core/ports/connection_fetch_protocols.py`; methods `fetch_entity_connections(config, uids)` + `fetch_source_pathstep(ps_uid)`). Like `CrossDomainBackend` / `InsightBackend`, it takes the shared `QueryExecutor` directly rather than extending `UniversalNeo4jBackend`.
+
+The source file was renamed `core/utils/connection_configs.py` and is now **pure data** — the `ConnectionConfig` dataclass + the 6 per-domain constants (`TASK_CONNECTION_CONFIG`, …). `config_lookup_label` is typed `NeoLabel`, so the interpolated node-label seam is enum-typed at the source and `validate_label`-checked in the backend before interpolation.
+
+**Wiring:** `create_all_backends()` now takes the shared `query_executor` and builds the backend; it flows through the `Services` container and each Activity Domain's `ui_related_services`, so all 6 UI factories receive the port as `ActivityUIConfig.backend` (was `<svc>.core.backend`). Call sites became `config.backend.fetch_entity_connections(config.connection_config, uids)` and `config.backend.fetch_source_pathstep(uid)`.
+
+**Guard:** `tests/test_core_utils_boundary.py` — AST-based, docstring-immune — bans neo4j driver imports, `execute_query` calls, and *used* raw-Cypher strings in `core/utils/` (`neo4j.exceptions` exempt per ADR-063). Widening SKUEL021's line-scan gate to `core/utils/` with a docstring-aware scanner remains a noted follow-up.
+
+**Commit:** `2a596acc` (PR #75). **See:** `/docs/decisions/ADR-044-neo4j-committed-architectural-choice.md`.
+
+---
+
 ## May 2026 Update: AI Vendor SDKs Below the Boundary (W1 / ADR-063)
 
 The hexagonal-boundary principle that put all Neo4j Cypher below `adapters/persistence/neo4j/` (ADR-044, SKUEL021/SKUEL022) was extended to the **external vendor SDKs**. The `openai`, `anthropic`, and `huggingface_hub` clients were moved out of `core/services/` into `adapters/external/`, behind real `core/ports` protocols — the same way the Neo4j driver sits behind `UniversalNeo4jBackend`.
