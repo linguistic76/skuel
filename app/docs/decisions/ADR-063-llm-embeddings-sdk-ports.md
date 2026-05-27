@@ -92,8 +92,9 @@ handled there.
 ### Alternative 2: A new lint rule (à la SKUEL022)
 Deferred. A guard test (`tests/test_llm_sdk_boundary.py`) is lighter and matches
 the existing boundary-test precedent (`test_infrastructure_boundary.py`,
-`test_ingestion_boundary.py`). A lint rule can be added later if the surface
-grows.
+`test_ingestion_boundary.py`). It has since been generalized from a 3-name SDK
+denylist to a full third-party **allowlist** for `core/` (fails closed on any
+new vendor import). A lint rule can be added later if the surface grows.
 
 ### Alternative 3: Keep `ai_service.py` as a thin core service
 Rejected (One Path Forward / Consolidation): it was a second LLM entry point
@@ -109,7 +110,7 @@ the port.
 
 ### Negative / Risks
 - One more indirection layer (service → port → adapter). Mitigated: the ports are minimal and the adapters are thin.
-- The `exception_types.py` exemption is a deliberate hole in the guard; a canary test fails if the exemption ever stops being load-bearing.
+- The `exception_types.py` exemption is a deliberate hole in the guard; a canary test fails if any exemption ever stops being load-bearing, and the allowlist itself is canaried against dead entries.
 
 ## Implementation Details
 
@@ -125,10 +126,16 @@ the port.
 - Adapters: `adapters/external/llm/`, `adapters/external/embeddings/`
 - Composition root: `services_bootstrap/compose.py`, `services_bootstrap/_learning_services.py`
 
-**Testing strategy:** `tests/test_llm_sdk_boundary.py` asserts no
-`openai`/`anthropic`/`huggingface_hub` client imports under `core/` (exempting
-`exception_types.py` for `openai`/`anthropic` exception classes), with a canary
-that keeps the exemption honest.
+**Testing strategy:** `tests/test_llm_sdk_boundary.py` enforces a third-party
+import **allowlist** for `core/` (not a denylist of named SDKs — a denylist
+fails open the moment someone writes `import stripe`/`import requests`). Two
+tiers: `ALLOWED_THIRD_PARTY` (pure/edge-tier deps — pydantic, yaml, structlog,
+bcrypt, cryptography, keyring, dotenv, markdown, prometheus_client) and
+`EXCEPTION_CLASS_ONLY` (`openai`/`anthropic`/`neo4j`/`httpx` — exception classes
+only, confined to `exception_types.py`). Anything else fails. Two canaries keep
+both tiers honest (no dead exemptions, no dead allowlist entries) and a
+fail-closed test proves a synthetic `import stripe`/misplaced SDK client is
+flagged.
 
 ## Future Considerations
 

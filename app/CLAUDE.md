@@ -614,7 +614,7 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 
 **UserContextIntelligence (Central Hub):** `get_ready_to_work_on_today()`, `get_optimal_next_path_steps()`, `calculate_life_path_alignment()`, `get_schedule_aware_recommendations()`
 
-**LLM/embedding SDK clients (ADR-063):** the `openai`/`anthropic`/`huggingface_hub` clients live below the hexagonal boundary in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`; `core/` is SDK-client-free (only `exception_types.py` imports the SDK exception classes, guarded by `tests/test_llm_sdk_boundary.py`).
+**LLM/embedding SDK clients (ADR-063):** the `openai`/`anthropic`/`huggingface_hub` clients live below the hexagonal boundary in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`; `core/` is SDK-client-free (only `exception_types.py` imports the SDK exception classes). Guarded by `tests/test_llm_sdk_boundary.py`, which enforces a **third-party import allowlist** for all of `core/` (fails closed on any new vendor import — `stripe`/`requests`/`httpx`-client/etc.), not a denylist of named SDKs.
 
 **See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`, `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`
 
