@@ -298,8 +298,10 @@ class TestSKUEL001:
         assert violations[0].severity == Severity.CRITICAL
 
     def test_detects_apoc_cypher_run(self) -> None:
+        # APOC is only ever real Python as a string handed to the driver
+        # (`CALL apoc...`); there is no importable `apoc` module to call directly.
         linter = make_linter(["SKUEL001"])
-        violations = lint_content(linter, 'result = apoc.cypher.run("MATCH (n) RETURN n")')
+        violations = lint_content(linter, 'query = "CALL apoc.cypher.run(inner, params)"')
         assert len(violations) == 1
 
     def test_clean_code_no_violation(self) -> None:
@@ -337,6 +339,15 @@ class TestSKUEL001:
     def test_skips_apoc_in_comment(self) -> None:
         linter = make_linter(["SKUEL001"])
         violations = lint_content(linter, "# apoc.schema.assert(...) is banned below the boundary")
+        assert len(violations) == 0
+
+    def test_skips_apoc_in_inline_comment(self) -> None:
+        """An inline comment naming a banned proc on an otherwise-valid code line
+        must not trip the rule (scanning string literals, not physical lines)."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(
+            linter, "query = CypherGenerator.build_chain(uid)  # never apoc.meta.data() here"
+        )
         assert len(violations) == 0
 
     def test_skips_apoc_in_core_utils_docstring(self) -> None:
