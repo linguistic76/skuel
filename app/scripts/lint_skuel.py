@@ -833,23 +833,24 @@ class SkuelLinter:
             rel_path = file_path.relative_to(self.root_dir)
             is_test = "test_" in file_path.name or "/tests/" in str(file_path)
             is_service = "/services/" in str(file_path) and file_path.suffix == ".py"
-            # SKUEL001 (APOC) + SKUEL021 (raw Cypher) enforce the ADR-044 hexagonal
-            # boundary. Beyond core/services/, that boundary also covers two pure
-            # core packages that must stay Cypher-free:
-            #   - core/ingestion/ — bulk-upsert engine, Cypher executor, vector ops
-            #     were relocated below the boundary (PRs #53/#54).
-            #   - core/infrastructure/ — BatchCypherBuilder was relocated to the
-            #     neo4j adapter and the dead ontology generator deleted, leaving
-            #     only Cypher-free schema/relationship/monitoring helpers.
-            # Other service-only rules remain gated on is_service.
+            # SKUEL001 (APOC), SKUEL021 (raw Cypher), and SKUEL022 (import direction)
+            # all enforce the ADR-044 hexagonal boundary, and all three now share the
+            # SAME scope: every module under core/. Cypher of any kind is authored only
+            # BELOW the boundary (adapters/persistence/neo4j/); core/ orchestrates and
+            # calls backend methods. The scope grew to all of core/ once the last
+            # Cypher-authoring leaks outside core/services|ingestion|infrastructure were
+            # relocated below the boundary — core/utils (connection_fetcher, PR #75) and
+            # core/models (search_request, PR #78). The SKUEL021 checker is AST-based and
+            # skips docstring / bare-string example blocks, so the legitimate Cypher
+            # examples in core/utils docstrings (processor_functions, neo4j_mapper, ...)
+            # do not trip it; SKUEL001 has no hits in core/ outside the old gate.
+            # Other service-only rules (SKUEL002/004/005/007/013/014) stay on is_service.
             path_str = str(file_path)
-            is_below_boundary = is_service or (
-                file_path.suffix == ".py"
-                and ("/core/ingestion/" in path_str or "/core/infrastructure/" in path_str)
-            )
-            # SKUEL022 (import direction) covers ALL of core/, not just services:
-            # nothing under core/ may import adapters/ at runtime (ADR-044).
             is_core = "/core/" in path_str and file_path.suffix == ".py"
+            # is_service is a strict subset of is_core today (no /services/ tree lives
+            # outside core/), but keep it in the OR so a future non-core service dir
+            # still gets the boundary rules.
+            is_below_boundary = is_core or is_service
 
             # Run applicable rules
             if self._should_run_rule("SKUEL003"):
@@ -879,7 +880,7 @@ class SkuelLinter:
             if self._should_run_rule("SKUEL006"):
                 self._check_todo_comments(file_path, rel_path, content, lines)
 
-            # Boundary rules (ADR-044): also cover the pure core/ingestion package.
+            # Boundary rules (ADR-044): no APOC, no raw Cypher anywhere in core/.
             if is_below_boundary and not is_test:
                 if self._should_run_rule("SKUEL001"):
                     self._check_apoc_in_services(file_path, rel_path, content, lines)
@@ -949,21 +950,64 @@ class SkuelLinter:
                         )
                     )
 
+    # Paren/sigil-anchored Cypher clause markers that essentially never appear in
+    # prose. (DETACH DELETE is intentionally excluded — real Cypher uses a variable,
+    # `DETACH DELETE n`, which is indistinguishable from docstring prose like
+    # "cascade DETACH DELETE (default False)".)
+    CYPHER_MARKERS: ClassVar[tuple[str, ...]] = (
+        "MATCH (",
+        "MERGE (",
+        "OPTIONAL MATCH (",
+        "OPTIONAL MATCH path",
+        "CREATE (",
+        "UNWIND $",
+        "CALL db.",
+    )
+
+    @staticmethod
+    def _inert_string_constant_ids(tree: ast.AST) -> set[int]:
+        """``id()``s of string Constants that are inert bare-expression statements.
+
+        Module / class / function docstrings AND mid-body ``USAGE EXAMPLES`` blocks
+        are bare string statements — never assigned, passed, or executed — and may
+        legitimately quote Cypher. They are skipped by node identity so the
+        raw-Cypher check fires only on Cypher that is actually *used* (assigned,
+        passed, returned, interpolated). Mirrors the proven technique in
+        ``tests/test_core_utils_boundary.py``.
+        """
+        inert: set[int] = set()
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Expr)
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                inert.add(id(node.value))
+        return inert
+
     def _check_raw_cypher_in_services(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
     ) -> None:
         """
-        SKUEL021 [ERROR]: No raw Cypher authored in the service layer.
+        SKUEL021 [ERROR]: No raw Cypher authored above the hexagonal boundary.
 
-        ADR-044 puts the hexagonal boundary at ``UniversalNeo4jBackend`` /
-        ``adapters/persistence/neo4j/``: all Cypher lives below it. Services
-        orchestrate and call backend methods; they do not author Cypher. (Note
-        SKUEL001 only bans APOC — this rule covers raw Cypher generally.)
+        ADR-044 puts the boundary at ``UniversalNeo4jBackend`` /
+        ``adapters/persistence/neo4j/``: all Cypher lives below it. Code above the
+        boundary (all of ``core/``) orchestrates and calls backend methods; it does
+        not author Cypher. (Note SKUEL001 only bans APOC — this rule covers raw
+        Cypher generally.)
 
-        High-signal clause patterns only, to avoid flagging prose. Comment lines
-        are skipped. Relocate the query into an adapter backend behind a
-        ``core/ports`` protocol (see the relationship/ps_engagement/ingestion
-        backends for the pattern).
+        AST-based, not a line scan: Cypher only matters when it is *used* (assigned,
+        passed, returned, interpolated). String literals that are inert bare
+        expression statements — docstrings AND mid-body ``USAGE EXAMPLES`` blocks —
+        legitimately quote Cypher and are skipped by node identity. f-string literal
+        parts are scanned (a marker interpolated into a query is still authored
+        Cypher). This keeps the rule quiet on the docstring Cypher examples that live
+        throughout ``core/utils`` while still catching real leaks anywhere in core/.
+
+        High-signal clause markers only, to avoid flagging prose. Relocate the query
+        into an adapter backend behind a ``core/ports`` protocol (see the
+        connection-fetch / relationship / ingestion backends for the pattern).
 
         Suppress: # skuel-lint: disable=SKUEL021 -- <reason>
         File-level: # skuel-lint: disable-file=SKUEL021 -- <reason>
@@ -971,44 +1015,49 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL021"):
             return
 
-        # Paren/sigil-anchored clauses that essentially never appear in prose.
-        # (DETACH DELETE is intentionally excluded — real Cypher uses a variable,
-        # `DETACH DELETE n`, which is indistinguishable from docstring prose like
-        # "cascade DETACH DELETE (default False)".)
-        cypher_markers = (
-            "MATCH (",
-            "MERGE (",
-            "OPTIONAL MATCH (",
-            "OPTIONAL MATCH path",
-            "CREATE (",
-            "UNWIND $",
-            "CALL db.",
-        )
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return
 
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if stripped.startswith("#"):
+        inert_ids = self._inert_string_constant_ids(tree)
+        reported_lines: set[int] = set()
+
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
                 continue
+            if id(node) in inert_ids:
+                continue
+            marker = next((m for m in self.CYPHER_MARKERS if m in node.value), None)
+            if marker is None:
+                continue
+
+            line_num = node.lineno
+            # One violation per source line (matches the old line-granularity and
+            # collapses the several Constant parts an f-string splits into).
+            if line_num in reported_lines:
+                continue
+            # Per-line suppression honours a comment on the literal's first line.
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL021"):
                 continue
-            for marker in cypher_markers:
-                if marker in line:
-                    self.result.violations.append(
-                        Violation(
-                            file_path=rel_path,
-                            line_number=line_num,
-                            column=line.find(marker),
-                            severity=Severity.ERROR,
-                            rule_id="SKUEL021",
-                            message=f"Raw Cypher ('{marker.strip()}') authored in the service layer",
-                            suggestion=(
-                                "Relocate the query to an adapter backend "
-                                "(adapters/persistence/neo4j/) behind a core/ports protocol (ADR-044)"
-                            ),
-                            line_content=stripped,
-                        )
-                    )
-                    break
+
+            reported_lines.add(line_num)
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL021",
+                    message=f"Raw Cypher ('{marker.strip()}') authored above the boundary",
+                    suggestion=(
+                        "Relocate the query to an adapter backend "
+                        "(adapters/persistence/neo4j/) behind a core/ports protocol (ADR-044)"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
 
     # =========================================================================
     # ERROR RULES
