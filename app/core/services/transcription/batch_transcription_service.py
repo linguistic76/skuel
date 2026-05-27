@@ -27,7 +27,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from adapters.external.deepgram.adapter import DeepgramAdapter
+    from core.ports.transcription_protocols import TranscriptionPort
 
 logger = get_logger("skuel.services.transcription.batch")
 
@@ -83,18 +83,18 @@ class BatchTranscriptionService:
 
     def __init__(
         self,
-        deepgram_adapter: DeepgramAdapter,
+        deepgram_adapter: TranscriptionPort,
         max_concurrent: int = 5,
     ) -> None:
         """
         Initialize batch transcription service.
 
         Args:
-            deepgram_adapter: Deepgram API adapter (required)
+            deepgram_adapter: Transcription port (required; DeepgramAdapter at runtime)
             max_concurrent: Max parallel transcription requests
         """
         if not deepgram_adapter:
-            raise ValueError("DeepgramAdapter is required (fail-fast)")
+            raise ValueError("A transcription port is required (fail-fast)")
 
         self.deepgram = deepgram_adapter
         self.max_concurrent = max_concurrent

@@ -23,7 +23,11 @@ no state management, no persistence. Just API calls.
 
 from typing import Any, Protocol, runtime_checkable
 
-from adapters.external.deepgram.adapter import DeepgramAdapter, TranscriptionResult
+from adapters.external.deepgram.adapter import DeepgramAdapter
+
+# TranscriptionResult is core-owned (the TranscriptionPort DTO); re-exported here
+# for adapter-layer convenience.
+from core.ports.transcription_protocols import TranscriptionResult
 
 
 @runtime_checkable
