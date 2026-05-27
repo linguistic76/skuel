@@ -92,6 +92,7 @@ from core.ports import (
     AsyncCloseable,
     CalendarServiceOperations,
     Closeable,
+    ConnectionFetchOperations,
     CrossDomainAnalyticsOperations,
     EventBusOperations,
     ExerciseOperations,
@@ -338,6 +339,9 @@ class Services:
     # Infrastructure - Neo4j driver and query executor
     neo4j_driver: "AsyncDriver | None" = None
     query_executor: "QueryExecutor | None" = None
+    # Cross-domain connection fetcher for Activity Domain list/detail pages.
+    # Below-the-boundary backend behind ConnectionFetchOperations (ADR-044).
+    connection_fetch_backend: "ConnectionFetchOperations | None" = None
 
     # Embedding + vector search services (March 2026 - HuggingFace)
     embeddings_service: "HuggingFaceEmbeddingsService | None" = None

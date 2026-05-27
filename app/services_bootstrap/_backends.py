@@ -7,17 +7,23 @@ from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.ports import QueryExecutor
 
 logger = get_logger("skuel.bootstrap")
 
 
 def create_all_backends(
     driver: Any,
+    query_executor: "QueryExecutor",
     prometheus_metrics: "PrometheusMetrics | None" = None,
 ) -> dict[str, Any]:
     """Create all domain backends (100% dynamic pattern — direct instantiation).
 
     Returns dict with named backends for all entity types.
+
+    ``query_executor`` is the single raw-Cypher port (created once in compose);
+    standalone backends that take an executor rather than a driver (e.g.
+    ``ConnectionFetchBackend``) are built from it here.
     """
     from adapters.persistence.neo4j.backends.activity_backends import (
         ChoicesBackend,
@@ -217,9 +223,17 @@ def create_all_backends(
         base_label=NeoLabel.ENTITY,
     )
 
+    # Cross-domain connection fetcher (Activity Domain list/detail pages).
+    # Standalone backend over the shared executor — keeps raw Cypher below the
+    # boundary (ADR-044); the configs stay in core/utils/connection_configs.py.
+    from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
+
+    connection_fetch_backend = ConnectionFetchBackend(query_executor)
+
     logger.info("✅ Domain backends created (100% dynamic pattern - direct instantiation)")
 
     return {
+        "connection_fetch_backend": connection_fetch_backend,
         "tasks_backend": tasks_backend,
         "events_backend": events_backend,
         "habits_backend": habits_backend,

@@ -35,6 +35,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
     uid_prefix="habit",
     supports_goal_filter=False,
     supports_habit_filter=False,
+    ui_related_services={"connection_fetch_backend": "connection_fetch_backend"},
     prometheus_metrics_attr="prometheus_metrics",
 )
 
