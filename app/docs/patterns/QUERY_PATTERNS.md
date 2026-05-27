@@ -186,20 +186,22 @@ results = await backend.find_by(**filters)
 
 ### Graph-Aware Search (Relationship-Based)
 
-Uses custom Cypher queries for relationship traversal:
+Uses custom Cypher queries for relationship traversal. The relationship-filter
+*intent* is passed across the hexagonal boundary; the Cypher is authored **below
+the boundary** (ADR-044 — `core/` holds no Cypher, SKUEL021):
 
 ```python
-# Converts relationship filters to Cypher patterns
-patterns = request.to_graph_patterns()
-# {"ready_to_learn": "EXISTS((ku)<-[:MASTERED]-(user:User {uid: $user_uid}))"}
+# core/: capture the active relationship flags as transport intent
+relationship_filters = request.to_relationship_filters()  # RelationshipFilters (pure data)
 
-# Builds domain-specific graph query
-cypher = """
-MATCH (ku:Curriculum)
-WHERE {property_filters} AND {graph_patterns}
-OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
-...
-"""
+# adapters/: faceted_search_raw turns each active flag into a WHERE-clause fragment
+#   via build_relationship_filter_fragments() — e.g. ready_to_learn →
+#   "NOT EXISTS { MATCH (entity)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity) WHERE ... }"
+result = await backend.faceted_search_raw(
+    user_uid,
+    relationship_filters=relationship_filters,
+    ...
+)
 ```
 
 ### Query Mode Selection

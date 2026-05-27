@@ -501,7 +501,7 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 **Key methods:**
 - `from_form_params()` — classmethod that builds a `SearchRequest` from raw HTML form strings (handles empty→None, checkbox→bool, entity type parsing, extended_facets assembly)
 - `to_property_filters()` — property → WHERE clauses
-- `to_graph_patterns()` — relationship → Cypher patterns
+- `to_relationship_filters()` — captures the active relationship-filter flags as a frozen `RelationshipFilters` intent. The flag→Cypher mapping is authored **below the boundary** (ADR-044) in `adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py::build_relationship_filter_fragments` — `core/` holds no Cypher (SKUEL021)
 - `has_relationship_filters()` — mode routing (Simple vs Graph-Aware)
 - `has_semantic_boost()` — semantic vector search routing
 - `has_learning_aware()` — learning-aware vector search routing
@@ -728,7 +728,7 @@ Graph Relationships:
 ### Extending Search
 
 1. **New property filter**: Add field to `SearchRequest`, update `to_property_filters()`
-2. **New relationship filter**: Add bool field, update `has_relationship_filters()` and `to_graph_patterns()`
+2. **New relationship filter**: Add a bool field + a `RelationshipFilters` field, update `has_relationship_filters()` and `to_relationship_filters()`, then add the Cypher fragment in `relationship_filter_fragments.py` (below the boundary)
 3. **New searchable domain**: Add to `_SEARCHABLE_DOMAINS` and `_SERVICE_REGISTRY`, add `SearchFieldConfig` in `config.py`. For graph-aware search, also add `_GRAPH_AWARE_DOMAINS` entry and handler `_graph_aware_search_{domain}()`
 4. **New semantic relationship type**: Add to `relationship_type_weights` in `VectorSearchConfig`
 
