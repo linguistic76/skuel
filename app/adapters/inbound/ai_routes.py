@@ -20,6 +20,7 @@ from starlette.responses import JSONResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
+from core.models.enums import ContentScope
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -46,6 +47,11 @@ class AIRouteSpec:
     func_name: str  # unique function name for FastHTML
     wrap_key: str | None = None  # if set, wrap result as {wrap_key: value}
     default_limit: int = 5  # default for uid_limit/query_limit signatures
+    # Authorization contract for this route's entity. USER_OWNED (the safe default)
+    # makes _ai_route verify the caller owns the entity uid before invoking the AI
+    # service; SHARED (public-read curriculum: ps/lp) skips the ownership gate. The
+    # default is fail-closed: a new route is owner-gated until explicitly marked SHARED.
+    scope: ContentScope = ContentScope.USER_OWNED
 
 
 # fmt: off
@@ -79,22 +85,22 @@ AI_ROUTE_SPECS: list[AIRouteSpec] = [
     AIRouteSpec("principles", "Principles", "principles", "insight", "generate_principle_insight", "uid", "principles_ai_insight", "insight"),
     AIRouteSpec("principles", "Principles", "principles", "deepen", "deepen_principle", "uid", "principles_ai_deepen"),
     AIRouteSpec("principles", "Principles", "principles", "practices", "suggest_practices", "uid", "principles_ai_practices"),
-    # Knowledge / PathStep (5)
-    AIRouteSpec("ps", "Knowledge", "knowledge", "related", "find_related_steps", "uid_limit", "knowledge_ai_related", "related_knowledge"),
-    AIRouteSpec("ps", "Knowledge", "knowledge", "search", "semantic_search", "query_limit", "knowledge_ai_search", "results", default_limit=10),
-    AIRouteSpec("ps", "Knowledge", "knowledge", "summary", "generate_summary", "uid", "knowledge_ai_summary", "summary"),
-    AIRouteSpec("ps", "Knowledge", "knowledge", "explain", "explain_at_level", "uid_level", "knowledge_ai_explain"),
-    AIRouteSpec("ps", "Knowledge", "knowledge", "applications", "suggest_applications", "uid", "knowledge_ai_applications"),
-    # Learning Steps (4)
-    AIRouteSpec("ps", "Path Steps", "path-steps", "similar", "find_similar_steps", "uid_limit", "ps_ai_similar", "similar_steps"),
-    AIRouteSpec("ps", "Path Steps", "path-steps", "insight", "generate_step_insight", "uid", "ps_ai_insight", "insight"),
-    AIRouteSpec("ps", "Path Steps", "path-steps", "explain", "explain_step", "uid_level", "ps_ai_explain"),
-    AIRouteSpec("ps", "Path Steps", "path-steps", "practice", "suggest_practice_activities", "uid", "ps_ai_practice"),
-    # Learning Paths (4)
-    AIRouteSpec("lp", "Learning Paths", "learning-paths", "similar", "find_similar_paths", "uid_limit", "lp_ai_similar", "similar_paths"),
-    AIRouteSpec("lp", "Learning Paths", "learning-paths", "insight", "generate_path_insight", "uid", "lp_ai_insight", "insight"),
-    AIRouteSpec("lp", "Learning Paths", "learning-paths", "overview", "generate_path_overview", "uid", "lp_ai_overview"),
-    AIRouteSpec("lp", "Learning Paths", "learning-paths", "strategy", "suggest_completion_strategy", "uid", "lp_ai_strategy"),
+    # Knowledge / PathStep (5) — SHARED public-read curriculum, no ownership gate
+    AIRouteSpec("ps", "Knowledge", "knowledge", "related", "find_related_steps", "uid_limit", "knowledge_ai_related", "related_knowledge", scope=ContentScope.SHARED),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "search", "semantic_search", "query_limit", "knowledge_ai_search", "results", default_limit=10, scope=ContentScope.SHARED),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "summary", "generate_summary", "uid", "knowledge_ai_summary", "summary", scope=ContentScope.SHARED),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "explain", "explain_at_level", "uid_level", "knowledge_ai_explain", scope=ContentScope.SHARED),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "applications", "suggest_applications", "uid", "knowledge_ai_applications", scope=ContentScope.SHARED),
+    # Learning Steps (4) — SHARED public-read curriculum, no ownership gate
+    AIRouteSpec("ps", "Path Steps", "path-steps", "similar", "find_similar_steps", "uid_limit", "ps_ai_similar", "similar_steps", scope=ContentScope.SHARED),
+    AIRouteSpec("ps", "Path Steps", "path-steps", "insight", "generate_step_insight", "uid", "ps_ai_insight", "insight", scope=ContentScope.SHARED),
+    AIRouteSpec("ps", "Path Steps", "path-steps", "explain", "explain_step", "uid_level", "ps_ai_explain", scope=ContentScope.SHARED),
+    AIRouteSpec("ps", "Path Steps", "path-steps", "practice", "suggest_practice_activities", "uid", "ps_ai_practice", scope=ContentScope.SHARED),
+    # Learning Paths (4) — SHARED public-read curriculum, no ownership gate
+    AIRouteSpec("lp", "Learning Paths", "learning-paths", "similar", "find_similar_paths", "uid_limit", "lp_ai_similar", "similar_paths", scope=ContentScope.SHARED),
+    AIRouteSpec("lp", "Learning Paths", "learning-paths", "insight", "generate_path_insight", "uid", "lp_ai_insight", "insight", scope=ContentScope.SHARED),
+    AIRouteSpec("lp", "Learning Paths", "learning-paths", "overview", "generate_path_overview", "uid", "lp_ai_overview", scope=ContentScope.SHARED),
+    AIRouteSpec("lp", "Learning Paths", "learning-paths", "strategy", "suggest_completion_strategy", "uid", "lp_ai_strategy", scope=ContentScope.SHARED),
 ]
 # fmt: on
 
@@ -109,16 +115,6 @@ _AI_STATUS_DOMAINS: dict[str, str] = {
     "ps": "path_steps",
     "lp": "learning_paths",
 }
-
-# Owner-scoped AI domains: the 6 Activity Domains are USER_OWNED, so an AI route
-# that takes an entity uid must verify the caller owns it (404 otherwise) — else any
-# authenticated user could read another user's private entity (and burn LLM budget)
-# via the AI endpoint. ps/lp are SHARED (public-read curriculum) and are not gated.
-# Derived from the domain (not per-route) so a new owner-scoped AI route is
-# protected by default — see core/services/ AI facades.
-_USER_OWNED_AI_DOMAINS: frozenset[str] = frozenset(
-    {"tasks", "goals", "habits", "events", "choices", "principles"}
-)
 
 
 # ---------------------------------------------------------------------------
@@ -145,12 +141,13 @@ async def _ai_route(
     domain_label: str,
     method_name: str,
     args: tuple[Any, ...],
+    scope: ContentScope = ContentScope.USER_OWNED,
     entity_uid: str | None = None,
     wrap_key: str | None = None,
 ) -> dict[str, Any] | JSONResponse:
     """Shared handler for all AI routes.
 
-    Handles auth, ownership verification (USER_OWNED domains), AI availability
+    Handles auth, ownership verification (USER_OWNED scope), AI availability
     check, method call, error propagation, and optional response wrapping.
 
     Args:
@@ -160,9 +157,11 @@ async def _ai_route(
         domain_label: Human-readable domain name for error messages
         method_name: AI service method to call
         args: Positional args to pass to the method
+        scope: Authorization contract for the entity. USER_OWNED triggers the
+            ownership gate; SHARED (public-read curriculum) skips it.
         entity_uid: The entity UID the route operates on, used for the ownership
-            gate on USER_OWNED domains. None for query-based routes (e.g. semantic
-            search) that take no single owned entity.
+            gate. None for query-based routes (e.g. semantic search) that take no
+            single owned entity.
         wrap_key: If set, wrap result.value as {wrap_key: value}; otherwise return raw
     """
     user_uid = require_authenticated_user(request)
@@ -171,7 +170,7 @@ async def _ai_route(
         return _ai_unavailable_response(domain_label)
     # Ownership gate: never expose one user's private entity (or spend LLM budget on
     # it) through an AI route. 404 (not 403) so we don't confirm the uid's existence.
-    if entity_uid is not None and domain_attr in _USER_OWNED_AI_DOMAINS:
+    if scope == ContentScope.USER_OWNED and entity_uid is not None:
         ownership_error = await verify_entity_ownership(facade, entity_uid, user_uid, domain_label)
         if ownership_error:
             return JSONResponse(
@@ -204,6 +203,7 @@ def _make_uid_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) -> Non
             spec.domain_label,
             spec.method_name,
             (uid,),
+            scope=spec.scope,
             entity_uid=uid,
             wrap_key=spec.wrap_key,
         )
@@ -225,6 +225,7 @@ def _make_uid_limit_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) 
             spec.domain_label,
             spec.method_name,
             (uid, limit),
+            scope=spec.scope,
             entity_uid=uid,
             wrap_key=spec.wrap_key,
         )
@@ -246,6 +247,7 @@ def _make_query_limit_route(rt: Any, path: str, services: Any, spec: AIRouteSpec
             spec.domain_label,
             spec.method_name,
             (query, limit),
+            scope=spec.scope,
             entity_uid=None,  # query-based: no single owned entity to gate
             wrap_key=spec.wrap_key,
         )
@@ -266,6 +268,7 @@ def _make_uid_level_route(rt: Any, path: str, services: Any, spec: AIRouteSpec) 
             spec.domain_label,
             spec.method_name,
             (uid, level),
+            scope=spec.scope,
             entity_uid=uid,
             wrap_key=spec.wrap_key,
         )
