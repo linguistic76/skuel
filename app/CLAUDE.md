@@ -518,7 +518,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 **Formatting:** Ruff. Run `./dev format` to format, `./dev quality` for full checks.
 
 **Key SKUEL Linter Rules:**
-- SKUEL001: No APOC in domain services [CRITICAL]
+- SKUEL001: No banned APOC procedures anywhere in `core/` [CRITICAL] — APOC is adapter-only (ADR-044). Docstring-aware (APOC named in docstrings/comments is prose, not a violation); unsuppressable.
 - SKUEL003: Use `.is_error` (not `.is_err`)
 - SKUEL007: Use `Errors` factory
 - SKUEL011: No `hasattr()` — use Protocol/isinstance/getattr
