@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from core.models.enums import Priority
     from core.models.enums.neo_labels import NeoLabel
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
+    from core.models.relationship_filters import RelationshipFilters
     from core.models.relationship_names import RelationshipName
     from core.models.type_hints import FilterParams
     from core.utils.result_simplified import Result as ResultType
@@ -663,10 +664,14 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         graph_enrichment_patterns: tuple[tuple[str, ...], ...],
         property_filters: dict[str, Any],
         query_text: str | None = None,
-        graph_patterns: dict[str, str] | None = None,
+        relationship_filters: RelationshipFilters | None = None,
         limit: int = 50,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Graph-aware faceted search with ownership, filters, and enrichment."""
+        """Graph-aware faceted search with ownership, filters, and enrichment.
+
+        The Cypher for ``relationship_filters`` is authored below the boundary
+        (ADR-044); callers pass only the active-flag intent.
+        """
         ...
 
     async def user_activity_range_raw(

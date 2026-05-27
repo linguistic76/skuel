@@ -114,6 +114,9 @@ from .intelligence_queries import (
     search,
 )
 
+# Relationship filter fragments - graph-aware faceted search WHERE clauses
+from .relationship_filter_fragments import build_relationship_filter_fragments
+
 # Relationship queries - counting, batch operations, path queries
 from .relationship_queries import (
     build_batch_get_related_with_filters,
@@ -195,6 +198,8 @@ __all__ = [
     "build_registry_validated_query",
     # Relationship queries
     "build_relationship_count",
+    # Relationship filter fragments (graph-aware faceted search)
+    "build_relationship_filter_fragments",
     "build_relationship_traversal_query",
     "build_relationship_uids_query",
     "build_relationship_weight_stats_query",

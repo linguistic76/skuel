@@ -94,7 +94,8 @@ class HybridQueryBuilder:
 
         Args:
             property_filters: Property-based filters (sel_category, learning_level, etc.)
-            graph_patterns: Graph patterns from SearchRequest.to_graph_patterns()
+            graph_patterns: Cypher WHERE-clause fragments keyed by pattern name
+                (e.g. from build_relationship_filter_fragments())
             user_uid: User identifier for personalized patterns
             limit: Maximum results
             offset: Pagination offset
