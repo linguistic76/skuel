@@ -10,43 +10,45 @@ from dataclasses import dataclass
 
 @dataclass
 class GraphQLConfig:
+    """GraphQL security and performance limits.
+
+    Every field here is enforced — there is no aspirational config. The
+    query-shape limits (depth, tokens, aliases, complexity) run as Strawberry
+    schema extensions; the timeouts run at the adapter boundary and as a
+    per-resolver wrapper; the list / traversal caps are applied by the
+    ``validate_*`` helpers below.
+
+    A Cypher / transaction timeout is intentionally NOT here: it is a database
+    concern that already has a home in ``DatabaseConfig.query_timeout`` and
+    governs the app-wide executor, not just GraphQL.
+
+    See: adapters/inbound/graphql/guardrails.py (complexity + resolver-timeout extensions),
+    adapters/inbound/graphql_routes.py (request timeout), schema.py (wiring).
     """
-    GraphQL security and performance configuration.
 
-    These limits prevent abuse and ensure good performance.
-    """
+    # Query-shape limits — enforced as Strawberry schema extensions.
+    max_query_depth: int = 5  # QueryDepthLimiter — cap nesting depth
+    max_query_tokens: int = 1000  # MaxTokensLimiter — cap query size
+    max_aliases: int = 10  # MaxAliasesLimiter — cap aliases (alias-based DoS)
+    max_query_complexity: int = 1000  # QueryComplexityLimiter — cap summed field cost
 
-    # Query Depth Limits
-    max_query_depth: int = 5  # Prevent deeply nested queries
-    max_aliases: int = 10  # Prevent alias-based DoS attacks
+    # Field-cost weights for QueryComplexityLimiter (see guardrails.py).
+    basic_field_cost: int = 1  # Scalar / leaf field
+    list_field_cost: int = 10  # Field returning a list
+    nested_object_cost: int = 5  # Nested object field
+    field_complexity_multiplier: float = 1.0  # Global scale on the summed cost
 
-    # Node Limits (prevent fetching too much data)
+    # Timeouts (seconds) — request-level at the adapter, per-resolver via extension.
+    max_query_timeout_seconds: int = 30  # Whole-operation ceiling (asyncio.wait_for)
+    max_resolver_timeout_seconds: int = 10  # Per-resolver ceiling (ResolverTimeoutExtension)
+
+    # List / traversal caps — applied by validate_list_limit / validate_query_depth.
     max_list_size: int = 100  # Maximum items in any list
-    default_list_size: int = 20  # Default if not specified
+    default_list_size: int = 20  # Default list size when unspecified
+    max_cypher_depth: int = 5  # Maximum graph-traversal depth in resolvers
 
-    # Timeout Limits
-    max_query_timeout_seconds: int = 30  # Kill queries taking too long
-    max_resolver_timeout_seconds: int = 10  # Individual resolver timeout
-
-    # Complexity Limits
-    max_query_complexity: int = 1000  # Maximum complexity score
-    max_query_tokens: int = 1000  # Maximum tokens in query (prevent huge queries)
-    field_complexity_multiplier: float = 1.0  # Adjust complexity calculations
-
-    # DataLoader Limits
-    max_batch_size: int = 100  # Maximum items per DataLoader batch
-
-    # Cypher Query Limits (Neo4j specific)
-    max_cypher_depth: int = 5  # Maximum graph traversal depth
-    max_cypher_nodes: int = 1000  # Maximum nodes to return
-    cypher_timeout_seconds: int = 10  # Cypher query timeout
-
-    # Field-Level Complexity Costs
-    # These define the computational cost of different field types
-    basic_field_cost: int = 1  # Simple scalar fields
-    list_field_cost: int = 10  # Fields that return lists
-    nested_object_cost: int = 5  # Nested object fields
-    resolver_field_cost: int = 10  # Fields with custom resolvers (DataLoader)
+    # DataLoader batching — passed to every per-request DataLoader (context.py).
+    max_batch_size: int = 100  # Maximum keys per DataLoader batch
 
 
 # Global config instance

@@ -83,7 +83,7 @@ See [GUARDRAILS.md](./GUARDRAILS.md) for complete documentation.
 ### Key Components
 
 ```
-routes/graphql/
+adapters/inbound/graphql/
 ├── __init__.py          # Package exports
 ├── schema.py            # Query, Mutation (disabled), Subscription definitions
 ├── types.py             # GraphQL type definitions (Strawberry @strawberry.type)
@@ -119,7 +119,7 @@ DataLoaders prevent N+1 queries by batching and caching requests:
 # Total: 2 queries
 ```
 
-Implementation: [context.py:routes/graphql/context.py](./context.py)
+Implementation: [context.py:adapters/inbound/graphql/context.py](./context.py)
 
 ---
 
@@ -358,7 +358,7 @@ subscription {
 
 ## Configuration
 
-All guardrail limits are configured in [config.py:routes/graphql/config.py](./config.py):
+All guardrail limits are configured in [config.py:adapters/inbound/graphql/config.py](./config.py):
 
 ```python
 @dataclass
@@ -373,7 +373,7 @@ class GraphQLConfig:
 ### Adjusting Limits
 
 ```python
-from routes.graphql.config import get_graphql_config
+from adapters.inbound.graphql.config import get_graphql_config
 
 config = get_graphql_config()
 config.max_list_size = 50  # Reduce maximum

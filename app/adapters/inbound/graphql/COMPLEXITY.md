@@ -128,7 +128,7 @@ query {
 
 ## Configuration
 
-All limits are defined in `/routes/graphql/config.py`:
+All limits are defined in `/adapters/inbound/graphql/config.py`:
 
 ```python
 @dataclass
@@ -155,7 +155,7 @@ class GraphQLConfig:
 ### Adjusting Limits
 
 ```python
-from routes.graphql.config import get_graphql_config
+from adapters.inbound.graphql.config import get_graphql_config
 
 config = get_graphql_config()
 

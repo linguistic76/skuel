@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING
 import pytest
 import pytest_asyncio
 
+from adapters.inbound.graphql.mappers import path_step_from_domain
+from adapters.inbound.graphql.types import PathStep
 from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
@@ -36,11 +38,9 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep as PathStepModel
 from core.services.lp_service import LpService
 from core.services.ps_service import PsService
-from routes.graphql.mappers import path_step_from_domain
-from routes.graphql.types import PathStep
 
 if TYPE_CHECKING:
-    from routes.graphql.protocols import CurriculumEntityLike, PathStepLike
+    from adapters.inbound.graphql.protocols import CurriculumEntityLike, PathStepLike
 
 # ============================================================================
 # Test Fixtures
