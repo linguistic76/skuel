@@ -1080,18 +1080,21 @@ class Subscription:
 
     @strawberry.subscription
     async def learning_progress(
-        self, info: Info[GraphQLContext, Any], user_uid: str, path_uid: str
+        self, info: Info[GraphQLContext, Any], path_uid: str, user_uid: str | None = None
     ) -> AsyncIterator[float]:
         """
         Subscribe to learning progress updates via event bus.
 
-        Listens to LearningPathProgressUpdated events and yields
-        progress values (0.0-1.0) for the specified user and path.
+        Listens to LearningPathProgressUpdated events and yields progress
+        values (0.0-1.0) for ``path_uid``. Defaults to the authenticated
+        caller's own progress; an explicit ``user_uid`` override requires
+        ADMIN role (enforced by ``resolve_target_user`` — fail-closed).
 
         Args:
             info: GraphQL context with services
-            user_uid: User identifier to filter events
             path_uid: Learning path identifier to filter events
+            user_uid: Optional target-user override (ADMIN only); defaults
+                to the authenticated caller
 
         Yields:
             Progress values (0.0 to 1.0) when updates occur
@@ -1099,6 +1102,10 @@ class Subscription:
         import asyncio
 
         from core.events.learning_events import LearningPathProgressUpdated
+
+        # Authorize before streaming: default to the caller; an explicit
+        # user_uid override requires ADMIN role (fail-closed, mirrors queries).
+        target_user_uid = await resolve_target_user(info, user_uid)
 
         # Get event bus from services
         event_bus = info.context.services.event_bus if info.context.services else None
@@ -1112,10 +1119,10 @@ class Subscription:
         # Create queue for this subscription
         progress_queue: asyncio.Queue[float] = asyncio.Queue()
 
-        # Event handler that filters by user_uid and path_uid
+        # Event handler that filters by the resolved target user + path
         def handle_progress_update(event: LearningPathProgressUpdated) -> None:
             """Filter and queue progress updates for this subscription."""
-            if event.user_uid == user_uid and event.path_uid == path_uid:
+            if event.user_uid == target_user_uid and event.path_uid == path_uid:
                 # Put new progress value in queue (non-blocking)
                 try:
                     progress_queue.put_nowait(event.new_progress)

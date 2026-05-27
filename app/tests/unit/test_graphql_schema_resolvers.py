@@ -1878,6 +1878,36 @@ class TestLearningPathBlockersLaterStepNoKuUid:
 
 class TestLearningProgressSubscription:
     @pytest.mark.asyncio
+    async def test_override_by_non_admin_raises(self) -> None:
+        """An explicit user_uid override requires ADMIN (resolve_target_user).
+
+        A non-admin caller is rejected before any event-bus subscription —
+        fail-closed, so the resolver never leaks another user's progress.
+        """
+        from routes.graphql.schema import Subscription
+
+        user_service = AsyncMock()
+        caller_user = MagicMock()
+        caller_user.has_permission.return_value = False
+        user_service.get_user.return_value = FakeResult(value=caller_user)
+
+        event_bus = MagicMock()
+        services = MagicMock()
+        services.user = user_service
+        services.event_bus = event_bus
+
+        ctx = _make_context(services=services, user_uid="user_caller")
+        info = _make_info(ctx)
+
+        sub = Subscription()
+        with pytest.raises(PermissionError, match="Admin role required"):
+            async for _ in sub.learning_progress(info, path_uid="lp_1", user_uid="user_victim"):
+                pass
+
+        # Auth failed before streaming — no subscription side effect leaked.
+        event_bus.subscribe.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_no_event_bus_yields_zero(self) -> None:
         """Line 1114-1118: no event bus yields 0.0 and returns."""
         from routes.graphql.schema import Subscription
@@ -1890,7 +1920,7 @@ class TestLearningProgressSubscription:
 
         sub = Subscription()
         values = [
-            v async for v in sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
+            v async for v in sub.learning_progress(info, path_uid="lp_1")
         ]
 
         assert values == [0.0]
@@ -1914,7 +1944,7 @@ class TestLearningProgressSubscription:
 
         sub = Subscription()
         values = [
-            v async for v in sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
+            v async for v in sub.learning_progress(info, path_uid="lp_1")
         ]
 
         assert values == [0.0]
@@ -1942,7 +1972,7 @@ class TestLearningProgressSubscription:
         info = _make_info(ctx)
 
         sub = Subscription()
-        gen = sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
+        gen = sub.learning_progress(info, path_uid="lp_1")
 
         # Pre-patch wait_for so the generator doesn't actually wait 30s.
         # Strategy: on each call, check if the queue has data. If yes, return it.
@@ -2020,7 +2050,7 @@ class TestLearningProgressSubscription:
         info = _make_info(ctx)
 
         sub = Subscription()
-        gen = sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
+        gen = sub.learning_progress(info, path_uid="lp_1")
 
         original_wait_for = asyncio.wait_for
         call_count = 0
@@ -2089,7 +2119,7 @@ class TestLearningProgressSubscription:
         info = _make_info(ctx)
 
         sub = Subscription()
-        gen = sub.learning_progress(info, user_uid="user_test", path_uid="lp_1")
+        gen = sub.learning_progress(info, path_uid="lp_1")
 
         original_wait_for = asyncio.wait_for
 
