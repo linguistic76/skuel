@@ -79,8 +79,8 @@ Forms live in `ui/activities/{domain}_form.py` and are appended inside the
 List-typed cross-domain fields and free-text list fields are intentionally
 omitted from forms — assign those via the detail-page relationship picker.
 
-**Cross-domain connections** (`core/utils/connection_fetcher.py`):
-- `fetch_entity_connections(backend, config, entity_uids)` — unified batch query for cross-domain relationships. Each domain has a `ConnectionConfig` constant (e.g. `TASK_CONNECTION_CONFIG`) specifying entity label, direction (`outgoing` or `incoming` for gravity wells), and relationship types.
+**Cross-domain connections** — the fetch Cypher lives below the hexagonal boundary in `ConnectionFetchBackend` (`adapters/persistence/neo4j/`), behind the `ConnectionFetchOperations` port (ADR-044); the pure-data configs live in `core/utils/connection_configs.py`:
+- `backend.fetch_entity_connections(config, entity_uids)` — unified batch query for cross-domain relationships. Each domain has a `ConnectionConfig` constant (e.g. `TASK_CONNECTION_CONFIG`) specifying entity label, direction (`outgoing` or `incoming` for gravity wells), and relationship types. UI factories receive the port as `ActivityUIConfig.backend` and call `config.backend.fetch_entity_connections(config.connection_config, uids)`.
 - Returns `dict[str, list[dict[str, str]]]` with normalized keys: `rel_type`, `connected_uid`, `title`, `connected_type`.
 
 **Entity filtering** (`core/utils/entity_filters.py`):
