@@ -9,13 +9,20 @@ an injected ``QueryExecutor`` — was relocated below the boundary into
 The pure data (``ConnectionConfig`` + the six per-domain constants) stayed in
 core as ``core/utils/connection_configs.py``.
 
-This test locks that in. The SKUEL021 lint gate does NOT cover ``core/utils/``,
-and a naive line-scan widening would false-positive on the legitimate docstring
-Cypher *examples* that live in this directory (processor_functions.py,
-neo4j_mapper.py, result_simplified.py, decorators.py, error_boundary.py). So we
-guard structurally with AST instead: docstrings and comments are not Call /
-Import nodes, and docstring string literals are skipped by identity — they
-cannot trip this check.
+This test locks that in. It predates the SKUEL021 lint gate covering
+``core/utils/``: a naive line-scan widening would have false-positived on the
+legitimate docstring Cypher *examples* that live in this directory
+(processor_functions.py, neo4j_mapper.py, result_simplified.py, decorators.py,
+error_boundary.py), so we guarded structurally with AST instead — docstrings and
+comments are not Call / Import nodes, and docstring string literals are skipped
+by identity, so they cannot trip this check.
+
+SKUEL021 has since been taught the same docstring-aware AST technique and its
+gate widened to all of ``core/`` (it now lint-enforces the raw-Cypher ban here).
+This test is intentionally KEPT: its execution-primitive bans (neo4j driver
+imports, ``.execute_query(`` calls) are NOT covered by SKUEL021, and the
+raw-Cypher-string sub-check is the canonical proof of the AST technique that
+SKUEL021 borrows. The small overlap is deliberate defense-in-depth.
 
 Banned in core/utils:
   - neo4j driver imports (``import neo4j`` / ``from neo4j import ...``). The
@@ -26,9 +33,11 @@ Banned in core/utils:
     Inert bare string-expression statements — docstrings and ``USAGE EXAMPLES``
     blocks that legitimately quote Cypher — are skipped by identity.
 
-Follow-up (noted): teach SKUEL021's checker to skip docstring/string-literal
-regions, then widen its ``is_below_boundary`` gate to include ``/core/utils/``
-for lint-level (not just test-level) structural enforcement.
+Done (follow-up landed): SKUEL021's checker is now AST-based with the same
+docstring-skip technique, and its gate covers all of ``core/`` — so the
+raw-Cypher ban here is lint-enforced too. This test keeps the raw-Cypher-string
+sub-check as the canonical AST proof and pairs it with the execution-primitive
+bans, which SKUEL021 does not cover.
 """
 
 from __future__ import annotations

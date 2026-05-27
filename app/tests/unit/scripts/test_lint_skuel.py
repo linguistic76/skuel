@@ -72,9 +72,16 @@ def lint_content(
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
-    if is_service and not is_test:
+    # Boundary rules (ADR-044): SKUEL001 (APOC) + SKUEL021 (raw Cypher) run on all
+    # of core/ as well as any /services/ path — mirror _lint_file's is_below_boundary.
+    is_below_boundary = is_core or is_service
+    if is_below_boundary and not is_test:
         if linter._should_run_rule("SKUEL001"):
             linter._check_apoc_in_services(fp, rel, content, lines)
+        if linter._should_run_rule("SKUEL021"):
+            linter._check_raw_cypher_in_services(fp, rel, content, lines)
+
+    if is_service and not is_test:
         if linter._should_run_rule("SKUEL002"):
             linter._check_semantic_type_strings(fp, rel, content, lines)
         if linter._should_run_rule("SKUEL004"):
@@ -1519,6 +1526,155 @@ class TestSKUEL020:
         violations = lint_content(linter, content)
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL020"
+
+
+# ============================================================================
+# SKUEL021: No raw Cypher above the hexagonal boundary (ADR-044)
+# ============================================================================
+
+
+class TestSKUEL021:
+    # --- Real (used) Cypher IS flagged, in core/services, core/utils, core/models ---
+
+    def test_detects_assigned_cypher_in_services(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'query = "MATCH (n:Task) RETURN n"')
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+        assert violations[0].severity == Severity.ERROR
+
+    def test_detects_cypher_in_core_utils(self) -> None:
+        """The widened gate covers core/utils (is_core), not just /services/."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(
+            linter,
+            'q = "MERGE (a:Node {uid: $uid})"',
+            file_path="core/utils/helper.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_detects_cypher_in_core_models(self) -> None:
+        """The widened gate covers core/models too (search_request relocation, PR #78)."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(
+            linter,
+            'def build(self) -> str:\n    return "OPTIONAL MATCH (e)-[r]->(t) RETURN t"',
+            file_path="core/models/search_request.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_detects_used_fstring_cypher(self) -> None:
+        """A marker interpolated into an f-string is still authored Cypher."""
+        linter = make_linter(["SKUEL021"])
+        content = "uid = 1\nq = f'MATCH (n) WHERE n.id = {uid} RETURN n'\nrun(q)"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_detects_cypher_passed_as_argument(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'self.backend.run("CREATE (n:Foo {x: 1})")')
+        assert len(violations) == 1
+
+    def test_detects_returned_cypher(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(
+            linter, 'def q() -> str:\n    return "UNWIND $items AS item RETURN item"'
+        )
+        assert len(violations) == 1
+
+    def test_call_db_marker(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "CALL db.index.vector.queryNodes($idx, 5, $vec)"')
+        assert len(violations) == 1
+
+    # --- Inert documentation Cypher is NOT flagged (the docstring-aware core) ---
+
+    def test_skips_module_docstring_cypher(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        content = '"""Example query.\n\n    MATCH (n:Task) RETURN n\n"""\nx = 1'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_function_docstring_cypher(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        content = (
+            "def fetch():\n"
+            '    """Fetch tasks.\n\n'
+            "    Example:\n"
+            "        MERGE (a:Node)-[:USES]->(b)\n"
+            '    """\n'
+            "    return None\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_bare_usage_examples_block(self) -> None:
+        """A mid-body bare-string ``USAGE EXAMPLES`` block legitimately quotes Cypher."""
+        linter = make_linter(["SKUEL021"])
+        content = (
+            "def f():\n"
+            "    x = 1\n"
+            '    """\n'
+            "    USAGE EXAMPLES:\n"
+            "        OPTIONAL MATCH (a)-[r]->(b)\n"
+            '    """\n'
+            "    return x\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_skips_cypher_in_core_utils_docstring(self) -> None:
+        """The reason PR #75 used an AST test instead of widening the line-scan:
+        core/utils docstrings legitimately quote Cypher and must not trip the rule."""
+        linter = make_linter(["SKUEL021"])
+        content = '"""Maps rows.\n\n    MATCH (n) RETURN n\n"""\nrows = []'
+        violations = lint_content(
+            linter, content, file_path="core/utils/neo4j_mapper.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_skips_comment_cypher(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, "# old query was MATCH (n) RETURN n")
+        assert len(violations) == 0
+
+    # --- Suppression ---
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(
+            linter,
+            'q = "MATCH (n) RETURN n"  # skuel-lint: disable=SKUEL021 -- below-boundary shim',
+        )
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL021 -- generated query module\n"
+            'q = "MATCH (n) RETURN n"\n'
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    # --- Granularity ---
+
+    def test_multiline_query_reports_once(self) -> None:
+        """A single triple-quoted query with several clauses is one violation."""
+        linter = make_linter(["SKUEL021"])
+        content = 'q = """\nMATCH (a)\nMERGE (b)\nCREATE (c)\n"""\nrun(q)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_clean_service_no_violation(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, "result = await self.backend.get_tasks(user_uid)")
+        assert len(violations) == 0
 
 
 # ============================================================================
