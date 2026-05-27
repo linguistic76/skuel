@@ -50,8 +50,8 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     import builtins
 
-    from adapters.external.deepgram.adapter import DeepgramAdapter
     from core.ports.base_protocols import BackendOperations
+    from core.ports.transcription_protocols import TranscriptionPort
 
 logger = get_logger(__name__)
 
@@ -72,7 +72,7 @@ class TranscriptionService(EntityTimestampMixin):
     def __init__(
         self,
         backend: BackendOperations[Transcription],
-        deepgram_adapter: DeepgramAdapter | None = None,
+        deepgram_adapter: TranscriptionPort | None = None,
         event_bus: Any | None = None,
     ) -> None:
         """

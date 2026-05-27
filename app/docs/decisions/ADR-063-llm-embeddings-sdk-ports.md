@@ -145,3 +145,16 @@ flagged.
 
 ### Evolution Path
 Promote the guard test to a SKUEL lint rule if SDK-leak regressions recur.
+
+### Completed follow-up — TranscriptionPort (2026-05-27)
+The one remaining asymmetry is closed. Deepgram's `DeepgramAdapter` already sat
+below the boundary (it was a *reference pattern* for this ADR), but core typed
+against the **concrete adapter** — unlike the LLM/embeddings *ports*.
+`core/ports/transcription_protocols.py` now defines `TranscriptionPort` + the
+core-owned `TranscriptionResult` DTO (moved up from the adapter, mirroring
+`LLMCompletion` in `llm_protocols.py`); `DeepgramAdapter` implements it
+structurally; `TranscriptionService`, `BatchTranscriptionService`, and
+`UserEntryProcessingService` now type against the port. All three external
+model-call boundaries (chat, embeddings, transcription) are uniform: SDK in the
+adapter below the boundary, core depends only on a `core/ports` protocol, the
+concrete client injected at the composition root.

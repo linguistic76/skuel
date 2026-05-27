@@ -43,8 +43,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.external.deepgram import DeepgramAdapter
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.transcription_protocols import TranscriptionPort
     from core.services.llm_caller import UnifiedLLMCaller
     from core.services.output.instruction_resolver import InstructionResolver
     from core.services.user_entry.user_entry_service import UserEntryService
@@ -61,7 +61,7 @@ class UserEntryProcessingService:
     def __init__(
         self,
         entry_service: UserEntryService,
-        transcription_adapter: DeepgramAdapter | None = None,
+        transcription_adapter: TranscriptionPort | None = None,
         llm_caller: UnifiedLLMCaller | None = None,
         instruction_resolver: InstructionResolver | None = None,
         event_bus: EventBusOperations | None = None,
