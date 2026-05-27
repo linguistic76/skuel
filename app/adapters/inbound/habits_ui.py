@@ -23,7 +23,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
-from core.utils.connection_fetcher import HABIT_CONNECTION_CONFIG
+from core.utils.connection_configs import HABIT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_habits
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
@@ -35,6 +35,7 @@ from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.habits_service import HabitsService
 
 logger = get_logger("skuel.routes.habits_ui")
@@ -44,6 +45,7 @@ def create_habits_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     habits_service: HabitsService,
+    connection_fetch_backend: ConnectionFetchOperations,
 ) -> list[Any]:
     """Register Habits UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
@@ -53,7 +55,7 @@ def create_habits_ui_routes(
         filter_params=(("status", "active"), ("category", "all"), ("sort_by", "streak")),
         get_all=habits_service.get_user_habits,
         get_one=habits_service.get_habit,
-        backend=habits_service.core.backend,
+        backend=connection_fetch_backend,
         filter_fn=filter_habits,
         connection_config=HABIT_CONNECTION_CONFIG,
         filter_config=FILTER_CONFIGS["habits"],

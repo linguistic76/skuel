@@ -24,7 +24,6 @@ from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from core.utils.connection_fetcher import fetch_entity_connections, fetch_source_pathstep
 from ui.activities._shared import CurriculumOriginField
 from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
@@ -39,6 +38,7 @@ if TYPE_CHECKING:
 
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.type_hints import UserUID
+    from core.ports import ConnectionFetchOperations
 
 
 # ============================================================================
@@ -61,7 +61,7 @@ class ActivityUIConfig:
             Passed positionally (after items) to filter_fn.
         get_all: Service method (user_uid) -> Result[list[Entity]]
         get_one: Service method (uid) -> Result[Entity]
-        backend: The neo4j backend for connection fetching
+        backend: ConnectionFetchOperations port for connection / source-PathStep fetching
         filter_fn: Domain filter function (items, *param_values) -> filtered
         connection_config: ConnectionConfig for fetch_entity_connections
         filter_config: FilterConfig for ActivityFilterBar
@@ -76,7 +76,7 @@ class ActivityUIConfig:
     filter_params: tuple[tuple[str, str], ...]
     get_all: Callable[[UserUID], Awaitable[Any]]
     get_one: Callable[[str], Awaitable[Any]]
-    backend: Any
+    backend: ConnectionFetchOperations
     filter_fn: Callable[..., list[Any]]
     connection_config: Any
     filter_config: Any
@@ -134,8 +134,8 @@ def create_activity_ui_routes(
         filtered = config.filter_fn(all_items, *filter_args)
 
         uids = [item.uid for item in filtered]
-        connections_map = await fetch_entity_connections(
-            config.backend, config.connection_config, uids
+        connections_map = await config.backend.fetch_entity_connections(
+            config.connection_config, uids
         )
 
         return None, all_items, filtered, connections_map, param_values
@@ -249,8 +249,8 @@ def create_activity_ui_routes(
         if entity.user_uid != user_uid:
             return Div(render_error_banner(not_found_label), id=f"{singular}-detail-content")
 
-        connections_map = await fetch_entity_connections(
-            config.backend, config.connection_config, [entity.uid]
+        connections_map = await config.backend.fetch_entity_connections(
+            config.connection_config, [entity.uid]
         )
         connections = connections_map.get(entity.uid, [])
 
@@ -259,7 +259,7 @@ def create_activity_ui_routes(
         # Surface curriculum origin: activities spawned by engaging a PathStep
         # carry source_path_step_uid. User-created activities leave it None.
         if entity.source_path_step_uid:
-            source_ps = await fetch_source_pathstep(config.backend, entity.source_path_step_uid)
+            source_ps = await config.backend.fetch_source_pathstep(entity.source_path_step_uid)
             if source_ps:
                 return Div(CurriculumOriginField(source_ps["uid"], source_ps["title"]), body)
 

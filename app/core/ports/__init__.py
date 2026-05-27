@@ -132,6 +132,7 @@ from .base_protocols import (
 # Three curriculum domains: KU (point), PS (edge), LP (path)
 # All three have dedicated operations protocols: KuOperations, PsOperations, LpOperations (April 2026)
 # NOTE: MOC is KU-based (January 2026) - no separate MocOperations protocol
+from .connection_fetch_protocols import ConnectionFetchOperations
 from .cross_domain_protocols import CrossDomainBackendOperations
 from .curriculum_protocols import (
     CurriculumOperations,
@@ -329,6 +330,7 @@ __all__ = [
     # ========== DOMAIN OPERATION PROTOCOLS (8) ==========
     "ChoicesOperations",
     "Closeable",
+    "ConnectionFetchOperations",
     "AnalyticsRelationshipOperations",
     "CrossDomainAnalyticsOperations",
     "CrossDomainBackendOperations",

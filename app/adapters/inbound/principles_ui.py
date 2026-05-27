@@ -25,7 +25,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.principle.principle import merge_why_important
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
-from core.utils.connection_fetcher import PRINCIPLE_CONNECTION_CONFIG
+from core.utils.connection_configs import PRINCIPLE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_principles
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
@@ -37,6 +37,7 @@ from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.principles_service import PrinciplesService
 
 logger = get_logger("skuel.routes.principles_ui")
@@ -46,6 +47,7 @@ def create_principles_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     principles_service: PrinciplesService,
+    connection_fetch_backend: ConnectionFetchOperations,
 ) -> list[Any]:
     """Register Principles UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
@@ -60,7 +62,7 @@ def create_principles_ui_routes(
         ),
         get_all=principles_service.get_user_principles,
         get_one=principles_service.get_principle,
-        backend=principles_service.core.backend,
+        backend=connection_fetch_backend,
         filter_fn=filter_principles,
         connection_config=PRINCIPLE_CONNECTION_CONFIG,
         filter_config=FILTER_CONFIGS["principles"],

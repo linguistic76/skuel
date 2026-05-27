@@ -25,7 +25,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
-from core.utils.connection_fetcher import EVENT_CONNECTION_CONFIG
+from core.utils.connection_configs import EVENT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_events
 from core.utils.logging import get_logger
 from ui.activities.events_form import EventCreateForm, EventEditForm
@@ -37,6 +37,7 @@ from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
@@ -48,6 +49,7 @@ def create_events_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     events_service: EventsService,
+    connection_fetch_backend: ConnectionFetchOperations,
     user_service: Any = None,  # kept for DomainRouteConfig signature compat
     goals_service: GoalsService | None = None,
     habits_service: HabitsService | None = None,
@@ -60,7 +62,7 @@ def create_events_ui_routes(
         filter_params=(("status", "upcoming"), ("sort_by", "date")),
         get_all=events_service.get_user_events,
         get_one=events_service.get_event,
-        backend=events_service.core.backend,
+        backend=connection_fetch_backend,
         filter_fn=filter_events,
         connection_config=EVENT_CONNECTION_CONFIG,
         filter_config=FILTER_CONFIGS["events"],
