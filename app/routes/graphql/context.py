@@ -13,6 +13,7 @@ from strawberry.dataloader import DataLoader
 
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+from routes.graphql.config import get_graphql_config
 from services_bootstrap import Services
 
 logger = get_logger(__name__)
@@ -129,10 +130,16 @@ def create_graphql_context(
             return [None] * len(keys)
         return await _batch_load(keys, context.services.ps.get_path_steps_batch, "path steps")
 
-    # Create DataLoaders with named functions instead of lambdas
-    context.knowledge_loader = DataLoader(load_fn=load_knowledge_units)
-    context.task_loader = DataLoader(load_fn=load_tasks)
-    context.learning_path_loader = DataLoader(load_fn=load_learning_paths)
-    context.path_step_loader = DataLoader(load_fn=load_path_steps)
+    # Create DataLoaders with named functions instead of lambdas. max_batch_size
+    # caps how many keys a single batch query fetches (GraphQLConfig guardrail).
+    max_batch_size = get_graphql_config().max_batch_size
+    context.knowledge_loader = DataLoader(
+        load_fn=load_knowledge_units, max_batch_size=max_batch_size
+    )
+    context.task_loader = DataLoader(load_fn=load_tasks, max_batch_size=max_batch_size)
+    context.learning_path_loader = DataLoader(
+        load_fn=load_learning_paths, max_batch_size=max_batch_size
+    )
+    context.path_step_loader = DataLoader(load_fn=load_path_steps, max_batch_size=max_batch_size)
 
     return context

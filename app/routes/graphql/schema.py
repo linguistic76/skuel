@@ -16,10 +16,11 @@ from __future__ import annotations
 from collections.abc import (
     AsyncIterator,  # noqa: TC003 - Strawberry evaluates return types at runtime
 )
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 import strawberry
-from strawberry.extensions import MaxTokensLimiter, QueryDepthLimiter
+from strawberry.extensions import MaxAliasesLimiter, MaxTokensLimiter, QueryDepthLimiter
 from strawberry.types import (
     Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
 )
@@ -30,6 +31,7 @@ from core.services.adaptive_lp_types import KnowledgeState
 from routes.graphql.auth import require_user_uid, resolve_target_user
 from routes.graphql.config import get_graphql_config, validate_list_limit
 from routes.graphql.context import GraphQLContext
+from routes.graphql.guardrails import QueryComplexityLimiter, ResolverTimeoutExtension
 
 if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep as LsModel
@@ -1154,11 +1156,20 @@ class Subscription:
 
 def create_graphql_schema() -> strawberry.Schema:
     """
-    Create the SKUEL GraphQL schema with security extensions.
+    Create the SKUEL GraphQL schema with its security extensions.
 
-    Security Extensions:
-    - QueryDepthLimiter: Prevents deeply nested queries (max depth: 5)
-    - MaxTokensLimiter: Prevents huge queries (max tokens: 1000)
+    Extensions are passed as factory callables (``functools.partial``) so
+    Strawberry builds a fresh instance per request (the older instance form is
+    deprecated). Each one enforces a ``GraphQLConfig`` limit:
+
+    - QueryDepthLimiter — cap nesting depth (depth bombs)
+    - MaxTokensLimiter — cap query size
+    - MaxAliasesLimiter — cap aliases (alias-based DoS)
+    - QueryComplexityLimiter — cap summed field cost (breadth bombs)
+    - ResolverTimeoutExtension — per-resolver execution ceiling
+
+    The whole-operation timeout is enforced separately at the adapter boundary
+    (graphql_routes.py).
 
     Returns:
         Configured Strawberry schema ready for FastHTML integration
@@ -1170,13 +1181,17 @@ def create_graphql_schema() -> strawberry.Schema:
         mutation=Mutation,
         subscription=Subscription,
         extensions=[
-            # Prevent deeply nested queries (depth bombs)
-            QueryDepthLimiter(
-                max_depth=config.max_query_depth,
+            partial(QueryDepthLimiter, max_depth=config.max_query_depth),
+            partial(MaxTokensLimiter, max_token_count=config.max_query_tokens),
+            partial(MaxAliasesLimiter, max_alias_count=config.max_aliases),
+            partial(
+                QueryComplexityLimiter,
+                max_complexity=config.max_query_complexity,
+                basic_field_cost=config.basic_field_cost,
+                list_field_cost=config.list_field_cost,
+                nested_object_cost=config.nested_object_cost,
+                multiplier=config.field_complexity_multiplier,
             ),
-            # Prevent huge queries (token limit)
-            MaxTokensLimiter(
-                max_token_count=config.max_query_tokens,
-            ),
+            partial(ResolverTimeoutExtension, seconds=config.max_resolver_timeout_seconds),
         ],
     )

@@ -13,6 +13,7 @@ This provides:
 - GET /graphql - Simple FastHTML playground (authenticated)
 """
 
+import asyncio
 import json
 from typing import Any
 
@@ -32,6 +33,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from routes.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
+from routes.graphql.config import get_graphql_config
 from services_bootstrap import Services
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody, CardHeader, CardTitle
@@ -62,6 +64,38 @@ def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: 
         if result.errors:
             response_data["errors"] = [{"message": str(error)} for error in result.errors]
         return response_data
+
+    async def _execute_with_timeout(
+        query: str,
+        variables: dict[str, Any] | None,
+        context: GraphQLContext,
+        operation_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Execute a GraphQL operation under the configured whole-request timeout.
+
+        The per-resolver and query-shape limits live in the schema extensions;
+        this is the outermost ceiling on total operation time (GraphQLConfig
+        guardrail). On timeout the request returns a GraphQL error rather than
+        tying up the worker indefinitely.
+        """
+        timeout = get_graphql_config().max_query_timeout_seconds
+        try:
+            result = await asyncio.wait_for(
+                schema.execute(
+                    query=query,
+                    variable_values=variables,
+                    context_value=context,
+                    operation_name=operation_name,
+                ),
+                timeout=timeout,
+            )
+        except TimeoutError:
+            logger.warning("GraphQL operation exceeded the %ss request timeout", timeout)
+            return {
+                "data": None,
+                "errors": [{"message": f"Query exceeded the {timeout}s execution timeout"}],
+            }
+        return _format_graphql_response(result)
 
     @rt("/graphql")
     async def graphql_handler(request) -> Any:
@@ -147,14 +181,12 @@ def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: 
         context = _build_graphql_context(request)
         logger.info(f"GraphQL request from authenticated user: {context.user_uid}")
 
-        result = await schema.execute(
-            query=body.get("query", ""),
-            variable_values=body.get("variables"),
-            context_value=context,
-            operation_name=body.get("operationName"),
+        return await _execute_with_timeout(
+            body.get("query", ""),
+            body.get("variables"),
+            context,
+            body.get("operationName"),
         )
-
-        return _format_graphql_response(result)
 
     @rt("/graphql/execute")
     @csrf_protected
@@ -179,12 +211,11 @@ def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: 
             )
 
         context = _build_graphql_context(request)
-        result = await schema.execute(query=query, variable_values=variables, context_value=context)
-        response_data = _format_graphql_response(result)
+        response_data = await _execute_with_timeout(query, variables, context)
 
         formatted_json = json.dumps(response_data, indent=2)
 
-        if result.errors:
+        if response_data.get("errors"):
             return Div(Pre(formatted_json, cls="text-error"), cls="p-4 bg-error/10 rounded")
         else:
             return Div(Pre(formatted_json, cls="text-success"), cls="p-4 bg-success/10 rounded")
