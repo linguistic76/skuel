@@ -90,9 +90,13 @@ async def learning_path_with_context(
 - Session cookies: signed, SameSite=lax, secure in production
 - No user_uid in query parameters for user-owned data
 - Admin override (`resolve_target_user`) enforces ADMIN role check
+- The `learning_progress` **subscription** uses the same gate: `user_uid` is an
+  optional override that requires ADMIN, so a caller can only stream their own
+  progress unless they're an admin.
+- Query-shape / cost limits (depth, tokens, aliases, complexity) and the request +
+  per-resolver timeouts are enforced as schema extensions — see **GUARDRAILS.md**.
 
 ### Not Yet Implemented
 
-- Rate limiting per user
-- Query complexity limits per user
+- Per-user rate limiting / query budgets (complexity limits today are global, not per-user)
 - Audit logging for sensitive queries

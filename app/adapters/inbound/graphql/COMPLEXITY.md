@@ -145,11 +145,11 @@ class GraphQLConfig:
     max_query_complexity: int = 1000      # Maximum complexity score
     max_query_tokens: int = 1000          # Maximum tokens in query
 
-    # Field-Level Costs (for future complexity analyzer)
-    basic_field_cost: int = 1             # Simple scalar fields
-    list_field_cost: int = 10             # Fields that return lists
-    nested_object_cost: int = 5           # Nested object fields
-    resolver_field_cost: int = 10         # DataLoader fields
+    # Field-cost weights for QueryComplexityLimiter (guardrails.py)
+    basic_field_cost: int = 1                  # Scalar / leaf fields
+    list_field_cost: int = 10                  # Fields that return lists
+    nested_object_cost: int = 5                # Nested object fields
+    field_complexity_multiplier: float = 1.0   # Global scale on the summed cost
 ```
 
 ### Adjusting Limits
@@ -243,58 +243,63 @@ async def knowledge_units(
 
 ---
 
-## Query Complexity Analysis (Future)
+## Query Complexity Analysis (Implemented)
 
-### Planned Implementation
+Enforced by `QueryComplexityLimiter` (`adapters/inbound/graphql/guardrails.py`), an
+`AddValidationRules` extension that walks each operation — resolving fragment spreads,
+mirroring Strawberry's `QueryDepthLimiter` — and rejects operations whose **summed
+field cost** exceeds `max_query_complexity` (default 1000).
 
-**Cost-based complexity scoring:**
-- Each field has a complexity cost
-- Total query complexity = sum of all field costs
-- Expensive fields (DataLoader, nested lists) cost more
-
-**Example complexity calculation:**
+**Cost model — additive and type-weighted.** A field's cost is its own weight plus the
+cost of its sub-selection; the total is scaled by `field_complexity_multiplier`. This
+caps query *breadth* — multiplicative list-size blow-up is bounded separately by the
+depth and list-size limits.
 
 ```graphql
 query {
-  knowledgeUnits(limit: 10) {          # 10 items
-    uid                                 # 1 point × 10 = 10
-    prerequisites {                     # 10 points × 10 = 100
-      uid                               # 1 point × 100 = 100
+  knowledgeUnits {            # list field → 10
+    uid                       # leaf → 1
+    prerequisites {           # list field → 10
+      uid                     # leaf → 1
     }
   }
 }
-# Total complexity: 10 + 100 + 100 = 210 points
+# Summed cost: 10 + 1 + 10 + 1 = 22 points
 ```
 
-### Future Complexity Costs
+### Complexity Costs
 
-Based on configured costs in `GraphQLConfig`:
+Configured in `GraphQLConfig`:
 
-| Field Type | Cost | Rationale |
-|------------|------|-----------|
-| Scalar fields (`uid`, `title`) | 1 | Simple database lookup |
-| List fields (`knowledgeUnits`) | 10 | Database query + iteration |
-| Nested objects (`prerequisites`) | 5 | Joins or additional queries |
-| DataLoader fields | 10 | Batched queries with overhead |
+| Field shape | Cost | Config field |
+|-------------|------|--------------|
+| Scalar / leaf (`uid`, `title`) | 1 | `basic_field_cost` |
+| Nested object (`prerequisites`) | 5 | `nested_object_cost` |
+| List (`knowledgeUnits`) | 10 | `list_field_cost` |
+
+> `resolver_field_cost` was removed — every Strawberry field has a resolver, so a
+> "resolver field" can't be detected faithfully; list-shaped (DataLoader-backed)
+> fields already carry `list_field_cost`.
 
 ### Complexity Budget Examples
 
+Cost is computed from the query's **shape** (the limiter walks the AST), **not** the
+`limit` argument value. Max complexity: 1000.
+
 ```
-Max complexity: 1000 points
+✅ { knowledgeUnits { uid } }
+   list(10) + leaf(1) = 11
 
-Query patterns:
-✅ knowledgeUnits(limit: 10) { uid }
-   Cost: 10 × 1 = 10 points
+✅ { knowledgeUnits { uid title summary } }
+   list(10) + 3 leaves(3) = 13
 
-✅ knowledgeUnits(limit: 100) { uid }
-   Cost: 100 × 1 = 100 points
-
-✅ knowledgeUnits(limit: 10) { prerequisites { uid } }
-   Cost: 10 × (1 + 10) = 110 points
-
-❌ knowledgeUnits(limit: 100) { prerequisites { uid } }
-   Cost: 100 × (1 + 10) = 1100 points (EXCEEDS 1000)
+✅ { knowledgeUnits { prerequisites { uid } } }
+   list(10) + list(10) + leaf(1) = 21
 ```
+
+A query exceeds the budget through field breadth/nesting, not a large `limit` — the
+list `limit` is capped independently by `validate_list_limit` (≤ 100). To trip the
+1000 budget you'd need a very wide/deep selection set (also bounded by the depth limit).
 
 ---
 
@@ -447,8 +452,8 @@ query {
 ```
 
 **Protection:**
-- Future: max_aliases limit (configured but not yet enforced)
-- Would reject queries with >10 aliases
+- Enforced by `MaxAliasesLimiter` (Strawberry built-in) — rejects queries with
+  more than `max_aliases` (default 10) aliases.
 
 ---
 
@@ -526,8 +531,10 @@ Limitations:
 Protections:
 ✅ Query depth limits (prevent depth bombs)
 ✅ Token limits (prevent huge queries)
+✅ Alias limits (prevent alias-based DoS)
 ✅ List size limits (prevent over-fetching)
-✅ Future complexity analysis
+✅ Query complexity limits (summed field-cost budget)
+✅ Whole-operation + per-resolver timeouts
 
 Benefits:
 ✅ Flexible queries (request what you need)
