@@ -81,8 +81,9 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 - **Always write:** Public APIs, complex functions, service classes, protocols
 - **Skip:** Obvious one-liners, simple private helpers
 - **Cross-reference:** `See: /docs/patterns/PATTERN_NAME.md`
+- **`core/services/` — intent, not mechanism:** describe WHAT the operation means in domain language; reference the backend for HOW (`Backend: KuBackend.get_path_steps_using`). Cypher belongs in backend / `core/utils/` docstrings, not service docstrings. SKUEL021 skips docstrings (correctly — prose can't execute), so this discipline isn't lint-enforced.
 
-**See:** `/docs/patterns/DOCSTRING_STANDARDS.md`
+**See:** `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/patterns/SERVICE_DOCSTRING_STYLE.md`
 
 ## Analog-to-Digital Development Model
 
