@@ -20,7 +20,22 @@ See: /docs/migrations/AUTOMATIC_CHUNKING_INTEGRATION_2026-01-29.md
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, TypedDict, runtime_checkable
+
+
+class BatchChunkingCandidate(TypedDict):
+    """One :Content row needing chunk regeneration.
+
+    Shape returned by the candidate-discovery Cypher in
+    ``BatchChunkingBackend.fetch_regeneration_candidates`` — three Neo4j
+    columns: ``c.uid``, ``c.body``, ``c.format``. The query guards ``body``
+    against null/empty, but ``format`` is returned as-is, so it may be
+    ``None`` for legacy content that predates the format field.
+    """
+
+    uid: str
+    body: str
+    format: str | None
 
 
 @runtime_checkable
@@ -39,8 +54,8 @@ class BatchChunkingOperations(Protocol):
         parent_uids: list[str] | None,
         force: bool,
         current_version: str,
-    ) -> list[dict[str, Any]]:
-        """Return :Content rows (``uid``, ``body``, ``format``) needing regeneration.
+    ) -> list[BatchChunkingCandidate]:
+        """Return :Content rows needing regeneration.
 
         Args:
             parent_uids: Restrict to these parent UIDs, or ``None`` for all
@@ -53,7 +68,7 @@ class BatchChunkingOperations(Protocol):
                 filter when ``force`` is ``False``; ignored otherwise.
 
         Returns:
-            Plain-row dicts with keys ``uid``, ``body``, ``format``. Empty when
+            Candidate rows shaped by ``BatchChunkingCandidate``. Empty when
             nothing matches.
         """
         ...

@@ -40,10 +40,11 @@ See: docs/roadmap/zpd-service-deferred.md — full design rationale
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.type_hints import EntityUID, UserUID
 from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAction, ZPDAssessment
+from core.ports.zpd_protocols import PrereqCount, SubmissionScore
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -53,6 +54,13 @@ if TYPE_CHECKING:
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user.unified_user_context import UserContext
+
+
+# Empty SubmissionScore sentinel used as the default when a KU has no
+# submissions; the ku_uid field is filled in by the caller's lookup, so the
+# initial value here is only ever read after replacement (or via .get default
+# where the missing ku_uid is irrelevant — count + best_score do the work).
+_EMPTY_SUBMISSION: SubmissionScore = {"ku_uid": "", "count": 0, "best_score": 0.0}
 
 
 class ZPDService:
@@ -219,11 +227,9 @@ class ZPDService:
         task_engaged, journal_engaged, habit_engaged, submission_data = engagement_result.value
 
         # Build ZoneEvidence for each requested KU
-        sub_lookup: dict[str, dict[str, Any]] = {}
-        for entry in submission_data:
-            ku_uid = entry.get("ku_uid")
-            if ku_uid:
-                sub_lookup[ku_uid] = entry
+        sub_lookup: dict[str, SubmissionScore] = {
+            entry["ku_uid"]: entry for entry in submission_data
+        }
 
         task_set = set(task_engaged)
         journal_set = set(journal_engaged)
@@ -231,11 +237,11 @@ class ZPDService:
 
         evidence: dict[str, ZoneEvidence] = {}
         for ku_uid in ku_uids:
-            sub_entry = sub_lookup.get(ku_uid, {})
+            sub_entry = sub_lookup.get(ku_uid, _EMPTY_SUBMISSION)
             evidence[ku_uid] = ZoneEvidence(
                 ku_uid=ku_uid,
-                submission_count=sub_entry.get("count", 0),
-                best_submission_score=sub_entry.get("best_score", 0.0),
+                submission_count=sub_entry["count"],
+                best_submission_score=sub_entry["best_score"],
                 habit_reinforcement=ku_uid in habit_set,
                 task_application=ku_uid in task_set,
                 journal_application=ku_uid in journal_set,
@@ -258,7 +264,7 @@ class ZPDService:
     # PRIVATE HELPERS — Business Logic
     # =========================================================================
 
-    def _compute_readiness_scores(self, prereq_data: list[dict[str, Any]]) -> dict[str, float]:
+    def _compute_readiness_scores(self, prereq_data: list[PrereqCount]) -> dict[str, float]:
         """Compute readiness score for each proximal KU.
 
         Score = fraction of the KU's prerequisites that are in current_zone.
@@ -266,11 +272,11 @@ class ZPDService:
         """
         scores: dict[str, float] = {}
         for entry in prereq_data:
-            ku_uid = entry.get("ku_uid")
+            ku_uid = entry["ku_uid"]
             if not ku_uid:
                 continue
-            total = entry.get("total") or 0
-            met = entry.get("met") or 0
+            total = entry["total"]
+            met = entry["met"]
             scores[ku_uid] = 1.0 if total == 0 else round(met / total, 3)
         return scores
 
@@ -280,19 +286,16 @@ class ZPDService:
         task_engaged: list[str],
         journal_engaged: list[str],
         habit_engaged: list[str],
-        submission_data: list[dict[str, Any]],
+        submission_data: list[SubmissionScore],
     ) -> dict[str, ZoneEvidence]:
         """Build compound evidence for each KU in the current zone.
 
         Combines per-source engagement data with submission scores.
         A KU needs 2+ signal types to be considered "confirmed".
         """
-        # Build submission lookup
-        sub_lookup: dict[str, dict[str, Any]] = {}
-        for entry in submission_data:
-            ku_uid = entry.get("ku_uid")
-            if ku_uid:
-                sub_lookup[ku_uid] = entry
+        sub_lookup: dict[str, SubmissionScore] = {
+            entry["ku_uid"]: entry for entry in submission_data
+        }
 
         task_set = set(task_engaged)
         journal_set = set(journal_engaged)
@@ -300,25 +303,22 @@ class ZPDService:
 
         evidence: dict[str, ZoneEvidence] = {}
         for ku_uid in current_zone:
-            sub_entry = sub_lookup.get(ku_uid, {})
+            sub_entry = sub_lookup.get(ku_uid, _EMPTY_SUBMISSION)
             evidence[ku_uid] = ZoneEvidence(
                 ku_uid=ku_uid,
-                submission_count=sub_entry.get("count", 0),
-                best_submission_score=sub_entry.get("best_score", 0.0),
+                submission_count=sub_entry["count"],
+                best_submission_score=sub_entry["best_score"],
                 habit_reinforcement=ku_uid in habit_set,
                 task_application=ku_uid in task_set,
                 journal_application=ku_uid in journal_set,
             )
         return evidence
 
-    def _parse_submission_scores(self, submission_data: list[dict[str, Any]]) -> dict[str, float]:
+    def _parse_submission_scores(self, submission_data: list[SubmissionScore]) -> dict[str, float]:
         """Extract best submission score per KU from raw submission data."""
-        scores: dict[str, float] = {}
-        for entry in submission_data:
-            ku_uid = entry.get("ku_uid")
-            if ku_uid:
-                scores[ku_uid] = entry.get("best_score", 0.0)
-        return scores
+        return {
+            entry["ku_uid"]: entry["best_score"] for entry in submission_data if entry["ku_uid"]
+        }
 
     def _build_recommended_actions(
         self,

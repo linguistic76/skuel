@@ -31,7 +31,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import EventBusOperations
-    from core.ports.chunk_protocols import BatchChunkingOperations
+    from core.ports.chunk_protocols import BatchChunkingCandidate, BatchChunkingOperations
 
 logger = get_logger("skuel.services.chunks.batch")
 
@@ -133,7 +133,7 @@ class BatchChunkingService:
 
         semaphore = asyncio.Semaphore(self.max_concurrency)
 
-        async def _process(candidate: dict[str, Any]) -> None:
+        async def _process(candidate: BatchChunkingCandidate) -> None:
             async with semaphore:
                 await self._regenerate_one(candidate, stats)
 
@@ -149,7 +149,7 @@ class BatchChunkingService:
 
     async def _fetch_candidates(
         self, parent_uids: list[str] | None, force: bool
-    ) -> list[dict[str, Any]]:
+    ) -> list[BatchChunkingCandidate]:
         """
         Pull :Content rows that need regeneration.
 
@@ -163,11 +163,13 @@ class BatchChunkingService:
             parent_uids, force, CHUNKING_ALGORITHM_VERSION
         )
 
-    async def _regenerate_one(self, candidate: dict[str, Any], stats: RegenerationStats) -> None:
+    async def _regenerate_one(
+        self, candidate: BatchChunkingCandidate, stats: RegenerationStats
+    ) -> None:
         """Regenerate chunks for a single parent. Failures are recorded, not raised."""
         parent_uid = candidate["uid"]
-        body = candidate.get("body") or ""
-        fmt = candidate.get("format") or "markdown"
+        body = candidate["body"] or ""
+        fmt = candidate["format"] or "markdown"
 
         if not body.strip():
             stats.skipped_no_body += 1
