@@ -1509,6 +1509,48 @@ class ExerciseOperations(Protocol):
         ...
 
 
+class RevisedExerciseBackendOperations(BackendOperations["RevisedExercise"], Protocol):
+    """Backend operations for RevisedExercise — base CRUD + revision-loop methods.
+
+    Implementation: RevisedExerciseBackend (backends/exercise_backends.py)
+    Consumer: RevisedExerciseService.__init__
+    """
+
+    async def link_to_report(self, re_uid: str, report_uid: str) -> Result[bool]: ...
+
+    async def link_to_exercise(self, re_uid: str, exercise_uid: str) -> Result[bool]: ...
+
+    async def verify_teacher_authority(
+        self,
+        teacher_uid: str,
+        report_uid: str,
+        student_uid: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def create_owns_relationship(
+        self,
+        teacher_uid: str,
+        re_uid: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def auto_share_with_student(
+        self,
+        student_uid: str,
+        re_uid: str,
+        shared_at: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def list_for_student(
+        self,
+        student_uid: str,
+        teacher_uid: str | None = None,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_by_report_uid(self, report_uid: str) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]: ...
+
+
 class RevisedExerciseOperations(Protocol):
     """Revised exercise operations for the four-phase learning loop.
 

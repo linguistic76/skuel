@@ -39,6 +39,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.ports.base_protocols import BackendOperations
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     GroupMemberProgress,
@@ -363,6 +364,60 @@ class ActivityReportOperations(Protocol):
 
 
 @runtime_checkable
+class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Protocol):
+    """Backend operations for ActivityReport — base CRUD + privacy-audit reads.
+
+    Implementation: ActivityReportBackend (backends/misc_backends.py)
+    Consumer: ActivityReportService.__init__
+    """
+
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_history(
+        self, subject_uid: str, limit: int = 20
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def annotate(
+        self,
+        uid: str,
+        user_uid: UserUID,
+        annotation_mode: str,
+        now: str,
+        user_annotation: str | None = None,
+        user_revision: str | None = None,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_annotation(
+        self, uid: str, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_admin_snapshots(
+        self, user_uid: UserUID, limit: int = 50
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_shares_granted(
+        self, user_uid: UserUID, limit: int = 100
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_report_schedule(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]: ...
+
+
+@runtime_checkable
+class ReportScheduleBackendOperations(BackendOperations["ReportSchedule"], Protocol):
+    """Backend operations for ReportSchedule — base CRUD + schedule-specific.
+
+    Implementation: ReportScheduleBackend (backends/misc_backends.py)
+    Consumer: ProgressScheduleService.__init__
+    """
+
+    async def create_user_schedule_relationship(
+        self, user_uid: str, schedule_uid: str
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_due_schedules(self, min_interval_hours: int) -> Result[list[Neo4jProperties]]: ...
+
+
+@runtime_checkable
 class ActivityReportGeneratorBackendOperations(Protocol):
     """Backend-level reads for ``ProgressReportGenerator``.
 
@@ -601,3 +656,44 @@ class TeacherReviewOperations(Protocol):
     ) -> Result[list[GroupMemberProgress]]:
         """Get group members with submission progress stats."""
         ...
+
+
+# ============================================================================
+# Narrow ISP slices consumed by TeacherReviewService
+# ============================================================================
+#
+# TeacherReviewService reaches into ExerciseBackend and GroupBackend for a
+# handful of queries each. Rather than typing self.* against the full
+# backend classes (which would expose ~30 unrelated methods), we declare the
+# minimal Protocol slice each consumer actually calls. Same ISP discipline
+# applied elsewhere in core/ports/.
+
+
+@runtime_checkable
+class TeacherReviewExerciseQueries(Protocol):
+    """Narrow ExerciseBackend slice consumed by TeacherReviewService.
+
+    Implementation: ExerciseBackend (backends/exercise_backends.py)
+    Consumer: TeacherReviewService.exercise_backend
+    """
+
+    async def get_exercises_with_submission_counts(
+        self, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]: ...
+
+
+@runtime_checkable
+class TeacherReviewGroupQueries(Protocol):
+    """Narrow GroupBackend slice consumed by TeacherReviewService.
+
+    Implementation: GroupBackend (backends/collab_backends.py)
+    Consumer: TeacherReviewService.group_backend
+    """
+
+    async def get_teacher_groups_with_stats(
+        self, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def get_group_detail(
+        self, group_uid: str, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]: ...

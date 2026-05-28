@@ -20,9 +20,9 @@ from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
 from core.models.type_hints import UserUID
+from core.ports.report_protocols import ActivityReportBackendOperations
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.misc_backends import ActivityReportBackend
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder
@@ -52,7 +52,7 @@ class ActivityReportService:
 
     def __init__(
         self,
-        backend: "ActivityReportBackend",  # skuel-lint: disable=SKUEL023 -- ActivityReportBackendOperations protocol not yet defined; backend exposes ~8 methods (create, get_for_user, get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted, get_report_schedule) distinct from the route-facing ActivityReportOperations slice — tracked for follow-up design work.
+        backend: ActivityReportBackendOperations,
         context_builder: "UserContextBuilder",
         event_bus: "EventBusOperations",
     ) -> None:

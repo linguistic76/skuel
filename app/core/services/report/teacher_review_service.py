@@ -42,16 +42,18 @@ from core.ports.query_types import (
     SubmissionForExercise,
     TeacherGroupStats,
 )
-from core.ports.report_protocols import ExerciseReportBackendOperations
+from core.ports.report_protocols import (
+    ExerciseReportBackendOperations,
+    TeacherReviewExerciseQueries,
+    TeacherReviewGroupQueries,
+)
+from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
-    from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
-    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
@@ -64,10 +66,10 @@ class TeacherReviewService:
 
     def __init__(
         self,
-        user_entry_backend: "UserEntryBackend",  # skuel-lint: disable=SKUEL023 -- typed against the aggregate UserEntryOperations would be a swap, but TeacherReviewService also reaches into the assessment mixin's review-queue + admin-oversight surface (~9 methods incl. get_review_queue, approve_and_get_linked_kus, get_submission_detail_for_teacher) — splitting/refactoring across two ISP slices is tracked for follow-up.
-        report_backend: "ExerciseReportBackendOperations",
-        exercise_backend: "ExerciseBackend",  # skuel-lint: disable=SKUEL023 -- ExerciseBackendOperations protocol not yet defined for the teacher-review surface (get_exercises_with_submission_counts is a teacher-dashboard cross-join) — tracked for follow-up design work.
-        group_backend: "GroupBackend",  # skuel-lint: disable=SKUEL023 -- GroupBackendOperations protocol not yet defined; teacher-review uses get_teacher_groups_with_stats + get_group_detail — tracked for follow-up design work.
+        user_entry_backend: UserEntryOperations,
+        report_backend: ExerciseReportBackendOperations,
+        exercise_backend: TeacherReviewExerciseQueries,
+        group_backend: TeacherReviewGroupQueries,
         ku_interaction_service: "PsMasteryService",
         report_mastery_service: "ReportMasteryService",
         event_bus: "EventBusOperations",

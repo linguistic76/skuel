@@ -8,10 +8,19 @@ not submission-specific.
 
 Protocol Responsibilities
 --------------------------
-    SharingOperations  — Visibility control, SHARES_WITH relationship management,
-                         access checking. Works across all EntityTypes.
+    SharingBackendOperations — Persistence-layer operations consumed by
+                               UnifiedSharingService (typed against self.backend).
+    SharingOperations        — Route-facing service contract. Visibility control,
+                               SHARES_WITH relationship management, access checking.
+                               Works across all EntityTypes.
 
-ISP-compliant: captures only the methods called from routes.
+Same root word, two layers: SharingBackendOperations describes what the
+SharingBackend exposes (low-level Cypher methods like create_share,
+query_access); SharingOperations describes what UnifiedSharingService exposes
+to routes (share, check_access, …). See CLAUDE.md § "Protocol-Based
+Architecture" for the two-layer convention.
+
+ISP-compliant: captures only the methods called from each consumer.
 
 See: /docs/patterns/SHARING_PATTERNS.md
 See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
@@ -20,8 +29,129 @@ See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.enums.metadata_enums import Visibility
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
+
+
+@runtime_checkable
+class SharingBackendOperations(Protocol):
+    """Backend operations consumed by UnifiedSharingService.
+
+    Implementation: adapters/persistence/neo4j/backends/sharing_backend.py
+    Consumer: core/services/sharing/unified_sharing_service.py
+    """
+
+    async def create_share(
+        self,
+        entity_uid: EntityUID,
+        recipient_uid: str,
+        role: str,
+        share_version: str,
+        shared_at: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def delete_share(
+        self,
+        entity_uid: EntityUID,
+        recipient_uid: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def update_visibility(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: str,
+        visibility: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_access(
+        self,
+        entity_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_shareable_status(
+        self,
+        entity_uid: EntityUID,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_ownership_and_status(
+        self,
+        entity_uid: EntityUID,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_shared_with_users(
+        self,
+        entity_uid: EntityUID,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_shared_with_me(
+        self,
+        user_uid: UserUID,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def create_group_share(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: UserUID,
+        group_uid: str,
+        share_version: str,
+        shared_at: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def delete_group_share(
+        self,
+        entity_uid: EntityUID,
+        group_uid: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_groups_shared_with(
+        self,
+        entity_uid: EntityUID,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_shared_with_me_via_groups(
+        self,
+        user_uid: UserUID,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_user_entries_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_user_entry_shared_with_group(
+        self,
+        user_uid: UserUID,
+        group_uid: str,
+        entry_uid: EntityUID,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    # ------------------------------------------------------------------
+    # Cross-service backend reads (consumed by AudienceResolver via
+    # ``sharing_service.backend.*`` — the SharingBackend is the natural
+    # owner of these entity/group/exercise authorization checks).
+    # ------------------------------------------------------------------
+
+    async def query_user_can_use_exercise(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[bool]: ...
+
+    async def query_entity_owner(
+        self,
+        entity_uid: EntityUID,
+    ) -> Result[str | None]: ...
+
+    async def query_exercise_groups_for_member(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[list[Neo4jProperties]]: ...
 
 
 @runtime_checkable

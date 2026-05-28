@@ -195,6 +195,21 @@ class UserEntryAssessmentOperations(Protocol):
 
     # -------- review queue (NEW — Step 4 rewrites the Cypher) --------
 
+    async def get_review_queue(
+        self,
+        teacher_uid: str,
+        status_filter: str | None = None,
+        entity_type_filter: str | None = None,
+    ) -> Result[list[Neo4jProperties]]:
+        """Teacher's pending review queue (all student entries via OWNS).
+
+        Distinct from ``get_review_queue_by_groups`` — this is the
+        ``exercise_submission`` admin-oversight view (no group-sharing
+        gate), defaulting to ``submitted+active`` when no status filter is
+        given.
+        """
+        ...
+
     async def get_review_queue_by_groups(
         self,
         teacher_uid: str,
@@ -259,6 +274,17 @@ class UserEntryAssessmentOperations(Protocol):
         """Approve entry, return linked KU UIDs + mastery_impact."""
         ...
 
+    async def get_submissions_for_exercise_review(
+        self, exercise_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """All entries against an exercise (teacher review view).
+
+        Submission-flavored sibling of ``get_entries_for_exercise_review``;
+        retained for the ``exercise_submission`` admin-oversight path that
+        ``TeacherReviewService.get_submissions_for_exercise`` calls.
+        """
+        ...
+
     async def get_entries_for_exercise_review(
         self, exercise_uid: str
     ) -> Result[list[Neo4jProperties]]:
@@ -269,10 +295,32 @@ class UserEntryAssessmentOperations(Protocol):
         """Students who have submitted, with submission counts."""
         ...
 
+    async def get_student_submissions_for_teacher(
+        self, _teacher_uid: str, student_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """All entries owned by a student (admin oversight view).
+
+        Submission-flavored sibling of ``get_student_entries_for_teacher``;
+        retained for the ``TeacherReviewService.get_student_submissions``
+        admin-oversight surface.
+        """
+        ...
+
     async def get_student_entries_for_teacher(
         self, teacher_uid: str, student_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """All entries owned by a student (admin oversight view)."""
+        ...
+
+    async def get_submission_detail_for_teacher(
+        self, submission_uid: str, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Full entry detail for teacher review (admin oversight view).
+
+        Submission-flavored sibling of ``get_entry_detail_for_teacher``;
+        retained for the ``TeacherReviewService.get_submission_detail``
+        admin-oversight surface.
+        """
         ...
 
     async def update_entry_score(
