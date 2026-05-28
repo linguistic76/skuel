@@ -20,6 +20,16 @@ The "hips" of SKUEL - stability through clarity. Connects content (MD/YAML) to t
 
 The default ingestion folder is `/home/mike/0bsidian/0vault/` (the Obsidian vault). This is where Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown content files live. Configurable via `INGESTION_PATH` env var.
 
+### Endpoint Path Allowlist (default-deny)
+
+The HTTP/WS ingestion endpoints (`/api/ingest/**`, `WS /ws/ingest/progress/{op_id}`) **do not accept arbitrary host paths**, even from an authenticated admin. `adapters/inbound/ingestion_api.py::_validate_ingestion_path` resolves the request path and rejects it unless it sits under at least one root from `_resolve_allowed_ingestion_roots()`. Precedence chain:
+
+1. `SKUEL_INGESTION_ALLOWED_PATHS` — colon-separated explicit override (multi-vault / staging setups)
+2. `INGESTION_PATH` — the single configured vault root (also the documented default)
+3. Neither set → **empty list → reject every path** (fail closed)
+
+The admin role gate authorizes *ownership of the action*, not *filesystem reach* — a compromised admin session still can't ingest from `/etc` or `/root`. CLI/programmatic ingestion via `UnifiedIngestionService` bypasses this check (it's HTTP-boundary defense, not a core-service check) — keep ad-hoc paths to scripts you trust.
+
 ## Quick Start
 
 ```python
