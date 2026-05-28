@@ -108,7 +108,8 @@ https_only = True  # In production
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `SKUEL_DEFAULT_DEV_USER` | Development fallback user | `user.mike` |
-| `SKUEL_INGESTION_ALLOWED_PATHS` | Allowed ingestion paths (colon-separated) | None (all paths) |
+| `SKUEL_INGESTION_ALLOWED_PATHS` | Allowed ingestion paths (colon-separated). Explicit override for multi-vault / staging setups. | None — falls back to `INGESTION_PATH` |
+| `INGESTION_PATH` | Single ingestion vault root. Also the documented default vault location. **Fallback** when `SKUEL_INGESTION_ALLOWED_PATHS` is unset. If both unset, ingestion fails closed (every path rejected). | `/home/mike/0bsidian/0vault/` |
 | `SESSION_SECRET_KEY` | Session signing key | Generated (dev), **required** in production/staging |
 | `SKUEL_ENVIRONMENT` | Environment name | `local` |
 
@@ -141,6 +142,16 @@ https_only = True  # In production
 | Ownership bypass fix — `get_shared_users` | Route now fails fast with `Errors.system()` when `core_service` is absent instead of silently skipping ownership check |
 | Service name validation — `POST /api/services/register` | `service_name` validated against `^[a-zA-Z0-9_-]{1,64}$` pattern to prevent phantom service registration |
 | Submissions API session auth — all 19 routes in `submissions_api.py` | `user_uid` no longer accepted as query param or form field; all routes use `require_authenticated_user(request)` from session. Single-submission routes verify ownership via `_get_owned_submission()` returning 404 for non-owned resources. Closes IDOR where callers could submit files as or browse submissions of another user |
+
+## Security Hardening (May 2026)
+
+| Change | Rationale |
+|--------|-----------|
+| AI-route owner gating (PR #73, `760d375b`) | `ai_routes.py::_ai_route` was discarding the auth result and passing only `uid` to `facade.ai`, so any logged-in user could read another user's PRIVATE entity via the AI endpoints and burn LLM budget. Fix: `ContentScope` enum on each `AIRouteSpec` (default `USER_OWNED`); USER_OWNED routes route through `verify_entity_ownership` (404, not 403) before invoking AI. The 13 ps/lp specs are explicitly `SHARED`. Enum-not-string-set so a domain-attr rename can't silently flip a route to fail-open. |
+| WebSocket admin re-checks Neo4j role (PR #91, `07b5bae4`) | `require_websocket_admin(ws, user_service)` fetches the user and gates on `User.has_permission(UserRole.ADMIN)` — mirrors HTTP `@require_admin`. No longer trusts the session `is_admin` cookie flag, so a user demoted from ADMIN loses WS access on next connection rather than only on re-login. |
+| Allowlisted Cypher operators + sort directions (PR #92, `b4bf5e01`) | `validate_cypher_operator` + `validate_sort_direction` added to `core/utils/validation_helpers.py`. `query_optimizer._validate_request` centrally gates unsafe constraint property/operator + sort property/direction so all six plan-builders inherit the check from one point. `ModelQueryBuilder.filter(**kwargs)` validates keys with `validate_field_name` (silent-drop with warning, mirrors `order_by`). Closed a latent injection seam — not exploitable from external routes today (callers internal). |
+| Ingestion path default-denied (PR #93, `d080bf4e`) | `_validate_ingestion_path` precedence: `SKUEL_INGESTION_ALLOWED_PATHS` > `INGESTION_PATH` > fail closed. Was: ANY absolute host path was reachable when the env var was unset. Admin + CSRF bounded impact, but the role gate is for ownership not filesystem reach. |
+| Per-IP login throttle + bcrypt 72-byte UX (PR #94, `cb1c9eff`) | Per-IP: `is_ip_rate_limited` (20 fails/15min, by `AuthEvent.ip_address`) ordered **before** email lookup so a throttled IP can't enumerate accounts. `"unknown"` sentinel short-circuits CLI/non-HTTP paths. Bcrypt: `validate_password` enforces `MAX_PASSWORD_BYTES = 72` (UTF-8 bytes, not chars — a 36-emoji password is 144 bytes) front-running bcrypt's hard limit, so the user gets a clean field-level error instead of a generic broad-except surface. |
 
 ## Verification Checklist
 

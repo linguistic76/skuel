@@ -18,7 +18,9 @@ SKUEL has a strong security foundation built into the architecture:
 | **Session security** | SHA-256 hashing, `SameSite=strict`, `HttpOnly`, `Secure` in production | Active |
 | **CSRF protection** | `SameSite=Strict` (primary) + double-submit `csrf_token` cookie verified by `@csrf_protected` | Active |
 | **Path traversal** | `VaultConfig.validate_paths`, `restrict_access`, allowed subdirs/extensions | Active |
-| **Login rate limiting** | Account lockout after failed attempts | Active |
+| **Ingestion path allowlist** | Default-deny: `SKUEL_INGESTION_ALLOWED_PATHS` > `INGESTION_PATH` > fail closed (admin role gates ownership, not filesystem reach) | Active |
+| **Login rate limiting** | **Two-axis:** per-account (5 fails/15min, by email) + per-IP (20 fails/15min, by `AuthEvent.ip_address`); IP check ordered **before** email lookup to block enumeration | Active |
+| **Password length pre-validation** | `validate_password` rejects > `MAX_PASSWORD_BYTES = 72` (UTF-8 byte count, not chars) before bcrypt — clean field error, not generic broad-except | Active |
 | **Docker production** | Non-root user, minimal image | Active |
 
 ---
@@ -45,7 +47,9 @@ Neo4j cannot parameterize labels, property names, or relationship types — thes
 |------|-----------|----------|
 | **Relationship types** | `validate_identifier()` + `validate_relationship_type()` | All 5 query builder modules via `_helpers.py`; `_build_direction_pattern()` in `_relationship_crud_mixin.py` (choke point for mixin Cypher); `traverse()` and `find_path()` in `_traversal_mixin.py` |
 | **Neo4j labels** | `validate_label()` | All 5 query builder modules via `_helpers.py` — checks against `NeoLabel` enum allowlist |
-| **Field/property names** | `validate_identifier()` + `validate_field_name()` | All 5 query builder modules via `_helpers.py` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$`; `_search_mixin.py`, `_user_entity_mixin.py` via `validate_field_name()` (max 64 chars) |
+| **Field/property names** | `validate_identifier()` + `validate_field_name()` | All 5 query builder modules via `_helpers.py` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$`; `_search_mixin.py`, `_user_entity_mixin.py` via `validate_field_name()` (max 64 chars); **`ModelQueryBuilder.filter(**kwargs)` silently drops unsafe keys** (mirrors the `order_by` policy — operator suffixes like `__gte`/`__contains` still validate since the regex allows underscores throughout) |
+| **Comparison operators** | `validate_cypher_operator()` | `core/utils/validation_helpers.py` — case-sensitive allowlist `{=, <>, !=, <, >, <=, >=, CONTAINS, STARTS WITH, ENDS WITH, IN}`. Centrally gated in `query_optimizer._validate_request` so all six plan-builders inherit the check from one point. |
+| **Sort directions** | `validate_sort_direction()` | `core/utils/validation_helpers.py` — `{ASC, DESC}` (case-insensitive). Same central gate in `query_optimizer._validate_request` (also validates the sort *property* via `validate_field_name`). |
 
 ```python
 # Shared guards — used by crud_queries, domain_queries, relationship_queries,
@@ -57,7 +61,7 @@ from adapters.persistence.neo4j.query.cypher._helpers import validate_label, val
 # Query builder validators raise ValueError for unsafe labels/fields/relationship types
 ```
 
-**Validators:** `_helpers.py` (`validate_label`, `validate_identifier` — shared by all query builders), `core/utils/validation_helpers.py` (relationship types, field names), `_backend_helpers.py` (`_validate_rel_name`, `_ALLOWED_ORDER_BY`).
+**Validators:** `_helpers.py` (`validate_label`, `validate_identifier` — shared by all query builders), `core/utils/validation_helpers.py` (`validate_relationship_type`, `validate_field_name`, `validate_cypher_operator`, `validate_sort_direction`), `_backend_helpers.py` (`_validate_rel_name`, `_ALLOWED_ORDER_BY`).
 
 **See:** SKUEL013 in `/docs/patterns/linter_rules.md` for the `RelationshipName` enum that makes most interpolation type-safe at the call site.
 
@@ -152,6 +156,16 @@ Form(csrf_hidden_input(), ..., method="POST", action="/login/submit")
 - Explicitly allowed file extensions (`.md`, `.yaml`, `.yml`, `.json`, `.csv`)
 - Path validation enabled by default (`validate_paths=True`, `restrict_access=True`)
 - Ingestion data directory configured via `INGESTION_PATH` env var (default: `data/vault` relative to CWD)
+
+### Ingestion Endpoint Allowlist (default-deny)
+
+`adapters/inbound/ingestion_api.py::_validate_ingestion_path` rejects every request path that does not resolve under at least one configured root. Precedence chain via `_resolve_allowed_ingestion_roots()`:
+
+1. `SKUEL_INGESTION_ALLOWED_PATHS` (colon-separated explicit override — multi-vault / staging setups)
+2. `INGESTION_PATH` (the single configured vault root — the documented default)
+3. **Neither set → empty list → reject every path** (fail closed)
+
+Admin + CSRF still apply on top — the role gate authorizes *ownership of the action*, not *filesystem reach*. A compromised admin session still can't ingest from `/etc` or `/root`.
 
 ---
 
