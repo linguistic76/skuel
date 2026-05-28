@@ -130,8 +130,18 @@ class ModelQueryBuilder[T]:
         - gt, lt, gte, lte: .filter(due_date__gte=date.today())
         - contains: .filter(title__contains='urgent')
         - in: .filter(priority__in=['high', 'urgent'])
+
+        Keys are validated as safe Cypher identifiers before being recorded
+        (matches the `order_by` policy). Invalid keys are silently dropped
+        with a warning rather than raising, so a typo doesn't abort the
+        whole query chain. Today's callers all pass trusted keys; this is
+        defense-in-depth against future user-driven callers.
         """
-        self._filters.update(filters)
+        for key, value in filters.items():
+            if not validate_field_name(key):
+                logger.warning(f"Invalid filter key ignored: {key!r}")
+                continue
+            self._filters[key] = value
         return self
 
     def limit(self, limit: int) -> ModelQueryBuilder[T]:

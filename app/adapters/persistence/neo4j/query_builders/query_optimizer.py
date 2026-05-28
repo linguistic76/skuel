@@ -23,6 +23,11 @@ from core.ports import HasStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_query_plan_priority
+from core.utils.validation_helpers import (
+    validate_cypher_operator,
+    validate_field_name,
+    validate_sort_direction,
+)
 
 
 class QueryOptimizer:
@@ -110,7 +115,14 @@ class QueryOptimizer:
             )
 
     def _validate_request(self, request: QueryBuildRequest, schema: SchemaContext) -> Result[bool]:
-        """Validate the query build request"""
+        """Validate the query build request.
+
+        Beyond schema-level checks (labels exist), this runs identifier/operator
+        validation on every value interpolated into Cypher by the plan builders
+        (property_name, operator, direction). Today's callers are all internal
+        and pass trusted values, but centralizing the gate here closes a latent
+        injection seam — future callers cannot bypass it.
+        """
 
         # Check that requested labels exist
         for label in request.labels:
@@ -121,13 +133,44 @@ class QueryOptimizer:
                     )
                 )
 
-        # Check that constraint properties exist for their labels
+        # Check constraint label (schema), property_name + operator (safe interpolation)
         for constraint in request.constraints:
             if constraint.label and constraint.label not in schema.node_labels:
                 return Result.fail(
                     Errors.validation(
                         field="constraint_label",
                         message=f"Label '{constraint.label}' not found in schema",
+                    )
+                )
+            if not validate_field_name(constraint.property_name):
+                return Result.fail(
+                    Errors.validation(
+                        field="constraint_property",
+                        message=f"Unsafe constraint property name: {constraint.property_name!r}",
+                    )
+                )
+            if not validate_cypher_operator(constraint.operator):
+                return Result.fail(
+                    Errors.validation(
+                        field="constraint_operator",
+                        message=f"Unsupported constraint operator: {constraint.operator!r}",
+                    )
+                )
+
+        # Check sort property_name + direction (safe interpolation)
+        for sort in request.sort_by:
+            if not validate_field_name(sort.property_name):
+                return Result.fail(
+                    Errors.validation(
+                        field="sort_property",
+                        message=f"Unsafe sort property name: {sort.property_name!r}",
+                    )
+                )
+            if not validate_sort_direction(sort.direction):
+                return Result.fail(
+                    Errors.validation(
+                        field="sort_direction",
+                        message=f"Invalid sort direction: {sort.direction!r}",
                     )
                 )
 
