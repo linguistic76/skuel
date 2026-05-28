@@ -20,7 +20,7 @@ SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cooki
 | **Optional** | `get_current_user(request)` | `UserUID \| None` | SHARED content pages (enrich if authenticated) |
 | **Lenient** | `get_current_user_or_default(request)` | `UserUID` | Dev-only fallback (raises 401 in prod) |
 | **Role-Based** | `@require_admin(service_getter)` | `current_user: User` | Protected admin/teacher routes |
-| **WebSocket** | `await require_websocket_admin(ws)` | `UserUID \| None` | WebSocket routes (admin-only) |
+| **WebSocket** | `await require_websocket_admin(ws, user_service)` | `UserUID \| None` | WebSocket routes (admin-only) — re-fetches role from Neo4j |
 
 ## Page Access Model
 
@@ -202,7 +202,7 @@ from adapters.inbound.auth import require_websocket_admin
 
 @rt("/ws/progress/{operation_id}")
 async def websocket_handler(ws, operation_id: str):
-    user_uid = await require_websocket_admin(ws)
+    user_uid = await require_websocket_admin(ws, user_service)
     if not user_uid:
         return  # WS already closed with code 4003
 
@@ -211,10 +211,10 @@ async def websocket_handler(ws, operation_id: str):
 ```
 
 **Behavior:**
-- Checks both authentication and admin role from session
+- Reads `user_uid` from the session cookie, then **re-fetches the user from Neo4j and gates on `User.has_permission(UserRole.ADMIN)`** — mirrors the HTTP `@require_admin` path
+- Does NOT trust the session `is_admin` flag (that's navbar-display only); a user demoted from ADMIN loses WS access on their next connection rather than only on re-login
 - If unauthorized, closes the WebSocket with code `4003` and reason `"Admin access required"`
 - Returns `UserUID` on success, `None` on failure (caller should `return` immediately)
-- No DB fetch — reads from session like `get_current_user()` + `get_is_admin()`
 
 **Why a separate helper?**
 WebSocket handlers need auth checked before `ws.accept()`. HTTP decorators like `@require_admin` expect a `Request` and return HTTP responses (401/403), which don't apply to WebSocket connections. The WebSocket pattern instead closes the connection with an application-level error code.
@@ -226,7 +226,7 @@ WebSocket handlers need auth checked before `ws.accept()`. HTTP decorators like 
 | **Returns** | `UserUID` (string) | `UserUID` (string) | `current_user: User` | `UserUID \| None` |
 | **On no auth** | Raises 401 | Returns default | Raises 401 | Closes WS (code 4003) |
 | **On wrong role** | N/A | N/A | Raises 403 | Closes WS (code 4003) |
-| **DB fetch** | No | No | Yes (required for role check) | No |
+| **DB fetch** | No | No | Yes (required for role check) | Yes (Neo4j role re-check) |
 | **Best for** | API routes | UI development | Protected routes | WebSocket routes |
 
 ## Common Patterns
@@ -562,36 +562,54 @@ Cross-field validation (password matching, terms acceptance) uses `@model_valida
 
 ## Rate Limiting
 
-SKUEL implements rate limiting via graph queries:
+SKUEL implements **two-axis** login rate limiting via graph queries over `AuthEvent` nodes — no separate cache or external counter.
 
-### Login Rate Limiting
+### Per-Account Lockout
 
-- **Threshold:** 5 failed attempts
-- **Lockout:** 15 minutes
+- **Threshold:** `MAX_FAILED_ATTEMPTS = 5`
+- **Window:** `LOCKOUT_MINUTES = 15`
 - **Scope:** Per email address
 
+Protects a single account from credential guessing.
+
+### Per-IP Throttle (added 2026-05)
+
+- **Threshold:** `MAX_FAILED_ATTEMPTS_PER_IP = 20`
+- **Window:** 15 minutes (same as per-account)
+- **Scope:** Per client IP from `AuthEvent.ip_address`
+- **`"unknown"` sentinel skips the check** for CLI / non-HTTP callers
+
+Intentionally **looser** than per-account: a single office NAT routinely covers many users, so a 5-strike limit would lock out a shared egress IP after a few honest typos. 20/15min ≈ one wrong attempt every 45 s — well above human error rates, well below brute-force speed.
+
+**Order matters:** the per-IP throttle is checked **before email lookup** in `GraphAuthService.sign_in`. A throttled IP gets the same response whether the email exists or not, so a credential-stuffer can't enumerate valid accounts off the rate-limit response shape.
+
 ```python
-# Automatically enforced by GraphAuthService.sign_in()
+# Automatically enforced by GraphAuthService.sign_in() — IP check first, then per-account
 result = await graph_auth.sign_in(email, password, ip, ua)
 
-if result.is_error and "rate limited" in result.error.message:
+if result.is_error and "rate" in (result.expect_error().message or "").lower():
     # User must wait 15 minutes
-    return Result.fail(Errors.business(
-        rule="rate_limited",
-        message="Too many failed attempts. Please wait 15 minutes."
-    ))
+    return result
 ```
 
 ### Implementation
 
-Rate limiting is tracked via `AuthEvent` nodes:
-
 ```cypher
+// Per-account
 MATCH (u:User {email: $email})-[:HAS_AUTH_EVENT]->(e:AuthEvent)
 WHERE e.event_type = 'LOGIN_FAILED'
   AND e.timestamp > datetime() - duration('PT15M')
 RETURN count(e) as failures
+
+// Per-IP (no User binding — scans AuthEvent directly)
+MATCH (e:AuthEvent)
+WHERE e.event_type = 'LOGIN_FAILED'
+  AND e.ip_address = $ip
+  AND e.timestamp > datetime() - duration('PT15M')
+RETURN count(e) as failures
 ```
+
+The per-IP query reuses the existing `AuthEvent.ip_address` field — no schema change.
 
 ---
 
@@ -599,14 +617,14 @@ RETURN count(e) as failures
 
 | Feature | Implementation |
 |---------|----------------|
-| **Password Hashing** | Bcrypt with automatic salt |
-| **Session Tokens** | Cryptographically random, stored hashed |
+| **Password Hashing** | Bcrypt 12 rounds + constant-time `checkpw`. `validate_password` enforces `MAX_PASSWORD_BYTES = 72` (bcrypt's hard limit) **by UTF-8 byte count, not character count** — a 36-emoji password is 144 bytes. Front-runs bcrypt so the user gets a clean field-level error instead of a generic broad-except surface. |
+| **Session Tokens** | 256-bit `secrets.token_urlsafe`; only the SHA-256 **hash** is stored in Neo4j |
 | **HTTP-Only Cookies** | Prevents XSS access to tokens |
 | **Secure Flag** | Cookies only sent over HTTPS |
 | **Session Binding** | Optional IP/UA binding |
 | **Token Expiry** | 30 days default, configurable |
 | **Reset Token Expiry** | 24 hours |
-| **Audit Logging** | All auth events stored as graph nodes |
+| **Audit Logging** | All auth events stored as graph nodes (`AuthEvent` — also the substrate for the per-IP throttle above) |
 
 ---
 
