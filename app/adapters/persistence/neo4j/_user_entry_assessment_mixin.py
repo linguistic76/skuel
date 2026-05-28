@@ -109,56 +109,18 @@ class _UserEntryAssessmentMixin:
     # TEACHER REVIEW OPERATIONS
     # ========================================================================
 
-    async def get_review_queue(
-        self,
-        teacher_uid: str,
-        status_filter: str | None = None,
-        entity_type_filter: str | None = None,
-    ) -> Result[list[Neo4jProperties]]:
-        """Get teacher's pending review queue (all student entries via OWNS)."""
-        where_clauses = ["student.uid <> $teacher_uid"]
-        params: dict[str, Any] = {"teacher_uid": teacher_uid}
-
-        if status_filter:
-            where_clauses.append("sub.status = $status_filter")
-            params["status_filter"] = status_filter
-        else:
-            where_clauses.append("sub.status IN ['submitted', 'active']")
-
-        if entity_type_filter:
-            where_clauses.append("sub.entity_type = $entity_type_filter")
-            params["entity_type_filter"] = entity_type_filter
-
-        where_clause = f"WHERE {' AND '.join(where_clauses)}"
-
-        query = f"""
-        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: 'exercise_submission'}})
-        {where_clause}
-        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise:Entity:Exercise)
-        OPTIONAL MATCH (report:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-        WITH sub, student, exercise, count(report) as feedback_count
-        RETURN sub.uid as submission_uid,
-               sub.title as title,
-               sub.status as status,
-               sub.entity_type as entity_type,
-               sub.original_filename as original_filename,
-               sub.created_at as submitted_at,
-               student.uid as student_uid,
-               student.name as student_name,
-               exercise.uid as exercise_uid,
-               exercise.title as exercise_name,
-               exercise.due_date as due_date,
-               feedback_count
-        ORDER BY sub.created_at DESC
-        """
-        return await self.execute_query(query, params)
-
     async def get_review_queue_by_groups(
         self,
         teacher_uid: str,
         status_filter: list[str] | None = None,
     ) -> Result[list[Neo4jProperties]]:
-        """Teacher's pending review queue via ``SHARED_WITH_GROUP``."""
+        """Teacher's pending review queue via ``SHARED_WITH_GROUP``.
+
+        Returns entries shared with the teacher's groups whose pipeline is
+        ``teacher_review``. Empty when the teacher owns no groups, or when no
+        ``UserEntry`` has been ``SHARED_WITH_GROUP`` an owned group — so we do
+        not leak the existence of unrelated students' submissions.
+        """
         statuses = status_filter or ["submitted", "active"]
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
@@ -170,6 +132,7 @@ class _UserEntryAssessmentMixin:
         RETURN entry.uid AS entry_uid,
                entry.title AS title,
                entry.status AS status,
+               entry.entity_type AS entity_type,
                entry.original_filename AS original_filename,
                entry.created_at AS submitted_at,
                student.uid AS student_uid,
@@ -236,10 +199,10 @@ class _UserEntryAssessmentMixin:
             },
         )
 
-    async def get_submissions_for_exercise_review(
+    async def get_entries_for_exercise_review(
         self, exercise_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get all entries against a specific exercise (teacher review view)."""
+        """All entries against an exercise (teacher review view)."""
         query = f"""
         MATCH (s:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
@@ -252,12 +215,6 @@ class _UserEntryAssessmentMixin:
         ORDER BY s.created_at DESC
         """
         return await self.execute_query(query, {"exercise_uid": exercise_uid})
-
-    async def get_entries_for_exercise_review(
-        self, exercise_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """All entries against an exercise (teacher review view)."""
-        return await self.get_submissions_for_exercise_review(exercise_uid=exercise_uid)
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
         """Get students who have submitted work, with entry counts."""
@@ -276,12 +233,23 @@ class _UserEntryAssessmentMixin:
         """
         return await self.execute_query(query, {"teacher_uid": teacher_uid})
 
-    async def get_student_submissions_for_teacher(
-        self, _teacher_uid: str, student_uid: str
+    async def get_student_entries_for_teacher(
+        self, teacher_uid: str, student_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get all entries owned by a student (admin oversight view)."""
+        """All entries owned by a student, gated by shared active group.
+
+        Model A gate: anchors on the (teacher, student) pair via
+        ``(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)``.
+        Empty result when teacher and student do not share an active group —
+        callers map empty to "no entries", which is indistinguishable from a
+        genuinely empty per-student history, so we do not leak the existence
+        of unrelated students' submissions.
+        """
         query = f"""
-        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
+              <-[:{RelationshipName.MEMBER_OF.value}]-(student:User {{uid: $student_uid}})
+        WHERE g.is_active = true
+        MATCH (student)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
@@ -291,40 +259,39 @@ class _UserEntryAssessmentMixin:
                feedback_count, ex.uid AS exercise_uid, ex.title AS exercise_title
         ORDER BY ku.created_at DESC
         """
-        return await self.execute_query(query, {"student_uid": student_uid})
-
-    async def get_student_entries_for_teacher(
-        self, teacher_uid: str, student_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """All entries owned by a student (admin oversight view)."""
-        return await self.get_student_submissions_for_teacher(
-            _teacher_uid=teacher_uid, student_uid=student_uid
+        return await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "student_uid": student_uid}
         )
-
-    async def update_submission_score(
-        self, submission_uid: str, score: float
-    ) -> Result[list[Neo4jProperties]]:
-        """Update the score of an entry explicitly."""
-        query = """
-        MATCH (sub:Entity {uid: $submission_uid})
-        WHERE sub.entity_type = 'exercise_submission'
-        SET sub.score = $score
-        RETURN sub.uid as uid, sub.score as score
-        """
-        return await self.execute_query(query, {"submission_uid": submission_uid, "score": score})
 
     async def update_entry_score(
         self, entry_uid: str, score: float
     ) -> Result[list[Neo4jProperties]]:
         """Update the score on an entry explicitly."""
-        return await self.update_submission_score(submission_uid=entry_uid, score=score)
+        query = """
+        MATCH (sub:Entity {uid: $entry_uid})
+        WHERE sub.entity_type = 'exercise_submission'
+        SET sub.score = $score
+        RETURN sub.uid as uid, sub.score as score
+        """
+        return await self.execute_query(query, {"entry_uid": entry_uid, "score": score})
 
-    async def get_submission_detail_for_teacher(
-        self, submission_uid: str, teacher_uid: str
+    async def get_entry_detail_for_teacher(
+        self, entry_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get full entry detail for teacher review (admin oversight view)."""
+        """Full entry detail for teacher review, gated by SHARED_WITH_GROUP.
+
+        Model B gate: the entry must be ``SHARED_WITH_GROUP`` an active group
+        the teacher owns. Empty result when the teacher has no shared group
+        with the entry — service-layer callers (``get_submission_detail``)
+        map empty to ``Errors.not_found`` (404) so a teacher outside the
+        student's group cannot distinguish "entry does not exist" from
+        "entry exists but belongs to another teacher's student".
+        """
         query = f"""
-        MATCH (s:Entity {{entity_type: 'exercise_submission', uid: $submission_uid}})
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
+        WHERE g.is_active = true
+        MATCH (s:Entity {{entity_type: 'exercise_submission', uid: $entry_uid}})
+              -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         RETURN s.uid AS uid,
@@ -342,28 +309,26 @@ class _UserEntryAssessmentMixin:
                ex.title AS exercise_title,
                ex.instructions AS exercise_instructions
         """
-        return await self.execute_query(
-            query, {"submission_uid": submission_uid, "teacher_uid": teacher_uid}
-        )
-
-    async def get_entry_detail_for_teacher(
-        self, entry_uid: str, teacher_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Full entry detail for teacher review (admin oversight view)."""
-        return await self.get_submission_detail_for_teacher(
-            submission_uid=entry_uid, teacher_uid=teacher_uid
-        )
+        return await self.execute_query(query, {"entry_uid": entry_uid, "teacher_uid": teacher_uid})
 
     async def get_dashboard_stats(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get at-a-glance stats for the teacher dashboard."""
+        """At-a-glance stats for the teacher dashboard, scoped to the teacher's classroom.
+
+        ``pending_count`` + ``total_students`` are Model-B-scoped: counted only
+        across entries ``SHARED_WITH_GROUP`` an active group the teacher owns.
+        ``total_exercises`` + ``total_groups`` are scoped via direct ``OWNS``
+        from the teacher (already correct pre-fix).
+        """
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
+        OPTIONAL MATCH (sub:Entity {{entity_type: 'exercise_submission'}})
+                      -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
         WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
         RETURN
-          count(CASE WHEN ku.status IN ['submitted', 'active'] THEN 1 END) AS pending_count,
+          count(CASE WHEN sub.status IN ['submitted', 'active'] THEN 1 END) AS pending_count,
           count(DISTINCT student) AS total_students,
           count(DISTINCT ex) AS total_exercises,
           count(DISTINCT g) AS total_groups

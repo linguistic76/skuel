@@ -96,7 +96,7 @@ def create_teaching_api_routes(
     async def review_queue(
         request: Request, current_user: Any = None
     ) -> "Result[list[ReviewQueueItem]]":
-        """Get teacher's pending review queue."""
+        """Get teacher's pending review queue (group-shared entries only)."""
         status_filter = request.query_params.get("status", None)
         return await teacher_review_service.get_review_queue(
             teacher_uid=current_user.uid,

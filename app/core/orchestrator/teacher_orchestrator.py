@@ -50,13 +50,11 @@ class TeacherOrchestrator:
         self,
         teacher_uid: UserUID,
         status_filter: str | None = None,
-        entity_type_filter: str | None = None,
     ) -> Result[list[Any]]:
-        """Get teacher's pending review queue."""
+        """Get teacher's pending review queue (group-shared entries only)."""
         return await self._review.get_review_queue(
             teacher_uid=teacher_uid,
             status_filter=status_filter,
-            entity_type_filter=entity_type_filter,
         )
 
     # ------------------------------------------------------------------
