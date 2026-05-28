@@ -6,9 +6,11 @@ API routes for the UnifiedIngestionService (ADR-014).
 Handles both MD and YAML formats for all entity types.
 
 Security:
-- All routes require admin role
-- Path traversal validation via SKUEL_INGESTION_ALLOWED_PATHS env var
-- If env var not set, any absolute path is allowed (admin-only anyway)
+- All routes require admin role + CSRF
+- Path traversal validation via `_validate_ingestion_path`:
+  1. `SKUEL_INGESTION_ALLOWED_PATHS` (colon-separated) — explicit override.
+  2. Else `INGESTION_PATH` — the configured vault root.
+  3. Neither set — fail closed. Default-deny, not default-allow.
 
 Routes:
 - POST /api/ingest/file - Ingest single file (MD or YAML)
@@ -63,14 +65,40 @@ def broadcast_progress(operation_id: str, progress_data: dict[str, Any]) -> None
             logger.error(f"Failed to broadcast progress: {e}")
 
 
+def _resolve_allowed_ingestion_roots() -> list[Path]:
+    """Resolve the effective ingestion allowlist from env (precedence order).
+
+    1. `SKUEL_INGESTION_ALLOWED_PATHS` (colon-separated) — explicit override,
+       useful when an admin runs multi-vault setups or staging directories.
+    2. `INGESTION_PATH` — the single vault root (also the configured ingestion
+       default at `core/config/unified_config.py`).
+    3. Neither set — empty list. Callers fail closed.
+
+    Default-deny: returning [] means `_validate_ingestion_path` rejects every
+    path, including absolute ones. This closes the prior "admin can ingest
+    anywhere on the host" hole without making the env var newly required for
+    setups that have always relied on `INGESTION_PATH`.
+    """
+    explicit = os.getenv("SKUEL_INGESTION_ALLOWED_PATHS")
+    if explicit:
+        return [Path(p.strip()).resolve() for p in explicit.split(":") if p.strip()]
+
+    fallback = os.getenv("INGESTION_PATH")
+    if fallback:
+        return [Path(fallback).resolve()]
+
+    return []
+
+
 def _validate_ingestion_path(path_str: str | None) -> Result[Path]:
     """
     Validate a path for ingestion, checking for traversal attacks.
 
-    Security:
-    - Resolves path to absolute form
-    - Checks against SKUEL_INGESTION_ALLOWED_PATHS if set (colon-separated list)
-    - If env var not set, allows any absolute path (admin-only routes)
+    Default-deny: every request path must resolve under at least one root from
+    `_resolve_allowed_ingestion_roots()`. If neither env var configures a root,
+    every request is rejected (fail closed). The earlier behavior of "allow any
+    absolute path when env var unset" is gone — `INGESTION_PATH` (which already
+    has the documented default vault) is the natural fallback.
 
     Args:
         path_str: The path string from the request
@@ -85,24 +113,33 @@ def _validate_ingestion_path(path_str: str | None) -> Result[Path]:
         # Resolve to absolute path (handles .. and symlinks)
         resolved = Path(path_str).resolve()
 
-        # Check against allowed paths if configured
-        allowed_paths_str = os.getenv("SKUEL_INGESTION_ALLOWED_PATHS")
-        if allowed_paths_str:
-            allowed_paths = [
-                Path(p.strip()).resolve() for p in allowed_paths_str.split(":") if p.strip()
-            ]
-            is_allowed = any(
-                resolved == allowed or resolved.is_relative_to(allowed) for allowed in allowed_paths
+        allowed_paths = _resolve_allowed_ingestion_roots()
+        if not allowed_paths:
+            logger.error(
+                "Ingestion blocked: no allowlist configured. "
+                "Set SKUEL_INGESTION_ALLOWED_PATHS or INGESTION_PATH."
             )
-            if not is_allowed:
-                logger.warning(f"Path traversal attempt blocked: {path_str} -> {resolved}")
-                return Result.fail(
-                    Errors.validation(
-                        f"Path outside allowed directories. Allowed: {allowed_paths_str}",
-                        "path",
-                        path_str,
-                    )
+            return Result.fail(
+                Errors.validation(
+                    "Ingestion path allowlist is not configured. "
+                    "Set SKUEL_INGESTION_ALLOWED_PATHS or INGESTION_PATH.",
+                    "path",
+                    path_str,
                 )
+            )
+
+        is_allowed = any(
+            resolved == allowed or resolved.is_relative_to(allowed) for allowed in allowed_paths
+        )
+        if not is_allowed:
+            logger.warning(f"Path traversal attempt blocked: {path_str} -> {resolved}")
+            return Result.fail(
+                Errors.validation(
+                    f"Path outside allowed directories: {resolved}",
+                    "path",
+                    path_str,
+                )
+            )
 
         return Result.ok(resolved)
 
