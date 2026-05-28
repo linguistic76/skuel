@@ -391,7 +391,7 @@ def require_authenticated_user(request: Request) -> UserUID:
 # ============================================================================
 
 
-async def require_websocket_admin(ws: Any) -> UserUID | None:
+async def require_websocket_admin(ws: Any, user_service: Any) -> UserUID | None:
     """
     Require admin authentication for WebSocket connections.
 
@@ -399,8 +399,14 @@ async def require_websocket_admin(ws: Any) -> UserUID | None:
     because auth must be checked before ws.accept(). This helper encapsulates
     the WebSocket-specific auth pattern.
 
+    Re-fetches the user from Neo4j and checks the role hierarchy — mirrors the
+    HTTP @require_admin path. Does NOT trust the session `is_admin` flag, so a
+    user demoted from ADMIN loses WS access on their next connection rather than
+    only on re-login.
+
     Args:
         ws: Starlette WebSocket object (has .session like Request)
+        user_service: UserService instance for the Neo4j role re-check
 
     Returns:
         UserUID if authenticated admin, None if unauthorized (WS closed with 4003)
@@ -412,7 +418,7 @@ async def require_websocket_admin(ws: Any) -> UserUID | None:
 
         @rt("/ws/progress/{operation_id}")
         async def websocket_handler(ws, operation_id: str):
-            user_uid = await require_websocket_admin(ws)
+            user_uid = await require_websocket_admin(ws, user_service)
             if not user_uid:
                 return
 
@@ -420,10 +426,25 @@ async def require_websocket_admin(ws: Any) -> UserUID | None:
             ...
         ```
     """
+    from core.models.enums import UserRole
+
     user_uid = get_current_user(ws)
-    if not user_uid or not get_is_admin(ws):
+    if not user_uid:
         await ws.close(code=4003, reason="Admin access required")
         return None
+
+    result = await user_service.get_user(user_uid)
+    if result.is_error or not result.value:
+        logger.warning(f"WS admin check failed - user not found: {user_uid}")
+        await ws.close(code=4003, reason="Admin access required")
+        return None
+
+    user = result.value
+    if not user.has_permission(UserRole.ADMIN):
+        logger.warning(f"WS admin check failed for {user_uid}: has {user.role.value}, needs admin")
+        await ws.close(code=4003, reason="Admin access required")
+        return None
+
     return UserUID(user_uid)
 
 
