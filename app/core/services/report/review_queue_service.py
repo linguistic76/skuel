@@ -22,7 +22,7 @@ from core.models.type_hints import UserUID
 from core.ports.query_types import PendingReviewItem, ReviewRequestResult
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.collab_backends import ReviewQueueBackend
+    from core.ports.report_protocols import ReviewQueueBackendOperations
 
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -40,7 +40,7 @@ class ReviewQueueService:
     Activity Domain data. Admins call get_pending_reviews() to see the queue.
     """
 
-    def __init__(self, backend: "ReviewQueueBackend") -> None:
+    def __init__(self, backend: "ReviewQueueBackendOperations") -> None:
         self.backend = backend
 
     async def request_review(

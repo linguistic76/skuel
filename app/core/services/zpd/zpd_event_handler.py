@@ -24,10 +24,10 @@ from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
     from core.events.curriculum_events import PathStepCompleted
     from core.events.learning_events import KnowledgeMastered, LearningPathProgressUpdated
     from core.events.learning_loop_events import ReportSubmitted, UserEntryApproved
+    from core.ports.zpd_protocols import ZPDSnapshotOperations
     from core.services.zpd.zpd_service import ZPDService
 
 logger = get_logger(__name__)
@@ -38,10 +38,10 @@ class ZPDSnapshotHandler:
 
     Args:
         zpd_service: ZPDService for reassessing the zone.
-        snapshot_backend: ZPDSnapshotBackend for persisting snapshots.
+        snapshot_backend: ZPDSnapshotOperations port for persisting snapshots.
     """
 
-    def __init__(self, zpd_service: ZPDService, snapshot_backend: ZPDSnapshotBackend) -> None:
+    def __init__(self, zpd_service: ZPDService, snapshot_backend: ZPDSnapshotOperations) -> None:
         self._zpd_service = zpd_service
         self._snapshot_backend = snapshot_backend
         self._logger = logger
