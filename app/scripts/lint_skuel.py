@@ -574,6 +574,14 @@ are caught. Fully-qualified forward-ref strings (`backend: "adapters.x.XBackend"
 no import) are caught via the same path — the parsed Attribute chain's root Name is
 `adapters`, which the check treats as an implicit adapter reference.
 
+**Import-site rule (primary):** adapter imports in ``core/`` must be the plain
+``from adapters.<...> import <Name>`` form — no aliasing (``as Y``) and no
+module-style imports (``import adapters[...]`` with or without alias). Aliasing
+adapter imports in ``core/`` has no demonstrated positive purpose (zero uses in
+the codebase as of the rule's introduction) and creates bypass classes for the
+annotation-level checks. The annotation-level checks remain as defense in depth
+for any path the import gate might miss (e.g. fully-qualified forward-ref strings).
+
 Suffix heuristic: only flags names ending in Backend / Executor / Adapter / Repository /
 Client / Driver — naturally excludes adapter enums, configs, and pure-data exports
 that legitimately cross the boundary as types.
@@ -2474,6 +2482,98 @@ class SkuelLinter:
         """True if ``module`` is ``adapters`` or under ``adapters.*``."""
         return module == "adapters" or module.startswith("adapters.")
 
+    def _flag_aliased_or_module_style_adapter_imports(
+        self, rel_path: Path, tree: ast.Module, lines: list[str]
+    ) -> None:
+        """Emit SKUEL023 violations for adapter imports that take a banned form.
+
+        Tier-4 closure: in core/, an adapter import must be the plain
+        ``from adapters.<...> import <Name>`` form. Any of the following are
+        violations regardless of whether they are referenced in annotations:
+
+        - ``from adapters... import X as Y`` — local-name aliasing dodges the
+          annotation-level suffix check when ``Y`` happens not to end in a
+          backend suffix.
+        - ``import adapters[.x[.y]] [as Z]`` — module-style import (with or
+          without alias) is what lets ``backend: <module>.XBackend`` annotations
+          slip past the bare-Name lookup.
+
+        These forms have zero uses in core/ as of rule introduction; banning
+        them costs nothing and removes the bypass classes structurally.
+        Line-level suppressions are honored via ``# skuel-lint: disable=SKUEL023``.
+        """
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if not node.module or not self._is_adapter_module(node.module):
+                    continue
+                line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
+                if self._is_line_suppressed(line, "SKUEL023"):
+                    continue
+                for alias in node.names:
+                    if alias.asname is None:
+                        continue
+                    self.result.violations.append(
+                        Violation(
+                            file_path=rel_path,
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                            severity=Severity.ERROR,
+                            rule_id="SKUEL023",
+                            message=(
+                                f"core/ aliases adapter import '{alias.name}' "
+                                f"as '{alias.asname}' (from '{node.module}') — "
+                                f"adapter-import aliasing in core/ is banned "
+                                f"(ADR-044); use the plain 'from {node.module} "
+                                f"import {alias.name}' form or import the "
+                                f"core/ports protocol instead"
+                            ),
+                            suggestion=(
+                                f"Replace with: from {node.module} import "
+                                f"{alias.name}. If the alias was hiding the "
+                                f"adapter under a non-backend-shaped name to "
+                                f"evade the annotation suffix check, the "
+                                f"correct fix is to annotate against the "
+                                f"core/ports/*Operations protocol."
+                            ),
+                            line_content=line.strip(),
+                        )
+                    )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if not self._is_adapter_module(alias.name):
+                        continue
+                    line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
+                    if self._is_line_suppressed(line, "SKUEL023"):
+                        continue
+                    display = (
+                        f"{alias.name} as {alias.asname}"
+                        if alias.asname is not None
+                        else alias.name
+                    )
+                    self.result.violations.append(
+                        Violation(
+                            file_path=rel_path,
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                            severity=Severity.ERROR,
+                            rule_id="SKUEL023",
+                            message=(
+                                f"core/ uses module-style adapter import "
+                                f"'import {display}' — module-style imports of "
+                                f"adapters in core/ are banned (ADR-044); they "
+                                f"enable 'backend: <module>.XBackend' annotations "
+                                f"that dodge the boundary"
+                            ),
+                            suggestion=(
+                                f"Use 'from {alias.name} import <Name>' to "
+                                f"import the specific class, or — preferably "
+                                f"— import the matching core/ports/*Operations "
+                                f"protocol and annotate against that."
+                            ),
+                            line_content=line.strip(),
+                        )
+                    )
+
     @staticmethod
     def _collect_adapter_imports(tree: ast.Module) -> dict[str, str]:
         """Walk the whole tree (runtime AND TYPE_CHECKING blocks) and return a
@@ -2586,19 +2686,28 @@ class SkuelLinter:
         The suffix heuristic excludes enums (e.g. ``QueryOptimizationStrategy``),
         configs, and pure-data adapter exports.
 
-        Three bypass classes closed:
+        Four bypass classes closed:
         - **Tier 1** — ``from adapters.x import XB`` + ``backend: XB``: the
           common pattern. ``lookup_key`` is ``XB``, found in the import map.
         - **Tier 2** — ``import adapters.x as xb`` + ``backend: xb.XBackend``:
-          module-style alias. ``_extract_annotation_refs`` walks the
-          ``Attribute`` chain to the root Name (``xb``), which is in the
-          import map; the tail (``XBackend``) is what carries the suffix.
+          module-style alias. Caught at the import site (Tier 4 rule below)
+          and also caught at the annotation site by ``_extract_annotation_refs``
+          walking the ``Attribute`` chain to the root Name.
         - **Tier 3** — ``backend: "adapters.persistence.neo4j.x.XBackend"``
           (fully-qualified forward-ref string, no import at all). The string
           is parsed as an expression; the resulting ``Attribute`` chain has
           ``Name("adapters")`` at its root. The check treats the literal
           ``"adapters"`` lookup key as an implicit adapter reference so the
           import map can be empty and the violation still fires.
+        - **Tier 4** — ``from adapters.x import XBackend as XB`` + ``backend: XB``:
+          ImportFrom alias to a non-backend-suffix local name. Closed by the
+          import-site rule (see ``_check_aliased_or_module_style_adapter_imports``):
+          aliasing adapter imports in core/ — and module-style adapter imports
+          — are banned outright, because the practice has no demonstrated
+          positive purpose in this codebase (0 uses at rule introduction). The
+          annotation-level suffix check is then sound on the only remaining
+          form: ``from adapters.<...> import <Name>`` where ``<Name>`` is what
+          gets the suffix check.
 
         Facade allowlist: KU / PS / LP / UserService and the per-domain sub-service
         packages are exempt — CLAUDE.md commits to "Facade IS the contract" for
@@ -2630,6 +2739,15 @@ class SkuelLinter:
             tree = ast.parse(content)
         except SyntaxError:
             return
+
+        # ── Import-site rule (Tier 4) ─────────────────────────────────────
+        # Aliased ImportFrom (`from adapters... import X as Y`) and any
+        # module-style import (`import adapters.x [as Y]`) are banned in core/
+        # regardless of the local name. Both create bypass classes for the
+        # annotation-level suffix check and have zero demonstrated positive
+        # use in this codebase. The only permitted form is the plain
+        # ``from adapters.<...> import <Name>``.
+        self._flag_aliased_or_module_style_adapter_imports(rel_path, tree, lines)
 
         adapter_imports = self._collect_adapter_imports(tree)
         # Don't early-return when the import map is empty: Tier-3 fully-qualified

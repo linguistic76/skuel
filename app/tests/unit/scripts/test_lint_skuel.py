@@ -2219,9 +2219,10 @@ class TestSKUEL023:
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
         assert len(violations) == 0
 
-    def test_aliased_import(self) -> None:
-        """`from adapters... import XBackend as _XB` — the local name is _XB
-        and the rule keys on local names; annotating with _XB triggers."""
+    def test_aliased_import_flagged_at_both_sites(self) -> None:
+        """`from adapters... import XBackend as _XBackend` — under Tier 4, the
+        import-site rule fires on the alias itself; the annotation-site check
+        also fires because `_XBackend` ends in `Backend`. Two violations total."""
         linter = make_linter(["SKUEL023"])
         content = (
             "from typing import TYPE_CHECKING\n"
@@ -2234,7 +2235,10 @@ class TestSKUEL023:
             "        self.backend = backend\n"
         )
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
-        assert len(violations) == 1
+        assert len(violations) == 2
+        import_v = [v for v in violations if v.line_number == 4]
+        assert len(import_v) == 1
+        assert "aliases adapter import" in import_v[0].message
 
     def test_function_param_outside_init(self) -> None:
         """Param annotations on any function (not just __init__) are checked."""
@@ -2252,14 +2256,16 @@ class TestSKUEL023:
         assert len(violations) == 1
 
     # -------------------------------------------------------------------------
-    # Tier 2: module-style alias imports (`import adapters.x as xb`).
-    # The annotation walker must reach the root Name through the Attribute
-    # chain; without that fix the tail ("XBackend") wouldn't be in the import
-    # map and the violation would be silently skipped.
+    # Tier 2: module-style imports (`import adapters.x [as xb]`).
+    # Tier 4 closed this structurally at the import site: any module-style
+    # adapter import in core/ is banned regardless of alias. The annotation-
+    # walker Attribute logic remains as defense in depth.
     # -------------------------------------------------------------------------
 
     def test_flags_module_style_alias_attribute_annotation(self) -> None:
-        """`import adapters.x as xb` + `self.backend: xb.XBackend` (Attribute)."""
+        """`import adapters.x as xb` + `self.backend: xb.XBackend` — two
+        violations: import-site (module-style banned) + annotation (Attribute
+        walk catches the concrete-adapter reference)."""
         linter = make_linter(["SKUEL023"])
         content = (
             "from typing import TYPE_CHECKING\n"
@@ -2272,12 +2278,16 @@ class TestSKUEL023:
             "        self.backend: xb.XBackend = backend\n"
         )
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
-        assert len(violations) == 1
-        assert "XBackend" in violations[0].message
-        assert "adapters.persistence.neo4j.x_backend" in violations[0].message
+        assert len(violations) == 2
+        import_v = [v for v in violations if v.line_number == 4]
+        assert len(import_v) == 1
+        assert "module-style adapter import" in import_v[0].message
+        annotation_v = [v for v in violations if v.line_number != 4]
+        assert "XBackend" in annotation_v[0].message
 
     def test_flags_module_style_alias_forward_ref(self) -> None:
-        """Same bypass via a string forward-ref: `backend: "xb.XBackend"`."""
+        """Same shape via a string forward-ref. Still two violations (import
+        site + annotation site)."""
         linter = make_linter(["SKUEL023"])
         content = (
             "from typing import TYPE_CHECKING\n"
@@ -2290,10 +2300,13 @@ class TestSKUEL023:
             "        self.backend = backend\n"
         )
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
-        assert len(violations) == 1
+        assert len(violations) == 2
 
-    def test_module_style_alias_to_non_backend_name_not_flagged(self) -> None:
-        """`xb.SomeConfig` — root in import map, tail not a backend suffix."""
+    def test_module_style_import_flagged_even_when_annotation_is_clean(self) -> None:
+        """`import adapters.x as xb` + `xb.SomeConfig` — the annotation walks
+        cleanly (non-backend suffix), but the import itself is now a violation
+        because module-style adapter imports are structurally banned. One
+        violation, at the import site."""
         linter = make_linter(["SKUEL023"])
         content = (
             "from typing import TYPE_CHECKING\n"
@@ -2306,7 +2319,9 @@ class TestSKUEL023:
             "        self.config: xb.SomeConfig = config\n"
         )
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
-        assert violations == []
+        assert len(violations) == 1
+        assert violations[0].line_number == 4
+        assert "module-style adapter import" in violations[0].message
 
     def test_typing_attribute_not_flagged(self) -> None:
         """`typing.Optional` is an Attribute chain whose root isn't an adapter
@@ -2362,6 +2377,92 @@ class TestSKUEL023:
             "class KuService:\n"
             '    def __init__(self, backend: "adapters.persistence.neo4j.backends.curriculum_backends.KuBackend") -> None:\n'
             "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/ku_service.py")
+        assert violations == []
+
+    # -------------------------------------------------------------------------
+    # Tier 4: import-site rule — adapter-import aliasing in core/ is banned.
+    # Closes the bypass class structurally rather than patching the suffix
+    # check. The hostile-alias case (annotation-only check could not catch)
+    # and the safe-alias case (annotation check happens to catch) both now
+    # fire at the import line regardless of the local name.
+    # -------------------------------------------------------------------------
+
+    def test_flags_hostile_alias_to_non_backend_name(self) -> None:
+        """`from adapters... import XBackend as XB` + `backend: XB` — the
+        local name `XB` does NOT end in a backend suffix, so the annotation-
+        level check alone would silently miss it. The import-site rule fires.
+        Codex Tier-4 finding."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend as XB\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "XB") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        # Only the import-site rule fires — the annotation suffix check
+        # correctly skips `XB` (doesn't end in any backend suffix).
+        assert len(violations) == 1
+        assert violations[0].line_number == 4
+        assert "aliases adapter import" in violations[0].message
+        assert "XBackend" in violations[0].message
+        assert "XB" in violations[0].message
+
+    def test_unaliased_import_unaffected(self) -> None:
+        """`from adapters... import XBackend` (no alias) — the import-site
+        rule passes; only the annotation-level check fires. Single violation."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "XBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        # The annotation site, not the import site.
+        assert violations[0].line_number != 4
+
+    def test_aliased_import_line_suppression_silences_both_sites(self) -> None:
+        """Line-level `# skuel-lint: disable=SKUEL023` on the import line
+        suppresses the import-site rule but does not affect the annotation-
+        site check that fires on a different line."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend as _XBackend  # skuel-lint: disable=SKUEL023 -- test\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "_XBackend") -> None:  # skuel-lint: disable=SKUEL023 -- test\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_module_style_import_in_facade_allowlist_not_flagged(self) -> None:
+        """Facade allowlist short-circuits before the import-site rule too."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    import adapters.persistence.neo4j.backends.curriculum_backends as cb\n"
+            "\n"
+            "class KuService:\n"
+            "    def __init__(self, backend: object) -> None:\n"
+            "        self.backend: cb.KuBackend = backend\n"
         )
         violations = lint_content(linter, content, file_path="core/services/ku_service.py")
         assert violations == []
