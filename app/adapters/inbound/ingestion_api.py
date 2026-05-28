@@ -529,10 +529,11 @@ def create_ingestion_api_routes(
             "eta_seconds": 90
         }
         """
-        # Auth check before accepting — ingestion is admin-only
+        # Auth check before accepting — ingestion is admin-only.
+        # Re-fetches role from Neo4j (does NOT trust session is_admin flag).
         from adapters.inbound.auth import require_websocket_admin
 
-        user_uid = await require_websocket_admin(ws)
+        user_uid = await require_websocket_admin(ws, user_service)
         if not user_uid:
             return
 
