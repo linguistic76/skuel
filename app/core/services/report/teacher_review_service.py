@@ -97,40 +97,43 @@ class TeacherReviewService:
         self,
         teacher_uid: str,
         status_filter: str | None = None,
-        entity_type_filter: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Get teacher's pending review queue.
 
-        Returns all student submissions (via OWNS), optionally filtered by
-        status or entity_type. Includes count of existing feedback rounds per
-        submission. Defaults to submitted+active statuses when no filter given.
+        Returns entries shared with the teacher's groups via SHARED_WITH_GROUP
+        whose pipeline is ``teacher_review``. Empty when the teacher owns no
+        groups or no entries have been shared — does not leak the existence
+        of unrelated students' submissions.
 
         Args:
             teacher_uid: Teacher UID
-            status_filter: Optional status filter (e.g., "submitted")
-            entity_type_filter: Optional entity_type filter (e.g., "exercise_submission")
+            status_filter: Optional single-status filter (e.g., "submitted").
+                Defaults to ["submitted", "active"] when ``None``.
 
         Returns:
-            Result containing list of review items
+            Result containing list of review items (``ReviewQueueItem`` shape)
         """
-        result = await self.user_entry_backend.get_review_queue(
-            teacher_uid, status_filter, entity_type_filter
-        )
+        statuses = [status_filter] if status_filter else None
+        result = await self.user_entry_backend.get_review_queue_by_groups(teacher_uid, statuses)
         if result.is_error:
             return Result.fail(result)
 
+        # Remap backend keys (entry_uid, exercise_title) to ReviewQueueItem
+        # public shape (submission_uid, exercise_name) so UI consumers
+        # (ui/teaching/types.queue_item_from_dict, scripts/export_submissions)
+        # see a stable surface across the get_review_queue → by_groups rewire.
         items = [
             {
-                "submission_uid": record["submission_uid"],
+                "submission_uid": record["entry_uid"],
                 "title": record["title"],
                 "status": record["status"],
-                "entity_type": record["entity_type"],
+                "entity_type": record.get("entity_type"),
                 "submitted_at": record["submitted_at"],
                 "student_uid": record["student_uid"],
                 "student_name": record["student_name"],
                 "exercise_uid": record["exercise_uid"],
-                "exercise_name": record["exercise_name"],
+                "exercise_name": record["exercise_title"],
                 "due_date": record["due_date"],
                 "original_filename": record.get("original_filename"),
                 "feedback_count": record["feedback_count"],
@@ -610,7 +613,7 @@ class TeacherReviewService:
             Result containing list of submission dicts with student info
             and feedback count
         """
-        result = await self.user_entry_backend.get_submissions_for_exercise_review(exercise_uid)
+        result = await self.user_entry_backend.get_entries_for_exercise_review(exercise_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -667,21 +670,23 @@ class TeacherReviewService:
         student_uid: str,
     ) -> Result[list[StudentSubmissionItem]]:
         """
-        Get all submissions owned by a student (admin oversight view).
+        Get all submissions owned by a student, gated by shared active group.
 
-        Returns every submission regardless of exercise scope or sharing status.
-        The SHARES_WITH filter is intentionally absent here — this view is for
-        admin/teacher oversight of a student's full submission history.
+        Returns the student's submissions only when the teacher and student
+        share an active group (``(teacher)-[:OWNS]->(g:Group {is_active:true})
+        <-[:MEMBER_OF]-(student)``). Empty when no shared active group exists,
+        which the route surface treats as a genuinely empty per-student
+        history — does not leak the existence of unrelated students' work.
 
         Args:
-            teacher_uid: Teacher UID (retained for access control context)
+            teacher_uid: Teacher UID (load-bearing; gates the read)
             student_uid: Student UID
 
         Returns:
             Result containing list of submission dicts with exercise context
             and feedback count
         """
-        result = await self.user_entry_backend.get_student_submissions_for_teacher(
+        result = await self.user_entry_backend.get_student_entries_for_teacher(
             teacher_uid, student_uid
         )
         if result.is_error:
@@ -711,17 +716,20 @@ class TeacherReviewService:
         """
         Get full detail of a submission for teacher review.
 
-        Verifies teacher has SHARES_WITH access. Returns submission content,
-        student info, and linked exercise (if any).
+        Gated by ``SHARED_WITH_GROUP`` at the backend layer: empty when the
+        submission is not shared with any active group the teacher owns.
+        Empty maps to ``Errors.not_found`` (404) so a teacher outside the
+        student's group cannot distinguish "submission does not exist" from
+        "exists but belongs to another teacher's student".
 
         Args:
             submission_uid: Submission UID
-            teacher_uid: Teacher UID (access checked)
+            teacher_uid: Teacher UID (load-bearing; gates the read)
 
         Returns:
             Result containing submission detail dict
         """
-        result = await self.user_entry_backend.get_submission_detail_for_teacher(
+        result = await self.user_entry_backend.get_entry_detail_for_teacher(
             submission_uid, teacher_uid
         )
         if result.is_error:
