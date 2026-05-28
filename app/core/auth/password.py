@@ -26,6 +26,12 @@ BCRYPT_ROUNDS = 12
 
 MIN_PASSWORD_LENGTH = 8
 
+# bcrypt hashes only the first 72 bytes of input. bcrypt >=4 raises ValueError on
+# longer input rather than silently truncating, but that error surfaces from the
+# adapter as a generic "Sign up error: ..." string. Validate up-front so the user
+# gets a clean field-level error before the hash call is ever reached.
+MAX_PASSWORD_BYTES = 72
+
 
 def validate_password(password: str) -> str | None:
     """Validate password against policy rules.
@@ -36,6 +42,11 @@ def validate_password(password: str) -> str | None:
         return "Password is required"
     if len(password) < MIN_PASSWORD_LENGTH:
         return f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
+    if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        return (
+            f"Password must be at most {MAX_PASSWORD_BYTES} bytes "
+            "(non-ASCII characters count as multiple bytes)"
+        )
     return None
 
 
@@ -103,6 +114,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 __all__ = [
     "BCRYPT_ROUNDS",
+    "MAX_PASSWORD_BYTES",
     "MIN_PASSWORD_LENGTH",
     "hash_password",
     "validate_password",
