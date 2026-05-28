@@ -557,9 +557,8 @@ class TeacherReviewOperations(Protocol):
         self,
         teacher_uid: str,
         status_filter: str | None = None,
-        entity_type_filter: str | None = None,
     ) -> "Result[list[ReviewQueueItem]]":
-        """Get teacher's pending review queue. Returns Result[list[ReviewQueueItem]]."""
+        """Get teacher's pending review queue (group-shared entries only)."""
         ...
 
     async def get_submission_detail(

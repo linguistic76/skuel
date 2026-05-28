@@ -29,12 +29,12 @@ def _make_report_backend():
 
 def _make_user_entry_backend():
     backend = MagicMock()
-    backend.get_review_queue = AsyncMock(return_value=Result.ok([]))
+    backend.get_review_queue_by_groups = AsyncMock(return_value=Result.ok([]))
     backend.approve_and_get_linked_kus = AsyncMock(return_value=Result.ok([]))
-    backend.get_submissions_for_exercise_review = AsyncMock(return_value=Result.ok([]))
+    backend.get_entries_for_exercise_review = AsyncMock(return_value=Result.ok([]))
     backend.get_students_summary = AsyncMock(return_value=Result.ok([]))
-    backend.get_student_submissions_for_teacher = AsyncMock(return_value=Result.ok([]))
-    backend.get_submission_detail_for_teacher = AsyncMock(return_value=Result.ok([]))
+    backend.get_student_entries_for_teacher = AsyncMock(return_value=Result.ok([]))
+    backend.get_entry_detail_for_teacher = AsyncMock(return_value=Result.ok([]))
     backend.get_dashboard_stats = AsyncMock(return_value=Result.ok([]))
     backend.verify_teacher_has_group_access = AsyncMock(return_value=Result.ok([]))
     return backend
@@ -600,9 +600,12 @@ class TestApproveReport:
 class TestGetReviewQueue:
     @pytest.mark.asyncio
     async def test_returns_items(self):
+        # Backend (get_review_queue_by_groups) returns rows keyed on
+        # entry_uid + exercise_title; service remaps to ReviewQueueItem
+        # shape (submission_uid + exercise_name).
         records = [
             {
-                "submission_uid": SUBMISSION_UID,
+                "entry_uid": SUBMISSION_UID,
                 "title": "Essay 1",
                 "status": "submitted",
                 "entity_type": "exercise_submission",
@@ -610,14 +613,16 @@ class TestGetReviewQueue:
                 "student_uid": STUDENT_UID,
                 "student_name": "Alice",
                 "exercise_uid": EXERCISE_UID,
-                "exercise_name": "Essay Exercise",
+                "exercise_title": "Essay Exercise",
                 "due_date": None,
                 "original_filename": None,
-                "feedback_count": 0,
+                "revision": 1,
+                "group_uid": GROUP_UID,
+                "feedback_count": 2,
             }
         ]
         backend = _make_user_entry_backend()
-        backend.get_review_queue.return_value = Result.ok(records)
+        backend.get_review_queue_by_groups.return_value = Result.ok(records)
         service = _make_service(user_entry_backend=backend)
 
         result = await service.get_review_queue(TEACHER_UID)
@@ -625,6 +630,8 @@ class TestGetReviewQueue:
         assert not result.is_error
         assert len(result.value) == 1
         assert result.value[0]["submission_uid"] == SUBMISSION_UID
+        assert result.value[0]["exercise_name"] == "Essay Exercise"
+        assert result.value[0]["feedback_count"] == 2
 
     @pytest.mark.asyncio
     async def test_empty_queue(self):
@@ -636,34 +643,53 @@ class TestGetReviewQueue:
         assert result.value == []
 
     @pytest.mark.asyncio
-    async def test_status_filter_passed(self):
+    async def test_status_filter_wrapped_as_list(self):
         backend = _make_user_entry_backend()
         service = _make_service(user_entry_backend=backend)
 
         await service.get_review_queue(TEACHER_UID, status_filter="submitted")
 
-        backend.get_review_queue.assert_awaited_once_with(TEACHER_UID, "submitted", None)
+        backend.get_review_queue_by_groups.assert_awaited_once_with(TEACHER_UID, ["submitted"])
 
     @pytest.mark.asyncio
-    async def test_entity_type_filter_passed(self):
+    async def test_no_status_filter_passes_none(self):
         backend = _make_user_entry_backend()
         service = _make_service(user_entry_backend=backend)
 
-        await service.get_review_queue(TEACHER_UID, entity_type_filter="exercise_submission")
+        await service.get_review_queue(TEACHER_UID)
 
-        backend.get_review_queue.assert_awaited_once_with(TEACHER_UID, None, "exercise_submission")
+        backend.get_review_queue_by_groups.assert_awaited_once_with(TEACHER_UID, None)
 
     @pytest.mark.asyncio
     async def test_db_error_propagated(self):
         db_error = Errors.database("execute_query", "timeout")
         backend = _make_user_entry_backend()
-        backend.get_review_queue.return_value = Result.fail(db_error)
+        backend.get_review_queue_by_groups.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend)
 
         result = await service.get_review_queue(TEACHER_UID)
 
         assert result.is_error
         assert result.error is db_error
+
+    @pytest.mark.asyncio
+    async def test_cross_teacher_access_returns_empty_queue(self):
+        """SECURITY: Teacher with no group sharing the entry sees empty queue.
+
+        Backend ``get_review_queue_by_groups`` returns [] when the teacher
+        does not own a group that has been ``SHARED_WITH_GROUP`` by any
+        ``teacher_review`` UserEntry — modeling the cross-classroom case
+        where the Cypher anchor ``(teacher)-[:OWNS]->(g:Group)
+        <-[:SHARED_WITH_GROUP]-(entry)`` doesn't match.
+        """
+        backend = _make_user_entry_backend()
+        backend.get_review_queue_by_groups.return_value = Result.ok([])
+        service = _make_service(user_entry_backend=backend)
+
+        result = await service.get_review_queue("user_other_teacher")
+
+        assert not result.is_error
+        assert result.value == []
 
 
 # ========================================================================
@@ -692,7 +718,7 @@ class TestGetSubmissionDetail:
             }
         ]
         backend = _make_user_entry_backend()
-        backend.get_submission_detail_for_teacher.return_value = Result.ok(records)
+        backend.get_entry_detail_for_teacher.return_value = Result.ok(records)
         service = _make_service(user_entry_backend=backend)
 
         result = await service.get_submission_detail(SUBMISSION_UID, TEACHER_UID)
@@ -714,7 +740,7 @@ class TestGetSubmissionDetail:
     async def test_db_error_propagated(self):
         db_error = Errors.database("execute_query", "timeout")
         backend = _make_user_entry_backend()
-        backend.get_submission_detail_for_teacher.return_value = Result.fail(db_error)
+        backend.get_entry_detail_for_teacher.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend)
 
         result = await service.get_submission_detail(SUBMISSION_UID, TEACHER_UID)
@@ -729,9 +755,26 @@ class TestGetSubmissionDetail:
 
         await service.get_submission_detail(SUBMISSION_UID, TEACHER_UID)
 
-        backend.get_submission_detail_for_teacher.assert_awaited_once_with(
-            SUBMISSION_UID, TEACHER_UID
-        )
+        backend.get_entry_detail_for_teacher.assert_awaited_once_with(SUBMISSION_UID, TEACHER_UID)
+
+    @pytest.mark.asyncio
+    async def test_cross_teacher_access_returns_not_found(self):
+        """SECURITY: Teacher outside the entry's group → 404 (no content leak).
+
+        Backend ``get_entry_detail_for_teacher`` returns [] when the entry
+        isn't SHARED_WITH_GROUP an active group the teacher owns. Service
+        maps empty → ``Errors.not_found`` — indistinguishable from
+        "submission does not exist", so cross-classroom probing can't
+        confirm the entry's existence.
+        """
+        backend = _make_user_entry_backend()
+        backend.get_entry_detail_for_teacher.return_value = Result.ok([])
+        service = _make_service(user_entry_backend=backend)
+
+        result = await service.get_submission_detail(SUBMISSION_UID, "user_other_teacher")
+
+        assert result.is_error
+        assert "not found or not shared with teacher" in str(result.error)
 
 
 # ========================================================================
@@ -783,6 +826,34 @@ class TestGetDashboardStats:
 
         assert result.is_error
         assert result.error is db_error
+
+    @pytest.mark.asyncio
+    async def test_cross_teacher_sees_zero_pending_and_students(self):
+        """SECURITY: Teacher with no SHARED_WITH_GROUP entries → zero counts.
+
+        Backend Cypher returns a single record with all counts at 0 when the
+        teacher owns no groups and/or no entries are shared with them — the
+        Model-B scoping on ``pending_count`` and ``total_students`` makes
+        cross-classroom probing useless (a teacher can't tell whether
+        another classroom has activity).
+        """
+        records = [
+            {
+                "pending_count": 0,
+                "total_students": 0,
+                "total_exercises": 0,
+                "total_groups": 0,
+            }
+        ]
+        backend = _make_user_entry_backend()
+        backend.get_dashboard_stats.return_value = Result.ok(records)
+        service = _make_service(user_entry_backend=backend)
+
+        result = await service.get_dashboard_stats("user_other_teacher")
+
+        assert not result.is_error
+        assert result.value["pending_count"] == 0
+        assert result.value["total_students"] == 0
 
 
 # ========================================================================
@@ -856,7 +927,7 @@ class TestGetSubmissionsForExercise:
             }
         ]
         backend = _make_user_entry_backend()
-        backend.get_submissions_for_exercise_review.return_value = Result.ok(records)
+        backend.get_entries_for_exercise_review.return_value = Result.ok(records)
         service = _make_service(user_entry_backend=backend)
 
         result = await service.get_submissions_for_exercise(EXERCISE_UID)
@@ -878,7 +949,7 @@ class TestGetSubmissionsForExercise:
     async def test_db_error_propagated(self):
         db_error = Errors.database("execute_query", "failure")
         backend = _make_user_entry_backend()
-        backend.get_submissions_for_exercise_review.return_value = Result.fail(db_error)
+        backend.get_entries_for_exercise_review.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend)
 
         result = await service.get_submissions_for_exercise(EXERCISE_UID)
@@ -955,7 +1026,7 @@ class TestGetStudentSubmissions:
             }
         ]
         backend = _make_user_entry_backend()
-        backend.get_student_submissions_for_teacher.return_value = Result.ok(records)
+        backend.get_student_entries_for_teacher.return_value = Result.ok(records)
         service = _make_service(user_entry_backend=backend)
 
         result = await service.get_student_submissions(TEACHER_UID, STUDENT_UID)
@@ -968,12 +1039,31 @@ class TestGetStudentSubmissions:
     async def test_db_error_propagated(self):
         db_error = Errors.database("execute_query", "failure")
         backend = _make_user_entry_backend()
-        backend.get_student_submissions_for_teacher.return_value = Result.fail(db_error)
+        backend.get_student_entries_for_teacher.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend)
 
         result = await service.get_student_submissions(TEACHER_UID, STUDENT_UID)
 
         assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_cross_teacher_access_returns_empty_list(self):
+        """SECURITY: Teacher with no shared active group → empty student history.
+
+        Backend ``get_student_entries_for_teacher`` returns [] when the
+        Model-A anchor ``(teacher)-[:OWNS]->(g:Group {is_active:true})
+        <-[:MEMBER_OF]-(student)`` doesn't match. Service surface returns
+        an empty list — indistinguishable from a genuinely empty per-student
+        history. No content leak across classrooms.
+        """
+        backend = _make_user_entry_backend()
+        backend.get_student_entries_for_teacher.return_value = Result.ok([])
+        service = _make_service(user_entry_backend=backend)
+
+        result = await service.get_student_submissions("user_other_teacher", STUDENT_UID)
+
+        assert not result.is_error
+        assert result.value == []
 
 
 # ========================================================================
