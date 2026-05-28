@@ -618,6 +618,7 @@ class TestGetReviewQueue:
                 "original_filename": None,
                 "revision": 1,
                 "group_uid": GROUP_UID,
+                "feedback_count": 2,
             }
         ]
         backend = _make_user_entry_backend()
@@ -630,6 +631,7 @@ class TestGetReviewQueue:
         assert len(result.value) == 1
         assert result.value[0]["submission_uid"] == SUBMISSION_UID
         assert result.value[0]["exercise_name"] == "Essay Exercise"
+        assert result.value[0]["feedback_count"] == 2
 
     @pytest.mark.asyncio
     async def test_empty_queue(self):

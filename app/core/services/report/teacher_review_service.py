@@ -136,7 +136,7 @@ class TeacherReviewService:
                 "exercise_name": record["exercise_title"],
                 "due_date": record["due_date"],
                 "original_filename": record.get("original_filename"),
-                "feedback_count": 0,  # by_groups does not join report counts
+                "feedback_count": record["feedback_count"],
             }
             for record in result.value
         ]
