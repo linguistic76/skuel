@@ -91,12 +91,13 @@ adapters/inbound/graphql/
 ├── query_helpers.py     # unwrap_result/unwrap_list + GraphQLQueryHelpers
 ├── context.py           # DataLoader + GraphQLContext (per-request)
 ├── config.py            # Guardrails configuration (GraphQLConfig)
+├── guardrails.py        # QueryComplexityLimiter + ResolverTimeoutExtension
 ├── auth.py              # require_user_uid(), resolve_target_user()
 ├── protocols.py         # Structural protocols (PathStepLike, etc.)
 ├── GUARDRAILS.md        # Complete guardrails documentation
 ├── AUTHENTICATION.md    # Two-layer auth design
 ├── DATALOADER_GUIDE.md  # N+1 prevention patterns
-├── COMPLEXITY.md        # Query depth/token limits
+├── COMPLEXITY.md        # Depth/token/alias/complexity limits + timeouts
 ├── QUERY_EXAMPLES.md    # Real-world example queries
 ├── ENHANCEMENTS.md      # Future improvements
 └── README.md            # This file
@@ -363,12 +364,20 @@ All guardrail limits are configured in [config.py:adapters/inbound/graphql/confi
 ```python
 @dataclass
 class GraphQLConfig:
-    max_list_size: int = 100          # Cap list queries
-    default_list_size: int = 20       # Default if not specified
-    max_query_depth: int = 5          # Prevent depth bombs
-    max_cypher_depth: int = 5         # Graph traversal limit
-    cypher_timeout_seconds: int = 10  # Kill slow queries
+    max_query_depth: int = 5            # QueryDepthLimiter (depth bombs)
+    max_query_tokens: int = 1000        # MaxTokensLimiter
+    max_aliases: int = 10               # MaxAliasesLimiter
+    max_query_complexity: int = 1000    # QueryComplexityLimiter (summed field cost)
+    max_query_timeout_seconds: int = 30     # whole-op ceiling (asyncio.wait_for)
+    max_resolver_timeout_seconds: int = 10  # per-resolver ceiling
+    max_list_size: int = 100            # validate_list_limit
+    default_list_size: int = 20
+    max_cypher_depth: int = 5           # validate_query_depth
 ```
+
+See **GUARDRAILS.md** for how each is enforced. A Cypher/transaction timeout is a
+database concern (driver-level timeouts come from `DatabaseConfig`), not a GraphQL
+guardrail — the old `cypher_timeout_seconds` was removed.
 
 ### Adjusting Limits
 

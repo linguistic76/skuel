@@ -63,36 +63,51 @@ async def knowledge_units(self, info: Info, limit: int | None = None) -> list[Kn
 **Implementation:**
 
 ```python
-# Configuration (/adapters/inbound/graphql/config.py)
+# Configuration (/adapters/inbound/graphql/config.py) — every field is enforced.
 @dataclass
 class GraphQLConfig:
-    max_list_size: int = 100        # Maximum items in any list
-    default_list_size: int = 20     # Default if not specified
-    max_query_depth: int = 5        # Prevent deeply nested queries
-    max_cypher_depth: int = 5       # Maximum graph traversal depth
-    cypher_timeout_seconds: int = 10  # Kill slow queries
+    # Query-shape limits — Strawberry schema extensions (see guardrails.py)
+    max_query_depth: int = 5          # QueryDepthLimiter
+    max_query_tokens: int = 1000      # MaxTokensLimiter
+    max_aliases: int = 10             # MaxAliasesLimiter (alias-based DoS)
+    max_query_complexity: int = 1000  # QueryComplexityLimiter (summed field cost)
+    # Timeouts (seconds)
+    max_query_timeout_seconds: int = 30     # whole-op ceiling (asyncio.wait_for, adapter)
+    max_resolver_timeout_seconds: int = 10  # per-resolver ceiling (ResolverTimeoutExtension)
+    # List / traversal caps — applied by the validate_* helpers
+    max_list_size: int = 100          # validate_list_limit
+    default_list_size: int = 20
+    max_cypher_depth: int = 5         # validate_query_depth
 
-# Usage in resolvers
+# Two enforcement points:
+#  (1) Schema extensions, wired as factory callables (functools.partial — fresh per
+#      request) in create_graphql_schema(): QueryDepthLimiter, MaxTokensLimiter,
+#      MaxAliasesLimiter, QueryComplexityLimiter, ResolverTimeoutExtension.
+#  (2) Per-resolver validators for the list / traversal caps:
 @strawberry.field
-async def knowledge_units(
-    self,
-    limit: int | None = None  # Client can request, but we validate
-) -> list[KnowledgeNode]:
-    # GUARDRAIL: Validate and cap the limit
+async def knowledge_units(self, limit: int | None = None) -> list[KnowledgeNode]:
     safe_limit = validate_list_limit(limit)  # Max 100, default 20
-
     result = await service.list_knowledge_units(limit=safe_limit)
     return [...]
 ```
 
 **Enforced Limits:**
 
-| Parameter | Default | Maximum | Purpose |
-|-----------|---------|---------|---------|
-| `limit` | 20 | 100 | Items per list query |
-| `query_depth` | 2 | 5 | Graph traversal depth |
-| `timeout` | N/A | 30s | Total query execution |
-| `cypher_timeout` | N/A | 10s | Individual Cypher query |
+| Parameter | Default | Maximum | Enforced by |
+|-----------|---------|---------|-------------|
+| list `limit` | 20 | 100 | `validate_list_limit` (resolver) |
+| graph traversal depth | 2 | 5 | `validate_query_depth` (resolver) |
+| query nesting depth | — | 5 | `QueryDepthLimiter` |
+| query tokens | — | 1000 | `MaxTokensLimiter` |
+| aliases | — | 10 | `MaxAliasesLimiter` |
+| query complexity | — | 1000 | `QueryComplexityLimiter` |
+| whole-operation timeout | — | 30s | `asyncio.wait_for` (adapter boundary) |
+| per-resolver timeout | — | 10s | `ResolverTimeoutExtension` |
+
+> A Cypher/transaction timeout is **not** a GraphQL guardrail (the old
+> `cypher_timeout_seconds` was removed). It's a database concern: driver-level
+> timeouts come from `DatabaseConfig` (`neo4j_connection.py`); a real per-query
+> server-side timeout is a deferred persistence task (no single session chokepoint).
 
 ---
 
@@ -209,29 +224,40 @@ async def knowledge_unit(self, uid: str) -> KnowledgeNode:
 
 ---
 
-## Query Complexity (Future)
+## Query Complexity (Implemented)
 
-**Planned:** Cost-based query complexity analysis
+Cost-based complexity analysis is enforced by `QueryComplexityLimiter`
+(`adapters/inbound/graphql/guardrails.py`), an `AddValidationRules` extension that
+walks each operation — resolving fragment spreads, mirroring Strawberry's own
+`QueryDepthLimiter` — and rejects operations whose **summed field cost** exceeds
+`max_query_complexity`. The cost is **additive and type-weighted** (it caps query
+*breadth*; multiplicative list-size blow-up is bounded separately by the depth +
+list-size limits):
 
-```python
-# Future: Assign costs to fields
-@strawberry.field(complexity=10)
-async def prerequisites(self) -> list[KnowledgeNode]:
-    # This field costs 10 complexity points
-    ...
+| Field shape | Cost | Config field |
+|-------------|------|--------------|
+| Scalar / leaf | 1 | `basic_field_cost` |
+| Nested object | 5 | `nested_object_cost` |
+| List | 10 | `list_field_cost` |
 
-# Query complexity calculated automatically
+The summed cost is scaled by `field_complexity_multiplier` and compared to
+`max_query_complexity` (default 1000); over-budget operations are rejected at the
+validation phase with a `GraphQLError`.
+
+```graphql
 query {
-  knowledgeUnits(limit: 10) {        # 10 points
-    prerequisites {                   # 10 * 10 = 100 points
-      prerequisites {                 # 100 * 10 = 1000 points (MAX!)
-        uid
-      }
+  knowledgeUnits {        # list field → 10
+    prerequisites {       # list field → 10
+      uid title           # 2 leaves → 2
     }
   }
 }
-# Total: 1110 points (exceeds max of 1000) → Rejected
+# Summed cost 22 (well under 1000) → allowed
 ```
+
+> Cost weights live in `GraphQLConfig`. `resolver_field_cost` was removed — every
+> Strawberry field has a resolver, so it can't be detected faithfully; list-shaped
+> fields (the DataLoader-backed ones) already carry `list_field_cost`.
 
 ---
 
