@@ -2250,3 +2250,118 @@ class TestSKUEL023:
         )
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
         assert len(violations) == 1
+
+    # -------------------------------------------------------------------------
+    # Tier 2: module-style alias imports (`import adapters.x as xb`).
+    # The annotation walker must reach the root Name through the Attribute
+    # chain; without that fix the tail ("XBackend") wouldn't be in the import
+    # map and the violation would be silently skipped.
+    # -------------------------------------------------------------------------
+
+    def test_flags_module_style_alias_attribute_annotation(self) -> None:
+        """`import adapters.x as xb` + `self.backend: xb.XBackend` (Attribute)."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    import adapters.persistence.neo4j.x_backend as xb\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: object) -> None:\n"
+            "        self.backend: xb.XBackend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "XBackend" in violations[0].message
+        assert "adapters.persistence.neo4j.x_backend" in violations[0].message
+
+    def test_flags_module_style_alias_forward_ref(self) -> None:
+        """Same bypass via a string forward-ref: `backend: "xb.XBackend"`."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    import adapters.persistence.neo4j.x_backend as xb\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "xb.XBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+
+    def test_module_style_alias_to_non_backend_name_not_flagged(self) -> None:
+        """`xb.SomeConfig` — root in import map, tail not a backend suffix."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    import adapters.persistence.neo4j.x_backend as xb\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, config: object) -> None:\n"
+            "        self.config: xb.SomeConfig = config\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_typing_attribute_not_flagged(self) -> None:
+        """`typing.Optional` is an Attribute chain whose root isn't an adapter
+        import — must not be flagged just because Attribute walking is on."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "import typing\n"
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XService:\n"
+            "    field: typing.Optional[str] = None\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    # -------------------------------------------------------------------------
+    # Tier 3: fully-qualified forward-ref strings with NO adapter import.
+    # The check must fire even when `adapter_imports` is empty because the
+    # parsed Attribute chain's root Name is the literal "adapters".
+    # -------------------------------------------------------------------------
+
+    def test_flags_fully_qualified_forward_ref_without_import(self) -> None:
+        """`backend: "adapters.x.XBackend"` — no TYPE_CHECKING import at all."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class XService:\n"
+            '    def __init__(self, backend: "adapters.persistence.neo4j.x_backend.XBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "XBackend" in violations[0].message
+        # The display "module" for Tier 3 is the synthetic adapters.* — verify
+        # we don't claim a real module path that wasn't imported.
+        assert "adapters.*" in violations[0].message
+
+    def test_fully_qualified_non_backend_not_flagged(self) -> None:
+        """`backend: "adapters.x.SomeEnum"` — suffix heuristic still gates Tier 3."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            'class XService:\n    field: "adapters.persistence.neo4j.x_backend.SomeEnum" = None\n'
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_fully_qualified_in_facade_allowlist_not_flagged(self) -> None:
+        """Facade allowlist applies before any tier check — covers Tier 3."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class KuService:\n"
+            '    def __init__(self, backend: "adapters.persistence.neo4j.backends.curriculum_backends.KuBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/ku_service.py")
+        assert violations == []

@@ -568,7 +568,11 @@ take a single backend handle must annotate against the ports protocol.
 AST-based, fail-closed: walks both runtime AND TYPE_CHECKING imports of `adapters.*`,
 then flags annotations (instance attribute, function parameter, class-body attribute)
 that reference one of those imports. Forward references (string annotations) are
-parsed. Subscripts (Optional[X], list[X]) recurse.
+parsed. Subscripts (Optional[X], list[X]) recurse. ``Attribute`` chains walk to the
+root Name so module-style aliases (`import adapters.x as xb` + `backend: xb.XBackend`)
+are caught. Fully-qualified forward-ref strings (`backend: "adapters.x.XBackend"`,
+no import) are caught via the same path — the parsed Attribute chain's root Name is
+`adapters`, which the check treats as an implicit adapter reference.
 
 Suffix heuristic: only flags names ending in Backend / Executor / Adapter / Repository /
 Client / Driver — naturally excludes adapter enums, configs, and pure-data exports
@@ -2496,43 +2500,68 @@ class SkuelLinter:
         return imports
 
     @staticmethod
-    def _extract_bare_type_names(annotation: ast.expr) -> list[str]:
-        """Recurse into an annotation expression and return the bare type names it
-        references.
+    def _extract_annotation_refs(annotation: ast.expr) -> list[tuple[str, str]]:
+        """Recurse into an annotation expression and return ``(lookup_key, type_name)``
+        pairs for every type reference inside it.
+
+        - ``lookup_key`` is what the check loop matches against the
+          ``{local_name -> module}`` import map (or the sentinel ``"adapters"``
+          for Tier-3 fully-qualified references that bypass the import map).
+        - ``type_name`` is the tail used both for the backend-suffix heuristic
+          and the violation message.
+
+        For most annotation shapes the two are identical. They diverge for
+        ``Attribute`` chains, which is where the two bypass classes live:
+
+        - **Tier 2 — module-style alias.** ``import adapters.x as xb`` plus
+          ``backend: xb.XBackend`` parses to ``Attribute(value=Name("xb"),
+          attr="XBackend")``. The import map keys on ``xb``, not ``XBackend``;
+          walking to the root Name lets the lookup succeed.
+        - **Tier 3 — fully-qualified string.** ``backend: "adapters.persistence.
+          neo4j.x.XBackend"`` (no import at all) parses through the forward-ref
+          path into the same Attribute chain whose root Name is ``adapters``.
+          The sentinel ``("adapters", "XBackend")`` lets the check loop flag it
+          even though the import map is empty.
 
         Handles:
-        - ``Name("KuBackend")``                            -> ``["KuBackend"]``
+        - ``Name("KuBackend")``                            -> ``[("KuBackend", "KuBackend")]``
         - ``Constant("KuBackend")`` (forward reference)    -> parsed via ``ast.parse``
-        - ``Subscript`` (``Optional[X]``, ``list[X]``, ...) -> recurse into the slice
+        - ``Subscript`` (``Optional[X]``, ``list[X]``, ...) -> recurse into both halves
         - ``BinOp`` (``X | None`` PEP 604 unions)          -> recurse into both sides
-        - ``Attribute`` (``a.b.C``)                        -> use the tail attr ``C``
+        - ``Attribute`` (``a.b.C``)                        -> root Name as lookup, tail as type
         - ``Tuple`` slices (``Callable[[A, B], C]`` etc.)  -> recurse into each elt
         """
-        names: list[str] = []
+        refs: list[tuple[str, str]] = []
         if isinstance(annotation, ast.Name):
-            names.append(annotation.id)
+            refs.append((annotation.id, annotation.id))
         elif isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
             # Forward reference: parse as an expression and recurse.
             try:
                 parsed = ast.parse(annotation.value, mode="eval").body
             except SyntaxError:
-                return names
-            names.extend(SkuelLinter._extract_bare_type_names(parsed))
+                return refs
+            refs.extend(SkuelLinter._extract_annotation_refs(parsed))
         elif isinstance(annotation, ast.Subscript):
-            names.extend(SkuelLinter._extract_bare_type_names(annotation.value))
-            names.extend(SkuelLinter._extract_bare_type_names(annotation.slice))
+            refs.extend(SkuelLinter._extract_annotation_refs(annotation.value))
+            refs.extend(SkuelLinter._extract_annotation_refs(annotation.slice))
         elif isinstance(annotation, ast.Tuple):
             for elt in annotation.elts:
-                names.extend(SkuelLinter._extract_bare_type_names(elt))
+                refs.extend(SkuelLinter._extract_annotation_refs(elt))
         elif isinstance(annotation, ast.BinOp):
             # PEP 604 unions (X | Y) reach us as BinOp(BitOr) in annotation context.
-            names.extend(SkuelLinter._extract_bare_type_names(annotation.left))
-            names.extend(SkuelLinter._extract_bare_type_names(annotation.right))
+            refs.extend(SkuelLinter._extract_annotation_refs(annotation.left))
+            refs.extend(SkuelLinter._extract_annotation_refs(annotation.right))
         elif isinstance(annotation, ast.Attribute):
-            # `mod.KuBackend` -> use the tail; the import map keys on the local name.
-            names.append(annotation.attr)
+            # Walk the value chain to the root Name. The root is what the
+            # import map keys on (module alias for Tier 2, sentinel "adapters"
+            # for Tier 3); the tail attr is the type name for suffix + reporting.
+            root: ast.expr = annotation
+            while isinstance(root, ast.Attribute):
+                root = root.value
+            if isinstance(root, ast.Name):
+                refs.append((root.id, annotation.attr))
         # Anything else (Call, Lambda, ...) doesn't appear in a sane annotation.
-        return names
+        return refs
 
     def _check_adapter_type_annotations(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -2551,10 +2580,25 @@ class SkuelLinter:
         ``adapters.*`` to build a ``{local_name -> module}`` map. Then walks the
         whole tree looking for type annotations (AnnAssign at any scope,
         FunctionDef arg annotations + return annotations) and flags any annotation
-        whose bare type name is in the import map AND ends in a backend-shaped
-        suffix (``Backend`` / ``Executor`` / ``Adapter`` / ``Repository`` /
-        ``Client`` / ``Driver``). The suffix heuristic excludes enums (e.g.
-        ``QueryOptimizationStrategy``), configs, and pure-data adapter exports.
+        whose ``(lookup_key, type_name)`` pair matches an adapter reference AND
+        whose ``type_name`` ends in a backend-shaped suffix (``Backend`` /
+        ``Executor`` / ``Adapter`` / ``Repository`` / ``Client`` / ``Driver``).
+        The suffix heuristic excludes enums (e.g. ``QueryOptimizationStrategy``),
+        configs, and pure-data adapter exports.
+
+        Three bypass classes closed:
+        - **Tier 1** — ``from adapters.x import XB`` + ``backend: XB``: the
+          common pattern. ``lookup_key`` is ``XB``, found in the import map.
+        - **Tier 2** — ``import adapters.x as xb`` + ``backend: xb.XBackend``:
+          module-style alias. ``_extract_annotation_refs`` walks the
+          ``Attribute`` chain to the root Name (``xb``), which is in the
+          import map; the tail (``XBackend``) is what carries the suffix.
+        - **Tier 3** — ``backend: "adapters.persistence.neo4j.x.XBackend"``
+          (fully-qualified forward-ref string, no import at all). The string
+          is parsed as an expression; the resulting ``Attribute`` chain has
+          ``Name("adapters")`` at its root. The check treats the literal
+          ``"adapters"`` lookup key as an implicit adapter reference so the
+          import map can be empty and the violation still fires.
 
         Facade allowlist: KU / PS / LP / UserService and the per-domain sub-service
         packages are exempt — CLAUDE.md commits to "Facade IS the contract" for
@@ -2588,15 +2632,17 @@ class SkuelLinter:
             return
 
         adapter_imports = self._collect_adapter_imports(tree)
-        if not adapter_imports:
-            return
+        # Don't early-return when the import map is empty: Tier-3 fully-qualified
+        # references (`backend: "adapters.x.XBackend"`) parse through the
+        # forward-ref path and surface as a `("adapters", "XBackend")` ref pair
+        # whose lookup key is the literal `"adapters"` sentinel — no import needed.
 
-        # Walk every annotation site and gather (lineno, col, bare_name) tuples.
-        annotation_sites: list[tuple[int, int, str]] = []
+        # Walk every annotation site and gather (lineno, col, lookup_key, type_name).
+        annotation_sites: list[tuple[int, int, str, str]] = []
         for node in ast.walk(tree):
             if isinstance(node, ast.AnnAssign) and node.annotation is not None:
-                for name in self._extract_bare_type_names(node.annotation):
-                    annotation_sites.append((node.lineno, node.col_offset, name))
+                for lookup, type_name in self._extract_annotation_refs(node.annotation):
+                    annotation_sites.append((node.lineno, node.col_offset, lookup, type_name))
             elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 # Positional, keyword-only, vararg, kwarg, and posonly args all
                 # carry an optional .annotation; the return annotation lives on
@@ -2612,25 +2658,34 @@ class SkuelLinter:
                 for arg in all_args:
                     if arg.annotation is None:
                         continue
-                    for name in self._extract_bare_type_names(arg.annotation):
-                        annotation_sites.append((arg.lineno, arg.col_offset, name))
+                    for lookup, type_name in self._extract_annotation_refs(arg.annotation):
+                        annotation_sites.append((arg.lineno, arg.col_offset, lookup, type_name))
                 if node.returns is not None:
-                    for name in self._extract_bare_type_names(node.returns):
+                    for lookup, type_name in self._extract_annotation_refs(node.returns):
                         annotation_sites.append(
-                            (node.returns.lineno, node.returns.col_offset, name)
+                            (node.returns.lineno, node.returns.col_offset, lookup, type_name)
                         )
 
-        for lineno, col, bare_name in annotation_sites:
-            if bare_name not in adapter_imports:
+        for lineno, col, lookup_key, type_name in annotation_sites:
+            # Two resolution paths:
+            # - Tier 1/2: lookup_key is a local import name (Name, or Attribute
+            #   root for module-style aliases like `xb` in `xb.XBackend`)
+            # - Tier 3: lookup_key is the literal sentinel `"adapters"` (root of
+            #   a fully-qualified forward-ref like `"adapters.x.XBackend"`),
+            #   which is an adapter reference regardless of any import.
+            if lookup_key == "adapters":
+                module = "adapters.*"
+            elif lookup_key in adapter_imports:
+                module = adapter_imports[lookup_key]
+            else:
                 continue
             # Suffix heuristic: only flag backend-shaped names (skip enums/configs).
-            if not bare_name.endswith(self.SKUEL023_BACKEND_SUFFIXES):
+            if not type_name.endswith(self.SKUEL023_BACKEND_SUFFIXES):
                 continue
             line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL023"):
                 continue
 
-            module = adapter_imports[bare_name]
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
@@ -2640,7 +2695,7 @@ class SkuelLinter:
                     rule_id="SKUEL023",
                     message=(
                         f"core/ module types annotation against concrete adapter "
-                        f"'{bare_name}' (from '{module}') — type against the "
+                        f"'{type_name}' (from '{module}') — type against the "
                         f"core/ports protocol instead (ADR-044)"
                     ),
                     suggestion=(
