@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.cypher_executor import CypherExecutor, CypherTemplate
+from adapters.persistence.neo4j.timed_driver import neo4j_query_timeout
 from core.ingestion.batch_preparer import prepare_batch_items
 from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig
 from core.utils.logging import get_logger
@@ -44,6 +45,11 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
 logger = get_logger("skuel.adapters.bulk_upsert")
+
+# Bulk ingestion gets a 10-minute server-side tx timeout (vs. the 120s default)
+# — large vector-bearing entity batches + multi-MERGE relationship transactions
+# need headroom but should still be bounded.
+_BULK_INGESTION_TIMEOUT_SECONDS: float = 600.0
 
 # Templates were relocated alongside this backend (ADR-044).
 _TEMPLATE_DIR = Path(__file__).parent / "cypher_templates"
@@ -168,16 +174,17 @@ class BulkUpsertBackend:
 
     async def ensure_constraints(self, entity_label: str) -> Result[list[str]]:
         """Run the constraint template for ``entity_label`` (no-op if none exists)."""
-        async with self._driver.session() as session:
-            executor = CypherExecutor(session, dict)
-            try:
-                template = _get_template(
-                    f"{entity_label.lower()}_constraints", subdir="constraints"
-                )
-                return await executor.execute_constraints(template)
-            except FileNotFoundError:
-                self.logger.debug(f"No constraint template for {entity_label}")
-                return Result.ok([])
+        with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
+            async with self._driver.session() as session:
+                executor = CypherExecutor(session, dict)
+                try:
+                    template = _get_template(
+                        f"{entity_label.lower()}_constraints", subdir="constraints"
+                    )
+                    return await executor.execute_constraints(template)
+                except FileNotFoundError:
+                    self.logger.debug(f"No constraint template for {entity_label}")
+                    return Result.ok([])
 
     async def upsert_batch(
         self,
@@ -206,35 +213,38 @@ class BulkUpsertBackend:
         else:
             template = _create_default_upsert_template(entity_label, base_label)
 
-        async with self._driver.session() as session:
-            executor = CypherExecutor(session, dict)
-            items = prepare_batch_items(entities)
+        with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
+            async with self._driver.session() as session:
+                executor = CypherExecutor(session, dict)
+                items = prepare_batch_items(entities)
 
-            result = await executor.execute_batch(
-                template=template,
-                items=items,
-                batch_size=batch_size,
-                extra_params={"entity_label": entity_label},
-            )
-
-            if result.is_error:
-                return Result.fail(result)
-
-            stats = result.value
-            duration = (time.time() - start_time) * 1000
-            # Updates = properties set minus creates.
-            nodes_updated = max(0, stats.get("properties_set", 0) - stats.get("nodes_created", 0))
-
-            return Result.ok(
-                IngestionResult(
-                    total_processed=len(entities),
-                    nodes_created=stats.get("nodes_created", 0),
-                    nodes_updated=nodes_updated,
-                    relationships_created=stats.get("relationships_created", 0),
-                    errors=[],
-                    duration_ms=duration,
+                result = await executor.execute_batch(
+                    template=template,
+                    items=items,
+                    batch_size=batch_size,
+                    extra_params={"entity_label": entity_label},
                 )
-            )
+
+                if result.is_error:
+                    return Result.fail(result)
+
+                stats = result.value
+                duration = (time.time() - start_time) * 1000
+                # Updates = properties set minus creates.
+                nodes_updated = max(
+                    0, stats.get("properties_set", 0) - stats.get("nodes_created", 0)
+                )
+
+                return Result.ok(
+                    IngestionResult(
+                        total_processed=len(entities),
+                        nodes_created=stats.get("nodes_created", 0),
+                        nodes_updated=nodes_updated,
+                        relationships_created=stats.get("relationships_created", 0),
+                        errors=[],
+                        duration_ms=duration,
+                    )
+                )
 
     async def upsert_with_relationships(
         self,
@@ -247,30 +257,31 @@ class BulkUpsertBackend:
         """Upsert entities and create their graph edges in one batched transaction."""
         template = build_relationship_template(entity_label, base_label, relationship_config)
 
-        async with self._driver.session() as session:
-            executor = CypherExecutor(session, dict)
-            items = prepare_batch_items(entities, rel_config=relationship_config)
+        with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
+            async with self._driver.session() as session:
+                executor = CypherExecutor(session, dict)
+                items = prepare_batch_items(entities, rel_config=relationship_config)
 
-            result = await executor.execute_batch(
-                template=template,
-                items=items,
-                batch_size=batch_size,
-                extra_params={"entity_label": entity_label},
-            )
-
-            if result.is_error:
-                return Result.fail(result)
-
-            stats = result.value
-            return Result.ok(
-                IngestionResult(
-                    total_processed=len(entities),
-                    nodes_created=stats.get("nodes_created", 0),
-                    nodes_updated=0,  # Calculated from properties_set when needed
-                    relationships_created=stats.get("relationships_created", 0),
-                    errors=[],
+                result = await executor.execute_batch(
+                    template=template,
+                    items=items,
+                    batch_size=batch_size,
+                    extra_params={"entity_label": entity_label},
                 )
-            )
+
+                if result.is_error:
+                    return Result.fail(result)
+
+                stats = result.value
+                return Result.ok(
+                    IngestionResult(
+                        total_processed=len(entities),
+                        nodes_created=stats.get("nodes_created", 0),
+                        nodes_updated=0,  # Calculated from properties_set when needed
+                        relationships_created=stats.get("relationships_created", 0),
+                        errors=[],
+                    )
+                )
 
     async def delete_batch(
         self, entity_label: str, uids: list[str], cascade: bool = False
