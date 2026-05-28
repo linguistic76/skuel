@@ -115,6 +115,17 @@ async def compose_services(
 
         logger.info("✅ Neo4j driver validated")
 
+        # Wrap the shared driver so every query gets a server-side per-tx timeout.
+        # The wrapper proxies session() / execute_query() / begin_transaction() and
+        # injects neo4j.Query(timeout=) / begin_transaction(timeout=) — see
+        # adapters/persistence/neo4j/timed_driver.py for the rationale (no global
+        # "default tx timeout" knob exists on AsyncDriver). 0 = unbounded.
+        from adapters.persistence.neo4j.timed_driver import TimedDriver
+
+        raw_driver = driver
+        default_timeout = config.database.transaction_timeout or None  # 0 -> unbounded
+        driver = TimedDriver(raw_driver, default_timeout=default_timeout)
+
         # Create QueryExecutor adapter — THE single path for raw Cypher in core services
         from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
@@ -126,7 +137,11 @@ async def compose_services(
         # ========================================================================
         from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 
-        schema_manager = Neo4jSchemaManager(driver)
+        # Use the RAW (unwrapped) driver for startup DDL. Vector index creation on
+        # the :Entity label (and large full-text/domain indexes) can exceed the
+        # default 120s tx timeout on a large graph; aborting at bootstrap would be
+        # wrong. The wrapped `driver` is used everywhere else.
+        schema_manager = Neo4jSchemaManager(raw_driver)
 
         # Schema sync fail-fast policy:
         # The sync_* methods return Result.ok(dict) even when individual indexes

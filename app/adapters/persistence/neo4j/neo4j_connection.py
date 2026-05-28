@@ -9,9 +9,15 @@ and ``Neo4jConnection`` is also instantiated directly by migration / index scrip
 Driver-level timeouts and pool sizing come from ``DatabaseConfig`` and are applied
 here at ``AsyncGraphDatabase.driver(...)``. These bound connection establishment,
 pool acquisition, and managed-transaction retry — they do NOT cap a single query's
-execution time. A per-query server-side timeout (``neo4j.Query(timeout=)``) has no
-single chokepoint (the ``UniversalNeo4jBackend`` mixins each open their own sessions)
-and is tracked as a separate persistence-layer task.
+execution time. The per-query server-side timeout (``neo4j.Query(timeout=)``) is
+applied a layer up: ``services_bootstrap/compose.py`` wraps the shared driver with
+``TimedDriver`` (see ``timed_driver.py``), which injects the timeout on every
+``session.run`` / ``begin_transaction`` / ``execute_query`` it hands out.
+
+``Neo4jConnection`` itself stays raw on purpose: migration and one-off index
+scripts that instantiate it directly run DDL (vector / full-text / domain indexes)
+that can legitimately exceed the default 120s budget, and a server-side abort
+there would be wrong.
 """
 
 __version__ = "1.0"
