@@ -180,6 +180,11 @@ services:
       NEO4J_server_memory_heap_initial__size: "${NEO4J_HEAP_INIT}"
       NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP_MAX}"
       NEO4J_server_memory_pagecache_size: "${NEO4J_PAGECACHE}"
+      # Server-side fallback ceiling (defense in depth). Day-to-day, the app
+      # sets a per-query timeout client-side via TimedDriver (env
+      # NEO4J_TRANSACTION_TIMEOUT, default 120s; bulk ingestion wraps to 600s).
+      # When the client passes a Query(timeout=…), the server enforces THAT
+      # value, not this default. See: docs/patterns/NEO4J_QUERY_TIMEOUT.md, ADR-064.
       NEO4J_db_transaction_timeout: 600s
       NEO4J_server_memory_query__cache_per__db__cache__num__entries: "2000"
       NEO4J_dbms_cypher_planner: COST

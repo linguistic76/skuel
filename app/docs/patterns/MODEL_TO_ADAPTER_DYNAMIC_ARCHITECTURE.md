@@ -31,6 +31,30 @@ The source file was renamed `core/utils/connection_configs.py` and is now **pure
 
 ---
 
+## May 2026 Update: Per-Query Server-Side Timeout via TimedDriver (ADR-064)
+
+The 100% dynamic backend pattern leaves ~124 `session.run(...)` sites across 24 files in `adapters/persistence/neo4j/`, each opening its own `self.driver.session()` (mixin pattern under `UniversalNeo4jBackend`). Plus `Neo4jQueryExecutor`, `CypherExecutor` (ingestion `begin_transaction`), and `IngestionWriteBackend.driver.execute_query` — all parallel paths. Until PR #89, none of them set a server-side per-query timeout, so a runaway Cypher only stopped when the client gave up.
+
+The neo4j 5.x driver has no global "default tx timeout" knob (per-query timeout is only via `neo4j.Query(text, timeout=)` for `session.run` and `begin_transaction(timeout=)` for explicit transactions). Rather than edit 124 sites + add a SKUEL023 lint rule, the chokepoint was *created* by wrapping the one shared `AsyncDriver` at the composition root:
+
+- `services_bootstrap/compose.py:117` (immediately after driver validation, before any consumer):
+  ```python
+  raw_driver = driver
+  driver = TimedDriver(raw_driver, default_timeout=config.database.transaction_timeout or None)
+  ```
+- `TimedDriver.session()` returns a `TimedSession` that auto-wraps `str` queries in `Query(text, timeout=resolved)` on `.run()` (respects a caller-supplied `Query`, no clobber), injects `timeout=resolved` into `.begin_transaction()` when caller passed none (so `CypherExecutor` ingestion `tx.run` calls inherit), and delegates everything else via `__getattr__`.
+- `Neo4jSchemaManager` is constructed from `raw_driver` (not the wrapped one) — startup vector / full-text / domain-index DDL on a populated `:Entity` label can exceed 120s legitimately. Migration scripts that build their own `Neo4jConnection` bypass the wrapper for the same reason.
+
+**Override mechanism:** a `contextvars.ContextVar` with a `_UNSET` sentinel (distinguishes "no override" from "explicitly unbounded `None`"); the context managers `neo4j_query_timeout(seconds)` and `unbounded_neo4j_query_timeout()` set it. Default 120s (`DatabaseConfig.transaction_timeout`, env `NEO4J_TRANSACTION_TIMEOUT`, `0`=unbounded). Bulk ingestion (`BulkUpsertBackend.{ensure_constraints, upsert_batch, upsert_with_relationships}`) wraps to 600s. MEGA-QUERY + analytics: no wrap (typical 5–30s).
+
+**Why this is structurally correct:** the "no chokepoint" framing in the old docstrings was a real constraint, and the right answer wasn't to spray the timeout across 124 sites. It was to *create* the chokepoint by wrapping the one driver object — exactly the same move ADR-044 made for raw Cypher (consolidate at the adapter boundary). `CypherExecutor` is annotated `session: AsyncSession` and now receives a `TimedSession` (duck-typed proxy, not subclass); safe under SKUEL's mypy because `arg-type` is globally disabled. The `LiteralString` pyright friction is centralized in one `_as_timed_query` helper.
+
+**Dead code removal:** `DatabaseConfig.query_timeout` (60.0, unused) deleted — only `transaction_timeout` maps to a real neo4j mechanism. Stale "unwired pending a session chokepoint" notes in `unified_config.py` and `neo4j_connection.py` rewritten to point at `TimedDriver`.
+
+**Commit:** `c865dc61` (PR #89). **See:** [`docs/patterns/NEO4J_QUERY_TIMEOUT.md`](NEO4J_QUERY_TIMEOUT.md) (how-to + override + when-to-wrap), [`/docs/decisions/ADR-064-neo4j-per-query-timeout.md`](../decisions/ADR-064-neo4j-per-query-timeout.md) (driver-wrapper vs explicit-helper, ContextVar choice).
+
+---
+
 ## May 2026 Update: AI Vendor SDKs Below the Boundary (W1 / ADR-063)
 
 The hexagonal-boundary principle that put all Neo4j Cypher below `adapters/persistence/neo4j/` (ADR-044, SKUEL021/SKUEL022) was extended to the **external vendor SDKs**. The `openai`, `anthropic`, and `huggingface_hub` clients were moved out of `core/services/` into `adapters/external/`, behind real `core/ports` protocols — the same way the Neo4j driver sits behind `UniversalNeo4jBackend`.
