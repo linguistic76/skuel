@@ -179,3 +179,31 @@ class ZPDOperations(Protocol):
                 KUs with no engagement get a default ZoneEvidence (all zeros).
         """
         ...
+
+
+@runtime_checkable
+class ZPDSnapshotOperations(Protocol):
+    """Persistence protocol for ZPD assessment snapshot writes.
+
+    Implemented by ``adapters.persistence.neo4j.zpd_snapshot_backend.ZPDSnapshotBackend``.
+    Consumed by ``ZPDEventHandler`` to persist ZPD assessment snapshots when
+    user events fire (submission, mastery, etc.).
+
+    Narrow by design — the event handler only writes snapshots; reads happen
+    elsewhere via ZPDOperations.
+    """
+
+    async def save_snapshot(
+        self, user_uid: UserUID, assessment: ZPDAssessment, trigger_event: str
+    ) -> Result[None]:
+        """MERGE one :ZPDHistory row per user with the latest assessment summary.
+
+        Stores only summary fields (current/proximal/confirmed counts,
+        behavioral readiness, life path alignment) plus a snapshot counter
+        — no full assessment serialization. The trigger event label
+        identifies what fired the snapshot.
+
+        Returns Result.ok(None) on success; Result.fail(Errors.database(...))
+        on Neo4j failure.
+        """
+        ...

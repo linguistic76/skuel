@@ -25,9 +25,9 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import EntityStatus
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.misc_backends import ActivityReportGeneratorBackend
     from core.ports import QueryExecutor
     from core.ports.llm_protocols import ChatCompletionPort
+    from core.ports.report_protocols import ActivityReportGeneratorBackendOperations
     from core.services.analytics_service import AnalyticsService
     from core.services.insight.insight_store import InsightStore
     from core.services.knowledge.activity_knowledge_intelligence_service import (
@@ -84,7 +84,7 @@ class ProgressReportGenerator:
         event_bus: EventBusOperations | None = None,
         analytics_service: "AnalyticsService | None" = None,
         knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = None,
-        report_backend: "ActivityReportGeneratorBackend | None" = None,
+        report_backend: "ActivityReportGeneratorBackendOperations | None" = None,
     ) -> None:
         self.executor = executor
         self.activity_report_service = activity_report_service

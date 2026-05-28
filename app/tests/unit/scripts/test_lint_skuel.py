@@ -101,6 +101,9 @@ def lint_content(
     if is_core and not is_test and linter._should_run_rule("SKUEL022"):
         linter._check_core_imports_adapter(fp, rel, content, lines)
 
+    if is_core and not is_test and linter._should_run_rule("SKUEL023"):
+        linter._check_adapter_type_annotations(fp, rel, content, lines)
+
     return linter.result.violations
 
 
@@ -1945,3 +1948,305 @@ class TestSKUEL022:
         )
         violations = lint_content(linter, content)
         assert len(violations) == 0
+
+
+# ============================================================================
+# SKUEL023 — Type Against ports, Not Adapter Classes
+# ============================================================================
+
+
+class TestSKUEL023:
+    """Static type-direction enforcement: thin services in core/ must type
+    self.backend against a core/ports protocol, not the concrete adapter
+    class. Closes the TYPE_CHECKING exemption gap left open by SKUEL022."""
+
+    def test_flags_instance_attribute_annotation(self) -> None:
+        """The canonical violation: `self.backend: KuBackend = backend` typed
+        against the concrete adapter (even with a TYPE_CHECKING-only import)."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend) -> None:\n"
+            "        self.backend: XBackend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL023"
+        assert violations[0].severity == Severity.ERROR
+        assert "XBackend" in violations[0].message
+
+    def test_flags_init_param_forward_ref(self) -> None:
+        """A forward-reference string annotation on an `__init__` param is parsed."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "XBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "XBackend" in violations[0].message
+
+    def test_flags_runtime_adapter_import(self) -> None:
+        """The import doesn't need to be TYPE_CHECKING-only — a runtime adapter
+        import (which SKUEL022 already flags) plus an annotation is also a
+        SKUEL023 violation."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: XBackend) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+
+    def test_flags_optional_subscript(self) -> None:
+        """`XBackend | None` (PEP 604) annotation still resolves to XBackend."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "XBackend | None" = None) -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+
+    def test_clean_when_protocol_typed(self) -> None:
+        """The fix: type against the port protocol — no violation."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from core.ports.x_protocols import XOperations\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "XOperations") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 0
+
+    def test_suffix_heuristic_excludes_enum(self) -> None:
+        """A name ending in something OTHER than the backend-shaped suffixes is
+        not flagged — pure-data adapter exports (enums, configs, dataclasses)
+        legitimately cross the boundary as types.
+
+        This is the QueryOptimizationStrategy-shaped case that motivated the
+        suffix heuristic — naming it explicitly to lock in the contract."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.optimizer import QueryOptimizationStrategy\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, strategy: "QueryOptimizationStrategy") -> None:\n'
+            "        self.strategy = strategy\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 0
+
+    def test_each_backend_suffix_is_flagged(self) -> None:
+        """Backend / Executor / Adapter / Repository / Client / Driver all
+        trigger the rule — the full suffix heuristic."""
+        names = ["XBackend", "XExecutor", "XAdapter", "XRepository", "XClient", "XDriver"]
+        for name in names:
+            sub_linter = make_linter(["SKUEL023"])
+            content = (
+                "from typing import TYPE_CHECKING\n"
+                "\n"
+                "if TYPE_CHECKING:\n"
+                f"    from adapters.persistence.neo4j.x import {name}\n"
+                "\n"
+                "class XService:\n"
+                f'    def __init__(self, backend: "{name}") -> None:\n'
+                "        self.backend = backend\n"
+            )
+            violations = lint_content(sub_linter, content, file_path="core/services/x_service.py")
+            assert len(violations) == 1, f"{name} should be flagged"
+
+    def test_facade_allowlist_directory_prefix(self) -> None:
+        """Files under the facade directory prefixes are exempt entirely —
+        facades may keep concrete backend typing per CLAUDE.md '## Protocol-
+        Based Architecture'."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.ku_backend import KuBackend\n"
+            "\n"
+            "class KuCoreService:\n"
+            '    def __init__(self, backend: "KuBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/ku/ku_core_service.py")
+        assert len(violations) == 0
+
+    def test_facade_allowlist_explicit_file(self) -> None:
+        """The standalone facade files (ku_service.py, user_service.py) are
+        explicitly allowlisted."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.ku_backend import KuBackend\n"
+            "\n"
+            "class KuService:\n"
+            '    def __init__(self, backend: "KuBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/ku_service.py")
+        assert len(violations) == 0
+
+    def test_relative_import_not_an_adapter_import(self) -> None:
+        """A `from . import x` is not an adapters import — the import map is
+        empty and no annotation can be flagged against it."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from .helpers import XBackend\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "XBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 0
+
+    def test_non_core_file_not_flagged(self) -> None:
+        """The rule runs only on core/ — adapters files annotating against
+        adapter classes is fine."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XComposer:\n"
+            '    def __init__(self, backend: "XBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(
+            linter, content, file_path="adapters/persistence/neo4j/x_composer.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_skips_test_files(self) -> None:
+        """Test files under tests/ are skipped — tests legitimately import
+        adapter classes for instantiation."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class TestX:\n"
+            "    def test_x(self) -> None:\n"
+            "        backend: XBackend = XBackend()\n"
+        )
+        violations = lint_content(
+            linter, content, file_path="tests/unit/test_x.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_line_suppression(self) -> None:
+        """`# skuel-lint: disable=SKUEL023 -- ...` on the annotation line suppresses."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "XBackend") -> None:  '
+            "# skuel-lint: disable=SKUEL023 -- protocol not yet defined\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        """File-level suppression disables the rule for the entire file."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL023 -- legacy concrete typing tracked elsewhere\n"
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "XBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 0
+
+    def test_no_adapter_mention_short_circuits(self) -> None:
+        """The cheap pre-filter — files that don't mention adapters at all are
+        skipped before the AST walk."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from core.ports import BackendOperations\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "BackendOperations") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 0
+
+    def test_aliased_import(self) -> None:
+        """`from adapters... import XBackend as _XB` — the local name is _XB
+        and the rule keys on local names; annotating with _XB triggers."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend as _XBackend\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "_XBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+
+    def test_function_param_outside_init(self) -> None:
+        """Param annotations on any function (not just __init__) are checked."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.x_backend import XBackend\n"
+            "\n"
+            "def make_thing(backend: XBackend) -> None:\n"
+            "    pass\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1

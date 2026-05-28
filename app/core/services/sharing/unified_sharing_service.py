@@ -19,6 +19,12 @@ Access Control Rules
 
 See: /docs/patterns/SHARING_PATTERNS.md
 See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
+
+# skuel-lint: disable-file=SKUEL023 -- SharingBackendOperations protocol not
+# yet defined; backend exposes ~14 cross-cutting methods (create_share,
+# query_access, query_ownership_and_status, query_shared_with_me_via_groups,
+# ...) distinct from the route-facing SharingOperations slice. Tracked for
+# follow-up design work.
 """
 
 from datetime import datetime

@@ -30,8 +30,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.batch_chunking_backend import BatchChunkingBackend
     from core.ports import EventBusOperations
+    from core.ports.chunk_protocols import BatchChunkingOperations
 
 logger = get_logger("skuel.services.chunks.batch")
 
@@ -67,7 +67,7 @@ class BatchChunkingService:
 
     def __init__(
         self,
-        backend: BatchChunkingBackend,
+        backend: BatchChunkingOperations,
         chunking_service: Any,  # EntityChunkingService — boundary, no protocol extracted
         content_adapter: Any,  # Neo4jContentAdapter — boundary
         event_bus: EventBusOperations | None = None,
@@ -75,9 +75,9 @@ class BatchChunkingService:
     ) -> None:
         """
         Args:
-            backend: BatchChunkingBackend for :Content candidate queries. Built at
-                the composition root and injected so this service never imports
-                the adapter (ADR-044 / SKUEL022).
+            backend: BatchChunkingOperations port for :Content candidate queries.
+                Built at the composition root and injected so this service never
+                imports the adapter (ADR-044 / SKUEL022 / SKUEL023).
             chunking_service: Produces fresh chunks from raw body text.
             content_adapter: Persists chunks via store_content_with_chunks (idempotent).
             event_bus: If provided, publishes ChunkEmbeddingRequested for each

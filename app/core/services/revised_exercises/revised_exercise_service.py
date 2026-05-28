@@ -87,7 +87,9 @@ class RevisedExerciseService(BaseService):
     )
 
     def __init__(
-        self, backend: "RevisedExerciseBackend", event_bus: "EventBusOperations | None" = None
+        self,
+        backend: "RevisedExerciseBackend",  # skuel-lint: disable=SKUEL023 -- RevisedExerciseBackendOperations protocol not yet defined; service uses ~11 backend methods (link_to_report, link_to_exercise, auto_share_with_student, verify_teacher_authority, ...) beyond the route-facing RevisedExerciseOperations slice — tracked for follow-up design work.
+        event_bus: "EventBusOperations | None" = None,
     ) -> None:
         """Initialize with backend and optional event bus."""
         super().__init__(backend, "revised_exercises")

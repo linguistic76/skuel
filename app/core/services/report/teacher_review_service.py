@@ -64,10 +64,10 @@ class TeacherReviewService:
 
     def __init__(
         self,
-        user_entry_backend: "UserEntryBackend",
+        user_entry_backend: "UserEntryBackend",  # skuel-lint: disable=SKUEL023 -- typed against the aggregate UserEntryOperations would be a swap, but TeacherReviewService also reaches into the assessment mixin's review-queue + admin-oversight surface (~9 methods incl. get_review_queue, approve_and_get_linked_kus, get_submission_detail_for_teacher) — splitting/refactoring across two ISP slices is tracked for follow-up.
         report_backend: "ExerciseReportBackendOperations",
-        exercise_backend: "ExerciseBackend",
-        group_backend: "GroupBackend",
+        exercise_backend: "ExerciseBackend",  # skuel-lint: disable=SKUEL023 -- ExerciseBackendOperations protocol not yet defined for the teacher-review surface (get_exercises_with_submission_counts is a teacher-dashboard cross-join) — tracked for follow-up design work.
+        group_backend: "GroupBackend",  # skuel-lint: disable=SKUEL023 -- GroupBackendOperations protocol not yet defined; teacher-review uses get_teacher_groups_with_stats + get_group_detail — tracked for follow-up design work.
         ku_interaction_service: "PsMasteryService",
         report_mastery_service: "ReportMasteryService",
         event_bus: "EventBusOperations",
