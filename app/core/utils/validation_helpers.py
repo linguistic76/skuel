@@ -35,10 +35,44 @@ if TYPE_CHECKING:
 
 _SAFE_FIELD_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+# Operators safe to interpolate into Cypher comparison fragments.
+# Must match QueryConstraint.operator values used by query_optimizer + cypher fragment builders.
+_SAFE_CYPHER_OPERATORS = frozenset(
+    {
+        "=",
+        "<>",
+        "!=",
+        "<",
+        ">",
+        "<=",
+        ">=",
+        "CONTAINS",
+        "STARTS WITH",
+        "ENDS WITH",
+        "IN",
+    }
+)
+
+_SAFE_SORT_DIRECTIONS = frozenset({"ASC", "DESC"})
+
 
 def validate_field_name(name: str) -> bool:
     """Check that a field name is a safe Python/Cypher identifier (alphanumeric + underscore)."""
     return bool(_SAFE_FIELD_RE.match(name)) and len(name) <= 64
+
+
+def validate_cypher_operator(op: str) -> bool:
+    """Check that a Cypher comparison operator is on the allowlist (case-sensitive).
+
+    Belongs to the same defense-in-depth layer as `validate_field_name`: any string
+    interpolated into a Cypher fragment must pass through one of these gates.
+    """
+    return op in _SAFE_CYPHER_OPERATORS
+
+
+def validate_sort_direction(direction: str) -> bool:
+    """Check that an ORDER BY direction is ASC or DESC (case-insensitive)."""
+    return direction.upper() in _SAFE_SORT_DIRECTIONS
 
 
 def validate_relationship_type(name: str) -> bool:
