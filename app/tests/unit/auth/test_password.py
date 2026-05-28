@@ -11,7 +11,14 @@ The password module uses bcrypt with 12 rounds for secure password hashing.
 
 import pytest
 
-from core.auth.password import BCRYPT_ROUNDS, hash_password, verify_password
+from core.auth.password import (
+    BCRYPT_ROUNDS,
+    MAX_PASSWORD_BYTES,
+    MIN_PASSWORD_LENGTH,
+    hash_password,
+    validate_password,
+    verify_password,
+)
 
 
 class TestHashPassword:
@@ -188,3 +195,45 @@ class TestBcryptRoundsConstant:
     def test_bcrypt_rounds_is_integer(self):
         """Test that rounds constant is an integer."""
         assert isinstance(BCRYPT_ROUNDS, int)
+
+
+class TestValidatePassword:
+    """Tests for validate_password() policy checks.
+
+    The length cap front-runs bcrypt's hard 72-byte limit so the user gets a
+    clean field-level error instead of a generic ``Sign up error: password
+    cannot be longer than 72 bytes`` surfaced from the broad-except in
+    GraphAuthService.sign_up / change_password.
+    """
+
+    def test_empty_rejected(self):
+        assert "required" in (validate_password("") or "").lower()
+
+    def test_too_short_rejected(self):
+        msg = validate_password("a" * (MIN_PASSWORD_LENGTH - 1))
+        assert msg is not None
+        assert str(MIN_PASSWORD_LENGTH) in msg
+
+    def test_min_length_accepted(self):
+        assert validate_password("a" * MIN_PASSWORD_LENGTH) is None
+
+    def test_at_max_bytes_accepted(self):
+        assert validate_password("a" * MAX_PASSWORD_BYTES) is None
+
+    def test_over_max_bytes_rejected(self):
+        msg = validate_password("a" * (MAX_PASSWORD_BYTES + 1))
+        assert msg is not None
+        assert str(MAX_PASSWORD_BYTES) in msg
+
+    def test_unicode_byte_count_enforced(self):
+        """Non-ASCII characters count as multiple UTF-8 bytes — must be measured by bytes, not chars."""
+        # 36 emoji x 4 bytes/emoji = 144 bytes > 72 byte limit, but only 36 chars
+        password = "🔐" * 36
+        assert len(password) == 36  # within char count
+        assert len(password.encode("utf-8")) > MAX_PASSWORD_BYTES  # but over byte cap
+        msg = validate_password(password)
+        assert msg is not None, "validate_password must measure bytes, not characters"
+
+    def test_max_password_bytes_is_72(self):
+        """Constant must match bcrypt's hard limit — changing it without updating bcrypt would break."""
+        assert MAX_PASSWORD_BYTES == 72

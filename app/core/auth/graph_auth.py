@@ -192,7 +192,23 @@ class GraphAuthService:
             Result containing session data or error
         """
         try:
-            # Check rate limiting
+            # Rate limit by IP first — catches distributed credential stuffing
+            # (one host trying many emails) before we reveal whether any
+            # specific email exists. The check is skipped for the "unknown"
+            # sentinel used by CLI / non-HTTP entry paths.
+            ip_throttled = await self.session_backend.is_ip_rate_limited(ip_address)
+            if ip_throttled.is_error:
+                return Result.fail(ip_throttled)
+            if ip_throttled.value:
+                # Same do-not-re-log rationale as the per-account branch below.
+                return Result.fail(
+                    Errors.business(
+                        rule="rate_limit",
+                        message="Too many failed login attempts from your network. Please try again in 15 minutes.",
+                    )
+                )
+
+            # Rate limit by email — catches focused brute force on one account.
             is_locked = await self.session_backend.is_account_locked(email)
             if is_locked.is_error:
                 return Result.fail(is_locked)

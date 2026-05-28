@@ -37,6 +37,13 @@ logger = get_logger(__name__)
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
+# Per-IP throttle is intentionally LOOSER than per-account: a single office NAT
+# routinely covers many users, so we want to block a single host blasting failed
+# logins (distributed credential stuffing) without locking out a shared egress
+# IP on a few honest typos. 20 in 15 minutes ≈ one wrong attempt every 45s —
+# well above realistic human typing-error rates, well below brute-force speeds.
+MAX_FAILED_ATTEMPTS_PER_IP = 20
+
 
 class SessionBackend:
     """
@@ -516,6 +523,52 @@ class SessionBackend:
 
         return Result.ok(count_result.value >= MAX_FAILED_ATTEMPTS)
 
+    async def count_recent_failed_attempts_by_ip(
+        self, ip_address: str, minutes: int = LOCKOUT_MINUTES
+    ) -> Result[int]:
+        """Count recent LOGIN_FAILED events from a single IP, across all accounts.
+
+        Distinct attack-surface from the per-account counter: catches a single
+        host fanning out across many emails (distributed credential stuffing)
+        rather than a brute force on one account.
+        """
+        try:
+            query = """
+            MATCH (e:AuthEvent)
+            WHERE e.ip_address = $ip_address
+              AND e.event_type = 'LOGIN_FAILED'
+              AND e.timestamp > datetime() - duration({minutes: $minutes})
+            RETURN count(e) as failed_count
+            """
+
+            async with self.driver.session() as db_session:
+                result = await db_session.run(query, {"ip_address": ip_address, "minutes": minutes})
+                record = await result.single()
+                count = record["failed_count"] if record else 0
+                return Result.ok(count)
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed to count failed attempts by IP: {e}")
+            return Result.fail(
+                Errors.database(operation="count_recent_failed_attempts_by_ip", message=str(e))
+            )
+
+    async def is_ip_rate_limited(self, ip_address: str) -> Result[bool]:
+        """Check if an IP has exceeded MAX_FAILED_ATTEMPTS_PER_IP in the lockout window.
+
+        The "unknown" sentinel (used for CLI / background entry points) is
+        always allowed — throttling without a real IP would block every
+        non-HTTP login path.
+        """
+        if not ip_address or ip_address == "unknown":
+            return Result.ok(False)
+
+        count_result = await self.count_recent_failed_attempts_by_ip(ip_address)
+        if count_result.is_error:
+            return Result.fail(count_result)
+
+        return Result.ok(count_result.value >= MAX_FAILED_ATTEMPTS_PER_IP)
+
     # ========================================================================
     # PASSWORD RESET TOKEN MANAGEMENT
     # ========================================================================
@@ -717,5 +770,6 @@ class SessionBackend:
 __all__ = [
     "LOCKOUT_MINUTES",
     "MAX_FAILED_ATTEMPTS",
+    "MAX_FAILED_ATTEMPTS_PER_IP",
     "SessionBackend",
 ]
