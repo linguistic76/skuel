@@ -322,10 +322,38 @@ RETURN t
 
 **Note:** The OWNS relationship is the universal ownership pattern. Domain-specific variants (HAS_TASK, HAS_GOAL, etc.) exist in RelationshipName but OWNS is what the backends use.
 
+### 6. Per-Query Server-Side Timeout (TimedDriver)
+
+Every query through the shared driver carries a server-side per-tx ceiling. **Default 120s** (env `NEO4J_TRANSACTION_TIMEOUT`); a runaway is aborted by the Neo4j server, not by the client hanging. Bulk ingestion is already wrapped to 600s; MEGA-QUERY and analytics inherit the default. Startup DDL (Neo4jSchemaManager) is intentionally untimed (raw driver).
+
+If a *specific* query legitimately needs longer, wrap the call site:
+
+```python
+from adapters.persistence.neo4j.timed_driver import (
+    neo4j_query_timeout,
+    unbounded_neo4j_query_timeout,
+)
+
+# Bound the enclosed block to 300s instead of the default 120s:
+with neo4j_query_timeout(300.0):
+    async with self._driver.session() as session:
+        result = await session.run(long_running_aggregation, params)
+
+# Escape hatch for one-off admin maintenance through the wrapped driver:
+with unbounded_neo4j_query_timeout():
+    ...
+```
+
+**Rule:** Don't wrap by default — the 120s ceiling exists to catch *unintended* runaways (a Cartesian explosion, a typo'd `MATCH` with no anchor). Only wrap when you know the query is legitimately long-running. The `with` block MUST enclose the full `await` chain — the override is a `ContextVar` read at call time, so awaited work outside the block is unbounded by it.
+
+See: [`docs/patterns/NEO4J_QUERY_TIMEOUT.md`](/docs/patterns/NEO4J_QUERY_TIMEOUT.md) for the override mechanism, when-to-wrap table, and the `ContextVar` + `asyncio.create_task` caveat.
+
 ## Additional Resources
 
 - [reference.md](reference.md) - Complete relationship type catalog (80+ types)
 - [examples.md](examples.md) - Full query examples for each domain
+- [docs/patterns/NEO4J_QUERY_TIMEOUT.md](/docs/patterns/NEO4J_QUERY_TIMEOUT.md) - Per-query server-side timeout (TimedDriver, override mechanism)
+- [ADR-064](/docs/decisions/ADR-064-neo4j-per-query-timeout.md) - Why the chokepoint is a driver wrapper, not 124 call-site edits
 
 ## Related Skills
 
