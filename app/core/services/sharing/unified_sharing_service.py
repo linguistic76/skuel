@@ -19,26 +19,18 @@ Access Control Rules
 
 See: /docs/patterns/SHARING_PATTERNS.md
 See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
-
-# skuel-lint: disable-file=SKUEL023 -- SharingBackendOperations protocol not
-# yet defined; backend exposes ~14 cross-cutting methods (create_share,
-# query_access, query_ownership_and_status, query_shared_with_me_via_groups,
-# ...) distinct from the route-facing SharingOperations slice. Tracked for
-# follow-up design work.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from core.models.entity_dto import EntityDTO
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.sharing_protocols import SharingBackendOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 
 logger = get_logger("skuel.services.sharing")
 
@@ -78,7 +70,7 @@ class UnifiedSharingService:
     See: /docs/patterns/SHARING_PATTERNS.md
     """
 
-    def __init__(self, backend: "SharingBackend") -> None:
+    def __init__(self, backend: SharingBackendOperations) -> None:
         self.backend = backend
 
     # =========================================================================

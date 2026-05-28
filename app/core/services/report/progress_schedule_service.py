@@ -7,7 +7,7 @@ Manages recurring progress report generation schedules.
 """
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from core.constants import ReportTimePeriod
 from core.models.enums.user_entry_enums import ScheduleType
@@ -17,9 +17,7 @@ from core.models.report_schedule import (
     report_schedule_dto_to_domain,
 )
 from core.models.type_hints import UserUID
-
-if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
+from core.ports.report_protocols import ReportScheduleBackendOperations
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -35,7 +33,7 @@ class ProgressScheduleService:
 
     def __init__(
         self,
-        backend: "ReportScheduleBackend",  # skuel-lint: disable=SKUEL023 -- ReportScheduleBackendOperations protocol not yet defined; service uses 7 backend methods (create, get, update, find_by, create_user_schedule_relationship, get_due_schedules, inherited CRUD) — tracked for follow-up design work.
+        backend: ReportScheduleBackendOperations,
     ) -> None:
         self.backend = backend
 

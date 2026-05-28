@@ -240,7 +240,11 @@ Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `Enti
 | **Facade** | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP | Concrete class | Facade IS the contract (~50 delegation methods) |
 | **Thin/ISP** | Groups, UserEntry, Sharing, etc. | ISP protocol | Routes use a narrow slice; protocol makes it explicit |
 
-`*Operations` protocols in `domain_protocols.py` are **backend-level** — they type `self.backend` inside `BaseService[Op, T]`, NOT service-level contracts. Three hierarchies (BackendOperations, UserOperations, IntelligenceOperations) compose narrow ISP slices.
+**Two protocol layers, two suffixes:**
+- **Backend-level** protocols end in `*BackendOperations` (e.g. `SharingBackendOperations`, `UserProgressBackendOperations`, `ActivityReportBackendOperations`) — type `self.backend` inside services. The `*Operations` protocols in `domain_protocols.py` are the canonical backend-level set; three hierarchies (BackendOperations, UserOperations, IntelligenceOperations) compose narrow ISP slices.
+- **Route-facing** protocols end in `*Operations` (e.g. `SharingOperations`, `GroupOperations`, `ActivityReportOperations`) — describe the API thin services expose to routes. Same root word as the backend protocol is intentional and not a typo.
+
+Same suffix at both layers is a known trap (memory: `project_operations_protocol_layer_inconsistent.md`) — verify the layer before retyping `self.backend` against an `*Operations` protocol; if the service-layer and backend-layer method names diverge, you need a `*BackendOperations` protocol, not the route-facing one.
 
 **See:** `/docs/patterns/protocol_architecture.md`, `/docs/patterns/BACKEND_OPERATIONS_ISP.md`
 

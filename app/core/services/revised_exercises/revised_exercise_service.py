@@ -29,6 +29,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 from core.models.relationship_names import RelationshipName
+from core.ports.curriculum_protocols import RevisedExerciseBackendOperations
 from core.ports.query_types import RevisionChainResult
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -39,7 +40,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
     from core.ports.infrastructure_protocols import EventBusOperations
 
 logger = get_logger(__name__)
@@ -88,7 +88,7 @@ class RevisedExerciseService(BaseService):
 
     def __init__(
         self,
-        backend: "RevisedExerciseBackend",  # skuel-lint: disable=SKUEL023 -- RevisedExerciseBackendOperations protocol not yet defined; service uses ~11 backend methods (link_to_report, link_to_exercise, auto_share_with_student, verify_teacher_authority, ...) beyond the route-facing RevisedExerciseOperations slice — tracked for follow-up design work.
+        backend: RevisedExerciseBackendOperations,
         event_bus: "EventBusOperations | None" = None,
     ) -> None:
         """Initialize with backend and optional event bus."""
