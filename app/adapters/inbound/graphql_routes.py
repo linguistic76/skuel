@@ -30,7 +30,7 @@ from fasthtml.common import (
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
 from adapters.inbound.graphql.config import get_graphql_config
 from core.utils.logging import get_logger
@@ -41,7 +41,7 @@ from ui.cards import Card, CardBody, CardHeader, CardTitle
 logger = get_logger(__name__)
 
 
-def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: Any = None) -> None:
+def create_graphql_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services) -> None:
     """
     Wire GraphQL routes manually (FastHTML does not support schema mounting).
 
@@ -98,7 +98,7 @@ def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: 
         return _format_graphql_response(result)
 
     @rt("/graphql")
-    async def graphql_handler(request) -> Any:
+    async def graphql_handler(request: Request) -> Any:
         """
         GraphQL endpoint - handles both GET (playground) and POST (API).
 
@@ -190,7 +190,7 @@ def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: 
 
     @rt("/graphql/execute")
     @csrf_protected
-    async def graphql_execute(request) -> Div:
+    async def graphql_execute(request: Request) -> Div:
         """
         Execute GraphQL query from playground form.
 
