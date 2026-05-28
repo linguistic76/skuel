@@ -363,6 +363,43 @@ class ActivityReportOperations(Protocol):
 
 
 @runtime_checkable
+class ActivityReportGeneratorBackendOperations(Protocol):
+    """Backend-level reads for ``ProgressReportGenerator``.
+
+    Two cross-entity queries that aren't natural fits for
+    ``UniversalNeo4jBackend`` — both encapsulated below the hexagonal boundary
+    (``adapters/persistence/neo4j/backends/misc_backends.py``).
+
+    Implementation: ``ActivityReportGeneratorBackend``.
+    Consumer: ``ProgressReportGenerator`` (cooldown check + previous-annotation
+    carry-forward for AI report generation).
+    """
+
+    async def check_cooldown(
+        self, user_uid: str, cooldown_minutes: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Return a single-row ``recent_count`` for ActivityReports written
+        within the cooldown window.
+
+        Used to suppress duplicate AI report generation when one was just
+        produced. Row shape: ``[{"recent_count": <int>}]``.
+        """
+        ...
+
+    async def get_previous_annotation(
+        self, user_uid: str, period_start: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Return the most recent ``user_annotation`` (or ``user_revision``
+        fallback) from any prior ActivityReport whose ``period_end`` is before
+        ``period_start``.
+
+        Used to carry forward the user's last self-annotation into the new
+        report's prompt. Row shape: ``[{"annotation": <str>}]`` or ``[]``.
+        """
+        ...
+
+
+@runtime_checkable
 class ReviewQueueOperations(Protocol):
     """ReviewRequest queue management — user-initiated review requests.
 
@@ -389,6 +426,44 @@ class ReviewQueueOperations(Protocol):
         limit: int = 20,
     ) -> Result[list[PendingReviewItem]]:
         """Admin's pending review queue."""
+        ...
+
+
+@runtime_checkable
+class ReviewQueueBackendOperations(Protocol):
+    """Backend-level persistence for ReviewRequest nodes.
+
+    ReviewRequest is a lightweight workflow marker — not an Entity subclass, so
+    not managed by ``UniversalNeo4jBackend``. The backend owns the raw Cypher;
+    ``ReviewQueueService`` orchestrates and translates the row dicts into the
+    typed ``ReviewRequestResult`` / ``PendingReviewItem`` shapes returned by
+    ``ReviewQueueOperations``.
+
+    Implementation: ``ReviewQueueBackend``.
+    """
+
+    async def create_review_request(
+        self,
+        user_uid: str,
+        uid: str,
+        time_period: str,
+        domains: list[str],
+        message: str,
+        now: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """CREATE a :ReviewRequest node + REQUESTED edge from the user.
+
+        Row shape: ``[{"uid": <str>, "status": "pending"}]``.
+        """
+        ...
+
+    async def get_pending_reviews(self, limit: int = 20) -> Result[list[Neo4jProperties]]:
+        """Return pending :ReviewRequest rows with the requesting user's
+        username, ordered by ``created_at`` ASC.
+
+        Row shape: ``[{"uid", "user_uid", "time_period", "domains", "message",
+        "created_at", "username"}]``.
+        """
         ...
 
 

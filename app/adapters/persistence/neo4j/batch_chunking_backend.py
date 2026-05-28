@@ -14,7 +14,9 @@ See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+
+from core.ports.chunk_protocols import BatchChunkingCandidate
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -31,11 +33,13 @@ class BatchChunkingBackend:
         parent_uids: list[str] | None,
         force: bool,
         current_version: str,
-    ) -> list[dict[str, Any]]:
-        """Return :Content rows (uid, body, format) needing chunk regeneration.
+    ) -> list[BatchChunkingCandidate]:
+        """Return :Content rows needing chunk regeneration.
 
         When ``force`` is False, a candidate is one with no chunks or at least
         one chunk whose ``chunking_version`` differs from ``current_version``.
+        Row shape is fixed by the ``RETURN`` projection and matches
+        ``BatchChunkingCandidate``.
         """
         if force:
             where_clause = ""
@@ -66,4 +70,6 @@ class BatchChunkingBackend:
 
         async with self._driver.session() as session:
             result = await session.run(query, params)
-            return [dict(record) async for record in result]
+            # boundary: Neo4j Record rows match BatchChunkingCandidate by the
+            # RETURN projection above; cast narrows for typed consumers.
+            return [cast("BatchChunkingCandidate", dict(record)) async for record in result]

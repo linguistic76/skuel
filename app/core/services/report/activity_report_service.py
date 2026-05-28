@@ -52,7 +52,7 @@ class ActivityReportService:
 
     def __init__(
         self,
-        backend: "ActivityReportBackend",
+        backend: "ActivityReportBackend",  # skuel-lint: disable=SKUEL023 -- ActivityReportBackendOperations protocol not yet defined; backend exposes ~8 methods (create, get_for_user, get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted, get_report_schedule) distinct from the route-facing ActivityReportOperations slice — tracked for follow-up design work.
         context_builder: "UserContextBuilder",
         event_bus: "EventBusOperations",
     ) -> None:

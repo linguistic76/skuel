@@ -16,6 +16,7 @@ ERROR (blocks CI):
   SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
   SKUEL021: No raw Cypher in the service layer (lives below the boundary, ADR-044)
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
+  SKUEL023: core/ thin services must type self.backend against a core/ports protocol
 
 WARNING (reported, doesn't block):
   SKUEL004: Confidence thresholds on semantic queries
@@ -544,6 +545,69 @@ def __init__(self, executor) -> None:
     from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
     self._backend = PsEngagementBackend(executor)""",
     },
+    "SKUEL023": {
+        "title": "Type Against ports, Not Adapter Classes",
+        "severity": "ERROR",
+        "description": """The hexagonal dependency direction is core → adapter (ADR-044).
+SKUEL022 enforces this at the *runtime import* layer (a runtime `import adapters` from
+inside core/ is banned). That rule deliberately exempts `if TYPE_CHECKING:` blocks
+because they never execute — they cannot create a runtime dependency.
+
+SKUEL023 closes the remaining *static-type direction* gap. Even when an adapter import
+is TYPE_CHECKING-only, typing ``self.backend: KuBackend`` against the concrete adapter
+class is design-coupling: it locks the service to a specific adapter instead of the
+``core/ports`` protocol it should depend on. The protocol is the contract; the adapter
+is one implementation of it.
+
+Facade vs thin: facades (KuService, PsService sub-services, LpService sub-services,
+UserService, UserContextBuilder) are explicitly allowlisted — CLAUDE.md commits to
+"Facade IS the contract": facades aggregate sub-services + a direct backend handle for
+cross-cutting operations the protocol doesn't enumerate. Thin services in core/ that
+take a single backend handle must annotate against the ports protocol.
+
+AST-based, fail-closed: walks both runtime AND TYPE_CHECKING imports of `adapters.*`,
+then flags annotations (instance attribute, function parameter, class-body attribute)
+that reference one of those imports. Forward references (string annotations) are
+parsed. Subscripts (Optional[X], list[X]) recurse. ``Attribute`` chains walk to the
+root Name so module-style aliases (`import adapters.x as xb` + `backend: xb.XBackend`)
+are caught. Fully-qualified forward-ref strings (`backend: "adapters.x.XBackend"`,
+no import) are caught via the same path — the parsed Attribute chain's root Name is
+`adapters`, which the check treats as an implicit adapter reference.
+
+**Import-site rule (primary):** adapter imports in ``core/`` must be the plain
+``from adapters.<...> import <Name>`` form — no aliasing (``as Y``) and no
+module-style imports (``import adapters[...]`` with or without alias). Aliasing
+adapter imports in ``core/`` has no demonstrated positive purpose (zero uses in
+the codebase as of the rule's introduction) and creates bypass classes for the
+annotation-level checks. The annotation-level checks remain as defense in depth
+for any path the import gate might miss (e.g. fully-qualified forward-ref strings).
+
+Suffix heuristic: only flags names ending in Backend / Executor / Adapter / Repository /
+Client / Driver — naturally excludes adapter enums, configs, and pure-data exports
+that legitimately cross the boundary as types.
+
+Fix: switch the TYPE_CHECKING import from the concrete adapter to its
+``core/ports/*Operations`` protocol; switch the annotation to the protocol name. The
+runtime injection at the composition root is unchanged — the adapter still satisfies
+the protocol structurally.
+
+Suppress: # skuel-lint: disable=SKUEL023 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL023 -- <reason>""",
+        "good": """# Thin service types against the ports protocol
+if TYPE_CHECKING:
+    from core.ports.sharing_protocols import SharingOperations
+
+class UnifiedSharingService:
+    def __init__(self, backend: "SharingOperations") -> None:
+        self.backend = backend""",
+        "bad": """# Thin service types against the concrete adapter — design coupling
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
+
+class UnifiedSharingService:
+    def __init__(self, backend: "SharingBackend") -> None:
+        self.backend = backend""",
+    },
 }
 
 
@@ -705,6 +769,36 @@ class SkuelLinter:
         "core/config/credential_setup.py",
         "scripts/migrate_secrets_to_homedir.py",
         "scripts/migrate_secrets_to_keychain.py",
+    )
+
+    # SKUEL023: facades are allowed to type self.backend against the concrete adapter
+    # class — CLAUDE.md commits to "Facade IS the contract" for these. They aggregate
+    # sub-services + a direct backend handle for cross-cutting operations the ports
+    # protocol doesn't enumerate (KU/PS/LP/UserService each delegate ~50+ methods).
+    # The allowlist is intentionally narrow: directory prefixes for the multi-file
+    # sub-service packages, and explicit files for the standalone facade modules.
+    SKUEL023_FACADE_ALLOWLIST_PREFIXES: ClassVar[tuple[str, ...]] = (
+        "core/services/ku/",
+        "core/services/ps/",
+        "core/services/lp/",
+        "core/services/user/",
+    )
+    SKUEL023_FACADE_ALLOWLIST_FILES: ClassVar[tuple[str, ...]] = (
+        "core/services/ku_service.py",
+        "core/services/user_service.py",
+    )
+
+    # SKUEL023: suffix heuristic — only annotations whose bare type name ends in one
+    # of these is treated as a "backend-like" adapter export. Naturally excludes
+    # enums (e.g. QueryOptimizationStrategy), configs, dataclasses, and other pure
+    # data that legitimately crosses the boundary as a type.
+    SKUEL023_BACKEND_SUFFIXES: ClassVar[tuple[str, ...]] = (
+        "Backend",
+        "Executor",
+        "Adapter",
+        "Repository",
+        "Client",
+        "Driver",
     )
 
     # Field → (strict_accessor, graceful_accessor). Strict raises at standard depth;
@@ -890,6 +984,11 @@ class SkuelLinter:
             # Import-direction rule (ADR-044): all of core/, not just services.
             if is_core and not is_test and self._should_run_rule("SKUEL022"):
                 self._check_core_imports_adapter(file_path, rel_path, content, lines)
+
+            # Static type-direction rule (ADR-044): all of core/, not just services.
+            # Closes the TYPE_CHECKING exemption gap left open by SKUEL022.
+            if is_core and not is_test and self._should_run_rule("SKUEL023"):
+                self._check_adapter_type_annotations(file_path, rel_path, content, lines)
 
             if is_service and not is_test:
                 if self._should_run_rule("SKUEL002"):
@@ -2368,6 +2467,360 @@ class SkuelLinter:
                         "Depend on a core/ports protocol and inject the concrete adapter "
                         "at the composition root; or move a type-only import under "
                         "`if TYPE_CHECKING:`"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+    # -------------------------------------------------------------------------
+    # SKUEL023 helpers: collect adapter imports, extract bare type names from
+    # annotations (including forward-reference strings + Subscript chains).
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _is_adapter_module(module: str) -> bool:
+        """True if ``module`` is ``adapters`` or under ``adapters.*``."""
+        return module == "adapters" or module.startswith("adapters.")
+
+    def _flag_aliased_or_module_style_adapter_imports(
+        self, rel_path: Path, tree: ast.Module, lines: list[str]
+    ) -> None:
+        """Emit SKUEL023 violations for adapter imports that take a banned form.
+
+        Tier-4 closure: in core/, an adapter import must be the plain
+        ``from adapters.<...> import <Name>`` form. Any of the following are
+        violations regardless of whether they are referenced in annotations:
+
+        - ``from adapters... import X as Y`` — local-name aliasing dodges the
+          annotation-level suffix check when ``Y`` happens not to end in a
+          backend suffix.
+        - ``import adapters[.x[.y]] [as Z]`` — module-style import (with or
+          without alias) is what lets ``backend: <module>.XBackend`` annotations
+          slip past the bare-Name lookup.
+
+        These forms have zero uses in core/ as of rule introduction; banning
+        them costs nothing and removes the bypass classes structurally.
+        Line-level suppressions are honored via ``# skuel-lint: disable=SKUEL023``.
+        """
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if not node.module or not self._is_adapter_module(node.module):
+                    continue
+                line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
+                if self._is_line_suppressed(line, "SKUEL023"):
+                    continue
+                for alias in node.names:
+                    if alias.asname is None:
+                        continue
+                    self.result.violations.append(
+                        Violation(
+                            file_path=rel_path,
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                            severity=Severity.ERROR,
+                            rule_id="SKUEL023",
+                            message=(
+                                f"core/ aliases adapter import '{alias.name}' "
+                                f"as '{alias.asname}' (from '{node.module}') — "
+                                f"adapter-import aliasing in core/ is banned "
+                                f"(ADR-044); use the plain 'from {node.module} "
+                                f"import {alias.name}' form or import the "
+                                f"core/ports protocol instead"
+                            ),
+                            suggestion=(
+                                f"Replace with: from {node.module} import "
+                                f"{alias.name}. If the alias was hiding the "
+                                f"adapter under a non-backend-shaped name to "
+                                f"evade the annotation suffix check, the "
+                                f"correct fix is to annotate against the "
+                                f"core/ports/*Operations protocol."
+                            ),
+                            line_content=line.strip(),
+                        )
+                    )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if not self._is_adapter_module(alias.name):
+                        continue
+                    line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
+                    if self._is_line_suppressed(line, "SKUEL023"):
+                        continue
+                    display = (
+                        f"{alias.name} as {alias.asname}"
+                        if alias.asname is not None
+                        else alias.name
+                    )
+                    self.result.violations.append(
+                        Violation(
+                            file_path=rel_path,
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                            severity=Severity.ERROR,
+                            rule_id="SKUEL023",
+                            message=(
+                                f"core/ uses module-style adapter import "
+                                f"'import {display}' — module-style imports of "
+                                f"adapters in core/ are banned (ADR-044); they "
+                                f"enable 'backend: <module>.XBackend' annotations "
+                                f"that dodge the boundary"
+                            ),
+                            suggestion=(
+                                f"Use 'from {alias.name} import <Name>' to "
+                                f"import the specific class, or — preferably "
+                                f"— import the matching core/ports/*Operations "
+                                f"protocol and annotate against that."
+                            ),
+                            line_content=line.strip(),
+                        )
+                    )
+
+    @staticmethod
+    def _collect_adapter_imports(tree: ast.Module) -> dict[str, str]:
+        """Walk the whole tree (runtime AND TYPE_CHECKING blocks) and return a
+        ``{local_name: module_path}`` map for every ``from adapters... import X``
+        and ``import adapters...``.
+
+        Both layers are collected because SKUEL023 fires on the *annotation*, not
+        the import — even an exempt TYPE_CHECKING-only import of an adapter class
+        used as a type annotation is the design coupling we're catching.
+        """
+        imports: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if not node.module or not SkuelLinter._is_adapter_module(node.module):
+                    continue
+                for alias in node.names:
+                    local = alias.asname or alias.name
+                    imports[local] = node.module
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if SkuelLinter._is_adapter_module(alias.name):
+                        local = alias.asname or alias.name.split(".")[0]
+                        imports[local] = alias.name
+        return imports
+
+    @staticmethod
+    def _extract_annotation_refs(annotation: ast.expr) -> list[tuple[str, str]]:
+        """Recurse into an annotation expression and return ``(lookup_key, type_name)``
+        pairs for every type reference inside it.
+
+        - ``lookup_key`` is what the check loop matches against the
+          ``{local_name -> module}`` import map (or the sentinel ``"adapters"``
+          for Tier-3 fully-qualified references that bypass the import map).
+        - ``type_name`` is the tail used both for the backend-suffix heuristic
+          and the violation message.
+
+        For most annotation shapes the two are identical. They diverge for
+        ``Attribute`` chains, which is where the two bypass classes live:
+
+        - **Tier 2 — module-style alias.** ``import adapters.x as xb`` plus
+          ``backend: xb.XBackend`` parses to ``Attribute(value=Name("xb"),
+          attr="XBackend")``. The import map keys on ``xb``, not ``XBackend``;
+          walking to the root Name lets the lookup succeed.
+        - **Tier 3 — fully-qualified string.** ``backend: "adapters.persistence.
+          neo4j.x.XBackend"`` (no import at all) parses through the forward-ref
+          path into the same Attribute chain whose root Name is ``adapters``.
+          The sentinel ``("adapters", "XBackend")`` lets the check loop flag it
+          even though the import map is empty.
+
+        Handles:
+        - ``Name("KuBackend")``                            -> ``[("KuBackend", "KuBackend")]``
+        - ``Constant("KuBackend")`` (forward reference)    -> parsed via ``ast.parse``
+        - ``Subscript`` (``Optional[X]``, ``list[X]``, ...) -> recurse into both halves
+        - ``BinOp`` (``X | None`` PEP 604 unions)          -> recurse into both sides
+        - ``Attribute`` (``a.b.C``)                        -> root Name as lookup, tail as type
+        - ``Tuple`` slices (``Callable[[A, B], C]`` etc.)  -> recurse into each elt
+        """
+        refs: list[tuple[str, str]] = []
+        if isinstance(annotation, ast.Name):
+            refs.append((annotation.id, annotation.id))
+        elif isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+            # Forward reference: parse as an expression and recurse.
+            try:
+                parsed = ast.parse(annotation.value, mode="eval").body
+            except SyntaxError:
+                return refs
+            refs.extend(SkuelLinter._extract_annotation_refs(parsed))
+        elif isinstance(annotation, ast.Subscript):
+            refs.extend(SkuelLinter._extract_annotation_refs(annotation.value))
+            refs.extend(SkuelLinter._extract_annotation_refs(annotation.slice))
+        elif isinstance(annotation, ast.Tuple):
+            for elt in annotation.elts:
+                refs.extend(SkuelLinter._extract_annotation_refs(elt))
+        elif isinstance(annotation, ast.BinOp):
+            # PEP 604 unions (X | Y) reach us as BinOp(BitOr) in annotation context.
+            refs.extend(SkuelLinter._extract_annotation_refs(annotation.left))
+            refs.extend(SkuelLinter._extract_annotation_refs(annotation.right))
+        elif isinstance(annotation, ast.Attribute):
+            # Walk the value chain to the root Name. The root is what the
+            # import map keys on (module alias for Tier 2, sentinel "adapters"
+            # for Tier 3); the tail attr is the type name for suffix + reporting.
+            root: ast.expr = annotation
+            while isinstance(root, ast.Attribute):
+                root = root.value
+            if isinstance(root, ast.Name):
+                refs.append((root.id, annotation.attr))
+        # Anything else (Call, Lambda, ...) doesn't appear in a sane annotation.
+        return refs
+
+    def _check_adapter_type_annotations(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL023 [ERROR]: a ``core/`` module must not type an annotation against a
+        concrete adapter class.
+
+        SKUEL022 enforces the runtime import direction (core → adapter banned at
+        runtime); it deliberately exempts ``if TYPE_CHECKING:`` blocks because they
+        never execute. That exemption is correct at the runtime layer but leaves a
+        design-coupling gap: typing ``self.backend: KuBackend`` locks the service to
+        the concrete adapter when it should depend on the ``core/ports`` protocol.
+
+        AST-based, fail-closed. Walks runtime AND TYPE_CHECKING imports of
+        ``adapters.*`` to build a ``{local_name -> module}`` map. Then walks the
+        whole tree looking for type annotations (AnnAssign at any scope,
+        FunctionDef arg annotations + return annotations) and flags any annotation
+        whose ``(lookup_key, type_name)`` pair matches an adapter reference AND
+        whose ``type_name`` ends in a backend-shaped suffix (``Backend`` /
+        ``Executor`` / ``Adapter`` / ``Repository`` / ``Client`` / ``Driver``).
+        The suffix heuristic excludes enums (e.g. ``QueryOptimizationStrategy``),
+        configs, and pure-data adapter exports.
+
+        Four bypass classes closed:
+        - **Tier 1** — ``from adapters.x import XB`` + ``backend: XB``: the
+          common pattern. ``lookup_key`` is ``XB``, found in the import map.
+        - **Tier 2** — ``import adapters.x as xb`` + ``backend: xb.XBackend``:
+          module-style alias. Caught at the import site (Tier 4 rule below)
+          and also caught at the annotation site by ``_extract_annotation_refs``
+          walking the ``Attribute`` chain to the root Name.
+        - **Tier 3** — ``backend: "adapters.persistence.neo4j.x.XBackend"``
+          (fully-qualified forward-ref string, no import at all). The string
+          is parsed as an expression; the resulting ``Attribute`` chain has
+          ``Name("adapters")`` at its root. The check treats the literal
+          ``"adapters"`` lookup key as an implicit adapter reference so the
+          import map can be empty and the violation still fires.
+        - **Tier 4** — ``from adapters.x import XBackend as XB`` + ``backend: XB``:
+          ImportFrom alias to a non-backend-suffix local name. Closed by the
+          import-site rule (see ``_check_aliased_or_module_style_adapter_imports``):
+          aliasing adapter imports in core/ — and module-style adapter imports
+          — are banned outright, because the practice has no demonstrated
+          positive purpose in this codebase (0 uses at rule introduction). The
+          annotation-level suffix check is then sound on the only remaining
+          form: ``from adapters.<...> import <Name>`` where ``<Name>`` is what
+          gets the suffix check.
+
+        Facade allowlist: KU / PS / LP / UserService and the per-domain sub-service
+        packages are exempt — CLAUDE.md commits to "Facade IS the contract" for
+        these. The thin/ISP services in the rest of core/ are not.
+
+        Fix: switch the TYPE_CHECKING import from the adapter to its
+        ``core/ports/*Operations`` protocol; switch the annotation to the protocol
+        name. The composition-root injection is unchanged — the adapter satisfies
+        the protocol structurally.
+
+        Suppress: # skuel-lint: disable=SKUEL023 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL023 -- <reason>
+        """
+        if self._is_file_suppressed(content, "SKUEL023"):
+            return
+
+        # Facade allowlist: skip the entire file.
+        rel_str = str(rel_path).replace("\\", "/")
+        if any(rel_str.startswith(p) for p in self.SKUEL023_FACADE_ALLOWLIST_PREFIXES):
+            return
+        if rel_str in self.SKUEL023_FACADE_ALLOWLIST_FILES:
+            return
+
+        # Cheap pre-filter: nothing to flag if the file doesn't even mention adapters.
+        if "adapters" not in content:
+            return
+
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return
+
+        # ── Import-site rule (Tier 4) ─────────────────────────────────────
+        # Aliased ImportFrom (`from adapters... import X as Y`) and any
+        # module-style import (`import adapters.x [as Y]`) are banned in core/
+        # regardless of the local name. Both create bypass classes for the
+        # annotation-level suffix check and have zero demonstrated positive
+        # use in this codebase. The only permitted form is the plain
+        # ``from adapters.<...> import <Name>``.
+        self._flag_aliased_or_module_style_adapter_imports(rel_path, tree, lines)
+
+        adapter_imports = self._collect_adapter_imports(tree)
+        # Don't early-return when the import map is empty: Tier-3 fully-qualified
+        # references (`backend: "adapters.x.XBackend"`) parse through the
+        # forward-ref path and surface as a `("adapters", "XBackend")` ref pair
+        # whose lookup key is the literal `"adapters"` sentinel — no import needed.
+
+        # Walk every annotation site and gather (lineno, col, lookup_key, type_name).
+        annotation_sites: list[tuple[int, int, str, str]] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.AnnAssign) and node.annotation is not None:
+                for lookup, type_name in self._extract_annotation_refs(node.annotation):
+                    annotation_sites.append((node.lineno, node.col_offset, lookup, type_name))
+            elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                # Positional, keyword-only, vararg, kwarg, and posonly args all
+                # carry an optional .annotation; the return annotation lives on
+                # the FunctionDef itself.
+                all_args: list[ast.arg] = []
+                all_args.extend(node.args.args)
+                all_args.extend(node.args.kwonlyargs)
+                all_args.extend(node.args.posonlyargs)
+                if node.args.vararg is not None:
+                    all_args.append(node.args.vararg)
+                if node.args.kwarg is not None:
+                    all_args.append(node.args.kwarg)
+                for arg in all_args:
+                    if arg.annotation is None:
+                        continue
+                    for lookup, type_name in self._extract_annotation_refs(arg.annotation):
+                        annotation_sites.append((arg.lineno, arg.col_offset, lookup, type_name))
+                if node.returns is not None:
+                    for lookup, type_name in self._extract_annotation_refs(node.returns):
+                        annotation_sites.append(
+                            (node.returns.lineno, node.returns.col_offset, lookup, type_name)
+                        )
+
+        for lineno, col, lookup_key, type_name in annotation_sites:
+            # Two resolution paths:
+            # - Tier 1/2: lookup_key is a local import name (Name, or Attribute
+            #   root for module-style aliases like `xb` in `xb.XBackend`)
+            # - Tier 3: lookup_key is the literal sentinel `"adapters"` (root of
+            #   a fully-qualified forward-ref like `"adapters.x.XBackend"`),
+            #   which is an adapter reference regardless of any import.
+            if lookup_key == "adapters":
+                module = "adapters.*"
+            elif lookup_key in adapter_imports:
+                module = adapter_imports[lookup_key]
+            else:
+                continue
+            # Suffix heuristic: only flag backend-shaped names (skip enums/configs).
+            if not type_name.endswith(self.SKUEL023_BACKEND_SUFFIXES):
+                continue
+            line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL023"):
+                continue
+
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=lineno,
+                    column=col,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL023",
+                    message=(
+                        f"core/ module types annotation against concrete adapter "
+                        f"'{type_name}' (from '{module}') — type against the "
+                        f"core/ports protocol instead (ADR-044)"
+                    ),
+                    suggestion=(
+                        f"Switch the TYPE_CHECKING import from '{module}' to the "
+                        f"matching core/ports/*Operations protocol; annotate against "
+                        f"the protocol name. Facades may keep the concrete typing "
+                        f"— see CLAUDE.md '## Protocol-Based Architecture'."
                     ),
                     line_content=line.strip(),
                 )

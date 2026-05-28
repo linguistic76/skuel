@@ -35,7 +35,7 @@ class ProgressScheduleService:
 
     def __init__(
         self,
-        backend: "ReportScheduleBackend",
+        backend: "ReportScheduleBackend",  # skuel-lint: disable=SKUEL023 -- ReportScheduleBackendOperations protocol not yet defined; service uses 7 backend methods (create, get, update, find_by, create_user_schedule_relationship, get_due_schedules, inherited CRUD) — tracked for follow-up design work.
     ) -> None:
         self.backend = backend
 

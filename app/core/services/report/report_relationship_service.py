@@ -20,7 +20,6 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 
 from typing import TYPE_CHECKING, Any, cast
 
-from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 from core.ports.query_types import LearningLoopChain, ReportSummary, SubmissionChain
 from core.utils.logging import get_logger
@@ -28,7 +27,7 @@ from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
+    from core.ports.user_entry_protocols import UserEntryReportQueryOperations
 
 
 class ReportRelationshipService:
@@ -36,7 +35,8 @@ class ReportRelationshipService:
     Pure-Cypher relationship queries for the Report stage of the learning loop.
 
     Provides the intelligence layer with graph-level questions about REPORT_FOR
-    relationships — no LLM, no AI. Just graph queries delegated to UserEntryBackend.
+    relationships — no LLM, no AI. Just graph queries delegated to the port
+    (UserEntryReportQueryOperations).
 
     Used by UserContextIntelligence to answer:
     - "Does this user have submissions that haven't been reviewed yet?"
@@ -45,12 +45,7 @@ class ReportRelationshipService:
     See: /docs/architecture/REPORT_ARCHITECTURE.md
     """
 
-    # ADR-054: EXERCISE_SUBMISSION + JE_INPUT collapsed into USER_ENTRY.
-    _SUBMISSION_TYPES = [
-        EntityType.USER_ENTRY.value,
-    ]
-
-    def __init__(self, backend: "UserEntryBackend") -> None:
+    def __init__(self, backend: "UserEntryReportQueryOperations") -> None:
         self.backend = backend
         self.logger = get_logger("skuel.services.report_relationship")
 
@@ -73,7 +68,7 @@ class ReportRelationshipService:
         Returns:
             Result containing list of submission UIDs awaiting report (most recent first)
         """
-        result = await self.backend.get_pending_submissions_raw(user_uid, self._SUBMISSION_TYPES)
+        result = await self.backend.get_pending_entries_raw(user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -128,7 +123,7 @@ class ReportRelationshipService:
                 - without_report: Count that have no REPORT_FOR
                 - total_reports: Total count of report entities received
         """
-        result = await self.backend.get_report_summary_raw(user_uid, self._SUBMISSION_TYPES)
+        result = await self.backend.get_entry_report_summary_raw(user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -213,7 +208,7 @@ class ReportRelationshipService:
         Returns:
             Result[dict] with keys: submission, exercise, feedback, revised_exercises
         """
-        result = await self.backend.get_submission_chain_raw(submission_uid)
+        result = await self.backend.get_entry_chain_raw(submission_uid)
         if result.is_error:
             return Result.fail(result)
 

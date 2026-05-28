@@ -14,7 +14,7 @@ See: docs/roadmap/zpd-service-deferred.md — design rationale
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, TypedDict, runtime_checkable
 
 from core.models.type_hints import UserUID
 
@@ -22,6 +22,35 @@ if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAssessment
     from core.services.user.unified_user_context import UserContext
     from core.utils.result_simplified import Result
+
+
+class PrereqCount(TypedDict):
+    """Per-proximal-KU prerequisite count summary.
+
+    Emitted by the zone-data Cypher's prerequisite aggregation step:
+    for each KU in the proximal zone, the total number of prerequisites
+    and how many of them the user has already engaged. Drives the
+    readiness score (``met / total``).
+    """
+
+    ku_uid: str
+    total: int
+    met: int
+
+
+class SubmissionScore(TypedDict):
+    """Per-KU best submission score from completed exercise submissions.
+
+    Emitted by the zone-data and targeted-engagement Cyphers' submission
+    aggregation step. ``best_score`` is the max across all
+    completed/approved submissions for the KU's applying exercises;
+    ``count`` is the number of submissions in that aggregate. KUs with no
+    submissions do not appear in the list.
+    """
+
+    ku_uid: str
+    best_score: float
+    count: int
 
 
 @runtime_checkable
@@ -38,7 +67,7 @@ class ZPDBackendOperations(Protocol):
 
     async def get_targeted_ku_engagement(
         self, user_uid: UserUID, ku_uids: list[str]
-    ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]]]]:
+    ) -> Result[tuple[list[str], list[str], list[str], list[SubmissionScore]]]:
         """Fetch engagement data for specific KU UIDs only.
 
         Lightweight alternative to get_zone_data() for query-time ZPD.
@@ -59,12 +88,12 @@ class ZPDBackendOperations(Protocol):
             list[str],
             list[str],
             list[str],
-            list[dict[str, Any]],
+            list[PrereqCount],
             list[str],
             list[str],
             list[str],
             list[str],
-            list[dict[str, Any]],
+            list[SubmissionScore],
         ]
     ]:
         """Execute the zone traversal query and return parsed results.
@@ -177,5 +206,33 @@ class ZPDOperations(Protocol):
         Returns:
             Result[dict[str, ZoneEvidence]]: Per-KU engagement evidence.
                 KUs with no engagement get a default ZoneEvidence (all zeros).
+        """
+        ...
+
+
+@runtime_checkable
+class ZPDSnapshotOperations(Protocol):
+    """Persistence protocol for ZPD assessment snapshot writes.
+
+    Implemented by ``adapters.persistence.neo4j.zpd_snapshot_backend.ZPDSnapshotBackend``.
+    Consumed by ``ZPDEventHandler`` to persist ZPD assessment snapshots when
+    user events fire (submission, mastery, etc.).
+
+    Narrow by design — the event handler only writes snapshots; reads happen
+    elsewhere via ZPDOperations.
+    """
+
+    async def save_snapshot(
+        self, user_uid: UserUID, assessment: ZPDAssessment, trigger_event: str
+    ) -> Result[None]:
+        """MERGE one :ZPDHistory row per user with the latest assessment summary.
+
+        Stores only summary fields (current/proximal/confirmed counts,
+        behavioral readiness, life path alignment) plus a snapshot counter
+        — no full assessment serialization. The trigger event label
+        identifies what fired the snapshot.
+
+        Returns Result.ok(None) on success; Result.fail(Errors.database(...))
+        on Neo4j failure.
         """
         ...

@@ -16,8 +16,6 @@ Does NOT handle:
 - Updating result_status after report generation (deferred to Phase 2)
 """
 
-from typing import TYPE_CHECKING
-
 from core.models.enums.entity_enums import EntityType
 from core.models.interaction.interaction import Interaction
 from core.models.interaction.interaction_dto import InteractionDTO
@@ -29,9 +27,6 @@ from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.misc_backends import InteractionBackend
 
 logger = get_logger("skuel.services.interaction")
 
@@ -60,7 +55,7 @@ class InteractionService(BaseService[BackendOperations[Interaction], Interaction
 
     def __init__(
         self,
-        backend: "InteractionBackend",
+        backend: BackendOperations[Interaction],
         event_bus=None,
     ) -> None:
         super().__init__(backend, "InteractionService")

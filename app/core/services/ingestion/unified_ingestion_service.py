@@ -36,8 +36,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
-    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
+    from core.ports.ingestion_protocols import BulkUpsertOperations, IngestionWriteOperations
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
@@ -114,8 +113,8 @@ class UnifiedIngestionService:
 
     def __init__(
         self,
-        write_backend: IngestionWriteBackend,
-        bulk_backend: BulkUpsertBackend,
+        write_backend: IngestionWriteOperations,
+        bulk_backend: BulkUpsertOperations,
         default_user_uid: UserUID | None = None,
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
         embeddings_service: Any | None = None,
@@ -130,8 +129,8 @@ class UnifiedIngestionService:
         Initialize unified ingestion service.
 
         Args:
-            write_backend: IngestionWriteBackend for edge/existence/ownership writes.
-            bulk_backend: BulkUpsertBackend for node upsert + constraints + delete.
+            write_backend: IngestionWriteOperations port for edge/existence/ownership writes.
+            bulk_backend: BulkUpsertOperations port for node upsert + constraints + delete.
                 Both are built at the composition root and injected so this service
                 never imports the adapter (ADR-044 / SKUEL022); use
                 ``make_unified_ingestion_service(driver, ...)`` to build them.

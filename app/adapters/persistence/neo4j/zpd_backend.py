@@ -13,9 +13,10 @@ See: docs/roadmap/zpd-service-deferred.md — design rationale
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, cast
 
 from core.models.type_hints import UserUID
+from core.ports.zpd_protocols import PrereqCount, SubmissionScore
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
@@ -204,7 +205,7 @@ class ZPDBackend:
 
     async def get_targeted_ku_engagement(
         self, user_uid: UserUID, ku_uids: list[str]
-    ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]]]]:
+    ) -> Result[tuple[list[str], list[str], list[str], list[SubmissionScore]]]:
         """Fetch engagement data for specific KU UIDs only.
 
         Lightweight alternative to get_zone_data() — queries only the target
@@ -242,7 +243,11 @@ class ZPDBackend:
         task_engaged: list[str] = list(row.get("task_engaged") or [])
         journal_engaged: list[str] = list(row.get("journal_engaged") or [])
         habit_engaged: list[str] = list(row.get("habit_engaged") or [])
-        submission_data: list[dict[str, Any]] = list(row.get("submission_data") or [])
+        # boundary: Neo4j Record row shape is fixed by the RETURN projection
+        # in _TARGETED_KU_ENGAGEMENT_QUERY's submission_data collect{...}.
+        submission_data: list[SubmissionScore] = [
+            cast("SubmissionScore", item) for item in (row.get("submission_data") or [])
+        ]
 
         return Result.ok((task_engaged, journal_engaged, habit_engaged, submission_data))
 
@@ -253,12 +258,12 @@ class ZPDBackend:
             list[str],
             list[str],
             list[str],
-            list[dict[str, Any]],
+            list[PrereqCount],
             list[str],
             list[str],
             list[str],
             list[str],
-            list[dict[str, Any]],
+            list[SubmissionScore],
         ]
     ]:
         """Execute the zone traversal query and parse results.
@@ -294,11 +299,17 @@ class ZPDBackend:
         proximal_zone: list[str] = list(row.get("proximal_zone") or [])
         engaged_paths: list[str] = list(row.get("engaged_paths") or [])
         blocking_gaps: list[str] = list(row.get("blocking_gaps") or [])
-        prereq_data: list[dict[str, Any]] = list(row.get("prereq_data") or [])
+        # boundary: row shapes fixed by the RETURN projection in _ZONE_QUERY's
+        # prereq_data and submission_data collect{...} steps.
+        prereq_data: list[PrereqCount] = [
+            cast("PrereqCount", item) for item in (row.get("prereq_data") or [])
+        ]
         task_engaged: list[str] = list(row.get("task_engaged") or [])
         journal_engaged: list[str] = list(row.get("journal_engaged") or [])
         habit_engaged: list[str] = list(row.get("habit_engaged") or [])
-        submission_data: list[dict[str, Any]] = list(row.get("submission_data") or [])
+        submission_data: list[SubmissionScore] = [
+            cast("SubmissionScore", item) for item in (row.get("submission_data") or [])
+        ]
 
         return Result.ok(
             (
