@@ -19,7 +19,7 @@ class GraphQLConfig:
     ``validate_*`` helpers below.
 
     A Cypher / transaction timeout is intentionally NOT here: it is a database
-    concern that already has a home in ``DatabaseConfig.query_timeout`` and
+    concern that already has a home in ``DatabaseConfig.transaction_timeout`` and
     governs the app-wide executor, not just GraphQL.
 
     See: adapters/inbound/graphql/guardrails.py (complexity + resolver-timeout extensions),

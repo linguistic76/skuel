@@ -261,9 +261,11 @@ class DatabaseConfig:
 
     # Connection pool / driver-level timeouts (applied at AsyncGraphDatabase.driver).
     # NOTE: these bound connection establishment, pool acquisition, and managed-
-    # transaction retry — NOT a single query's execution time. A per-query
-    # server-side timeout (query_timeout/transaction_timeout below) is unwired
-    # pending a session chokepoint; see neo4j_connection.py.
+    # transaction retry — NOT a single query's execution time. The per-query
+    # server-side timeout (transaction_timeout below) is wired separately at the
+    # composition root via TimedDriver (adapters/persistence/neo4j/timed_driver.py),
+    # which injects neo4j.Query(timeout=) / begin_transaction(timeout=) on every
+    # query the shared driver hands out.
     max_connection_pool_size: int = 50
     max_connection_lifetime: int = 3600
     connection_timeout: float = 30.0
@@ -272,7 +274,10 @@ class DatabaseConfig:
     encrypted: bool = False
 
     # Query settings
-    query_timeout: float = 60.0
+    # transaction_timeout: server-side per-query / per-tx ceiling in seconds. Wired
+    # at compose by wrapping the shared AsyncDriver with TimedDriver; override per
+    # call site with neo4j_query_timeout(secs) / unbounded_neo4j_query_timeout().
+    # 0 is treated as unbounded (compose maps 0 -> None). Env: NEO4J_TRANSACTION_TIMEOUT.
     transaction_timeout: float = 120.0
     enable_query_logging: bool = False
 
@@ -296,6 +301,7 @@ class DatabaseConfig:
             ),
             max_retry_time=float(os.getenv("NEO4J_MAX_TRANSACTION_RETRY_TIME", "30")),
             encrypted=os.getenv("NEO4J_ENCRYPTED", "false").lower() == "true",
+            transaction_timeout=float(os.getenv("NEO4J_TRANSACTION_TIMEOUT", "120")),
         )
 
 
