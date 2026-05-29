@@ -129,7 +129,7 @@ def _compute_cross_edges(
     template: Any,
     cross_edge_specs: Sequence[tuple[str, RelationshipName]],
     template_to_instance: dict[str, str],
-) -> list[tuple[str, RelationshipName]]:
+) -> list[tuple[RelationshipName, str]]:
     """Resolve cross-template refs into (edge_type, target_instance_uid) tuples.
 
     Used for relationships written as graph edges between spawned instances
@@ -138,7 +138,7 @@ def _compute_cross_edges(
     the field on the template, maps it through ``template_to_instance``, and
     returns the edges the orchestrator should write via ``_persist``.
     """
-    edges: list[tuple[str, RelationshipName]] = []
+    edges: list[tuple[RelationshipName, str]] = []
     for template_field, edge_type in cross_edge_specs:
         ref = getattr(template, template_field, None)
         if not ref:
@@ -464,7 +464,7 @@ class _SpawnOrchestrator:
         instance: Any,
         template_uid: str,
         created_uids: list[tuple[CrudOperations[Any], str]],
-        cross_edges: list[tuple[str, RelationshipName]] | None = None,
+        cross_edges: list[tuple[RelationshipName, str]] | None = None,
     ) -> Result[Any]:
         """Atomic node + SPAWNED_FROM edge create, then any cross-edges.
 

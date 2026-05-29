@@ -247,6 +247,10 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         from core.utils.intelligence_queries import get_knowledge_prerequisites
 
+        if self.graph_intel is None:
+            empty: KnowledgePrerequisitesResult = {}
+            return Result.ok(empty)
+
         return await get_knowledge_prerequisites(
             graph=self.graph_intel, entity_uid=entity_uid, depth=GraphDepth.DEFAULT
         )

@@ -13,7 +13,7 @@ Focuses on:
 
 from collections import defaultdict
 from operator import attrgetter
-from typing import Any
+from typing import Any, TypedDict
 
 from core.models.enums import Domain
 from core.models.type_hints import UserUID
@@ -26,6 +26,16 @@ from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import coerce_float
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
+
+
+class _DomainSynergy(TypedDict):
+    """Shape of a domain-pair synergy entry (lookup table + generic fallback)."""
+
+    application_type: str
+    bridging_concepts: list[str]
+    projects: list[str]
+    skill_transfer: float
+    innovation_potential: float
 
 
 class AdaptiveLpCrossDomainService:
@@ -149,7 +159,7 @@ class AdaptiveLpCrossDomainService:
         """Create a cross-domain opportunity between two domains."""
         try:
             # Define known cross-domain synergies
-            domain_synergies = {
+            domain_synergies: dict[tuple[str, str], _DomainSynergy] = {
                 ("programming", "data"): {
                     "application_type": "Data Engineering & Analytics",
                     "bridging_concepts": ["algorithms", "data_structures", "automation"],

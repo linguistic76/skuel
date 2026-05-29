@@ -480,9 +480,7 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
     """
 
     # --- Habit-specific methods ---
-    async def get_by_frequency(
-        self, frequency: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Habit"]]:
+    async def get_by_frequency(self, frequency: str, limit: int = 100) -> Result[list["Habit"]]:
         """Get habits by frequency pattern."""
         ...
 
@@ -599,7 +597,9 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
         """Get goals by timeframe (daily, weekly, monthly, yearly)."""
         ...
 
-    async def get_by_category(self, category: str, limit: int = 100) -> Result[list["Goal"]]:
+    async def get_by_category(
+        self, category: str, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list["Goal"]]:
         """Get goals by category."""
         ...
 

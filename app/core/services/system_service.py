@@ -314,5 +314,5 @@ class SystemService:
         """
         return AlertThresholds(
             min_health_ratio=self._alert_thresholds["min_health_ratio"],
-            max_unhealthy_components=self._alert_thresholds["max_unhealthy_components"],
+            max_unhealthy_components=int(self._alert_thresholds["max_unhealthy_components"]),
         )

@@ -295,7 +295,7 @@ class ConversionServiceV2:
     ) -> Choice:
         """Convert ChoiceCreateRequest to Choice entity using generic method."""
         # Choice uses tuples for immutability, need to convert lists
-        extra_fields = {}
+        extra_fields: dict[str, Any] = {}
         if schema.decision_criteria:
             extra_fields["decision_criteria"] = tuple(schema.decision_criteria)
         if schema.constraints:

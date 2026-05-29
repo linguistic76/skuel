@@ -233,7 +233,7 @@ class BaseAnalyticsService(Generic[B, T]):
                 f"{self.__class__.__name__}.{operation}() requires relationship_service"
             )
 
-    def _to_domain_model(self, dto_or_dict: Any, dto_class: type, model_class: type[T]) -> T:
+    def _to_domain_model[MT](self, dto_or_dict: Any, dto_class: type, model_class: type[MT]) -> MT:
         """
         Convert DTO or dict to domain model.
 

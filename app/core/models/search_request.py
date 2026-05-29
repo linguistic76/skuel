@@ -57,7 +57,7 @@ One Path Forward (January 2026):
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -324,7 +324,7 @@ class SearchRequest(BaseModel):
         description="RelationshipName for connected_to filter (e.g., ENABLES, REQUIRES_KNOWLEDGE)",
     )
 
-    connected_direction: str = Field(
+    connected_direction: Literal["outgoing", "incoming", "both"] = Field(
         default="outgoing",
         description="Relationship direction: 'outgoing', 'incoming', or 'both'",
     )

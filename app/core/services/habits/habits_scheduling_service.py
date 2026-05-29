@@ -906,7 +906,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
 
     def _generate_load_recommendations(
         self,
-        load_by_day: dict[str, int],
+        load_by_day: dict[str, float],
         avg_load: float,
     ) -> list[str]:
         """Generate recommendations based on load distribution."""

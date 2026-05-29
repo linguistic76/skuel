@@ -751,11 +751,11 @@ class PrinciplesAlignmentService:
 
         decision = PrincipleDecision(
             decision_description=decision_description,
-            options=options,
+            options=tuple(options),
             principle_scores=principle_scores,
             recommended_option=recommended,
             recommendation_reason=reason,
-            conflicts=conflicts,
+            conflicts=tuple(conflicts),
             context=context,
             importance="medium",
         )
