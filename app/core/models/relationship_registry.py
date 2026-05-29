@@ -64,6 +64,8 @@ from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.query_types import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.task.task_dto import TaskDTO
+from core.models.user.user import User
+from core.models.user.user_dto import UserDTO
 
 # Task and Goal domains unified into Entity model (February 2026)
 Task = Entity
@@ -332,8 +334,12 @@ class DomainRelationshipConfig:
     # Enables relationships (subset of relationships)
     enables_relationship_names: tuple[RelationshipName, ...] = ()
 
-    # Bidirectional relationships
-    bidirectional_relationships: tuple[RelationshipName, ...] = ()
+    # Bidirectional relationships. Most configs mark them by name (the rel is also
+    # defined in `relationships`); KU instead carries a self-contained
+    # UnifiedRelationshipDefinition for its Ku<->Ku ORGANIZES hierarchy, which is not
+    # mirrored in `relationships` (so it stays outside the ingestion dead-seam guard).
+    # The field therefore legitimately holds either shape.
+    bidirectional_relationships: tuple[RelationshipName | UnifiedRelationshipDefinition, ...] = ()
 
     # Semantic types for get_with_semantic_context()
     semantic_types: tuple[SemanticRelationshipType, ...] = ()
@@ -1456,8 +1462,8 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
 USER_CONFIG = DomainRelationshipConfig(
     domain=Domain.SYSTEM,  # User is part of system infrastructure
     entity_label="User",
-    dto_class=None,  # User has its own DTO system
-    model_class=None,  # User has its own model system
+    dto_class=UserDTO,
+    model_class=User,
     backend_get_method="get",
     ownership_relationship=None,  # User doesn't have ownership
     relationships=(

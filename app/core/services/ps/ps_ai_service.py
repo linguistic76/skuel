@@ -324,7 +324,7 @@ Each item should be concrete and actionable, not generic."""
             search_result = await self.backend.search(query_text, limit=limit)
             if search_result.is_error:
                 return Result.fail(search_result)
-            keyword_steps, _total = search_result.value
+            keyword_steps = search_result.value
             return Result.ok(keyword_steps or [])
 
         uid_score_pairs = similarity_result.value or []

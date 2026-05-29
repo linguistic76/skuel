@@ -435,7 +435,7 @@ class GoalsService(
     async def get_goals_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[call-arg]
+        return await self.search.get_by_category(category, user_uid, limit)
 
     async def get_goals_by_status(
         self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None

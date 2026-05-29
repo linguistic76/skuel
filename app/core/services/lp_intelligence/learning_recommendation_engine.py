@@ -476,7 +476,7 @@ class LearningRecommendationEngine:
         analysis = analysis_result.value
 
         # Step 2: Build base session plan
-        session_plan = {
+        session_plan: dict[str, Any] = {
             "total_time": available_time_minutes,
             "segments": [],
             "focus": analysis.recommended_guidance.value,

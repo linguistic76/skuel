@@ -16,7 +16,7 @@ Architecture:
 Philosophy: "Users can handle complexity, but they need visual calm to process it."
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -231,6 +231,16 @@ def create_search_api_routes(
         if not query.strip():
             return {"error": "Query is required", "total_count": 0, "results_by_domain": {}}
 
+        # Validate graph-traversal direction at the boundary — SearchRequest narrows
+        # connected_direction to a Literal, so an invalid value would otherwise raise an
+        # unhandled Pydantic ValidationError during model construction.
+        if direction not in ("outgoing", "incoming", "both"):
+            return {
+                "error": f"Invalid direction '{direction}'. Use 'outgoing', 'incoming', or 'both'.",
+                "total_count": 0,
+                "results_by_domain": {},
+            }
+
         # Parse entity types
         parsed_entity_types: list[EntityType | NonKuDomain] = []
         if entity_types.strip():
@@ -260,7 +270,7 @@ def create_search_api_routes(
             entity_types=parsed_entity_types,
             connected_to_uid=connected_to,
             connected_relationship=parsed_relationship,
-            connected_direction=direction,
+            connected_direction=cast("Literal['outgoing', 'incoming', 'both']", direction),
             tags_contain=parsed_tags,
             tags_match_all=tags_match_all,
             limit=limit,

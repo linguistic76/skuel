@@ -301,7 +301,7 @@ class QueryProcessor:
         if intent in (QueryIntent.PREREQUISITE, QueryIntent.HIERARCHICAL):
             knowledge_entities = extracted_entities.get("knowledge", [])
             if knowledge_entities:
-                knowledge_uids = [ku.get("uid") for ku in knowledge_entities if ku.get("uid")]
+                knowledge_uids = [uid for ku in knowledge_entities if (uid := ku.get("uid"))]
                 citations_text = await self._retrieve_citations_for_knowledge_units(
                     knowledge_uids, min_evidence_count=1
                 )
@@ -599,14 +599,16 @@ class QueryProcessor:
             title = getattr(item, "title", None)
             return str(title)[:50] if title else "Unknown"
 
-        context = {
-            "knowledge_count": len(current_knowledge),
-            "learning_paths_count": len(active_learning),
-            "active_tasks_count": len(active_tasks),
-            "goals_count": len(related_goals),
-            "knowledge_titles": [extract_title(k) for k in current_knowledge[:5]],
-            "intent": intent.value,
-        }
+        knowledge_titles = [extract_title(k) for k in current_knowledge[:5]]
+        context = "\n".join(
+            [
+                f"Knowledge units: {len(current_knowledge)}",
+                f"Active learning paths: {len(active_learning)}",
+                f"Active tasks: {len(active_tasks)}",
+                f"Related goals: {len(related_goals)}",
+                f"Recent knowledge: {', '.join(knowledge_titles) or 'none'}",
+            ]
+        )
 
         additional_context = {
             "knowledge_units": [{"title": extract_title(k)} for k in current_knowledge[:5]],
