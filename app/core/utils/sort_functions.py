@@ -6,8 +6,11 @@ Named sort functions to replace lambda expressions in sorting operations.
 Following clean code principle: no lambdas, only named functions.
 """
 
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsRichComparison
 
 from core.models.enums import Priority
 from core.ports.base_protocols import (
@@ -1152,13 +1155,27 @@ def get_conflict_count(item: dict[str, Any]) -> int:
     return item["conflict_count"]
 
 
-def make_dict_value_getter[K, V](mapping: dict[K, V]) -> Callable[[K], V]:
+def make_dict_value_getter[K, V: "SupportsRichComparison"](
+    mapping: Mapping[K, V],
+) -> Callable[[K], V]:
     """
     Create a sort key function for dictionary value lookups.
 
     Used for finding max/min by value over a dictionary's keys. Replaces
     `dict.get` as a key= callable — `dict.get`'s `_VT | None` return type
     is rejected by max/min as it doesn't satisfy SupportsRichComparison.
+
+    Two type-level choices make this typecheck under `--enable-error-code
+    arg-type` at `max`/`min` call sites:
+
+    - The parameter is `Mapping[K, V]`, not `dict[K, V]`: `max`/`min`'s `key=`
+      context widens `V` to `SupportsRichComparison` via bidirectional inference,
+      and `dict` is *invariant* in its value type — so a concrete `dict[str,
+      float]` argument is rejected against `dict[str, SupportsRichComparison]`.
+      `Mapping` is *covariant* in its value type, so the concrete dict is
+      accepted.
+    - `V` is bound to `SupportsRichComparison`, documenting that values must be
+      orderable (every call site passes `int`/`float` values).
 
     Example:
         alignment_counts = {"high": 5, "medium": 3, "low": 2}
