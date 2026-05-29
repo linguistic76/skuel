@@ -46,6 +46,7 @@ from core.ports.query_types import (
     ContextSummary,
     FutureContextStateResult,
     NextActionResult,
+    PathStepPrediction,
     TopPriorities,
 )
 from core.services.user.unified_user_context import UserContext
@@ -135,7 +136,7 @@ class UserContextService:
         context = context_result.value
 
         # Build dashboard from context
-        dashboard = {
+        dashboard: ContextDashboard = {
             "user_uid": user_uid,
             "context_version": context.context_version,
             "last_refresh": context.last_refresh.isoformat(),
@@ -145,13 +146,13 @@ class UserContextService:
                 "active_count": len(context.active_task_uids),
                 "overdue_count": len(context.overdue_task_uids),
                 "today_count": len(context.today_task_uids),
-                "current_focus": context.current_task_focus,
+                "current_focus": context.current_task_focus or "",
                 "blocked_count": len(context.blocked_task_uids_or_empty()),
             },
             # Goal overview
             "goals": {
                 "active_count": len(context.active_goal_uids),
-                "primary_focus": context.primary_goal_focus,
+                "primary_focus": context.primary_goal_focus or "",
                 "learning_goals": len(context.learning_goals),
                 "outcome_goals": len(context.outcome_goals),
                 "process_goals": len(context.process_goals),
@@ -173,8 +174,8 @@ class UserContextService:
             },
             # Learning overview
             "learning": {
-                "current_path": context.current_learning_path_uid,
-                "life_path": context.life_path_uid,
+                "current_path": context.current_learning_path_uid or "",
+                "life_path": context.life_path_uid or "",
                 "life_path_alignment": context.life_path_alignment_score,
                 "mastered_knowledge_count": len(context.mastered_knowledge_uids),
                 "ready_to_learn_count": len(context.get_ready_to_learn()),
@@ -185,8 +186,8 @@ class UserContextService:
                 "current_workload": context.current_workload_score,
                 "energy_level": context.current_energy_level.value
                 if context.current_energy_level
-                else None,
-                "preferred_time": context.preferred_time.value if context.preferred_time else None,
+                else "",
+                "preferred_time": context.preferred_time.value if context.preferred_time else "",
             },
         }
 
@@ -196,17 +197,16 @@ class UserContextService:
             ready_knowledge = context.get_ready_to_learn()[:5]
 
             if ready_knowledge:
-                dashboard["predictions"] = {
-                    "next_path_steps": [
-                        {
-                            "ku_uid": ku_uid,
-                            "title": ku_uid,  # Context only has UIDs, not titles
-                            "priority_score": 0.7,  # Default medium priority
-                            "estimated_time_minutes": 60,  # Default 1 hour estimate
-                        }
-                        for ku_uid in ready_knowledge
-                    ]
-                }
+                predicted_steps: list[PathStepPrediction] = [
+                    {
+                        "ku_uid": ku_uid,
+                        "title": ku_uid,  # Context only has UIDs, not titles
+                        "priority_score": 0.7,  # Default medium priority
+                        "estimated_time_minutes": 60,  # Default 1 hour estimate
+                    }
+                    for ku_uid in ready_knowledge
+                ]
+                dashboard["predictions"] = {"next_path_steps": predicted_steps}
 
         return Result.ok(dashboard)
 
@@ -238,13 +238,13 @@ class UserContextService:
         context = context_result.value
 
         # Build summary
-        summary = {
+        summary: ContextSummary = {
             "user_uid": user_uid,
             "generated_at": datetime.now().isoformat(),
             # Top priorities (most important items to focus on)
             "top_priorities": {
-                "task_focus": context.current_task_focus,
-                "goal_focus": context.primary_goal_focus,
+                "task_focus": context.current_task_focus or "",
+                "goal_focus": context.primary_goal_focus or "",
                 "overdue_tasks": context.overdue_task_uids[:3],  # Top 3
                 "at_risk_habits": context.at_risk_habits_or_empty()[:3],
             },
@@ -371,7 +371,7 @@ class UserContextService:
 
         # at_risk_habits is rich-context only; empty at standard build depth
         at_risk = context.at_risk_habits_or_empty()
-        at_risk_data = {
+        at_risk_data: AtRiskHabitsResult = {
             "user_uid": user_uid,
             "at_risk_habits": at_risk,
             "habit_streaks": {
@@ -403,7 +403,7 @@ class UserContextService:
 
         context = context_result.value
 
-        learning_path = {
+        learning_path: AdaptiveLearningPathResult = {
             "user_uid": user_uid,
             "current_path": context.current_learning_path_uid,
             "life_path": context.life_path_uid,
@@ -436,7 +436,7 @@ class UserContextService:
 
         dashboard: ContextDashboard = dashboard_result.value
 
-        predictions = {
+        predictions: FutureContextStateResult = {
             "user_uid": user_uid,
             "horizon": "1w",
             "generated_at": dashboard.get("last_refresh", ""),
@@ -471,7 +471,7 @@ class UserContextService:
 
         summary: ContextSummary = summary_result.value
 
-        health = {
+        health: ContextHealthResult = {
             "user_uid": user_uid,
             "overall_health": self._calculate_health_score(summary),
             "metrics": summary.get("key_metrics", {}),
@@ -843,9 +843,9 @@ class UserContextService:
 
         return total_completed / total_items
 
-    def _generate_alerts(self, context: UserContext) -> list[dict[str, Any]]:
+    def _generate_alerts(self, context: UserContext) -> list[ContextAlert]:
         """Generate alerts/warnings from context."""
-        alerts = []
+        alerts: list[ContextAlert] = []
 
         # Overdue tasks alert
         if len(context.overdue_task_uids) > 0:
