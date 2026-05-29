@@ -188,6 +188,15 @@ class ExerciseReportBackendOperations(Protocol):
     ``ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport])``.
     """
 
+    async def create(self, entity: "ExerciseReport") -> "Result[ExerciseReport]":
+        """Create an EXERCISE_REPORT node with ``:Entity:ExerciseReport`` labels.
+
+        Canonical report-node creation: stamps the correct multi-label so the
+        node is an ExerciseReport, not a UserEntry. Used by teacher-assessment
+        creation, which then attaches ASSESSMENT_OF / SHARES_WITH edges itself.
+        """
+        ...
+
     async def get(self, uid: str) -> "Result[ExerciseReport | None]":
         """Typed single-fetch for ExerciseReport by UID.
 
