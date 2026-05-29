@@ -11,6 +11,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from core.models.type_hints import UserUID
@@ -91,9 +92,10 @@ class _EmbodimentMixin:
         else:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
-        # Create and append expression
+        # Create and append expression. DTO stores expressions as list[dict]
+        # (flattened on to_dict via asdict); convert here to keep that contract honest.
         expression = PrincipleExpression(context=context, behavior=behavior, example=example)
-        ku_dto.expressions.append(expression)
+        ku_dto.expressions.append(asdict(expression))
 
         # Save
         await self.core.backend.update(principle_uid, ku_dto.to_dict())

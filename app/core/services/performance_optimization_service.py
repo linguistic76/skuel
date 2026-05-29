@@ -17,7 +17,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, TypedDict
 
 from core.models.type_hints import UserUID
 from core.services.performance_types import (
@@ -53,6 +53,14 @@ class ProcessingPriority(Enum):
     MEDIUM = "medium"  # Process within 10 seconds
     LOW = "low"  # Process within 1 minute
     BACKGROUND = "background"  # Process when resources available
+
+
+class ScheduledOptimizationTask(TypedDict):
+    """Config for a periodic optimization task submitted to the background engine."""
+
+    task_type: str
+    priority: ProcessingPriority
+    payload: dict[str, Any]
 
 
 class OptimizationMetric(Enum):
@@ -1138,7 +1146,7 @@ class PerformanceOptimizationService:
 
     async def _schedule_optimization_tasks(self) -> None:
         """Schedule periodic optimization tasks."""
-        tasks = [
+        tasks: list[ScheduledOptimizationTask] = [
             {
                 "task_type": "cache_warmup",
                 "priority": ProcessingPriority.LOW,

@@ -23,6 +23,7 @@ from core.services.calendar_optimization_types import (
     EnergyAlignedStrategy,
     KnowledgeFocusedStrategy,
     OptimalLoadDistribution,
+    SchedulingStrategyResult,
     SpacedRepetitionStrategy,
 )
 
@@ -224,7 +225,7 @@ class CognitiveLoadBalance:
     date: str
     total_cognitive_load: float
     domain_load_distribution: dict[str, DomainLoadInfo]
-    optimal_distribution: dict[str, Any]  # Keep as dict for nested structure
+    optimal_distribution: OptimalLoadDistribution
     balancing_recommendations: list[dict[str, Any]]  # Keep as list[dict] for flexibility
     hourly_cognitive_capacity: dict[int, float]
     overload_risk_hours: list[int]
@@ -762,13 +763,7 @@ class CalendarOptimizationService:
         task_loads: dict[str, CognitiveLoadAnalysis],
         knowledge_units: list[KnowledgeUnitDTO],
         energy_profile: EnergyProfile,
-    ) -> (
-        CognitiveBalancedStrategy
-        | EnergyAlignedStrategy
-        | KnowledgeFocusedStrategy
-        | DeadlineDrivenStrategy
-        | SpacedRepetitionStrategy
-    ):
+    ) -> SchedulingStrategyResult:
         """Apply the specified optimization strategy."""
 
         if strategy == SchedulingStrategy.COGNITIVE_BALANCED:
@@ -1102,7 +1097,7 @@ class CalendarOptimizationService:
         return recommendations
 
     def _calculate_load_distribution(
-        self, optimization: dict[str, Any], task_loads: dict[str, CognitiveLoadAnalysis]
+        self, optimization: SchedulingStrategyResult, task_loads: dict[str, CognitiveLoadAnalysis]
     ) -> dict[str, float]:
         """Calculate cognitive load distribution by hour."""
         distribution = {}
@@ -1121,7 +1116,7 @@ class CalendarOptimizationService:
         return distribution
 
     def _calculate_energy_alignment_score(
-        self, optimization: dict[str, Any], energy_profile: EnergyProfile
+        self, optimization: SchedulingStrategyResult, energy_profile: EnergyProfile
     ) -> float:
         """Calculate how well the optimization aligns with user's energy patterns."""
         schedule = optimization.get("schedule", {})
@@ -1170,7 +1165,7 @@ class CalendarOptimizationService:
         return sum(progression_factors) / len(progression_factors)
 
     def _calculate_cognitive_balance_score(
-        self, task_loads: dict[str, CognitiveLoadAnalysis], optimization: dict[str, Any]
+        self, task_loads: dict[str, CognitiveLoadAnalysis], optimization: SchedulingStrategyResult
     ) -> float:
         """Calculate how well cognitive load is balanced throughout the day."""
         distribution = self._calculate_load_distribution(optimization, task_loads)
