@@ -24,13 +24,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
-from core.models.enums import Domain, EntityStatus, Priority
+from core.models.enums import Domain, EntityStatus, EntityType, Priority
 from core.models.pathways.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import PrerequisiteChecker
@@ -38,6 +38,7 @@ from core.services.infrastructure.learning_alignment_bridge import LearningAlign
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 # ========================================================================
 # CUSTOM VALIDATOR FOR TASKS DOMAIN
@@ -161,26 +162,15 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
                     )
                 )
 
-        # Create DTO from request
-        dto = TaskDTO.create_task(
-            user_uid=user_context.user_uid,
-            title=task_data.title,
-            priority=task_data.priority,
-            due_date=task_data.due_date,
-            duration_minutes=task_data.duration_minutes,
-            project=task_data.project,
-            tags=task_data.tags,
-        )
-
-        # Add learning integration fields (single UID properties only)
-        # (reinforces_habit_uid is a graph edge, written in the batch below)
-        dto.fulfills_goal_uid = task_data.fulfills_goal_uid
-        dto.goal_progress_contribution = getattr(task_data, "goal_progress_contribution", 0.0)
-        dto.knowledge_mastery_check = getattr(task_data, "knowledge_mastery_check", False)
-        dto.habit_streak_maintainer = getattr(task_data, "habit_streak_maintainer", False)
+        # Build the frozen Task end-to-end (ADR-035/ADR-065). from_request carries
+        # the single-UID learning fields (fulfills_goal_uid, goal_progress_contribution,
+        # knowledge_mastery_check, habit_streak_maintainer); relationship-typed request
+        # fields (reinforces_habit_uid, applies_knowledge_uids, …) become graph edges
+        # in the batch below.
+        task_model = Task.from_request(task_data, user_uid=user_context.user_uid)
 
         # Create task in backend
-        create_result = await self.backend.create(dto.to_dict())
+        create_result = await self.backend.create(task_model)
         if create_result.is_error:
             return Result.fail(create_result)
 
@@ -188,7 +178,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
 
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Collect all relationships for batch creation (10x faster)
-        relationships: list[tuple[str, str, str, None]] = []
+        relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
 
         # Habit reinforcement: graph edge (Task)-[:REINFORCES_HABIT]->(Habit)
         if task_data.reinforces_habit_uid:
@@ -316,20 +306,22 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing created task (without knowledge relationships yet)
         """
-        # Create task with curriculum linkage
-        task_dto = TaskDTO.create_task(
+        # Build the frozen Task with curriculum linkage (ADR-035/ADR-065).
+        task_model = Task(
+            uid=EntityUID(UIDGenerator.generate_random_uid("task")),
+            entity_type=EntityType.TASK,
             user_uid=_user_uid,
             title=task_title,
             source_path_step_uid=step_uid,
             # DEFERRED: Knowledge relationship creation (see docstring)
             knowledge_mastery_check=True,
             scheduled_date=date.today() + timedelta(days=1),
-            status=EntityStatus.DRAFT.value,
-            priority=Priority.MEDIUM.value,
+            status=EntityStatus.DRAFT,
+            priority=Priority.MEDIUM,
         )
 
         # Create via backend
-        create_result = await self.backend.create(task_dto.to_dict())
+        create_result = await self.backend.create(task_model)
         if create_result.is_error:
             return Result.fail(create_result)
 

@@ -23,15 +23,22 @@ RELATIONSHIP_SUCCESS = Result.ok([{"success": True}])
 
 @pytest.fixture
 def mock_backend():
-    """Create a mock reports backend."""
+    """Create a mock UserEntry backend (relationship + query ops)."""
     backend = MagicMock()
-    backend.create = AsyncMock()
     backend.find_by = AsyncMock()
     backend.execute_query = AsyncMock()
     backend.verify_teacher_authority = AsyncMock()
     backend.create_assessment_relationship = AsyncMock()
     backend.auto_share_assessment_with_student = AsyncMock()
     backend.get_assessments_for_student_raw = AsyncMock()
+    return backend
+
+
+@pytest.fixture
+def mock_report_backend():
+    """Create a mock ExerciseReport backend (canonical report-node create)."""
+    backend = MagicMock()
+    backend.create = AsyncMock()
     return backend
 
 
@@ -51,12 +58,13 @@ def mock_sharing_service():
 
 
 @pytest.fixture
-def core_service(mock_backend, mock_event_bus, mock_sharing_service):
+def core_service(mock_backend, mock_report_backend, mock_event_bus, mock_sharing_service):
     """Create AssessmentService with mocked deps."""
     from core.services.user_entry.assessment_service import AssessmentService
 
     return AssessmentService(
         backend=mock_backend,
+        report_backend=mock_report_backend,
         event_bus=mock_event_bus,
     )
 
@@ -70,9 +78,9 @@ class TestCreateAssessment:
     """Test create_assessment method."""
 
     @pytest.mark.asyncio
-    async def test_create_assessment_success(self, core_service, mock_backend):
+    async def test_create_assessment_success(self, core_service, mock_backend, mock_report_backend):
         """Test successful assessment creation."""
-        mock_backend.create.return_value = Result.ok(MagicMock())
+        mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
         mock_backend.create_assessment_relationship.return_value = RELATIONSHIP_SUCCESS
         mock_backend.auto_share_assessment_with_student.return_value = RELATIONSHIP_SUCCESS
@@ -85,9 +93,9 @@ class TestCreateAssessment:
         )
 
         assert not result.is_error
-        # Verify backend.create was called with an ExerciseReport
-        assert mock_backend.create.call_count == 1
-        created_ku = mock_backend.create.call_args[0][0]
+        # Verify the ExerciseReport backend.create was called with an ExerciseReport
+        assert mock_report_backend.create.call_count == 1
+        created_ku = mock_report_backend.create.call_args[0][0]
         assert isinstance(created_ku, ExerciseReport)
         assert created_ku.entity_type == EntityType.EXERCISE_REPORT
         assert created_ku.user_uid == "user_student"  # student always owns
@@ -96,9 +104,11 @@ class TestCreateAssessment:
         assert created_ku.title == "Midterm Assessment"
 
     @pytest.mark.asyncio
-    async def test_create_assessment_creates_relationships(self, core_service, mock_backend):
+    async def test_create_assessment_creates_relationships(
+        self, core_service, mock_backend, mock_report_backend
+    ):
         """Test that ASSESSMENT_OF and SHARES_WITH relationships are created."""
-        mock_backend.create.return_value = Result.ok(MagicMock())
+        mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
         mock_backend.create_assessment_relationship.return_value = RELATIONSHIP_SUCCESS
         mock_backend.auto_share_assessment_with_student.return_value = RELATIONSHIP_SUCCESS
@@ -116,10 +126,14 @@ class TestCreateAssessment:
         mock_backend.auto_share_assessment_with_student.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_create_assessment_backend_failure(self, core_service, mock_backend):
+    async def test_create_assessment_backend_failure(
+        self, core_service, mock_backend, mock_report_backend
+    ):
         """Test failure propagation from backend.create()."""
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
-        mock_backend.create.return_value = Result.fail(Errors.database("create", "Create failed"))
+        mock_report_backend.create.return_value = Result.fail(
+            Errors.database("create", "Create failed")
+        )
 
         result = await core_service.create_assessment(
             teacher_uid="user_teacher",
@@ -131,9 +145,11 @@ class TestCreateAssessment:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_create_assessment_with_metadata(self, core_service, mock_backend):
+    async def test_create_assessment_with_metadata(
+        self, core_service, mock_backend, mock_report_backend
+    ):
         """Test metadata is passed through."""
-        mock_backend.create.return_value = Result.ok(MagicMock())
+        mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
         mock_backend.create_assessment_relationship.return_value = RELATIONSHIP_SUCCESS
         mock_backend.auto_share_assessment_with_student.return_value = RELATIONSHIP_SUCCESS
@@ -146,11 +162,13 @@ class TestCreateAssessment:
             metadata={"rubric": "A"},
         )
 
-        created_ku = mock_backend.create.call_args[0][0]
+        created_ku = mock_report_backend.create.call_args[0][0]
         assert created_ku.metadata == {"rubric": "A"}
 
     @pytest.mark.asyncio
-    async def test_create_assessment_no_authority(self, core_service, mock_backend):
+    async def test_create_assessment_no_authority(
+        self, core_service, mock_backend, mock_report_backend
+    ):
         """Test that teacher without shared group is rejected."""
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_NO_MATCH
 
@@ -163,15 +181,15 @@ class TestCreateAssessment:
 
         assert result.is_error
         assert "authority" in str(result.expect_error()).lower()
-        # backend.create should NOT have been called
-        mock_backend.create.assert_not_called()
+        # report backend create should NOT have been called
+        mock_report_backend.create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_create_assessment_relationship_failure_propagated(
-        self, core_service, mock_backend
+        self, core_service, mock_backend, mock_report_backend
     ):
         """Test that relationship creation failure is propagated (not swallowed)."""
-        mock_backend.create.return_value = Result.ok(MagicMock())
+        mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
         mock_backend.create_assessment_relationship.return_value = Result.fail(
             Errors.database("create_assessment_relationship", "Neo4j connection lost")
@@ -189,10 +207,10 @@ class TestCreateAssessment:
 
     @pytest.mark.asyncio
     async def test_create_assessment_shares_with_failure_propagated(
-        self, core_service, mock_backend
+        self, core_service, mock_backend, mock_report_backend
     ):
         """Test that SHARES_WITH failure is propagated (not swallowed)."""
-        mock_backend.create.return_value = Result.ok(MagicMock())
+        mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
         mock_backend.create_assessment_relationship.return_value = RELATIONSHIP_SUCCESS
         mock_backend.auto_share_assessment_with_student.return_value = Result.fail(

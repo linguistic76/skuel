@@ -24,7 +24,6 @@ from core.models.type_hints import EntityUID, UserUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.entity_types import SubmissionEntity
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
@@ -197,7 +196,7 @@ class UserEntryOrchestrator:
 
     async def get_assessments_for_student(
         self, user_uid: UserUID, limit: int = 50
-    ) -> Result[list[SubmissionEntity]]:
+    ) -> Result[list[ExerciseReport]]:
         """Assessments (EXERCISE_REPORT entities) received by a student."""
         return await self._assessment.get_assessments_for_student(user_uid, limit)
 

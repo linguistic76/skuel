@@ -16,11 +16,10 @@ Moved from core/services/submissions/ per ADR-054.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from core.events import publish_event
 from core.events.learning_loop_events import AssessmentCreated
-from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
@@ -28,6 +27,7 @@ from core.models.report.exercise_report import ExerciseReport
 from core.models.report.exercise_report_dto import ExerciseReportDTO
 from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.ports.report_protocols import ExerciseReportBackendOperations
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -54,9 +54,14 @@ class AssessmentService:
     def __init__(
         self,
         backend: UserEntryOperations,
+        report_backend: ExerciseReportBackendOperations,
         event_bus: EventBusOperations | None = None,
     ) -> None:
         self.backend = backend
+        # Canonical report-node creation goes through the ExerciseReport backend
+        # so assessment nodes carry :Entity:ExerciseReport labels (not :UserEntry).
+        # The UserEntry backend still serves the assessment's relationship/query ops.
+        self.report_backend = report_backend
         self.event_bus = event_bus
         self.logger = logger
 
@@ -120,10 +125,10 @@ class AssessmentService:
             subject_uid=subject_uid,
             created_by=teacher_uid,
             visibility=Visibility.SHARED,
-            metadata=metadata,
+            metadata=metadata or {},
         )
 
-        result = await self.backend.create(assessment)
+        result = await self.report_backend.create(assessment)
         if result.is_error:
             return Result.fail(result)
 
@@ -169,7 +174,7 @@ class AssessmentService:
     @with_error_handling("get_assessments_for_student", error_type="database")
     async def get_assessments_for_student(
         self, student_uid: str, limit: int = 50
-    ) -> Result[list[SubmissionEntity]]:
+    ) -> Result[list[ExerciseReport]]:
         """
         Get assessments received by a student.
 
@@ -187,9 +192,11 @@ class AssessmentService:
 
         reports = []
         for record in result.value or []:
-            node = record["report"]
+            # record["report"] is a nested node-map; the flat Neo4jProperties
+            # alias can't express nested dicts. boundary: neo4j-node-map
+            node = cast("dict[str, Any]", record["report"])
             dto = ExerciseReportDTO.from_dict(node)
-            reports.append(Entity.from_dto(dto))
+            reports.append(ExerciseReport.from_dto(dto))
         return Result.ok(reports)
 
     @with_error_handling("get_assessments_by_teacher", error_type="database")
