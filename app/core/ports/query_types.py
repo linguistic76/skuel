@@ -1093,7 +1093,7 @@ class ContextDashboard(TypedDict, total=False):
 
     Core Fields:
         user_uid: User identifier
-        context_version: Context version number
+        context_version: Context version label (semver string, e.g. "3.0")
         last_refresh: ISO timestamp of last refresh
         time_window: Time window for analytics (e.g., "7d", "30d")
 
@@ -1117,7 +1117,7 @@ class ContextDashboard(TypedDict, total=False):
     """
 
     user_uid: UserUID
-    context_version: int
+    context_version: str
     last_refresh: str
     time_window: str
     tasks: DashboardTasksOverview

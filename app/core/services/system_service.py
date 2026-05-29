@@ -145,7 +145,7 @@ class SystemService:
         Returns:
             Result containing system information
         """
-        info = {
+        info: SystemInfoResult = {
             "service": "SKUEL",
             "version": "2.0.0",
             "timestamp": datetime.now().isoformat(),
@@ -175,7 +175,7 @@ class SystemService:
             name for name, comp in components.items() if not comp.get("healthy", False)
         ]
 
-        summary = {
+        summary: HealthSummaryResult = {
             "healthy": health_data["healthy"],
             "status": health_data["status"],
             "components_total": total,

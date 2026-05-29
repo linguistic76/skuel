@@ -556,7 +556,7 @@ class LpIntelligenceService(
 
         blocked_count = len(analysis.get("blocked_steps", []))
 
-        enhanced_analysis = {
+        enhanced_analysis: LpBlockerAnalysis = {
             **analysis,
             "recommendations": recommendations,
             "status": "blocked" if blocked_count > 0 else "ready",
@@ -600,6 +600,7 @@ class LpIntelligenceService(
         recommendations = record["recommendations"]["recommended_paths"] if record else []
 
         # Format recommendation
+        recommendation: LpPathRecommendation
         if recommendations:
             top_rec = recommendations[0]
             recommendation = {
