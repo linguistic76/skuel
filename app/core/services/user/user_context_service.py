@@ -473,7 +473,7 @@ class UserContextService:
 
         health: ContextHealthResult = {
             "user_uid": user_uid,
-            "overall_health": self._calculate_health_score(summary).get_numeric(),
+            "overall_health": self._calculate_health_score(summary),
             "metrics": summary.get("key_metrics", {}),
             "alerts": summary.get("alerts", []),
             "insights": summary.get("insights", {}),

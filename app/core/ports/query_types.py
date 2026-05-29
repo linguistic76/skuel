@@ -58,6 +58,7 @@ from core.models.type_hints import Neo4jProperties, UserUID
 if TYPE_CHECKING:
     from datetime import date, datetime
 
+    from core.models.enums import ContextHealthScore
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
 
@@ -1272,10 +1273,13 @@ class ContextHealthResult(TypedDict, total=False):
 
     Overall context system health: composite health score, key metrics,
     alerts, insights, and generated recommendations.
+
+    ``overall_health`` is a ``ContextHealthScore`` StrEnum (e.g. ``"good"``);
+    it serializes to its string value over ``/api/context/health``.
     """
 
     user_uid: str
-    overall_health: float
+    overall_health: ContextHealthScore
     metrics: KeyMetrics
     alerts: list[ContextAlert]
     insights: ContextInsights
