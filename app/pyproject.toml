@@ -190,6 +190,22 @@ exclude = [
 ]
 
 # Per-module configuration for SKUEL-specific patterns
+
+[[tool.mypy.overrides]]
+# arg-type ENFORCED on core/ (re-enabled 2026-05-29). The 12-PR sweep
+# (plan humble-swinging-penguin) drove `mypy --enable-error-code arg-type core`
+# from 194 → 0; ~80% of those were real signal — Result.fail propagation,
+# enum/NewType boundaries, DTO↔frozen-model crossings, typed-payload discipline
+# (ADR-035/ADR-065). arg-type is the enforcement layer named in
+# docs/roadmap/functional-direction.md. It stays globally disabled (above)
+# because the un-swept first-party trees (adapters 81, ui 78, services_bootstrap
+# 32) and the framework-noise trees (tests, scripts) still carry ~1800 sites
+# that were never in the sweep's scope. Enabling it here makes core/ the live
+# enforcement surface without breaking CI on the un-swept trees. Extending the
+# enforcement to adapters/ui/services_bootstrap is a future sweep, not this flip.
+module = ["core.*"]
+enable_error_code = ["arg-type"]
+
 [[tool.mypy.overrides]]
 # Core ports — strict typing enforced (0 untyped defs as of 2026-03-27).
 # warn_return_any added 2026-05-16 after fixing 10 no-any-return errors in
@@ -355,8 +371,11 @@ disable_error_code = ["method-assign", "type-var", "misc"]
 # ============================================================================
 # Complements MyPy. The differentiator is reportAttributeAccessIssue +
 # reportPossiblyUnboundVariable — pyright catches missing protocol attributes
-# and branch-bound variables that mypy's defaults let through (`arg-type` is
-# globally disabled in mypy above, which masks the same category).
+# and branch-bound variables that mypy's defaults let through. `arg-type` is now
+# enforced by mypy on `core/` (per-module override above, re-enabled 2026-05-29)
+# but remains globally disabled for the un-swept trees (adapters/ui/
+# services_bootstrap/tests/scripts); pyright's reportArgumentType is the
+# cross-tree backstop for argument-type mismatches outside core/.
 #
 # Mode is "basic" + selectively-elevated rules. Strict mode floods on Result[T]
 # inference (12k+ reportUnknown* warnings); basic mode + targeted rules is
