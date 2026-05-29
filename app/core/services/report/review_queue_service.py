@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import neo4j_str, neo4j_str_list
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -115,7 +116,19 @@ class ReviewQueueService:
             if result.is_error:
                 return Result.fail(result)
 
-            return Result.ok(result.value or [])
+            items: list[PendingReviewItem] = [
+                PendingReviewItem(
+                    uid=neo4j_str(row, "uid", ""),
+                    user_uid=neo4j_str(row, "user_uid", ""),
+                    time_period=neo4j_str(row, "time_period", ""),
+                    domains=neo4j_str_list(row, "domains"),
+                    message=neo4j_str(row, "message", ""),
+                    created_at=neo4j_str(row, "created_at", ""),
+                    username=neo4j_str(row, "username", ""),
+                )
+                for row in (result.value or [])
+            ]
+            return Result.ok(items)
 
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to get pending reviews: {e}")

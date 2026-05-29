@@ -26,6 +26,7 @@ from core.ports.domain_protocols import HabitsOperations
 from core.utils.completion_exporter import export_completions_csv, export_completions_json
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_completed_at
 
@@ -568,7 +569,7 @@ class HabitsCompletionService:
             badges_result = await self.habits_backend.get_user_badges(user_uid)
             if badges_result.is_ok:
                 for badge_record in badges_result.value:
-                    earned_badge_ids.add(badge_record.get("badge_id", ""))
+                    earned_badge_ids.add(neo4j_str(badge_record, "badge_id", ""))
 
         def _badge_entry(badge_id: str, current: int | float, target: int) -> dict[str, Any]:
             """Build badge progress dict, marking as unlocked if persisted OR threshold met."""
