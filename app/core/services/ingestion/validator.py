@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 from core.constants import SYSTEM_USER_UID
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -569,7 +570,7 @@ async def validate_relationship_targets(
     try:
         for label, uids in uids_by_label.items():
             existing_uids.update(
-                await write_backend.find_existing_uids_for_label(label, list(uids))
+                await write_backend.find_existing_uids_for_label(NeoLabel(label), list(uids))
             )
 
     except NEO4J_EXCEPTIONS as e:

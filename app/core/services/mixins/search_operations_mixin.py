@@ -43,6 +43,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.enums import EntityStatus
+from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -293,7 +294,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         result = await self.backend.relationship_traversal_raw(
             source_uid=related_uid,
             relationship_type=relationship_type.value,
-            target_label=self.config_lookup_label,
+            target_label=NeoLabel(self.config_lookup_label),
             direction=direction,
         )
         if result.is_error:
@@ -507,7 +508,11 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.faceted_search_raw(
             user_uid,
-            user_ownership_relationship=self._user_ownership_relationship,
+            user_ownership_relationship=(
+                RelationshipName.from_string(self._user_ownership_relationship)
+                if self._user_ownership_relationship
+                else None
+            ),
             search_fields=self._search_fields,
             search_order_by=self._search_order_by,
             graph_enrichment_patterns=self._graph_enrichment_patterns,

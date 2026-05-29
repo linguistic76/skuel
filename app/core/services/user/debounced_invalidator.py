@@ -59,7 +59,7 @@ class DebouncedContextInvalidator:
 
     def __init__(
         self,
-        invalidate_fn: Callable[[str, str, list[str] | None], Coroutine[Any, Any, None]],
+        invalidate_fn: Callable[[UserUID, str, list[str] | None], Coroutine[Any, Any, None]],
         delay_ms: int = 100,
     ) -> None:
         """
@@ -74,8 +74,8 @@ class DebouncedContextInvalidator:
         """
         self._invalidate_fn = invalidate_fn
         self._delay_seconds = delay_ms / 1000
-        self._pending: dict[str, asyncio.Task[None]] = {}
-        self._pending_reasons: dict[str, list[str]] = {}
+        self._pending: dict[UserUID, asyncio.Task[None]] = {}
+        self._pending_reasons: dict[UserUID, list[str]] = {}
         self._stats = {
             "requests_received": 0,
             "requests_debounced": 0,
