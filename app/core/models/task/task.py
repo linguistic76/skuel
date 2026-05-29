@@ -265,24 +265,18 @@ class Task(UserOwnedEntity):
 
         return domain_to_dto(self, TaskDTO)
 
-    # =========================================================================
-    # TWO-TIER CONVERSION (Spike: collapse three-tier → two-tier for Tasks)
-    # =========================================================================
-    # These three methods let Task replace TaskDTO as the transfer carrier:
-    # - from_request: TaskCreateRequest (Pydantic) → Task (frozen) — was DTO
-    # - to_dict: Task → JSON-ready dict for Neo4j write
-    # - from_dict: Neo4j dict → Task (reads were already direct via from_neo4j_node;
-    #              this is a convenience for code that explicitly serialises through dict)
-    # =========================================================================
-
     @classmethod
     def from_request(cls, request: "TaskCreateRequest", *, user_uid: "UserUID") -> "Task":
-        """Construct a Task directly from a TaskCreateRequest.
+        """Construct a frozen Task from a validated TaskCreateRequest.
 
-        Replaces the TaskDTO intermediate. Only fields persisted as node
-        properties live on Task; relationship-typed request fields
-        (applies_knowledge_uids, reinforces_habit_uid, etc.) are written as
-        graph edges by the service layer after construction.
+        Only fields persisted as node properties live on Task; relationship-typed
+        request fields (``applies_knowledge_uids``, ``reinforces_habit_uid``,
+        etc.) are written as graph edges by the service layer after construction.
+
+        Persistence goes through ``self.to_dto().to_dict()`` (ADR-035 three-tier
+        contract). This factory exists so the create path stays frozen-domain
+        end-to-end up to the persistence boundary — inference enrichment is
+        applied via ``dataclasses.replace`` on the result, not via DTO mutation.
         """
         from core.models.type_hints import EntityUID
         from core.utils.uid_generator import UIDGenerator
@@ -309,49 +303,6 @@ class Task(UserOwnedEntity):
             knowledge_mastery_check=request.knowledge_mastery_check,
             habit_streak_maintainer=request.habit_streak_maintainer,
         )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialise Task to a JSON-ready dict for Neo4j persistence.
-
-        Mirrors the output of TaskDTO.to_dict(). Built with a shallow
-        ``dataclasses.fields()`` walk (NOT ``asdict()``) because Task wraps
-        ``metadata`` and ``knowledge_*_metadata`` in ``MappingProxyType`` for
-        deep immutability — ``asdict()`` deep-copies and crashes with
-        ``cannot pickle 'mappingproxy' object`` on those fields.
-        """
-        import dataclasses
-        from datetime import date as date_t
-        from datetime import datetime as datetime_t
-        from enum import Enum as EnumT
-        from types import MappingProxyType
-
-        data: dict[str, Any] = {}
-        for f in dataclasses.fields(self):
-            if f.name.startswith("_"):
-                continue
-            value = getattr(self, f.name)
-            if isinstance(value, MappingProxyType):
-                value = dict(value)
-            elif isinstance(value, EnumT):
-                value = value.value
-            elif isinstance(value, (datetime_t, date_t)):
-                value = value.isoformat()
-            elif isinstance(value, tuple):
-                value = list(value)
-            data[f.name] = value
-        return data
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Task":
-        """Reconstruct a Task from a Neo4j-shaped property dict.
-
-        Delegates to the generic Neo4j mapper that the backend read path
-        already uses (`from_neo4j_node`). Provided as a convenience so callers
-        do not have to import from `core.utils.neo4j_mapper` directly.
-        """
-        from core.utils.neo4j_mapper import from_neo4j_node
-
-        return from_neo4j_node(data, cls)
 
     def __str__(self) -> str:
         return f"Task(uid={self.uid}, title='{self.title}', due={self.due_date})"
