@@ -560,7 +560,9 @@ class FinanceService:
             return CategoryInfo(
                 name=category.name,
                 code=category.code,
-                description=category.description,
+                # NOTE: source CategoryInfo (finance_categories) has description: str | None,
+                # target (finance_types) requires str — duplicate-class drift, flagged for consolidation.
+                description=category.description or "",
                 tags=list(category.tags),
                 parent=category.parent_code,
                 path=f"{category.parent_code}.{category.code}"

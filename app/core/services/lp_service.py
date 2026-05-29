@@ -575,7 +575,7 @@ class LpService:
         return await self.create_path(
             user_uid=user_uid,
             title=entity.title,
-            description=entity.description,
+            description=entity.description or "",
             steps=steps,
             domain=entity.domain,
         )

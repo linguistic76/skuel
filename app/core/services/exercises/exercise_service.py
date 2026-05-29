@@ -214,7 +214,7 @@ class ExerciseService(BaseService):
             instructions=instructions,
             model=model,
             context_notes=tuple(context_notes) if context_notes else (),
-            domain=domain,
+            domain=domain if domain is not None else Domain.KNOWLEDGE,
             scope=scope,
             due_date=due_date,
             group_uid=group_uid,
@@ -507,10 +507,12 @@ class ExerciseService(BaseService):
         """
         from pathlib import Path
 
-        path = instructions_path or os.getenv(
-            "SKUEL_TRANSCRIPT_INSTRUCTIONS_PATH",
-            str(Path(__file__).parents[3] / "data" / "instructions - transcripts 0.md"),
-        )
+        path = instructions_path
+        if path is None:
+            path = os.getenv(
+                "SKUEL_TRANSCRIPT_INSTRUCTIONS_PATH",
+                str(Path(__file__).parents[3] / "data" / "instructions - transcripts 0.md"),
+            )
 
         return await self.load_exercise_from_file(
             file_path=path,

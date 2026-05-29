@@ -710,7 +710,11 @@ class ContextRetriever:
         if not service or not uid_dicts:
             return []
 
-        uids = [item.get("uid") for item in uid_dicts if isinstance(item, dict) and item.get("uid")]
+        uids = [
+            uid
+            for item in uid_dicts
+            if isinstance(item, dict) and isinstance((uid := item.get("uid")), str) and uid
+        ]
         if not uids:
             return []
 

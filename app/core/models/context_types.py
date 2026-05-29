@@ -112,7 +112,7 @@ def _compute_relevance(
     goal_uids: list[str],
     principle_uids: list[str],
     active_goal_uids: set[str] | list[str],
-    primary_goal_focus: str,
+    primary_goal_focus: str | None,
     core_principle_uids: set[str] | list[str],
     principle_priorities: dict[str, float],
 ) -> float:
@@ -123,7 +123,7 @@ def _compute_relevance(
         goal_uids: Goals this entity contributes to
         principle_uids: Principles this entity aligns with
         active_goal_uids: User's active goals
-        primary_goal_focus: User's primary goal UID
+        primary_goal_focus: User's primary goal UID (None if unset)
         core_principle_uids: User's core principles
         principle_priorities: Map of principle_uid -> priority weight
 
