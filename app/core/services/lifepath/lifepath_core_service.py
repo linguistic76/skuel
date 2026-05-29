@@ -30,6 +30,7 @@ from .lifepath_types import LifePathDesignation
 
 if TYPE_CHECKING:
     from core.ports.lifepath_protocols import LifePathBackendOperations
+    from core.ports.query_types import AlignmentDimensions
     from core.services.lp_service import LpService
 
 logger = get_logger(__name__)
@@ -287,7 +288,7 @@ class LifePathCoreService:
         self,
         user_uid: UserUID,
         alignment_score: float,
-        dimension_scores: dict[str, float] | None = None,
+        dimension_scores: AlignmentDimensions | None = None,
     ) -> Result[bool]:
         """
         Update life path alignment score on the ULTIMATE_PATH relationship.

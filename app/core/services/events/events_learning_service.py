@@ -20,7 +20,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.event.event_request import EventCreateRequest
 from core.models.pathways.lp_position import LpPosition
-from core.models.type_hints import UserUID
+from core.models.type_hints import FilterParams, UserUID
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -107,10 +107,10 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         """
         end_date = date.today() + timedelta(days=days_ahead)
 
-        filters = {
+        filters: FilterParams = {
             "user_uid": user_uid,
-            "event_date__gte": date.today(),
-            "event_date__lte": end_date,
+            "event_date__gte": date.today().isoformat(),
+            "event_date__lte": end_date.isoformat(),
         }
 
         result = await self.backend.list(filters=filters)

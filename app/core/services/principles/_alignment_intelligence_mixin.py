@@ -387,7 +387,13 @@ class _AlignmentIntelligenceMixin:
             return
 
         # Create assessment
-        user_level = assessment_data.get("user_level")
+        raw_level = assessment_data.get("user_level")
+        if isinstance(raw_level, AlignmentLevel):
+            user_level = raw_level
+        elif isinstance(raw_level, str) and raw_level in set(AlignmentLevel):
+            user_level = AlignmentLevel(raw_level)
+        else:
+            user_level = AlignmentLevel.UNKNOWN
         user_evidence = assessment_data.get("user_evidence", "")
         user_reflection = assessment_data.get("user_reflection")
 

@@ -57,6 +57,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
+    from core.ports.query_types import KnowledgePrerequisitesResult
     from core.services.relationships import UnifiedRelationshipService
 
 
@@ -160,18 +161,21 @@ class TasksIntelligenceService(
 
         from core.utils.intelligence_queries import get_knowledge_prerequisites
 
-        prereq_result = await get_knowledge_prerequisites(
-            graph=self.graph_intel, entity_uid=EntityUID(uid), depth=GraphDepth.DEFAULT
-        )
-        prerequisites = prereq_result.value if prereq_result.is_ok else {}
+        prerequisites: KnowledgePrerequisitesResult = {}
+        if self.graph_intel is not None:
+            prereq_result = await get_knowledge_prerequisites(
+                graph=self.graph_intel, entity_uid=EntityUID(uid), depth=GraphDepth.DEFAULT
+            )
+            if prereq_result.is_ok:
+                prerequisites = prereq_result.value
 
         insights = {
             "task_uid": uid,
             "task_title": task.title,
             "status": task.status.value if task.status else None,
             "priority": task.priority if task.priority else None,
-            "knowledge_prerequisites": prerequisites.get("prerequisites", []),
-            "has_prerequisites": len(prerequisites.get("prerequisites", [])) > 0,
+            "knowledge_prerequisites": prerequisites.get("required_knowledge", []),
+            "has_prerequisites": len(prerequisites.get("required_knowledge", [])) > 0,
             "insights": {
                 "is_overdue": task.is_overdue()
                 if callable(getattr(task, "is_overdue", None))

@@ -507,7 +507,7 @@ class CalendarService:
             color=color,
             icon=CalendarItemType.TASK_WORK.get_icon(),
             priority=Priority(task.priority).to_numeric() if task.priority else 1,
-            tags=task.tags or [],
+            tags=list(task.tags),
             metadata={
                 "status": task.status.value if task.status else "pending",
                 "priority": task.priority if task.priority else "medium",
@@ -555,7 +555,7 @@ class CalendarService:
             icon=CalendarItemType.EVENT.get_icon(),
             priority=1,
             category=event.event_type if event.event_type else "PERSONAL",
-            tags=event.tags or [],
+            tags=list(event.tags),
             # Multi-attendee event support
             attendee_emails=event.attendee_emails,
             max_attendees=event.max_attendees,
