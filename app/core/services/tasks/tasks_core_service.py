@@ -18,6 +18,7 @@ Handles basic task lifecycle management.
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -32,6 +33,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.task.task_inference_result import TaskInferenceResult
 from core.models.task.task_request import TaskCreateRequest
 from core.ports.query_types import ParentProgressResult, TaskStats, TaskUpdatePayload
 from core.services.base_service import BaseService
@@ -176,28 +178,30 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
     # ========================================================================
 
     @with_error_handling("knowledge_inference", error_type="system")
-    async def _enhance_with_knowledge_inference(self, dto: TaskDTO) -> Result[TaskDTO | None]:
-        """
-        Apply automatic knowledge inference to enhance a task DTO.
+    async def _enhance_with_knowledge_inference(
+        self, task: Task
+    ) -> Result[TaskInferenceResult | None]:
+        """Compute knowledge enrichment for a task draft.
 
-        Returns Result.ok(None) if inference service not configured (feature disabled).
-        Fails fast if inference service IS configured but fails.
+        ADR-065: inference returns a typed ``TaskInferenceResult`` and does not
+        mutate the input. This method returns ``Result.ok(None)`` when the
+        inference service is not configured (feature disabled).
         """
         if not self.ku_inference_service:
             # Feature not configured - this is OK, return None
             return Result.ok(None)
 
-        inference_result = await self.ku_inference_service.enhance_task_dto_with_inference(dto)
+        inference_result = await self.ku_inference_service.enhance_task_dto_with_inference(task)
         if inference_result.is_error:
             return Result.fail(inference_result)
 
-        enhanced_dto = inference_result.value
+        enrichment = inference_result.value
         self.logger.debug(
-            "Knowledge inference applied to task '%s': opportunities=%d",
-            dto.title,
-            enhanced_dto.learning_opportunities_count,
+            "Knowledge inference computed for task '%s': opportunities=%d",
+            task.title,
+            enrichment.learning_opportunities_count,
         )
-        return Result.ok(enhanced_dto)
+        return Result.ok(enrichment)
 
     @with_error_handling("create_task", error_type="database")
     async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:
@@ -216,43 +220,32 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         if validation:
             return Result.fail(validation)
 
-        # Create DTO from request with all fields
-        from core.utils.uid_generator import UIDGenerator
+        # Construct the frozen Task directly from the request.
+        # ADR-065: inference now returns a typed ``TaskInferenceResult`` — we
+        # apply it functionally via ``dataclasses.replace`` instead of
+        # mutating a DTO. The Task↔DTO round-trip for persistence is
+        # preserved because TaskDTO is still the serialisation surface.
+        task_draft = Task.from_request(task_request, user_uid=user_uid)
 
-        dto = TaskDTO(
-            uid=UIDGenerator.generate_random_uid("task"),
-            entity_type=EntityType.TASK,
-            user_uid=user_uid,
-            title=task_request.title,
-            description=task_request.description,
-            priority=task_request.priority,
-            due_date=task_request.due_date,
-            scheduled_date=task_request.scheduled_date,
-            duration_minutes=task_request.duration_minutes,
-            project=task_request.project,
-            assignee=task_request.assignee,
-            tags=task_request.tags,
-            parent_uid=task_request.parent_uid,
-            recurrence_pattern=task_request.recurrence_pattern,
-            recurrence_end_date=task_request.recurrence_end_date,
-            fulfills_goal_uid=task_request.fulfills_goal_uid,
-            goal_progress_contribution=getattr(task_request, "goal_progress_contribution", 0.0),
-            knowledge_mastery_check=getattr(task_request, "knowledge_mastery_check", False),
-            habit_streak_maintainer=getattr(task_request, "habit_streak_maintainer", False),
+        if self.ku_inference_service:
+            inference_result = await self._enhance_with_knowledge_inference(task_draft)
+            if inference_result.is_error:
+                return Result.fail(inference_result)
+            enrichment = inference_result.value
+            if enrichment is not None:
+                task_draft = dataclasses.replace(task_draft, **enrichment.as_kwargs())
+
+        payload = task_draft.to_dict()
+
+        # Create task via backend and convert response back to Task
+        create_result = await self.backend.create(payload)
+        if create_result.is_error:
+            return Result.fail(create_result)
+        task = (
+            Task.from_dict(create_result.value)
+            if isinstance(create_result.value, dict)
+            else self._to_domain_model(create_result.value, TaskDTO, Task)
         )
-
-        # Apply automatic knowledge inference (fail-fast if configured)
-        inference_result = await self._enhance_with_knowledge_inference(dto)
-        if inference_result.is_error:
-            return Result.fail(inference_result)
-        if inference_result.value:
-            dto = inference_result.value
-
-        # Create task via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), TaskDTO, Task)
-        if result.is_error:
-            return result
-        task = result.value
 
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Create knowledge relationships from request using batch operation for performance

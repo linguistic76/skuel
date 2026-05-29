@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.task.task_dto import TaskDTO
+    from core.models.task.task_request import TaskCreateRequest
+    from core.models.type_hints import UserUID
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
@@ -262,6 +264,94 @@ class Task(UserOwnedEntity):
         from core.models.task.task_dto import TaskDTO
 
         return domain_to_dto(self, TaskDTO)
+
+    # =========================================================================
+    # TWO-TIER CONVERSION (Spike: collapse three-tier → two-tier for Tasks)
+    # =========================================================================
+    # These three methods let Task replace TaskDTO as the transfer carrier:
+    # - from_request: TaskCreateRequest (Pydantic) → Task (frozen) — was DTO
+    # - to_dict: Task → JSON-ready dict for Neo4j write
+    # - from_dict: Neo4j dict → Task (reads were already direct via from_neo4j_node;
+    #              this is a convenience for code that explicitly serialises through dict)
+    # =========================================================================
+
+    @classmethod
+    def from_request(cls, request: "TaskCreateRequest", *, user_uid: "UserUID") -> "Task":
+        """Construct a Task directly from a TaskCreateRequest.
+
+        Replaces the TaskDTO intermediate. Only fields persisted as node
+        properties live on Task; relationship-typed request fields
+        (applies_knowledge_uids, reinforces_habit_uid, etc.) are written as
+        graph edges by the service layer after construction.
+        """
+        from core.models.type_hints import EntityUID
+        from core.utils.uid_generator import UIDGenerator
+
+        return cls(
+            uid=EntityUID(UIDGenerator.generate_random_uid("task")),
+            entity_type=EntityType.TASK,
+            user_uid=user_uid,
+            title=request.title,
+            description=request.description,
+            priority=request.priority,
+            status=request.status,
+            due_date=request.due_date,
+            scheduled_date=request.scheduled_date,
+            duration_minutes=request.duration_minutes,
+            project=request.project,
+            assignee=request.assignee,
+            tags=tuple(request.tags),
+            parent_uid=request.parent_uid,
+            recurrence_pattern=request.recurrence_pattern,
+            recurrence_end_date=request.recurrence_end_date,
+            fulfills_goal_uid=request.fulfills_goal_uid,
+            goal_progress_contribution=request.goal_progress_contribution,
+            knowledge_mastery_check=request.knowledge_mastery_check,
+            habit_streak_maintainer=request.habit_streak_maintainer,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialise Task to a JSON-ready dict for Neo4j persistence.
+
+        Mirrors the output of TaskDTO.to_dict(). Built with a shallow
+        ``dataclasses.fields()`` walk (NOT ``asdict()``) because Task wraps
+        ``metadata`` and ``knowledge_*_metadata`` in ``MappingProxyType`` for
+        deep immutability — ``asdict()`` deep-copies and crashes with
+        ``cannot pickle 'mappingproxy' object`` on those fields.
+        """
+        import dataclasses
+        from datetime import date as date_t
+        from datetime import datetime as datetime_t
+        from enum import Enum as EnumT
+        from types import MappingProxyType
+
+        data: dict[str, Any] = {}
+        for f in dataclasses.fields(self):
+            if f.name.startswith("_"):
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, MappingProxyType):
+                value = dict(value)
+            elif isinstance(value, EnumT):
+                value = value.value
+            elif isinstance(value, (datetime_t, date_t)):
+                value = value.isoformat()
+            elif isinstance(value, tuple):
+                value = list(value)
+            data[f.name] = value
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Task":
+        """Reconstruct a Task from a Neo4j-shaped property dict.
+
+        Delegates to the generic Neo4j mapper that the backend read path
+        already uses (`from_neo4j_node`). Provided as a convenience so callers
+        do not have to import from `core.utils.neo4j_mapper` directly.
+        """
+        from core.utils.neo4j_mapper import from_neo4j_node
+
+        return from_neo4j_node(data, cls)
 
     def __str__(self) -> str:
         return f"Task(uid={self.uid}, title='{self.title}', due={self.due_date})"

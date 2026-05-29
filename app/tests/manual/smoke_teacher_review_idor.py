@@ -65,8 +65,7 @@ def login(client: httpx.Client, email: str, expected_uid: str) -> None:
         follow_redirects=False,
     )
     assert resp.status_code == 303, (
-        f"login POST → {resp.status_code}, expected 303 redirect. "
-        f"Body: {resp.text[:300]}"
+        f"login POST → {resp.status_code}, expected 303 redirect. Body: {resp.text[:300]}"
     )
     # Session validation happens implicitly via the first /api/teaching/* call
     # below (401 if the cookie isn't set, 403 if not TEACHER role).
@@ -89,44 +88,54 @@ def check(label: str, condition: bool, detail: str = "") -> None:
         sys.exit(1)
 
 
-def smoke_teacher(client: httpx.Client, who: str, *,
-                  expected_own_sub: str, foreign_sub: str,
-                  foreign_student: str) -> None:
+def smoke_teacher(
+    client: httpx.Client, who: str, *, expected_own_sub: str, foreign_sub: str, foreign_student: str
+) -> None:
     print(f"\n[{who}] review queue")
     status, body = get_json(client, "/api/teaching/review-queue")
     check("HTTP 200", status == 200, f"got {status}: {str(body)[:200]}")
     assert isinstance(body, list)
     uids = {row.get("submission_uid") for row in body}
-    check(f"own submission {expected_own_sub} in queue",
-          expected_own_sub in uids,
-          f"queue uids = {uids}")
-    check(f"foreign submission {foreign_sub} NOT in queue",
-          foreign_sub not in uids,
-          f"queue uids = {uids}")
+    check(
+        f"own submission {expected_own_sub} in queue",
+        expected_own_sub in uids,
+        f"queue uids = {uids}",
+    )
+    check(
+        f"foreign submission {foreign_sub} NOT in queue",
+        foreign_sub not in uids,
+        f"queue uids = {uids}",
+    )
 
     print(f"[{who}] cross-classroom submission detail probe")
     status, body = get_json(client, f"/api/teaching/review/{foreign_sub}")
-    check(f"GET /review/{foreign_sub} returns 404 (not 200/403)",
-          status == 404,
-          f"got {status}: {str(body)[:200]}")
+    check(
+        f"GET /review/{foreign_sub} returns 404 (not 200/403)",
+        status == 404,
+        f"got {status}: {str(body)[:200]}",
+    )
 
     print(f"[{who}] cross-classroom student history probe")
     status, body = get_json(client, f"/api/teaching/students/{foreign_student}/submissions")
-    check(f"GET /students/{foreign_student}/submissions HTTP 200",
-          status == 200,
-          f"got {status}: {str(body)[:200]}")
-    check(f"foreign student history is empty",
-          body == [],
-          f"got {body}")
+    check(
+        f"GET /students/{foreign_student}/submissions HTTP 200",
+        status == 200,
+        f"got {status}: {str(body)[:200]}",
+    )
+    check("foreign student history is empty", body == [], f"got {body}")
 
     print(f"[{who}] own submission detail (positive control)")
     status, body = get_json(client, f"/api/teaching/review/{expected_own_sub}")
-    check(f"GET /review/{expected_own_sub} returns 200",
-          status == 200,
-          f"got {status}: {str(body)[:200]}")
-    check(f"own submission detail uid matches",
-          isinstance(body, dict) and body.get("uid") == expected_own_sub,
-          f"got {body}")
+    check(
+        f"GET /review/{expected_own_sub} returns 200",
+        status == 200,
+        f"got {status}: {str(body)[:200]}",
+    )
+    check(
+        "own submission detail uid matches",
+        isinstance(body, dict) and body.get("uid") == expected_own_sub,
+        f"got {body}",
+    )
 
 
 def main() -> None:
@@ -138,7 +147,8 @@ def main() -> None:
     with httpx.Client(timeout=10.0) as client:
         login(client, TEACHER_A_EMAIL, expected_uid=f"user_{TEACHER_A_USER}")
         smoke_teacher(
-            client, "Teacher A",
+            client,
+            "Teacher A",
             expected_own_sub=SUBMISSION_1_UID,
             foreign_sub=SUBMISSION_2_UID,
             foreign_student=STUDENT_2_UID,
@@ -148,7 +158,8 @@ def main() -> None:
     with httpx.Client(timeout=10.0) as client:
         login(client, TEACHER_B_EMAIL, expected_uid=f"user_{TEACHER_B_USER}")
         smoke_teacher(
-            client, "Teacher B",
+            client,
+            "Teacher B",
             expected_own_sub=SUBMISSION_2_UID,
             foreign_sub=SUBMISSION_1_UID,
             foreign_student=STUDENT_1_UID,

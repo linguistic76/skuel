@@ -9,6 +9,12 @@ Automatic knowledge inference algorithms for enhanced task models.
 Provides algorithms to infer knowledge connections from task content,
 detect learning opportunities, and calculate confidence scores.
 
+Contract (ADR-065 — Functional Inference Contract):
+    Inference returns a typed ``Result[TaskInferenceResult]`` carrying ONLY
+    the enrichment fields. Callers apply via
+    ``dataclasses.replace(task, **result.value.as_kwargs())``. The input is
+    never mutated.
+
 Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into TasksService for automatic knowledge inference
@@ -21,7 +27,9 @@ from typing import Any
 
 from core.constants import ConfidenceLevel
 from core.models.inference import KnowledgeConnection
+from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.task.task_inference_result import TaskInferenceResult
 
 # Import the advanced inference engine
 from core.services.advanced_inference_engine import AdvancedInferenceEngine
@@ -43,7 +51,6 @@ class InferenceConfig:
     # Advanced features
     enable_advanced_engine: bool = True
     enable_cross_domain_mapping: bool = True
-    enable_validation_feedback: bool = True
     advanced_confidence_scoring: bool = True
 
 
@@ -71,59 +78,57 @@ class EntityInferenceService:
             self.advanced_engine = None
             self.logger.info("Using basic knowledge inference algorithms")
 
-    async def enhance_task_with_knowledge_inference(self, task_dto: TaskDTO) -> Result[TaskDTO]:
-        """
-        Enhance a TaskDTO with automatic knowledge inference.
+    async def enhance_task_with_knowledge_inference(
+        self, task: Task | TaskDTO
+    ) -> Result[TaskInferenceResult]:
+        """Compute knowledge enrichment for a task and return it as a typed result.
+
+        ADR-065: returns ``Result[TaskInferenceResult]`` — the caller applies
+        the result to its task via ``dataclasses.replace``. The input task is
+        never mutated.
 
         Args:
-            task_dto: The TaskDTO to enhance with inference
+            task: Task domain model or TaskDTO to compute inference for.
 
         Returns:
-            Result containing enhanced TaskDTO with inferred knowledge data
+            Result containing TaskInferenceResult with the three enrichment
+            fields.
         """
-        # Apply knowledge inference to the DTO - already returns Result[TaskDTO]
-        return await self.enhance_task_dto_with_inference(task_dto)
+        return await self.enhance_task_dto_with_inference(task)
 
     @with_error_handling("enhance_task_dto_with_inference", error_type="system")
-    async def enhance_task_dto_with_inference(self, task_dto: TaskDTO) -> Result[TaskDTO]:
-        """
-        Enhance a TaskDTO with inferred knowledge data using advanced algorithms.
+    async def enhance_task_dto_with_inference(
+        self, task: Task | TaskDTO
+    ) -> Result[TaskInferenceResult]:
+        """Compute knowledge enrichment using advanced algorithms when enabled.
 
-        Args:
-            task_dto: The TaskDTO to enhance
-
-        Returns:
-            Result containing the enhanced TaskDTO with sophisticated inference
+        Returns a typed ``TaskInferenceResult`` (ADR-065). Falls back to basic
+        keyword inference when the advanced engine is disabled.
         """
         # Use advanced engine if available
         if self.advanced_engine and self.config.enable_advanced_engine:
-            self.logger.debug("Using advanced inference engine for task: %s", task_dto.title)
-            return await self.advanced_engine.enhance_task_dto_with_advanced_inference(task_dto)
+            self.logger.debug("Using advanced inference engine for task: %s", task.title)
+            return await self.advanced_engine.enhance_task_dto_with_advanced_inference(task)
 
         # Fallback to basic inference algorithms
-        self.logger.debug("Using basic inference algorithms for task: %s", task_dto.title)
-        enhanced = await self._basic_inference_fallback(task_dto)
-        return Result.ok(enhanced)
+        self.logger.debug("Using basic inference algorithms for task: %s", task.title)
+        result = await self._basic_inference_fallback(task)
+        return Result.ok(result)
 
     async def _basic_inference_fallback(
-        self, task_dto: TaskDTO, rels: TaskRelationships | None = None
-    ) -> TaskDTO:
-        """
-        Basic inference fallback when advanced engine is disabled.
+        self, task: Task | TaskDTO, rels: TaskRelationships | None = None
+    ) -> TaskInferenceResult:
+        """Basic inference fallback when advanced engine is disabled.
 
-        Args:
-            task_dto: The TaskDTO to enhance
-            rels: Task relationships from graph (optional for new tasks)
-
-        Returns:
-            The enhanced TaskDTO using basic algorithms
+        Computes the same three enrichment fields the advanced engine produces
+        and returns them as a TaskInferenceResult — does not touch the input.
         """
         # GRAPH-NATIVE: Use empty relationships if not provided (for new tasks)
         task_rels = rels or TaskRelationships.empty()
 
         # Infer knowledge connections from task content
         inferred_uids = await self._infer_knowledge_uids_from_content(
-            task_dto.title, task_dto.description or ""
+            task.title, task.description or ""
         )
 
         # Calculate confidence scores for each connection
@@ -137,19 +142,18 @@ class EntityInferenceService:
         # Count learning opportunities
         opportunity_count = await self._count_learning_opportunities(task_rels)
 
-        # Update the DTO with inferred data
-        # GRAPH-NATIVE: knowledge references stored as Neo4j edges
-        task_dto.knowledge_confidence_scores = confidence_scores
-        task_dto.knowledge_inference_metadata = task_dto.knowledge_inference_metadata or {}
-        task_dto.knowledge_inference_metadata["patterns_detected"] = patterns
-        task_dto.learning_opportunities_count = opportunity_count
-        task_dto.knowledge_inference_metadata = {
+        metadata: dict[str, Any] = {
             "inference_version": "1.0_basic",
-            "inference_timestamp": task_dto.updated_at.isoformat(),
+            "inference_timestamp": task.updated_at.isoformat() if task.updated_at else None,
             "algorithm_confidence": max(confidence_scores.values()) if confidence_scores else 0.0,
+            "patterns_detected": patterns,
         }
 
-        return task_dto
+        return TaskInferenceResult(
+            knowledge_confidence_scores=confidence_scores or None,
+            knowledge_inference_metadata=metadata,
+            learning_opportunities_count=opportunity_count,
+        )
 
     async def _infer_from_content(self, title: str, description: str) -> list[KnowledgeConnection]:
         """Infer knowledge connections from text content."""
@@ -267,119 +271,16 @@ class EntityInferenceService:
         return count
 
     # ========================================================================
-    # VALIDATION FEEDBACK CAPABILITIES
+    # INTROSPECTION
     # ========================================================================
-
-    def add_validation_feedback(
-        self,
-        knowledge_uid: str,
-        was_correct: bool,
-        confidence_adjustment: float = 0.0,
-        _context: dict[str, Any] | None = None,
-    ):
-        """
-        Add validation feedback for knowledge inference accuracy.
-
-        Args:
-            knowledge_uid: The knowledge UID that was validated,
-            was_correct: Whether the inference was correct,
-            confidence_adjustment: Optional adjustment to confidence (-1.0 to 1.0),
-            context: Optional context information for learning
-        """
-        if self.advanced_engine and self.config.enable_validation_feedback:
-            self.advanced_engine.add_validation_feedback(
-                knowledge_uid, was_correct, confidence_adjustment
-            )
-            self.logger.info(
-                "Added validation feedback for %s: correct=%s (advanced engine)",
-                knowledge_uid,
-                was_correct,
-            )
-        else:
-            # Basic logging for non-advanced mode
-            self.logger.info(
-                "Validation feedback for %s: correct=%s (basic mode - not persisted)",
-                knowledge_uid,
-                was_correct,
-            )
-
-    @with_error_handling("validate_inference_batch", error_type="system")
-    async def validate_inference_batch(
-        self, validation_data: list[dict[str, Any]]
-    ) -> Result[dict[str, Any]]:
-        """
-        Process a batch of validation feedback for multiple inferences.
-
-        Args:
-            validation_data: List of validation entries with keys:
-                - knowledge_uid: str
-                - was_correct: bool
-                - confidence_adjustment: float (optional)
-                - context: dict (optional)
-
-        Returns:
-            Result containing validation summary
-        """
-        # Type-safe summary with explicit types
-        summary: dict[str, Any] = {
-            "total_validations": len(validation_data),
-            "correct_inferences": 0,
-            "incorrect_inferences": 0,
-            "knowledge_uids_validated": set(),
-            "avg_confidence_adjustment": 0.0,
-        }
-
-        confidence_adjustments: list[float] = []
-
-        for entry in validation_data:
-            knowledge_uid = entry.get("knowledge_uid")
-            was_correct = entry.get("was_correct", False)
-            confidence_adjustment = entry.get("confidence_adjustment", 0.0)
-            context = entry.get("context", {})
-
-            if not knowledge_uid:
-                continue
-
-            # Add individual feedback
-            self.add_validation_feedback(knowledge_uid, was_correct, confidence_adjustment, context)
-
-            # Update summary (type-safe with cast)
-            if was_correct:
-                summary["correct_inferences"] = int(summary["correct_inferences"]) + 1
-            else:
-                summary["incorrect_inferences"] = int(summary["incorrect_inferences"]) + 1
-
-            summary["knowledge_uids_validated"].add(knowledge_uid)
-            confidence_adjustments.append(confidence_adjustment)
-
-        # Calculate averages
-        if confidence_adjustments:
-            summary["avg_confidence_adjustment"] = sum(confidence_adjustments) / len(
-                confidence_adjustments
-            )
-
-        # Calculate accuracy rate (type-safe)
-        total = int(summary["total_validations"])
-        correct = int(summary["correct_inferences"])
-        summary["accuracy_rate"] = (correct / total) if total > 0 else 0.0
-        summary["knowledge_uids_validated"] = list(summary["knowledge_uids_validated"])
-
-        self.logger.info(
-            "Processed validation batch: %d total, %.2f accuracy, %d unique knowledge UIDs",
-            summary["total_validations"],
-            summary["accuracy_rate"],
-            len(summary["knowledge_uids_validated"]),
-        )
-
-        return Result.ok(summary)
 
     @with_error_handling("get_inference_statistics", error_type="system")
     async def get_inference_statistics(self) -> Result[dict[str, Any]]:
-        """
-        Get inference engine statistics and performance metrics.
+        """Return inference engine configuration / capability snapshot.
 
-        Returns:
-            Result containing inference statistics
+        Validation-feedback statistics were removed per ADR-065 along with the
+        dormant feedback infrastructure they reported on; if/when a real
+        feedback feature is built, this method will surface its stats.
         """
         stats = {
             "engine_type": "advanced" if self.advanced_engine else "basic",
@@ -388,31 +289,8 @@ class EntityInferenceService:
                 "max_inferred_connections": self.config.max_inferred_connections,
                 "advanced_features_enabled": self.config.enable_advanced_engine,
                 "cross_domain_mapping": self.config.enable_cross_domain_mapping,
-                "validation_feedback": self.config.enable_validation_feedback,
             },
         }
-
-        if self.advanced_engine:
-            # Get advanced engine statistics
-            feedback_data = self.advanced_engine._validation_feedback
-            validation_feedback: dict[str, int | float | list[str]] = {
-                "total_knowledge_uids_with_feedback": len(feedback_data),
-                "total_feedback_entries": sum(len(entries) for entries in feedback_data.values()),
-                "knowledge_uids_tracked": list(feedback_data.keys())[:10],  # First 10 for brevity
-            }
-
-            # Calculate accuracy if feedback exists
-            if feedback_data:
-                all_feedback = []
-                for entries in feedback_data.values():
-                    all_feedback.extend(entries)
-
-                if all_feedback:
-                    avg_feedback = sum(all_feedback) / len(all_feedback)
-                    validation_feedback["average_accuracy"] = avg_feedback
-
-            stats["validation_feedback"] = validation_feedback  # type: ignore[assignment]  # dict[str, int|float|list[str]] is a valid stats value
-
         return Result.ok(stats)
 
     @with_error_handling("analyze_inference_confidence", error_type="system")
