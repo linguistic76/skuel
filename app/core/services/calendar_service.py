@@ -52,15 +52,12 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
 
 # Facade import for habit occurrence recording (needs track_habit method)
 from core.models.habit.habit_request import TrackHabitRequest
 from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
 from core.ports import get_enum_value
 
 # Import protocol interfaces for dependency injection
@@ -74,6 +71,7 @@ from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
 from core.utils.palette import CalendarFallback
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger("skuel.services.calendar")
 
@@ -245,9 +243,10 @@ class CalendarService:
         end_time = start_time + timedelta(minutes=duration)
 
         if item_type == EntityType.TASK.value:
-            # Create task
-            task_dto = TaskDTO(
-                uid="",  # Will be generated
+            # Create task — frozen domain model end-to-end (ADR-035/ADR-065).
+            task = Task(
+                uid=EntityUID(UIDGenerator.generate_random_uid("task")),
+                entity_type=EntityType.TASK,
                 user_uid=user_uid,
                 title=title,
                 description=kwargs.get("description", ""),
@@ -256,16 +255,17 @@ class CalendarService:
                 status=EntityStatus.SCHEDULED,
                 priority=Priority.MEDIUM,
             )
-            task_result = await self.tasks_service.create(task_dto)
+            task_result = await self.tasks_service.create(task)
             if task_result.is_ok:
                 return Result.ok(self._task_to_calendar_item(task_result.value))
             # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
             return Result.fail(task_result)
 
         elif item_type == EntityType.EVENT.value:
-            # Create event
-            event_dto = EventDTO(
-                uid="",  # Will be generated
+            # Create event — frozen domain model end-to-end (ADR-035/ADR-065).
+            event = Event(
+                uid=EntityUID(UIDGenerator.generate_random_uid("event")),
+                entity_type=EntityType.EVENT,
                 user_uid=user_uid,
                 title=title,
                 description=kwargs.get("description", ""),
@@ -274,23 +274,24 @@ class CalendarService:
                 end_time=end_time.time(),
                 status=EntityStatus.SCHEDULED,
             )
-            event_result = await self.events_service.create(event_dto)
+            event_result = await self.events_service.create(event)
             if event_result.is_ok:
                 return Result.ok(self._event_to_calendar_item(event_result.value))
             # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
             return Result.fail(event_result)
 
         elif item_type == EntityType.HABIT.value:
-            # Create habit
-            habit_dto = HabitDTO(
-                uid="",  # Will be generated
+            # Create habit — frozen domain model end-to-end (ADR-035/ADR-065).
+            habit = Habit(
+                uid=EntityUID(UIDGenerator.generate_random_uid("habit")),
+                entity_type=EntityType.HABIT,
                 user_uid=user_uid,
                 title=title,
                 description=kwargs.get("description", ""),
                 target_days_per_week=kwargs.get("frequency", 7),
                 status=EntityStatus.ACTIVE,
             )
-            habit_result = await self.habits_service.create(habit_dto)
+            habit_result = await self.habits_service.create(habit)
             if habit_result.is_ok:
                 return Result.ok(self._habit_to_calendar_item(habit_result.value))
             # Type boundary: Extract error from Result[Habit] for Result[CalendarItem]
@@ -321,17 +322,11 @@ class CalendarService:
                 if task.user_uid != user_uid:
                     # Not the requester's task — 'not found', no UID oracle.
                     return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
-                updated_task_dto = TaskDTO(
-                    uid=task.uid,
-                    user_uid=task.user_uid,
-                    title=task.title,
-                    description=task.description,
-                    scheduled_date=new_start.date(),
-                    due_date=task.due_date,
-                    status=task.status,
-                    priority=task.priority,
+                # Reschedule mutates only the scheduled date (ADR-065 update contract:
+                # uid + field dict, not a rebuilt DTO).
+                task_update = await self.tasks_service.update(
+                    source_uid, {"scheduled_date": new_start.date()}
                 )
-                task_update = await self.tasks_service.update(source_uid, updated_task_dto)
                 if task_update.is_ok:
                     return Result.ok(self._task_to_calendar_item(task_update.value))
                 return Result.fail(task_update)
@@ -356,18 +351,15 @@ class CalendarService:
                     )
                 duration = end_dt - start_dt
                 new_end = new_start + duration
-                updated_event_dto = EventDTO(
-                    uid=event.uid,
-                    user_uid=event.user_uid,
-                    title=event.title,
-                    description=event.description,
-                    event_date=new_start.date(),
-                    start_time=new_start.time(),
-                    end_time=new_end.time(),
-                    status=event.status,
-                )
+                # Reschedule mutates only the date/time window (ADR-065 update
+                # contract: uid + field dict, not a rebuilt DTO).
                 event_update = await self.events_service.update_event(
-                    EntityUID(source_uid), updated_event_dto
+                    EntityUID(source_uid),
+                    {
+                        "event_date": new_start.date(),
+                        "start_time": new_start.time(),
+                        "end_time": new_end.time(),
+                    },
                 )
                 if event_update.is_ok:
                     return Result.ok(self._event_to_calendar_item(event_update.value))

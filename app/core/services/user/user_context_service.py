@@ -643,14 +643,11 @@ class UserContextService:
             return Result.fail(tasks_result)
 
         # Convert TaskDTOs to Task domain models
-        task_dtos = tasks_result.value
-        tasks = []
-        for dto in task_dtos:
-            from core.models.entity import Entity
-            from core.utils.dto_helpers import to_domain_model
+        from core.models.task.task import Task
+        from core.utils.dto_helpers import to_domain_model
 
-            task = to_domain_model(dto, type(dto), Entity)
-            tasks.append(task)
+        task_dtos = tasks_result.value
+        tasks = [to_domain_model(dto, type(dto), Task) for dto in task_dtos]
 
         logger.info(
             f"Generated {len(tasks)} tasks for goal {goal_uid}",
