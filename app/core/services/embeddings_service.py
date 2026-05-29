@@ -337,11 +337,11 @@ class HuggingFaceEmbeddingsService:
         Returns:
             Result containing embedding vector
         """
-        # Check if node has current-version embedding
-        compat_result = await self.check_version_compatibility(uid, label)
-
         if not NeoLabel.is_valid(label):
             return Result.fail(Errors.validation(f"Invalid Neo4j label: {label}", field="label"))
+
+        # Check if node has current-version embedding
+        compat_result = await self.check_version_compatibility(uid, label)
 
         if compat_result.is_ok and compat_result.value["is_current"]:
             # Cache hit - get existing embedding
