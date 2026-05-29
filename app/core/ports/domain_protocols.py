@@ -340,8 +340,8 @@ class EventsOperations(
         """Create a new event and return its ID. Returns Result[str]."""
         ...
 
-    async def update_event(self, event_id: EntityUID, data: Metadata) -> Result[bool]:
-        """Update an existing event. Returns Result[bool]."""
+    async def update_event(self, event_id: EntityUID, data: Metadata) -> Result[Event]:
+        """Update an existing event. Returns Result[Event] (the updated event)."""
         ...
 
     async def cancel_event(self, event_id: EntityUID) -> Result[bool]:
