@@ -689,7 +689,8 @@ class ReviewQueueBackend:
             f"""
             MATCH (u:User)-[:{RelationshipName.REQUESTED.value}]->(r:ReviewRequest {{status: 'pending'}})
             RETURN r.uid AS uid, r.user_uid AS user_uid, r.time_period AS time_period,
-                   r.domains AS domains, r.message AS message, r.created_at AS created_at,
+                   r.domains AS domains, r.message AS message,
+                   toString(r.created_at) AS created_at,
                    u.username AS username
             ORDER BY r.created_at ASC
             LIMIT $limit
