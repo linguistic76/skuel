@@ -26,7 +26,7 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.search.scoring import score_habit
-from core.models.type_hints import Metadata, UserUID
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -454,7 +454,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         return await self._filter_due_today(result, "all users")
 
     async def _filter_due_today(
-        self, result: Result[list[Metadata]], context: str
+        self, result: Result[list[Habit]], context: str
     ) -> Result[list[Habit]]:
         """
         Filter habits to those due today.

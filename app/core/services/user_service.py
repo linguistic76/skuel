@@ -762,12 +762,10 @@ class UserService:
 
         # Create intelligence service from factory and get daily plan
         intelligence = self.intelligence_factory.create(context)
-        plan = await intelligence.get_ready_to_work_on_today(
+        return await intelligence.get_ready_to_work_on_today(
             prioritize_life_path=prioritize_life_path,
             respect_capacity=respect_capacity,
         )
-
-        return Result.ok(plan)
 
     async def get_next_path_steps(
         self,
@@ -816,13 +814,11 @@ class UserService:
 
         # Create intelligence service from factory and get path steps
         intelligence = self.intelligence_factory.create(context)
-        steps = await intelligence.get_optimal_next_path_steps(
+        return await intelligence.get_optimal_next_path_steps(
             max_steps=max_steps,
             consider_goals=consider_goals,
             consider_capacity=consider_capacity,
         )
-
-        return Result.ok(steps)
 
 
 # ============================================================================

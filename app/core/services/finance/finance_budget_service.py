@@ -143,8 +143,11 @@ class FinanceBudgetService:
         Returns:
             Result containing BudgetPure
         """
-        budget = await self.backend.get_budget(uid)
-        if not budget:
+        budget_result = await self.backend.get_budget(uid)
+        if budget_result.is_error:
+            return Result.fail(budget_result)
+        budget = budget_result.value
+        if budget is None:
             return Result.fail(Errors.not_found("Budget", uid))
         return Result.ok(budget)
 

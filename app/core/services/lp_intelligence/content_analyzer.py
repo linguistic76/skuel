@@ -108,13 +108,19 @@ class ContentAnalyzer:
         definition_count = body.lower().count("is defined as") + body.lower().count("means")
 
         # Generate embedding if available
-        # Note: create_embedding returns list[float] | None, not Result[T]
+        # create_embedding returns Result[list[float]] — unwrap before storing.
         embedding = None
         if self.embeddings:
             try:
-                embedding = await self.embeddings.create_embedding(
-                    body[:1000]
-                )  # First 1000 chars, returns list[float] | None directly
+                embedding_result = await self.embeddings.create_embedding(
+                    body[:1000]  # First 1000 chars
+                )
+                if embedding_result.is_error:
+                    logger.warning(
+                        f"Failed to create embedding: {embedding_result.expect_error().message}"
+                    )
+                else:
+                    embedding = embedding_result.value
             except (ValueError, TypeError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Failed to create embedding: {e}")
             except Exception as e:  # safety-net: catch unexpected errors

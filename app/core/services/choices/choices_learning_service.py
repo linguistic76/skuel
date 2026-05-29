@@ -102,7 +102,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
         # Create base choice using core service
         choice_result = await core_service.create_choice(choice_request, user_uid=user_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.error)
+            return Result.fail(choice_result)
 
         choice = choice_result.value
 
