@@ -220,11 +220,11 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         if validation:
             return Result.fail(validation)
 
-        # Construct the frozen Task directly from the request.
-        # ADR-065: inference now returns a typed ``TaskInferenceResult`` — we
-        # apply it functionally via ``dataclasses.replace`` instead of
-        # mutating a DTO. The Task↔DTO round-trip for persistence is
-        # preserved because TaskDTO is still the serialisation surface.
+        # Build a frozen Task from the request, apply inference enrichment
+        # functionally (ADR-065 — typed TaskInferenceResult, no DTO mutation
+        # inside intelligence services), then translate to TaskDTO at the
+        # persistence boundary. TaskDTO remains the single write encoder
+        # (ADR-035 three-tier).
         task_draft = Task.from_request(task_request, user_uid=user_uid)
 
         if self.ku_inference_service:
@@ -235,17 +235,10 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             if enrichment is not None:
                 task_draft = dataclasses.replace(task_draft, **enrichment.as_kwargs())
 
-        payload = task_draft.to_dict()
-
-        # Create task via backend and convert response back to Task
-        create_result = await self.backend.create(payload)
+        create_result = await self._create_and_convert(task_draft.to_dto().to_dict(), TaskDTO, Task)
         if create_result.is_error:
-            return Result.fail(create_result)
-        task = (
-            Task.from_dict(create_result.value)
-            if isinstance(create_result.value, dict)
-            else self._to_domain_model(create_result.value, TaskDTO, Task)
-        )
+            return create_result
+        task = create_result.value
 
         # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
         # Create knowledge relationships from request using batch operation for performance

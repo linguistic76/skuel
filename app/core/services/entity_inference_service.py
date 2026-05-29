@@ -78,24 +78,6 @@ class EntityInferenceService:
             self.advanced_engine = None
             self.logger.info("Using basic knowledge inference algorithms")
 
-    async def enhance_task_with_knowledge_inference(
-        self, task: Task | TaskDTO
-    ) -> Result[TaskInferenceResult]:
-        """Compute knowledge enrichment for a task and return it as a typed result.
-
-        ADR-065: returns ``Result[TaskInferenceResult]`` — the caller applies
-        the result to its task via ``dataclasses.replace``. The input task is
-        never mutated.
-
-        Args:
-            task: Task domain model or TaskDTO to compute inference for.
-
-        Returns:
-            Result containing TaskInferenceResult with the three enrichment
-            fields.
-        """
-        return await self.enhance_task_dto_with_inference(task)
-
     @with_error_handling("enhance_task_dto_with_inference", error_type="system")
     async def enhance_task_dto_with_inference(
         self, task: Task | TaskDTO

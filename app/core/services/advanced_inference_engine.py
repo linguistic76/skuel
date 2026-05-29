@@ -662,12 +662,6 @@ class AdvancedInferenceEngine:
             if relationships_result.is_error:
                 self.logger.warning("Cross-domain discovery failed: %s", relationships_result.error)
 
-            # Merge with any pre-existing confidence scores on the input. This
-            # preserves the prior in-place behaviour of "add to what is there"
-            # without mutating the input itself.
-            existing_scores = task.knowledge_confidence_scores or {}
-            merged_scores = {**existing_scores, **confidence_scores}
-
             metadata: dict[str, Any] = {
                 "inference_version": "2.4_advanced",
                 "inference_timestamp": task.updated_at.isoformat() if task.updated_at else None,
@@ -691,7 +685,7 @@ class AdvancedInferenceEngine:
 
             return Result.ok(
                 TaskInferenceResult(
-                    knowledge_confidence_scores=merged_scores or None,
+                    knowledge_confidence_scores=confidence_scores or None,
                     knowledge_inference_metadata=metadata,
                     learning_opportunities_count=(
                         len(detected_patterns) + len(cross_domain_relationships)
