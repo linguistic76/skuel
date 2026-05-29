@@ -6,9 +6,14 @@ Sophisticated algorithms for automatic knowledge detection:
 - Multi-algorithm content analysis
 - Cross-domain knowledge relationship mapping
 - Advanced confidence scoring
-- Knowledge validation feedback loops
 
 Builds on the foundation of EntityInferenceService with enhanced capabilities.
+
+Contract (ADR-065 — Functional Inference Contract):
+    ``enhance_task_dto_with_advanced_inference`` returns a typed
+    ``Result[TaskInferenceResult]`` carrying ONLY the enrichment fields.
+    Callers apply via ``dataclasses.replace(task, **result.value.as_kwargs())``.
+    Inference does NOT mutate its input.
 """
 
 import re
@@ -18,7 +23,9 @@ from operator import attrgetter
 from typing import Any, TypedDict
 
 from core.constants import ConfidenceLevel, InferenceConfidence
+from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.task.task_inference_result import TaskInferenceResult
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -65,14 +72,12 @@ class AdvancedInferenceEngine:
     1. Multi-algorithm content detection
     2. Cross-domain relationship mapping
     3. Advanced confidence scoring with multiple factors
-    4. Knowledge validation and feedback learning
     """
 
     def __init__(self) -> None:
         self.logger = get_logger("skuel.inference.advanced")
         self._initialize_knowledge_mappings()
         self._initialize_cross_domain_relationships()
-        self._validation_feedback: defaultdict[str, list[float]] = defaultdict(list)
 
     def _initialize_knowledge_mappings(self) -> None:
         """Initialize comprehensive knowledge detection mappings."""
@@ -596,88 +601,54 @@ class AdvancedInferenceEngine:
             if pattern.domain in user_domains:
                 domain_boost = InferenceConfidence.DOMAIN_EXPERTISE_BOOST
 
-        # Factor 4: Historical validation (if available)
-        validation_boost = 0.0
-        if pattern.knowledge_uid in self._validation_feedback:
-            feedback_items = self._validation_feedback[pattern.knowledge_uid]
-            if feedback_items:
-                avg_feedback = sum(feedback_items) / len(feedback_items)
-                validation_boost = (avg_feedback - 0.5) * 0.1  # -0.1 to +0.1 based on feedback
-
         # Calculate final confidence
-        final_confidence = (
-            base_confidence + evidence_quality + type_reliability + domain_boost + validation_boost
-        )
+        final_confidence = base_confidence + evidence_quality + type_reliability + domain_boost
 
         # Ensure confidence stays within bounds
         return max(0.0, min(1.0, final_confidence))
 
-    def add_validation_feedback(
-        self, knowledge_uid: str, was_correct: bool, confidence_adjustment: float = 0.0
-    ):
-        """
-        Add validation feedback for knowledge inference accuracy.
+    async def enhance_task_dto_with_advanced_inference(
+        self, task: Task | TaskDTO
+    ) -> Result[TaskInferenceResult]:
+        """Infer knowledge enrichment for a task and return it as a typed result.
+
+        Per ADR-065 the inference layer does NOT mutate its input. It reads
+        ``title`` / ``description`` / ``updated_at`` / pre-existing
+        ``knowledge_confidence_scores`` from the input (which Task and TaskDTO
+        share structurally) and returns a fresh ``TaskInferenceResult``. The
+        caller decides how to apply it (typically ``dataclasses.replace``).
 
         Args:
-            knowledge_uid: The knowledge UID that was validated
-            was_correct: Whether the inference was correct
-            confidence_adjustment: Optional adjustment to confidence (-1.0 to 1.0)
-        """
-        feedback_score = 1.0 if was_correct else 0.0
-        if confidence_adjustment != 0.0:
-            feedback_score += confidence_adjustment
-
-        self._validation_feedback[knowledge_uid].append(feedback_score)
-
-        # Keep only recent feedback (last 20 items)
-        if len(self._validation_feedback[knowledge_uid]) > 20:
-            self._validation_feedback[knowledge_uid] = self._validation_feedback[knowledge_uid][
-                -20:
-            ]
-
-        self.logger.info(
-            "Added validation feedback for %s: correct=%s, score=%.2f",
-            knowledge_uid,
-            was_correct,
-            feedback_score,
-        )
-
-    async def enhance_task_dto_with_advanced_inference(self, task_dto: TaskDTO) -> Result[TaskDTO]:
-        """
-        Enhance TaskDTO with advanced knowledge inference.
-
-        Args:
-            task_dto: TaskDTO to enhance
+            task: Task domain model or TaskDTO carrying the source content.
 
         Returns:
-            Result containing enhanced TaskDTO with sophisticated inference data
+            Result containing a TaskInferenceResult with the three enrichment
+            fields. On internal failure, returns Result.fail(...).
         """
         try:
             # Run advanced content analysis
             analysis_result = await self.analyze_content_advanced(
-                task_dto.title, task_dto.description or "", entity_type="task"
+                task.title, task.description or "", entity_type="task"
             )
 
             if analysis_result.is_error:
                 self.logger.warning("Advanced analysis failed: %s", analysis_result.error)
-                return Result.ok(task_dto)  # Return unmodified DTO
+                # Empty result — inference produced nothing usable
+                return Result.ok(TaskInferenceResult())
 
             detected_patterns = analysis_result.value
 
             # Extract knowledge UIDs and calculate enhanced confidence scores
-            inferred_uids = []
-            confidence_scores = {}
-            knowledge_patterns = []
+            confidence_scores: dict[str, float] = {}
+            knowledge_patterns: list[str] = []
 
             context = {
                 "entity_type": "task",
-                "title_length": len(task_dto.title),
-                "has_description": bool(task_dto.description),
+                "title_length": len(task.title),
+                "has_description": bool(task.description),
             }
 
             for pattern in detected_patterns:
-                inferred_uids.append(pattern.knowledge_uid)
-
                 # Calculate advanced confidence score
                 enhanced_confidence = self.calculate_advanced_confidence_score(pattern, context)
                 confidence_scores[pattern.knowledge_uid] = enhanced_confidence
@@ -691,28 +662,19 @@ class AdvancedInferenceEngine:
             if relationships_result.is_error:
                 self.logger.warning("Cross-domain discovery failed: %s", relationships_result.error)
 
-            # Update TaskDTO with enhanced inference
-            # GRAPH-NATIVE: knowledge references stored as Neo4j edges
-            task_dto.knowledge_confidence_scores = {
-                **(task_dto.knowledge_confidence_scores or {}),
-                **confidence_scores,
-            }
-            task_dto.knowledge_inference_metadata = task_dto.knowledge_inference_metadata or {}
-            task_dto.knowledge_inference_metadata["patterns_detected"] = list(
-                set(knowledge_patterns)
-            )
-            task_dto.learning_opportunities_count = len(detected_patterns) + len(
-                cross_domain_relationships
-            )
+            # Merge with any pre-existing confidence scores on the input. This
+            # preserves the prior in-place behaviour of "add to what is there"
+            # without mutating the input itself.
+            existing_scores = task.knowledge_confidence_scores or {}
+            merged_scores = {**existing_scores, **confidence_scores}
 
-            # Enhanced inference metadata
-            task_dto.knowledge_inference_metadata = {
+            metadata: dict[str, Any] = {
                 "inference_version": "2.4_advanced",
-                "inference_timestamp": task_dto.updated_at.isoformat(),
-                "algorithm_confidence": max(confidence_scores.values())
-                if confidence_scores
-                else 0.0,
-                "patterns_detected": len(detected_patterns),
+                "inference_timestamp": task.updated_at.isoformat() if task.updated_at else None,
+                "algorithm_confidence": (
+                    max(confidence_scores.values()) if confidence_scores else 0.0
+                ),
+                "patterns_detected": list(set(knowledge_patterns)),
                 "cross_domain_relationships": len(cross_domain_relationships),
                 "advanced_features": {
                     "phrase_patterns": len(
@@ -727,7 +689,15 @@ class AdvancedInferenceEngine:
                 },
             }
 
-            return Result.ok(task_dto)
+            return Result.ok(
+                TaskInferenceResult(
+                    knowledge_confidence_scores=merged_scores or None,
+                    knowledge_inference_metadata=metadata,
+                    learning_opportunities_count=(
+                        len(detected_patterns) + len(cross_domain_relationships)
+                    ),
+                )
+            )
 
         except DATA_CONVERSION_EXCEPTIONS as e:
             return Result.fail(
@@ -735,7 +705,7 @@ class AdvancedInferenceEngine:
                     message="Advanced inference enhancement failed",
                     exception=e,
                     operation="enhance_task_dto_with_advanced_inference",
-                    task_title=task_dto.title,
+                    task_title=task.title,
                 )
             )
         except Exception as e:  # safety-net: catch unexpected errors
@@ -747,6 +717,6 @@ class AdvancedInferenceEngine:
                     message="Advanced inference enhancement failed",
                     exception=e,
                     operation="enhance_task_dto_with_advanced_inference",
-                    task_title=task_dto.title,
+                    task_title=task.title,
                 )
             )
