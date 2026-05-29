@@ -166,8 +166,8 @@ class ConversionServiceV2:
         if isinstance(pure_model, PydanticModel):
             # Pydantic model
             result = pure_model.model_dump(exclude_none=exclude_none)
-        elif is_dataclass(pure_model):
-            # Dataclass
+        elif is_dataclass(pure_model) and not isinstance(pure_model, type):
+            # Dataclass instance (not the class itself — asdict requires an instance)
             from dataclasses import asdict
 
             result = asdict(pure_model)
@@ -372,7 +372,7 @@ class ConversionServiceV2:
     @classmethod
     def _template_create_to_pure(
         cls,
-        schema: PydanticModel,
+        schema: object,
         model_class: type[U],
         uid: str | None,
         *,

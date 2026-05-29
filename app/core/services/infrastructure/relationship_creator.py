@@ -21,21 +21,18 @@ Single generic helper that handles the common pattern, reducing
 each relationship service's creation methods from ~15 LOC → 3 LOC.
 """
 
-from typing import Any, TypeVar
+from typing import Any
 
 from core.models.enums import Domain
+from core.models.protocols.domain_model_protocol import DTOProtocol
 from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-# Generic type variables
-T = TypeVar("T")  # Domain model type (Habit, Goal, Task, etc.)
-DTO = TypeVar("DTO")  # DTO type (HabitDTO, GoalDTO, etc.)
 
-
-class RelationshipCreator[T, DTO]:
+class RelationshipCreator[T, DTO: DTOProtocol]:
     """
     Generic helper for cross-domain relationship creation and context retrieval.
 

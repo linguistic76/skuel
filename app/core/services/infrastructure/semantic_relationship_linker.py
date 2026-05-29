@@ -20,23 +20,20 @@ each relationship service's semantic methods from 155 LOC → 11 LOC.
 """
 
 from datetime import datetime
-from typing import Any, TypeVar
+from typing import Any
 
 from core.infrastructure.relationships.semantic_relationships import (
     RelationshipMetadata,
     SemanticRelationshipType,
 )
 from core.models.enums import Domain
+from core.models.protocols.domain_model_protocol import DTOProtocol
 from core.services.base_service import BaseService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-# Generic type variables
-T = TypeVar("T")  # Domain model type (Habit, Goal, Task, etc.)
-DTO = TypeVar("DTO")  # DTO type (HabitDTO, GoalDTO, etc.)
 
-
-class SemanticRelationshipLinker[T, DTO]:
+class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
     """
     Generic helper for semantic relationship operations across all domains.
 
