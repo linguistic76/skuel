@@ -22,6 +22,7 @@ import pytest
 from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
+from core.models.task.task_inference_result import TaskInferenceResult
 from core.models.task.task_request import TaskCreateRequest
 from core.ports.query_types import TaskUpdatePayload
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -72,16 +73,18 @@ def mock_backend() -> Any:
 
 
 @pytest.fixture
-def mock_ku_inference_service(sample_task_dto) -> Any:
+def mock_ku_inference_service() -> Any:
     """Create a mock knowledge inference service.
 
-    By default, returns the input DTO unchanged (passthrough behavior).
-    Tests can override this with side_effect for error testing.
+    ADR-065: inference now returns ``Result[TaskInferenceResult]`` carrying
+    only the enrichment fields. The default mock returns an empty result
+    (no enrichment) so passthrough callers see the input task unchanged.
+    Tests can override this to assert specific enrichment is applied.
     """
     service = Mock()
-    # Default: return the sample DTO (passthrough - no inference changes)
-    # The actual service enhances the DTO, but for tests we return the same DTO
-    service.enhance_task_dto_with_inference = AsyncMock(return_value=Result.ok(sample_task_dto))
+    service.enhance_task_dto_with_inference = AsyncMock(
+        return_value=Result.ok(TaskInferenceResult())
+    )
     return service
 
 
@@ -173,16 +176,27 @@ async def test_create_task_success(
 async def test_create_task_with_knowledge_inference(
     core_service, mock_backend, mock_ku_inference_service, sample_task_request, sample_task_dto
 ):
-    """Test task creation with knowledge inference applied."""
-    # Setup - inference adds knowledge UIDs
-    enhanced_dto = TaskDTO.from_dict(sample_task_dto.to_dict())
-    # inferred_knowledge_uids removed - relationships stored as graph edges
-    # Query via UnifiedRelationshipService instead
-    enhanced_dto.learning_opportunities_count = 2
+    """Test task creation with knowledge inference applied.
 
-    # Service calls backend.create() (generic BackendOperations method)
-    mock_ku_inference_service.enhance_task_dto_with_inference.return_value = Result.ok(enhanced_dto)
-    mock_backend.create.return_value = Result.ok(enhanced_dto.to_dict())
+    ADR-065: inference returns a typed TaskInferenceResult; the service
+    applies it via dataclasses.replace before persistence. We assert the
+    enrichment fields land on the persisted task.
+    """
+    # Setup - inference produces enrichment for the task draft
+    enrichment = TaskInferenceResult(
+        knowledge_confidence_scores={"ku.programming.python": 0.85},
+        knowledge_inference_metadata={"inference_version": "2.4_advanced"},
+        learning_opportunities_count=2,
+    )
+    mock_ku_inference_service.enhance_task_dto_with_inference.return_value = Result.ok(enrichment)
+
+    # The backend echoes back whatever the service sent; we read the payload
+    # the service actually wrote so the assertions reflect the applied
+    # enrichment, not a hard-coded sample.
+    def _echo_create(payload):
+        return Result.ok(payload)
+
+    mock_backend.create.side_effect = _echo_create
 
     # Execute
     result = await core_service.create_task(sample_task_request, user_uid="user_demo")
@@ -190,9 +204,8 @@ async def test_create_task_with_knowledge_inference(
     # Verify
     assert result.is_ok
     task = result.value
-    # inferred_knowledge_uids removed from Task model
-    # Relationships now queried via UnifiedRelationshipService
     assert task.learning_opportunities_count == 2
+    assert task.knowledge_confidence_scores == {"ku.programming.python": 0.85}
     mock_ku_inference_service.enhance_task_dto_with_inference.assert_called_once()
 
 

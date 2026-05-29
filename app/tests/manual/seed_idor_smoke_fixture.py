@@ -64,7 +64,8 @@ async def seed() -> None:
         for props in (teacher_a_props, teacher_b_props, student_1_props, student_2_props):
             await driver.execute_query(
                 "MERGE (u:User {uid: $uid}) SET u = $props",
-                uid=props["uid"], props=props,
+                uid=props["uid"],
+                props=props,
             )
 
         await driver.execute_query(
@@ -87,9 +88,13 @@ async def seed() -> None:
             MERGE (s1)-[:MEMBER_OF {role: 'student'}]->(gx)
             MERGE (s2)-[:MEMBER_OF {role: 'student'}]->(gy)
             """,
-            group_x=GROUP_X, group_y=GROUP_Y, now=now,
-            teacher_a=f"user_{TEACHER_A}", teacher_b=f"user_{TEACHER_B}",
-            student_1=f"user_{STUDENT_1}", student_2=f"user_{STUDENT_2}",
+            group_x=GROUP_X,
+            group_y=GROUP_Y,
+            now=now,
+            teacher_a=f"user_{TEACHER_A}",
+            teacher_b=f"user_{TEACHER_B}",
+            student_1=f"user_{STUDENT_1}",
+            student_2=f"user_{STUDENT_2}",
         )
 
         await driver.execute_query(
@@ -120,9 +125,13 @@ async def seed() -> None:
             MERGE (sub1)-[:SHARED_WITH_GROUP]->(gx)
             MERGE (sub2)-[:SHARED_WITH_GROUP]->(gy)
             """,
-            sub1=SUBMISSION_1, sub2=SUBMISSION_2, now=now,
-            student_1=f"user_{STUDENT_1}", student_2=f"user_{STUDENT_2}",
-            group_x=GROUP_X, group_y=GROUP_Y,
+            sub1=SUBMISSION_1,
+            sub2=SUBMISSION_2,
+            now=now,
+            student_1=f"user_{STUDENT_1}",
+            student_2=f"user_{STUDENT_2}",
+            group_x=GROUP_X,
+            group_y=GROUP_Y,
         )
 
         print("Seeded IDOR smoke fixture.")
