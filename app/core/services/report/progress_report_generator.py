@@ -34,7 +34,7 @@ if TYPE_CHECKING:
         ActivityKnowledgeIntelligenceService,
     )
     from core.services.report.activity_report_service import ActivityReportService
-    from core.services.user.unified_user_context import UserContext
+    from core.services.user.unified_user_context import RichUserContext, UserContext
     from core.services.user.user_context_builder import UserContextBuilder
 
 from core.constants import ReportTimePeriod  # also: MIN_REPORT_COOLDOWN_MINUTES
@@ -264,7 +264,7 @@ class ProgressReportGenerator:
         completions: dict[str, Any],
         start_date: datetime,
         end_date: datetime,
-        ctx_result: "Result[UserContext]",
+        ctx_result: "Result[RichUserContext]",
     ) -> dict[str, Any] | None:
         """Collect intelligence data from analytics and knowledge services.
 

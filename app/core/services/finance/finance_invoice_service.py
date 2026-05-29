@@ -142,7 +142,7 @@ class FinanceInvoiceService:
         result = await self.backend.list(limit=limit, offset=offset, filters=filters or None)
 
         if result.is_error:
-            return Result.fail(result.error)
+            return Result.fail(result)
 
         # Extract just the list from (list, count) tuple
         # Handle case where database has no Invoice nodes yet
@@ -171,7 +171,7 @@ class FinanceInvoiceService:
         # Get existing invoice
         existing_result = await self.backend.get(uid)
         if existing_result.is_error:
-            return Result.fail(existing_result.error)
+            return Result.fail(existing_result)
 
         if existing_result.value is None:
             return Result.fail(Errors.not_found("Invoice", uid))
@@ -209,7 +209,7 @@ class FinanceInvoiceService:
         """
         existing_result = await self.backend.get(uid)
         if existing_result.is_error:
-            return Result.fail(existing_result.error)
+            return Result.fail(existing_result)
 
         if existing_result.value is None:
             return Result.fail(Errors.not_found("Invoice", uid))
@@ -254,7 +254,7 @@ class FinanceInvoiceService:
         # Get invoice
         result = await self.backend.get(uid)
         if result.is_error:
-            return Result.fail(result.error)
+            return Result.fail(result)
 
         if result.value is None:
             return Result.fail(Errors.not_found("Invoice", uid))
@@ -334,7 +334,7 @@ class FinanceInvoiceService:
         result = await self.backend.list(limit=1000, offset=0, filters=None)
 
         if result.is_error:
-            return Result.fail(result.error)
+            return Result.fail(result)
 
         # Handle case where database has no Invoice nodes yet
         value = result.value
