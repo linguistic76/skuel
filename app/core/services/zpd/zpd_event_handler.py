@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import TypeConverter, UserUID
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -48,11 +48,15 @@ class ZPDSnapshotHandler:
 
     async def handle_submission_approved(self, event: UserEntryApproved) -> None:
         """Snapshot when a user entry is approved — mastery signal."""
-        await self._take_snapshot(event.student_uid, "user_entry.approved")
+        await self._take_snapshot(
+            TypeConverter.to_user_uid(event.student_uid), "user_entry.approved"
+        )
 
     async def handle_report_submitted(self, event: ReportSubmitted) -> None:
         """Snapshot when a teacher submits a report — feedback delivered."""
-        await self._take_snapshot(event.student_uid, "submission.report_submitted")
+        await self._take_snapshot(
+            TypeConverter.to_user_uid(event.student_uid), "submission.report_submitted"
+        )
 
     async def handle_knowledge_mastered(self, event: KnowledgeMastered) -> None:
         """Snapshot when a KU is mastered — zone shift."""

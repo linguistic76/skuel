@@ -28,6 +28,7 @@ import math
 import time
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -231,8 +232,10 @@ class HuggingFaceEmbeddingsService:
         Returns:
             Result indicating success or error
         """
+        if not NeoLabel.is_valid(label):
+            return Result.fail(Errors.validation(f"Invalid Neo4j label: {label}", field="label"))
         result = await self.backend.store_embedding_metadata(
-            label=label,
+            label=NeoLabel(label),
             uid=uid,
             embedding=embedding,
             version=EMBEDDING_VERSION,
@@ -262,7 +265,9 @@ class HuggingFaceEmbeddingsService:
             Result containing metadata dict with keys:
             - has_embedding, version, model, updated_at, dimension
         """
-        result = await self.backend.get_embedding_metadata(label=label, uid=uid)
+        if not NeoLabel.is_valid(label):
+            return Result.fail(Errors.validation(f"Invalid Neo4j label: {label}", field="label"))
+        result = await self.backend.get_embedding_metadata(label=NeoLabel(label), uid=uid)
 
         if result.is_error:
             self.logger.error(f"Failed to get embedding metadata: {result.error}")
@@ -335,9 +340,12 @@ class HuggingFaceEmbeddingsService:
         # Check if node has current-version embedding
         compat_result = await self.check_version_compatibility(uid, label)
 
+        if not NeoLabel.is_valid(label):
+            return Result.fail(Errors.validation(f"Invalid Neo4j label: {label}", field="label"))
+
         if compat_result.is_ok and compat_result.value["is_current"]:
             # Cache hit - get existing embedding
-            result = await self.backend.get_cached_embedding(label=label, uid=uid)
+            result = await self.backend.get_cached_embedding(label=NeoLabel(label), uid=uid)
 
             if result.is_ok and result.value and result.value[0].get("embedding"):
                 self.logger.debug(f"Cache hit: {label}:{uid} (version={EMBEDDING_VERSION})")
