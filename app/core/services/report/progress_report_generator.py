@@ -562,9 +562,7 @@ class ProgressReportGenerator:
             Result[str] — LLM-generated report text
         """
         if not self.chat_port:
-            return Result.fail(
-                Errors.integration("OpenAI", "generate", "No chat adapter configured")
-            )
+            return Result.fail(Errors.integration("OpenAI", "generate: No chat adapter configured"))
 
         prompt = self._build_llm_prompt(
             completions, insights, time_period, depth, previous_annotation, intelligence
