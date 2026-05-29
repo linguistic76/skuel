@@ -81,7 +81,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     def __init__(
         self,
-        backend: BackendOperations[Entity] | None = None,
+        backend: BackendOperations[Entity],
         transcription_service=None,
         chat_port: "ChatCompletionPort | None" = None,  # For intelligent editing
         event_bus=None,  # For publishing domain events

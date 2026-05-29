@@ -206,7 +206,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             event_uid=event.uid,
             user_uid=user_uid,
             title=event.title,
-            event_date=event.event_date,
+            event_date=event_date,
             calendar_event_type=get_enum_value(event.event_type),
         )
         await publish_event(self.event_bus, event_obj, self.logger)
@@ -343,6 +343,12 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         from core.events import CalendarEventCreated
 
         for event in events:
+            if event.event_date is None:
+                self.logger.warning(
+                    f"Created study session {event.uid} has no event_date; "
+                    "skipping calendar notification"
+                )
+                continue
             event_obj = CalendarEventCreated(
                 event_uid=event.uid,
                 user_uid=user_uid,

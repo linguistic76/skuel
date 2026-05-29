@@ -102,7 +102,7 @@ from core.ports.query_types import (
 
 if TYPE_CHECKING:
     import builtins
-    from datetime import date, datetime
+    from datetime import date
 
     from core.models.choice.choice import Choice
     from core.models.event.event import Event
@@ -631,9 +631,12 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
     # ========================================================================
 
     async def find_expenses_by_date_range(
-        self, start: datetime, end: datetime
+        self, start: date, end: date
     ) -> Result[list[ExpensePure]]:
-        """Find expenses within a date range. Returns Result[list[ExpensePure]]."""
+        """Find expenses within a date range (ExpensePure.expense_date is a date).
+
+        Returns Result[list[ExpensePure]].
+        """
         ...
 
     async def find_expenses_by_category(

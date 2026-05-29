@@ -494,7 +494,7 @@ class BaseAnalyticsService(Generic[B, T]):
         gap, direction = self._calculate_perception_gap(user_score, system_score)
 
         # 5. Get entity name for insights
-        entity_name = getattr(entity, "name", None) or getattr(entity, "title", uid)
+        entity_name = getattr(entity, "name", None) or getattr(entity, "title", None) or uid
 
         # 6. Generate insights
         if insight_generator:

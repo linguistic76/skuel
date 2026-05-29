@@ -185,6 +185,8 @@ class InvoiceDTO:
         invoice_date = data.get("invoice_date")
         if isinstance(invoice_date, str):
             invoice_date = date.fromisoformat(invoice_date)
+        if not isinstance(invoice_date, date):
+            raise ValueError(f"InvoiceDTO requires a valid 'invoice_date', got {invoice_date!r}")
 
         due_date = data.get("due_date")
         if isinstance(due_date, str):
@@ -504,7 +506,6 @@ def create_invoice(
         due_date=due_date,
         notes=notes,
         created_at=datetime.now(),
-        updated_at=None,
     )
 
 

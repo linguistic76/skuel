@@ -922,11 +922,19 @@ class SearchRouter:
 
         # Strategy 1: Graph-aware search
         if request.has_graph_traversal_filter():
-            if isinstance(search_service, SupportsGraphTraversalSearch):
+            # has_graph_traversal_filter() guarantees both are non-None; bind
+            # locals so the type-checker can see the narrowing.
+            related_uid = request.connected_to_uid
+            relationship_type = request.connected_relationship
+            if (
+                isinstance(search_service, SupportsGraphTraversalSearch)
+                and related_uid is not None
+                and relationship_type is not None
+            ):
                 result = await search_service.search_connected_to(
                     query=request.query_text or "",
-                    related_uid=request.connected_to_uid,
-                    relationship_type=request.connected_relationship,
+                    related_uid=related_uid,
+                    relationship_type=relationship_type,
                     direction=request.connected_direction,
                     limit=limit_per_domain,
                 )
@@ -947,9 +955,10 @@ class SearchRouter:
 
         # Strategy 2: Tag search
         elif request.has_tag_filter():
-            if isinstance(search_service, SupportsTagSearch):
+            tags = request.tags_contain
+            if isinstance(search_service, SupportsTagSearch) and tags is not None:
                 result = await search_service.search_by_tags(
-                    tags=request.tags_contain,
+                    tags=tags,
                     match_all=request.tags_match_all,
                     limit=limit_per_domain * 2,  # Get more, then filter by text
                 )
