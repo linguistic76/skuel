@@ -21,6 +21,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import neo4j_str, neo4j_user_uid
 from core.utils.result_simplified import Result
 
 
@@ -88,7 +89,7 @@ class UserEntryExerciseLinker:
             return Result.ok(ProcessingOutcome.NOT_EXERCISE)
 
         exercise_entity_type = records[0]["exercise_entity_type"]
-        exercise_title = records[0].get("exercise_title") or ""
+        exercise_title = neo4j_str(records[0], "exercise_title", "")
         _original_value = records[0].get("original_exercise_uid")
         original_exercise_uid: str | None = (
             str(_original_value) if _original_value is not None else None
@@ -115,7 +116,7 @@ class UserEntryExerciseLinker:
             if scope != ExerciseScope.ASSIGNED:
                 return Result.ok(ProcessingOutcome.NOT_ASSIGNED)
 
-            group_uid = records[0]["group_uid"]
+            group_uid = neo4j_str(records[0], "group_uid", "")
             if group_uid:
                 student_result = await self.backend.verify_student_group_membership(
                     entry_uid, group_uid
@@ -135,7 +136,7 @@ class UserEntryExerciseLinker:
             if not student_uid_result.is_error:
                 student_uid_records = student_uid_result.value or []
                 if student_uid_records:
-                    submitter_uid = student_uid_records[0]["student_uid"]
+                    submitter_uid = neo4j_user_uid(student_uid_records[0], "student_uid")
 
                     # The FULFILLS_EXERCISE edge already exists (see docstring),
                     # so this count INCLUDES the just-created entry — it IS this
