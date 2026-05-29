@@ -26,8 +26,9 @@ from core.services.events._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports.domain_protocols import EventsOperations, EventsRelationshipOperations
+    from core.ports.domain_protocols import EventsOperations
     from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
+    from core.services.relationships import UnifiedRelationshipService
 
 
 class EventsIntelligenceService(
@@ -55,7 +56,7 @@ class EventsIntelligenceService(
         self,
         backend: "EventsOperations",
         graph_intel=None,
-        relationship_service: "EventsRelationshipOperations | None" = None,
+        relationship_service: "UnifiedRelationshipService[Any, Any, Any] | None" = None,
         cross_domain_query: "CrossDomainQueryService | None" = None,
         insight_store: Any | None = None,
     ) -> None:
@@ -65,7 +66,7 @@ class EventsIntelligenceService(
         Args:
             backend: Protocol-based backend for event operations
             graph_intel: GraphIntelligenceService for pure Cypher analytics
-            relationship_service: EventsRelationshipOperations protocol for fetching graph relationships
+            relationship_service: UnifiedRelationshipService for fetching graph relationships
             cross_domain_query: CrossDomainQueryService for batch cross-domain reads
                                 (required for analyze_upcoming_events)
             insight_store: For persisting event-driven insights (optional)

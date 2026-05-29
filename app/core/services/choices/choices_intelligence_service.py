@@ -35,9 +35,10 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
-    from core.ports.domain_protocols import ChoicesOperations, ChoicesRelationshipOperations
+    from core.ports.domain_protocols import ChoicesOperations
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
+    from core.services.relationships import UnifiedRelationshipService
 
 
 class ChoicesIntelligenceService(
@@ -67,7 +68,7 @@ class ChoicesIntelligenceService(
         backend: ChoicesOperations,
         cross_domain_query: CrossDomainQueryService,
         graph_intel=None,
-        relationship_service: ChoicesRelationshipOperations | None = None,
+        relationship_service: UnifiedRelationshipService[Any, Any, Any] | None = None,
         insight_store: InsightStore | None = None,
     ) -> None:
         """
@@ -77,7 +78,7 @@ class ChoicesIntelligenceService(
             backend: Protocol-based backend for choice operations (Choice model)
             cross_domain_query: CrossDomainQueryService for cross-domain reads (REQUIRED)
             graph_intel: GraphIntelligenceService for pure Cypher analytics,
-            relationship_service: ChoicesRelationshipOperations protocol for specialized relationship queries
+            relationship_service: UnifiedRelationshipService for specialized relationship queries
             insight_store: InsightStore for persisting event-driven insights (optional)
         """
         super().__init__(

@@ -47,7 +47,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from core.models.protocols import DomainModelProtocol
+from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_registry import DomainRelationshipConfig
 from core.models.type_hints import EntityUID
 from core.ports.base_protocols import BackendOperations
@@ -69,7 +69,11 @@ T = TypeVar("T")  # Domain model type
 D = TypeVar("D")  # DTO type
 
 
-class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProtocol, DtoType](
+class UnifiedRelationshipService[
+    Ops: BackendOperations,
+    Model: DomainModelProtocol,
+    DtoType: DTOProtocol,
+](
     IntelligenceMixin,
     OrderedRelationshipsMixin,
     BatchOperationsMixin,

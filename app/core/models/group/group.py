@@ -55,6 +55,23 @@ class GroupDTO:
             "metadata": self.metadata,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "GroupDTO":
+        """Create GroupDTO from dictionary (from database).
+
+        Completes the DTOProtocol contract (``metadata`` + ``to_dict`` + ``from_dict``)
+        so GroupDTO is structurally accepted as ``type[DTOProtocol]`` by DomainConfig.
+        """
+        from core.models.dto_helpers import dto_from_dict
+
+        return dto_from_dict(
+            cls,
+            data,
+            enum_fields={},
+            datetime_fields=["created_at", "updated_at"],
+            dict_fields=["metadata"],
+        )
+
 
 # ============================================================================
 # TIER 3 - Domain Model (Core Business Logic)
