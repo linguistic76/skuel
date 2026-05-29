@@ -34,7 +34,7 @@ from core.utils.result_simplified import Errors, Result
 F = TypeVar("F", bound=Callable[..., Any])
 
 # Type alias for forced error types
-ErrorType = Literal["database", "system", "validation", "not_found", "auto"]
+ErrorType = Literal["database", "system", "validation", "not_found", "integration", "auto"]
 
 
 def _categorize_exception(
@@ -73,6 +73,10 @@ def _categorize_exception(
         elif error_type == "not_found":
             entity_type = context.get("entity_type", "Entity") if context else "Entity"
             return Result.fail(Errors.not_found(f"{entity_type}: {e!s}"))
+        elif error_type == "integration":
+            return Result.fail(
+                Errors.integration(service=operation, message=str(e), **context if context else {})
+            )
         else:  # system
             return Result.fail(Errors.system(message=str(e), operation=operation, exception=e))
 
@@ -172,6 +176,7 @@ def with_error_handling(
             - "system": Always return Errors.system()
             - "validation": Always return Errors.validation()
             - "not_found": Always return Errors.not_found()
+            - "integration": Always return Errors.integration() (external-service calls)
             - "auto": (default) Categorize based on exception type
         uid_param: Name of the UID parameter to extract for error context
             If specified, the UID will be included in error details.
