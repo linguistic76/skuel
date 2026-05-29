@@ -74,6 +74,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.enums import ExpenseCategory
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import (
     BackendOperations,
@@ -635,7 +636,9 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         """Find expenses within a date range. Returns Result[list[ExpensePure]]."""
         ...
 
-    async def find_expenses_by_category(self, category: str) -> Result[list[ExpensePure]]:
+    async def find_expenses_by_category(
+        self, category: ExpenseCategory
+    ) -> Result[list[ExpensePure]]:
         """Find expenses by category. Returns Result[list[ExpensePure]]."""
         ...
 
@@ -655,7 +658,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         """Get all active budgets. Returns Result[list[BudgetPure]]."""
         ...
 
-    async def find_budgets_by_category(self, category: str) -> Result[list[BudgetPure]]:
+    async def find_budgets_by_category(self, category: ExpenseCategory) -> Result[list[BudgetPure]]:
         """Find budgets by category. Returns Result[list[BudgetPure]]."""
         ...
 

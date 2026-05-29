@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
-from core.models.type_hints import UserUID
+from core.models.type_hints import TypeConverter, UserUID
 from core.ports.report_protocols import ActivityReportBackendOperations
 
 if TYPE_CHECKING:
@@ -319,7 +319,7 @@ class ActivityReportService:
                 metadata["snapshot"] = snapshot_context
 
             feedback = ActivityReport.create(
-                user_uid=admin_uid,
+                user_uid=TypeConverter.to_user_uid(admin_uid),
                 subject_uid=subject_uid,
                 content=feedback_text,
                 processor_type=ReportSource.HUMAN,

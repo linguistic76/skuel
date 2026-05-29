@@ -10,13 +10,13 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 from core.constants import ReportTimePeriod
-from core.models.enums.user_entry_enums import ScheduleType
+from core.models.enums.user_entry_enums import ProgressDepth, ScheduleType
 from core.models.report_schedule import (
     ReportSchedule,
     ReportScheduleDTO,
     report_schedule_dto_to_domain,
 )
-from core.models.type_hints import UserUID
+from core.models.type_hints import TypeConverter, UserUID
 from core.ports.report_protocols import ReportScheduleBackendOperations
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -43,7 +43,7 @@ class ProgressScheduleService:
         schedule_type: str = "weekly",
         day_of_week: int = 0,
         domains: list[str] | None = None,
-        depth: str = "standard",
+        depth: ProgressDepth = ProgressDepth.STANDARD,
     ) -> Result[ReportSchedule]:
         """
         Create an entity generation schedule.
@@ -139,7 +139,7 @@ class ProgressScheduleService:
                 node: dict[str, Any] = cast("dict[str, Any]", dict(cast("Any", record["s"])))
                 dto = ReportScheduleDTO(
                     uid=str(node["uid"]),
-                    user_uid=str(node.get("user_uid", "")),
+                    user_uid=TypeConverter.to_user_uid(str(node.get("user_uid", ""))),
                     schedule_type=str(node.get("schedule_type", "weekly")),
                     day_of_week=int(node.get("day_of_week", 0)),
                     domains=node.get("domains"),

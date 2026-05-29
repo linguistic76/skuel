@@ -36,7 +36,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
@@ -366,7 +366,9 @@ class CalendarService:
                     end_time=new_end.time(),
                     status=event.status,
                 )
-                event_update = await self.events_service.update_event(source_uid, updated_event_dto)
+                event_update = await self.events_service.update_event(
+                    EntityUID(source_uid), updated_event_dto
+                )
                 if event_update.is_ok:
                     return Result.ok(self._event_to_calendar_item(event_update.value))
                 return Result.fail(event_update)

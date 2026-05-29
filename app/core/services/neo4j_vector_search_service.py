@@ -23,6 +23,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.config.unified_config import VectorSearchConfig
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
@@ -174,8 +175,10 @@ class Neo4jVectorSearchService:
             limit = self.config.default_limit
         if min_score is None:
             min_score = self.config.get_min_score_for_entity(label)
+        if not NeoLabel.is_valid(label):
+            return Result.fail(Errors.validation(f"Invalid Neo4j label: {label}", field="label"))
         # Get source node's embedding
-        result = await self.backend.get_node_embedding(label, uid)
+        result = await self.backend.get_node_embedding(NeoLabel(label), uid)
 
         if result.is_error:
             self.logger.error(f"Failed to get source embedding: {result.error}")

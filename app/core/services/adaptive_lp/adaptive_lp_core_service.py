@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from core.models.enums import EntityStatus
 from core.models.goal.goal_dto import GoalDTO
 from core.models.type_hints import UserUID
-from core.services.adaptive_lp.adaptive_lp_models import AdaptiveLp, LearningStyle
+from core.services.adaptive_lp.adaptive_lp_models import AdaptiveLp, LearningStyle, LpType
 from core.services.adaptive_lp_types import KnowledgeState
 
 if TYPE_CHECKING:
@@ -29,16 +29,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
-
-class LpType(str):
-    """Types of learning paths that can be generated."""
-
-    GOAL_DRIVEN = "goal_driven"
-    GAP_FILLING = "gap_filling"
-    CROSS_DOMAIN = "cross_domain"
-    REINFORCEMENT = "reinforcement"
-    EXPLORATION = "exploration"
-    PROJECT_BASED = "project_based"
+# LpType (StrEnum) is the canonical learning-path-type enum, imported from
+# adaptive_lp_models. A local `class LpType(str)` shadow previously lived here;
+# it duplicated the enum and broke AdaptiveLp.path_type typing (arg-type PR A).
 
 
 class AdaptiveLpCoreService:
@@ -200,7 +193,7 @@ class AdaptiveLpCoreService:
     # ========================================================================
 
     @with_error_handling(error_type="system", uid_param="user_uid")
-    async def detect_learning_style(self, user_uid: UserUID) -> Result[str]:
+    async def detect_learning_style(self, user_uid: UserUID) -> Result[LearningStyle]:
         """Detect user's learning style from task completion patterns."""
         if not self.tasks_service:
             return Result.ok(LearningStyle.INDEPENDENT)
