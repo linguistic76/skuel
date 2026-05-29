@@ -20,7 +20,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.interaction.interaction import Interaction
 from core.models.interaction.interaction_dto import InteractionDTO
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -88,7 +88,7 @@ class InteractionService(BaseService[BackendOperations[Interaction], Interaction
             return Result.fail(create_result)
 
         uid = interaction.uid
-        relationships: list[tuple[str, str, str, None]] = []
+        relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
 
         if interaction.context_path_step_uid:
             relationships.append(
@@ -162,7 +162,7 @@ class InteractionService(BaseService[BackendOperations[Interaction], Interaction
         if result.is_error:
             return Result.fail(result)
 
-        interactions = []
+        interactions: list[Interaction] = []
         for item in result.value or []:
             try:
                 if isinstance(item, dict):
