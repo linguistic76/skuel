@@ -14,7 +14,7 @@ Responsibilities:
 Part of the PrinciplesService decomposition.
 """
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from operator import itemgetter
 from typing import Any
@@ -426,7 +426,9 @@ class PrinciplesAlignmentService:
             evidence=assessment.evidence,
             reflection=assessment.reflection,
         )
-        dto.alignment_history.append(ku_assessment)
+        # DTO stores alignment_history as list[dict] (flattened on to_dict via asdict);
+        # convert here so the transfer-tier contract stays honest. See Principle._from_dto.
+        dto.alignment_history.append(asdict(ku_assessment))
 
         # Update in backend
         await self.backend.update(principle_uid, dto.to_dict())

@@ -473,7 +473,9 @@ class FinanceCoreService:
             "status": ExpenseStatus.PAID.value,
             "paid_at": payment_date or date.today(),
         }
-        return await self.update(expense_uid, updates)
+        # update() takes the universal dict[str, Any] CRUD contract; the typed
+        # literal above gives the call site field-checking, dict() bridges to it.
+        return await self.update(expense_uid, dict(updates))
 
     async def attach_receipt(self, expense_uid: str, receipt_link: str) -> Result[ExpensePure]:
         """
@@ -492,4 +494,4 @@ class FinanceCoreService:
             )
 
         updates: FinanceUpdatePayload = {"receipt_link": receipt_link, "has_receipt": True}
-        return await self.update(expense_uid, updates)
+        return await self.update(expense_uid, dict(updates))

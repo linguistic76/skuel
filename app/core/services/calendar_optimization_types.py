@@ -54,6 +54,20 @@ class SpacedRepetitionStrategy(TypedDict):
     spacing_quality: float  # Quality of spacing distribution
 
 
+SchedulingStrategyResult = (
+    CognitiveBalancedStrategy
+    | EnergyAlignedStrategy
+    | KnowledgeFocusedStrategy
+    | DeadlineDrivenStrategy
+    | SpacedRepetitionStrategy
+)
+"""Union of all strategy results returned by ``_apply_optimization_strategy``.
+
+Every member carries a ``schedule`` key, so the scoring helpers consume the
+union directly instead of widening to ``dict[str, Any]``.
+"""
+
+
 class HourLoadInfo(TypedDict):
     """Load information for a specific hour category."""
 
