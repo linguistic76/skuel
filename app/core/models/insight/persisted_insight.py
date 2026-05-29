@@ -30,9 +30,27 @@ Usage:
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, TypeVar
 
 from core.models.type_hints import EntityUID, UserUID
+
+_StrEnumT = TypeVar("_StrEnumT", bound=StrEnum)
+
+
+def _require_str_enum(data: dict[str, Any], key: str, enum_cls: type[_StrEnumT]) -> _StrEnumT:
+    """Extract a required StrEnum field from a serialized dict, raising if absent/invalid.
+
+    Keeps the typed boundary explicit instead of letting ``Any | None`` from
+    ``dict.get`` propagate into the frozen-model constructor.
+    """
+    raw = data.get(key)
+    if isinstance(raw, enum_cls):
+        return raw
+    if isinstance(raw, str):
+        return enum_cls(raw)
+    raise ValueError(
+        f"PersistedInsight field '{key}' must be a {enum_cls.__name__} value, got {raw!r}"
+    )
 
 
 class InsightType(StrEnum):
@@ -275,14 +293,10 @@ class PersistedInsight:
         if isinstance(actioned_at, str):
             actioned_at = datetime.fromisoformat(actioned_at)
 
-        # Parse enum fields
-        insight_type = data.get("insight_type")
-        if isinstance(insight_type, str):
-            insight_type = InsightType(insight_type)
-
-        impact = data.get("impact")
-        if isinstance(impact, str):
-            impact = InsightImpact(impact)
+        # Parse enum fields (required — raise on missing/invalid rather than
+        # letting Any | None reach the frozen-model constructor)
+        insight_type = _require_str_enum(data, "insight_type", InsightType)
+        impact = _require_str_enum(data, "impact", InsightImpact)
 
         return cls(
             uid=data["uid"],

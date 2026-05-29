@@ -97,7 +97,9 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
     #
     # ========================================================================
 
-    def _get_task_from_rich_context(self, task_uid: str, user_context: UserContext) -> Task | None:
+    def _get_task_from_rich_context(
+        self, task_uid: str, user_context: UserContext | None
+    ) -> Task | None:
         """
         Try to get Task entity from UserContext rich data.
 
@@ -106,11 +108,14 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
         Args:
             task_uid: Task identifier
-            user_context: User's context (may contain rich task data)
+            user_context: User's context (may contain rich task data); None forces
+                the Neo4j fallback path.
 
         Returns:
             Task if found in rich context, None otherwise
         """
+        if user_context is None:
+            return None
         for task_data in user_context.entities_rich.get("tasks", []):
             task_dict = task_data.get("entity", {})
             if task_dict.get("uid") == task_uid:
@@ -120,7 +125,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         return None
 
     def _get_relationships_from_rich_context(
-        self, task_uid: str, user_context: UserContext
+        self, task_uid: str, user_context: UserContext | None
     ) -> TaskRelationships | None:
         """
         Try to get TaskRelationships from UserContext rich data.
@@ -130,11 +135,14 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
         Args:
             task_uid: Task identifier
-            user_context: User's context with potential graph neighborhoods
+            user_context: User's context with potential graph neighborhoods;
+                None forces the Neo4j fallback path.
 
         Returns:
             TaskRelationships if found in rich context, None otherwise
         """
+        if user_context is None:
+            return None
         for task_data in user_context.entities_rich.get("tasks", []):
             task_dict = task_data.get("entity", {})
             if task_dict.get("uid") == task_uid:
@@ -245,18 +253,20 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         )
 
     def _get_completion_triggers_from_context(
-        self, task_uid: str, user_context: UserContext
+        self, task_uid: str, user_context: UserContext | None
     ) -> list[str]:
         """
         Get completion trigger task UIDs from rich context.
 
         Args:
             task_uid: Task identifier
-            user_context: User's context
+            user_context: User's context; None forces the Neo4j fallback path.
 
         Returns:
             List of task UIDs that should be triggered on completion
         """
+        if user_context is None:
+            return []
         for task_data in user_context.entities_rich.get("tasks", []):
             task_dict = task_data.get("entity", {})
             if task_dict.get("uid") == task_uid:
@@ -267,18 +277,20 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         return []
 
     def _get_unlocks_knowledge_from_context(
-        self, task_uid: str, user_context: UserContext
+        self, task_uid: str, user_context: UserContext | None
     ) -> list[str]:
         """
         Get knowledge UIDs that completing this task unlocks.
 
         Args:
             task_uid: Task identifier
-            user_context: User's context
+            user_context: User's context; None forces the Neo4j fallback path.
 
         Returns:
             List of knowledge UIDs that should be unlocked on completion
         """
+        if user_context is None:
+            return []
         for task_data in user_context.entities_rich.get("tasks", []):
             task_dict = task_data.get("entity", {})
             if task_dict.get("uid") == task_uid:
@@ -296,7 +308,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
     async def complete_task_with_cascade(
         self,
         task_uid: str,
-        user_context: UserContext,
+        user_context: UserContext | None,
         actual_minutes: int | None = None,
         quality_score: int | None = None,
     ) -> Result[Task]:
@@ -320,7 +332,9 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
         Args:
             task_uid: Task UID,
-            user_context: User context for cascade effects,
+            user_context: User context for cascade effects; None skips the
+                context-first optimization (Neo4j fallback) and derives the
+                owning user_uid from the task itself,
             actual_minutes: Actual time spent on task,
             quality_score: Completion quality score
 
@@ -340,6 +354,10 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             self.logger.debug(f"Task {task_uid} fetched from Neo4j (not in rich context)")
         else:
             self.logger.debug(f"Task {task_uid} found in rich context (no Neo4j query needed)")
+
+        # Owning user: from context when available, else from the task itself
+        # (the simplified StatusRouteFactory path passes user_context=None).
+        user_uid = user_context.user_uid if user_context is not None else task.user_uid
 
         # CONTEXT-FIRST: Try to get relationships from rich context
         rels = self._get_relationships_from_rich_context(task_uid, user_context)
@@ -428,7 +446,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # 5. Unlock knowledge
         if completion_unlocks_knowledge:
             for knowledge_uid in completion_unlocks_knowledge:
-                await self._unlock_knowledge(knowledge_uid, user_context.user_uid)
+                await self._unlock_knowledge(knowledge_uid, user_uid)
 
         # Context invalidation happens via TaskCompleted event (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
@@ -447,7 +465,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # Publish TaskCompleted event
         event = TaskCompleted(
             task_uid=task_uid,
-            user_uid=user_context.user_uid,
+            user_uid=user_uid,
             completion_time_seconds=actual_minutes * 60 if actual_minutes else None,
             was_overdue=task.due_date < date.today() if task.due_date else False,
         )
@@ -673,7 +691,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
     # ========================================================================
 
     async def _update_goal_progress(
-        self, goal_uid: str, contribution: float, user_context: UserContext
+        self, goal_uid: str, contribution: float, user_context: UserContext | None
     ) -> None:
         """Update goal progress based on task completion."""
         # This would call goal service
@@ -682,7 +700,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             "Would update goal %s progress by %.2f for user %s",
             goal_uid,
             contribution,
-            user_context.user_uid,
+            user_context.user_uid if user_context is not None else "<unknown>",
         )
 
     async def _reinforce_habit(self, habit_uid: str, quality: int) -> None:

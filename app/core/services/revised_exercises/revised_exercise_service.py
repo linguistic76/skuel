@@ -29,6 +29,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import EntityUID
 from core.ports.curriculum_protocols import RevisedExerciseBackendOperations
 from core.ports.query_types import RevisionChainResult
 from core.services.base_service import BaseService
@@ -119,10 +120,22 @@ class RevisedExerciseService(BaseService):
         """
         teacher_uid = entity.user_uid
 
+        # Required-field guard: these are nullable on the model (frozen-base
+        # field-ordering forces defaults) but a RevisedExercise cannot be
+        # created without them. Bind validated str locals for the rest of the flow.
+        report_uid = entity.report_uid
+        student_uid = entity.student_uid
+        original_exercise_uid = entity.original_exercise_uid
+        if not report_uid or not student_uid or not original_exercise_uid:
+            return Result.fail(
+                Errors.validation(
+                    "RevisedExercise requires report_uid, student_uid, and original_exercise_uid.",
+                    field="report_uid",
+                )
+            )
+
         # Verify teacher has review authority over this report/student
-        auth_result = await self._verify_teacher_authority(
-            teacher_uid, entity.report_uid, entity.student_uid
-        )
+        auth_result = await self._verify_teacher_authority(teacher_uid, report_uid, student_uid)
         if auth_result.is_error:
             return Result.fail(auth_result)
 
@@ -145,7 +158,7 @@ class RevisedExerciseService(BaseService):
                         expected_modality = SubmissionModality(raw_modality)
 
         # Determine revision number from existing chain
-        chain_result = await self.backend.get_revision_chain(entity.original_exercise_uid)
+        chain_result = await self.backend.get_revision_chain(original_exercise_uid)
         revision_number = 1
         if chain_result.is_ok and chain_result.value:
             revision_number = len(chain_result.value) + 1
@@ -158,7 +171,7 @@ class RevisedExerciseService(BaseService):
             title=display_title,
             submission_uid=submission_uid,
             expected_modality=expected_modality,
-            parent_entity_uid=entity.report_uid,
+            parent_entity_uid=EntityUID(report_uid),
         )
 
         result = await self.backend.create(enriched)
@@ -202,9 +215,9 @@ class RevisedExerciseService(BaseService):
             RevisedExerciseCreated(
                 revised_exercise_uid=uid,
                 teacher_uid=teacher_uid,
-                student_uid=enriched.student_uid,
-                original_exercise_uid=enriched.original_exercise_uid,
-                report_uid=enriched.report_uid,
+                student_uid=student_uid,
+                original_exercise_uid=original_exercise_uid,
+                report_uid=report_uid,
                 revision_number=revision_number,
             ),
             self.logger,
