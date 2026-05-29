@@ -10,6 +10,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -401,7 +402,9 @@ class _AlignmentIntelligenceMixin:
             evidence=user_evidence,
             reflection=user_reflection,
         )
-        dto.alignment_history.append(assessment)
+        # DTO stores alignment_history as list[dict] (flattened on to_dict via asdict);
+        # convert here so the transfer-tier contract stays honest. See Principle._from_dto.
+        dto.alignment_history.append(asdict(assessment))
 
         # Update in backend
         await self.backend.update(principle_uid, dto.to_dict())

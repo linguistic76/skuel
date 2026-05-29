@@ -820,7 +820,9 @@ class ActivityExtractorService:
         if convert_result.is_error:
             return Result.fail(convert_result)
 
-        habit_dict = convert_result.value
+        # ConversionResult is a union, but the habit converter always returns a dict.
+        raw = convert_result.value
+        habit_dict: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
 
         # Create habit via service
         # Note: Adapt this to your HabitsCoreService interface
@@ -875,7 +877,9 @@ class ActivityExtractorService:
         if convert_result.is_error:
             return Result.fail(convert_result)
 
-        goal_dict = convert_result.value
+        # ConversionResult is a union, but the goal converter always returns a dict.
+        raw = convert_result.value
+        goal_dict: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
 
         # Create goal via service
         if isinstance(self.goals_service, HasCreateGoalMethod):
@@ -929,7 +933,9 @@ class ActivityExtractorService:
         if convert_result.is_error:
             return Result.fail(convert_result)
 
-        event_dict = convert_result.value
+        # ConversionResult is a union, but the event converter always returns a dict.
+        raw = convert_result.value
+        event_dict: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
 
         # Create event via service
         if isinstance(self.events_service, HasCreateEventMethod):

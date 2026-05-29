@@ -22,7 +22,7 @@ Handles advanced task search and discovery operations.
 from __future__ import annotations
 
 from operator import attrgetter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
 
@@ -355,7 +355,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
     )
     async def get_tasks_requiring_knowledge(
         self, knowledge_uid: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Task]]:
         """
         Get tasks that require specific knowledge.
 
@@ -379,7 +379,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         task_uids = task_uids_result.value
 
         # Fetch task details for each UID
-        tasks: list[dict[str, Any]] = []
+        tasks: list[Task] = []
         for task_uid in task_uids:
             task_result = await self.backend.get(task_uid)
             if task_result.is_ok and task_result.value:
@@ -387,7 +387,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
         # Filter by user_uid if provided
         if user_uid:
-            tasks = [t for t in tasks if getattr(t, "user_uid", None) == user_uid]
+            tasks = [t for t in tasks if t.user_uid == user_uid]
 
         # Apply limit if provided
         if limit:

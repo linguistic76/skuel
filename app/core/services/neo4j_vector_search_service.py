@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 from core.config.unified_config import VectorSearchConfig
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.query_types import SemanticSearchChunkResult
 
 if TYPE_CHECKING:
     from core.ports.vector_search_protocols import VectorSearchBackendOperations
@@ -474,7 +475,7 @@ class Neo4jVectorSearchService:
         parent_uid: str | None = None,
         limit: int | None = None,
         min_score: float | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[SemanticSearchChunkResult]]:
         """Find similar :ContentChunk nodes by embedding the query text.
 
         Returns SemanticSearchChunkResult-shaped dicts (chunk_uid, chunk_type,
@@ -533,7 +534,7 @@ class Neo4jVectorSearchService:
         parent_uid: str | None = None,
         limit: int | None = None,
         min_score: float | None = None,
-    ) -> tuple[Result[list[dict[str, Any]]], SearchMetrics | None]:
+    ) -> tuple[Result[list[SemanticSearchChunkResult]], SearchMetrics | None]:
         """Chunk vector search + Prometheus-shaped metrics (mirror of
         find_similar_by_text_with_metrics)."""
         start_time = time.perf_counter()
