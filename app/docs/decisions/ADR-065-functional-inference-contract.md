@@ -237,6 +237,9 @@ helper.
 
 - [ADR-035](ADR-035-tier-selection-guidelines.md) — where the deferred risk
   this ADR closes was first named.
+- [Activity Domain Inference Migration roadmap](../roadmap/activity-domain-inference-migration.md)
+  — per-domain plan to bring Goals/Habits/Events/Choices/Principles to
+  parity with the Tasks template.
 - `/docs/patterns/three_tier_type_system.md` § "Intelligence is the
   exception" — the pattern-level note that points back here.
 - `core/models/task/task_inference_result.py` — the type.
