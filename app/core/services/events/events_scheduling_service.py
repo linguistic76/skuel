@@ -13,15 +13,16 @@ has access to both Tasks and Events data.
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
-from core.models.enums import EntityStatus, RecurrencePattern
+from core.models.enums import EntityStatus, EntityType, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
+from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -185,17 +186,21 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
         # Create events
         created_events = []
         for event_date in recommended_dates:
-            dto = EventDTO.create_event(
+            # Build the frozen Event end-to-end (ADR-035/ADR-065).
+            event_model = Event(
+                uid=EntityUID(UIDGenerator.generate_random_uid("event")),
+                entity_type=EntityType.EVENT,
                 user_uid=user_uid,
                 title=title,
                 event_date=event_date,
                 start_time=start_time,
                 end_time=end_time,
                 event_type="RECURRING",
+                recurrence_pattern=pattern,
+                status=EntityStatus.DRAFT,
             )
-            dto.recurrence_pattern = pattern
 
-            create_result = await self.backend.create(dto.to_dict())
+            create_result = await self.backend.create(event_model)
             if create_result.is_ok:
                 event = self._to_domain_model(create_result.value, EventDTO, Event)
                 created_events.append(event)

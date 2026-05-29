@@ -10,9 +10,11 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from typing import Any
 
+from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.type_hints import EntityUID
 from core.ports.backend_operations_typing import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -69,24 +71,24 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
         uid = UIDGenerator.generate_knowledge_uid(title)
 
-        properties: dict[str, Any] = {
-            "uid": uid,
-            "title": title,
-            "entity_type": EntityType.KU.value,
-            "namespace": namespace,
-            "ku_category": ku_category,
-            "aliases": aliases or [],
-            "source": source,
-            "description": description,
-            "summary": summary,
-            "domain": domain,
-            "tags": tags or [],
-        }
+        # Build the frozen Ku end-to-end (ADR-035/ADR-065). domain crosses the
+        # enum boundary here — an unknown value raises rather than silently
+        # storing a raw string (CLAUDE.md § Enum-Enforced Boundaries).
+        ku = Ku(
+            uid=EntityUID(uid),
+            entity_type=EntityType.KU,
+            title=title,
+            namespace=namespace,
+            ku_category=ku_category,
+            aliases=tuple(aliases) if aliases else (),
+            source=source,
+            description=description,
+            summary=summary or "",
+            domain=Domain(domain) if domain else Domain.KNOWLEDGE,
+            tags=tuple(tags) if tags else (),
+        )
 
-        # Filter None values
-        properties = {k: v for k, v in properties.items() if v is not None}
-
-        result: Result[Ku | None] = await self.backend.create(properties)  # type: ignore[assignment]  # Result invariance — Ku is always non-None here
+        result: Result[Ku | None] = await self.backend.create(ku)  # type: ignore[assignment]  # Result invariance — Ku is always non-None here
         if result.is_error:
             return result
 

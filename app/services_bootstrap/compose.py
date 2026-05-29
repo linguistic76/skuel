@@ -1084,6 +1084,7 @@ async def compose_services(
         )
         user_entry_assessment = AssessmentService(
             backend=user_entry_backend,
+            report_backend=exercise_report_backend,
             event_bus=event_bus,
         )
         logger.info(
