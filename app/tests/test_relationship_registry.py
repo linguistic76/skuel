@@ -340,10 +340,10 @@ class TestRegistryIntegration:
         """Verify KU config has organizes in bidirectional relationships."""
         organizes_rel = None
         for rel in KU_CONFIG.bidirectional_relationships:
-            if rel.method_key == "organizes":  # type: ignore[attr-defined]
+            if isinstance(rel, UnifiedRelationshipDefinition) and rel.method_key == "organizes":
                 organizes_rel = rel
                 break
         assert organizes_rel is not None
-        assert organizes_rel.relationship == RelationshipName.ORGANIZES  # type: ignore[attr-defined]
-        assert organizes_rel.target_label == "Ku"  # type: ignore[attr-defined]
-        assert organizes_rel.direction == "outgoing"  # type: ignore[attr-defined]
+        assert organizes_rel.relationship == RelationshipName.ORGANIZES
+        assert organizes_rel.target_label == "Ku"
+        assert organizes_rel.direction == "outgoing"
