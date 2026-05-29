@@ -250,7 +250,7 @@ class PsIntelligenceService(
         """
         backend_result = self._require_backend()
         if backend_result.is_error:
-            return Result.fail(backend_result.error)
+            return Result.fail(backend_result)
 
         records_result = await backend_result.value.fetch_prerequisite_step_uids(ps_uid)
         if records_result.is_error:
@@ -289,7 +289,7 @@ class PsIntelligenceService(
         """
         backend_result = self._require_backend()
         if backend_result.is_error:
-            return Result.fail(backend_result.error)
+            return Result.fail(backend_result)
 
         def _process_summary(records: list[dict]) -> PsPracticeSummaryResult:
             if not records:
@@ -389,7 +389,7 @@ class PsIntelligenceService(
         """
         backend_result = self._require_backend()
         if backend_result.is_error:
-            return Result.fail(backend_result.error)
+            return Result.fail(backend_result)
 
         def _calculate_score(records: list[dict]) -> float:
             if not records:
@@ -514,7 +514,7 @@ class PsIntelligenceService(
         """
         backend_result = self._require_backend()
         if backend_result.is_error:
-            return Result.fail(backend_result.error)
+            return Result.fail(backend_result)
 
         # 1. Find all KUs taught by this PathStep
         ku_rows_result = await backend_result.value.fetch_taught_ku_uids(ps_uid)

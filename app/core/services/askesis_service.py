@@ -524,12 +524,10 @@ class AskesisService:
         intelligence = self.intelligence_factory.create(user_context)
 
         # Get optimal path steps
-        return Result.ok(
-            await intelligence.get_optimal_next_path_steps(
-                max_steps=max_steps,
-                consider_goals=consider_goals,
-                consider_capacity=consider_capacity,
-            )
+        return await intelligence.get_optimal_next_path_steps(
+            max_steps=max_steps,
+            consider_goals=consider_goals,
+            consider_capacity=consider_capacity,
         )
 
     async def get_learning_path_critical_path(
@@ -562,7 +560,7 @@ class AskesisService:
         intelligence = self.intelligence_factory.create(user_context)
 
         # Get critical path
-        return Result.ok(await intelligence.get_learning_path_critical_path())
+        return await intelligence.get_learning_path_critical_path()
 
     async def get_knowledge_application_opportunities(
         self,
@@ -599,7 +597,7 @@ class AskesisService:
         intelligence = self.intelligence_factory.create(user_context)
 
         # Get application opportunities
-        return Result.ok(await intelligence.get_knowledge_application_opportunities(ku_uid))
+        return await intelligence.get_knowledge_application_opportunities(ku_uid)
 
     async def get_unblocking_priority_order(
         self,
@@ -631,7 +629,7 @@ class AskesisService:
         intelligence = self.intelligence_factory.create(user_context)
 
         # Get unblocking priority order
-        return Result.ok(await intelligence.get_unblocking_priority_order())
+        return await intelligence.get_unblocking_priority_order()
 
     # =========================================================================
     # PHASE 2: Cross-Domain Synergies (Habit→Goal, Task→Habit, etc.)
@@ -681,12 +679,10 @@ class AskesisService:
         intelligence = self.intelligence_factory.create(user_context)
 
         # Get cross-domain synergies
-        synergies = await intelligence.get_cross_domain_synergies(
+        return await intelligence.get_cross_domain_synergies(
             min_synergy_score=min_synergy_score,
             include_types=include_types,
         )
-
-        return Result.ok(synergies)
 
     # =========================================================================
     # PHASE 3: Life Path Alignment Scoring
@@ -733,9 +729,7 @@ class AskesisService:
         intelligence = self.intelligence_factory.create(user_context)
 
         # Calculate life path alignment
-        alignment = await intelligence.calculate_life_path_alignment()
-
-        return Result.ok(alignment)
+        return await intelligence.calculate_life_path_alignment()
 
     # =========================================================================
     # USERCONTEXT + KNOWLEDGE INTEGRATION
