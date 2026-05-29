@@ -478,7 +478,7 @@ class Neo4jGenericMapper:
                     type_args = get_args(target_type)
                     if type_args and len(type_args) > 0:
                         element_type = type_args[0]
-                        if is_dataclass(element_type):
+                        if inspect.isclass(element_type) and is_dataclass(element_type):
                             # Reconstruct dataclasses from dict representation
                             reconstructed = []
                             for item in parsed_list:
@@ -516,7 +516,7 @@ class Neo4jGenericMapper:
                         element_type = type_args[0]
 
                         # Handle dataclass elements
-                        if is_dataclass(element_type):
+                        if inspect.isclass(element_type) and is_dataclass(element_type):
                             reconstructed = []
                             for item in parsed_list:
                                 if isinstance(item, dict):
@@ -529,8 +529,10 @@ class Neo4jGenericMapper:
 
                         # Handle enum elements
                         if inspect.isclass(element_type) and issubclass(element_type, Enum):
-                            # Convert string values back to enum objects
-                            converted_list = []
+                            # Convert string values back to enum objects. Heterogeneous
+                            # by design: converted members are Enum, but unmatched raw
+                            # values are kept as-is (str) — hence list[Any].
+                            converted_list: list[Any] = []
                             for item in parsed_list:
                                 if isinstance(item, str):
                                     try:

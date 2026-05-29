@@ -35,9 +35,9 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
-    from core.ports.domain_protocols import HabitsRelationshipOperations
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
+    from core.services.relationships import UnifiedRelationshipService
     from core.services.user import UserContext
 
 
@@ -70,7 +70,7 @@ class HabitsIntelligenceService(
     def __init__(
         self,
         backend: HabitsOperations,
-        relationship_service: "HabitsRelationshipOperations",
+        relationship_service: "UnifiedRelationshipService[Any, Any, Any]",
         cross_domain_query: "CrossDomainQueryService",
         graph_intel=None,
         insight_store: "InsightStore | None" = None,
@@ -81,7 +81,7 @@ class HabitsIntelligenceService(
         Args:
             backend: Protocol-based backend for habit operations,
             graph_intel: GraphIntelligenceService for pure Cypher analytics,
-            relationship_service: HabitsRelationshipOperations protocol for specialized relationship queries (REQUIRED)
+            relationship_service: UnifiedRelationshipService for specialized relationship queries (REQUIRED)
             insight_store: InsightStore for persisting event-driven insights (optional)
 
         Note:

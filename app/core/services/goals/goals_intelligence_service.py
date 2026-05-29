@@ -36,11 +36,9 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
-    from core.ports.domain_protocols import (
-        GoalsRelationshipOperations,
-        HabitsOperations,
-    )
+    from core.ports.domain_protocols import HabitsOperations
     from core.services.insight.insight_store import InsightStore
+    from core.services.relationships import UnifiedRelationshipService
 
 logger = get_logger(__name__)
 
@@ -117,7 +115,7 @@ class GoalsIntelligenceService(
         self,
         backend: GoalsOperations,
         graph_intel=None,
-        relationship_service: GoalsRelationshipOperations | None = None,
+        relationship_service: UnifiedRelationshipService[Any, Any, Any] | None = None,
         progress_service=None,
         insight_store: InsightStore | None = None,
     ) -> None:
@@ -127,7 +125,7 @@ class GoalsIntelligenceService(
         Args:
             backend: Protocol-based backend for goal operations,
             graph_intel: GraphIntelligenceService for graph intelligence queries,
-            relationship_service: GoalsRelationshipOperations protocol for fetching (REQUIRED) goal relationships
+            relationship_service: UnifiedRelationshipService for fetching (REQUIRED) goal relationships
             progress_service: GoalsProgressService for velocity calculations
             insight_store: For persisting event-driven insights (optional)
         """

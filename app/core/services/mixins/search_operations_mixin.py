@@ -79,7 +79,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
         _graph_enrichment_patterns: tuple - Graph enrichment config
-        _user_ownership_relationship: str | None - Ownership relationship
+        _user_ownership_relationship: RelationshipName | None - Ownership relationship
         _to_domain_models: Conversion method
         _get_config_value: Config accessor method
     """
@@ -96,7 +96,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     _graph_enrichment_patterns: ClassVar[
         tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
     ]
-    _user_ownership_relationship: ClassVar[str | None]
+    _user_ownership_relationship: ClassVar[RelationshipName | None]
 
     @property
     @abstractmethod
@@ -508,11 +508,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.faceted_search_raw(
             user_uid,
-            user_ownership_relationship=(
-                RelationshipName.from_string(self._user_ownership_relationship)
-                if self._user_ownership_relationship
-                else None
-            ),
+            # Pass the RelationshipName enum straight through — no from_string
+            # round-trip (which would silently drop the ownership filter on an
+            # unknown name; see ADR / project_security_posture fail-open risk).
+            user_ownership_relationship=self._user_ownership_relationship,
             search_fields=self._search_fields,
             search_order_by=self._search_order_by,
             graph_enrichment_patterns=self._graph_enrichment_patterns,

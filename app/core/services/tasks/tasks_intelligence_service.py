@@ -56,7 +56,8 @@ from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports.domain_protocols import TasksOperations, TasksRelationshipOperations
+    from core.ports.domain_protocols import TasksOperations
+    from core.services.relationships import UnifiedRelationshipService
 
 
 class TasksIntelligenceService(
@@ -88,7 +89,7 @@ class TasksIntelligenceService(
         self,
         backend: TasksOperations,
         graph_intel: GraphIntelligenceService | None = None,
-        relationship_service: TasksRelationshipOperations | None = None,
+        relationship_service: UnifiedRelationshipService[Any, Any, Any] | None = None,
         event_bus: Any | None = None,
         insight_store: Any | None = None,
     ) -> None:
@@ -98,7 +99,7 @@ class TasksIntelligenceService(
         Args:
             backend: Tasks backend operations (protocol)
             graph_intel: Graph intelligence service (infrastructure only)
-            relationship_service: TasksRelationshipOperations protocol for specialized relationship queries
+            relationship_service: UnifiedRelationshipService for specialized relationship queries
             event_bus: Event bus for publishing events (optional)
             insight_store: For persisting event-driven insights (optional)
 

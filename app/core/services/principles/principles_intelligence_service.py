@@ -32,7 +32,7 @@ from core.services.principles._influence_mixin import _InfluenceMixin
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.ports.domain_protocols import PrinciplesRelationshipOperations
+    from core.services.relationships import UnifiedRelationshipService
 
 logger = get_logger(__name__)
 
@@ -68,7 +68,7 @@ class PrinciplesIntelligenceService(
         self,
         backend: PrinciplesOperations,
         graph_intel=None,
-        relationship_service: PrinciplesRelationshipOperations | None = None,
+        relationship_service: UnifiedRelationshipService[Any, Any, Any] | None = None,
         insight_store: Any | None = None,
     ) -> None:
         """
@@ -77,7 +77,7 @@ class PrinciplesIntelligenceService(
         Args:
             backend: Backend for principle operations
             graph_intel: GraphIntelligenceService for pure Cypher analytics
-            relationship_service: PrinciplesRelationshipOperations protocol for specialized relationship queries
+            relationship_service: UnifiedRelationshipService for specialized relationship queries
             insight_store: For persisting event-driven insights (optional)
         """
         super().__init__(
