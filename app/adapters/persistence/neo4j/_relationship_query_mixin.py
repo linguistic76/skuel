@@ -391,7 +391,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
     @safe_backend_operation("get_relationships_batch")
     async def get_relationships_batch(
         self, relationships: builtins.list[tuple[str, str, str]]
-    ) -> Result[builtins.list[dict[str, Any]]]:
+    ) -> Result[builtins.list[RelationshipMetadata]]:
         """
         Get metadata for multiple relationships in a single query.
 
@@ -423,8 +423,12 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             result = await session.run(query_result.query, query_result.params)
             records = [record async for record in result]
 
-            # Convert to list of dicts (empty dict if None)
-            metadata_list = [dict(record["props"]) if record["props"] else {} for record in records]
+            # properties(r) is delivered as a fresh, detached dict per record (empty
+            # dict if the OPTIONAL MATCH missed). RelationshipMetadata is a total=False
+            # TypedDict, so each props map satisfies it structurally.
+            metadata_list: builtins.list[RelationshipMetadata] = [
+                record["props"] if record["props"] else {} for record in records
+            ]
 
             self.logger.debug(
                 f"Fetched metadata for {len(metadata_list)} relationships ({len(relationships)} requested)"
