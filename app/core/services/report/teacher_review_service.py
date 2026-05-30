@@ -126,7 +126,9 @@ class TeacherReviewService:
         # public shape (submission_uid, exercise_name) so UI consumers
         # (ui/teaching/types.queue_item_from_dict, scripts/export_submissions)
         # see a stable surface across the get_review_queue → by_groups rewire.
-        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type).
+        # boundary: neo4j-rows — heterogeneous dict columns vary per query
+        # (execute_query's own return type); viewed as dict[str, Any] so the typed
+        # literal below builds without per-value casts.
         records: list[dict[str, Any]] = result.value
         items: list[ReviewQueueItem] = [
             {
@@ -740,7 +742,9 @@ class TeacherReviewService:
         if result.is_error:
             return Result.fail(result)
 
-        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type).
+        # boundary: neo4j-rows — heterogeneous dict columns vary per query
+        # (execute_query's own return type); viewed as dict[str, Any] so the typed
+        # literal below builds without per-value casts.
         records: list[dict[str, Any]] = result.value
         if not records:
             return Result.fail(
@@ -788,9 +792,9 @@ class TeacherReviewService:
         if result.is_error:
             return Result.fail(result)
 
-        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type);
-        # viewing them as dict[str, Any] lets the typed-stat literal below build
-        # cleanly without per-value casts.
+        # boundary: neo4j-rows — heterogeneous dict columns vary per query
+        # (execute_query's own return type); viewed as dict[str, Any] so the typed
+        # stat literal below builds without per-value casts.
         records: list[dict[str, Any]] = result.value
         if not records:
             return Result.ok(

@@ -479,7 +479,9 @@ class ActivityReportService:
         )
         if result.is_error:
             return Result.fail(result)
-        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type).
+        # boundary: neo4j-rows — heterogeneous dict columns vary per query
+        # (execute_query's own return type); viewed as dict[str, Any] so the typed
+        # literal below builds without per-value casts.
         records: list[dict[str, Any]] = result.value or []
         if not records:
             return Result.fail(
@@ -508,7 +510,9 @@ class ActivityReportService:
         result = await self.backend.get_annotation(uid, user_uid)
         if result.is_error:
             return Result.fail(result)
-        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type).
+        # boundary: neo4j-rows — heterogeneous dict columns vary per query
+        # (execute_query's own return type); viewed as dict[str, Any] so the typed
+        # literal below builds without per-value casts.
         records: list[dict[str, Any]] = result.value or []
         if not records:
             return Result.fail(
