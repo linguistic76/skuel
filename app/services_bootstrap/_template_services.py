@@ -23,7 +23,7 @@ from core.models.templates.goal_template import GoalTemplate
 from core.models.templates.habit_template import HabitTemplate
 from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.task_template import TaskTemplate
-from core.ports import CrudOperations
+from core.ports import BackendOperations
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -37,19 +37,19 @@ def _create_template_services(
     executor: Neo4jQueryExecutor,
     ps_service: Any,
     # Template backends (one per Activity Template entity type)
-    task_template_backend: CrudOperations[TaskTemplate],
-    goal_template_backend: CrudOperations[GoalTemplate],
-    habit_template_backend: CrudOperations[HabitTemplate],
-    event_template_backend: CrudOperations[EventTemplate],
-    choice_template_backend: CrudOperations[ChoiceTemplate],
-    principle_template_backend: CrudOperations[PrincipleTemplate],
+    task_template_backend: BackendOperations[TaskTemplate],
+    goal_template_backend: BackendOperations[GoalTemplate],
+    habit_template_backend: BackendOperations[HabitTemplate],
+    event_template_backend: BackendOperations[EventTemplate],
+    choice_template_backend: BackendOperations[ChoiceTemplate],
+    principle_template_backend: BackendOperations[PrincipleTemplate],
     # Activity instance backends (spawn destinations)
-    tasks_backend: CrudOperations[Task],
-    goals_backend: CrudOperations[Goal],
-    habits_backend: CrudOperations[Habit],
-    events_backend: CrudOperations[Event],
-    choices_backend: CrudOperations[Choice],
-    principles_backend: CrudOperations[Principle],
+    tasks_backend: BackendOperations[Task],
+    goals_backend: BackendOperations[Goal],
+    habits_backend: BackendOperations[Habit],
+    events_backend: BackendOperations[Event],
+    choices_backend: BackendOperations[Choice],
+    principles_backend: BackendOperations[Principle],
 ) -> dict[str, Any]:
     """Construct the template + engagement layer.
 
