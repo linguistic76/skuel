@@ -1816,6 +1816,10 @@ class AlternativeComparisonItem(TypedDict, total=False):
     status: str | None
     priority: str | None
     description: str | None
+    # boundary: edge-properties — comparison_data is assembled from arbitrary
+    # ALTERNATIVE_TO relationship properties (timeframe/difficulty/resources plus
+    # any user-defined comparison fields), and metadata holds free-form
+    # tradeoffs/criteria; both are genuinely heterogeneous per edge.
     comparison_data: dict[str, Any]
     metadata: dict[str, Any]
 
