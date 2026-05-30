@@ -44,7 +44,7 @@ class RelationshipSpec(TypedDict, total=False):
     """
 
     rel_types: str
-    target_label: str
+    target_label: NeoLabel
     alias: str
     direction: str
     fields: Sequence[str]

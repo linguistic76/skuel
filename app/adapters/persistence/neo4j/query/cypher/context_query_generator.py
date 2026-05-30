@@ -126,6 +126,7 @@ def generate_context_query(
 
     return _generate_from_config(
         config=config,
+        entity_label=entity_label,
         include_relationships=include_relationships,
         exclude_relationships=exclude_relationships,
         default_confidence=default_confidence,
@@ -205,6 +206,7 @@ def _build_shared_neighbor_clause(
 
 def _generate_from_config(
     config: DomainRelationshipConfig,
+    entity_label: NeoLabel,
     include_relationships: Sequence[str] | None = None,
     exclude_relationships: Sequence[str] | None = None,
     default_confidence: float = 0.7,
@@ -214,6 +216,9 @@ def _generate_from_config(
 
     Internal helper that handles relationship filtering and spec generation.
     Supports both standard relationships and shared-neighbor patterns.
+
+    The caller-supplied ``entity_label`` (the validated NeoLabel used to look
+    up ``config``) is the authoritative node label for the generated query.
     """
     # Start with all relationships
     relationships = list(config.relationships)
@@ -242,7 +247,7 @@ def _generate_from_config(
 
     # Generate base query using the generic engine
     base_query, parameters = build_entity_with_context(
-        entity_label=config.entity_label,
+        entity_label=entity_label,
         relationships=specs,
         default_confidence=default_confidence,
     )

@@ -150,7 +150,7 @@ def build_unmastered_prerequisite_chain(
 
 def build_multi_domain_context(
     start_uid: str,
-    start_label: str,
+    start_label: NeoLabel,
     relationship_types: list[str],
     depth: int = 3,
     bidirectional: bool = True,
@@ -226,7 +226,7 @@ def build_knowledge_prerequisites(
         return build_unmastered_prerequisite_chain(
             node_uid=ku_uid,
             user_uid=user_uid,
-            node_label="Entity",
+            node_label=NeoLabel.ENTITY,
             relationship_type="REQUIRES_KNOWLEDGE",
             mastery_relationship="MASTERED_BY",
             depth=depth,
@@ -234,7 +234,7 @@ def build_knowledge_prerequisites(
     else:
         return build_simple_prerequisite_chain(
             node_uid=ku_uid,
-            node_label="Entity",
+            node_label=NeoLabel.ENTITY,
             relationship_type="REQUIRES_KNOWLEDGE",
             depth=depth,
             order="DESC",
@@ -263,7 +263,7 @@ def build_task_dependencies(
     if direction == "prerequisites":
         return build_simple_prerequisite_chain(
             node_uid=task_uid,
-            node_label="Task",
+            node_label=NeoLabel.TASK,
             relationship_type="DEPENDS_ON",
             depth=depth,
             order="ASC",
@@ -308,7 +308,7 @@ def build_goal_dependencies(
         if direction == "prerequisites":
             return build_multi_domain_context(
                 start_uid=goal_uid,
-                start_label="Goal",
+                start_label=NeoLabel.GOAL,
                 relationship_types=["DEPENDS_ON", "PART_OF"],
                 depth=depth,
                 bidirectional=False,
@@ -317,7 +317,7 @@ def build_goal_dependencies(
         else:
             return build_multi_domain_context(
                 start_uid=goal_uid,
-                start_label="Goal",
+                start_label=NeoLabel.GOAL,
                 relationship_types=["DEPENDS_ON", "HAS_SUBGOAL"],
                 depth=depth,
                 bidirectional=False,
@@ -327,7 +327,7 @@ def build_goal_dependencies(
         if direction == "prerequisites":
             return build_simple_prerequisite_chain(
                 node_uid=goal_uid,
-                node_label="Goal",
+                node_label=NeoLabel.GOAL,
                 relationship_type="DEPENDS_ON",
                 depth=depth,
                 order="ASC",
@@ -384,7 +384,7 @@ def build_habit_dependencies(
         if direction == "prerequisites":
             return build_simple_prerequisite_chain(
                 node_uid=habit_uid,
-                node_label="Habit",
+                node_label=NeoLabel.HABIT,
                 relationship_type="REQUIRES",
                 depth=depth,
                 order="ASC",
@@ -445,7 +445,7 @@ def build_event_dependencies(
         if direction == "prerequisites":
             return build_simple_prerequisite_chain(
                 node_uid=event_uid,
-                node_label="Event",
+                node_label=NeoLabel.EVENT,
                 relationship_type="REQUIRES",
                 depth=depth,
                 order="ASC",
@@ -494,7 +494,7 @@ def build_principle_dependencies(
     else:
         return build_simple_prerequisite_chain(
             node_uid=principle_uid,
-            node_label="Principle",
+            node_label=NeoLabel.PRINCIPLE,
             relationship_type="REQUIRES",
             depth=depth,
             order="DESC",
@@ -543,7 +543,7 @@ def build_choice_dependencies(
         if direction == "prerequisites":
             return build_simple_prerequisite_chain(
                 node_uid=choice_uid,
-                node_label="Choice",
+                node_label=NeoLabel.CHOICE,
                 relationship_type="REQUIRES",
                 depth=depth,
                 order="ASC",
@@ -708,7 +708,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "PARENT_OF|CHILD_OF",
-                "target_label": "Task",
+                "target_label": NeoLabel.TASK,
                 "alias": "subtasks",
                 "direction": "incoming",
                 "fields": ["uid", "title", "status", "priority"],
@@ -719,7 +719,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "BLOCKS|DEPENDS_ON",
-                "target_label": "Task",
+                "target_label": NeoLabel.TASK,
                 "alias": "dependencies",
                 "direction": "incoming",
                 "fields": ["uid", "title", "status", "priority"],
@@ -729,7 +729,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "BLOCKS|DEPENDS_ON",
-                "target_label": "Task",
+                "target_label": NeoLabel.TASK,
                 "alias": "dependents",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "status"],
@@ -740,7 +740,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "APPLIES_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "applied_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -750,7 +750,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "REQUIRES_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "required_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -762,7 +762,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "FULFILLS_GOAL",
-                "target_label": "Goal",
+                "target_label": NeoLabel.GOAL,
                 "alias": "goal_context",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "progress_percentage"],
@@ -774,7 +774,7 @@ def build_task_with_context(
         relationships.append(
             {
                 "rel_types": "REINFORCES_HABIT",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "habit_context",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "current_streak"],
@@ -783,7 +783,7 @@ def build_task_with_context(
         )
 
     return build_entity_with_context(
-        entity_label="Task",
+        entity_label=NeoLabel.TASK,
         relationships=relationships,
     )
 
@@ -818,7 +818,7 @@ def build_goal_with_context(
         relationships.append(
             {
                 "rel_types": "FULFILLS_GOAL",
-                "target_label": "Task",
+                "target_label": NeoLabel.TASK,
                 "alias": "contributing_tasks",
                 "direction": "incoming",
                 "fields": ["uid", "title", "status", "priority"],
@@ -829,7 +829,7 @@ def build_goal_with_context(
         relationships.append(
             {
                 "rel_types": "SUPPORTS_GOAL",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "contributing_habits",
                 "direction": "incoming",
                 "fields": ["uid", "title", "current_streak"],
@@ -840,7 +840,7 @@ def build_goal_with_context(
         relationships.append(
             {
                 "rel_types": "PARENT_GOAL",
-                "target_label": "Goal",
+                "target_label": NeoLabel.GOAL,
                 "alias": "sub_goals",
                 "direction": "incoming",
                 "fields": ["uid", "title", "status", "progress_percentage"],
@@ -851,7 +851,7 @@ def build_goal_with_context(
         relationships.append(
             {
                 "rel_types": "REQUIRES_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "required_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -863,7 +863,7 @@ def build_goal_with_context(
         relationships.append(
             {
                 "rel_types": "ALIGNED_WITH_PRINCIPLE",
-                "target_label": "Principle",
+                "target_label": NeoLabel.PRINCIPLE,
                 "alias": "aligned_principles",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -871,7 +871,7 @@ def build_goal_with_context(
         )
 
     return build_entity_with_context(
-        entity_label="Goal",
+        entity_label=NeoLabel.GOAL,
         relationships=relationships,
     )
 
@@ -916,7 +916,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "REQUIRES_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "prerequisites",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -928,7 +928,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "ENABLES_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "enables_learning",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -939,7 +939,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "RELATED_TO",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "related",
                 "direction": "both",
                 "fields": ["uid", "title"],
@@ -950,7 +950,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "APPLIES_KNOWLEDGE",
-                "target_label": "Task",
+                "target_label": NeoLabel.TASK,
                 "alias": "applied_in_tasks",
                 "direction": "incoming",
                 "fields": ["uid", "title", "status"],
@@ -961,7 +961,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "REINFORCES_KNOWLEDGE",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "reinforced_by_habits",
                 "direction": "incoming",
                 "fields": ["uid", "title", "current_streak"],
@@ -972,7 +972,7 @@ def build_ku_with_context(
         relationships.append(
             {
                 "rel_types": "REQUIRES_KNOWLEDGE",
-                "target_label": "Goal",
+                "target_label": NeoLabel.GOAL,
                 "alias": "supports_goals",
                 "direction": "incoming",
                 "fields": ["uid", "title", "progress_percentage"],
@@ -980,7 +980,7 @@ def build_ku_with_context(
         )
 
     return build_entity_with_context(
-        entity_label="Entity",
+        entity_label=NeoLabel.ENTITY,
         relationships=relationships,
     )
 
@@ -1011,7 +1011,7 @@ def build_habit_with_context(
         relationships.append(
             {
                 "rel_types": "REINFORCES_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "reinforced_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1022,7 +1022,7 @@ def build_habit_with_context(
         relationships.append(
             {
                 "rel_types": "EMBODIES_PRINCIPLE",
-                "target_label": "Principle",
+                "target_label": NeoLabel.PRINCIPLE,
                 "alias": "embodied_principles",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1033,7 +1033,7 @@ def build_habit_with_context(
         relationships.append(
             {
                 "rel_types": "SUPPORTS_GOAL",
-                "target_label": "Goal",
+                "target_label": NeoLabel.GOAL,
                 "alias": "supported_goals",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "progress_percentage"],
@@ -1044,7 +1044,7 @@ def build_habit_with_context(
         relationships.append(
             {
                 "rel_types": "REQUIRES_PREREQUISITE_HABIT",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "prerequisite_habits",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "current_streak"],
@@ -1055,7 +1055,7 @@ def build_habit_with_context(
         relationships.append(
             {
                 "rel_types": "REINFORCES_HABIT",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "reinforcing_habits",
                 "direction": "incoming",
                 "fields": ["uid", "title", "current_streak"],
@@ -1063,7 +1063,7 @@ def build_habit_with_context(
         )
 
     return build_entity_with_context(
-        entity_label="Habit",
+        entity_label=NeoLabel.HABIT,
         relationships=relationships,
     )
 
@@ -1096,7 +1096,7 @@ def build_event_with_context(
         relationships.append(
             {
                 "rel_types": "APPLIES_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "applied_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1107,7 +1107,7 @@ def build_event_with_context(
         relationships.append(
             {
                 "rel_types": "CONTRIBUTES_TO_GOAL",
-                "target_label": "Goal",
+                "target_label": NeoLabel.GOAL,
                 "alias": "supported_goals",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "progress_percentage"],
@@ -1118,7 +1118,7 @@ def build_event_with_context(
         relationships.append(
             {
                 "rel_types": "REINFORCES_HABIT",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "reinforced_habits",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "current_streak"],
@@ -1129,7 +1129,7 @@ def build_event_with_context(
         relationships.append(
             {
                 "rel_types": "PRACTICED_AT_EVENT",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "practiced_habits",
                 "direction": "incoming",
                 "fields": ["uid", "title"],
@@ -1140,7 +1140,7 @@ def build_event_with_context(
         relationships.append(
             {
                 "rel_types": "CELEBRATES_GOAL",
-                "target_label": "Goal",
+                "target_label": NeoLabel.GOAL,
                 "alias": "celebrated_goals",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1151,7 +1151,7 @@ def build_event_with_context(
         relationships.append(
             {
                 "rel_types": "CONFLICTS_WITH",
-                "target_label": "Event",
+                "target_label": NeoLabel.EVENT,
                 "alias": "conflicting_events",
                 "direction": "both",
                 "fields": ["uid", "title", "scheduled_for"],
@@ -1159,7 +1159,7 @@ def build_event_with_context(
         )
 
     return build_entity_with_context(
-        entity_label="Event",
+        entity_label=NeoLabel.EVENT,
         relationships=relationships,
     )
 
@@ -1194,7 +1194,7 @@ def build_choice_with_context(
         relationships.append(
             {
                 "rel_types": "INFORMED_BY_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "informed_by_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1205,7 +1205,7 @@ def build_choice_with_context(
         relationships.append(
             {
                 "rel_types": "INFORMED_BY_PRINCIPLE",
-                "target_label": "Principle",
+                "target_label": NeoLabel.PRINCIPLE,
                 "alias": "aligned_principles",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1216,7 +1216,7 @@ def build_choice_with_context(
         relationships.append(
             {
                 "rel_types": "AFFECTS_GOAL",
-                "target_label": "Goal",
+                "target_label": NeoLabel.GOAL,
                 "alias": "affected_goals",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "progress_percentage"],
@@ -1227,7 +1227,7 @@ def build_choice_with_context(
         relationships.append(
             {
                 "rel_types": "OPENS_LEARNING_PATH",
-                "target_label": "Lp",
+                "target_label": NeoLabel.LEARNING_PATH,
                 "alias": "opened_paths",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1238,7 +1238,7 @@ def build_choice_with_context(
         relationships.append(
             {
                 "rel_types": "INSPIRED_BY_CHOICE",
-                "target_label": "Choice",
+                "target_label": NeoLabel.CHOICE,
                 "alias": "inspired_choices",
                 "direction": "incoming",
                 "fields": ["uid", "title"],
@@ -1249,7 +1249,7 @@ def build_choice_with_context(
         relationships.append(
             {
                 "rel_types": "IMPLEMENTS_CHOICE",
-                "target_label": "Task",
+                "target_label": NeoLabel.TASK,
                 "alias": "implementing_tasks",
                 "direction": "incoming",
                 "fields": ["uid", "title", "status"],
@@ -1260,7 +1260,7 @@ def build_choice_with_context(
         relationships.append(
             {
                 "rel_types": "GUIDES_CHOICE",
-                "target_label": "Principle",
+                "target_label": NeoLabel.PRINCIPLE,
                 "alias": "guiding_principles",
                 "direction": "incoming",
                 "fields": ["uid", "title"],
@@ -1268,7 +1268,7 @@ def build_choice_with_context(
         )
 
     return build_entity_with_context(
-        entity_label="Choice",
+        entity_label=NeoLabel.CHOICE,
         relationships=relationships,
     )
 
@@ -1305,7 +1305,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "GROUNDED_IN_KNOWLEDGE",
-                "target_label": "Entity",
+                "target_label": NeoLabel.ENTITY,
                 "alias": "grounding_knowledge",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1316,7 +1316,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "GUIDES_GOAL",
-                "target_label": "Goal",
+                "target_label": NeoLabel.GOAL,
                 "alias": "guided_goals",
                 "direction": "outgoing",
                 "fields": ["uid", "title", "progress_percentage"],
@@ -1327,7 +1327,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "GUIDES_CHOICE",
-                "target_label": "Choice",
+                "target_label": NeoLabel.CHOICE,
                 "alias": "guided_choices",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1338,7 +1338,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "INSPIRES_HABIT",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "inspired_habits",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
@@ -1349,7 +1349,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "EMBODIES_PRINCIPLE",
-                "target_label": "Habit",
+                "target_label": NeoLabel.HABIT,
                 "alias": "embodying_habits",
                 "direction": "incoming",
                 "fields": ["uid", "title", "current_streak"],
@@ -1360,7 +1360,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "SUPPORTS_PRINCIPLE",
-                "target_label": "Principle",
+                "target_label": NeoLabel.PRINCIPLE,
                 "alias": "supporting_principles",
                 "direction": "incoming",
                 "fields": ["uid", "title"],
@@ -1371,7 +1371,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "CONFLICTS_WITH_PRINCIPLE",
-                "target_label": "Principle",
+                "target_label": NeoLabel.PRINCIPLE,
                 "alias": "conflicting_principles",
                 "direction": "incoming",
                 "fields": ["uid", "title"],
@@ -1382,7 +1382,7 @@ def build_principle_with_context(
         relationships.append(
             {
                 "rel_types": "ALIGNED_WITH_PRINCIPLE",
-                "target_label": "Task",
+                "target_label": NeoLabel.TASK,
                 "alias": "aligned_tasks",
                 "direction": "incoming",
                 "fields": ["uid", "title", "status"],
@@ -1390,7 +1390,7 @@ def build_principle_with_context(
         )
 
     return build_entity_with_context(
-        entity_label="Principle",
+        entity_label=NeoLabel.PRINCIPLE,
         relationships=relationships,
     )
 
