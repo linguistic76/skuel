@@ -40,7 +40,8 @@ _HISTORY_IO_EXCEPTIONS = (*FILE_IO_EXCEPTIONS, *JSON_EXCEPTIONS)
 _HISTORY_SAVE_EXCEPTIONS = (*_HISTORY_IO_EXCEPTIONS, TypeError)
 
 # Change handlers may be sync or async — the dispatch in _notify_change_handlers
-# detects coroutine functions and awaits them, so both forms are supported.
+# calls each handler once and awaits whatever it returns when awaitable, so both
+# forms (and async __call__ objects) are supported.
 SchemaChangeHandler = Callable[[SchemaChangeEvent], Awaitable[None] | None]
 
 
