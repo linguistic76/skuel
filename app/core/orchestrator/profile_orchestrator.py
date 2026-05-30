@@ -15,7 +15,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import (
-        ExerciseReportOperations,
+        AssessmentOperations,
         SharingOperations,
     )
     from core.services.choices_service import ChoicesService
@@ -82,7 +82,7 @@ class ProfileOrchestrator:
         events_service: "EventsService",
         choices_service: "ChoicesService",
         principles_service: "PrinciplesService",
-        exercise_report_service: "ExerciseReportOperations",
+        assessment_service: "AssessmentOperations",
         activity_report_service: "ActivityReportService",
         sharing_service: "SharingOperations",
         ps_service: "PsService",
@@ -95,7 +95,7 @@ class ProfileOrchestrator:
         self._events_service = events_service
         self._choices_service = choices_service
         self._principles_service = principles_service
-        self._exercise_report_service = exercise_report_service
+        self._assessment_service = assessment_service
         self._activity_report_service = activity_report_service
         self._sharing_service = sharing_service
         self._ps_service = ps_service
@@ -143,10 +143,8 @@ class ProfileOrchestrator:
     async def get_recent_exercise_reports(
         self, user_uid: UserUID, limit: int = 5
     ) -> Result[list[Any]]:
-        """Get recent exercise reports for the user."""
-        return await self._exercise_report_service.get_assessments_for_student(
-            user_uid, limit=limit
-        )
+        """Get recent exercise reports (teacher assessments) received by the user."""
+        return await self._assessment_service.get_assessments_for_student(user_uid, limit=limit)
 
     async def get_recent_activity_reports(
         self, user_uid: UserUID, limit: int = 5

@@ -1197,7 +1197,7 @@ async def compose_services(
             events_service=activity_services["events"],
             choices_service=activity_services["choices"],
             principles_service=activity_services["principles"],
-            exercise_report_service=exercise_report_service,
+            assessment_service=user_entry_assessment,
             activity_report_service=activity_report_service,
             sharing_service=unified_sharing_service,
             ps_service=learning_services["ps"],
