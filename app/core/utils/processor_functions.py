@@ -7,6 +7,16 @@ Following clean code principle: no lambdas, only named functions.
 
 These functions transform Neo4j query results (list of records) into Python data structures.
 Used extensively by GraphQueryExecutor and relationship services.
+
+CONTRACT — processors return RAW values, never ``Result``:
+    ``Neo4jQueryExecutor.execute(...)`` calls ``Result.ok(processor(records))``,
+    i.e. it wraps the processor's return value itself. A processor that returns a
+    ``Result`` therefore produces ``Result[Result[T]]`` — a double-wrap. The inner
+    failure then hides inside an outer ``ok``, so callers checking ``.is_error``
+    never see it (e.g. a ``not_found`` silently read as success). To gate on
+    emptiness, return a raw ``bool`` (see ``check_exists``) and apply the
+    ``Result.fail(...)`` guard in the calling method, NOT in the processor.
+    See: /docs/patterns/ERROR_HANDLING.md (Result anti-patterns).
 """
 
 from typing import Any

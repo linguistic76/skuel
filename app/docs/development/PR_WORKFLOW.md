@@ -42,7 +42,7 @@ The trade is deliberate: a few minutes of latency per change buys a reviewer SKU
 1. **Branch off `main`.** `git checkout -b kind/short-description` (e.g. `docs/pr-workflow`, `fix/ownership-404`). `main` is protected — you cannot push to it directly.
 2. **Commit and push the branch.** `git push -u origin <branch>`.
 3. **Open the PR** against `main`: `gh pr create`. Write a real description — when Kody is later summoned it *concatenates* its summary onto yours rather than replacing it, so a meaningful description survives.
-4. **CI runs automatically.** `ci.yml` runs path-guarded jobs (MyPy when Python changed, doc validation when docs/skills changed) and aggregates them into the **CI Gate** check. This is the only thing that runs on its own.
+4. **CI runs automatically.** `ci.yml` runs path-guarded jobs (MyPy when Python changed, doc validation when docs/skills changed) and aggregates them into the **CI Gate** check. (The **Codex Review Gate** status from `codex-gate.yml` also posts automatically, but it only turns RED once a `@codex review` is requested and not yet considered — see below.)
 5. **Summon a reviewer when ready.** Neither AI reviewer runs automatically (since 2026-05-24). Comment **`@kody start-review`** for Kody's gating review, and/or **`@codex review`** for a Codex second opinion. Do this once a PR is substantive, not on every intermediate commit.
 6. **Address feedback.** Push fixes to the same branch — CI re-runs automatically on the new commit; re-comment `@kody start-review` / `@codex review` to re-review the updated diff.
 7. **Merge** once CI Gate is green and no summoned reviewer is blocking. Delete the branch.
@@ -51,25 +51,32 @@ The trade is deliberate: a few minutes of latency per change buys a reviewer SKU
 
 ## Who reviews — and which one is the gate
 
-Three participants can run on a PR. Only **CI Gate runs automatically**; both AI reviewers are summoned by comment (since 2026-05-24). They do **not** carry equal authority, and conflating them is the most common point of confusion.
+Three reviewers can run on a PR, gated by **two required status checks** (CI Gate + Codex Review Gate). Only the mechanical checks run automatically; both AI reviewers are summoned by comment (since 2026-05-24). They do **not** carry equal authority, and conflating them is the most common point of confusion.
 
 | Participant | What it checks | Posts | Trigger | Blocks merge? |
 |---|---|---|---|---|
-| **CI Gate** (`ci.yml`) | Mechanical invariants: 0 MyPy errors, valid doc cross-references | A required status check | **Automatic** — every PR/push | **Yes** — the single required check |
+| **CI Gate** (`ci.yml`) | Mechanical invariants: 0 MyPy errors, valid doc cross-references | A required status check | **Automatic** — every PR/push | **Yes** — required check |
+| **Codex Review Gate** (`codex-gate.yml`) | That a *requested* Codex review was **considered** — not Codex's verdict | A required status check | **Automatic**, but RED only once `@codex review` was posted and not yet considered; PRs with no request pass automatically | **Yes** — required check; cleared by applying the `codex-considered` label (auto-dropped on every new commit, so changed code is re-considered) |
 | **Kody** (`kody-ai[bot]`, Kodus) | Full-spectrum review (security, error handling, business logic, …) per `kodus-config.yml` | A check **and** a real PR review | **On demand** — `@kody start-review` (auto-review turned off in the Kodus dashboard, not via the repo file) | **Yes, when summoned** — `CHANGES_REQUESTED` holds the merge until resolved/dismissed |
-| **Codex** (`chatgpt-codex-connector[bot]`) | Full-spectrum review against `AGENTS.md` invariants | **PR reviews/comments only — never a status check** | **On demand** — `@codex review` | **No** — advisory comments only |
+| **Codex** (`chatgpt-codex-connector[bot]`) | Full-spectrum review against `AGENTS.md` invariants | **PR reviews/comments only — never itself a status check** (the *Codex Review Gate* above is the check) | **On demand** — `@codex review` | **No** — its *verdict* is advisory; the *gate* enforces only that you considered it |
 
 > ℹ️ **Both AI reviewers are on-demand as of 2026-05-25.** Codex auto-review is off (Codex dashboard "Personal auto review preferences" toggle off + `linguistic76/skuel` set to "Follow personal preferences", which resolves to off — the personal toggle / per-repo setting is the switch, not the "Personal Review Trigger Preference" dropdown, which only picks *when*). The repo's comment-bot (`codex-review.yml`) is disabled too, because a bot-posted `@codex review` only returns the cosmetic "create a Codex account" prompt. Kody auto-review is off via its app.kodus.io "enable automatic code review" toggle. So both review **only** when summoned (`@codex review` / `@kody start-review`), and **CI Gate is the only dependable *automatic* gate**; Kody is the gating review you summon, Codex an optional second opinion. (Both briefly auto-ran earlier on 2026-05-25 before being consolidated back to on-demand.) Details: [`.github/workflows/README.md`](../../../.github/workflows/README.md).
 
 **The trust model:**
-- **CI Gate is the floor — and the only automatic gate.** It is binary and mechanical. If it's red, something is objectively broken. It is the one thing that runs without being asked.
+- **CI Gate is the floor.** It is binary and mechanical. If it's red, something is objectively broken. It runs without being asked on every PR/push. (The **Codex Review Gate** also runs automatically but blocks on *process*, not findings — it stays green unless you requested a Codex review and haven't yet marked it considered.)
 - **Kody is the gate you summon.** It no longer runs on its own; comment **`@kody start-review`** to invoke it. *When* it runs, its `CHANGES_REQUESTED` review (configured via `isRequestChangesActive: true`) actually holds the merge, so treat its blocking findings as must-address. The catch: a review you never summon never runs — so summoning Kody before merging anything non-trivial is now part of the ritual, not something the system does for you.
-- **Codex is the second opinion you summon.** Comment **`@codex review`** to invoke it. It is *advisory* and **invisible to `gh pr checks`** — easy to miss, because it isn't a check at all. Its verdict can land as a *review* or as an *issue comment*, so to see it you must scan both:
+- **Codex is the second opinion you summon.** Comment **`@codex review`** to invoke it. Its *verdict* is *advisory* and **invisible to `gh pr checks`** — what shows up in checks is the separate **Codex Review Gate** (above), which only enforces that you *considered* the review. The verdict can land on any of **three** surfaces, so scan all three (the first command below misses inline review-comments — the surface Codex often uses for a specific finding):
 
   ```bash
+  # issue-comments + review-objects
   gh pr view <PR#> --json reviews,comments \
     -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")"'
+  # inline review-comments (easy to miss — anchored to a file/line)
+  gh api repos/linguistic76/skuel/pulls/<PR#>/comments \
+    -q '.[] | select(.user.login|test("codex";"i")) | "\(.commit_id[0:8]) \(.path):\(.line) \(.body[0:80])"'
   ```
+
+  **Before clearing the gate, verify the review actually applies to the current head.** `commit_id == head` is necessary but **not sufficient** — Codex can re-emit a prior finding verbatim while re-anchoring it to a new commit (a *stale-at-head* review). Also confirm the finding's **premise still exists in the code** (e.g. if it cites a function/branch you already changed, `grep` for it). A finding whose premise is gone is refuted; document that disposition in a PR comment, then apply `codex-considered`.
 
 Why two AI reviewers, both on demand? Defense-in-depth from a second, independent model (OpenAI Codex alongside Kodus) catches more than one alone. They differ in authority: when summoned, **Kody posts a real blocking review** (a `CHANGES_REQUESTED` that holds the merge), while **Codex only ever comments** — so Kody is the reviewer you reach for when you want a verdict that gates, Codex when you want a second pair of eyes. Both are on-demand as of 2026-05-25 for the same reason: auto-review on every intermediate commit produced noise, and a flaky, usage-capped external service should never be able to deadlock a merge — so the only thing that runs automatically is the mechanical CI Gate. The cost of that choice is honest: **review coverage is no longer automatic.** A PR merged without anyone commenting `@kody start-review` gets *no* AI review at all. That is acceptable only because the founder owns the discipline of summoning review before merging anything that matters.
 
@@ -97,7 +104,7 @@ This is intentional for a solo project (no second person exists to unblock you),
 1. ~~**No PR template.**~~ *(Resolved 2026-05-22)* — `.github/pull_request_template.md` now exists, so descriptions are standardized — valuable precisely because Kody concatenates its summary onto the human description, so an empty description would otherwise yield a thin PR record.
 2. ~~**`develop` branch is referenced but doesn't exist.**~~ *(Resolved 2026-05-22)* — `develop` was dead config in `ci.yml` and `kodus-config.yml`; removed, since only `main` exists. Re-add it to both if a staging flow is ever introduced.
 3. **`codex-review.yml` uses `pull_request`, not `pull_request_target`.** Fine today because every PR comes from a same-repo branch (the token has write access). A PR from an external fork would get a read-only token and the comment-post would silently no-op. Only matters if SKUEL ever accepts outside contributions.
-4. **Codex's verdict is invisible to `gh pr checks`.** This is by design (it's not a check), but it's a real footgun — a "merge when checks pass" reflex skips Codex entirely. The scan command above is the mitigation; consider it part of the merge ritual.
+4. **Codex's verdict is invisible to `gh pr checks`.** By design — Codex's *review* is not a check (the **Codex Review Gate** is, but it only tracks whether you *considered* the review, not what Codex said). So "merge when checks pass" can clear the gate without anyone reading the verdict. The three-surface scan above is the mitigation; reading the verdict before applying `codex-considered` is part of the merge ritual.
 
 ---
 
