@@ -500,6 +500,15 @@ async def compose_services(
         from core.config.credential_store import get_credential
 
         deepgram_api_key = get_credential("DEEPGRAM_API_KEY", fallback_to_env=True)
+        # DEEPGRAM_API_KEY was already validated as REQUIRED in the fail-fast key
+        # check above (raises ValueError if missing). Re-assert non-None here so the
+        # str-typed _create_core_services boundary holds without a redundant raise
+        # path mypy can't connect to the earlier validation loop.
+        if not deepgram_api_key:
+            raise ValueError(
+                "DEEPGRAM_API_KEY is REQUIRED for transcription but resolved empty "
+                "after the required-key validation. Check credential store / env."
+            )
 
         # Create core services (Finance, Transcription only - Activity Domains in activity_services)
         core_services = _create_core_services(
@@ -716,7 +725,7 @@ async def compose_services(
         # Create backend + service for lateral relationships (domain-agnostic)
         # Ownership verification happens at route level via domain_service param
         lateral_backend = LateralRelationshipBackend(executor=query_executor)
-        lateral_service = LateralRelationshipService(backend=lateral_backend)
+        lateral_service = LateralRelationshipService(backend=lateral_backend)  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
         logger.info("✅ LateralRelationshipService created (9 domains, ownership at route level)")
 
         # Create Askesis core service (CRUD operations for AI assistant instances)
@@ -892,7 +901,8 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
         revised_exercise_service = RevisedExerciseService(
-            backend=revised_exercise_backend, event_bus=event_bus
+            backend=revised_exercise_backend,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
+            event_bus=event_bus,
         )
         logger.info("✅ RevisedExerciseService created (four-phase learning loop)")
 
@@ -913,7 +923,8 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
         form_template_service = FormTemplateService(
-            backend=form_template_backend, event_bus=event_bus
+            backend=form_template_backend,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
+            event_bus=event_bus,
         )
 
         form_submission_backend = FormSubmissionBackend(
@@ -924,9 +935,9 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
         form_submission_service = FormSubmissionService(
-            backend=form_submission_backend,
+            backend=form_submission_backend,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             event_bus=event_bus,
-            form_template_service=form_template_service,
+            form_template_service=form_template_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
         )
         logger.info("✅ Form services created (FormTemplate + FormSubmission)")
 
@@ -943,7 +954,7 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
         interaction_service = InteractionService(
-            backend=interaction_backend,
+            backend=interaction_backend,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             event_bus=event_bus,
         )
         logger.info("✅ InteractionService created (User Interaction Contract)")
@@ -960,7 +971,7 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
         )
 
-        group_service = GroupService(backend=group_backend, event_bus=event_bus)
+        group_service = GroupService(backend=group_backend, event_bus=event_bus)  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
         logger.info("✅ GroupService created (ADR-040)")
 
         # Create teacher review service (ADR-040: Teacher Exercise Workflow)
@@ -1100,7 +1111,7 @@ async def compose_services(
         progress_schedule_backend = ReportScheduleBackend(
             driver, NeoLabel.REPORT_SCHEDULE, ReportSchedule, prometheus_metrics=prometheus_metrics
         )
-        progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
+        progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
 
         # Create ActivityReportService (processor-neutral ActivityReport CRUD)
         from core.services.report.activity_report_service import ActivityReportService
@@ -1188,7 +1199,7 @@ async def compose_services(
             events_service=activity_services["events"],
             choices_service=activity_services["choices"],
             principles_service=activity_services["principles"],
-            exercise_report_service=exercise_report_service,
+            exercise_report_service=exercise_report_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             activity_report_service=activity_report_service,
             sharing_service=unified_sharing_service,
             ps_service=learning_services["ps"],
@@ -1242,7 +1253,7 @@ async def compose_services(
         from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 
         teacher_orchestrator = TeacherOrchestrator(
-            teacher_review_service=teacher_review_service,
+            teacher_review_service=teacher_review_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             admin_stats=admin_stats_service,
         )
         logger.info("✅ Teacher Orchestrator created")
@@ -1259,7 +1270,7 @@ async def compose_services(
         from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
         activity_review_orchestrator = ActivityReviewOrchestrator(
-            activity_report=activity_report_service,
+            activity_report=activity_report_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             user_service=user_service,
             review_queue=review_queue_service,
             context_builder=context_builder,
@@ -1279,7 +1290,7 @@ async def compose_services(
         )
 
         lateral_orchestrator = LateralRelationshipsOrchestrator(
-            lateral_service=lateral_service,
+            lateral_service=lateral_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             tasks_service=activity_services["tasks"],
             goals_service=activity_services["goals"],
             habits_service=activity_services["habits"],
@@ -1378,18 +1389,18 @@ async def compose_services(
             # Content
             content_enrichment=content_enrichment,
             report_mastery=report_mastery_service,  # Explicit mastery propagation
-            exercise_report=exercise_report_service,  # LLM report on submissions/journals
+            exercise_report=exercise_report_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             exercises=exercise_service,  # Reusable LLM instruction templates
             revised_exercises=revised_exercise_service,  # Four-phase learning loop revisions
-            form_templates=form_template_service,  # General-purpose form templates
-            form_submissions=form_submission_service,  # User form submissions
+            form_templates=form_template_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
+            form_submissions=form_submission_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             interaction_service=interaction_service,  # User Interaction Contract
             # Batch transcription (Tier 1). Tier 2 BatchProcessingService retired
             # in ADR-054 Commit 6a — lives inside UserEntryProcessingService now.
             batch_transcription=batch_transcription,
             # Group & Teaching (ADR-040: Teacher exercise workflow)
             groups=group_service,
-            teacher_review=teacher_review_service,
+            teacher_review=teacher_review_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             # Notifications
             notifications=notification_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
@@ -1418,8 +1429,8 @@ async def compose_services(
             # User management
             user=core_services["user"],
             user_relationships=user_relationships,  # UserRelationshipBackend (pinning, following)
-            graph_auth=graph_auth,  # Graph-native authentication (January 2026)
-            context=context_service,  # Context-aware intelligence (NEW: 2025-11-18)
+            graph_auth=graph_auth,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
+            context=context_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             # Learning services
             user_progress=learning_services["user_progress"],
             # unified_progress DELETED (January 2026) - use user_progress
@@ -1435,7 +1446,7 @@ async def compose_services(
             principle_templates=template_services["principle_templates"],
             learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
-            askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI
+            askesis_core=askesis_core_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             # Infrastructure
             graph_adapter=neo4j_adapter,
             event_bus=event_bus,
@@ -1454,7 +1465,7 @@ async def compose_services(
             analytics=analytics_service,
             cross_domain_analytics=advanced["cross_domain_analytics"],
             # LifePath (Domain #14: The Destination)
-            lifepath=lifepath_service,
+            lifepath=lifepath_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             # Orchestration (Activity Domains already assigned above)
             goal_task_generator=orchestration["goal_task_generator"],
             habit_event_scheduler=orchestration["habit_event_scheduler"],
@@ -1476,7 +1487,7 @@ async def compose_services(
             askesis_ai=askesis_ai,
             context_aware_ai=context_aware_ai,
             # Lateral relationship services (January 2026 - Core graph architecture)
-            lateral=lateral_service,
+            lateral=lateral_service,  # type: ignore[arg-type]  # deferred (typed-protocol-returns refactor, own PR): concrete service/backend vs route-facing *Operations protocol — services return Result[dict]/Result[T] where protocols declare typed TypedDict/T|None returns. Cross-cutting typed-protocol-returns refactor across core/ services+orchestrators+handlers, out of scope for the services_bootstrap arg-type rung.
             # Intelligence tier (ADR-043)
             intelligence_tier=tier,
         )

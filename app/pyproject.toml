@@ -277,6 +277,12 @@ disable_error_code = ["import-untyped"]
 # scoped per-module rather than enabled globally.
 module = ["services_bootstrap.*"]
 warn_unreachable = true
+# arg-type ENFORCED on services_bootstrap/ (the campaign's second rung after
+# core.*, 2026-05-29). The composition root wires concrete backends into
+# services that declare *BackendOperations protocol params; enabling arg-type
+# here makes those protocol-conformance boundaries live enforcement. Global
+# disable (above) stays — adapters/ui/tests/scripts are not swept yet.
+enable_error_code = ["arg-type"]
 
 [[tool.mypy.overrides]]
 # Events and protocols - lenient (auto-generated patterns)

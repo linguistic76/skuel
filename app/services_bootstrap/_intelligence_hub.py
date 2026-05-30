@@ -192,6 +192,16 @@ async def _create_intelligence_hub(
                 "Check embedding bootstrap (_learning_services.py)."
             )
 
+        # ZPDService is created in this same tier.ai_enabled branch above; in FULL
+        # tier it is always non-None. create_askesis_service requires a concrete
+        # ZPDOperations (Askesis pedagogy is ZPD-grounded) — fail fast rather than
+        # pass None through the boundary the two-block control flow hides from mypy.
+        if zpd_service is None:
+            raise RuntimeError(
+                "Askesis (FULL tier) requires ZPDService — it was not created in the "
+                "tier.ai_enabled branch. Bootstrap order or ZPD wiring is broken."
+            )
+
         services.askesis = create_askesis_service(
             intelligence_factory=context_intelligence_factory,
             learning_services=learning_services,
