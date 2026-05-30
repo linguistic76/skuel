@@ -24,7 +24,7 @@ from strawberry.types import (
 
 from adapters.inbound.graphql.context import GraphQLContext
 from core.models.enums.user_enums import UserRole
-from core.models.type_hints import UserUID
+from core.models.type_hints import TypeConverter, UserUID
 
 
 def require_user_uid(info: Info[GraphQLContext, Any]) -> UserUID:
@@ -61,10 +61,16 @@ def require_user_uid(info: Info[GraphQLContext, Any]) -> UserUID:
 
 
 async def resolve_target_user(
-    info: Info[GraphQLContext, Any], user_uid: UserUID | None = None
+    info: Info[GraphQLContext, Any], user_uid: str | None = None
 ) -> UserUID:
     """
     Resolve the target user for a query that accepts an optional user_uid override.
+
+    This is the honest UserUID boundary for the GraphQL surface: the override
+    arrives from the client as a raw GraphQL ``String`` (hence the ``str | None``
+    param), and is validated + narrowed to ``UserUID`` here. Resolvers therefore
+    pass their client-supplied ``user_uid`` query argument straight through — no
+    per-call-site conversion and no ``UserUID`` custom scalar in the schema.
 
     Used by resolvers that allow admin queries against other users' data.
     Falls back to the authenticated user when no override is provided.
@@ -72,13 +78,14 @@ async def resolve_target_user(
 
     Args:
         info: Strawberry resolver info with GraphQLContext
-        user_uid: Optional override (requires admin role)
+        user_uid: Optional client-supplied override (requires admin role)
 
     Returns:
-        Target user UID (override or authenticated user)
+        Target user UID (validated override or authenticated user)
 
     Raises:
         PermissionError: If user_uid override is provided by a non-admin caller
+        ValueError: If the override is not a canonical ``user_<name>`` UID
 
     Usage::
 
@@ -87,7 +94,7 @@ async def resolve_target_user(
             self,
             info: Info[GraphQLContext, Any],
             path_uid: str,
-            user_uid: UserUID | None = None,
+            user_uid: str | None = None,
         ) -> LearningPathContext | None:
             target_user_uid = await resolve_target_user(info, user_uid)
     """
@@ -111,7 +118,8 @@ async def resolve_target_user(
     if not caller_user.has_permission(UserRole.ADMIN):
         raise PermissionError("Admin role required to query other users' data")
 
-    return user_uid
+    # Validate + narrow the client-supplied override to UserUID at this boundary.
+    return TypeConverter.to_user_uid(user_uid)
 
 
 __all__ = [
