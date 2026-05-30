@@ -40,6 +40,7 @@ from core.ports.query_types import (
     RevisionWithExerciseResult,
     StudentSubmissionItem,
     StudentSummaryItem,
+    SubmissionDetailResult,
     SubmissionForExercise,
     TeacherDashboardStats,
     TeacherGroupStats,
@@ -716,7 +717,7 @@ class TeacherReviewService:
         self,
         submission_uid: str,
         teacher_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[SubmissionDetailResult]:
         """
         Get full detail of a submission for teacher review.
 
@@ -739,7 +740,8 @@ class TeacherReviewService:
         if result.is_error:
             return Result.fail(result)
 
-        records = result.value
+        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type).
+        records: list[dict[str, Any]] = result.value
         if not records:
             return Result.fail(
                 Errors.not_found(
@@ -748,24 +750,23 @@ class TeacherReviewService:
             )
 
         record = records[0]
-        return Result.ok(
-            {
-                "uid": record["uid"],
-                "title": record["title"],
-                "content": record["content"],
-                "processed_content": record["processed_content"],
-                "original_filename": record["original_filename"],
-                "entity_type": record["entity_type"],
-                "status": record["status"],
-                "created_at": record["created_at"],
-                "student_uid": record["student_uid"],
-                "student_name": record["student_name"],
-                "exercise_uid": record["exercise_uid"],
-                "exercise_title": record["exercise_title"],
-                "exercise_instructions": record["exercise_instructions"],
-                "file_path": record.get("file_path"),
-            }
-        )
+        detail: SubmissionDetailResult = {
+            "uid": record["uid"],
+            "title": record["title"],
+            "content": record["content"],
+            "processed_content": record["processed_content"],
+            "original_filename": record["original_filename"],
+            "entity_type": record["entity_type"],
+            "status": record["status"],
+            "created_at": record["created_at"],
+            "student_uid": record["student_uid"],
+            "student_name": record["student_name"],
+            "exercise_uid": record["exercise_uid"],
+            "exercise_title": record["exercise_title"],
+            "exercise_instructions": record["exercise_instructions"],
+            "file_path": record.get("file_path"),
+        }
+        return Result.ok(detail)
 
     async def get_dashboard_stats(
         self,

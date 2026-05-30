@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
 from core.models.type_hints import TypeConverter, UserUID
-from core.ports.query_types import AnnotationResult, AnnotationState
+from core.ports.query_types import AnnotationResult, AnnotationState, PrivacySummary
 from core.ports.report_protocols import ActivityReportBackendOperations
 
 if TYPE_CHECKING:
@@ -527,7 +527,7 @@ class ActivityReportService:
         }
         return Result.ok(state)
 
-    async def get_privacy_summary(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_privacy_summary(self, user_uid: UserUID) -> Result[PrivacySummary]:
         """
         Return a privacy-transparency summary for the authenticated user.
 
@@ -599,13 +599,12 @@ class ActivityReportService:
                 ),
             }
 
-        return Result.ok(
-            {
-                "user_uid": user_uid,
-                "admin_snapshots": admin_snapshots,
-                "admin_snapshot_count": len(admin_snapshots),
-                "shares_granted": shares_granted,
-                "shares_granted_count": len(shares_granted),
-                "report_schedule": report_schedule,
-            }
-        )
+        summary: PrivacySummary = {
+            "user_uid": user_uid,
+            "admin_snapshots": admin_snapshots,
+            "admin_snapshot_count": len(admin_snapshots),
+            "shares_granted": shares_granted,
+            "shares_granted_count": len(shares_granted),
+            "report_schedule": report_schedule,
+        }
+        return Result.ok(summary)
