@@ -35,11 +35,14 @@ from core.ports.query_types import (
     GroupMemberProgress,
     ReportApprovalResult,
     ReportSubmitResult,
+    ReviewQueueItem,
     RevisionRequestResult,
     RevisionWithExerciseResult,
     StudentSubmissionItem,
     StudentSummaryItem,
+    SubmissionDetailResult,
     SubmissionForExercise,
+    TeacherDashboardStats,
     TeacherGroupStats,
 )
 from core.ports.report_protocols import (
@@ -97,7 +100,7 @@ class TeacherReviewService:
         self,
         teacher_uid: str,
         status_filter: str | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ReviewQueueItem]]:
         """
         Get teacher's pending review queue.
 
@@ -123,12 +126,16 @@ class TeacherReviewService:
         # public shape (submission_uid, exercise_name) so UI consumers
         # (ui/teaching/types.queue_item_from_dict, scripts/export_submissions)
         # see a stable surface across the get_review_queue → by_groups rewire.
-        items = [
+        # boundary: neo4j-rows — heterogeneous dict columns vary per query
+        # (execute_query's own return type); viewed as dict[str, Any] so the typed
+        # literal below builds without per-value casts.
+        records: list[dict[str, Any]] = result.value
+        items: list[ReviewQueueItem] = [
             {
                 "submission_uid": record["entry_uid"],
                 "title": record["title"],
                 "status": record["status"],
-                "entity_type": record.get("entity_type"),
+                "entity_type": record["entity_type"],
                 "submitted_at": record["submitted_at"],
                 "student_uid": record["student_uid"],
                 "student_name": record["student_name"],
@@ -138,7 +145,7 @@ class TeacherReviewService:
                 "original_filename": record.get("original_filename"),
                 "feedback_count": record["feedback_count"],
             }
-            for record in result.value
+            for record in records
         ]
 
         return Result.ok(items)
@@ -712,7 +719,7 @@ class TeacherReviewService:
         self,
         submission_uid: str,
         teacher_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[SubmissionDetailResult]:
         """
         Get full detail of a submission for teacher review.
 
@@ -735,7 +742,10 @@ class TeacherReviewService:
         if result.is_error:
             return Result.fail(result)
 
-        records = result.value
+        # boundary: neo4j-rows — heterogeneous dict columns vary per query
+        # (execute_query's own return type); viewed as dict[str, Any] so the typed
+        # literal below builds without per-value casts.
+        records: list[dict[str, Any]] = result.value
         if not records:
             return Result.fail(
                 Errors.not_found(
@@ -744,29 +754,28 @@ class TeacherReviewService:
             )
 
         record = records[0]
-        return Result.ok(
-            {
-                "uid": record["uid"],
-                "title": record["title"],
-                "content": record["content"],
-                "processed_content": record["processed_content"],
-                "original_filename": record["original_filename"],
-                "entity_type": record["entity_type"],
-                "status": record["status"],
-                "created_at": record["created_at"],
-                "student_uid": record["student_uid"],
-                "student_name": record["student_name"],
-                "exercise_uid": record["exercise_uid"],
-                "exercise_title": record["exercise_title"],
-                "exercise_instructions": record["exercise_instructions"],
-                "file_path": record.get("file_path"),
-            }
-        )
+        detail: SubmissionDetailResult = {
+            "uid": record["uid"],
+            "title": record["title"],
+            "content": record["content"],
+            "processed_content": record["processed_content"],
+            "original_filename": record["original_filename"],
+            "entity_type": record["entity_type"],
+            "status": record["status"],
+            "created_at": record["created_at"],
+            "student_uid": record["student_uid"],
+            "student_name": record["student_name"],
+            "exercise_uid": record["exercise_uid"],
+            "exercise_title": record["exercise_title"],
+            "exercise_instructions": record["exercise_instructions"],
+            "file_path": record.get("file_path"),
+        }
+        return Result.ok(detail)
 
     async def get_dashboard_stats(
         self,
         teacher_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[TeacherDashboardStats]:
         """
         Get at-a-glance stats for the teacher dashboard.
 
@@ -783,7 +792,10 @@ class TeacherReviewService:
         if result.is_error:
             return Result.fail(result)
 
-        records = result.value
+        # boundary: neo4j-rows — heterogeneous dict columns vary per query
+        # (execute_query's own return type); viewed as dict[str, Any] so the typed
+        # stat literal below builds without per-value casts.
+        records: list[dict[str, Any]] = result.value
         if not records:
             return Result.ok(
                 {
