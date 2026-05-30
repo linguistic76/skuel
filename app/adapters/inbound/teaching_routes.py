@@ -53,11 +53,20 @@ def create_teaching_routes(
     register_domain_routes(app, rt, services, TEACHING_API_CONFIG)
 
     if services:
+        # Teaching UI requires the orchestrator — it is always constructed
+        # alongside services (compose.py). Fail loudly if it is missing rather
+        # than passing None into routes that would crash on first request.
+        orchestrator = services.teacher_orchestrator
+        if orchestrator is None:
+            raise RuntimeError(
+                "TeacherOrchestrator missing from Services — required to wire teaching UI routes"
+            )
+
         # 2. UI routes via TeacherOrchestrator
         create_teaching_ui_routes(
             _app=app,
             rt=rt,
-            orchestrator=services.teacher_orchestrator,
+            orchestrator=orchestrator,
             user_service=services.user,
             exercise_report_service=services.exercise_report,
         )
