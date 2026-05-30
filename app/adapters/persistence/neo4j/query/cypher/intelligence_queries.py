@@ -423,8 +423,8 @@ def build_registry_validated_query(
 
 def build_impact_chain_query(
     start_uid: str,
-    start_label: str,
-    end_label: str,
+    start_label: NeoLabel,
+    end_label: NeoLabel,
     max_depth: int = 4,
     relationship_filter: list[str] | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
