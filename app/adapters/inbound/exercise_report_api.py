@@ -13,7 +13,7 @@ Routes:
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.report_protocols import ExerciseReportOperations
+    from core.ports.report_protocols import AssessmentOperations
 
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
@@ -35,7 +35,7 @@ logger = get_logger("skuel.routes.submissions.assessment")
 def create_exercise_report_api_routes(
     _app: Any,
     rt: Any,
-    report_service: "ExerciseReportOperations",
+    report_service: "AssessmentOperations",
     user_service_getter: Any,
 ) -> list[Any]:
     """
@@ -44,7 +44,7 @@ def create_exercise_report_api_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        report_service: ExerciseReportOperations service for assessment CRUD
+        report_service: AssessmentOperations service for assessment CRUD
         user_service_getter: Named function returning user_service (for role checks)
     """
 

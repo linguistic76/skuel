@@ -25,7 +25,7 @@ def _build(
         "events_service": MagicMock(),
         "choices_service": MagicMock(),
         "principles_service": MagicMock(),
-        "exercise_report_service": MagicMock(),
+        "assessment_service": MagicMock(),
         "activity_report_service": MagicMock(),
         "sharing_service": MagicMock(),
         "ps_service": MagicMock(),
@@ -37,7 +37,7 @@ def _build(
     mocks["events_service"].get_user_events = AsyncMock()
     mocks["choices_service"].get_user_choices = AsyncMock()
     mocks["principles_service"].get_user_principles = AsyncMock()
-    mocks["exercise_report_service"].get_assessments_for_student = AsyncMock()
+    mocks["assessment_service"].get_assessments_for_student = AsyncMock()
     mocks["activity_report_service"].get_history = AsyncMock()
     mocks["sharing_service"].get_shared_with_me = AsyncMock()
     mocks["ps_service"].get_all_user_knowledge_status = AsyncMock()
@@ -50,7 +50,7 @@ def _build(
         events_service=mocks["events_service"],
         choices_service=mocks["choices_service"],
         principles_service=mocks["principles_service"],
-        exercise_report_service=mocks["exercise_report_service"],
+        assessment_service=mocks["assessment_service"],
         activity_report_service=mocks["activity_report_service"],
         sharing_service=mocks["sharing_service"],
         ps_service=mocks["ps_service"],
@@ -320,9 +320,9 @@ async def test_get_assigned_exercises_delegates() -> None:
 @pytest.mark.asyncio
 async def test_get_recent_exercise_reports_delegates() -> None:
     orch, mocks = _build()
-    mocks["exercise_report_service"].get_assessments_for_student.return_value = Result.ok([])
+    mocks["assessment_service"].get_assessments_for_student.return_value = Result.ok([])
     await orch.get_recent_exercise_reports("user_1", limit=7)
-    mocks["exercise_report_service"].get_assessments_for_student.assert_called_once_with(
+    mocks["assessment_service"].get_assessments_for_student.assert_called_once_with(
         "user_1", limit=7
     )
 
