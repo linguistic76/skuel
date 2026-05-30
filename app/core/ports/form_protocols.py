@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol
 
 from core.models.enums import UserRole
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Result
 
@@ -98,7 +98,7 @@ class FormTemplateOperations(Protocol):
         self,
         limit: int = 100,
         offset: int = 0,
-        filters: dict[str, Any] | None = None,
+        filters: FilterParams | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
         user_uid: UserUID | None = None,
