@@ -13,7 +13,7 @@ See: /docs/patterns/ERROR_HANDLING.md
 """
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
 from typing import Any
 
@@ -97,7 +97,7 @@ def chain_results(
 
 def safe_backend_operation[R, **P](
     operation_name: str,
-) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
+) -> Callable[[Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]]:
     """
     Decorator for backend operations that ensures they return Results.
     Catches database exceptions and converts them to Result.fail().
@@ -110,7 +110,9 @@ def safe_backend_operation[R, **P](
             return self._deserialize(record)
     """
 
-    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+    def decorator(
+        func: Callable[P, Coroutine[Any, Any, R]],
+    ) -> Callable[P, Coroutine[Any, Any, R]]:
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
