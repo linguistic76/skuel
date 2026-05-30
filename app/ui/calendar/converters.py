@@ -26,7 +26,6 @@ from adapters.calendar_adapters import adapt_entities
 from core.models.enums import ActivityType, Priority
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
 from core.models.type_hints import EntityUID
-from core.ports import get_enum_value
 from core.ports.calendar_protocol import CalendarTrackable, WindowKind
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
 from ui.palette import EventTypeColor, FrequencyColor
@@ -142,7 +141,7 @@ def task_to_calendar_item(task: Any) -> CalendarItem:
         description=getattr(task, "description", "") or "",
         color=get_priority_calendar_color(priority),
         icon="✅",
-        priority=get_enum_value(priority),
+        priority=priority.to_numeric(),
         tags=getattr(task, "tags", []) or [],
         category=getattr(task, "project", None),
         metadata={
@@ -191,7 +190,7 @@ def goal_to_calendar_item(goal: Any) -> CalendarItem | None:
         description=getattr(goal, "description", "") or "",
         color=get_priority_calendar_color(priority),
         icon="🎯",
-        priority=get_enum_value(priority),
+        priority=priority.to_numeric(),
         tags=getattr(goal, "tags", []) or [],
         category=str(getattr(goal, "domain", "")) if getattr(goal, "domain", None) else None,
         metadata={
@@ -239,7 +238,7 @@ def event_to_calendar_item(event: Any) -> CalendarItem:
         description=getattr(event, "description", "") or "",
         color=EventTypeColor.for_type(event_type),
         icon="📅",
-        priority=str(getattr(event, "priority", "medium")),
+        priority=_normalize_priority(getattr(event, "priority", None)).to_numeric(),
         tags=getattr(event, "tags", []) or [],
         category=event_type,
         metadata={
@@ -308,7 +307,7 @@ def habit_to_calendar_items(habit: Any, current_date: date) -> list[CalendarItem
                     description=getattr(habit, "description", "") or "",
                     color=FrequencyColor.for_type(frequency),
                     icon="🔄",
-                    priority="medium",
+                    priority=Priority.MEDIUM.to_numeric(),
                     tags=list(habit.tags) if getattr(habit, "tags", None) else [],
                     category=category_str,
                     metadata={
@@ -388,7 +387,7 @@ def trackable_to_calendar_items(trackable: CalendarTrackable) -> list[CalendarIt
                 description=description,
                 color=color,
                 icon=icon,
-                priority=get_enum_value(priority),
+                priority=priority.to_numeric(),
                 tags=tags,
                 related_uids=related_uids,
                 metadata=metadata,
