@@ -1368,16 +1368,13 @@ class ChoicesRelationshipOperations(BaseRelationshipOperations, Protocol):
 
 @runtime_checkable
 class UserContextOperations(Protocol):
-    """User context operations for cache invalidation and context-aware operations."""
+    """User context operations for context-aware dashboard/summary reads.
 
-    async def invalidate_context(self, user_uid: UserUID) -> None:
-        """
-        Invalidate cached user context after state-changing operations.
-
-        Args:
-            user_uid: User whose context cache should be invalidated
-        """
-        ...
+    Cache invalidation is NOT part of this protocol: every real invalidation
+    routes through UserActivityService.invalidate_context / UserService via the
+    event bus, never services.context. Declaring it here was dead (UserContextService
+    does not implement it) and would invite a second invalidation path.
+    """
 
     async def get_context_dashboard(
         self,
