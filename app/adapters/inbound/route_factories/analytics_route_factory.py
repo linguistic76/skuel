@@ -47,7 +47,7 @@ Usage:
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any, NotRequired, TypedDict, cast
 
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import Request
@@ -62,6 +62,20 @@ logger = get_logger("skuel.routes.analytics_factory")
 def _default_methods() -> list[str]:
     """Default HTTP methods for analytics endpoints."""
     return ["GET"]
+
+
+class AnalyticsEndpointConfig(TypedDict):
+    """Typed config for a single analytics endpoint.
+
+    ``path`` and ``handler`` are required — an endpoint cannot exist without
+    both. The rest are optional and fall back to per-endpoint defaults.
+    """
+
+    path: str
+    handler: Callable[..., Any]
+    description: NotRequired[str]
+    methods: NotRequired[list[str]]
+    require_params: NotRequired[list[str]]
 
 
 @dataclass
@@ -90,7 +104,7 @@ class AnalyticsRouteFactory:
         self,
         service: Any,
         domain_name: str,
-        analytics_config: dict[str, dict[str, Any]],
+        analytics_config: dict[str, AnalyticsEndpointConfig],
         base_path: str | None = None,
         require_role: UserRole | None = None,
         user_service_getter: Callable | None = None,
@@ -121,8 +135,8 @@ class AnalyticsRouteFactory:
         for key, config in analytics_config.items():
             self.endpoints.append(
                 AnalyticsEndpoint(
-                    path=config.get("path"),
-                    handler=config.get("handler"),
+                    path=config["path"],
+                    handler=config["handler"],
                     description=config.get("description", f"Get {key} for {domain_name}"),
                     methods=config.get("methods", ["GET"]),
                     require_params=config.get("require_params", []),
@@ -216,4 +230,4 @@ class AnalyticsRouteFactory:
 
 
 # Export
-__all__ = ["AnalyticsEndpoint", "AnalyticsRouteFactory"]
+__all__ = ["AnalyticsEndpoint", "AnalyticsEndpointConfig", "AnalyticsRouteFactory"]

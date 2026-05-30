@@ -257,7 +257,7 @@ def create_activity_reports_ui_routes(
             return HubPreviewEmpty("activity reports")
         cards = []
         for report in reports[:3]:
-            title = getattr(report, "title", None) or getattr(report, "uid", "Report")
+            title = str(getattr(report, "title", None) or getattr(report, "uid", "Report"))
             period = getattr(report, "time_period", None) or ""
             badge = (
                 Span(period, cls="text-[10px] font-medium text-muted-foreground")

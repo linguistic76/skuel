@@ -448,7 +448,9 @@ def create_path_steps_api_routes(
         result = await ps_service.get_organization_view(uid)
         if result.is_error:
             return Result.fail(result)
-        return Result.ok(result.value.to_dict() if result.value else None)
+        if not result.value:
+            return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
+        return Result.ok(result.value.to_dict())
 
     # Organization Operations (ADMIN ONLY)
     # -------------------------------------
