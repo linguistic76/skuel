@@ -21,9 +21,19 @@ submission via REPORT_FOR. The processor_type field discriminates the source.
 Progress reports (EntityType.ACTIVITY_REPORT) are macro-level AI reports — the system
 summarises cross-domain activity over a time window. Still a report, broader scope.
 
+The HUMAN and AI halves are SEPARATE protocols implemented by separate services
+(they are not a single-class union — that was split 2026-05-30, PR #128):
+
+    AI report (LLM) + typed reads → ExerciseReportOperations  (ExerciseReportService)
+    Human assessment (teacher)    → AssessmentOperations       (AssessmentService)
+
+``list_for_submission`` (on ExerciseReportOperations) is the authoritative typed
+read for BOTH HUMAN and LLM reports — processor_type discriminates.
+
 Protocol Responsibilities
 --------------------------
-    ExerciseReportOperations     — Human + AI report CRUD (EXERCISE_REPORT entities)
+    ExerciseReportOperations     — AI report + typed reads (generate_report, list_for_submission)
+    AssessmentOperations         — Teacher-authored assessments (create_assessment, get_assessments_*)
     ProgressReportOperations     — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
     ActivityReportOperations     — Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)

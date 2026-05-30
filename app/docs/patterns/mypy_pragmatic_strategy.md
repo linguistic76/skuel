@@ -131,6 +131,8 @@ disable_error_code = ["type-var", "arg-type"]
 
 Four error codes are globally disabled: `arg-type`, `var-annotated`, `type-arg`, `type-var`. The `assignment` error code was previously in this list but was re-enabled in March 2026 after fixing all 277 assignment errors (138 trailing-comma tuple bugs + 139 real type mismatches).
 
+**`arg-type` is globally disabled but per-module ENFORCED on `core/` (2026-05-29) and `services_bootstrap/` (2026-05-30)** via `[[tool.mypy.overrides]]` blocks with `enable_error_code = ["arg-type"]`. A 12-PR sweep drove `mypy --enable-error-code arg-type core` 194 → 0 (~80% real signal — frozen-model / enum-NewType / typed-payload boundaries per the functional-direction roadmap), then a follow-on campaign (PRs #121–128) cleared `services_bootstrap/` (the composition root, where service↔protocol conformance gaps aggregate) and flipped it on there too. The global disable remains only for the still-un-swept `adapters`/`ui`/`tests`/`scripts` trees; deleting it entirely is gated on `adapters`+`ui` reaching 0. **No suppressions to hit the number** — every gap was fixed structurally; PR #120's attempt to flip `services_bootstrap` first (reaching 0 via 21 `# type: ignore`) was rejected and re-sequenced (enforce at the leaves first, the root last).
+
 ### 4. Typed Executor Instead of `Any`
 
 Backend mixins that accept a query executor were typed as `Any`. Replacing with the concrete type eliminated errors at every call site:
