@@ -88,7 +88,7 @@ class FormTemplateOperations(Protocol):
 
     async def create(self, entity: Any) -> Result[FormTemplate]: ...
 
-    async def get(self, uid: str) -> Result[FormTemplate | None]: ...
+    async def get(self, uid: str) -> Result[FormTemplate]: ...
 
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[FormTemplate]: ...
 
@@ -98,11 +98,13 @@ class FormTemplateOperations(Protocol):
         self,
         limit: int = 100,
         offset: int = 0,
+        filters: dict[str, Any] | None = None,
+        sort_by: str | None = None,
+        sort_order: str = "asc",
+        user_uid: UserUID | None = None,
         order_by: str | None = None,
         order_desc: bool = False,
-        user_uid: UserUID | None = None,
-        **kwargs: Any,
-    ) -> Result[builtins.list[FormTemplate]]: ...
+    ) -> Result[tuple[builtins.list[FormTemplate], int]]: ...
 
     async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]: ...
 
@@ -131,9 +133,7 @@ class FormSubmissionOperations(Protocol):
         share_with_admin: bool = False,
     ) -> Result[FormSubmission]: ...
 
-    async def get_submission(
-        self, uid: str, user_uid: UserUID
-    ) -> Result[FormSubmission | None]: ...
+    async def get_submission(self, uid: str, user_uid: UserUID) -> Result[FormSubmission]: ...
 
     async def get_my_submissions(
         self, user_uid: UserUID, limit: int = 50

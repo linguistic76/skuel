@@ -67,7 +67,7 @@ def create_teaching_forms_ui_routes(
             )
             return await render_teaching_sidebar_page(content, active="forms", request=request)
 
-        templates = result.value or []
+        templates, _total = result.value
         if not templates:
             content = Div(
                 PageHeader("Forms"),
