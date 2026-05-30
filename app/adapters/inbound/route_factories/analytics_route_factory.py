@@ -45,9 +45,9 @@ Usage:
     factory.register_routes(app, rt)
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, NotRequired, TypedDict, cast
+from typing import Any, NotRequired, TypedDict
 
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import Request
@@ -57,6 +57,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.routes.analytics_factory")
+
+# An analytics route handler: ``async (service, params) -> Result[T]``. The inner
+# ``Result[Any]`` is the legitimate route-factory erased-T boundary (CLAUDE.md Any
+# policy) — T varies per endpoint (TaskInsights, CompletionStats, ...). The
+# Awaitable+Result shape is enforced so a sync or non-Result handler cannot satisfy
+# the config and silently fail at the await/cast boundary in ``route_handler``.
+AnalyticsHandler = Callable[..., Awaitable[Result[Any]]]  # boundary: route-factory erased-T
 
 
 def _default_methods() -> list[str]:
@@ -72,7 +79,7 @@ class AnalyticsEndpointConfig(TypedDict):
     """
 
     path: str
-    handler: Callable[..., Any]
+    handler: AnalyticsHandler
     description: NotRequired[str]
     methods: NotRequired[list[str]]
     require_params: NotRequired[list[str]]
@@ -83,7 +90,7 @@ class AnalyticsEndpoint:
     """Configuration for a single analytics endpoint"""
 
     path: str
-    handler: Callable
+    handler: AnalyticsHandler
     description: str
     methods: list[str] = field(default_factory=_default_methods)
     require_params: list[str] = field(default_factory=list)
@@ -212,8 +219,8 @@ class AnalyticsRouteFactory:
                             )
                         )
 
-                # Call the service handler (must return Result[T])
-                return cast("Result[Any]", await endpoint.handler(self.service, params))
+                # Call the service handler (typed to return Result[T] — no cast needed)
+                return await endpoint.handler(self.service, params)
 
             except Exception as e:  # safety-net: API boundary
                 logger.error(f"Error in analytics endpoint {endpoint.path}: {e}")
