@@ -108,5 +108,5 @@ def path_step_from_domain(step: PathStepMappable, step_number: int) -> PathStep:
         title=step.title,
         knowledge_uid=step.knowledge_uids[0] if step.knowledge_uids else "",
         mastery_threshold=step.mastery_threshold,
-        estimated_time=step.estimated_hours,
+        estimated_time=step.estimated_hours or 0.0,
     )
