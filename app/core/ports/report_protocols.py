@@ -60,6 +60,7 @@ from core.ports.query_types import (
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.entity_types import SubmissionEntity
     from core.models.exercises.exercise import Exercise
     from core.models.report.activity_report import ActivityReport
     from core.models.report.exercise_report import ExerciseReport
@@ -78,55 +79,22 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class ExerciseReportOperations(Protocol):
-    """Human + AI reports on submissions. Both create EXERCISE_REPORT entities.
+    """AI-generated + typed-read reports on submissions (EXERCISE_REPORT entities).
 
-    processor_type discriminates the source:
-        ReportSource.HUMAN — teacher writes report (create_assessment)
-        ReportSource.LLM   — LLM generates report via Exercise (generate_report)
+    This is the AI/read-model half of the report surface. ``generate_report``
+    creates an LLM report (processor_type=ReportSource.LLM) via Exercise
+    instructions; ``list_for_submission`` is the authoritative typed read for
+    BOTH HUMAN (teacher-authored) and LLM reports attached to a submission
+    (processor_type discriminates the source).
 
-    Assessment methods and AI report generation are unified here because
-    they represent the same concept: a response to student work.
+    Teacher-authored assessment *creation* and assessment queries live on the
+    sibling :class:`AssessmentOperations` (implemented by ``AssessmentService``)
+    — they are a distinct service, not a single-class union with this one.
 
-    Route consumers: exercise_report_api.py (assessments), exercises_api.py (AI reports)
-    Implementation: SubmissionsCoreService (assessments) + ExerciseReportService (AI)
+    Route consumers: exercises_api.py (AI reports), teaching_api.py / teaching_ui.py
+    / user_entry_ui.py (report history).
+    Implementation: ``ExerciseReportService``.
     """
-
-    # ------------------------------------------------------------------
-    # HUMAN FEEDBACK — teacher-authored assessments
-    # ------------------------------------------------------------------
-
-    async def create_assessment(
-        self,
-        teacher_uid: str,
-        subject_uid: str,
-        title: str,
-        content: str,
-        metadata: dict[str, Any] | None = None,
-    ) -> "Result[ExerciseReport]":
-        """Create a teacher assessment (EntityType.EXERCISE_REPORT, ReportSource.HUMAN).
-
-        Verifies teacher-student group membership before creating.
-        Auto-shares with student via SHARES_WITH {role: 'student'}.
-
-        Returns Result[ExerciseReport].
-        """
-        ...
-
-    async def get_assessments_for_student(
-        self,
-        student_uid: str,
-        limit: int = 50,
-    ) -> "Result[list[ExerciseReport]]":
-        """Get feedback reports received by a student. Returns Result[list[ExerciseReport]]."""
-        ...
-
-    async def get_assessments_by_teacher(
-        self,
-        teacher_uid: str,
-        limit: int = 50,
-    ) -> "Result[list[ExerciseReport]]":
-        """Get feedback reports authored by a teacher. Returns Result[list[ExerciseReport]]."""
-        ...
 
     # ------------------------------------------------------------------
     # TYPED READS — shared by routes that display report history
@@ -172,6 +140,54 @@ class ExerciseReportOperations(Protocol):
 
         Returns Result[ExerciseReport] — the created EXERCISE_REPORT entity.
         """
+        ...
+
+
+@runtime_checkable
+class AssessmentOperations(Protocol):
+    """Teacher-authored assessments — HUMAN feedback on student work.
+
+    The human half of the report surface (the AI half is
+    :class:`ExerciseReportOperations`). Assessments are EXERCISE_REPORT entities
+    (ReportSource.HUMAN) created by a teacher, linked to the student via
+    ASSESSMENT_OF and auto-shared via SHARES_WITH.
+
+    Route consumers: exercise_report_api.py (assessment CRUD),
+    profile_orchestrator.py (a student's received assessments).
+    Implementation: ``AssessmentService`` (core/services/user_entry/).
+    """
+
+    async def create_assessment(
+        self,
+        teacher_uid: str,
+        subject_uid: str,
+        title: str,
+        content: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> "Result[ExerciseReport]":
+        """Create a teacher assessment (EntityType.EXERCISE_REPORT, ReportSource.HUMAN).
+
+        Verifies teacher-student group membership before creating.
+        Auto-shares with student via SHARES_WITH {role: 'student'}.
+
+        Returns Result[ExerciseReport].
+        """
+        ...
+
+    async def get_assessments_for_student(
+        self,
+        student_uid: str,
+        limit: int = 50,
+    ) -> "Result[list[ExerciseReport]]":
+        """Get feedback reports received by a student. Returns Result[list[ExerciseReport]]."""
+        ...
+
+    async def get_assessments_by_teacher(
+        self,
+        teacher_uid: str,
+        limit: int = 50,
+    ) -> "Result[list[SubmissionEntity]]":
+        """Get feedback reports authored by a teacher. Returns Result[list[SubmissionEntity]]."""
         ...
 
 
