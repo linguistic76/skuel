@@ -505,51 +505,6 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
 
     # Convenience methods for common relationship patterns
 
-    async def get_prerequisites(self, uid: str) -> Result[builtins.list[T]]:
-        """
-        Get all prerequisites for an entity.
-
-        Convenience method for get_related_entities(relationship_type="PREREQUISITE", direction="incoming")
-        """
-        return await self.get_related_entities(uid, "PREREQUISITE", direction="incoming")
-
-    async def get_enables(self, uid: str) -> Result[builtins.list[T]]:
-        """
-        Get all entities this enables.
-
-        Convenience method for get_related_entities(relationship_type="ENABLES", direction="outgoing")
-        """
-        return await self.get_related_entities(uid, "ENABLES", direction="outgoing")
-
-    async def get_related(self, uid: str) -> Result[builtins.list[T]]:
-        """
-        Get all related entities (bidirectional).
-
-        Convenience method for get_related_entities(relationship_type=RELATED_TO, direction="both")
-        """
-        return await self.get_related_entities(uid, RelationshipName.RELATED_TO, direction="both")
-
-    async def get_children(self, uid: str) -> Result[builtins.list[T]]:
-        """
-        Get all child entities.
-
-        Convenience method for get_related_entities(relationship_type="CHILD_OF", direction="incoming")
-        """
-        return await self.get_related_entities(uid, "CHILD_OF", direction="incoming")
-
-    async def get_parent(self, uid: str) -> Result[T | None]:
-        """
-        Get parent entity.
-
-        Convenience method for get_related_entities(relationship_type="CHILD_OF", direction="outgoing", limit=1)
-        """
-        result = await self.get_related_entities(uid, "CHILD_OF", direction="outgoing", limit=1)
-        if result.is_error:
-            return Result.fail(result)
-
-        entities = result.value
-        return Result.ok(entities[0] if entities else None)
-
     async def get_depends_on(self, uid: str) -> Result[builtins.list[T]]:
         """
         Get all entities this depends on.

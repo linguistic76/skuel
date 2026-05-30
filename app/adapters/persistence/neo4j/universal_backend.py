@@ -89,8 +89,7 @@ _relationship_query_mixin.py:
     get_related_entities, get_related_uids, get_relationship_metadata,
     update_relationship_properties, get_relationships_batch,
     count_relationships_batch, get_edge_metadata, update_edge_metadata,
-    increment_traversal_count, get_prerequisites, get_enables,
-    get_related, get_children, get_parent, get_depends_on, get_blocks
+    increment_traversal_count, get_depends_on, get_blocks
 
 _traversal_mixin.py:
     add_relationship, get_relationships, traverse, find_path
