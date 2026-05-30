@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from core.models.habit.completion import HabitCompletion
     from core.models.task.task_dto import TaskDTO
     from core.ports.query_types import (
+        AlternativeComparisonItem,
         BlockingChainResult,
         LateralRelationshipItem,
         LifePathAlignmentResult,
@@ -560,7 +561,7 @@ class LateralRelationshipOperations(Protocol):
 
     async def get_alternatives_with_comparison(
         self, entity_uid: EntityUID, comparison_fields: list[str] | None = None
-    ) -> "Result[list[LateralRelationshipItem]]": ...
+    ) -> "Result[list[AlternativeComparisonItem]]": ...
 
     async def get_relationship_graph(
         self,
