@@ -11,6 +11,7 @@ __version__ = "1.0"
 
 import asyncio
 import contextlib
+import inspect
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict
@@ -401,10 +402,14 @@ class SchemaChangeDetector:
 
         for handler in self._change_handlers:
             try:
-                if asyncio.iscoroutinefunction(handler):
-                    await handler(event)
-                else:
-                    handler(event)
+                # Honor the SchemaChangeHandler contract: a handler may be sync
+                # (returns None) or async (returns an awaitable). Call once and
+                # await whatever it returns if awaitable — this covers async def,
+                # callable objects with async __call__, and sync wrappers that
+                # return a coroutine, none of which iscoroutinefunction() detects.
+                outcome = handler(event)
+                if inspect.isawaitable(outcome):
+                    await outcome
             except Exception as e:  # safety-net: catch unexpected errors from external handlers
                 self.logger.error(f"Error in change handler: {e}", exc_info=True)
 
