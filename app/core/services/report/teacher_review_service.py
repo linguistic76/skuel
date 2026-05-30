@@ -35,11 +35,13 @@ from core.ports.query_types import (
     GroupMemberProgress,
     ReportApprovalResult,
     ReportSubmitResult,
+    ReviewQueueItem,
     RevisionRequestResult,
     RevisionWithExerciseResult,
     StudentSubmissionItem,
     StudentSummaryItem,
     SubmissionForExercise,
+    TeacherDashboardStats,
     TeacherGroupStats,
 )
 from core.ports.report_protocols import (
@@ -97,7 +99,7 @@ class TeacherReviewService:
         self,
         teacher_uid: str,
         status_filter: str | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ReviewQueueItem]]:
         """
         Get teacher's pending review queue.
 
@@ -123,12 +125,14 @@ class TeacherReviewService:
         # public shape (submission_uid, exercise_name) so UI consumers
         # (ui/teaching/types.queue_item_from_dict, scripts/export_submissions)
         # see a stable surface across the get_review_queue → by_groups rewire.
-        items = [
+        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type).
+        records: list[dict[str, Any]] = result.value
+        items: list[ReviewQueueItem] = [
             {
                 "submission_uid": record["entry_uid"],
                 "title": record["title"],
                 "status": record["status"],
-                "entity_type": record.get("entity_type"),
+                "entity_type": record["entity_type"],
                 "submitted_at": record["submitted_at"],
                 "student_uid": record["student_uid"],
                 "student_name": record["student_name"],
@@ -138,7 +142,7 @@ class TeacherReviewService:
                 "original_filename": record.get("original_filename"),
                 "feedback_count": record["feedback_count"],
             }
-            for record in result.value
+            for record in records
         ]
 
         return Result.ok(items)
@@ -766,7 +770,7 @@ class TeacherReviewService:
     async def get_dashboard_stats(
         self,
         teacher_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[TeacherDashboardStats]:
         """
         Get at-a-glance stats for the teacher dashboard.
 
@@ -783,7 +787,10 @@ class TeacherReviewService:
         if result.is_error:
             return Result.fail(result)
 
-        records = result.value
+        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type);
+        # viewing them as dict[str, Any] lets the typed-stat literal below build
+        # cleanly without per-value casts.
+        records: list[dict[str, Any]] = result.value
         if not records:
             return Result.ok(
                 {

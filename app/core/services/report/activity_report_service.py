@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
 from core.models.type_hints import TypeConverter, UserUID
+from core.ports.query_types import AnnotationResult, AnnotationState
 from core.ports.report_protocols import ActivityReportBackendOperations
 
 if TYPE_CHECKING:
@@ -428,7 +429,7 @@ class ActivityReportService:
         annotation_mode: str,
         user_annotation: str | None = None,
         user_revision: str | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[AnnotationResult]:
         """
         Save user annotation or revision to an owned ActivityReport.
 
@@ -478,22 +479,22 @@ class ActivityReportService:
         )
         if result.is_error:
             return Result.fail(result)
-        records = result.value or []
+        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type).
+        records: list[dict[str, Any]] = result.value or []
         if not records:
             return Result.fail(
                 Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
             )
         record = records[0] if isinstance(records[0], dict) else dict(records[0])
-        return Result.ok(
-            {
-                "uid": record.get("uid"),
-                "annotation_mode": record.get("annotation_mode"),
-                "user_annotation": record.get("user_annotation"),
-                "user_revision": record.get("user_revision"),
-            }
-        )
+        annotation: AnnotationResult = {
+            "uid": record["uid"],
+            "annotation_mode": record["annotation_mode"],
+            "user_annotation": record.get("user_annotation"),
+            "user_revision": record.get("user_revision"),
+        }
+        return Result.ok(annotation)
 
-    async def get_annotation(self, uid: str, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_annotation(self, uid: str, user_uid: UserUID) -> Result[AnnotationState]:
         """
         Get current annotation state for an owned ActivityReport.
 
@@ -507,24 +508,24 @@ class ActivityReportService:
         result = await self.backend.get_annotation(uid, user_uid)
         if result.is_error:
             return Result.fail(result)
-        records = result.value or []
+        # Raw Neo4j rows are heterogeneous dicts (execute_query's own return type).
+        records: list[dict[str, Any]] = result.value or []
         if not records:
             return Result.fail(
                 Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
             )
         record = records[0] if isinstance(records[0], dict) else dict(records[0])
         annotation_updated_at = record.get("annotation_updated_at")
-        return Result.ok(
-            {
-                "uid": record.get("uid"),
-                "annotation_mode": record.get("annotation_mode"),
-                "user_annotation": record.get("user_annotation"),
-                "user_revision": record.get("user_revision"),
-                "annotation_updated_at": (
-                    str(annotation_updated_at) if annotation_updated_at else None
-                ),
-            }
-        )
+        state: AnnotationState = {
+            "uid": record["uid"],
+            "annotation_mode": record.get("annotation_mode"),
+            "user_annotation": record.get("user_annotation"),
+            "user_revision": record.get("user_revision"),
+            "annotation_updated_at": (
+                str(annotation_updated_at) if annotation_updated_at else None
+            ),
+        }
+        return Result.ok(state)
 
     async def get_privacy_summary(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
