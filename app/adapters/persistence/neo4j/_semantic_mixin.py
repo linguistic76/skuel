@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 from adapters.persistence.neo4j._backend_helpers import _validate_rel_name
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -209,7 +210,7 @@ class _SemanticMixin:
 
         query, params = build_simple_prerequisite_chain(
             node_uid=uid,
-            node_label="Entity",
+            node_label=NeoLabel.ENTITY,
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             depth=depth,
             order="DESC",
@@ -226,7 +227,7 @@ class _SemanticMixin:
         query, params = build_relationship_traversal_query(
             source_uid=uid,
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
-            target_label="Entity",
+            target_label=NeoLabel.ENTITY,
             direction="incoming",
             limit=limit,
         )
@@ -247,7 +248,7 @@ class _SemanticMixin:
 
         query, params = build_metadata_aware_path_query(
             target_uid=target_uid,
-            node_label="Entity",
+            node_label=NeoLabel.ENTITY,
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             user_time_budget=user_time_budget,
             max_complexity_level=max_complexity,

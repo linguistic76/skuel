@@ -109,7 +109,17 @@ class Neo4jSchemaManager:
                 )
             )
 
-        label = label or entity_class.__name__
+        # Resolve the label string (explicit arg or the model class name), then
+        # validate + convert to NeoLabel at this boundary — index creation
+        # requires a SKUEL-modeled label, so fail fast on an unmodeled one.
+        label_str = label or entity_class.__name__
+        if not NeoLabel.is_valid(label_str):
+            return Result.fail(
+                Errors.validation(
+                    f"Unknown Neo4j label for index sync: {label_str!r}", field="label"
+                )
+            )
+        neo_label = NeoLabel(label_str)
         results: dict[str, list[str]] = {"created": [], "existing": [], "failed": []}
 
         try:
@@ -123,23 +133,23 @@ class Neo4jSchemaManager:
 
                 if is_unique:
                     # Create unique constraint
-                    result = await self._create_unique_constraint(label, field_name)
+                    result = await self._create_unique_constraint(neo_label, field_name)
                 else:
                     # Create regular index
-                    result = await self._create_index(label, field_name)
+                    result = await self._create_index(neo_label, field_name)
 
                 if result.is_ok:
                     status = result.value
                     if status == "created":
-                        results["created"].append(f"{label}.{field_name}")
-                        self.logger.info(f"Created index: {label}.{field_name}")
+                        results["created"].append(f"{neo_label}.{field_name}")
+                        self.logger.info(f"Created index: {neo_label}.{field_name}")
                     else:
-                        results["existing"].append(f"{label}.{field_name}")
-                        self.logger.debug(f"Index already exists: {label}.{field_name}")
+                        results["existing"].append(f"{neo_label}.{field_name}")
+                        self.logger.debug(f"Index already exists: {neo_label}.{field_name}")
                 else:
-                    results["failed"].append(f"{label}.{field_name}")
+                    results["failed"].append(f"{neo_label}.{field_name}")
                     self.logger.error(
-                        f"Failed to create index: {label}.{field_name}: {result.error}"
+                        f"Failed to create index: {neo_label}.{field_name}: {result.error}"
                     )
 
             return Result.ok(results)
@@ -147,7 +157,7 @@ class Neo4jSchemaManager:
         except (
             Exception
         ) as e:  # skuel-lint: disable=SKUEL017 -- schema sync iterates dataclass fields + DB ops
-            self.logger.error(f"Schema sync failed for {label}: {e}")
+            self.logger.error(f"Schema sync failed for {neo_label}: {e}")
             return Result.fail(Errors.system(f"Schema sync failed: {e}", operation="sync_indexes"))
 
     async def _create_index(self, label: NeoLabel, field_name: str) -> Result[str]:
@@ -445,7 +455,7 @@ class Neo4jSchemaManager:
         # Rate limiting index: AuthEvent(email, event_type, timestamp)
         # Used by count_recent_failed_attempts() query
         rate_limit_result = await self.create_composite_index(
-            "AuthEvent",
+            NeoLabel.AUTH_EVENT,
             ["email", "event_type", "timestamp"],
             "auth_events_rate_limit",
         )
@@ -455,14 +465,14 @@ class Neo4jSchemaManager:
             results["failed"].append("auth_events_rate_limit")
 
         # Session token index (single field)
-        session_result = await self._create_index("Session", "session_token")
+        session_result = await self._create_index(NeoLabel.SESSION, "session_token")
         if session_result.is_ok:
             results["created"].append("Session_session_token_idx")
         else:
             results["failed"].append("Session_session_token_idx")
 
         # User email uniqueness constraint
-        email_result = await self._create_unique_constraint("User", "email")
+        email_result = await self._create_unique_constraint(NeoLabel.USER, "email")
         if email_result.is_ok:
             results["created"].append("User_email_unique")
         else:
@@ -504,7 +514,18 @@ class Neo4jSchemaManager:
         """
         results: dict[str, list[str]] = {"created": [], "failed": []}
 
-        for label in entity_labels:
+        for raw_label in entity_labels:
+            # entity_labels arrives as plain strings (e.g. from a CLI script),
+            # so validate + convert to NeoLabel at this boundary, failing fast
+            # on an unmodeled label rather than silently skipping it.
+            if not NeoLabel.is_valid(raw_label):
+                return Result.fail(
+                    Errors.validation(
+                        f"Unknown Neo4j label for vector index: {raw_label!r}",
+                        field="entity_labels",
+                    )
+                )
+            label = NeoLabel(raw_label)
             result = await self.create_vector_index(
                 label=label, field_name="embedding", dimension=dimension, similarity=similarity
             )
@@ -582,33 +603,41 @@ class Neo4jSchemaManager:
 
         # Full-text index definitions: (index_name, label, fields)
         # Fields sourced from SEARCH_FIELD_CONFIG — the single source of truth
-        fulltext_definitions: list[tuple[str, str, list[str]]] = [
+        fulltext_definitions: list[tuple[str, NeoLabel, list[str]]] = [
             # Activity Domains (6)
-            ("task_fulltext_idx", "Task", ["title", "description"]),
-            ("goal_fulltext_idx", "Goal", ["title", "description"]),
-            ("habit_fulltext_idx", "Habit", ["title", "description"]),
-            ("event_fulltext_idx", "Event", ["title", "description"]),
-            ("choice_fulltext_idx", "Choice", ["title", "description", "context"]),
-            ("principle_fulltext_idx", "Principle", ["title", "statement", "description"]),
+            ("task_fulltext_idx", NeoLabel.TASK, ["title", "description"]),
+            ("goal_fulltext_idx", NeoLabel.GOAL, ["title", "description"]),
+            ("habit_fulltext_idx", NeoLabel.HABIT, ["title", "description"]),
+            ("event_fulltext_idx", NeoLabel.EVENT, ["title", "description"]),
+            ("choice_fulltext_idx", NeoLabel.CHOICE, ["title", "description", "context"]),
+            ("principle_fulltext_idx", NeoLabel.PRINCIPLE, ["title", "statement", "description"]),
             # Curriculum Domains (4)
-            ("ku_fulltext_idx", "Ku", ["title", "description"]),
-            ("path_step_fulltext_idx", "PathStep", ["title", "intent", "description"]),
-            ("learning_path_fulltext_idx", "LearningPath", ["title", "goal", "description"]),
-            ("exercise_fulltext_idx", "Exercise", ["title", "instructions"]),
+            ("ku_fulltext_idx", NeoLabel.KU, ["title", "description"]),
+            ("path_step_fulltext_idx", NeoLabel.PATH_STEP, ["title", "intent", "description"]),
+            (
+                "learning_path_fulltext_idx",
+                NeoLabel.LEARNING_PATH,
+                ["title", "goal", "description"],
+            ),
+            ("exercise_fulltext_idx", NeoLabel.EXERCISE, ["title", "instructions"]),
             # Learning Loop (2)
-            ("revised_exercise_fulltext_idx", "RevisedExercise", ["title", "instructions"]),
+            ("revised_exercise_fulltext_idx", NeoLabel.REVISED_EXERCISE, ["title", "instructions"]),
             (
                 "user_entry_fulltext_idx",
-                "UserEntry",
+                NeoLabel.USER_ENTRY,
                 ["title", "processed_content"],
             ),
             # Forms (2)
             (
                 "form_template_fulltext_idx",
-                "FormTemplate",
+                NeoLabel.FORM_TEMPLATE,
                 ["title", "description", "instructions"],
             ),
-            ("form_submission_fulltext_idx", "FormSubmission", ["title", "processed_content"]),
+            (
+                "form_submission_fulltext_idx",
+                NeoLabel.FORM_SUBMISSION,
+                ["title", "processed_content"],
+            ),
         ]
 
         for index_name, label, index_fields in fulltext_definitions:
@@ -768,7 +797,7 @@ class Neo4jSchemaManager:
         """
         results: dict[str, Any] = {"created": [], "failed": []}
 
-        async def _idx(name: str, label: str, field: str) -> None:
+        async def _idx(name: str, label: NeoLabel, field: str) -> None:
             """Create a single named index and track result."""
             result = await self._create_named_index(name, label, field)
             if result.is_ok:
@@ -776,7 +805,7 @@ class Neo4jSchemaManager:
             else:
                 results["failed"].append(name)
 
-        async def _composite(name: str, label: str, fields: list[str]) -> None:
+        async def _composite(name: str, label: NeoLabel, fields: list[str]) -> None:
             """Create a composite index and track result."""
             result = await self.create_composite_index(label, fields, index_name=name)
             if result.is_ok:
@@ -785,75 +814,75 @@ class Neo4jSchemaManager:
                 results["failed"].append(name)
 
         # UID indexes — one per entity type + base Entity label
-        uid_labels = [
-            ("entity_uid_idx", "Entity"),
-            ("task_uid_idx", "Task"),
-            ("goal_uid_idx", "Goal"),
-            ("habit_uid_idx", "Habit"),
-            ("event_uid_idx", "Event"),
-            ("choice_uid_idx", "Choice"),
-            ("principle_uid_idx", "Principle"),
-            ("ku_uid_idx", "Ku"),
-            ("exercise_uid_idx", "Exercise"),
-            ("learning_path_uid_idx", "LearningPath"),
-            ("path_step_uid_idx", "PathStep"),
-            ("life_path_uid_idx", "LifePath"),
-            ("resource_uid_idx", "Resource"),
-            ("user_entry_uid_idx", "UserEntry"),
-            ("exercise_report_uid_idx", "ExerciseReport"),
-            ("activity_report_uid_idx", "ActivityReport"),
-            ("form_template_uid_idx", "FormTemplate"),
-            ("form_submission_uid_idx", "FormSubmission"),
-            ("revised_exercise_uid_idx", "RevisedExercise"),
+        uid_labels: list[tuple[str, NeoLabel]] = [
+            ("entity_uid_idx", NeoLabel.ENTITY),
+            ("task_uid_idx", NeoLabel.TASK),
+            ("goal_uid_idx", NeoLabel.GOAL),
+            ("habit_uid_idx", NeoLabel.HABIT),
+            ("event_uid_idx", NeoLabel.EVENT),
+            ("choice_uid_idx", NeoLabel.CHOICE),
+            ("principle_uid_idx", NeoLabel.PRINCIPLE),
+            ("ku_uid_idx", NeoLabel.KU),
+            ("exercise_uid_idx", NeoLabel.EXERCISE),
+            ("learning_path_uid_idx", NeoLabel.LEARNING_PATH),
+            ("path_step_uid_idx", NeoLabel.PATH_STEP),
+            ("life_path_uid_idx", NeoLabel.LIFE_PATH),
+            ("resource_uid_idx", NeoLabel.RESOURCE),
+            ("user_entry_uid_idx", NeoLabel.USER_ENTRY),
+            ("exercise_report_uid_idx", NeoLabel.EXERCISE_REPORT),
+            ("activity_report_uid_idx", NeoLabel.ACTIVITY_REPORT),
+            ("form_template_uid_idx", NeoLabel.FORM_TEMPLATE),
+            ("form_submission_uid_idx", NeoLabel.FORM_SUBMISSION),
+            ("revised_exercise_uid_idx", NeoLabel.REVISED_EXERCISE),
         ]
         for name, label in uid_labels:
             await _idx(name, label, "uid")
 
         # User UID indexes — all UserOwnedEntity types
-        user_uid_labels = [
-            ("task_user_uid_idx", "Task"),
-            ("goal_user_uid_idx", "Goal"),
-            ("habit_user_uid_idx", "Habit"),
-            ("event_user_uid_idx", "Event"),
-            ("choice_user_uid_idx", "Choice"),
-            ("principle_user_uid_idx", "Principle"),
-            ("user_entry_user_uid_idx", "UserEntry"),
-            ("exercise_report_user_uid_idx", "ExerciseReport"),
-            ("activity_report_user_uid_idx", "ActivityReport"),
-            ("form_submission_user_uid_idx", "FormSubmission"),
-            ("revised_exercise_user_uid_idx", "RevisedExercise"),
-            ("life_path_user_uid_idx", "LifePath"),
+        user_uid_labels: list[tuple[str, NeoLabel]] = [
+            ("task_user_uid_idx", NeoLabel.TASK),
+            ("goal_user_uid_idx", NeoLabel.GOAL),
+            ("habit_user_uid_idx", NeoLabel.HABIT),
+            ("event_user_uid_idx", NeoLabel.EVENT),
+            ("choice_user_uid_idx", NeoLabel.CHOICE),
+            ("principle_user_uid_idx", NeoLabel.PRINCIPLE),
+            ("user_entry_user_uid_idx", NeoLabel.USER_ENTRY),
+            ("exercise_report_user_uid_idx", NeoLabel.EXERCISE_REPORT),
+            ("activity_report_user_uid_idx", NeoLabel.ACTIVITY_REPORT),
+            ("form_submission_user_uid_idx", NeoLabel.FORM_SUBMISSION),
+            ("revised_exercise_user_uid_idx", NeoLabel.REVISED_EXERCISE),
+            ("life_path_user_uid_idx", NeoLabel.LIFE_PATH),
         ]
         for name, label in user_uid_labels:
             await _idx(name, label, "user_uid")
 
         # Status indexes — time-sensitive activity domains
-        status_labels = [
-            ("task_status_idx", "Task"),
-            ("goal_status_idx", "Goal"),
-            ("habit_status_idx", "Habit"),
-            ("event_status_idx", "Event"),
+        status_labels: list[tuple[str, NeoLabel]] = [
+            ("task_status_idx", NeoLabel.TASK),
+            ("goal_status_idx", NeoLabel.GOAL),
+            ("habit_status_idx", NeoLabel.HABIT),
+            ("event_status_idx", NeoLabel.EVENT),
         ]
         for name, label in status_labels:
             await _idx(name, label, "status")
 
         # Date indexes — temporal queries
-        date_indexes = [
-            ("task_due_date_idx", "Task", "due_date"),
-            ("event_event_date_idx", "Event", "event_date"),
-            ("goal_target_date_idx", "Goal", "target_date"),
-            ("expense_expense_date_idx", "Expense", "expense_date"),
+        date_indexes: list[tuple[str, NeoLabel, str]] = [
+            ("task_due_date_idx", NeoLabel.TASK, "due_date"),
+            ("event_event_date_idx", NeoLabel.EVENT, "event_date"),
+            ("goal_target_date_idx", NeoLabel.GOAL, "target_date"),
+            ("expense_expense_date_idx", NeoLabel.EXPENSE, "expense_date"),
         ]
         for name, label, field in date_indexes:
             await _idx(name, label, field)
 
         # Entity type discriminator index
-        await _idx("entity_type_idx", "Entity", "entity_type")
+        await _idx("entity_type_idx", NeoLabel.ENTITY, "entity_type")
 
         # Composite indexes — hot query paths
-        await _composite("task_user_status_idx", "Task", ["user_uid", "status"])
-        await _composite("goal_user_status_idx", "Goal", ["user_uid", "status"])
-        await _composite("entity_user_type_idx", "Entity", ["user_uid", "entity_type"])
+        await _composite("task_user_status_idx", NeoLabel.TASK, ["user_uid", "status"])
+        await _composite("goal_user_status_idx", NeoLabel.GOAL, ["user_uid", "status"])
+        await _composite("entity_user_type_idx", NeoLabel.ENTITY, ["user_uid", "entity_type"])
 
         created_count = len(results["created"])
         failed_count = len(results["failed"])

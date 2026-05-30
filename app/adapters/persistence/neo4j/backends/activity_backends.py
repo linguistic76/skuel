@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
+from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
@@ -57,7 +58,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
     _hierarchy_config = HierarchyConfig(
         forward_rel=RelationshipName.HAS_SUBHABIT.value,
         inverse_rel=RelationshipName.SUBHABIT_OF.value,
-        node_label="Habit",
+        node_label=NeoLabel.HABIT,
         domain_name="subhabit",
     )
 
@@ -429,7 +430,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     _hierarchy_config = HierarchyConfig(
         forward_rel=RelationshipName.HAS_SUBGOAL.value,
         inverse_rel=RelationshipName.SUBGOAL_OF.value,
-        node_label="Entity",
+        node_label=NeoLabel.ENTITY,
         domain_name="subgoal",
     )
 
@@ -613,7 +614,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     _hierarchy_config = HierarchyConfig(
         forward_rel=RelationshipName.HAS_SUBTASK.value,
         inverse_rel=RelationshipName.SUBTASK_OF.value,
-        node_label="Entity",
+        node_label=NeoLabel.ENTITY,
         domain_name="subtask",
     )
 
@@ -896,7 +897,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     _hierarchy_config = HierarchyConfig(
         forward_rel=RelationshipName.HAS_SUBEVENT.value,
         inverse_rel=RelationshipName.SUBEVENT_OF.value,
-        node_label="Entity",
+        node_label=NeoLabel.ENTITY,
         domain_name="subevent",
     )
 
@@ -1213,7 +1214,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     _hierarchy_config = HierarchyConfig(
         forward_rel=RelationshipName.HAS_SUBCHOICE.value,
         inverse_rel=RelationshipName.SUBCHOICE_OF.value,
-        node_label="Entity",
+        node_label=NeoLabel.ENTITY,
         domain_name="subchoice",
         node_filter=", entity_type: 'choice'",
     )
@@ -1335,7 +1336,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
     _hierarchy_config = HierarchyConfig(
         forward_rel=RelationshipName.HAS_SUBPRINCIPLE.value,
         inverse_rel=RelationshipName.SUBPRINCIPLE_OF.value,
-        node_label="Principle",
+        node_label=NeoLabel.PRINCIPLE,
         domain_name="subprinciple",
     )
 

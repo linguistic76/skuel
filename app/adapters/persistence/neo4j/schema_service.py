@@ -32,7 +32,6 @@ from core.infrastructure.database.schema import (
     RelationshipTypeInfo,
     SchemaContext,
 )
-from core.models.enums.neo_labels import NeoLabel
 
 # Import protocol interface
 from core.ports.infrastructure_protocols import SchemaOperations
@@ -288,8 +287,14 @@ class Neo4jSchemaService:
         return Result.ok(constraints)
 
     @with_error_handling("_get_node_label_info", error_type="database", uid_param="label")
-    async def _get_node_label_info(self, label: NeoLabel) -> Result[NodeLabelInfo]:
-        """Get detailed information about a specific node label"""
+    async def _get_node_label_info(self, label: str) -> Result[NodeLabelInfo]:
+        """Get detailed information about a specific node label.
+
+        Accepts an arbitrary ``str`` because this is a live-DB introspection
+        method: ``db.labels()`` can surface labels that are not SKUEL-modeled
+        ``NeoLabel`` members (legacy/unmodeled nodes), so the label must not be
+        constrained to the enum here.
+        """
         # Use pure Cypher - works on all Neo4j deployments
         query = f"""
         MATCH (n:`{label}`)
