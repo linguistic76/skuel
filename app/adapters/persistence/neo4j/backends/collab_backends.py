@@ -17,6 +17,13 @@ if TYPE_CHECKING:
     from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
+    from core.ports.query_types import (
+        BlockingChainRow,
+        CousinRow,
+        LateralRelationshipRow,
+        RelationshipGraphRow,
+        SiblingRow,
+    )
 
 
 class GroupBackend(UniversalNeo4jBackend["Group"]):
@@ -338,7 +345,7 @@ class LateralRelationshipBackend:
         entity_uid: EntityUID,
         type_filter: str,
         pattern: str,
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[LateralRelationshipRow]]:
         """Get lateral relationships for an entity.
 
         Args:
@@ -353,7 +360,7 @@ class LateralRelationshipBackend:
         else:
             match_pattern = f"(entity)-[r:{type_filter}]-(related)"
 
-        return await self.executor.execute_query(
+        result = await self.executor.execute_query(
             f"""
             MATCH {match_pattern}
             WHERE entity.uid = $entity_uid
@@ -370,10 +377,23 @@ class LateralRelationshipBackend:
             """,
             {"entity_uid": entity_uid},
         )
+        if result.is_error:
+            return Result.fail(result)
+        rows: list[LateralRelationshipRow] = [
+            {
+                "relationship_type": r["relationship_type"],
+                "related_uid": r["related_uid"],
+                "related_title": r["related_title"],
+                "metadata": r["metadata"],
+                "direction": r["direction"],
+            }
+            for r in result.value or []
+        ]
+        return Result.ok(rows)
 
-    async def get_siblings(self, entity_uid: EntityUID) -> Result[list[Neo4jProperties]]:
+    async def get_siblings(self, entity_uid: EntityUID) -> Result[list[SiblingRow]]:
         """Get sibling entities derived from hierarchy (same parent)."""
-        return await self.executor.execute_query(
+        result = await self.executor.execute_query(
             """
             MATCH (parent)-[r]->(sibling)
             WHERE (parent)-[]->(entity {uid: $entity_uid})
@@ -389,10 +409,22 @@ class LateralRelationshipBackend:
             """,
             {"entity_uid": entity_uid},
         )
+        if result.is_error:
+            return Result.fail(result)
+        rows: list[SiblingRow] = [
+            {
+                "sibling_uid": r["sibling_uid"],
+                "sibling_title": r["sibling_title"],
+                "hierarchy_type": r["hierarchy_type"],
+                "order": r["order"],
+            }
+            for r in result.value or []
+        ]
+        return Result.ok(rows)
 
-    async def get_cousins(self, entity_uid: EntityUID) -> Result[list[Neo4jProperties]]:
+    async def get_cousins(self, entity_uid: EntityUID) -> Result[list[CousinRow]]:
         """Get first-cousin entities (same grandparent, different parent)."""
-        return await self.executor.execute_query(
+        result = await self.executor.execute_query(
             """
             MATCH (grandparent)-[]->(parent1)-[]->(entity {uid: $entity_uid})
             MATCH (grandparent)-[]->(parent2)-[]->(cousin)
@@ -408,10 +440,22 @@ class LateralRelationshipBackend:
             """,
             {"entity_uid": entity_uid},
         )
+        if result.is_error:
+            return Result.fail(result)
+        rows: list[CousinRow] = [
+            {
+                "cousin_uid": r["cousin_uid"],
+                "cousin_title": r["cousin_title"],
+                "shared_ancestor_uid": r["shared_ancestor_uid"],
+                "shared_ancestor_title": r["shared_ancestor_title"],
+            }
+            for r in result.value or []
+        ]
+        return Result.ok(rows)
 
-    async def get_blocking_chain(self, entity_uid: EntityUID) -> Result[list[Neo4jProperties]]:
+    async def get_blocking_chain(self, entity_uid: EntityUID) -> Result[list[BlockingChainRow]]:
         """Get transitive blocking chain with depth levels."""
-        return await self.executor.execute_query(
+        result = await self.executor.execute_query(
             """
             MATCH path = (blocker)-[:BLOCKS*1..10]->(entity {uid: $uid})
             WITH blocker, path, length(path) as depth
@@ -426,6 +470,20 @@ class LateralRelationshipBackend:
             """,
             {"uid": entity_uid},
         )
+        if result.is_error:
+            return Result.fail(result)
+        rows: list[BlockingChainRow] = [
+            {
+                "uid": r["uid"],
+                "title": r["title"],
+                "status": r["status"],
+                "entity_type": r["entity_type"],
+                "depth": r["depth"],
+                "blocks_count": r["blocks_count"],
+            }
+            for r in result.value or []
+        ]
+        return Result.ok(rows)
 
     async def get_alternatives_comparison(
         self, entity_uid: EntityUID
@@ -457,9 +515,9 @@ class LateralRelationshipBackend:
         entity_uid: EntityUID,
         type_filter: str,
         depth: int,
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[RelationshipGraphRow]]:
         """Get relationship graph in Vis.js Network format."""
-        return await self.executor.execute_query(
+        result = await self.executor.execute_query(
             f"""
             MATCH path = (center {{uid: $uid}})-[r:{type_filter}*1..{depth}]-(related)
             WITH center, r, related, length(path) as depth_level
@@ -481,6 +539,24 @@ class LateralRelationshipBackend:
             """,
             {"uid": entity_uid},
         )
+        if result.is_error:
+            return Result.fail(result)
+        rows: list[RelationshipGraphRow] = [
+            {
+                "center_uid": r["center_uid"],
+                "center_title": r["center_title"],
+                "center_type": r["center_type"],
+                "center_status": r["center_status"],
+                "related_uid": r["related_uid"],
+                "related_title": r["related_title"],
+                "related_type": r["related_type"],
+                "related_status": r["related_status"],
+                "relationships": r["relationships"],
+                "depth_level": r["depth_level"],
+            }
+            for r in result.value or []
+        ]
+        return Result.ok(rows)
 
     # ========================================================================
     # Validation Methods (4)
