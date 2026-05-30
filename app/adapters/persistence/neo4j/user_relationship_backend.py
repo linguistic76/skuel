@@ -34,6 +34,7 @@ from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.processor_functions import (
+    check_exists,
     extract_created_count,
     extract_dict_from_first_record,
     extract_uids_list,
@@ -43,16 +44,6 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-
-
-def _process_pin_success(records: list) -> Result[bool]:
-    """Process pin operation result."""
-    return Result.ok(True) if records else Result.fail(Errors.not_found("Entity not found"))
-
-
-def _process_unpin_success(records: list) -> Result[bool]:
-    """Process unpin operation result."""
-    return Result.ok(True) if records else Result.fail(Errors.not_found("Pin not found"))
 
 
 class UserRelationshipBackend:
@@ -128,7 +119,7 @@ class UserRelationshipBackend:
 
         current_count = len(current_pins_result.value)
 
-        return await self.executor.execute(
+        result = await self.executor.execute(
             query=f"""
                 MATCH (user:User {{uid: $user_uid}})
                 MATCH (entity {{uid: $entity_uid}})
@@ -137,9 +128,14 @@ class UserRelationshipBackend:
                 RETURN true as success
             """,
             params={"user_uid": user_uid, "entity_uid": entity_uid, "order": current_count},
-            processor=_process_pin_success,
+            processor=check_exists,
             operation="pin_entity",
         )
+        if result.is_error:
+            return result
+        if not result.value:
+            return Result.fail(Errors.not_found("Entity not found"))
+        return Result.ok(True)
 
     async def unpin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
         """
@@ -154,16 +150,21 @@ class UserRelationshipBackend:
         Returns:
             Result[bool] - True if unpinned successfully
         """
-        return await self.executor.execute(
+        result = await self.executor.execute(
             query=f"""
                 MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.PINNED}]->(entity {{uid: $entity_uid}})
                 DELETE r
                 RETURN true as success
             """,
             params={"user_uid": user_uid, "entity_uid": entity_uid},
-            processor=_process_unpin_success,
+            processor=check_exists,
             operation="unpin_entity",
         )
+        if result.is_error:
+            return result
+        if not result.value:
+            return Result.fail(Errors.not_found("Pin not found"))
+        return Result.ok(True)
 
     # ========================================================================
     # Today-scoped Pins (3 methods)
@@ -193,7 +194,7 @@ class UserRelationshipBackend:
         intact and does NOT bump ``pinned_at`` (use re-create semantics
         if reset-on-pin is desired later).
         """
-        return await self.executor.execute(
+        result = await self.executor.execute(
             query=f"""
                 MATCH (user:User {{uid: $user_uid}})
                 MATCH (entity {{uid: $entity_uid}})
@@ -202,22 +203,32 @@ class UserRelationshipBackend:
                 RETURN true as success
             """,
             params={"user_uid": user_uid, "entity_uid": entity_uid},
-            processor=_process_pin_success,
+            processor=check_exists,
             operation="pin_for_today",
         )
+        if result.is_error:
+            return result
+        if not result.value:
+            return Result.fail(Errors.not_found("Entity not found"))
+        return Result.ok(True)
 
     async def unpin_for_today(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
         """Remove the Today-scope pin on ``entity_uid``."""
-        return await self.executor.execute(
+        result = await self.executor.execute(
             query=f"""
                 MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.PINNED_TODAY}]->(entity {{uid: $entity_uid}})
                 DELETE r
                 RETURN true as success
             """,
             params={"user_uid": user_uid, "entity_uid": entity_uid},
-            processor=_process_unpin_success,
+            processor=check_exists,
             operation="unpin_for_today",
         )
+        if result.is_error:
+            return result
+        if not result.value:
+            return Result.fail(Errors.not_found("Pin not found"))
+        return Result.ok(True)
 
     async def reorder_pins(self, user_uid: UserUID, ordered_entity_uids: list[str]) -> Result[int]:
         """

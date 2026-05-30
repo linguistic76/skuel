@@ -12,7 +12,7 @@ __version__ = "1.0"
 import asyncio
 import contextlib
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -38,6 +38,10 @@ from core.utils.result_simplified import Errors, Result
 _HISTORY_IO_EXCEPTIONS = (*FILE_IO_EXCEPTIONS, *JSON_EXCEPTIONS)
 _HISTORY_SAVE_EXCEPTIONS = (*_HISTORY_IO_EXCEPTIONS, TypeError)
 
+# Change handlers may be sync or async — the dispatch in _notify_change_handlers
+# detects coroutine functions and awaits them, so both forms are supported.
+SchemaChangeHandler = Callable[[SchemaChangeEvent], Awaitable[None] | None]
+
 
 class SchemaChangeDetector:
     """
@@ -57,7 +61,7 @@ class SchemaChangeDetector:
         self.logger = get_logger("SchemaChangeDetector")
 
         # Event handlers
-        self._change_handlers: list[Callable[[SchemaChangeEvent], None]] = []
+        self._change_handlers: list[SchemaChangeHandler] = []
 
         # In-memory state
         self._current_fingerprint: SchemaFingerprint | None = None
@@ -370,14 +374,14 @@ class SchemaChangeDetector:
                 self.logger.error(f"Error in monitoring loop: {e}", exc_info=True)
                 await asyncio.sleep(self.check_interval_seconds)
 
-    def add_change_handler(self, handler: Callable[[SchemaChangeEvent], None]) -> None:
+    def add_change_handler(self, handler: SchemaChangeHandler) -> None:
         """Add a handler for schema change events"""
         self._change_handlers.append(handler)
         self.logger.debug(
             f"Added schema change handler, total handlers: {len(self._change_handlers)}"
         )
 
-    def remove_change_handler(self, handler: Callable[[SchemaChangeEvent], None]) -> None:
+    def remove_change_handler(self, handler: SchemaChangeHandler) -> None:
         """Remove a schema change handler"""
         if handler in self._change_handlers:
             self._change_handlers.remove(handler)
