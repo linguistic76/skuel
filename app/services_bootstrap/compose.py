@@ -500,6 +500,15 @@ async def compose_services(
         from core.config.credential_store import get_credential
 
         deepgram_api_key = get_credential("DEEPGRAM_API_KEY", fallback_to_env=True)
+        # DEEPGRAM_API_KEY was already validated as REQUIRED in the fail-fast key
+        # check above (raises ValueError if missing). Re-assert non-None here so the
+        # str-typed _create_core_services boundary holds without a redundant raise
+        # path mypy can't connect to the earlier validation loop.
+        if not deepgram_api_key:
+            raise ValueError(
+                "DEEPGRAM_API_KEY is REQUIRED for transcription but resolved empty "
+                "after the required-key validation. Check credential store / env."
+            )
 
         # Create core services (Finance, Transcription only - Activity Domains in activity_services)
         core_services = _create_core_services(
