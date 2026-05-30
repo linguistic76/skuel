@@ -291,7 +291,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
-| `AssessmentService` (via `SubmissionsCoreService`) | `ExerciseReportOperations` (service) | `ExerciseReport` (HUMAN) | Teacher assessment; verifies group membership |
+| `AssessmentService` | `AssessmentOperations` (service) | `ExerciseReport` (HUMAN) | Teacher assessment; verifies group membership. Own protocol since PR #128 (no longer bundled into `ExerciseReportOperations`) |
 | `ExerciseReportService` | `ExerciseReportOperations` (service) + `ExerciseReportBackendOperations` (backend) | `ExerciseReport` (LLM) | AI evaluation via Exercise instructions (`UnifiedLLMCaller`). Also owns typed report reads: `list_for_submission` → `list[ExerciseReport]` (delegates to `ExerciseReportBackend`, which returns typed entities via `from_neo4j_node` — no TypedDict projection). Writes produce `:Entity:ExerciseReport` dual-labeled nodes; reads discriminate AI vs teacher via `ExerciseReport.processor_type` on the typed model |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
