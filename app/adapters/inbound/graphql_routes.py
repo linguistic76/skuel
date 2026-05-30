@@ -201,6 +201,15 @@ def create_graphql_routes(app: FastHTMLApp, rt: RouteDecorator, services: Servic
         query = form_data.get("query", "")
         variables_str = form_data.get("variables", "{}")
 
+        # Starlette FormData returns str | UploadFile — reject file uploads posted
+        # to these text fields (narrows the type AND closes a latent crash in
+        # json.loads / _execute_with_timeout, both of which require str).
+        if not isinstance(query, str) or not isinstance(variables_str, str):
+            return Div(
+                Pre("Invalid request: query and variables must be text fields", cls="text-error"),
+                cls="p-4 bg-error/10 rounded",
+            )
+
         # Parse variables JSON
         try:
             variables = json.loads(variables_str) if variables_str else {}
