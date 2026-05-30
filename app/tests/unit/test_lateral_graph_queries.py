@@ -214,6 +214,40 @@ class TestGetAlternativesWithComparison:
         alternatives = result.value
         assert len(alternatives) == 2
 
+    @pytest.mark.asyncio
+    async def test_built_keys_match_typeddict(self, lateral_service, mock_backend):
+        """The runtime-built item keys match the AlternativeComparisonItem TypedDict.
+
+        mypy type-checks the dict literal against AlternativeComparisonItem, but it
+        cannot prove the dynamically-built dict matches the declared shape at
+        runtime — this locks the boundary contract (PR4 of the arg-type campaign).
+        """
+        from core.ports.query_types import AlternativeComparisonItem
+
+        mock_record = {
+            "uid": "goal_b",
+            "title": "Entrepreneurship",
+            "description": "Start own business",
+            "status": "active",
+            "priority": "high",
+            "entity_type": "Goal",
+            "comparison_criteria": "career growth vs autonomy",
+            "tradeoffs": "Higher risk",
+            "timeframe": "3 years",
+            "difficulty": "very_high",
+            "resources": "self-funded",
+            "all_properties": {},
+            "rel_properties": {"timeframe": "3 years"},
+        }
+        mock_backend.get_alternatives_comparison.return_value = Result.ok([mock_record])
+
+        result = await lateral_service.get_alternatives_with_comparison("goal_a")
+
+        assert not result.is_error
+        built_keys = set(result.value[0].keys())
+        declared_keys = set(AlternativeComparisonItem.__annotations__)
+        assert built_keys == declared_keys
+
 
 class TestGetRelationshipGraph:
     """Tests for get_relationship_graph method."""

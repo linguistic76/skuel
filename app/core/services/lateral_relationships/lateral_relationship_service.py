@@ -41,6 +41,12 @@ if TYPE_CHECKING:
         OwnershipVerifier,
     )
 from core.models.relationship_registry import get_lateral_spec
+from core.ports.query_types import (
+    AlternativeComparisonItem,
+    BlockingChainResult,
+    LateralRelationshipItem,
+    RelationshipGraphData,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -228,7 +234,7 @@ class LateralRelationshipService:
         include_metadata: bool = True,
         user_uid: UserUID | None = None,
         domain_service: "OwnershipVerifier | None" = None,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LateralRelationshipItem]]:
         """
         Get all lateral relationships for an entity.
 
@@ -265,7 +271,8 @@ class LateralRelationshipService:
         if result.is_error:
             return Result.fail(result)
 
-        relationships = [
+        # Backend rows are typed LateralRelationshipRow TypedDicts.
+        relationships: list[LateralRelationshipItem] = [
             {
                 "type": record["relationship_type"],
                 "target_uid": record["related_uid"],
@@ -308,12 +315,18 @@ class LateralRelationshipService:
                 )
 
         if include_explicit_only:
-            # Query explicit SIBLING relationships
-            return await self.get_lateral_relationships(
+            # Query explicit SIBLING relationships. get_siblings is a `# boundary`
+            # method whose two branches return different shapes, so flatten the
+            # typed relationship rows back to plain dicts for the union return.
+            explicit = await self.get_lateral_relationships(
                 entity_uid,
                 relationship_types=[RelationshipName.SIBLING],
                 direction="both",
             )
+            if explicit.is_error:
+                return Result.fail(explicit)
+            explicit_siblings: list[dict[str, Any]] = [dict(item) for item in explicit.value]
+            return Result.ok(explicit_siblings)
         else:
             # Derive from hierarchy (share same parent)
             result = await self.backend.get_siblings(entity_uid)
@@ -551,7 +564,7 @@ class LateralRelationshipService:
         self,
         entity_uid: EntityUID,
         max_depth: int = 10,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[BlockingChainResult]:
         """
         Get transitive blocking chain with depth levels.
 
@@ -571,15 +584,14 @@ class LateralRelationshipService:
             return Result.fail(result)
 
         if not result.value:
-            return Result.ok(
-                {
-                    "root_uid": entity_uid,
-                    "total_blockers": 0,
-                    "chain_depth": 0,
-                    "levels": [],
-                    "critical_path": [entity_uid],
-                }
-            )
+            empty_chain: BlockingChainResult = {
+                "root_uid": entity_uid,
+                "total_blockers": 0,
+                "chain_depth": 0,
+                "levels": [],
+                "critical_path": [entity_uid],
+            }
+            return Result.ok(empty_chain)
 
         # Group by depth
         levels_dict: dict[int, list[dict[str, Any]]] = {}
@@ -615,7 +627,7 @@ class LateralRelationshipService:
                 critical_path.append(levels_dict[depth][0]["uid"])
             critical_path.append(entity_uid)
 
-        chain_data = {
+        chain_data: BlockingChainResult = {
             "root_uid": entity_uid,
             "total_blockers": len(all_blockers),
             "chain_depth": max_depth_val,
@@ -633,7 +645,7 @@ class LateralRelationshipService:
         self,
         entity_uid: EntityUID,
         comparison_fields: list[str] | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[AlternativeComparisonItem]]:
         """
         Get alternative entities with side-by-side comparison data.
 
@@ -648,15 +660,16 @@ class LateralRelationshipService:
         result = await self.backend.get_alternatives_comparison(entity_uid)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok([])
 
-        alternatives = []
+        # get_alternatives_comparison is a `# boundary` method (dict[str, Any] rows).
+        alternatives: list[AlternativeComparisonItem] = []
         for record in result.value:
             # Build comparison data from relationship properties
-            comparison_data = {}
+            comparison_data: dict[str, Any] = {}
             if record["timeframe"]:
                 comparison_data["timeframe"] = record["timeframe"]
             if record["difficulty"]:
@@ -677,7 +690,7 @@ class LateralRelationshipService:
                     if comparison_fields is None or key in comparison_fields:
                         comparison_data[key] = value
 
-            alternative_data = {
+            alternative_data: AlternativeComparisonItem = {
                 "uid": record["uid"],
                 "title": record["title"],
                 "entity_type": record["entity_type"],
@@ -701,7 +714,7 @@ class LateralRelationshipService:
         entity_uid: EntityUID,
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[RelationshipGraphData]:
         """
         Get relationship graph in Vis.js Network format.
 
@@ -737,21 +750,20 @@ class LateralRelationshipService:
 
         if not result.value:
             # Return just the center node
-            return Result.ok(
-                {
-                    "nodes": [
-                        {
-                            "id": entity_uid,
-                            "label": entity_uid,
-                            "type": "unknown",
-                            "status": "unknown",
-                            "group": "center",
-                            "level": 0,
-                        }
-                    ],
-                    "edges": [],
-                }
-            )
+            center_only: RelationshipGraphData = {
+                "nodes": [
+                    {
+                        "id": entity_uid,
+                        "label": entity_uid,
+                        "type": "unknown",
+                        "status": "unknown",
+                        "group": "center",
+                        "level": 0,
+                    }
+                ],
+                "edges": [],
+            }
+            return Result.ok(center_only)
 
         # Build nodes and edges
         nodes_dict: dict[str, dict[str, Any]] = {}
@@ -804,7 +816,7 @@ class LateralRelationshipService:
                 }:
                     edges_list.append(edge)
 
-        graph_data = {
+        graph_data: RelationshipGraphData = {
             "nodes": list(nodes_dict.values()),
             "edges": edges_list,
         }

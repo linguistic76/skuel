@@ -1800,6 +1800,26 @@ class LateralRelationshipItem(TypedDict, total=False):
     direction: str
 
 
+class AlternativeComparisonItem(TypedDict, total=False):
+    """Single alternative in get_alternatives_with_comparison() result.
+
+    A wrapper around an entity's summary fields plus a ``comparison_data``
+    payload (built from the ALTERNATIVE_TO edge properties) and a ``metadata``
+    block, consumed by the comparison-grid UI. Distinct from
+    ``LateralRelationshipItem`` — this is an entity-with-comparison row, not a
+    raw relationship row.
+    """
+
+    uid: str
+    title: str
+    entity_type: str
+    status: str | None
+    priority: str | None
+    description: str | None
+    comparison_data: dict[str, Any]
+    metadata: dict[str, Any]
+
+
 class BlockingChainResult(TypedDict, total=False):
     """Return shape for get_blocking_chain()."""
 
