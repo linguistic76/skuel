@@ -277,7 +277,13 @@ class ExerciseService(BaseService):
 
     async def list_all(self, limit: int = 500) -> Result[list[Exercise]]:
         """List all Exercise entities (admin/shared curriculum view)."""
-        return await self.backend.list(limit=limit, sort_by="title")
+        # backend.list() returns a (page, total_count) tuple; this facade
+        # promises just the page, so unwrap it.
+        result = await self.backend.list(limit=limit, sort_by="title")
+        if result.is_error:
+            return Result.fail(result)
+        exercises, _total = result.value
+        return Result.ok(exercises)
 
     @with_error_handling("list_user_exercises", error_type="database")
     async def list_user_exercises(

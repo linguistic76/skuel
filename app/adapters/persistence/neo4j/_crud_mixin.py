@@ -92,6 +92,8 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         def _is_driver_closed(self) -> bool: ...
 
+        async def count(self, **filters: Any) -> Result[int]: ...
+
         async def create_user_relationship(
             self,
             user_uid: UserUID,
@@ -539,12 +541,17 @@ class _CrudMixin[T: DomainModelProtocol]:
         filters: dict[str, Any] | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
-    ) -> Result[builtins.list[T]]:
+    ) -> Result[tuple[builtins.list[T], int]]:
         """
         List any entity type with dynamic filters.
 
         Now uses UnifiedQueryBuilder with fluent API.
         Add a field to your model → it's automatically filterable!
+
+        Returns:
+            Result[tuple[list[T], int]]: (page of entities, total matching count).
+            The total ignores limit/offset so callers can paginate — it mirrors
+            ``get_user_entities`` and is what every consumer + the protocol expect.
         """
         # Build query using UnifiedQueryBuilder fluent API
         # Pass label explicitly to ensure correct Neo4j label is used
@@ -571,4 +578,10 @@ class _CrudMixin[T: DomainModelProtocol]:
             records = await result.data()
 
             entities = [from_neo4j_node(r["n"], self.entity_class) for r in records]
-            return Result.ok(entities)
+
+        # Total count ignores pagination; count() re-applies default_filters itself.
+        count_result = await self.count(**(filters or {}))
+        if count_result.is_error:
+            return Result.fail(count_result)
+
+        return Result.ok((entities, count_result.value))

@@ -35,4 +35,10 @@ class ResourceService:
 
     async def list_all(self, limit: int = 500) -> Result[list[Resource]]:
         """List all Resource entities sorted by title."""
-        return await self.backend.list(limit=limit, sort_by="title")
+        # backend.list() returns a (page, total_count) tuple; this facade
+        # promises just the page, so unwrap it.
+        result = await self.backend.list(limit=limit, sort_by="title")
+        if result.is_error:
+            return Result.fail(result)
+        resources, _total = result.value
+        return Result.ok(resources)

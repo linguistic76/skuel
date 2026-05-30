@@ -102,7 +102,10 @@ class _TraversalMixin:
 
     @safe_backend_operation("get_relationships")
     async def get_relationships(
-        self, uid: str, direction: Direction = "both"
+        self,
+        uid: str,
+        rel_type: RelationshipName | None = None,
+        direction: Direction = "both",
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Get relationships for an entity.
@@ -111,6 +114,7 @@ class _TraversalMixin:
 
         Args:
             uid: Entity UID to get relationships for
+            rel_type: Optional relationship type filter (e.g., RelationshipName.BLOCKS)
             direction: "outgoing", "incoming", or "both" (default)
 
         Returns:
@@ -120,30 +124,35 @@ class _TraversalMixin:
                 - direction: "outgoing" or "incoming"
                 - properties: Relationship properties
         """
-        # Build direction-specific query
+        # Build direction-specific query; the WHERE clause is a no-op when
+        # rel_type is None (no filter) and narrows to the named type otherwise.
         if direction == "outgoing":
             cypher = """
             MATCH (n {uid: $uid})-[r]->(target)
+            WHERE $rel_type IS NULL OR type(r) = $rel_type
             RETURN type(r) as type, target.uid as target_uid,
                    'outgoing' as direction, properties(r) as properties
             """
         elif direction == "incoming":
             cypher = """
             MATCH (n {uid: $uid})<-[r]-(source)
+            WHERE $rel_type IS NULL OR type(r) = $rel_type
             RETURN type(r) as type, source.uid as target_uid,
                    'incoming' as direction, properties(r) as properties
             """
         else:  # both
             cypher = """
             MATCH (n {uid: $uid})-[r]-(other)
+            WHERE $rel_type IS NULL OR type(r) = $rel_type
             WITH r, other,
                  CASE WHEN startNode(r).uid = $uid THEN 'outgoing' ELSE 'incoming' END as dir
             RETURN type(r) as type, other.uid as target_uid,
                    dir as direction, properties(r) as properties
             """
 
+        params = {"uid": uid, "rel_type": str(rel_type) if rel_type is not None else None}
         async with self.driver.session() as session:
-            result = await session.run(cypher, {"uid": uid})
+            result = await session.run(cypher, params)
             records = await result.data()
 
         return Result.ok(records)
