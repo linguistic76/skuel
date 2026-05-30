@@ -490,6 +490,31 @@ else:
     return result  # Propagate error
 ```
 
+### Don't Return `Result` From a Callback a Result-Wrapping Boundary Calls (double-wrap)
+
+When a boundary already wraps your callback's return in `Result.ok(...)` — e.g.
+`Neo4jQueryExecutor.execute(...)` runs `Result.ok(processor(records))` — a
+callback that itself returns a `Result` produces `Result[Result[T]]`. The inner
+failure hides inside an outer `ok`, so callers checking `.is_error` never see it
+(a `not_found` reads as success). Return a **raw value** from the callback and
+keep the `Result.fail(...)` guard in the calling method.
+
+```python
+# WRONG - processor returns Result -> execute() wraps it -> Result[Result[bool]]
+def _process_unpin(records: list) -> Result[bool]:
+    return Result.ok(True) if records else Result.fail(Errors.not_found("Pin not found"))
+
+return await executor.execute(query=..., processor=_process_unpin)  # double-wrapped
+
+# CORRECT - processor returns raw bool; gate emptiness in the method
+result = await executor.execute(query=..., processor=check_exists)  # -> Result[bool]
+if result.is_error:
+    return result
+if not result.value:
+    return Result.fail(Errors.not_found("Pin not found"))
+return Result.ok(True)
+```
+
 ---
 
 ## Testing Patterns
