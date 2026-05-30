@@ -198,12 +198,28 @@ exclude = [
 # enum/NewType boundaries, DTO↔frozen-model crossings, typed-payload discipline
 # (ADR-035/ADR-065). arg-type is the enforcement layer named in
 # docs/roadmap/functional-direction.md. It stays globally disabled (above)
-# because the un-swept first-party trees (adapters 81, ui 78, services_bootstrap
-# 32) and the framework-noise trees (tests, scripts) still carry ~1800 sites
-# that were never in the sweep's scope. Enabling it here makes core/ the live
-# enforcement surface without breaking CI on the un-swept trees. Extending the
-# enforcement to adapters/ui/services_bootstrap is a future sweep, not this flip.
+# because the un-swept first-party trees (adapters 81, ui 78) and the
+# framework-noise trees (tests, scripts) still carry ~1700 sites that were never
+# in the sweep's scope. Enabling it here makes core/ the live enforcement surface
+# without breaking CI on the un-swept trees. services_bootstrap/ is now ALSO
+# enforced (see the override below); extending enforcement to adapters/ui is a
+# future sweep, not this flip.
 module = ["core.*"]
+enable_error_code = ["arg-type"]
+
+[[tool.mypy.overrides]]
+# arg-type ENFORCED on services_bootstrap/ (flipped 2026-05-30). compose.py is the
+# composition root, so its arg-type errors are the AGGREGATION of service↔protocol
+# conformance gaps across the system. The typed-protocol-returns rung (PRs #122–127)
+# plus the ExerciseReport protocol split (PR #128) fixed all 21 underlying gaps
+# HONESTLY (zero suppressions), driving
+# `mypy --enable-error-code arg-type services_bootstrap` to 0. This flip makes that
+# the live enforcement surface: a stray dict/DTO/raw-str passed to a service ctor or
+# a Services dataclass field now re-breaks the build at the wiring root. (PR #120
+# tried to flip this FIRST and failed — it reached 0 only via 21 `# type: ignore`;
+# the lesson was to enforce conformance at the LEAVES first (core/), the ROOT last.)
+# adapters/ + ui/ remain un-swept (future sweep); tests/scripts are framework noise.
+module = ["services_bootstrap.*"]
 enable_error_code = ["arg-type"]
 
 [[tool.mypy.overrides]]
