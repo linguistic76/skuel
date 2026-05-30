@@ -45,9 +45,9 @@ Usage:
     factory.register_routes(app, rt)
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any, NotRequired, TypedDict
 
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import Request
@@ -58,10 +58,31 @@ from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.routes.analytics_factory")
 
+# An analytics route handler: ``async (service, params) -> Result[T]``. The inner
+# ``Result[Any]`` is the legitimate route-factory erased-T boundary (CLAUDE.md Any
+# policy) — T varies per endpoint (TaskInsights, CompletionStats, ...). The
+# Awaitable+Result shape is enforced so a sync or non-Result handler cannot satisfy
+# the config and silently fail at the await/cast boundary in ``route_handler``.
+AnalyticsHandler = Callable[..., Awaitable[Result[Any]]]  # boundary: route-factory erased-T
+
 
 def _default_methods() -> list[str]:
     """Default HTTP methods for analytics endpoints."""
     return ["GET"]
+
+
+class AnalyticsEndpointConfig(TypedDict):
+    """Typed config for a single analytics endpoint.
+
+    ``path`` and ``handler`` are required — an endpoint cannot exist without
+    both. The rest are optional and fall back to per-endpoint defaults.
+    """
+
+    path: str
+    handler: AnalyticsHandler
+    description: NotRequired[str]
+    methods: NotRequired[list[str]]
+    require_params: NotRequired[list[str]]
 
 
 @dataclass
@@ -69,7 +90,7 @@ class AnalyticsEndpoint:
     """Configuration for a single analytics endpoint"""
 
     path: str
-    handler: Callable
+    handler: AnalyticsHandler
     description: str
     methods: list[str] = field(default_factory=_default_methods)
     require_params: list[str] = field(default_factory=list)
@@ -90,7 +111,7 @@ class AnalyticsRouteFactory:
         self,
         service: Any,
         domain_name: str,
-        analytics_config: dict[str, dict[str, Any]],
+        analytics_config: dict[str, AnalyticsEndpointConfig],
         base_path: str | None = None,
         require_role: UserRole | None = None,
         user_service_getter: Callable | None = None,
@@ -121,8 +142,8 @@ class AnalyticsRouteFactory:
         for key, config in analytics_config.items():
             self.endpoints.append(
                 AnalyticsEndpoint(
-                    path=config.get("path"),
-                    handler=config.get("handler"),
+                    path=config["path"],
+                    handler=config["handler"],
                     description=config.get("description", f"Get {key} for {domain_name}"),
                     methods=config.get("methods", ["GET"]),
                     require_params=config.get("require_params", []),
@@ -198,8 +219,8 @@ class AnalyticsRouteFactory:
                             )
                         )
 
-                # Call the service handler (must return Result[T])
-                return cast("Result[Any]", await endpoint.handler(self.service, params))
+                # Call the service handler (typed to return Result[T] — no cast needed)
+                return await endpoint.handler(self.service, params)
 
             except Exception as e:  # safety-net: API boundary
                 logger.error(f"Error in analytics endpoint {endpoint.path}: {e}")
@@ -216,4 +237,4 @@ class AnalyticsRouteFactory:
 
 
 # Export
-__all__ = ["AnalyticsEndpoint", "AnalyticsRouteFactory"]
+__all__ = ["AnalyticsEndpoint", "AnalyticsEndpointConfig", "AnalyticsRouteFactory"]
