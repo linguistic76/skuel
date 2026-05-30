@@ -1350,6 +1350,7 @@ class SubmissionDetailResult(TypedDict, total=False):
     exercise_uid: str
     exercise_title: str
     exercise_instructions: str
+    file_path: str | None
 
 
 class TeacherDashboardStats(TypedDict, total=False):

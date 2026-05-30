@@ -26,6 +26,7 @@ from core.models.auth.password_reset_token import create_password_reset_token
 from core.models.auth.session import create_session
 from core.models.type_hints import UserUID
 from core.models.user import User, create_user
+from core.ports.query_types import SignInResult, SignUpResult
 from core.utils.exception_types import AUTH_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -74,7 +75,7 @@ class GraphAuthService:
         username: str,
         display_name: str | None = None,
         user_metadata: dict[str, Any] | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[SignUpResult]:
         """
         Register a new user.
 
@@ -148,15 +149,14 @@ class GraphAuthService:
             created_user = create_result.value
             self.logger.info(f"User registered: {email}")
 
-            return Result.ok(
-                {
-                    "user_uid": created_user.uid,
-                    "email": created_user.email,
-                    "username": created_user.title,
-                    "display_name": created_user.display_name,
-                    "is_verified": True,
-                }
-            )
+            signup: SignUpResult = {
+                "user_uid": created_user.uid,
+                "email": created_user.email,
+                "username": created_user.title,
+                "display_name": created_user.display_name,
+                "is_verified": True,
+            }
+            return Result.ok(signup)
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Sign up database error: {e}")
@@ -178,7 +178,7 @@ class GraphAuthService:
         password: str,
         ip_address: str = "unknown",
         user_agent: str = "unknown",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[SignInResult]:
         """
         Authenticate user and create session.
 
@@ -299,16 +299,15 @@ class GraphAuthService:
 
             self.logger.info(f"User signed in: {email}")
 
-            return Result.ok(
-                {
-                    "user_uid": user.uid,
-                    "email": user.email,
-                    "session_token": session.session_token,
-                    "session_uid": session.uid,
-                    "expires_at": session.expires_at.isoformat(),
-                    "user": user,
-                }
-            )
+            signin: SignInResult = {
+                "user_uid": user.uid,
+                "email": user.email,
+                "session_token": session.session_token,
+                "session_uid": session.uid,
+                "expires_at": session.expires_at.isoformat(),
+                "user": user,
+            }
+            return Result.ok(signin)
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Sign in database error: {e}")
