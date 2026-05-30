@@ -44,6 +44,7 @@ from .lifepath_types import WordActionAlignment
 from .lifepath_vision_service import LifePathVisionService
 
 if TYPE_CHECKING:
+    from core.ports.service_protocols import LifePathAlignmentOperations
     from core.services.llm_service import LLMService
     from core.services.lp_service import LpService
     from core.services.ps_service import PsService
@@ -110,7 +111,9 @@ class LifePathService:
             lp_service=lp_service,
         )
 
-        self.alignment = LifePathAlignmentService(
+        # Declared as the protocol type (mutable attr → invariant) so the facade
+        # satisfies LifePathOperations.alignment: LifePathAlignmentOperations.
+        self.alignment: LifePathAlignmentOperations = LifePathAlignmentService(
             backend=backend,
             lp_service=lp_service,
             ku_service=ku_service,
