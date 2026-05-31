@@ -523,7 +523,7 @@ class FormGenerator:
     ) -> Div:
         """Wrap a widget in form-control with label, optional help text, and error display."""
         children: list[Any] = [
-            Label(label_text, **({"required": True} if is_required else {})),
+            Label(label_text, required=is_required),
             widget,
         ]
         if help_text:

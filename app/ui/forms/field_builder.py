@@ -75,7 +75,7 @@ def build_field_from_schema(spec: dict[str, Any]) -> Div:
         widget = Input(type="text", placeholder=placeholder, **attrs)
 
     children: list[Any] = [
-        Label(label_text, **({"required": True} if required else {})),
+        Label(label_text, required=required),
         widget,
     ]
 
