@@ -140,7 +140,7 @@ def _render_tree_node(
         expand_icon_element = Button(
             Span("▶", **{"x-show": f"!isExpanded('{uid}')", "x-cloak": True}),  # Right chevron
             Span("▼", **{"x-show": f"isExpanded('{uid}')", "x-cloak": True}),  # Down chevron
-            **{
+            **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 "x-on:click.stop": f"toggleExpand('{uid}')",
             },
             variant=ButtonT.ghost,

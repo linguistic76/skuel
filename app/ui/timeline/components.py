@@ -117,21 +117,21 @@ def _render_controls() -> Div:
                 "+",
                 variant=ButtonT.ghost,
                 size=Size.sm,
-                **{"@click": "zoomIn()"},
+                **{"@click": "zoomIn()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 title="Zoom in",
             ),
             Button(
                 "-",
                 variant=ButtonT.ghost,
                 size=Size.sm,
-                **{"@click": "zoomOut()"},
+                **{"@click": "zoomOut()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 title="Zoom out",
             ),
             Button(
                 "Fit All",
                 variant=ButtonT.ghost,
                 size=Size.sm,
-                **{"@click": "fit()"},
+                **{"@click": "fit()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 title="Fit all items",
             ),
             cls="flex items-center gap-1",
@@ -141,7 +141,7 @@ def _render_controls() -> Div:
             "Refresh",
             variant=ButtonT.primary,
             size=Size.sm,
-            **{"@click": "refresh()"},
+            **{"@click": "refresh()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         ),
         cls="controls flex justify-between items-center p-4 border-b",
     )
@@ -198,7 +198,7 @@ def _render_filters(project: str | None = None, user_uid: UserUID | None = None)
             "Apply Filters",
             variant=ButtonT.primary,
             size=Size.sm,
-            **{"@click": "applyFilters()"},
+            **{"@click": "applyFilters()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         ),
         # Hidden user_uid for API calls
         Input(type="hidden", name="user_uid", value=user_uid or "", x_ref="userUid"),
@@ -227,7 +227,7 @@ def _render_timeline_container() -> Div:
                 variant=ButtonT.error,
                 size=Size.sm,
                 cls="mt-2",
-                **{"@click": "refresh()"},
+                **{"@click": "refresh()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
             cls="flex flex-col items-center justify-center h-full",
             **{"x-show": "error"},
@@ -293,9 +293,9 @@ def create_embedded_timeline(
     if show_controls:
         controls.append(
             Div(
-                Button("+", variant=ButtonT.ghost, size=Size.xs, **{"@click": "zoomIn()"}),
-                Button("-", variant=ButtonT.ghost, size=Size.xs, **{"@click": "zoomOut()"}),
-                Button("Fit", variant=ButtonT.ghost, size=Size.xs, **{"@click": "fit()"}),
+                Button("+", variant=ButtonT.ghost, size=Size.xs, **{"@click": "zoomIn()"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                Button("-", variant=ButtonT.ghost, size=Size.xs, **{"@click": "zoomOut()"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                Button("Fit", variant=ButtonT.ghost, size=Size.xs, **{"@click": "fit()"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 cls="absolute top-2 right-2 flex gap-1 z-10",
             )
         )

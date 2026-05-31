@@ -223,7 +223,7 @@ def render_upload_form(
         Input(
             type="hidden",
             name="audience",
-            **{"x-bind:value": "audience"},
+            **{"x-bind:value": "audience"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         ),
         cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
         # Pipeline.allows_sharing() mirrored client-side: journal (TRANSCRIBE_AND_STRUCTURE)

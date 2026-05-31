@@ -115,7 +115,7 @@ def render_analytics_result(report: Any) -> Any:
                 "View as Markdown",
                 variant=ButtonT.ghost,
                 cls="mb-4",
-                **{"@click": "showMarkdown = !showMarkdown"},
+                **{"@click": "showMarkdown = !showMarkdown"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
             render_markdown_view(report.markdown_content),
             **{"x-data": "{ showMarkdown: false }"},

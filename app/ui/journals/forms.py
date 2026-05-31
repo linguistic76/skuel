@@ -93,7 +93,7 @@ def _build_upload_form_element(exercises: list[Exercise]) -> Any:
                     Radio(
                         name="instruction_mode",
                         value="default",
-                        **{
+                        **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                             "x-model": "instructionMode",
                             "@change": "clearInstructionUid()",
                         },
@@ -106,7 +106,7 @@ def _build_upload_form_element(exercises: list[Exercise]) -> Any:
                     Radio(
                         name="instruction_mode",
                         value="custom",
-                        **{
+                        **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                             "x-model": "instructionMode",
                             "@change": "autoSelectFirstInstruction()",
                         },
@@ -123,7 +123,7 @@ def _build_upload_form_element(exercises: list[Exercise]) -> Any:
                         variant=ButtonT.outline,
                         size=Size.sm,
                         cls="mb-3",
-                        **{"@click": "document.getElementById('instruction-file-picker').click()"},
+                        **{"@click": "document.getElementById('instruction-file-picker').click()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                     ),
                     # Saved instruction list (HTMX target)
                     render_instruction_list(exercises),
@@ -142,7 +142,7 @@ def _build_upload_form_element(exercises: list[Exercise]) -> Any:
             accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
             cls="hidden",
             required=True,
-            **{"x-on:change": "handleFileSelect($event)"},
+            **{"x-on:change": "handleFileSelect($event)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         ),
         # Drop-zone
         Div(
