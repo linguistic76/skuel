@@ -19,6 +19,7 @@ def EmptyState(
     action_text: str | None = None,
     action_href: str | None = None,
     icon: str | None = None,
+    cls: str = "",
     **kwargs: Any,
 ) -> Div:
     """Empty state display with optional call-to-action.
@@ -29,6 +30,7 @@ def EmptyState(
         action_text: Optional button text (e.g., "Create your first task")
         action_href: Optional URL for the action button
         icon: Optional icon/emoji to display above the title
+        cls: Additional CSS classes, merged into the container Div
         **kwargs: Additional attributes passed to the container Div
 
     Returns:
@@ -59,13 +61,8 @@ def EmptyState(
     if action_text and action_href:
         content.append(Div(ButtonLink(action_text, href=action_href), cls="mt-6"))
 
-    # Merge with kwargs cls
-    base_cls = "text-center py-12"
-    extra_cls = kwargs.pop("cls", "")
-    full_cls = f"{base_cls} {extra_cls}".strip()
-
     return Div(
         Stack(*content, gap=2),
-        cls=full_cls,
+        cls=f"text-center py-12 {cls}".strip(),
         **kwargs,
     )
