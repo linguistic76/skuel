@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 def PageHeader(
     title: str,
-    subtitle: str = "",
+    subtitle: str | None = None,
     actions: Any = None,
     cls: str = "",
 ) -> "FT":
