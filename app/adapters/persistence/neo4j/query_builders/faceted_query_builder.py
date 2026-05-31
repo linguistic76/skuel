@@ -21,6 +21,7 @@ from adapters.persistence.neo4j.query import (
     QueryOptimizationResult,
     TemplateSpec,
 )
+from core.models.enums import Domain
 from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.services.search.core_types import FacetSet
 from core.utils.logging import get_logger
@@ -82,8 +83,12 @@ class FacetedQueryBuilder:
         try:
             # Convert FacetSetSchema to FacetSet if needed
             if isinstance(facets, FacetSetSchema):
+                # FacetSetRequest.domain is a string Literal; map it to the Domain enum.
+                # All of its values (incl. "transcription") are Domain members, so the
+                # domain facet (label + `domain = $domain` constraint) is preserved;
+                # from_string returns None only for a genuinely unknown value.
                 facet_set = FacetSet(
-                    domain=facets.domain,
+                    domain=Domain.from_string(facets.domain) if facets.domain else None,
                     level=facets.level,
                     intents=facets.intents,
                     topics=facets.topics,
