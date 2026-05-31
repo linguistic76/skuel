@@ -106,6 +106,7 @@ def DashboardSection(
     title: str,
     *children: Any,
     actions: list[dict[str, str]] | None = None,
+    cls: str = "",
     **kwargs: Any,
 ) -> Div:
     """Section within a dashboard with optional header actions.
@@ -116,6 +117,7 @@ def DashboardSection(
         title: Section title
         *children: Section content
         actions: Optional action buttons for the section header
+        cls: Additional CSS classes, merged into the section Div
         **kwargs: Additional attributes passed to the section Div
 
     Returns:
@@ -143,13 +145,9 @@ def DashboardSection(
     else:
         header = SectionTitle(title)
 
-    base_cls = "mt-8"
-    extra_cls = kwargs.pop("cls", "")
-    full_cls = f"{base_cls} {extra_cls}".strip()
-
     return Div(
         header,
         *children,
-        cls=full_cls,
+        cls=f"mt-8 {cls}".strip(),
         **kwargs,
     )
