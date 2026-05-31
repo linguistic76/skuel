@@ -175,7 +175,7 @@ def render_select_all_header() -> Any:
             Input(
                 type="checkbox",
                 cls="checkbox checkbox-primary",
-                **{"x-model": "selectAllChecked"},
+                x_model="selectAllChecked",
                 **{"@change": "toggleSelectAll()"},
             ),
             Span("Select All", cls="ml-2 text-sm font-medium"),

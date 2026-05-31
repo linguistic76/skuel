@@ -44,9 +44,7 @@ def render_centered_welcome() -> Any:
                     "Show quick shortcuts",
                     variant=ButtonT.ghost,
                     size=Size.sm,
-                    **{
-                        "onclick": "document.getElementById('shortcuts').classList.toggle('hidden')",
-                    },
+                    onclick="document.getElementById('shortcuts').classList.toggle('hidden')",
                 ),
                 cls="text-center mt-6",
             ),

@@ -59,7 +59,7 @@ def _audience_radio(value: str, label: str, description: str, model: str) -> Any
                 name="audience_choice",
                 value=value,
                 cls="mr-3 mt-1",
-                **{"x-model": model},
+                x_model=model,
             ),
             Div(
                 P(label, cls="text-sm font-medium"),
@@ -134,7 +134,7 @@ def render_upload_form(
             type="hidden",
             name="pipeline",
             value=effective_pipeline.value,
-            **{"x-ref": "pipelineField"},
+            x_ref="pipelineField",
         )
     else:
         pipeline_options = [
@@ -150,7 +150,7 @@ def render_upload_form(
             Select(
                 *pipeline_options,
                 name="pipeline",
-                **{"x-model": "pipeline"},
+                x_model="pipeline",
             ),
             P(
                 "Choose what happens to this entry after upload",
