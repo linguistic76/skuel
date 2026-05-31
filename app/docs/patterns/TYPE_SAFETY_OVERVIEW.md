@@ -204,7 +204,7 @@ Per-module strictness overrides:
 
 **Disabled error codes (global):** none. `arg-type` is enforced on all four first-party trees (`core`, `services_bootstrap`, `adapters`, `ui`) as of 2026-05-31 — the global disable was deleted once the sweep reached 0 everywhere.
 
-**Disabled error codes (`tests`/`scripts` only):** `[method-assign, type-var, misc, arg-type]` — framework-mock noise (fixtures monkey-patch methods, parameterize generics with DTOs, and construct wrong-typed objects freely; never in the sweep's scope).
+**Disabled error codes (`tests`/`examples`/`scripts` only):** `[method-assign, type-var, misc, arg-type]` — framework-mock noise (fixtures monkey-patch methods, parameterize generics with DTOs, and construct wrong-typed objects freely; never in the sweep's scope).
 
 **Disabled error codes (per-module):**
 - `misc` on each of the 8 `backends.*` cluster modules — MRO conflicts from multiple mixin inheritance in domain backend classes

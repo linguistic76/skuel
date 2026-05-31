@@ -494,7 +494,7 @@ strict = false  # Per-module overrides instead
 warn_unused_configs = true
 no_implicit_optional = true
 # No global disable_error_code — arg-type is enforced on all first-party trees
-# (core, services_bootstrap, adapters, ui) as of 2026-05-31. tests/scripts
+# (core, services_bootstrap, adapters, ui) as of 2026-05-31. tests/examples/scripts
 # scope-disable [method-assign, type-var, misc, arg-type] (framework-mock noise).
 ```
 

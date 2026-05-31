@@ -9,7 +9,7 @@ Phase-2 (label → `NeoLabel`, this branch) seam-typing work.*
 > `NeoLabel` / `RelationshipName` parameter in first-party code, and CI runs `mypy .` — i.e. the
 > seam **is** a hard CI gate there, achieved as a side-effect of the broader functional-direction
 > enforcement rather than a dedicated gate. The blast-radius analysis below is retained for
-> historical context (and for any `tests`/`scripts` or pyright-specific gating questions).
+> historical context (and for any `tests`/`examples`/`scripts` or pyright-specific gating questions).
 
 ## The question
 
