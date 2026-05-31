@@ -2393,6 +2393,28 @@ class SkuelLinter:
                 )
             )
 
+    @staticmethod
+    def _calls_in_scope(node: ast.AST) -> list[ast.Call]:
+        """Calls lexically within ``node`` but NOT inside a nested function/class scope.
+
+        ``ast.walk`` descends into nested ``def``/``lambda``/``class`` bodies, where the
+        ``**kwargs`` name is rebound (the inner scope has its own parameters). Attributing
+        an inner call's ``**kwargs`` splat to the OUTER function is a false positive — e.g.
+        an inner factory ``def row(cls="", **kwargs): return Div(cls=..., **kwargs)`` is
+        safe (it has its own ``cls``) yet would be flagged against the outer helper. Each
+        nested function is checked on its own when the outer ``ast.walk(tree)`` loop reaches
+        it, so pruning nested scopes here loses nothing.
+        """
+        nested_scopes = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+        out: list[ast.Call] = []
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, nested_scopes):
+                continue
+            if isinstance(child, ast.Call):
+                out.append(child)
+            out.extend(SkuelLinter._calls_in_scope(child))
+        return out
+
     def _check_cls_kwargs_collision(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
     ) -> None:
@@ -2438,9 +2460,9 @@ class SkuelLinter:
             if "cls" in param_names:
                 continue  # explicit cls param absorbs a caller-supplied cls= — safe
 
-            for call in ast.walk(node):
-                if not isinstance(call, ast.Call):
-                    continue
+            # Scan only this function's own scope — not nested def/lambda/class bodies,
+            # which rebind **kwargs and are checked independently by the outer walk.
+            for call in self._calls_in_scope(node):
                 passes_cls = any(k.arg == "cls" for k in call.keywords)
                 splats_kwargs = any(
                     k.arg is None and isinstance(k.value, ast.Name) and k.value.id == kw_name

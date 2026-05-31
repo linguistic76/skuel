@@ -2557,6 +2557,32 @@ class TestSKUEL024:
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL024"
 
+    def test_nested_helper_with_own_cls_not_attributed_to_outer(self) -> None:
+        """An inner factory with its own cls param is safe — don't flag it against
+        the outer **kwargs (the ast.walk-crosses-scope false positive)."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def outer(**kwargs: Any) -> Div:\n"
+            "    def row(cls: str = '', **kwargs: Any) -> Div:\n"
+            "        return Div(cls=f'r {cls}'.strip(), **kwargs)\n"
+            "    return Div(row(), **kwargs)\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert violations == []
+
+    def test_nested_helper_own_collision_still_flagged(self) -> None:
+        """A nested helper with its OWN collision is still caught (checked on its own)."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def outer(x: int) -> Span:\n"
+            "    def bad(text: str, **kwargs: Any) -> Span:\n"
+            "        return Span(text, cls='text-sm', **kwargs)\n"
+            "    return bad('hi')\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert len(violations) == 1
+        assert "bad" in violations[0].message
+
     def test_no_kwargs_splat_clean(self) -> None:
         """A hardcoded cls= with no **kwargs to collide with is fine."""
         linter = make_linter(["SKUEL024"])
