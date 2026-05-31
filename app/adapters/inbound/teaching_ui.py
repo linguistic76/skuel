@@ -122,7 +122,7 @@ def _new_group_modal() -> Any:
                 type="button",
                 variant=ButtonT.ghost,
                 cls="mr-2",
-                **{"x-on:click": "open = false"},
+                **{"x-on:click": "open = false"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
             ),
             Button("Create", type="submit", variant=ButtonT.primary),
             cls="flex justify-end mt-4",
@@ -514,7 +514,7 @@ def create_teaching_ui_routes(
             type="button",
             variant=ButtonT.primary,
             size=Size.sm,
-            **{"x-on:click": "open = true"},
+            **{"x-on:click": "open = true"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
         )
 
         content = Div(
