@@ -2626,9 +2626,10 @@ class TestSKUEL024:
         violations = lint_content(linter, content, file_path="ui/patterns/x.py")
         assert violations == []
 
-    def test_same_scope_kwargs_reassignment_clean(self) -> None:
-        """Reassigning **kwargs to a fresh local dict before the splat discards the
-        caller's kwargs — no collision."""
+    def test_same_scope_kwargs_reassignment_flagged(self) -> None:
+        """Reassigning an OWNED **kwargs is not treated as clearing the collision:
+        proving it sanitizes every path needs control-flow domination (mirror of the
+        no-pop-exemption decision). Conservative — flagged; use an explicit cls param."""
         linter = make_linter(["SKUEL024"])
         content = (
             "def Helper(**kwargs: Any) -> Div:\n"
@@ -2636,7 +2637,22 @@ class TestSKUEL024:
             '    return Div(cls="base", **kwargs)\n'
         )
         violations = lint_content(linter, content, file_path="ui/patterns/x.py")
-        assert violations == []
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
+
+    def test_conditional_kwargs_reassignment_flagged(self) -> None:
+        """A conditional reassignment leaves the false path splatting the caller's
+        original kwargs — still collides, must flag."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def Helper(flag: bool, **kwargs: Any) -> Div:\n"
+            "    if flag:\n"
+            "        kwargs = {}\n"
+            '    return Div(cls="base", **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
 
     def test_positional_only_cls_still_flagged(self) -> None:
         """A positional-only `cls` cannot absorb a keyword `cls=` — still collides."""

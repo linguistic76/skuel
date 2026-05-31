@@ -2467,11 +2467,13 @@ class SkuelLinter:
           (positional-or-keyword or keyword-only; a positional-only ``cls`` does NOT
           absorb a keyword ``cls=`` and is excluded).
         - ``assigned_names`` — names locally rebound in the scope (see
-          ``_locally_assigned_names``). A ``**Name`` splat where ``Name`` is reassigned
-          here no longer carries the caller's kwargs, so it cannot collide.
-
-        A scope "binds" a name (for splat resolution) if it is in ``param_names`` OR
-        ``assigned_names`` — either shadows an outer parameter of the same name.
+          ``_locally_assigned_names``). Used ONLY for resolution/shadowing: a scope
+          binds a name if it is in ``param_names`` OR ``assigned_names``, so a nested
+          ``def make(): kwargs = {}; Div(cls=.., **kwargs)`` resolves the splat to
+          ``make`` (a local dict), not an outer ``**kwargs``. It is NOT used to clear a
+          collision in the ``**kwargs``-owning scope — a conditional/post-splat reassign
+          does not sanitize every path (no control-flow domination), mirroring the
+          absent ``kwargs.pop("cls")`` exemption.
         """
         args = fn.args
         kwarg_name = args.kwarg.arg if args.kwarg else None
@@ -2569,15 +2571,16 @@ class SkuelLinter:
                     if k.arg is None and isinstance(k.value, ast.Name):
                         name = k.value.id
                         binder = resolve_binder(name, stack)
-                        # Collision only if the resolved binder's bound name is its
-                        # **kwargs (not a local reassignment of it) AND it has no
-                        # keyword-passable cls to absorb the duplicate.
-                        if (
-                            binder
-                            and binder[1] == name  # name is this scope's **kwargs param
-                            and name not in binder[4]  # ...and not locally reassigned
-                            and not binder[3]  # ...and no cls param to absorb it
-                        ):
+                        # Collision iff the splat resolves to a scope whose **kwargs
+                        # PARAMETER it is, and that scope has no keyword-passable cls.
+                        # A local reassignment of that name is NOT treated as clearing
+                        # the collision: proving it sanitizes every path needs control-
+                        # flow domination (a conditional or post-splat `kwargs = {}` does
+                        # not), the same reason there is no kwargs.pop("cls") exemption.
+                        # (assigned_names still drives resolution/shadowing below, so a
+                        # nested local `kwargs = {}` with no **kwargs param resolves to
+                        # itself and is correctly cleared by the kwarg_name mismatch.)
+                        if binder and binder[1] == name and not binder[3]:
                             flag(node, binder)
                             break
             child_stack = stack
