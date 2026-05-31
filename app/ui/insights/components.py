@@ -106,7 +106,7 @@ def render_filter_form(filters: InsightsFilters) -> Any:
                 type="button",
                 variant=ButtonT.ghost,
                 size=Size.sm,
-                **{"@click": "clearFilters()"},
+                **{"@click": "clearFilters()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
             # Loading indicator (shown during debounce/navigation)
             Span(
@@ -144,19 +144,19 @@ def render_bulk_action_bar() -> Any:
                     "Dismiss Selected",
                     variant=ButtonT.ghost,
                     size=Size.sm,
-                    **{"@click": "bulkDismiss()"},
+                    **{"@click": "bulkDismiss()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "Mark as Actioned",
                     variant=ButtonT.primary,
                     size=Size.sm,
-                    **{"@click": "bulkMarkActioned()"},
+                    **{"@click": "bulkMarkActioned()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "Deselect All",
                     variant=ButtonT.ghost,
                     size=Size.sm,
-                    **{"@click": "deselectAll()"},
+                    **{"@click": "deselectAll()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 ),
                 cls="flex gap-2",
             ),
@@ -176,7 +176,7 @@ def render_select_all_header() -> Any:
                 type="checkbox",
                 cls="checkbox checkbox-primary",
                 x_model="selectAllChecked",
-                **{"@change": "toggleSelectAll()"},
+                **{"@change": "toggleSelectAll()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
             Span("Select All", cls="ml-2 text-sm font-medium"),
             cls="cursor-pointer justify-start gap-2",
@@ -195,8 +195,8 @@ def render_insight_card_with_checkbox(insight: Any) -> Any:
                 name="insight-checkbox",
                 value=insight.uid,
                 cls="checkbox checkbox-primary",
-                **{"@change": f"toggleSelection('{insight.uid}')"},
-                **{":checked": f"isSelected('{insight.uid}')"},
+                **{"@change": f"toggleSelection('{insight.uid}')"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                **{":checked": f"isSelected('{insight.uid}')"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
             cls="mr-3 flex-shrink-0 mt-1",
         ),

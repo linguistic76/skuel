@@ -83,7 +83,7 @@ def PinButton(
         *content,
         variant=button_variant,
         size=button_size,
-        **htmx_attrs,
+        **htmx_attrs,  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
     )
 
 

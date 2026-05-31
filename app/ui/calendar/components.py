@@ -530,7 +530,7 @@ def create_quick_add_modal() -> Div:
                     type="button",
                     variant=ButtonT.ghost,
                     cls="mr-2",
-                    **{"x-on:click": "closeQuickAdd()"},
+                    **{"x-on:click": "closeQuickAdd()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "Create",
@@ -643,7 +643,7 @@ def create_quick_add_button() -> Div:
             "+ Add Item",
             variant=ButtonT.success,
             cls="fixed bottom-6 right-6 rounded-full shadow-lg",
-            **{"x-on:click": "openQuickAdd()"},
+            **{"x-on:click": "openQuickAdd()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         ),
     )
 
@@ -820,7 +820,7 @@ def create_item_details_modal(item: Any) -> Div:
         Button(
             "Close",
             variant=ButtonT.ghost,
-            **{"x-on:click": close_expr},
+            **{"x-on:click": close_expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         )
     ]
 
@@ -870,7 +870,7 @@ def create_item_details_modal(item: Any) -> Div:
                     variant=ButtonT.ghost,
                     size=Size.sm,
                     cls="text-muted-foreground hover:text-muted-foreground",
-                    **{"x-on:click": close_expr},
+                    **{"x-on:click": close_expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 ),
                 cls="flex justify-between items-start mb-4",
             ),
