@@ -2,47 +2,27 @@
 Finance API Routes
 ==================
 
-Pure JSON API endpoints for finance operations (CRUD, analytics, bulk operations).
-No UI components - only API logic.
+Pure JSON API endpoints for finance operations.
+
+After the ADR-052 Phase 5 demolition only the invoice module survives — these
+routes cover invoice CRUD, stats, and PDF download. No UI components.
 """
 
-__version__ = "1.0"
+__version__ = "2.0"
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from core.ports.query_types import InvoiceStats
-
-if TYPE_CHECKING:
-    from core.ports import FinancesOperations
-
-# Pydantic schemas for boundary
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
-from adapters.inbound.route_factories import (
-    parse_date_param_strict,
-    parse_int_query_param,
-    parse_pagination_params,
-)
-from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
-from core.models.enums import ContentScope, UserRole
-from core.models.finance.finance_request import (
-    BudgetCreateRequest as BudgetCreateSchema,
-)
-from core.models.finance.finance_request import (
-    BudgetUpdateRequest as BudgetUpdateSchema,
-)
-from core.models.finance.finance_request import (
-    ExpenseCreateRequest as ExpenseCreateSchema,
-)
-from core.models.finance.finance_request import (
-    ExpenseUpdateRequest as ExpenseUpdateSchema,
-)
+from adapters.inbound.route_factories import parse_int_query_param
+from core.ports.query_types import InvoiceStats
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.finance_service import FinanceService
 
 logger = get_logger("skuel.routes.finance.api")
 
@@ -53,7 +33,7 @@ logger = get_logger("skuel.routes.finance.api")
 
 
 def create_finance_api_routes(
-    app: Any, rt: Any, finance_service: "FinancesOperations", user_service: Any = None
+    app: Any, rt: Any, finance_service: "FinanceService", user_service: Any = None
 ) -> list[Any]:
     """
     Create finance API routes (JSON endpoints only).
@@ -71,270 +51,6 @@ def create_finance_api_routes(
     """
 
     get_user_service = make_service_getter(user_service)
-
-    # ========================================================================
-    # EXPENSE CRUD ROUTES (Factory-Generated, Admin-Only)
-    # ========================================================================
-
-    # FinancesOperations satisfies CrudOperations (base_protocols) but not
-    # CRUDOperations (crud_route_factory) — the two protocols diverged on
-    # list() signature + the get_for_user/update_for_user/delete_for_user
-    # ownership-verified methods. SHARED scope skips the *_for_user paths at
-    # runtime, so this works; the static gap is a known ISP issue worth
-    # unifying later.
-    expense_factory: CRUDRouteFactory[Any] = CRUDRouteFactory(
-        service=finance_service,  # pyright: ignore[reportArgumentType]
-        domain_name="expenses",
-        create_schema=ExpenseCreateSchema,
-        update_schema=ExpenseUpdateSchema,
-        uid_prefix="expense",
-        scope=ContentScope.SHARED,
-        require_role=UserRole.ADMIN,
-        user_service_getter=get_user_service,
-    )
-    expense_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # EXPENSE DOMAIN-SPECIFIC ROUTES (Admin-Only)
-    # ========================================================================
-
-    @rt("/api/expenses/date-range")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def get_expenses_by_date_range_route(request, current_user) -> Result[dict[str, Any]]:
-        """Get expenses within a date range (admin only)"""
-        params = dict(request.query_params)
-
-        # Required parameters
-        start_result = parse_date_param_strict(params.get("start_date"), "start_date")
-        if start_result.is_error:
-            return Result.fail(start_result)
-        end_result = parse_date_param_strict(params.get("end_date"), "end_date")
-        if end_result.is_error:
-            return Result.fail(end_result)
-        start_date = start_result.value
-        end_date = end_result.value
-
-        # Optional parameters
-        pagination = parse_pagination_params(params, default_limit=100, max_limit=500)
-
-        # Call service with admin's user_uid (service filters by user)
-        result = await finance_service.get_expenses_by_date_range(
-            user_uid=current_user.uid,
-            start_date=start_date,
-            end_date=end_date,
-            limit=pagination.limit,
-            offset=pagination.offset,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-        expenses, total_count = result.value
-        return Result.ok(
-            {
-                "expenses": expenses,
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-                "count": total_count,
-            }
-        )
-
-    @rt("/api/expenses/search")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def search_expenses_route(request, current_user) -> Result[dict[str, Any]]:
-        """Search expenses with text query (admin only)"""
-        params = dict(request.query_params)
-
-        # Required parameter
-        query = params.get("query", "").strip()
-        if not query:
-            return Result.fail(Errors.validation("Query parameter is required", field="query"))
-
-        # Optional parameters
-        pagination = parse_pagination_params(params, default_limit=50, max_limit=100)
-        limit = pagination.limit
-        offset = pagination.offset
-
-        # Call service (admin sees all)
-        result = await finance_service.search_expenses(
-            user_uid=current_user.uid, query=query, limit=limit, offset=offset
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-        expenses = result.value
-        return Result.ok(
-            {
-                "expenses": expenses,
-                "query": query,
-                "count": len(expenses) if expenses else 0,
-            }
-        )
-
-    # ========================================================================
-    # EXPENSE STATUS OPERATIONS (Admin-Only)
-    # ========================================================================
-    # SECURITY: Admin role required - no ownership checks (admin sees all)
-
-    @rt("/api/expenses/clear")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def clear_expense_route(request, current_user, uid: str) -> Result[bool]:
-        """Mark expense as cleared (admin only)."""
-        result = await finance_service.clear_expense(uid)
-
-        if result.is_ok:
-            logger.info(f"Expense cleared via API by admin: {uid}")
-        return result
-
-    @rt("/api/expenses/reconcile")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def reconcile_expense_route(request, current_user, uid: str) -> Result[bool]:
-        """Mark expense as reconciled (admin only)."""
-        result = await finance_service.reconcile_expense(expense_uid=uid, reconciliation_data={})
-
-        if result.is_ok:
-            logger.info(f"Expense reconciled via API by admin: {uid}")
-        return result
-
-    @rt("/api/expenses/receipt")
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def attach_receipt_route(request, current_user, uid: str) -> Result[bool]:
-        """Attach receipt to expense (admin only)."""
-        from core.models.finance.finance_request import AttachReceiptRequest
-
-        parsed = await parse_json_body(request, AttachReceiptRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-
-        result = await finance_service.attach_receipt(uid, parsed.value.receipt_url)
-
-        if result.is_ok:
-            logger.info(f"Receipt attached to expense via API by admin: {uid}")
-        return result
-
-    # ========================================================================
-    # BUDGET CRUD ROUTES (Factory-Generated, Admin-Only)
-    # ========================================================================
-
-    budget_factory: CRUDRouteFactory[Any] = CRUDRouteFactory(
-        service=finance_service,  # pyright: ignore[reportArgumentType]  # see expense_factory note above
-        domain_name="budgets",
-        create_schema=BudgetCreateSchema,
-        update_schema=BudgetUpdateSchema,
-        uid_prefix="budget",
-        scope=ContentScope.SHARED,
-        require_role=UserRole.ADMIN,
-        user_service_getter=get_user_service,
-    )
-    budget_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # BUDGET DOMAIN-SPECIFIC ROUTES (Admin-Only)
-    # ========================================================================
-
-    @rt("/api/budgets/active")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def get_active_budgets_route(request, current_user) -> Result[dict[str, Any]]:
-        """Get active budgets (admin only)"""
-        result = await finance_service.get_active_budgets()
-
-        if result.is_error:
-            return Result.fail(result)
-        budgets = result.value
-        return Result.ok({"budgets": budgets, "count": len(budgets) if budgets else 0})
-
-    @rt("/api/budgets/recalculate")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def recalculate_budget_route(request, current_user, uid: str) -> Result[bool]:
-        """Recalculate budget spending from expenses (admin only)."""
-        result = await finance_service.recalculate_budget(uid)
-
-        if result.is_ok:
-            logger.info(f"Budget recalculated via API by admin: {uid}")
-        return result
-
-    # ========================================================================
-    # ANALYTICS API ROUTES (Factory-Generated, Admin-Only)
-    # ========================================================================
-
-    async def handle_spending_summary(service, params):
-        """Handler for spending summary analytics"""
-        start_date = date.fromisoformat(params["start_date"])
-        end_date = date.fromisoformat(params["end_date"])
-
-        result = await service.get_spending_summary(start_date, end_date)
-
-        if result.is_ok:
-            return {
-                "summary": result.value,
-                "period": {"start_date": start_date.isoformat(), "end_date": end_date.isoformat()},
-            }
-        return result
-
-    async def handle_category_breakdown(service, params):
-        """Handler for category breakdown analytics"""
-        start_date = date.fromisoformat(params["start_date"])
-        end_date = date.fromisoformat(params["end_date"])
-
-        result = await service.get_category_breakdown(start_date, end_date)
-
-        if result.is_ok:
-            return {
-                "categories": result.value,
-                "period": {"start_date": start_date.isoformat(), "end_date": end_date.isoformat()},
-            }
-        return result
-
-    async def handle_spending_trends(service, params):
-        """Handler for spending trends analytics"""
-        start_date = date.fromisoformat(params["start_date"])
-        end_date = date.fromisoformat(params["end_date"])
-        granularity = params.get("granularity", "daily")
-
-        result = await service.get_spending_trends(start_date, end_date, granularity)
-
-        if result.is_ok:
-            return {
-                "trends": result.value,
-                "granularity": granularity,
-                "period": {"start_date": start_date.isoformat(), "end_date": end_date.isoformat()},
-            }
-        return result
-
-    analytics_factory = AnalyticsRouteFactory(
-        service=finance_service,
-        domain_name="finance",
-        analytics_config={
-            "summary": {
-                "path": "/api/finance/analytics/summary",
-                "handler": handle_spending_summary,
-                "description": "Get comprehensive spending summary",
-                "require_params": ["start_date", "end_date"],
-            },
-            "categories": {
-                "path": "/api/finance/analytics/categories",
-                "handler": handle_category_breakdown,
-                "description": "Get spending breakdown by category",
-                "require_params": ["start_date", "end_date"],
-            },
-            "trends": {
-                "path": "/api/finance/analytics/trends",
-                "handler": handle_spending_trends,
-                "description": "Get spending trends over time",
-                "require_params": ["start_date", "end_date"],
-            },
-        },
-        require_role=UserRole.ADMIN,
-        user_service_getter=get_user_service,
-    )
-    analytics_factory.register_routes(app, rt)
 
     # ========================================================================
     # INVOICE ROUTES (Admin-Only)
@@ -405,7 +121,7 @@ def create_finance_api_routes(
     @boundary_handler()
     async def get_invoice_stats_route(request, current_user) -> Result[InvoiceStats]:
         """Get invoice statistics (admin only)"""
-        result = await finance_service.get_invoice_stats(user_uid=current_user.uid)
+        result = await finance_service.get_invoice_stats()
 
         if result.is_ok:
             return Result.ok(result.value)
@@ -450,46 +166,6 @@ def create_finance_api_routes(
             headers={
                 "Content-Disposition": f'attachment; filename="invoice-{uid}.pdf"',
             },
-        )
-
-    # ========================================================================
-    # BULK OPERATIONS (Admin-Only)
-    # ========================================================================
-
-    @rt("/api/expenses/bulk/categorize")
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def bulk_categorize_expenses_route(request, current_user) -> Result[dict[str, Any]]:
-        """Bulk categorize multiple expenses (admin only)"""
-        from core.models.finance.finance_pure import ExpenseCategory
-        from core.models.finance.finance_request import BulkCategorizeExpensesRequest
-
-        parsed = await parse_json_body(request, BulkCategorizeExpensesRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-
-        category_enum = ExpenseCategory(req.category)
-
-        # Call service
-        result = await finance_service.bulk_categorize(
-            req.expense_uids, category_enum, req.subcategory
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-        expenses = result.value
-        logger.info(
-            f"Bulk categorized {len(expenses) if expenses else 0} expenses to {req.category} by admin"
-        )
-        return Result.ok(
-            {
-                "expenses": expenses,
-                "updated_count": len(expenses) if expenses else 0,
-                "category": req.category,
-                "subcategory": req.subcategory,
-            }
         )
 
     logger.info("Finance API routes registered")

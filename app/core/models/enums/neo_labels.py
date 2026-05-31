@@ -118,8 +118,9 @@ class NeoLabel(StrEnum):
 
     # =========================================================================
     # Finance Domain (non-Entity)
+    # EXPENSE removed (ADR-052 Phase 5) — native expense module demolished;
+    # only invoices survive.
     # =========================================================================
-    EXPENSE = "Expense"
     INVOICE = "Invoice"
 
     # =========================================================================
@@ -191,7 +192,7 @@ class NeoLabel(StrEnum):
 
         Example:
             NeoLabel.from_domain(EntityType.TASK)  # Returns NeoLabel.TASK
-            NeoLabel.from_domain(NonKuDomain.FINANCE)  # Returns NeoLabel.EXPENSE
+            NeoLabel.from_domain(NonKuDomain.FINANCE)  # Returns NeoLabel.INVOICE
             NeoLabel.from_domain(NonKuDomain.CALENDAR)  # Returns None
         """
         from core.models.enums.entity_enums import EntityType, NonKuDomain
@@ -200,7 +201,7 @@ class NeoLabel(StrEnum):
             return cls.from_entity_type(domain)
 
         _non_ku_mapping: dict[NonKuDomain, NeoLabel] = {
-            NonKuDomain.FINANCE: cls.EXPENSE,
+            NonKuDomain.FINANCE: cls.INVOICE,
             NonKuDomain.GROUP: cls.GROUP,
         }
         return _non_ku_mapping.get(domain)  # CALENDAR/LEARNING have no Neo4j label
@@ -232,7 +233,7 @@ class NeoLabel(StrEnum):
 
         Example:
             labels = NeoLabel.all_labels()
-            # frozenset({'Entity', 'Task', 'Goal', 'Expense', ...})
+            # frozenset({'Entity', 'Task', 'Goal', 'Invoice', ...})
         """
         return frozenset(label.value for label in cls)
 

@@ -871,7 +871,6 @@ class Neo4jSchemaManager:
             ("task_due_date_idx", NeoLabel.TASK, "due_date"),
             ("event_event_date_idx", NeoLabel.EVENT, "event_date"),
             ("goal_target_date_idx", NeoLabel.GOAL, "target_date"),
-            ("expense_expense_date_idx", NeoLabel.EXPENSE, "expense_date"),
         ]
         for name, label, field in date_indexes:
             await _idx(name, label, field)

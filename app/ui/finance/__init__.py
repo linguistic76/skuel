@@ -1,10 +1,9 @@
 """Finance UI module.
 
-Provides the finance hub layout and navigation components.
-All finance routes require ADMIN role.
+Provides the finance hub layout and navigation. After the ADR-052 Phase 5
+demolition only the invoice page survives. All finance routes require ADMIN role.
 """
 
-from ui.finance.components import FinanceUIComponents
 from ui.finance.layout import (
     FINANCE_SIDEBAR_ITEMS,
     create_finance_page,
@@ -12,6 +11,5 @@ from ui.finance.layout import (
 
 __all__ = [
     "FINANCE_SIDEBAR_ITEMS",
-    "FinanceUIComponents",
     "create_finance_page",
 ]

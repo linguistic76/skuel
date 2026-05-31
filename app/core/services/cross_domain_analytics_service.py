@@ -17,15 +17,14 @@ All analytics are built by subscribing to existing events - no service changes n
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.events import (
-    ExpenseCreated,
-    ExpensePaid,
     GoalCreated,
     # NOTE: JournalCreated REMOVED (February 2026) - Journal merged into Reports
     # Journal mood tracking now handled via report events
+    # NOTE: Finance (ExpenseCreated/ExpensePaid) REMOVED (ADR-052 Phase 5) -
+    # native expense module demolished; only the invoice module survives.
     KnowledgeMastered,
     LearningPathCompleted,
 )
@@ -37,18 +36,6 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
-
-
-@dataclass
-class FinancialGoalMetrics:
-    """Metrics linking financial activity to goals."""
-
-    goal_uid: str
-    total_expenses: float
-    expense_count: int
-    budget_allocated: float | None
-    budget_remaining: float | None
-    top_expense_categories: dict[str, float]
 
 
 @dataclass
@@ -85,23 +72,6 @@ class JournalMoodAnalysis:
     longest_streak: int
 
 
-@dataclass
-class SpendingPatternAnalysis:
-    """Spending pattern analysis by domain."""
-
-    user_uid: UserUID
-    period_days: int
-
-    # By domain
-    spending_by_domain: dict[str, float]
-    top_spending_domain: str | None
-
-    # Patterns
-    avg_expense_amount: float
-    expense_frequency_per_week: float
-    highest_expense_day: str | None
-
-
 class CrossDomainAnalyticsService:
     """
     Cross-domain analytics service built entirely on event subscriptions.
@@ -115,7 +85,6 @@ class CrossDomainAnalyticsService:
         # Wire in bootstrap
         analytics = CrossDomainAnalyticsService(backend)
 
-        event_bus.subscribe(ExpenseCreated, analytics.handle_expense_created)
         event_bus.subscribe(GoalCreated, analytics.handle_goal_created)
         # NOTE: JournalCreated subscription removed (February 2026)
         event_bus.subscribe(KnowledgeMastered, analytics.handle_knowledge_mastered)
@@ -123,7 +92,6 @@ class CrossDomainAnalyticsService:
 
         # Query analytics
         velocity = await analytics.get_learning_velocity(user_uid, days_back=30)
-        spending = await analytics.get_spending_patterns(user_uid, days_back=30)
         mood = await analytics.get_mood_analysis(user_uid, days_back=30)
 
     Semantic Types Used:
@@ -143,70 +111,16 @@ class CrossDomainAnalyticsService:
         self.logger = get_logger("skuel.services.cross_domain_analytics")
 
         # In-memory caches for fast analytics (could be Redis in production)
-        self._expense_cache: defaultdict[str, list[dict]] = defaultdict(list)
         self._learning_cache: defaultdict[str, list[dict]] = defaultdict(list)
         # NOTE: _journal_cache removed (February 2026) - Journal merged into Reports
+        # NOTE: _expense_cache removed (ADR-052 Phase 5) - native expense module demolished
 
     # ========================================================================
     # EVENT HANDLERS - Financial Goal Tracking
+    # NOTE: handle_expense_created / handle_expense_paid removed (ADR-052 Phase 5).
+    # The native expense module was demolished; only the invoice module survives,
+    # so there are no ExpenseCreated/ExpensePaid events to track.
     # ========================================================================
-
-    async def handle_expense_created(self, event: ExpenseCreated) -> Result[None]:
-        """
-        Track expenses for financial goal analysis.
-
-        Builds:
-        - Spending patterns by domain
-        - Financial goal progress
-        - Budget tracking
-        """
-        try:
-            expense_data = {
-                "expense_uid": event.expense_uid,
-                "user_uid": event.user_uid,
-                "amount": event.amount,
-                "category": event.category,
-                "description": event.description,
-                "occurred_at": event.occurred_at,
-                "goal_uid": getattr(event, "linked_goal_uid", None),
-            }
-
-            # Cache for fast retrieval
-            self._expense_cache[event.user_uid].append(expense_data)
-
-            # Persist analytics
-            result = await self.backend.upsert_financial_analytics(
-                user_uid=event.user_uid,
-                amount=event.amount,
-                category=event.category,
-                occurred_at=event.occurred_at.isoformat(),
-            )
-            if result.is_error:
-                self.logger.error(f"Error tracking expense: {result.error}")
-
-            self.logger.debug(f"Tracked expense for financial analytics: {event.expense_uid}")
-            return Result.ok(None)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Database error tracking expense: {e}")
-            return Result.fail(
-                Errors.database(
-                    message=f"Failed to track expense: {e!s}", operation="handle_expense_created"
-                )
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Unexpected error tracking expense: {type(e).__name__}: {e}")
-            return Result.fail(
-                Errors.system(
-                    message=f"Failed to track expense: {e!s}", operation="handle_expense_created"
-                )
-            )
-
-    async def handle_expense_paid(self, event: ExpensePaid) -> Result[None]:
-        """Track expense payment for budget analysis."""
-        # Update payment status for budget tracking
-        self.logger.debug(f"Tracked expense payment: {event.expense_uid}")
-        return Result.ok(None)
 
     async def handle_goal_created(self, event: GoalCreated) -> Result[None]:
         """Track financial goals for expense linking."""
@@ -503,63 +417,6 @@ class CrossDomainAnalyticsService:
 
         return Result.ok(metrics)
 
-    @with_error_handling(
-        error_type="system", operation="get_spending_patterns", uid_param="user_uid"
-    )
-    async def get_spending_patterns(
-        self, user_uid: UserUID, days_back: int = 30
-    ) -> Result[SpendingPatternAnalysis]:
-        """
-        Analyze spending patterns by domain.
-
-        Args:
-            user_uid: UID of the user,
-            days_back: Number of days to analyze
-
-        Returns:
-            Result containing spending pattern analysis
-        """
-        result = await self.backend.get_spending_by_category(user_uid=user_uid)
-        if result.is_error:
-            return Result.fail(result)
-
-        records = result.value or []
-
-        if not records:
-            return Result.ok(
-                SpendingPatternAnalysis(
-                    user_uid=user_uid,
-                    period_days=days_back,
-                    spending_by_domain={},
-                    top_spending_domain=None,
-                    avg_expense_amount=0.0,
-                    expense_frequency_per_week=0.0,
-                    highest_expense_day=None,
-                )
-            )
-
-        # Build analysis
-        spending_by_domain = {r["category"]: r["amount"] for r in records}
-        top_domain = records[0]["category"] if records else None
-
-        total_amount = sum(r["amount"] for r in records)
-        total_count = sum(r["count"] for r in records)
-
-        avg_amount = total_amount / total_count if total_count > 0 else 0.0
-        frequency_per_week = total_count / (days_back / 7) if days_back > 0 else 0.0
-
-        analysis = SpendingPatternAnalysis(
-            user_uid=user_uid,
-            period_days=days_back,
-            spending_by_domain=spending_by_domain,
-            top_spending_domain=top_domain,
-            avg_expense_amount=avg_amount,
-            expense_frequency_per_week=frequency_per_week,
-            highest_expense_day=None,  # Could calculate from event timestamps
-        )
-
-        return Result.ok(analysis)
-
     @with_error_handling(error_type="system", operation="get_mood_analysis", uid_param="user_uid")
     async def get_mood_analysis(
         self, user_uid: UserUID, days_back: int = 30
@@ -612,60 +469,6 @@ class CrossDomainAnalyticsService:
         )
 
         return Result.ok(analysis)
-
-    @with_error_handling(
-        error_type="database", operation="get_financial_goal_metrics", uid_param="goal_uid"
-    )
-    async def get_financial_goal_metrics(self, goal_uid: str) -> Result[FinancialGoalMetrics]:
-        """
-        Get financial metrics for a specific goal.
-
-        Links expenses to goals for budget tracking.
-
-        Args:
-            goal_uid: UID of the goal
-
-        Returns:
-            Result containing financial goal metrics
-        """
-        result = await self.backend.get_financial_goal_with_expenses(goal_uid=goal_uid)
-        if result.is_error:
-            return Result.fail(result)
-
-        records = result.value or []
-        record = records[0] if records else None
-
-        if not record:
-            return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
-
-        goal = record["goal"]
-        expenses = record["expenses"] or []
-        total_expenses = record["total"] or 0.0
-
-        # Calculate budget remaining
-        budget = goal.get("budget_allocated")
-        remaining = budget - total_expenses if budget else None
-
-        # Categorize expenses
-        category_totals: dict[str, float] = {}
-        for expense in expenses:
-            category = expense.get("category", "uncategorized")
-            category_totals[category] = category_totals.get(category, 0.0) + expense.get(
-                "amount", 0.0
-            )
-
-        metrics = FinancialGoalMetrics(
-            goal_uid=goal_uid,
-            total_expenses=total_expenses,
-            expense_count=len(expenses),
-            budget_allocated=budget,
-            budget_remaining=remaining,
-            top_expense_categories=dict(
-                sorted(category_totals.items(), key=itemgetter(1), reverse=True)[:5]
-            ),
-        )
-
-        return Result.ok(metrics)
 
     @with_error_handling(
         error_type="system", operation="get_productivity_metrics", uid_param="user_uid"
@@ -792,19 +595,19 @@ class CrossDomainAnalyticsService:
     ) -> Result[dict[str, Any]]:
         """Build a combined analytics dashboard from multiple sub-queries.
 
-        Gathers learning velocity, spending patterns, and mood analysis
-        into a single response dict.
+        Gathers learning velocity and mood analysis into a single response dict.
+        (Spending patterns removed in ADR-052 Phase 5 — native expense module
+        demolished.)
 
         Args:
             user_uid: User identifier
             days_back: Number of days to analyze
 
         Returns:
-            Result with combined dashboard containing learning_velocity,
-            spending_patterns, and mood_analysis (each None if unavailable)
+            Result with combined dashboard containing learning_velocity and
+            mood_analysis (each None if unavailable)
         """
         learning_result = await self.get_learning_velocity(user_uid, days_back)
-        spending_result = await self.get_spending_patterns(user_uid, days_back)
         mood_result = await self.get_mood_analysis(user_uid, days_back)
 
         dashboard: dict[str, Any] = {
@@ -812,7 +615,6 @@ class CrossDomainAnalyticsService:
             "period_days": days_back,
             "generated_at": datetime.now().isoformat(),
             "learning_velocity": None,
-            "spending_patterns": None,
             "mood_analysis": None,
         }
 
@@ -822,14 +624,6 @@ class CrossDomainAnalyticsService:
                 "kus_mastered_per_week": v.kus_mastered_per_week,
                 "paths_completed": v.paths_completed,
                 "velocity_trend": v.velocity_trend,
-            }
-
-        if spending_result.is_ok:
-            s = spending_result.value
-            dashboard["spending_patterns"] = {
-                "top_spending_domain": s.top_spending_domain,
-                "avg_expense_amount": s.avg_expense_amount,
-                "expense_frequency_per_week": s.expense_frequency_per_week,
             }
 
         if mood_result.is_ok:

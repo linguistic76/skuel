@@ -9,7 +9,6 @@ logger = get_logger("skuel.bootstrap")
 
 
 def _create_core_services(
-    finance_backend: Any,
     invoice_backend: Any,
     transcription_backend: Any,
     user_service: Any,
@@ -22,7 +21,6 @@ def _create_core_services(
     Learning services are created by _create_learning_services().
 
     Args:
-        finance_backend: UniversalNeo4jBackend[ExpensePure]
         invoice_backend: UniversalNeo4jBackend[InvoicePure]
         transcription_backend: UniversalNeo4jBackend[Transcription]
         user_service: UserService for context operations (REQUIRED)
@@ -43,12 +41,11 @@ def _create_core_services(
 
     return {
         "finance": FinanceService(
-            backend=finance_backend,
-            event_bus=event_bus,  # Event-driven architecture
-            invoice_backend=invoice_backend,  # Invoice management
+            invoice_backend=invoice_backend,  # Invoice management (only surviving module)
             # Inject the concrete PDF renderer at the composition root (the
             # service depends only on the InvoiceRenderer port — ADR-044/SKUEL022)
             invoice_renderer=render_invoice_pdf,
+            event_bus=event_bus,  # Event-driven architecture
         ),
         "transcription": TranscriptionService(
             backend=transcription_backend,

@@ -147,21 +147,22 @@ def create_unified_user_context_for_testing(
 
 
 def create_finance_service_for_testing(
-    backend: Mock | None = None,
-    driver: Mock | None = None,
-    graph_intelligence: Mock | None = None,
+    invoice_backend: Mock | None = None,
+    invoice_renderer: Any = None,
     event_bus: Mock | None = None,
     backend_behavior: dict[str, Any] | None = None,
 ) -> Any:  # Returns FinanceService
     """
-    Create FinanceService instance for testing using production composition pattern.
+    Create the invoice-only FinanceService for testing.
+
+    After the ADR-052 Phase 5 demolition the facade wraps a single
+    FinanceInvoiceService (invoice backend + PDF renderer).
 
     Args:
-        backend: Optional mock backend (created if not provided)
-        driver: Optional mock driver (for graph operations)
-        graph_intelligence: Optional mock graph intelligence service
+        invoice_backend: Optional mock invoice backend (created if not provided)
+        invoice_renderer: Optional PDF renderer (mocked if not provided)
         event_bus: Optional mock event bus
-        backend_behavior: Optional behavior customization for backend
+        backend_behavior: Optional behavior customization for the invoice backend
 
     Returns:
         FinanceService instance with mocked dependencies
@@ -172,25 +173,21 @@ def create_finance_service_for_testing(
 
         # Custom backend behavior
         service = create_finance_service_for_testing(
-            backend_behavior={"get": Result.ok(expense)}
+            backend_behavior={"get": Result.ok(invoice)}
         )
-
-    Notes:
-        - FinanceService may have sub-components created internally
-        - Event bus is optional (can be None for testing)
-        - Graph intelligence is optional (can be None for testing)
     """
     from core.services.finance_service import FinanceService
 
     # Create mocks if not provided
-    if backend is None:
-        backend = create_mock_backend(backend_behavior)
+    if invoice_backend is None:
+        invoice_backend = create_mock_backend(backend_behavior)
 
-    # Create service using production pattern
-    # Note: FinanceService may create sub-components internally
+    if invoice_renderer is None:
+        invoice_renderer = Mock(return_value=b"%PDF-1.4 test")
+
     return FinanceService(
-        backend=backend,
-        graph_intel=graph_intelligence,
+        invoice_backend=invoice_backend,
+        invoice_renderer=invoice_renderer,
         event_bus=event_bus,
     )
 
