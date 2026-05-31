@@ -2596,6 +2596,22 @@ class TestSKUEL024:
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL024"
 
+    def test_nested_def_closing_over_kwargs_flagged(self) -> None:
+        """A nested def that closes over the outer **kwargs (no own **kwargs) still
+        crashes; scope resolution attributes the splat to the outer binder."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def outer(**kwargs: Any) -> Any:\n"
+            "    def make() -> Div:\n"
+            '        return Div(cls="base", **kwargs)\n'
+            "    return make()\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
+        # Attributed to the binding scope (outer), which owns the colliding **kwargs.
+        assert "outer" in violations[0].message
+
     def test_positional_only_cls_still_flagged(self) -> None:
         """A positional-only `cls` cannot absorb a keyword `cls=` — still collides."""
         linter = make_linter(["SKUEL024"])

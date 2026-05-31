@@ -623,13 +623,16 @@ the /insights page (PR #154), and an AST sweep found five more sites (#156/#157)
 invisible to mypy and ruff — only a caller that actually passes ``cls=`` triggers it, so a
 helper can ship the landmine and sit dormant until the first styling override.
 
-AST-based: flags a function that (1) declares ``**kwargs`` (any name), (2) has NO explicit
-``cls`` parameter, and (3) contains a call passing both a ``cls=`` keyword and ``**kwargs``
-(that same param). There is no ``kwargs.pop("cls")`` exemption — proving a pop defuses the
-splat needs control-flow domination (a conditional pop, or one after the splat, does not
-defuse it), and the explicit ``cls: str = ""`` parameter is the contract anyway. So
-pop-based helpers are flagged too: adopt the explicit parameter, or suppress with a reason
-if a genuinely-sound pop form is needed.
+AST-based, scope-resolution: for each call passing both a ``cls=`` keyword and a ``**Name``
+splat, resolve ``Name`` to the nearest enclosing function scope that binds it, and flag iff
+that scope's bound name is its ``**kwargs`` and it has no keyword-passable ``cls`` param (a
+positional-only ``cls`` does not count). This handles closures (a nested ``def``/``lambda``
+splatting the outer ``**kwargs``) and rebinds (an inner factory with its own ``cls``)
+uniformly. There is no ``kwargs.pop("cls")`` exemption — proving a pop defuses the splat
+needs control-flow domination (a conditional pop, or one after the splat, does not defuse
+it), and the explicit ``cls: str = ""`` parameter is the contract anyway. So pop-based
+helpers are flagged too: adopt the explicit parameter, or suppress with a reason if a
+genuinely-sound pop form is needed.
 
 Fix: add ``cls: str = ""`` and merge it into the base classes
 (``cls=f"...base... {cls}".strip()``). See ui/text.py / ui/patterns/ for the pattern, and
@@ -2394,32 +2397,25 @@ class SkuelLinter:
             )
 
     @staticmethod
-    def _calls_in_scope(node: ast.AST) -> list[ast.Call]:
-        """Calls lexically within ``node``, excluding nested ``def``/``class`` scopes.
+    def _cls_scope_descriptor(fn: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda) -> tuple:
+        """Describe a function scope for ``**kwargs`` / ``cls=`` resolution.
 
-        ``ast.walk`` descends into nested ``def``/``class`` bodies, where the ``**kwargs``
-        name is rebound (the inner scope has its own parameters). Attributing an inner
-        call's ``**kwargs`` splat to the OUTER function is a false positive — e.g. an inner
-        factory ``def row(cls="", **kwargs): return Div(cls=..., **kwargs)`` is safe (it has
-        its own ``cls``) yet would be flagged against the outer helper. Each nested
-        ``def``/``async def`` is checked on its own when the outer ``ast.walk(tree)`` loop
-        reaches it, so pruning those scopes loses nothing.
-
-        Lambdas are NOT pruned: the outer loop only checks ``FunctionDef`` /
-        ``AsyncFunctionDef``, so a lambda is never inspected independently. A lambda that
-        closes over the enclosing ``**kwargs`` and hardcodes ``cls=``
-        (``lambda: Div(cls="base", **kwargs)``) is a real collision that only the enclosing
-        scan can see — so its calls must stay attributed to the enclosing function.
+        Returns ``(fn, kwarg_name, param_names, absorbs_cls)`` where ``param_names`` is
+        EVERY parameter the scope binds (so an inner scope that rebinds the splat name
+        shadows the outer one), and ``absorbs_cls`` is True iff the scope has a
+        KEYWORD-PASSABLE ``cls`` param — positional-or-keyword (``args``) or keyword-only
+        (``kwonlyargs``). A positional-only ``cls`` (``def f(cls, /, **kwargs)``) does NOT
+        absorb a keyword ``cls=`` and is excluded.
         """
-        nested_scopes = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-        out: list[ast.Call] = []
-        for child in ast.iter_child_nodes(node):
-            if isinstance(child, nested_scopes):
-                continue
-            if isinstance(child, ast.Call):
-                out.append(child)
-            out.extend(SkuelLinter._calls_in_scope(child))
-        return out
+        args = fn.args
+        kwarg_name = args.kwarg.arg if args.kwarg else None
+        param_names = {a.arg for a in args.posonlyargs + args.args + args.kwonlyargs}
+        if args.vararg:
+            param_names.add(args.vararg.arg)
+        if kwarg_name:
+            param_names.add(kwarg_name)
+        absorbs_cls = "cls" in {a.arg for a in args.args + args.kwonlyargs}
+        return (fn, kwarg_name, param_names, absorbs_cls)
 
     def _check_cls_kwargs_collision(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -2433,13 +2429,18 @@ class SkuelLinter:
         and collides with the hardcoded keyword. This 500'd /insights via ``SmallText``
         (PR #154). Invisible to mypy/ruff; only a caller passing ``cls=`` surfaces it.
 
-        AST-based: a function that (1) declares ``**kwargs`` (any name), (2) has no
-        explicit ``cls`` parameter, and (3) passes both a ``cls=`` keyword and that
-        ``**kwargs`` into one call. No ``kwargs.pop("cls")`` exemption: proving a pop
-        actually defuses the splat needs control-flow domination (a conditional or
-        post-splat pop does not), and the explicit ``cls: str = ""`` parameter is the
-        contract anyway — so pop-based helpers are flagged too. Adopt the explicit
-        parameter, or suppress with a reason if a sound pop form is genuinely needed.
+        Scope-resolution model: walk the tree carrying a stack of enclosing function
+        scopes. For each call passing both a ``cls=`` keyword and a ``**Name`` splat,
+        resolve ``Name`` to the NEAREST enclosing scope that binds it (handles closures —
+        a nested ``def``/``lambda`` splatting the outer ``**kwargs`` — and rebinds — an
+        inner factory with its OWN ``cls``/``**kwargs``). Flag iff that binding scope's
+        bound name is its ``**kwargs`` and it has no keyword-passable ``cls`` param.
+
+        No ``kwargs.pop("cls")`` exemption: proving a pop defuses the splat needs
+        control-flow domination (a conditional or post-splat pop does not), and the
+        explicit ``cls: str = ""`` parameter is the contract anyway — so pop-based helpers
+        are flagged too. Adopt the explicit parameter, or suppress with a reason if a
+        sound pop form is genuinely needed.
         """
         if self._is_file_suppressed(content, "SKUEL024"):
             return
@@ -2455,59 +2456,64 @@ class SkuelLinter:
         except SyntaxError:
             return
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                continue
-            kwarg = node.args.kwarg
-            if kwarg is None:
-                continue  # no **kwargs — nothing to collide with
-            kw_name = kwarg.arg
-            # Only a parameter that can be passed BY KEYWORD absorbs a caller's `cls=`:
-            # positional-or-keyword (args) and keyword-only (kwonlyargs). A positional-only
-            # `cls` (def f(cls, /, **kwargs)) does NOT — `f(x, cls="y")` routes `cls` into
-            # **kwargs and still collides — so posonlyargs are excluded here.
-            keyword_passable = {a.arg for a in node.args.args + node.args.kwonlyargs}
-            if "cls" in keyword_passable:
-                continue  # explicit keyword-passable cls param absorbs a caller cls= — safe
+        scope_types = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+        reported: set[int] = set()  # binding-scope ids — one violation per binder
 
-            # Scan only this function's own scope — not nested def/lambda/class bodies,
-            # which rebind **kwargs and are checked independently by the outer walk.
-            for call in self._calls_in_scope(node):
-                passes_cls = any(k.arg == "cls" for k in call.keywords)
-                splats_kwargs = any(
-                    k.arg is None and isinstance(k.value, ast.Name) and k.value.id == kw_name
-                    for k in call.keywords
+        def resolve_binder(name: str, stack: list[tuple]) -> tuple | None:
+            for desc in reversed(stack):  # nearest enclosing scope wins (shadowing)
+                if name in desc[2]:  # param_names
+                    return desc
+            return None
+
+        def flag(call: ast.Call, binder: tuple) -> None:
+            fn, kw_name, _params, _absorbs = binder
+            if id(fn) in reported:
+                return
+            line_num = call.lineno
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL024"):
+                return  # don't mark reported — another non-suppressed call may still fire
+            reported.add(id(fn))
+            fn_name = getattr(fn, "name", "<lambda>")
+            target = call.func
+            target_name = getattr(target, "id", getattr(target, "attr", "the call"))
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=call.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL024",
+                    message=(
+                        f"`{fn_name}` passes `cls=` and `**{kw_name}` to `{target_name}(...)` "
+                        f"with no `cls` parameter — a caller passing `cls=` raises "
+                        f"TypeError (multiple values for 'cls')"
+                    ),
+                    suggestion=(
+                        'Add an explicit `cls: str = ""` parameter and merge it: '
+                        'cls=f"...base... {cls}".strip()'
+                    ),
+                    line_content=line.strip(),
                 )
-                if not (passes_cls and splats_kwargs):
-                    continue
+            )
 
-                line_num = call.lineno
-                line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
-                if self._is_line_suppressed(line, "SKUEL024"):
-                    continue
+        def walk(node: ast.AST, stack: list[tuple]) -> None:
+            if isinstance(node, ast.Call) and any(k.arg == "cls" for k in node.keywords):
+                for k in node.keywords:
+                    if k.arg is None and isinstance(k.value, ast.Name):
+                        binder = resolve_binder(k.value.id, stack)
+                        # Collision only if the resolved binder's bound name is its
+                        # **kwargs AND it has no keyword-passable cls to absorb the dup.
+                        if binder and binder[1] == k.value.id and not binder[3]:
+                            flag(node, binder)
+                            break
+            child_stack = stack
+            if isinstance(node, scope_types):
+                child_stack = stack + [self._cls_scope_descriptor(node)]
+            for child in ast.iter_child_nodes(node):
+                walk(child, child_stack)
 
-                target = call.func
-                target_name = getattr(target, "id", getattr(target, "attr", "the call"))
-                self.result.violations.append(
-                    Violation(
-                        file_path=rel_path,
-                        line_number=line_num,
-                        column=call.col_offset,
-                        severity=Severity.ERROR,
-                        rule_id="SKUEL024",
-                        message=(
-                            f"`{node.name}` passes `cls=` and `**{kw_name}` to `{target_name}(...)` "
-                            f"with no `cls` parameter — a caller passing `cls=` raises "
-                            f"TypeError (multiple values for 'cls')"
-                        ),
-                        suggestion=(
-                            'Add an explicit `cls: str = ""` parameter and merge it: '
-                            'cls=f"...base... {cls}".strip()'
-                        ),
-                        line_content=line.strip(),
-                    )
-                )
-                break  # one violation per helper is enough
+        walk(tree, [])
 
     # -------------------------------------------------------------------------
     # Authoring AST rules — the "iterate the field, never walk the node" rule.
