@@ -98,7 +98,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
             "View Details",
             variant=ButtonT.ghost,
             size=Size.sm,
-            x_on_click="open()",
+            **{"x-on:click": "open()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         ),
         Form(
             Button(
@@ -348,7 +348,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
             variant=ButtonT.ghost,
             size=Size.sm,
             cls="rounded-full absolute right-2 top-2",
-            x_on_click="close()",
+            **{"x-on:click": "close()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         ),
         # Modal header
         Div(
@@ -400,16 +400,31 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
             # Snooze options
             Div(
                 Span("Snooze for:", cls="text-sm font-medium text-foreground mr-3"),
-                Button("1 Day", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(1)"),
-                Button("3 Days", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(3)"),
-                Button("1 Week", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(7)"),
+                Button(
+                    "1 Day",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    **{"x-on:click": "snooze(1)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                ),
+                Button(
+                    "3 Days",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    **{"x-on:click": "snooze(3)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                ),
+                Button(
+                    "1 Week",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    **{"x-on:click": "snooze(7)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                ),
                 cls="flex items-center gap-2",
             ),
             # Close button
             Button(
                 "Close",
                 variant=ButtonT.primary,
-                x_on_click="close()",
+                **{"x-on:click": "close()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
             cls="flex items-center justify-between pt-4 border-t border-border",
         ),
