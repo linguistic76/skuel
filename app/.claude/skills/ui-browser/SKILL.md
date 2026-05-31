@@ -267,6 +267,19 @@ The split is by **library**, not by punctuation: HTMX defines a colon-free doubl
 - **Reducible attrs (plain-hyphen + HTMX `hx-on::`) → use the underscore kwarg.** No splat, no suppression. (e.g. `Button("Back", hx_get="/tasks", hx_target="body")`, *not* `**{"hx-get": …}`; `Form(..., hx_on__after_request=expr)`, *not* `**{"hx-on::after-request": expr}`.)
 - **Irreducible Alpine attrs (colon / at / dot) → keep the splat + a surgical ignore:** `**{"x-on:click": expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat`.
 
+⚠️ **Escape DYNAMIC values interpolated into an Alpine/JS expression with `json.dumps()`.** An Alpine handler attribute is *JS source*, so a runtime value spliced into it can break out of its string literal (or inject). Use `json.dumps()` — it emits a properly-escaped JS string literal, and FastHTML's attribute escaping handles the surrounding quotes:
+
+  ```python
+  # ✅ tag="it's"  →  setTag("it&#39;s")  (browser-decodes to valid setTag("it's"))
+  **{"x-on:click": f"setTag({json.dumps(tag)})"}
+  # ❌  setTag('it's')  — the apostrophe ends the JS string; the click throws / injects
+  **{"x-on:click": f"setTag('{tag}')"}
+  ```
+
+  Only **dynamic** values need this — static literals you control (e.g. `f"filterPreset = '{preset}'"` where `preset` is a hardcoded `"all"`/`"overdue"`) are safe as-is.
+
+⚠️ **A colon/`@` Alpine directive written as an underscore-kwarg renders DEAD, silently.** `x_on_click="open()"` → `x-on-click="open()"`, which Alpine never binds — no error, the click just does nothing. Always use the splat form for colon/`@`/dot attrs. Detect regressions: `grep -rn "x_on_\|x_bind_" ui/ adapters/inbound/`.
+
 ⚠️ **Timing caveat:** that `# type: ignore[arg-type]` is only valid where mypy `arg-type` is **enabled** for the module (per-module `enable_error_code` in `pyproject.toml`). On a tree where `arg-type` is still globally disabled, the ignore is flagged `[unused-ignore]` (`warn_unused_ignores = true`) — so add it **together with** the per-module enable, never before. See `docs/patterns/ANY_USAGE_POLICY.md` § FastHTML boundary surfaces.
 
 ---
