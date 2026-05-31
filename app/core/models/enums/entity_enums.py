@@ -964,6 +964,7 @@ class Domain(StrEnum):
     PRINCIPLES = "principles"
     GOALS = "goals"
     CHOICES = "choices"
+    TRANSCRIPTION = "transcription"  # Audio→text (Deepgram); valid search facet
     SYSTEM = "system"
     ALL = "all"  # Special case for cross-domain operations
 

@@ -83,9 +83,10 @@ class FacetedQueryBuilder:
         try:
             # Convert FacetSetSchema to FacetSet if needed
             if isinstance(facets, FacetSetSchema):
-                # FacetSetRequest.domain is a Literal that includes "transcription",
-                # which is not an Entity/search Domain — from_string maps it (and any
-                # non-Domain value) to None, i.e. no domain facet.
+                # FacetSetRequest.domain is a string Literal; map it to the Domain enum.
+                # All of its values (incl. "transcription") are Domain members, so the
+                # domain facet (label + `domain = $domain` constraint) is preserved;
+                # from_string returns None only for a genuinely unknown value.
                 facet_set = FacetSet(
                     domain=Domain.from_string(facets.domain) if facets.domain else None,
                     level=facets.level,
