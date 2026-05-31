@@ -243,7 +243,6 @@ class FacetDetector:
             DomainKeywords(["habit", "routine", "daily", "practice"], "habits"),
             DomainKeywords(["event", "meeting", "schedule", "calendar"], "events"),
             DomainKeywords(["goal", "objective", "target", "achieve"], "goals"),
-            DomainKeywords(["expense", "budget", "money", "financial"], "finance"),
         ]
 
         # Learning level keywords

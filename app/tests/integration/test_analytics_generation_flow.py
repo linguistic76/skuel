@@ -59,7 +59,6 @@ class TestAnalyticsGenerationFlow:
             habits_service=None,
             goals_service=None,
             events_service=None,
-            finance_service=None,
             choices_service=None,
             principle_service=None,
             content_enrichment=None,  # Changed from journals_service to match constructor
@@ -327,7 +326,6 @@ class TestAnalyticsGenerationFlow:
             habits_service=None,
             goals_service=None,
             events_service=None,
-            finance_service=None,
             choices_service=None,
             principle_service=None,
             content_enrichment=None,  # Changed from journals_service to match constructor

@@ -1077,7 +1077,6 @@ class AnalyticsDomain(StrEnum):
     HABITS = "habits"
     GOALS = "goals"
     EVENTS = "events"
-    FINANCE = "finance"
     CHOICES = "choices"
     PRINCIPLES = "principles"
 
@@ -1117,14 +1116,6 @@ class AnalyticsDomain(StrEnum):
                 "cancelled_count",
                 "total_hours_scheduled",
                 "events_by_type",
-            ],
-            AnalyticsDomain.FINANCE: [
-                "total_expenses",
-                "total_income",
-                "net_balance",
-                "expenses_by_category",
-                "budget_adherence",
-                "avg_daily_expense",
             ],
             AnalyticsDomain.CHOICES: [
                 "total_choices",

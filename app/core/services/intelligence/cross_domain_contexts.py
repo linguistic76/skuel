@@ -372,66 +372,6 @@ class PrincipleCrossContext:
 
 
 @dataclass(frozen=True)
-class FinanceCrossContext:
-    """
-    Typed cross-domain context for finance/expenses.
-
-    Contains UIDs of related entities:
-    - supporting_goal_uids: Goals this expense supports
-    - supporting_habit_uids: Habits this expense enables
-    - knowledge_investment_uids: Knowledge investments (courses, books)
-
-    Usage:
-        context = FinanceCrossContext.from_dict(context_dict)
-        if context.is_learning_investment():
-            print("This is a learning investment")
-    """
-
-    supporting_goal_uids: list[str] = field(default_factory=list)
-    supporting_habit_uids: list[str] = field(default_factory=list)
-    knowledge_investment_uids: list[str] = field(default_factory=list)
-    supporting_task_uids: list[str] = field(default_factory=list)
-
-    # Alias properties for simpler access patterns
-    @property
-    def goal_uids(self) -> list[str]:
-        """Alias for supporting_goal_uids."""
-        return self.supporting_goal_uids
-
-    @property
-    def task_uids(self) -> list[str]:
-        """Alias for supporting_task_uids."""
-        return self.supporting_task_uids
-
-    @property
-    def knowledge_uids(self) -> list[str]:
-        """Alias for knowledge_investment_uids."""
-        return self.knowledge_investment_uids
-
-    @classmethod
-    def from_dict(cls, context_dict: dict[str, Any]) -> FinanceCrossContext:
-        """Extract typed context from untyped dict."""
-        return cls(
-            supporting_goal_uids=context_dict.get("goals", []),
-            supporting_habit_uids=context_dict.get("habits", []),
-            knowledge_investment_uids=context_dict.get("knowledge_investments", []),
-            supporting_task_uids=context_dict.get("tasks", []),
-        )
-
-    def is_goal_supporting(self) -> bool:
-        """Check if expense supports goals."""
-        return bool(self.supporting_goal_uids)
-
-    def is_learning_investment(self) -> bool:
-        """Check if expense is a learning investment."""
-        return bool(self.knowledge_investment_uids)
-
-    def is_lifestyle_supporting(self) -> bool:
-        """Check if expense supports habits/lifestyle."""
-        return bool(self.supporting_habit_uids)
-
-
-@dataclass(frozen=True)
 class KnowledgeCrossContext:
     """
     Typed cross-domain context for knowledge units.
@@ -491,6 +431,5 @@ CrossDomainContext = (
     | EventCrossContext
     | ChoiceCrossContext
     | PrincipleCrossContext
-    | FinanceCrossContext
     | KnowledgeCrossContext
 )
