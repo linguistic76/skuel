@@ -186,34 +186,8 @@ class CrossDomainBackend:
     # ANALYTICS — CrossDomainAnalyticsService methods
     # ====================================================================
 
-    async def upsert_financial_analytics(
-        self, user_uid: str, amount: float, category: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Upsert FinancialAnalytics node and SPENT_IN_CATEGORY edge."""
-        return await self.executor.execute_query(
-            """
-            MERGE (analytics:FinancialAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.total_expenses = $amount,
-                analytics.expense_count = 1,
-                analytics.first_expense_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.total_expenses = analytics.total_expenses + $amount,
-                analytics.expense_count = analytics.expense_count + 1,
-                analytics.last_expense_at = datetime($occurred_at)
-
-            WITH analytics
-            MERGE (analytics)-[r:SPENT_IN_CATEGORY {category: $category}]->(cat:ExpenseCategory {name: $category})
-            ON CREATE SET r.total_amount = $amount, r.count = 1
-            ON MATCH SET r.total_amount = r.total_amount + $amount, r.count = r.count + 1
-            """,
-            {
-                "user_uid": user_uid,
-                "amount": amount,
-                "category": category,
-                "occurred_at": occurred_at,
-            },
-        )
+    # NOTE: upsert_financial_analytics removed (ADR-052 Phase 5) — native expense
+    # module demolished; no FinancialAnalytics / SPENT_IN_CATEGORY nodes are built.
 
     async def upsert_learning_velocity(
         self, user_uid: str, mastery_score: float, occurred_at: str
@@ -314,16 +288,8 @@ class CrossDomainBackend:
             {"user_uid": user_uid, "start_date": start_date},
         )
 
-    async def get_spending_by_category(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get spending breakdown by category from FinancialAnalytics."""
-        return await self.executor.execute_query(
-            """
-            MATCH (analytics:FinancialAnalytics {user_uid: $user_uid})-[r:SPENT_IN_CATEGORY]->(cat:ExpenseCategory)
-            RETURN cat.name as category, r.total_amount as amount, r.count as count
-            ORDER BY r.total_amount DESC
-            """,
-            {"user_uid": user_uid},
-        )
+    # NOTE: get_spending_by_category removed (ADR-052 Phase 5) — native expense
+    # module demolished; no FinancialAnalytics nodes to read.
 
     async def get_journal_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]:
         """Get JournalAnalytics node for mood analysis."""
@@ -335,17 +301,8 @@ class CrossDomainBackend:
             {"user_uid": user_uid},
         )
 
-    async def get_financial_goal_with_expenses(self, goal_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get goal with linked expenses via SUPPORTS_GOAL."""
-        return await self.executor.execute_query(
-            """
-            MATCH (goal:Goal {uid: $goal_uid})
-            OPTIONAL MATCH (goal)<-[:SUPPORTS_GOAL]-(expense:Expense)
-            WITH goal, collect(expense) as expenses, sum(expense.amount) as total
-            RETURN goal, expenses, total
-            """,
-            {"goal_uid": goal_uid},
-        )
+    # NOTE: get_financial_goal_with_expenses removed (ADR-052 Phase 5) — native
+    # expense module demolished; no Expense nodes link to goals.
 
     async def get_productivity_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]:
         """Get ProductivityAnalytics node for task completion metrics."""

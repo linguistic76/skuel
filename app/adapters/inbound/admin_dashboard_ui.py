@@ -126,10 +126,10 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                     ButtonLink(
                         Div(
                             Span("💰", cls="text-2xl"),
-                            Span("Finance Dashboard", cls="font-medium"),
+                            Span("Finance Invoices", cls="font-medium"),
                             cls="flex items-center gap-3",
                         ),
-                        href="/finance",
+                        href="/finance/invoices",
                         variant=ButtonT.ghost,
                         cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
                     ),

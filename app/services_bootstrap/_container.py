@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
     from core.services.events_service import EventsService
+    from core.services.finance_service import FinanceService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.ingestion.user_upload_service import UserUploadService
@@ -97,7 +98,6 @@ from core.ports import (
     EventBusOperations,
     ExerciseOperations,
     ExerciseReportOperations,
-    FinancesOperations,
     FormSubmissionOperations,
     FormTemplateOperations,
     GoalTaskGeneratorOperations,
@@ -147,7 +147,7 @@ class Services:
     # ========================================================================
     # FINANCE (1) - NOT an Activity Domain (standalone facade)
     # ========================================================================
-    finance: FinancesOperations | None = None
+    finance: "FinanceService | None" = None
 
     # ========================================================================
     # CURRICULUM DOMAINS (3) - PS, KU, LP

@@ -53,9 +53,6 @@ Calendar Events:
 Forms:
     FormTemplateCreated, FormTemplateUpdated, FormTemplateDeleted, FormSubmitted, FormSubmissionDeleted
 
-Finance:
-    ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid,
-
 User:
     UserContextInvalidated, UserPreferencesChanged, UserDeleted,
 
@@ -123,14 +120,6 @@ from core.events.embedding_events import (
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
-)
-
-# Finance events
-from core.events.finance_events import (
-    ExpenseCreated,
-    ExpenseDeleted,
-    ExpensePaid,
-    ExpenseUpdated,
 )
 
 # Form events
@@ -279,11 +268,6 @@ __all__ = [
     "ChoiceUpdated",
     "DomainEvent",
     "EventMetadata",
-    # Finance
-    "ExpenseCreated",
-    "ExpenseDeleted",
-    "ExpensePaid",
-    "ExpenseUpdated",
     # Forms
     "FormSubmissionDeleted",
     "FormSubmitted",
@@ -466,11 +450,6 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "form_template.deleted": FormTemplateDeleted,
     "form.submitted": FormSubmitted,
     "form_submission.deleted": FormSubmissionDeleted,
-    # Finance
-    "expense.created": ExpenseCreated,
-    "expense.updated": ExpenseUpdated,
-    "expense.deleted": ExpenseDeleted,
-    "expense.paid": ExpensePaid,
     # UserEntry (ADR-054)
     "user_entry.created": UserEntryCreated,
     "user_entry.processing_started": UserEntryProcessingStarted,
@@ -666,13 +645,6 @@ FORM_EVENTS = [
     FormSubmissionDeleted,
 ]
 
-FINANCE_EVENTS = [
-    ExpenseCreated,
-    ExpenseUpdated,
-    ExpenseDeleted,
-    ExpensePaid,
-]
-
 USER_ENTRY_EVENTS = [
     UserEntryCreated,
     UserEntryProcessingStarted,
@@ -701,7 +673,6 @@ ALL_EVENTS = (
     + CHOICE_EVENTS
     + CALENDAR_EVENT_EVENTS
     + FORM_EVENTS
-    + FINANCE_EVENTS
     + USER_ENTRY_EVENTS
     + TRANSCRIPTION_EVENTS
 )

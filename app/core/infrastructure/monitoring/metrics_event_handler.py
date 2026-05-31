@@ -66,11 +66,6 @@ class MetricsEventHandler:
         self.event_bus.subscribe(ChoiceCreated, self._on_choice_created)
         self.event_bus.subscribe(PrincipleCreated, self._on_principle_created)
 
-        # Finance domain (1)
-        from core.events.finance_events import ExpenseCreated
-
-        self.event_bus.subscribe(ExpenseCreated, self._on_expense_created)
-
         # Content/Processing domains (2)
         # NOTE: JournalCreated subscription REMOVED (February 2026) - Journal merged into Reports
         # Journal creation tracked via SubmissionCreated with entity_type="journal"
@@ -124,11 +119,6 @@ class MetricsEventHandler:
     async def _on_principle_created(self, event: PrincipleCreated) -> None:
         """Track principle creation."""
         self.prometheus_metrics.domains.entities_created.labels(entity_type="principle").inc()
-
-    async def _on_expense_created(self, event) -> None:
-        """Track expense creation."""
-
-        self.prometheus_metrics.domains.entities_created.labels(entity_type="expense").inc()
 
     # NOTE: _on_journal_created REMOVED (February 2026) - Journal merged into Reports
     # Journal creation tracked via _on_report_submitted with entity_type="journal"

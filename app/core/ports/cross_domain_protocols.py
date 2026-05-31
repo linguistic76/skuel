@@ -35,10 +35,6 @@ class CrossDomainBackendOperations(Protocol):
     # ANALYTICS — Event-driven analytics node CRUD
     # ================================================================
 
-    async def upsert_financial_analytics(
-        self, user_uid: str, amount: float, category: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]: ...
-
     async def upsert_learning_velocity(
         self, user_uid: str, mastery_score: float, occurred_at: str
     ) -> Result[list[dict[str, Any]]]: ...
@@ -61,13 +57,7 @@ class CrossDomainBackendOperations(Protocol):
         self, user_uid: str, start_date: str
     ) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_spending_by_category(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
-
     async def get_journal_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
-
-    async def get_financial_goal_with_expenses(
-        self, goal_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_productivity_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
 

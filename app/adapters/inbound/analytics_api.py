@@ -11,7 +11,6 @@ Event-driven analytics API for querying live metrics.
 
 Endpoints:
 - GET /api/analytics/learning-velocity
-- GET /api/analytics/spending-patterns
 - GET /api/analytics/mood-analysis
 - GET /api/analytics/productivity
 - GET /api/analytics/habit-consistency
@@ -93,48 +92,8 @@ def register_analytics_routes(app, services):
     # ========================================================================
     # SPENDING PATTERNS ANALYTICS
     # ========================================================================
-
-    @rt("/api/analytics/spending-patterns")
-    @boundary_handler()
-    async def spending_patterns(request):
-        """
-        Get spending pattern analysis for user.
-
-        Query params:
-            user_uid: User identifier (required)
-            days_back: Number of days to analyze (default: 30)
-
-        Returns:
-            SpendingPatternAnalysis with:
-            - spending_by_domain (category breakdown)
-            - top_spending_domain
-            - avg_expense_amount
-            - expense_frequency_per_week
-        """
-        user_uid = require_authenticated_user(request)
-
-        days_back = parse_int_query_param(
-            request.query_params, "days_back", 30, minimum=1, maximum=365
-        )
-
-        result = await analytics.get_spending_patterns(user_uid, days_back)
-
-        if result.is_ok:
-            analysis = result.value
-            return Result.ok(
-                {
-                    "user_uid": analysis.user_uid,
-                    "period_days": analysis.period_days,
-                    "spending_by_domain": analysis.spending_by_domain,
-                    "top_spending_domain": analysis.top_spending_domain,
-                    "avg_expense_amount": analysis.avg_expense_amount,
-                    "expense_frequency_per_week": analysis.expense_frequency_per_week,
-                    "highest_expense_day": analysis.highest_expense_day,
-                    "generated_at": datetime.now().isoformat(),
-                }
-            )
-
-        return result
+    # REMOVED (ADR-052 Phase 5): /api/analytics/spending-patterns — the native
+    # expense module was demolished, so there is no spending data to aggregate.
 
     # ========================================================================
     # MOOD ANALYSIS ANALYTICS
@@ -285,4 +244,4 @@ def register_analytics_routes(app, services):
 
         return await analytics.get_combined_dashboard(user_uid, days_back)
 
-    logger.info("✅ Analytics API routes registered (6 endpoints)")
+    logger.info("✅ Analytics API routes registered (5 endpoints)")

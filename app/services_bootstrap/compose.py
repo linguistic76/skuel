@@ -298,7 +298,6 @@ async def compose_services(
         habits_backend = backends["habits_backend"]
         habit_completions_backend = backends["habit_completions_backend"]
         goals_backend = backends["goals_backend"]
-        finance_backend = backends["finance_backend"]
         invoice_backend = backends["invoice_backend"]
         transcription_backend = backends["transcription_backend"]
         users_backend = backends["users_backend"]
@@ -512,7 +511,6 @@ async def compose_services(
 
         # Create core services (Finance, Transcription only - Activity Domains in activity_services)
         core_services = _create_core_services(
-            finance_backend=finance_backend,
             invoice_backend=invoice_backend,
             transcription_backend=transcription_backend,
             user_service=user_service,

@@ -16,11 +16,6 @@ T = TypeVar("T")
 
 # Auto-discovered domain mappings
 DOMAIN_MAPPINGS = {
-    "finance": {
-        "class": "ExpensePure",
-        "label": "Expense",
-        "import": "core.models.finance.finance_pure",
-    },
     "progress": {"class": "Progress", "label": "Progress", "import": "core.models.progress"},
     "knowledge": {
         "class": "Curriculum",
