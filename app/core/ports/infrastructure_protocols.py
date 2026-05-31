@@ -243,12 +243,24 @@ class UserOperations(
 
 
 @runtime_checkable
-class SchemaOperations(Protocol):
-    """Database schema operations."""
+class SchemaQueryExecutor(Protocol):
+    """Minimal raw-query slice consumed by Neo4jSchemaService.
+
+    The schema service implements its own introspection (labels, properties,
+    indexes, constraints) on top of a single primitive: raw query execution.
+    Narrowing the constructor dependency to this one method lets any adapter
+    exposing ``execute_query`` drive the service without satisfying the wider
+    six-method ``SchemaOperations`` contract. See: BACKEND_OPERATIONS_ISP.md.
+    """
 
     async def execute_query(self, query: str, params: Metadata | None = None) -> list[Metadata]:
         """Execute a graph query for schema introspection."""
         ...
+
+
+@runtime_checkable
+class SchemaOperations(SchemaQueryExecutor, Protocol):
+    """Database schema operations."""
 
     async def get_node_labels(self) -> list[str]:
         """Get all node labels in the database."""
