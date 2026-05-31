@@ -71,12 +71,6 @@ class SearchIntelligenceService:
                 "target",
                 "achieve",
                 "milestone",
-                "finance",
-                "expense",
-                "budget",
-                "money",
-                "spending",
-                "financial",
             ],
         )
 

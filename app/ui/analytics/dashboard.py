@@ -33,7 +33,6 @@ def render_analytics_dashboard(request: Any) -> Any:
                             Option("Habits", value="habits"),
                             Option("Goals", value="goals"),
                             Option("Events", value="events"),
-                            Option("Finance", value="finance"),
                             Option("Choices", value="choices"),
                             Option("Principles", value="principles"),
                             name="analytics_domain",

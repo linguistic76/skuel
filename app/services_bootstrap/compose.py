@@ -1160,7 +1160,6 @@ async def compose_services(
             habits_service=activity_services["habits"],
             goals_service=activity_services["goals"],
             events_service=activity_services["events"],
-            finance_service=core_services["finance"],
             choices_service=activity_services["choices"],
             principle_service=activity_services["principles"],
             content_enrichment=content_enrichment,  # ✅ ContentEnrichmentService - Layer 2 reporting

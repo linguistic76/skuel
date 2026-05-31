@@ -21,7 +21,6 @@ def render_metrics_cards(report: Any) -> Any:
         AnalyticsDomain.HABITS: render_habits_metrics,
         AnalyticsDomain.GOALS: render_goals_metrics,
         AnalyticsDomain.EVENTS: render_events_metrics,
-        AnalyticsDomain.FINANCE: render_finance_metrics,
         AnalyticsDomain.CHOICES: render_choices_metrics,
     }
 
@@ -141,26 +140,6 @@ def render_events_metrics(metrics: dict) -> Any:
                     value=str(metrics.get("total_hours_scheduled", 0)),
                 ),
             ]
-        ),
-    )
-
-
-def render_finance_metrics(metrics: dict) -> Any:
-    """Render finance metrics."""
-    net_balance = metrics.get("net_balance", 0)
-
-    return Div(
-        H3("Finance Metrics", cls="text-lg font-semibold mb-4"),
-        StatsGrid(
-            [
-                StatItem(
-                    label="Total Expenses",
-                    value=f"${metrics.get('total_expenses', 0):,.2f}",
-                ),
-                StatItem(label="Total Income", value=f"${metrics.get('total_income', 0):,.2f}"),
-                StatItem(label="Net Balance", value=f"${net_balance:,.2f}"),
-            ],
-            cols=3,
         ),
     )
 

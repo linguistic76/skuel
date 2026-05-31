@@ -93,9 +93,6 @@ class AnalyticsAggregationService:
         habits_metrics = await self.metrics.calculate_habit_metrics(user_uid, start_date, end_date)
         goals_metrics = await self.metrics.calculate_goal_metrics(user_uid, start_date, end_date)
         events_metrics = await self.metrics.calculate_event_metrics(user_uid, start_date, end_date)
-        finance_metrics = await self.metrics.calculate_finance_metrics(
-            user_uid, start_date, end_date
-        )
         choices_metrics = await self.metrics.calculate_choice_metrics(
             user_uid, start_date, end_date
         )
@@ -123,7 +120,6 @@ class AnalyticsAggregationService:
             "habits": habits_metrics,
             "goals": goals_metrics,
             "events": events_metrics,
-            "finance": finance_metrics,
             "choices": choices_metrics,
             "principles": principles_metrics,
         }
@@ -248,7 +244,6 @@ class AnalyticsAggregationService:
         Detect patterns and relationships across domains.
 
         Examples:
-        - Do high-expense periods correlate with low task completion?
         - Are choices aligned with principles?
         - Do goals have supporting habits?
         """
@@ -259,9 +254,6 @@ class AnalyticsAggregationService:
         habits_metrics = await self.metrics.calculate_habit_metrics(user_uid, start_date, end_date)
         goals_metrics = await self.metrics.calculate_goal_metrics(user_uid, start_date, end_date)
         events_metrics = await self.metrics.calculate_event_metrics(user_uid, start_date, end_date)
-        finance_metrics = await self.metrics.calculate_finance_metrics(
-            user_uid, start_date, end_date
-        )
         choices_metrics = await self.metrics.calculate_choice_metrics(
             user_uid, start_date, end_date
         )
@@ -271,9 +263,6 @@ class AnalyticsAggregationService:
 
         # Detect patterns
         return {
-            "expense_productivity_correlation": self._correlate_expenses_productivity(
-                finance_metrics, tasks_metrics
-            ),
             "choice_principle_alignment": self._analyze_choice_principle_alignment(
                 choices_metrics, principles_metrics
             ),
@@ -287,7 +276,6 @@ class AnalyticsAggregationService:
                     "habits": habits_metrics,
                     "goals": goals_metrics,
                     "events": events_metrics,
-                    "finance": finance_metrics,
                     "choices": choices_metrics,
                     "principles": principles_metrics,
                 }
@@ -318,12 +306,6 @@ class AnalyticsAggregationService:
         if "total_hours_scheduled" in domains["events"]:
             scores.append(min(domains["events"]["total_hours_scheduled"] * 2, 100))
 
-        # Finance activity (0-100 based on expense count)
-        if "total_expenses" in domains["finance"]:
-            # Use non-zero expenses as activity indicator
-            expense_activity = 50 if domains["finance"]["total_expenses"] > 0 else 0
-            scores.append(expense_activity)
-
         # Choices activity (0-100 based on choice count)
         if "total_choices" in domains["choices"]:
             scores.append(min(domains["choices"]["total_choices"] * 25, 100))
@@ -349,8 +331,6 @@ class AnalyticsAggregationService:
                 activity_score = metrics.get("total_active", 0) * 3
             elif domain_name == Domain.EVENTS.value:
                 activity_score = metrics.get("total_count", 0)
-            elif domain_name == Domain.FINANCE.value:
-                activity_score = 10 if metrics.get("total_expenses", 0) > 0 else 0
             elif domain_name == Domain.CHOICES.value:
                 activity_score = metrics.get("total_choices", 0) * 2
             elif domain_name == Domain.PRINCIPLES.value:
@@ -368,17 +348,6 @@ class AnalyticsAggregationService:
     def _detect_basic_patterns(self, domains: dict[str, dict]) -> dict[str, Any]:
         """Detect basic cross-domain patterns"""
         patterns = {}
-
-        # Check if high expenses with low task completion
-        tasks_rate = domains["tasks"].get("completion_rate", 0)
-        expenses = domains["finance"].get("total_expenses", 0)
-
-        if expenses > 1000 and tasks_rate < 50:
-            patterns["high_expenses_low_productivity"] = {
-                "detected": True,
-                "expense_amount": expenses,
-                "task_completion_rate": tasks_rate,
-            }
 
         # Check principle-choice alignment
         principles_count = domains["principles"].get("active_principles", 0)
@@ -450,21 +419,6 @@ class AnalyticsAggregationService:
             opportunities.append("Align choices more closely with core principles")
 
         return opportunities
-
-    def _correlate_expenses_productivity(
-        self, finance_metrics: dict, tasks_metrics: dict
-    ) -> dict[str, Any]:
-        """Analyze correlation between expenses and productivity"""
-        return {
-            "correlation": "negative"
-            if (
-                finance_metrics.get("total_expenses", 0) > 1000
-                and tasks_metrics.get("completion_rate", 0) < 50
-            )
-            else "neutral",
-            "expense_level": finance_metrics.get("total_expenses", 0),
-            "productivity_level": tasks_metrics.get("completion_rate", 0),
-        }
 
     def _analyze_choice_principle_alignment(
         self, choices_metrics: dict, principles_metrics: dict

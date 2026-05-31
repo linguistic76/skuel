@@ -20,7 +20,6 @@ from core.services.intelligence.cross_domain_contexts import (
     ChoiceCrossContext,
     CrossDomainContext,
     EventCrossContext,
-    FinanceCrossContext,
     GoalCrossContext,
     HabitCrossContext,
     KnowledgeCrossContext,
@@ -32,7 +31,6 @@ from core.services.intelligence.metrics_calculator import MetricsCalculator
 from core.services.intelligence.metrics_calculators import (
     calculate_choice_metrics,
     calculate_event_metrics,
-    calculate_finance_metrics,
     calculate_goal_metrics,
     calculate_habit_metrics,
     calculate_knowledge_metrics,
@@ -75,7 +73,6 @@ __all__ = [
     "ChoiceCrossContext",
     "CrossDomainContext",
     "EventCrossContext",
-    "FinanceCrossContext",
     "GoalCrossContext",
     "HabitCrossContext",
     "KnowledgeCrossContext",
@@ -84,7 +81,6 @@ __all__ = [
     # Metrics calculators
     "calculate_choice_metrics",
     "calculate_event_metrics",
-    "calculate_finance_metrics",
     "calculate_goal_metrics",
     "calculate_habit_metrics",
     "calculate_knowledge_metrics",

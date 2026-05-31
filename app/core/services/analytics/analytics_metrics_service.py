@@ -80,7 +80,6 @@ class AnalyticsMetricsService:
         habits_service=None,
         goals_service=None,
         events_service=None,
-        finance_service=None,
         choices_service=None,
         principle_service=None,
         content_enrichment=None,
@@ -96,7 +95,6 @@ class AnalyticsMetricsService:
             habits_service: HabitsService facade (Layer 1)
             goals_service: GoalsService facade (Layer 1)
             events_service: EventsService facade (Layer 1)
-            finance_service: FinanceService facade (Layer 1)
             choices_service: ChoicesService facade (Layer 1)
             principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2)
@@ -109,7 +107,6 @@ class AnalyticsMetricsService:
         self.habits = habits_service
         self.goals = goals_service
         self.events = events_service
-        self.finance = finance_service
         self.choices = choices_service
         self.principles = principle_service
 
@@ -437,72 +434,6 @@ class AnalyticsMetricsService:
     # ========================================================================
     # FINANCE METRICS
     # ========================================================================
-
-    async def calculate_finance_metrics(
-        self, user_uid: UserUID, start_date: date, end_date: date
-    ) -> Result[dict[str, Any]]:
-        """
-        Calculate statistical metrics for finance.
-
-        Refactoring:
-        Uses unified query pattern with Cypher-level filtering.
-        """
-        if not self.finance:
-            return Result.fail(
-                Errors.system(
-                    message="Finance service not available", operation="calculate_finance_metrics"
-                )
-            )
-
-        # Use unified API for Cypher-level filtering
-        expenses_result = await self.finance.get_user_items_in_range(
-            user_uid=user_uid,
-            start_date=start_date,
-            end_date=end_date,
-            include_completed=True,  # Include all statuses (no status filtering for expenses)
-        )
-
-        if expenses_result.is_error or not expenses_result.value:
-            return Result.ok(
-                {
-                    "total_expenses": 0.0,
-                    "total_income": 0.0,
-                    "net_balance": 0.0,
-                    "expenses_by_category": {},
-                    "budget_adherence": 0.0,
-                    "avg_daily_expense": 0.0,
-                }
-            )
-
-        expenses = expenses_result.value  # Extract list from Result
-
-        # Calculate metrics
-        total_expenses = sum(e.amount for e in expenses if e.amount > 0)
-        total_income = sum(abs(e.amount) for e in expenses if e.amount < 0)
-
-        # Expenses by category
-        expenses_by_category: dict[str, float] = {}
-        for expense in expenses:
-            if expense.amount > 0:
-                category = getattr(expense, "category", "Uncategorized")
-                expenses_by_category[category] = (
-                    expenses_by_category.get(category, 0.0) + expense.amount
-                )
-
-        # Calculate average daily expense
-        days_in_period = (end_date - start_date).days + 1
-        avg_daily_expense = total_expenses / days_in_period if days_in_period > 0 else 0.0
-
-        return Result.ok(
-            {
-                "total_expenses": round(total_expenses, 2),
-                "total_income": round(total_income, 2),
-                "net_balance": round(total_income - total_expenses, 2),
-                "expenses_by_category": {k: round(v, 2) for k, v in expenses_by_category.items()},
-                "budget_adherence": 0.0,  # Would need budget data to calculate
-                "avg_daily_expense": round(avg_daily_expense, 2),
-            }
-        )
 
     # ========================================================================
     # CHOICES METRICS
