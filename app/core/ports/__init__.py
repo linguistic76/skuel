@@ -147,7 +147,6 @@ from .curriculum_protocols import (
 from .domain_protocols import (
     ChoicesOperations,
     EventsOperations,
-    FinancesOperations,
     GoalsOperations,
     HabitsOperations,
     # NOTE: JournalsOperations REMOVED (February 2026) - Journal merged into Reports
@@ -353,7 +352,6 @@ __all__ = [
     "EventBusOperations",
     "EventsSearchOperations",
     "EventsOperations",
-    "FinancesOperations",
     "IngestionOperations",
     # ========== PYDANTIC CONSTRAINT PROTOCOLS (7) ==========
     "GeConstraint",

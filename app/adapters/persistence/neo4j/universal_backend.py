@@ -19,7 +19,7 @@ BACKENDS IN USE (services_bootstrap.py)
     UserEntryBackend[UserEntry]
 
 **Generic backends (UniversalNeo4jBackend[T]):**
-    ExpensePure, InvoicePure, ActivityReport
+    InvoicePure, ActivityReport
     HabitCompletion, Transcription, PrincipleReflection, UserProgress, Askesis
 
 NOT USING THIS BACKEND
@@ -303,8 +303,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             )
 
             # Non-Entity backends — single label, no base_label
-            finance_backend = UniversalNeo4jBackend[ExpensePure](
-                driver, NeoLabel.EXPENSE, ExpensePure
+            invoice_backend = UniversalNeo4jBackend[InvoicePure](
+                driver, NeoLabel.INVOICE, InvoicePure
             )
 
             # Skip validation for edge cases (e.g., tests with dynamic labels)

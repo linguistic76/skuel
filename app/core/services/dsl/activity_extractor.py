@@ -431,7 +431,7 @@ class ActivityExtractorService:
         events_service: Any = None,  # EventsCoreService
         principles_service: Any = None,  # PrinciplesCoreService
         choices_service: Any = None,  # ChoicesCoreService
-        finance_service: Any = None,  # FinanceCoreService
+        finance_service: Any = None,  # optional create-capable finance service
         # Curriculum Domains (3)
         ku_service: Any = None,  # PsCoreService
         ps_service: Any = None,  # PsCoreService
@@ -1068,8 +1068,9 @@ class ActivityExtractorService:
 
         finance_dict = convert_result.value
 
-        # Create expense via service
-        # Note: Adapt this to your FinanceCoreService interface
+        # Create expense via service (DSL finance path; the native expense service
+        # was removed in ADR-052 Phase 5, so this degrades to a no-op error unless a
+        # create-capable finance service is injected).
         if getattr(self.finance_service, "create_expense", None):
             create_result = await self.finance_service.create_expense(finance_dict, user_uid)
         elif getattr(self.finance_service, "create", None):

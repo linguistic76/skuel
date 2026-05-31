@@ -41,7 +41,6 @@ def create_all_backends(
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.askesis.askesis import Askesis
     from core.models.event.event import Event
-    from core.models.finance.finance_pure import ExpensePure
     from core.models.finance.invoice import InvoicePure
     from core.models.goal.goal import Goal
     from core.models.habit.completion import HabitCompletion
@@ -86,9 +85,6 @@ def create_all_backends(
         Goal,
         prometheus_metrics=prometheus_metrics,
         base_label=NeoLabel.ENTITY,
-    )
-    finance_backend = UniversalNeo4jBackend[ExpensePure](
-        driver, NeoLabel.EXPENSE, ExpensePure, prometheus_metrics=prometheus_metrics
     )
     invoice_backend = UniversalNeo4jBackend[InvoicePure](
         driver, NeoLabel.INVOICE, InvoicePure, prometheus_metrics=prometheus_metrics
@@ -239,7 +235,6 @@ def create_all_backends(
         "habits_backend": habits_backend,
         "habit_completions_backend": habit_completions_backend,
         "goals_backend": goals_backend,
-        "finance_backend": finance_backend,
         "invoice_backend": invoice_backend,
         "transcription_backend": transcription_backend,
         "users_backend": users_backend,

@@ -46,7 +46,6 @@ The cache is invalidated IMMEDIATELY when any of these domain events occur:
     - EventCreated, EventCompleted, EventUpdated, EventDeleted
     - ChoiceCreated, ChoiceUpdated, ChoiceDeleted
     - PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged
-    - ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid
     - JournalCreated, JournalUpdated, JournalDeleted
     - KnowledgeCreated, LearningPathStarted, LearningPathCompleted
 
@@ -208,7 +207,6 @@ class UserContextCache:
 #   - PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged
 #   - ChoiceCreated, ChoiceUpdated, ChoiceDeleted
 #   - CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, etc.
-#   - ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid
 #   - JournalCreated, JournalUpdated, JournalDeleted
 #   - KnowledgeCreated, LearningPathStarted
 

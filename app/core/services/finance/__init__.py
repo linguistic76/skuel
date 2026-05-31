@@ -2,30 +2,19 @@
 Finance Services Module
 ======================
 
-Standalone bookkeeping services following Core + Facade pattern.
+Standalone bookkeeping services. After the ADR-052 Phase 5 demolition the
+native expense/budget/reporting/categories module is gone; only the invoice
+module survives (rendered to PDF, with a Firefly III ledger sidecar).
 
-Purpose: Simple expense/income tracking, budgets, reports, invoices.
-Finance is a standalone domain - no cross-domain intelligence or
-unified architecture complexity.
-
-Core Service:
-- FinanceCoreService: Basic CRUD operations for expenses with event publishing
-
-Specialized Sub-Services:
-- FinanceBudgetService: Budget management
-- FinanceReportingService: Reports and summaries
-- FinanceInvoiceService: Invoice management
+Sub-Service:
+- FinanceInvoiceService: Invoice CRUD + PDF generation
 
 Facade Service:
-- FinanceService: Orchestrates all finance operations
+- FinanceService (core.services.finance_service): wraps FinanceInvoiceService
 """
 
-from core.services.finance.finance_budget_service import FinanceBudgetService
-from core.services.finance.finance_core_service import FinanceCoreService
-from core.services.finance.finance_reporting_service import FinanceReportingService
+from core.services.finance.finance_invoice_service import FinanceInvoiceService
 
 __all__ = [
-    "FinanceBudgetService",
-    "FinanceCoreService",
-    "FinanceReportingService",
+    "FinanceInvoiceService",
 ]

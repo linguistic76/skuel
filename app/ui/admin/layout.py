@@ -20,7 +20,7 @@ ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("System", "/admin/system", "system", icon="⚙️"),
     SidebarItem(
         "Finance",
-        "/finance",
+        "/finance/invoices",
         "finance",
         icon="💰",
         badge_text="→",

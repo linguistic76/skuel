@@ -23,11 +23,6 @@ from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
-from core.models.finance.finance_pure import BudgetPure, ExpensePure
-from core.models.finance.finance_request import (
-    BudgetCreateRequest,
-    ExpenseCreateRequest,
-)
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_request import FormTemplateCreateRequest
 from core.models.goal.goal import Goal
@@ -251,21 +246,8 @@ class ConversionServiceV2:
         """Convert GoalCreateRequest to Goal using generic method."""
         return cls.create_to_pure(schema, Goal, uid, **kwargs)
 
-    # --- Finance Conversions (three-tier migrated) --
-    @classmethod
-    def expense_create_to_pure(
-        cls, schema: ExpenseCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> ExpensePure:
-        """Convert ExpenseCreateRequest to ExpensePure using generic method."""
-        return cls.create_to_pure(schema, ExpensePure, uid, **kwargs)
-
-    @classmethod
-    def budget_create_to_pure(
-        cls, schema: BudgetCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> BudgetPure:
-        """Convert BudgetCreateRequest to BudgetPure using generic method."""
-        return cls.create_to_pure(schema, BudgetPure, uid, **kwargs)
-
+    # NOTE: Finance (expense/budget) conversions REMOVED (ADR-052 Phase 5) — native
+    # expense/budget module demolished; only the invoice module survives.
     # NOTE: Journal conversions REMOVED (February 2026) - Journal merged into Reports
     # NOTE: Transcription conversions REMOVED (February 2026) - Three-tier models deleted
 
@@ -641,8 +623,6 @@ ConversionServiceV2.CONVERTER_REGISTRY = {
     EventCreateRequest: ConversionServiceV2.event_create_to_pure,
     HabitCreateRequest: ConversionServiceV2.habit_create_to_pure,
     GoalCreateRequest: ConversionServiceV2.goal_create_to_pure,
-    ExpenseCreateRequest: ConversionServiceV2.expense_create_to_pure,
-    BudgetCreateRequest: ConversionServiceV2.budget_create_to_pure,
     PrincipleCreateRequest: ConversionServiceV2.principle_create_to_pure,
     ChoiceCreateRequest: ConversionServiceV2.choice_create_to_pure,
     FormTemplateCreateRequest: ConversionServiceV2.formtemplate_create_to_pure,

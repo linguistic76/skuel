@@ -14,12 +14,7 @@ if TYPE_CHECKING:
 
 
 FINANCE_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Dashboard", "/finance", "dashboard", icon="📊"),
-    SidebarItem("Expenses", "/finance/expenses", "expenses", icon="💵"),
     SidebarItem("Invoices", "/finance/invoices", "invoices", icon="📄"),
-    SidebarItem("Budgets", "/finance/budgets", "budgets", icon="📈"),
-    SidebarItem("Reports", "/finance/reports", "reports", icon="📋"),
-    SidebarItem("Analytics", "/finance/analytics", "analytics", icon="🔍"),
 ]
 
 
@@ -48,7 +43,7 @@ async def create_finance_page(
         items=FINANCE_SIDEBAR_ITEMS,
         active=active,
         title="💰 Finance Hub",
-        subtitle="Expenses, budgets & reports",
+        subtitle="Invoices",
         storage_key="finance-sidebar",
         page_title=title,
         request=request,

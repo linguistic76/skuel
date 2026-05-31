@@ -21,7 +21,6 @@ Module Organization:
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - ku_enums: KuCategory
 - askesis_enums: QueryComplexity, IntegrationSuccess
-- finance_enums: ExpenseStatus, PaymentMethod, ExpenseCategory, BudgetPeriod
 - transcription_enums: TranscriptionStatus
 
 Usage:
@@ -61,9 +60,6 @@ from .entity_enums import (
     EntityType,
     NonKuDomain,
 )
-
-# Finance enums (RecurrencePattern intentionally excluded — conflicts with scheduling_enums)
-from .finance_enums import BudgetPeriod, ExpenseCategory, ExpenseStatus, PaymentMethod
 
 # Goal enums
 from .goal_enums import GoalTimeframe, GoalType, HabitEssentiality, MeasurementType
@@ -165,7 +161,6 @@ __all__ = [
     "AnalyticsDomain",
     "AnalysisDepth",
     "BridgeType",
-    "BudgetPeriod",
     "CacheStrategy",
     "ChoiceType",
     "CompletionStatus",
@@ -189,8 +184,6 @@ __all__ = [
     "EntityStatus",
     "EntityType",
     "ErrorSeverity",
-    "ExpenseCategory",
-    "ExpenseStatus",
     "ExtractionMethod",
     "FacetType",
     "FormattingStyle",
@@ -217,7 +210,6 @@ __all__ = [
     "MessageRole",
     "NeoLabel",
     "NonKuDomain",
-    "PaymentMethod",
     "Personality",
     "Pipeline",
     "ReportSource",

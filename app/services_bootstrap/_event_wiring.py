@@ -41,10 +41,6 @@ def _wire_event_subscribers(
         ChoiceMade,
         ChoiceOutcomeRecorded,
         ChoiceUpdated,
-        ExpenseCreated,
-        ExpenseDeleted,
-        ExpensePaid,
-        ExpenseUpdated,
         GoalAbandoned,
         GoalAchieved,
         GoalCreated,
@@ -130,7 +126,7 @@ def _wire_event_subscribers(
     # ── Context invalidation subscriptions ──────────────────────────────────
     # All user-owned domain events guarantee user_uid on the event object.
 
-    # Activity Domain + Finance events (user_uid guaranteed)
+    # Activity Domain events (user_uid guaranteed)
     activity_context_events = [
         # Tasks
         TaskCreated,
@@ -169,11 +165,6 @@ def _wire_event_subscribers(
         CalendarEventCompleted,
         CalendarEventDeleted,
         CalendarEventRescheduled,
-        # Finance
-        ExpenseCreated,
-        ExpenseUpdated,
-        ExpenseDeleted,
-        ExpensePaid,
         # UserEntry processing lifecycle
         UserEntryProcessingStarted,
         UserEntryProcessingCompleted,
@@ -372,17 +363,17 @@ def _wire_event_subscribers(
     event_bus.subscribe(
         CalendarEventCompleted, cross_domain_analytics_service.handle_event_completed
     )
-    event_bus.subscribe(ExpenseCreated, cross_domain_analytics_service.handle_expense_created)
-    event_bus.subscribe(ExpensePaid, cross_domain_analytics_service.handle_expense_paid)
     event_bus.subscribe(GoalCreated, cross_domain_analytics_service.handle_goal_created)
     event_bus.subscribe(KnowledgeMastered, cross_domain_analytics_service.handle_knowledge_mastered)
     event_bus.subscribe(LearningPathCompleted, cross_domain_analytics_service.handle_path_completed)
     # NOTE: JournalCreated subscription REMOVED (February 2026)
     # Journal merged into Reports — cross_domain_analytics needs update in
     # to subscribe to SubmissionCreated and filter for entity_type="journal"
+    # NOTE: ExpenseCreated/ExpensePaid subscriptions REMOVED (ADR-052 Phase 5) —
+    # native expense module demolished.
     logger.info(
-        "✅ CrossDomainAnalyticsService subscribed to 8 event types "
-        "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths)"
+        "✅ CrossDomainAnalyticsService subscribed to 6 event types "
+        "(Tasks, Habits, Events, Goals, Knowledge, Paths)"
     )
 
     # Milestone achievements → Automatic report generation

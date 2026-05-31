@@ -19,15 +19,14 @@ ENTITY TYPE PROTOCOLS
     5. ChoicesOperations[Choice]           - Decisions and outcomes
     6. PrinciplesOperations[Principle]     - Values and alignment
 
-**Finance Domain Protocol (1):**
-    7. FinancesOperations[ExpensePure]     - Expenses and budgets (admin-only, not an Activity Domain)
-
 **Curriculum Domain Protocols (3):**
     8. PsOperations[PathStep]          - PathSteps (ps:)
     9. LpOperations[LearningPath]         - Learning Paths (lp:)
     10. (KU uses BackendOperations directly)
 
 **Removed protocols (historical note):**
+    - FinancesOperations removed May 2026 (ADR-052 Phase 5) — native expense/budget
+      module demolished; invoice module uses the concrete FinanceService facade
     - JournalsOperations removed Feb 2026 — Journal merged into Reports domain
     - MocOperations removed Jan 2026 — MOC is emergent identity, uses PsOperations
     - AnalyticsLifePathService, AnalyticsService — no protocol (internal services)
@@ -74,7 +73,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from core.models.enums import ExpenseCategory
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import (
     BackendOperations,
@@ -93,7 +91,6 @@ from core.ports.query_types import (
     GoalStats,
     GraphContextResult,
     HabitStats,
-    InvoiceStats,
     NextActionResult,
     ParentProgressResult,
     PrincipleStats,
@@ -106,8 +103,6 @@ if TYPE_CHECKING:
 
     from core.models.choice.choice import Choice
     from core.models.event.event import Event
-    from core.models.finance.finance_pure import BudgetPure, ExpensePure
-    from core.models.finance.invoice import InvoicePure
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
@@ -599,234 +594,10 @@ class HabitsOperations(
         ...
 
 
-@runtime_checkable
-class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
-    """Core finance management operations.
-
-    Inherits base CRUD operations from BackendOperations:
-    - create, get, update, DETACH DELETE, list
-    - find_by, count, search
-    - add_relationship, get_relationships, traverse
-    - health_check
-
-    Adds finance-specific operations below.
-
-    Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
-    """
-
-    async def create_transaction(self, data: Metadata) -> Result[str]:
-        """Create a financial transaction. Returns Result[str]."""
-        ...
-
-    async def update_transaction(self, transaction_id: str, data: Metadata) -> Result[bool]:
-        """Update a transaction. Returns Result[bool]."""
-        ...
-
-    async def categorize_transaction(self, transaction_id: str, category: str) -> Result[bool]:
-        """Categorize a transaction. Returns Result[bool]."""
-        ...
-
-    # ========================================================================
-    # EXPENSE-SPECIFIC QUERY METHODS
-    # ========================================================================
-
-    async def find_expenses_by_date_range(
-        self, start: date, end: date
-    ) -> Result[list[ExpensePure]]:
-        """Find expenses within a date range (ExpensePure.expense_date is a date).
-
-        Returns Result[list[ExpensePure]].
-        """
-        ...
-
-    async def find_expenses_by_category(
-        self, category: ExpenseCategory
-    ) -> Result[list[ExpensePure]]:
-        """Find expenses by category. Returns Result[list[ExpensePure]]."""
-        ...
-
-    # ========================================================================
-    # BUDGET MANAGEMENT METHODS
-    # ========================================================================
-
-    async def create_budget(self, data: Metadata) -> Result[str]:
-        """Create a new budget. Returns Result[str] (budget UID)."""
-        ...
-
-    async def get_budget(self, budget_uid: str) -> Result[BudgetPure | None]:
-        """Get a budget by UID. Returns Result[BudgetPure | None]."""
-        ...
-
-    async def get_active_budgets(self) -> Result[list[BudgetPure]]:
-        """Get all active budgets. Returns Result[list[BudgetPure]]."""
-        ...
-
-    async def find_budgets_by_category(self, category: ExpenseCategory) -> Result[list[BudgetPure]]:
-        """Find budgets by category. Returns Result[list[BudgetPure]]."""
-        ...
-
-    # ========================================================================
-    # RELATIONSHIP METHODS
-    # ========================================================================
-
-    async def link_expense_to_goal(
-        self, expense_uid: str, goal_uid: str, contribution_type: str = "investment"
-    ) -> Result[bool]:
-        """
-        Link expense to goal it supports.
-        Creates: (Expense)-[:SUPPORTS_GOAL {contribution_type}]->(Goal)
-
-        Args:
-            expense_uid: UID of the expense
-            goal_uid: UID of the goal
-            contribution_type: Type of contribution (investment, tool, resource, etc.)
-        """
-        ...
-
-    async def link_expense_to_knowledge(
-        self, expense_uid: str, knowledge_uid: str, learning_investment: bool = True
-    ) -> Result[bool]:
-        """
-        Link expense to knowledge unit it invests in.
-        Creates: (Expense)-[:INVESTS_IN_KNOWLEDGE {learning_investment}]->(Knowledge)
-
-        Args:
-            expense_uid: UID of the expense
-            knowledge_uid: UID of the knowledge unit
-            learning_investment: Whether this is a learning investment
-        """
-        ...
-
-    async def link_expense_to_project(
-        self, expense_uid: str, project_uid: str, allocation_percentage: float = 100.0
-    ) -> Result[bool]:
-        """
-        Link expense to project/task it funds.
-        Creates: (Expense)-[:FUNDS_PROJECT {allocation_percentage}]->(Entity)
-
-        Args:
-            expense_uid: UID of the expense
-            project_uid: UID of the project/task
-            allocation_percentage: Percentage of expense allocated to project (0-100)
-        """
-        ...
-
-    async def get_expense_cross_domain_context(
-        self, expense_uid: str, depth: int = 2
-    ) -> Result[GraphContextResult]:
-        """
-        Get complete cross-domain context for an expense with configurable graph traversal depth.
-
-        Returns expense with all its relationships:
-        - Goals (SUPPORTS_GOAL)
-        - Knowledge units (INVESTS_IN_KNOWLEDGE)
-        - Projects/Tasks (FUNDS_PROJECT)
-
-        Args:
-            expense_uid: UID of the expense
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-
-        Returns:
-            Result[GraphContextResult]: Type-safe cross-domain context
-        """
-        ...
-
-    async def get_user_items_in_range(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
-    ) -> Result[list[ExpensePure]]:
-        """
-        Get user's expenses in date range - unified interface for meta-services.
-
-        Args:
-            user_uid: User identifier
-            start_date: Range start date
-            end_date: Range end date
-            include_completed: Not applicable for expenses (always included)
-
-        Returns:
-            Result[list[Expense]] filtered by user and expense_date
-
-        Implementation:
-            Filters by user_uid and expense_date field
-
-        Date Added: October 29, 2025 (Unified Query Pattern for Meta-Services)
-        """
-        ...
-
-    # ========================================================================
-    # ADDITIONAL FINANCE OPERATIONS (Added 2026-02-02)
-    # ========================================================================
-
-    async def get_expenses_by_date_range(
-        self,
-        user_uid: UserUID,
-        start_date: date,
-        end_date: date,
-        category: Any = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> Result[tuple[list[Any], int]]:
-        """Get expenses for user in date range."""
-        ...
-
-    async def search_expenses(
-        self, user_uid: UserUID, query: str, limit: int = 100, offset: int = 0
-    ) -> Result[tuple[list[Any], int]]:
-        """Search expenses by text query."""
-        ...
-
-    async def attach_receipt(self, expense_uid: str, receipt_url: str) -> Result[bool]:
-        """Attach receipt to expense."""
-        ...
-
-    async def clear_expense(self, expense_uid: str) -> Result[bool]:
-        """Mark expense as cleared/reconciled."""
-        ...
-
-    async def reconcile_expense(
-        self, expense_uid: str, reconciliation_data: Metadata
-    ) -> Result[bool]:
-        """Reconcile expense with bank statement."""
-        ...
-
-    async def bulk_categorize(
-        self,
-        expense_uids: list[str],
-        category: Any,  # ExpenseCategory enum
-        subcategory: str | None = None,
-    ) -> Result[dict[str, Any]]:
-        """Bulk categorize multiple expenses. Returns dict with updated expenses."""
-        ...
-
-    async def recalculate_budget(self, budget_uid: str) -> Result[bool]:
-        """Recalculate budget totals and status."""
-        ...
-
-    async def create_invoice(self, invoice: Any) -> Result[InvoicePure]:
-        """Create invoice. Returns created invoice."""
-        ...
-
-    async def get_invoice(self, invoice_uid: str) -> Result[InvoicePure | None]:
-        """Get invoice by UID."""
-        ...
-
-    async def list_invoices(
-        self, limit: int = 50, invoice_type: str | None = None, status: str | None = None
-    ) -> Result[list[Any]]:
-        """List invoices for user, optionally filtered by status."""
-        ...
-
-    async def get_invoice_stats(self, user_uid: UserUID) -> Result[InvoiceStats]:
-        """Get invoice statistics for user."""
-        ...
-
-    async def generate_invoice_pdf(self, invoice_uid: str) -> Result[bytes]:
-        """Generate PDF for invoice. Returns PDF bytes."""
-        ...
-
-
-# NOTE: FinancesQueryOperations removed - unused, duplicates FinancesOperations methods
-# Use FinancesOperations directly for all finance query needs
+# NOTE: FinancesOperations removed (ADR-052 Phase 5) — native expense/budget
+# module demolished. The surviving invoice module is wrapped by the concrete
+# FinanceService facade (core.services.finance_service), which routes type
+# against directly (facade-tier convention) — no route-facing protocol needed.
 
 
 @runtime_checkable

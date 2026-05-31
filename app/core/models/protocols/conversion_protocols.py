@@ -28,12 +28,10 @@ class DTOConvertible(Protocol):
     This protocol defines the standard conversion methods all DTOs implement.
 
     Implementations:
-        - ExpenseDTO (finance_dto.py)
-        - BudgetDTO (finance_dto.py)
+        - InvoiceDTO (invoice.py)
         - PathStepDTO (ls_dto.py)
         - KnowledgeUnitDTO (ku_dto.py)
         - TaskDTO, GoalDTO, HabitDTO, EventDTO, etc.
-        - Total: 16 DTOs across all domains
 
     Usage:
         # Type-safe generic conversion
@@ -65,9 +63,9 @@ class DTOConvertible(Protocol):
             Typed DTO instance
 
         Example:
-            # ExpenseDTO.from_dict()
-            data = {"uid": "exp_123", "amount": 50.0, ...}
-            expense_dto = ExpenseDTO.from_dict(data)
+            # InvoiceDTO.from_dict()
+            data = {"uid": "inv_123", "total": 50.0, ...}
+            invoice_dto = InvoiceDTO.from_dict(data)
         """
         ...
 
@@ -86,9 +84,9 @@ class DTOConvertible(Protocol):
             Dictionary representation of DTO,
 
         Example:
-            # ExpenseDTO.to_dict()
-            expense_dto.to_dict()
-            # → {"uid": "exp_123", "amount": 50.0, "expense_date": "2025-10-19", ...}
+            # InvoiceDTO.to_dict()
+            invoice_dto.to_dict()
+            # → {"uid": "inv_123", "total": 50.0, "invoice_date": "2025-10-19", ...}
         """
         ...
 
