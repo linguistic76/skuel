@@ -3,15 +3,23 @@
 *Created: 2026-05-24. Companion to the Phase-1 (rel-type → `RelationshipName`, PR #41) and
 Phase-2 (label → `NeoLabel`, this branch) seam-typing work.*
 
+> **UPDATE 2026-05-31 — the premise below is superseded.** The `arg-type` sweep is complete:
+> `arg-type` is now enforced on all first-party trees (`core`, `services_bootstrap`, `adapters`,
+> `ui`) and the global disable was deleted. So mypy **does** now reject a raw `str` passed to a
+> `NeoLabel` / `RelationshipName` parameter in first-party code, and CI runs `mypy .` — i.e. the
+> seam **is** a hard CI gate there, achieved as a side-effect of the broader functional-direction
+> enforcement rather than a dedicated gate. The blast-radius analysis below is retained for
+> historical context (and for any `tests`/`scripts` or pyright-specific gating questions).
+
 ## The question
 
 Phase 1 + 2 typed the Cypher label/relationship-type interpolation seams to `NeoLabel` /
 `RelationshipName`. As established in Phase 1, this enforcement is **documentation + a pyright
 in-editor/CLI WARNING + cleaner enum dataflow — NOT a hard CI gate**, because:
 
-- mypy's `arg-type` error code is **globally disabled** (`pyproject.toml`, one of the four
-  globally-disabled codes), so mypy never rejects a raw `str` passed to a `NeoLabel` /
-  `RelationshipName` parameter.
+- *(As of 2026-05-24, since superseded — see the update banner above.)* mypy's `arg-type`
+  error code was **globally disabled** at the time, so mypy did not reject a raw `str` passed
+  to a `NeoLabel` / `RelationshipName` parameter.
 - pyright's `reportArgumentType` fires (it's how the seam is "seen"), but pyright runs in
   `typeCheckingMode=basic` and `reportArgumentType` is a **warning**, so it does not fail
   `./dev quality` or CI.

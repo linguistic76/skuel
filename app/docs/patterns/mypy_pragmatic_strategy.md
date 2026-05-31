@@ -125,13 +125,13 @@ Structural MRO conflicts and mixin patterns produce errors that are correct from
 
 ```toml
 [[tool.mypy.overrides]]
-module = ["adapters.persistence.neo4j.*"]
-disable_error_code = ["type-var", "arg-type"]
+module = ["adapters.persistence.neo4j.backends.activity_backends", ...]  # the 8 cluster files
+disable_error_code = ["misc"]
 ```
 
-Four error codes are globally disabled: `arg-type`, `var-annotated`, `type-arg`, `type-var`. The `assignment` error code was previously in this list but was re-enabled in March 2026 after fixing all 277 assignment errors (138 trailing-comma tuple bugs + 139 real type mismatches).
+**No error codes are globally disabled** (the global `disable_error_code` was deleted when the `arg-type` sweep completed, 2026-05-31). The `assignment` error code was re-enabled in March 2026 after fixing all 277 assignment errors (138 trailing-comma tuple bugs + 139 real type mismatches). `tests`/`scripts` scope-disable `[method-assign, type-var, misc, arg-type]` (framework-mock noise — fixtures parameterize generics with DTOs, monkey-patch service methods, etc.).
 
-**`arg-type` is globally disabled but per-module ENFORCED on `core/` (2026-05-29) and `services_bootstrap/` (2026-05-30)** via `[[tool.mypy.overrides]]` blocks with `enable_error_code = ["arg-type"]`. A 12-PR sweep drove `mypy --enable-error-code arg-type core` 194 → 0 (~80% real signal — frozen-model / enum-NewType / typed-payload boundaries per the functional-direction roadmap), then a follow-on campaign (PRs #121–128) cleared `services_bootstrap/` (the composition root, where service↔protocol conformance gaps aggregate) and flipped it on there too. The global disable remains only for the still-un-swept `adapters`/`ui`/`tests`/`scripts` trees; deleting it entirely is gated on `adapters`+`ui` reaching 0. **No suppressions to hit the number** — every gap was fixed structurally; PR #120's attempt to flip `services_bootstrap` first (reaching 0 via 21 `# type: ignore`) was rejected and re-sequenced (enforce at the leaves first, the root last).
+**`arg-type` is ENFORCED on all four first-party trees** — `core/` (2026-05-29), `services_bootstrap/` (2026-05-30), `adapters/` + `ui/` (2026-05-31). A 12-PR sweep drove `core/` 194 → 0 (~80% real signal — frozen-model / enum-NewType / typed-payload boundaries per the functional-direction roadmap); follow-on campaigns cleared `services_bootstrap/` (the composition root, where service↔protocol conformance gaps aggregate; PRs #121–128), `adapters/` (micro-PRs AD-1..AD-8 — AD-9 finance was dissolved by the finance demolition, not rewritten), and `ui/` (UI-1..UI-4 — the FastHTML/MonsterUI boundary, where genuinely-irreducible Alpine colon/`@`/dot attribute splats carry a `# fasthtml dynamic-attr splat` ignore). The global `disable_error_code = ["arg-type"]` was then deleted (UI-5); `arg-type` is now the toolchain default everywhere. **No suppressions to hit the number** — every gap was fixed structurally; PR #120's attempt to flip `services_bootstrap` first (reaching 0 via 21 `# type: ignore`) was rejected and re-sequenced (enforce at the leaves first, the root last).
 
 ### 4. Typed Executor Instead of `Any`
 

@@ -493,10 +493,12 @@ SKUEL uses per-module strictness overrides (not global strict mode). As of March
 strict = false  # Per-module overrides instead
 warn_unused_configs = true
 no_implicit_optional = true
-disable_error_code = ["arg-type", "var-annotated", "type-arg", "type-var"]
+# No global disable_error_code — arg-type is enforced on all first-party trees
+# (core, services_bootstrap, adapters, ui) as of 2026-05-31. tests/scripts
+# scope-disable [method-assign, type-var, misc, arg-type] (framework-mock noise).
 ```
 
-Four error codes remain globally disabled. The `assignment` code was re-enabled — it catches trailing-comma tuple bugs (e.g., `x = value,` silently creating a tuple) and type mismatches on variable reassignment.
+No error codes are globally disabled (the `arg-type` sweep completed 2026-05-31, deleting the last global disable). The `assignment` code is enabled — it catches trailing-comma tuple bugs (e.g., `x = value,` silently creating a tuple) and type mismatches on variable reassignment.
 
 ### Per-Module Strictness
 

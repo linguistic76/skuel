@@ -135,8 +135,10 @@ class TimedSession:
     ``execute_write``, etc.) so the proxy is transparent to callers.
 
     ``CypherExecutor`` is annotated ``session: AsyncSession`` and receives a
-    ``TimedSession`` — this is duck-typed, not subclassed. SKUEL's mypy config
-    disables ``arg-type`` globally, so the mismatch is silenced; pyright is
+    ``TimedSession`` — this is duck-typed, not subclassed. Backends are annotated
+    ``driver: AsyncDriver``, so this proxy reaches them as the neo4j driver type and
+    the executor sees an ``AsyncSession`` — no static mismatch even with ``arg-type``
+    enforced on ``adapters/`` (SKUEL has no global ``arg-type`` disable). pyright is
     warning-gate only.
     """
 

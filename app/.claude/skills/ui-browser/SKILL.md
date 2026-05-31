@@ -280,7 +280,7 @@ The split is by **library**, not by punctuation: HTMX defines a colon-free doubl
 
 ⚠️ **A colon/`@` Alpine directive written as an underscore-kwarg renders DEAD, silently.** `x_on_click="open()"` → `x-on-click="open()"`, which Alpine never binds — no error, the click just does nothing. Always use the splat form for colon/`@`/dot attrs. Detect regressions: `grep -rn "x_on_\|x_bind_" ui/ adapters/inbound/`.
 
-⚠️ **Timing caveat:** that `# type: ignore[arg-type]` is only valid where mypy `arg-type` is **enabled** for the module (per-module `enable_error_code` in `pyproject.toml`). On a tree where `arg-type` is still globally disabled, the ignore is flagged `[unused-ignore]` (`warn_unused_ignores = true`) — so add it **together with** the per-module enable, never before. See `docs/patterns/ANY_USAGE_POLICY.md` § FastHTML boundary surfaces.
+⚠️ **Timing note (historical):** the `# type: ignore[arg-type]` is only valid where mypy `arg-type` is **enabled** for the module. `arg-type` is now enforced on all first-party trees (`core`/`services_bootstrap`/`adapters`/`ui`), so in `ui/` the ignore is always "used". During the rollout, adding it before a tree's per-module enable tripped `[unused-ignore]` (`warn_unused_ignores = true`), so each flip landed the ignores together with its `enable_error_code`. See `docs/patterns/ANY_USAGE_POLICY.md` § FastHTML boundary surfaces.
 
 ---
 
