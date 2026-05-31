@@ -6,6 +6,7 @@ Pure rendering functions for the Explore discovery grid.
 No async, no service calls — receives pre-fetched data.
 """
 
+import json
 from typing import Any
 
 from fasthtml.common import A as Anchor
@@ -149,7 +150,9 @@ def render_explore_search_panel(all_tags: list[str]) -> Div:
             cls="cursor-pointer text-xs px-2 py-0.5 rounded-full border border-border "
             "text-muted-foreground hover:border-foreground hover:text-foreground "
             "transition-colors select-none",
-            **{"x-on:click": f"setTag('{tag}')"},
+            # json.dumps → properly-escaped JS string literal so tags containing
+            # quotes/specials can't break out of (or inject into) the Alpine expression.
+            **{"x-on:click": f"setTag({json.dumps(tag)})"},
         )
         for tag in all_tags[:24]
     ]
