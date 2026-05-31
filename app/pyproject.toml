@@ -240,6 +240,24 @@ module = ["adapters.*"]
 enable_error_code = ["arg-type"]
 
 [[tool.mypy.overrides]]
+# arg-type ENFORCED on ui/ (flipped 2026-05-31) — the LAST un-swept first-party tree.
+# ui/ sits on the FastHTML + MonsterUI + Alpine.js + HTMX boundary. The 76 → 0 sweep ran
+# as micro-PRs UI-1..UI-4: UI-1 widened PageHeader.subtitle to str | None (component-is-lie,
+# 6), UI-2 retyped status_fn → Callable[..., str] dropping a too-strict StatusCalculator
+# protocol (protocol-is-lie, 6), UI-3 converted 23 reducible single-hyphen attr splats
+# (x-model/x-ref/required/onclick) to underscore-kwargs (FastHTML maps `_`→`-`; zero
+# suppressions). The remaining sites are genuinely irreducible — Alpine colon/@/dot
+# directives (`x-on:click`, `@click`, `:checked`, `x-bind:value`, `@click.stop`) that
+# FastHTML's `_`→`-` mapping cannot express, plus pin_button's conditionally-built
+# `**htmx_attrs` dynamic dict — so each carries a surgical
+# `# type: ignore[arg-type]  # fasthtml dynamic-attr splat`. Those ignores MUST land WITH
+# this enable (with warn_unused_ignores=true they are unused-ignore errors until arg-type
+# is live for the module). With ui/ at 0, all first-party trees are enforced; deleting the
+# global disable_error_code is the final follow-up step.
+module = ["ui.*"]
+enable_error_code = ["arg-type"]
+
+[[tool.mypy.overrides]]
 # Core ports — strict typing enforced (0 untyped defs as of 2026-03-27).
 # warn_return_any added 2026-05-16 after fixing 10 no-any-return errors in
 # content_protocols.py (getattr() → cast). Protocols are the contract;

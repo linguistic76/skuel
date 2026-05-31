@@ -63,7 +63,7 @@ def render_inline_exercise_form(
                 type="submit",
                 variant=ButtonT.primary,
                 cls="mt-4",
-                **{
+                **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                     "x-text": "submitting ? 'Submitting...' : 'Submit'",
                     ":disabled": "submitting",
                     ":class": "submitting ? 'opacity-50 cursor-not-allowed' : ''",

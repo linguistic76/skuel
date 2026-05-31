@@ -113,7 +113,7 @@ def EntityPicker(
         hx_trigger="focus once, keyup changed delay:200ms",
         hx_target=f"#{results_id}",
         hx_vals="js:{q: this.value}",
-        **{
+        **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             "x-ref": "search",
             "x-on:focus": "onFocus()",
             "x-on:keydown": "onKeydown($event)",

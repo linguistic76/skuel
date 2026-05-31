@@ -233,7 +233,7 @@ def render_review_panel_inline(
                                     variant=ButtonT.ghost,
                                     size=Size.sm,
                                     type="button",
-                                    **{"@click": "addPoint()"},
+                                    **{"@click": "addPoint()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                                 ),
                                 cls="mb-2",
                             ),
@@ -329,7 +329,7 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
         size=Size.sm,
         variant=ButtonT.error,
         cls="text-xs",
-        **{"@click.stop": ""},
+        **{"@click.stop": ""},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         hx_post=f"/api/teaching/submissions/{item.uid}/delete",
         hx_target=f"#row-{dom_id}",
         hx_swap="outerHTML",
