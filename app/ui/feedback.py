@@ -274,7 +274,7 @@ def RadialProgress(
     )
 
 
-def StatusBadge(status: str | None, **kwargs: Any) -> Any:
+def StatusBadge(status: str | None, cls: str = "", **kwargs: Any) -> Any:
     """Status-aware badge that delegates to EntityStatus for canonical styling.
 
     Covers all 14 EntityStatus values (active, completed, submitted, processing,
@@ -282,6 +282,7 @@ def StatusBadge(status: str | None, **kwargs: Any) -> Any:
 
     Args:
         status: The status string (case-insensitive).
+        cls: Additional CSS classes, merged after the status badge class.
         **kwargs: Additional attributes passed to Badge
 
     Returns:
@@ -301,7 +302,7 @@ def StatusBadge(status: str | None, **kwargs: Any) -> Any:
     except ValueError:
         badge_cls = "bg-gray-100 text-gray-600 border-gray-200"
 
-    return Badge(display_text, variant=None, cls=badge_cls, **kwargs)
+    return Badge(display_text, variant=None, cls=f"{badge_cls} {cls}".strip(), **kwargs)
 
 
 def PriorityBadge(priority: str | None, **kwargs: Any) -> Any:
