@@ -2604,6 +2604,18 @@ class TestSKUEL024:
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL024"
 
+    def test_spaced_cls_keyword_flagged(self) -> None:
+        """`cls = "x"` (spaces around =) is the same collision — the prefilter must
+        not depend on the exact `cls=` spelling."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def SmallText(text: str, **kwargs: Any) -> Span:\n"
+            '    return Span(text, cls = "text-sm", **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path=self.UI_FILE)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
+
     def test_no_kwargs_splat_clean(self) -> None:
         """A hardcoded cls= with no **kwargs to collide with is fine."""
         linter = make_linter(["SKUEL024"])

@@ -2444,8 +2444,10 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL024"):
             return
 
-        # Cheap pre-filter: both a `cls=` keyword and a `**` splat must appear at all.
-        if "cls=" not in content or "**" not in content:
+        # Cheap pre-filter: a collision needs both a `cls` keyword and a `**` splat to
+        # appear at all. Match the bare `cls` substring (NOT `cls=`) so a spaced keyword
+        # (`cls = "x"`, valid Python) isn't skipped — the AST check below is the authority.
+        if "cls" not in content or "**" not in content:
             return
 
         try:
