@@ -19,12 +19,13 @@ from typing import Any
 from fasthtml.common import H1, H2, H4, Div, P, Span
 
 
-def PageTitle(text: str, subtitle: str | None = None, **kwargs: Any) -> Div:
+def PageTitle(text: str, subtitle: str | None = None, cls: str = "", **kwargs: Any) -> Div:
     """Page-level title (h1) with optional subtitle.
 
     Args:
         text: The main title text
         subtitle: Optional subtitle displayed below the title
+        cls: Additional CSS classes merged into the container div
         **kwargs: Additional attributes passed to the container div
 
     Returns:
@@ -33,76 +34,87 @@ def PageTitle(text: str, subtitle: str | None = None, **kwargs: Any) -> Div:
     elements = [H1(text, cls="text-4xl font-bold tracking-tight text-foreground")]
     if subtitle:
         elements.append(P(subtitle, cls="mt-2 text-lg text-muted-foreground"))
-    return Div(*elements, cls="mb-8", **kwargs)
+    return Div(*elements, cls=f"mb-8 {cls}".strip(), **kwargs)
 
 
-def SectionTitle(text: str, **kwargs: Any) -> H2:
+def SectionTitle(text: str, cls: str = "", **kwargs: Any) -> H2:
     """Section header (h2).
 
     Args:
         text: The section title text
+        cls: Additional CSS classes merged into the H2 element
         **kwargs: Additional attributes passed to the H2 element
 
     Returns:
         An H2 element with section styling
     """
-    return H2(text, cls="text-2xl font-semibold tracking-tight text-foreground mb-6", **kwargs)
+    return H2(
+        text,
+        cls=f"text-2xl font-semibold tracking-tight text-foreground mb-6 {cls}".strip(),
+        **kwargs,
+    )
 
 
-def Subtitle(text: str, **kwargs: Any) -> H4:
+def Subtitle(text: str, cls: str = "", **kwargs: Any) -> H4:
     """Subsection header (h4).
 
     Args:
         text: The subtitle text
+        cls: Additional CSS classes merged into the H4 element
         **kwargs: Additional attributes passed to the H4 element
 
     Returns:
         An H4 element with subtitle styling
     """
-    return H4(text, cls="text-base font-semibold text-foreground mb-4", **kwargs)
+    return H4(text, cls=f"text-base font-semibold text-foreground mb-4 {cls}".strip(), **kwargs)
 
 
-def BodyText(text: str, muted: bool = False, **kwargs: Any) -> P:
+def BodyText(text: str, muted: bool = False, cls: str = "", **kwargs: Any) -> P:
     """Body paragraph text.
 
     Args:
         text: The body text content
         muted: If True, uses muted color (default: False)
+        cls: Additional CSS classes merged into the P element
         **kwargs: Additional attributes passed to the P element
 
     Returns:
         A P element with body text styling
     """
     color = "text-muted-foreground" if muted else "text-foreground"
-    return P(text, cls=f"text-base leading-relaxed {color}", **kwargs)
+    return P(text, cls=f"text-base leading-relaxed {color} {cls}".strip(), **kwargs)
 
 
-def SmallText(text: str, muted: bool = True, **kwargs: Any) -> Span:
+def SmallText(text: str, muted: bool = True, cls: str = "", **kwargs: Any) -> Span:
     """Secondary/small text.
 
     Args:
         text: The small text content
         muted: If True, uses muted color (default: True)
+        cls: Additional CSS classes merged into the Span element
         **kwargs: Additional attributes passed to the Span element
 
     Returns:
         A Span element with small text styling
     """
     color = "text-muted-foreground" if muted else "text-foreground"
-    return Span(text, cls=f"text-sm {color}", **kwargs)
+    return Span(text, cls=f"text-sm {color} {cls}".strip(), **kwargs)
 
 
-def Caption(text: str, **kwargs: Any) -> Span:
+def Caption(text: str, cls: str = "", **kwargs: Any) -> Span:
     """Caption/label text (uppercase, small).
 
     Args:
         text: The caption text
+        cls: Additional CSS classes merged into the Span element
         **kwargs: Additional attributes passed to the Span element
 
     Returns:
         A Span element with caption styling
     """
-    return Span(text, cls="text-xs text-muted-foreground uppercase tracking-wide", **kwargs)
+    return Span(
+        text, cls=f"text-xs text-muted-foreground uppercase tracking-wide {cls}".strip(), **kwargs
+    )
 
 
 def TruncatedText(text: str, lines: int = 1, cls: str = "", **kwargs: Any) -> Span:

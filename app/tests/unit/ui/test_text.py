@@ -34,6 +34,12 @@ class TestPageTitle:
         rendered = str(result)
         assert "Solo title" in rendered
 
+    def test_cls_merges(self) -> None:
+        # cls must merge with the base classes, not collide with them (regression).
+        rendered = str(PageTitle("Dashboard", cls="border-b"))
+        assert "mb-8" in rendered
+        assert "border-b" in rendered
+
 
 class TestSectionTitle:
     def test_basic(self) -> None:
@@ -41,12 +47,22 @@ class TestSectionTitle:
         assert "text-2xl" in str(result)
         assert "My Section" in str(result)
 
+    def test_cls_merges(self) -> None:
+        rendered = str(SectionTitle("My Section", cls="text-center"))
+        assert "text-2xl" in rendered
+        assert "text-center" in rendered
+
 
 class TestSubtitle:
     def test_basic(self) -> None:
         result = Subtitle("Sub Header")
         assert "text-base" in str(result)
         assert "Sub Header" in str(result)
+
+    def test_cls_merges(self) -> None:
+        rendered = str(Subtitle("Sub Header", cls="italic"))
+        assert "text-base" in rendered
+        assert "italic" in rendered
 
 
 class TestBodyText:
@@ -59,6 +75,11 @@ class TestBodyText:
     def test_muted(self) -> None:
         result = BodyText("Muted text", muted=True)
         assert "text-muted-foreground" in str(result)
+
+    def test_cls_merges(self) -> None:
+        rendered = str(BodyText("Hello world", cls="max-w-prose"))
+        assert "text-base" in rendered
+        assert "max-w-prose" in rendered
 
 
 class TestSmallText:
@@ -73,6 +94,13 @@ class TestSmallText:
         rendered = str(result)
         assert "text-foreground" in rendered
 
+    def test_cls_merges(self) -> None:
+        # The exact call site that 500'd /insights (insight_card.py:89).
+        rendered = str(SmallText("Recommended Actions:", cls="font-semibold mb-1"))
+        assert "text-sm" in rendered
+        assert "font-semibold" in rendered
+        assert "mb-1" in rendered
+
 
 class TestCaption:
     def test_basic(self) -> None:
@@ -81,6 +109,11 @@ class TestCaption:
         assert "text-xs" in rendered
         assert "uppercase" in rendered
         assert "LABEL" in rendered
+
+    def test_cls_merges(self) -> None:
+        rendered = str(Caption("LABEL", cls="text-red-500"))
+        assert "text-xs" in rendered
+        assert "text-red-500" in rendered
 
 
 class TestTruncatedText:
