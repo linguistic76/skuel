@@ -248,6 +248,27 @@ Div(
 )
 ```
 
+### Splat vs underscore-kwarg — and the mypy `arg-type` rule
+
+FastHTML maps `_`→`-`: a **single** underscore → one hyphen (`hx_get`→`hx-get`, `x_show`→`x-show`, `x_ref`→`x-ref`), a **double** underscore → two hyphens (`hx_on__after_request`→`hx-on--after-request`). So **prefer the underscore kwarg** whenever the rendered attribute name is reachable by that mapping — it needs no `**{}` splat. The `**{"...": ...}` splat is required **only** for attribute names no `_`→`-` mapping can produce:
+
+| Attribute shape | Example | Kwarg form? |
+|-----------------|---------|-------------|
+| Plain hyphen (HTMX/Alpine) | `hx-get`, `x-show`, `x-model`, `hx-target` | ✅ `hx_get=`, `x_show=`, … (no splat) |
+| HTMX `hx-on::` event | `hx-on::after-request` | ✅ `hx_on__after_request=` — `__`→`--`, and htmx treats `hx-on--evt` as identical to `hx-on::evt` (its colon-free form; verified in htmx 1.9.10) |
+| Alpine colon | `x-on:click`, `:class` / `x-bind:class` | ❌ splat only — Alpine has **no** dash form (`x_on_click`→`x-on-click` and `x_on__click`→`x-on--click` are both broken directives) |
+| Alpine at-shorthand | `@click`, `@click.outside` | ❌ splat only (`@` not a valid identifier) |
+| Alpine dot-modifier | `@click.stop`, `x-on:keyup.debounce.500ms` | ❌ splat only |
+
+The split is by **library**, not by punctuation: HTMX defines a colon-free double-dash alias for `hx-on`, so its event handlers are reducible; Alpine parses on the colon exclusively, so its `x-on:` / `x-bind:` / `@` / `.modifier` attrs are genuinely irreducible.
+
+**Why it matters for types:** a `**dict[str, str]` splat into a **MonsterUI component** (`Button`, `Input`, `Select`, …) trips mypy `arg-type` — the dict's `str` values spill onto the component's typed keyword slots (`disabled: bool`, `size: Size | None`). The fix follows the table:
+
+- **Reducible attrs (plain-hyphen + HTMX `hx-on::`) → use the underscore kwarg.** No splat, no suppression. (e.g. `Button("Back", hx_get="/tasks", hx_target="body")`, *not* `**{"hx-get": …}`; `Form(..., hx_on__after_request=expr)`, *not* `**{"hx-on::after-request": expr}`.)
+- **Irreducible Alpine attrs (colon / at / dot) → keep the splat + a surgical ignore:** `**{"x-on:click": expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat`.
+
+⚠️ **Timing caveat:** that `# type: ignore[arg-type]` is only valid where mypy `arg-type` is **enabled** for the module (per-module `enable_error_code` in `pyproject.toml`). On a tree where `arg-type` is still globally disabled, the ignore is flagged `[unused-ignore]` (`warn_unused_ignores = true`) — so add it **together with** the per-module enable, never before. See `docs/patterns/ANY_USAGE_POLICY.md` § FastHTML boundary surfaces.
+
 ---
 
 ## Semantic HTML Foundation
