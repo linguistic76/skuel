@@ -24,16 +24,9 @@ See: /docs/patterns/UI_COMPONENT_PATTERNS.md
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
 
 from core.services.user.domain_health import DomainStatus
 from core.services.user.unified_user_context import UserContext
-
-
-class StatusCalculator(Protocol):
-    """Protocol for domain status calculator functions."""
-
-    def __call__(self, *args: int) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -50,7 +43,9 @@ class DomainStatsConfig:
 
     count_fn: Callable[[UserContext], int]
     active_fn: Callable[[UserContext], int]
-    status_fn: StatusCalculator
+    # Arity varies across domains (1 or 2 ints); called variadically as
+    # status_fn(*status_args) where status_args is tuple[int, ...].
+    status_fn: Callable[..., str]
     status_args_fn: Callable[[UserContext], tuple[int, ...]]
 
 
@@ -273,7 +268,6 @@ DOMAIN_STATS_CONFIG: dict[str, DomainStatsConfig] = {
 __all__ = [
     "DomainStatsConfig",
     "DOMAIN_STATS_CONFIG",
-    "StatusCalculator",
     "knowledge_active",
     "knowledge_count",
     "knowledge_status",
