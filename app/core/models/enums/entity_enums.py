@@ -1014,6 +1014,20 @@ class Domain(StrEnum):
             if any(synonym in text_lower for synonym in domain.get_search_synonyms())
         ]
 
+    @classmethod
+    def from_string(cls, value: str) -> Domain | None:
+        """Parse a string to Domain, case-insensitive. Returns None on unknown.
+
+        Mirrors NonKuDomain.from_string — the canonical enum-boundary parser
+        for loosely-typed edge values (e.g. a request Literal that carries a
+        value outside the Domain set).
+        """
+        normalized = value.strip().lower()
+        try:
+            return cls(normalized)
+        except ValueError:
+            return None
+
 
 class NonKuDomain(StrEnum):
     """
