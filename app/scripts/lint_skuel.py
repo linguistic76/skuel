@@ -2397,15 +2397,81 @@ class SkuelLinter:
             )
 
     @staticmethod
-    def _cls_scope_descriptor(fn: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda) -> tuple:
+    def _locally_assigned_names(fn: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda) -> set:
+        """Names REBOUND in ``fn``'s own scope (not params), excluding nested scopes.
+
+        Any assignment to a name makes it function-local for that whole scope (Python
+        scoping). So ``def make(): kwargs = {...}; Div(cls=.., **kwargs)`` splats a LOCAL
+        dict — a caller's ``cls=`` cannot collide — even though an outer ``**kwargs`` shares
+        the name. Collects ``=`` / ``:=`` / augmented / annotated assignments, ``for`` /
+        ``with`` / ``except`` targets, import names, and nested ``def``/``class`` names,
+        WITHOUT descending into nested function/lambda/class bodies (their assignments are
+        their own). Names declared ``global`` / ``nonlocal`` are excluded — they refer
+        outward, so they do not shadow.
+        """
+        nested = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+        assigned: set[str] = set()
+        outward: set[str] = set()
+
+        def add_target(target: ast.AST) -> None:
+            for n in ast.walk(target):
+                if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
+                    assigned.add(n.id)
+
+        def visit(n: ast.AST) -> None:
+            if isinstance(n, ast.Assign):
+                for t in n.targets:
+                    add_target(t)
+            elif isinstance(n, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+                add_target(n.target)
+            elif isinstance(n, (ast.For, ast.AsyncFor)):
+                add_target(n.target)
+            elif isinstance(n, (ast.With, ast.AsyncWith)):
+                for item in n.items:
+                    if item.optional_vars is not None:
+                        add_target(item.optional_vars)
+            elif isinstance(n, ast.ExceptHandler):
+                if n.name:
+                    assigned.add(n.name)
+            elif isinstance(n, (ast.Import, ast.ImportFrom)):
+                for alias in n.names:
+                    assigned.add(alias.asname or alias.name.split(".")[0])
+            elif isinstance(n, (ast.Global, ast.Nonlocal)):
+                outward.update(n.names)
+            for child in ast.iter_child_nodes(n):
+                if isinstance(child, nested):
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        assigned.add(child.name)  # binds the def/class NAME in this scope
+                    continue  # but do not descend — its body is its own scope
+                visit(child)
+
+        body = fn.body if isinstance(fn.body, list) else [fn.body]  # Lambda body is an expr
+        for stmt in body:
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                assigned.add(stmt.name)
+                continue
+            if isinstance(stmt, ast.Lambda):
+                continue
+            visit(stmt)
+        return assigned - outward
+
+    @classmethod
+    def _cls_scope_descriptor(
+        cls, fn: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda
+    ) -> tuple:
         """Describe a function scope for ``**kwargs`` / ``cls=`` resolution.
 
-        Returns ``(fn, kwarg_name, param_names, absorbs_cls)`` where ``param_names`` is
-        EVERY parameter the scope binds (so an inner scope that rebinds the splat name
-        shadows the outer one), and ``absorbs_cls`` is True iff the scope has a
-        KEYWORD-PASSABLE ``cls`` param — positional-or-keyword (``args``) or keyword-only
-        (``kwonlyargs``). A positional-only ``cls`` (``def f(cls, /, **kwargs)``) does NOT
-        absorb a keyword ``cls=`` and is excluded.
+        Returns ``(fn, kwarg_name, param_names, absorbs_cls, assigned_names)``:
+        - ``param_names`` — every parameter the scope binds.
+        - ``absorbs_cls`` — True iff the scope has a KEYWORD-PASSABLE ``cls`` param
+          (positional-or-keyword or keyword-only; a positional-only ``cls`` does NOT
+          absorb a keyword ``cls=`` and is excluded).
+        - ``assigned_names`` — names locally rebound in the scope (see
+          ``_locally_assigned_names``). A ``**Name`` splat where ``Name`` is reassigned
+          here no longer carries the caller's kwargs, so it cannot collide.
+
+        A scope "binds" a name (for splat resolution) if it is in ``param_names`` OR
+        ``assigned_names`` — either shadows an outer parameter of the same name.
         """
         args = fn.args
         kwarg_name = args.kwarg.arg if args.kwarg else None
@@ -2415,7 +2481,7 @@ class SkuelLinter:
         if kwarg_name:
             param_names.add(kwarg_name)
         absorbs_cls = "cls" in {a.arg for a in args.args + args.kwonlyargs}
-        return (fn, kwarg_name, param_names, absorbs_cls)
+        return (fn, kwarg_name, param_names, absorbs_cls, cls._locally_assigned_names(fn))
 
     def _check_cls_kwargs_collision(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -2461,12 +2527,12 @@ class SkuelLinter:
 
         def resolve_binder(name: str, stack: list[tuple]) -> tuple | None:
             for desc in reversed(stack):  # nearest enclosing scope wins (shadowing)
-                if name in desc[2]:  # param_names
+                if name in desc[2] or name in desc[4]:  # param_names or local assignments
                     return desc
             return None
 
         def flag(call: ast.Call, binder: tuple) -> None:
-            fn, kw_name, _params, _absorbs = binder
+            fn, kw_name = binder[0], binder[1]
             if id(fn) in reported:
                 return
             line_num = call.lineno
@@ -2501,10 +2567,17 @@ class SkuelLinter:
             if isinstance(node, ast.Call) and any(k.arg == "cls" for k in node.keywords):
                 for k in node.keywords:
                     if k.arg is None and isinstance(k.value, ast.Name):
-                        binder = resolve_binder(k.value.id, stack)
+                        name = k.value.id
+                        binder = resolve_binder(name, stack)
                         # Collision only if the resolved binder's bound name is its
-                        # **kwargs AND it has no keyword-passable cls to absorb the dup.
-                        if binder and binder[1] == k.value.id and not binder[3]:
+                        # **kwargs (not a local reassignment of it) AND it has no
+                        # keyword-passable cls to absorb the duplicate.
+                        if (
+                            binder
+                            and binder[1] == name  # name is this scope's **kwargs param
+                            and name not in binder[4]  # ...and not locally reassigned
+                            and not binder[3]  # ...and no cls param to absorb it
+                        ):
                             flag(node, binder)
                             break
             child_stack = stack

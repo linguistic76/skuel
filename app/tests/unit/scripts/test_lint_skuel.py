@@ -2612,6 +2612,32 @@ class TestSKUEL024:
         # Attributed to the binding scope (outer), which owns the colliding **kwargs.
         assert "outer" in violations[0].message
 
+    def test_nested_local_rebinding_shadows_outer_clean(self) -> None:
+        """A nested helper that locally assigns the kwargs name splats a LOCAL dict,
+        not the outer closure — no caller cls= can collide, so don't flag."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def outer(**kwargs: Any) -> Any:\n"
+            "    def make() -> Div:\n"
+            '        kwargs = {"id": "local"}\n'
+            '        return Div(cls="base", **kwargs)\n'
+            "    return make()\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert violations == []
+
+    def test_same_scope_kwargs_reassignment_clean(self) -> None:
+        """Reassigning **kwargs to a fresh local dict before the splat discards the
+        caller's kwargs — no collision."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def Helper(**kwargs: Any) -> Div:\n"
+            '    kwargs = {"id": "x"}\n'
+            '    return Div(cls="base", **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert violations == []
+
     def test_positional_only_cls_still_flagged(self) -> None:
         """A positional-only `cls` cannot absorb a keyword `cls=` — still collides."""
         linter = make_linter(["SKUEL024"])
