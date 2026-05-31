@@ -2528,8 +2528,12 @@ class TestSKUEL024:
         violations = lint_content(linter, content, file_path="ui/layouts/dashboard.py")
         assert violations == []
 
-    def test_kwargs_pop_cls_defused_clean(self) -> None:
-        """`kwargs.pop("cls")` before the splat removes cls — safe, not flagged."""
+    def test_kwargs_pop_not_exempt_use_explicit_param(self) -> None:
+        """No pop exemption: pop-based helpers are flagged too (use explicit cls=).
+
+        Proving a pop defuses the splat needs control-flow domination; the rule does
+        not attempt it. The contract is the explicit `cls: str = ""` parameter.
+        """
         linter = make_linter(["SKUEL024"])
         content = (
             "def EmptyState(title: str, **kwargs: Any) -> Div:\n"
@@ -2537,34 +2541,21 @@ class TestSKUEL024:
             '    return Div(title, cls=f"base {extra}".strip(), **kwargs)\n'
         )
         violations = lint_content(linter, content, file_path="ui/patterns/empty_state.py")
-        assert violations == []
-
-    def test_kwargs_get_cls_not_a_defusal(self) -> None:
-        """`get` reads but LEAVES cls in the mapping — the splat still collides."""
-        linter = make_linter(["SKUEL024"])
-        content = (
-            "def Helper(title: str, **kwargs: Any) -> Div:\n"
-            '    extra = kwargs.get("cls", "")\n'
-            '    return Div(title, cls=f"base {extra}".strip(), **kwargs)\n'
-        )
-        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL024"
 
-    def test_splat_before_pop_still_flagged(self) -> None:
-        """A guard-return splat that runs BEFORE the pop still crashes — must flag."""
+    def test_conditional_pop_flagged(self) -> None:
+        """A conditional pop does not run on every path — still flagged."""
         linter = make_linter(["SKUEL024"])
         content = (
             "def Helper(title: str, flag: bool, **kwargs: Any) -> Div:\n"
             "    if flag:\n"
-            '        return Div(title, cls="early", **kwargs)\n'
-            '    extra = kwargs.pop("cls", "")\n'
-            '    return Div(title, cls=f"base {extra}".strip(), **kwargs)\n'
+            '        kwargs.pop("cls", "")\n'
+            '    return Div(title, cls="base", **kwargs)\n'
         )
         violations = lint_content(linter, content, file_path="ui/patterns/x.py")
         assert len(violations) == 1
-        # The flagged collision is the early-return splat (line 3), before the pop.
-        assert violations[0].line_number == 3
+        assert violations[0].rule_id == "SKUEL024"
 
     def test_no_kwargs_splat_clean(self) -> None:
         """A hardcoded cls= with no **kwargs to collide with is fine."""
