@@ -182,6 +182,53 @@ class RelationshipAnalyzer:
         return await self.backend.count_related(uid, RelationshipName.DEPENDS_ON)
 ```
 
+### Introduce a Minimal Protocol, Have the Broad One Inherit It
+
+The pattern above depends on a sub-protocol that *already exists*. When a service
+uses only one slice of a broad protocol but **no narrow protocol covers that slice
+yet**, do not pass the wide protocol and accept the over-broad dependency — extract
+the minimal slice and make the broad protocol inherit it. The wide contract is
+preserved for any future consumer; the dependency is honestly narrowed.
+
+Worked example (`Neo4jSchemaService`): the service builds all schema introspection
+(labels, properties, indexes, constraints) on a single primitive — raw query
+execution — yet its constructor declared the full six-method `SchemaOperations`.
+The other five methods live on the service itself, so the only adapter that drives
+it (`Neo4jAdapter`) implements just `execute_query` and could not satisfy the wide
+protocol.
+
+```python
+# core/ports/infrastructure_protocols.py
+@runtime_checkable
+class SchemaQueryExecutor(Protocol):
+    """Minimal raw-query slice consumed by Neo4jSchemaService."""
+
+    async def execute_query(self, query: str, params: Metadata | None = None) -> list[Metadata]:
+        ...
+
+
+@runtime_checkable
+class SchemaOperations(SchemaQueryExecutor, Protocol):  # wide contract preserved
+    """Database schema operations."""
+
+    async def get_node_labels(self) -> list[str]: ...
+    # ...four more introspection methods
+
+
+# adapters/persistence/neo4j/schema_service.py
+class Neo4jSchemaService:
+    def __init__(self, neo4j_adapter: SchemaQueryExecutor, ...) -> None:  # narrowed
+        self.neo4j_adapter = neo4j_adapter
+```
+
+**Why this is the right move, not a workaround:** the type error was true — the
+adapter genuinely did not satisfy the declared contract. Suppressing it (`# type: ignore`)
+would hide a real over-broad dependency. Narrowing to the slice actually used makes
+the dependency honest, satisfies the type checker with zero suppressions, and keeps
+`SchemaOperations` intact for any consumer that needs the full surface. This is the
+mypy `arg-type` enforcement (see [functional-direction.md](../roadmap/functional-direction.md))
+surfacing a design signal, not an annotation chore.
+
 ## Benefits
 
 1. **One Path Forward** - `BackendOperations` is THE protocol, no legacy alternatives
