@@ -227,12 +227,13 @@ Generic badge component. Renders as a styled `Span` with `inline-flex items-cent
 - `cls: str` - Additional CSS classes (appended; use with `variant=None` for custom colors)
 - `**kwargs` - Additional HTML attributes
 
-### StatusBadge(status, **kwargs)
+### StatusBadge(status, cls="", **kwargs)
 
 Status-aware badge that delegates to `EntityStatus.get_badge_class()` for canonical styling. Covers all 14 EntityStatus values. Use for any value that is a valid `EntityStatus` member.
 
 **Parameters:**
 - `status: str | None` - Status value (case-insensitive, underscores or hyphens). Returns `None` if `None`.
+- `cls: str` - Additional CSS classes, merged after the status badge class (follows the [cls-merge contract](#text); never collides via `**kwargs`).
 - `**kwargs` - Additional attributes passed to Badge (e.g., `size=Size.sm`)
 
 **Implementation:** Converts status string → `EntityStatus` enum → `get_badge_class()` CSS string. Falls back to gray for unknown values.
