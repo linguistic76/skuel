@@ -182,6 +182,16 @@ def CardBody(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 The `FastHTMLApp` protocol in `adapters/inbound/fasthtml_types.py` captures the minimal interface SKUEL calls. The `Any` in its `__call__(scope, receive, send)` signature is the ASGI boundary — Starlette doesn't expose usable types for those three parameters.
 
+#### `# type: ignore[arg-type]  # fasthtml dynamic-attr splat`
+
+A fifth, narrower case — an **`arg-type` ignore**, not an `Any` annotation. MonsterUI component factories (`Button`, `Input`, `Select`, …) declare typed keyword slots (`disabled: bool`, `size: Size | None`). Splatting a dynamic attribute dict — `**{"x-on:click": expr}` — spills its `str` values onto those typed slots, so mypy reports `arg-type` ("expected bool"). Plain-hyphen attributes have a kwarg form and must use it (`hx_get=`, not `**{"hx-get": …}`); but **colon / at / dot** attributes (`x-on:click`, `:class`, `@click.outside`, `hx-on::after-request`) cannot be expressed as a FastHTML kwarg (a single `_`→`-` map can't produce the `:` Alpine/HTMX need), so the splat is the only correct render. Tag those, and only those:
+
+```python
+Button("Close", **{"x-on:click": close_expr})  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+```
+
+⚠️ This ignore is only valid where `arg-type` is **enabled** for the module (per-module `enable_error_code`). On a tree where `arg-type` is still globally disabled (`disable_error_code = ["arg-type"]`), the ignore is itself flagged `[unused-ignore]` under `warn_unused_ignores = true` — so introduce it **in the same change** that flips the per-module enable, never ahead of it. See `.claude/skills/ui-browser/SKILL.md` § Splat vs underscore-kwarg for the convert-vs-suppress decision table.
+
 #### What does NOT need a `# boundary:` tag
 
 - **`app` / `rt` parameters in route factories.** Use the protocols from `fasthtml_types.py`. Lifting `app: Any` to `app: FastHTMLApp` is migration work, not a boundary.

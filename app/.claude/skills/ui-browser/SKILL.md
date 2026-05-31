@@ -248,6 +248,24 @@ Div(
 )
 ```
 
+### Splat vs underscore-kwarg — and the mypy `arg-type` rule
+
+FastHTML maps a **single underscore → hyphen only** (`hx_get`→`hx-get`, `x_show`→`x-show`, `x_ref`→`x-ref`, `x_data`→`x-data`). So **prefer the underscore kwarg** whenever the attribute is a plain hyphenated name — it needs no `**{}` splat. The `**{"...": ...}` splat is required **only** for attributes whose names carry a character an identifier can't express:
+
+| Attribute shape | Example | Kwarg form? |
+|-----------------|---------|-------------|
+| Plain hyphen | `hx-get`, `x-show`, `x-model`, `hx-target` | ✅ `hx_get=`, `x_show=`, … (no splat) |
+| Colon | `x-on:click`, `:class` / `x-bind:class`, `hx-on::after-request` | ❌ splat only (`x_on_click`→`x-on-click`, a *broken* Alpine directive) |
+| At-shorthand | `@click`, `@click.outside` | ❌ splat only (`@` not a valid identifier) |
+| Dot-modifier | `@click.stop`, `x-on:keyup.debounce.500ms` | ❌ splat only |
+
+**Why it matters for types:** a `**dict[str, str]` splat into a **MonsterUI component** (`Button`, `Input`, `Select`, …) trips mypy `arg-type` — the dict's `str` values spill onto the component's typed keyword slots (`disabled: bool`, `size: Size | None`). The fix follows the table:
+
+- **Convertible (plain-hyphen) attrs → use the underscore kwarg.** No splat, no suppression. (e.g. `Button("Back", hx_get="/tasks", hx_target="body")`, *not* `**{"hx-get": …}`.)
+- **Irreducible (colon / at / dot) attrs → keep the splat + a surgical ignore:** `**{"x-on:click": expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat`.
+
+⚠️ **Timing caveat:** that `# type: ignore[arg-type]` is only valid where mypy `arg-type` is **enabled** for the module (per-module `enable_error_code` in `pyproject.toml`). On a tree where `arg-type` is still globally disabled, the ignore is flagged `[unused-ignore]` (`warn_unused_ignores = true`) — so add it **together with** the per-module enable, never before. See `docs/patterns/ANY_USAGE_POLICY.md` § FastHTML boundary surfaces.
+
 ---
 
 ## Semantic HTML Foundation
