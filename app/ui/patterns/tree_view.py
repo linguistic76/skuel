@@ -41,6 +41,7 @@ def TreeView(
     show_checkboxes: bool = False,
     keyboard_nav: bool = True,
     draggable: bool = True,
+    cls: str = "",
     **kwargs: Any,
 ) -> Div:
     """
@@ -54,6 +55,7 @@ def TreeView(
         show_checkboxes: Enable multi-select
         keyboard_nav: Enable arrow key navigation
         draggable: Enable drag-and-drop
+        cls: Additional CSS classes, merged into the tree container
 
     Returns:
         Tree view container with Alpine.js initialization
@@ -86,7 +88,7 @@ def TreeView(
             id=f"tree-root-{root_uid}",
             cls="tree-view",
         ),
-        cls="tree-container focus:outline-none",
+        cls=f"tree-container focus:outline-none {cls}".strip(),
         tabindex="0",  # Make focusable for keyboard nav
         **{
             "x-data": f"hierarchyTree({config_str})",

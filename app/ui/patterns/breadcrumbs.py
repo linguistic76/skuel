@@ -26,6 +26,7 @@ def Breadcrumbs(
     separator: str = "›",
     show_home: bool = True,
     home_url: str = "/",
+    cls: str = "",
     **kwargs: Any,
 ) -> Div:
     """
@@ -36,6 +37,7 @@ def Breadcrumbs(
         separator: Separator between items (default: ›, rendered via CSS)
         show_home: Show home icon at start
         home_url: URL for home link
+        cls: Additional CSS classes, merged into the breadcrumbs container
 
     Returns:
         Breadcrumbs navigation container
@@ -62,4 +64,4 @@ def Breadcrumbs(
             # Linked ancestor
             crumbs.append(Li(A(item["title"], href=item["url"], cls="hover:underline")))
 
-    return Div(*crumbs, cls="breadcrumbs text-sm", **kwargs)
+    return Div(*crumbs, cls=f"breadcrumbs text-sm {cls}".strip(), **kwargs)
