@@ -223,6 +223,23 @@ module = ["services_bootstrap.*"]
 enable_error_code = ["arg-type"]
 
 [[tool.mypy.overrides]]
+# arg-type ENFORCED on adapters/ (flipped 2026-05-31). adapters/ sits at/below the
+# hexagonal boundary (ADR-044) — the translation tier — so arg-type here enforces that
+# boundary code hands correctly-shaped VALUES into the typed surfaces it touches (enums
+# Domain/NeoLabel/RelationshipName, Result[T], protocols, typed configs, frozen models).
+# The 81 → 0 sweep ran as micro-PRs AD-1..AD-8 (PRs #131–141); it was a real bug-detector
+# (latent dead Cypher, a swallowed not_found double-wrap, a multipart UploadFile crash).
+# AD-9 (finance FinancesOperations→CRUDOperations) was dissolved by the finance demolition
+# (PR #144), not rewritten. The final 3 sites are irreducible Alpine `x-on:click` splats —
+# FastHTML's `_`→`-` mapping cannot express the colon, so they carry a surgical
+# `# type: ignore[arg-type]  # fasthtml dynamic-attr splat`. Those ignores MUST land WITH
+# this enable (with warn_unused_ignores=true they are unused-ignore errors until arg-type
+# is live for the module). ui/ remains un-swept (next sweep); deleting the global
+# disable_error_code is the final step, gated on ui/ reaching 0.
+module = ["adapters.*"]
+enable_error_code = ["arg-type"]
+
+[[tool.mypy.overrides]]
 # Core ports — strict typing enforced (0 untyped defs as of 2026-03-27).
 # warn_return_any added 2026-05-16 after fixing 10 no-any-return errors in
 # content_protocols.py (getattr() → cast). Protocols are the contract;
