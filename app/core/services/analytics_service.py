@@ -66,7 +66,6 @@ class AnalyticsService:
         habits_service=None,
         goals_service=None,
         events_service=None,
-        finance_service=None,
         choices_service=None,
         principle_service=None,
         content_enrichment=None,
@@ -85,7 +84,6 @@ class AnalyticsService:
             habits_service: HabitsService facade (Layer 1)
             goals_service: GoalsService facade (Layer 1)
             events_service: EventsService facade (Layer 1)
-            finance_service: FinanceService facade (Layer 1)
             choices_service: ChoicesService facade (Layer 1)
             principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2)
@@ -105,7 +103,6 @@ class AnalyticsService:
             habits_service=habits_service,
             goals_service=goals_service,
             events_service=events_service,
-            finance_service=finance_service,
             choices_service=choices_service,
             principle_service=principle_service,
             # Layer 2: Pipeline services
@@ -415,10 +412,10 @@ class AnalyticsService:
         self, user_uid: UserUID, week_start: date | None = None
     ) -> Result[dict[str, Any]]:
         """
-        Generate weekly life summary across ALL 7 domains.
+        Generate weekly life summary across ALL activity domains.
 
-        NEW: This report synthesizes data from tasks, habits, goals, events,
-        finance, choices, and principles to provide a holistic view.
+        This report synthesizes data from tasks, habits, goals, events,
+        choices, and principles to provide a holistic view.
         """
         if not week_start:
             today = date.today()
@@ -511,8 +508,6 @@ class AnalyticsService:
             return await self.metrics.calculate_goal_metrics(user_uid, start_date, end_date)
         elif analytics_domain == AnalyticsDomain.EVENTS:
             return await self.metrics.calculate_event_metrics(user_uid, start_date, end_date)
-        elif analytics_domain == AnalyticsDomain.FINANCE:
-            return await self.metrics.calculate_finance_metrics(user_uid, start_date, end_date)
         elif analytics_domain == AnalyticsDomain.CHOICES:
             return await self.metrics.calculate_choice_metrics(user_uid, start_date, end_date)
         elif analytics_domain == AnalyticsDomain.PRINCIPLES:

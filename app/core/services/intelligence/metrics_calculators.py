@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from core.services.intelligence.cross_domain_contexts import (
         ChoiceCrossContext,
         EventCrossContext,
-        FinanceCrossContext,
         GoalCrossContext,
         HabitCrossContext,
         KnowledgeCrossContext,
@@ -265,44 +264,6 @@ def calculate_principle_metrics(principle: Any, context: PrincipleCrossContext) 
         "is_action_guiding": context.is_action_guiding(),
         "is_knowledge_grounded": context.is_knowledge_grounded(),
         "is_lived": is_lived,
-    }
-
-
-def calculate_finance_metrics(expense: Any, context: FinanceCrossContext) -> dict[str, Any]:
-    """
-    Calculate standard metrics for finance/expense analysis.
-
-    Metrics produced:
-    - supporting_goal_count: Goals this expense supports
-    - supporting_habit_count: Habits this expense enables
-    - knowledge_investment_count: Learning investments
-    - is_goal_aligned: Boolean if expense supports goals
-    - is_learning_investment: Boolean if expense is educational
-    - purpose_score: How purposeful the expense is (0.0-1.0)
-
-    Args:
-        expense: ExpenseDTO or Expense entity
-        context: FinanceCrossContext with cross-domain relationships
-
-    Returns:
-        Dictionary of calculated metrics
-    """
-    # Purpose score: expenses tied to goals/habits/learning are more purposeful
-    purpose_factors = [
-        context.is_goal_supporting(),
-        context.is_lifestyle_supporting(),
-        context.is_learning_investment(),
-    ]
-    purpose_score = sum(1 for f in purpose_factors if f) / len(purpose_factors)
-
-    return {
-        "supporting_goal_count": len(context.supporting_goal_uids),
-        "supporting_habit_count": len(context.supporting_habit_uids),
-        "knowledge_investment_count": len(context.knowledge_investment_uids),
-        "is_goal_aligned": context.is_goal_supporting(),
-        "is_lifestyle_supporting": context.is_lifestyle_supporting(),
-        "is_learning_investment": context.is_learning_investment(),
-        "purpose_score": round(purpose_score, 2),
     }
 
 
