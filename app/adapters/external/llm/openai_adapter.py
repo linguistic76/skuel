@@ -58,7 +58,7 @@ class OpenAIChatAdapter:
         payload: list[dict[str, str]] = []
         if system_prompt:
             payload.append({"role": "system", "content": system_prompt})
-        payload.extend(dict(m) for m in messages)
+        payload.extend({"role": m["role"], "content": m["content"]} for m in messages)
 
         try:
             response = await self._client.chat.completions.create(

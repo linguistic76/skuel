@@ -99,7 +99,8 @@ async def render_entity_not_found_page(
                 P(f"Could not find {entity_label.lower()}: {uid}", cls="text-muted-foreground"),
                 Button(
                     f"← Back to {entity_label}s",
-                    **{"hx-get": f"/{domain_slug}", "hx-target": "body"},
+                    hx_get=f"/{domain_slug}",
+                    hx_target="body",
                     variant=ButtonT.primary,
                     cls="mt-4",
                 ),
