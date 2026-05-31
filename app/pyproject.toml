@@ -153,11 +153,8 @@ warn_no_return = false  # Too noisy
 warn_return_any = false  # Only enforce in critical modules
 warn_unreachable = false  # Conflicts with the __post_init__ sentinel-default pattern and Neo4j JSON-string boundary in core/models/*. See: core/models/entity.py:82, core/models/exercises/exercise.py:89.
 
-# SILENCE THE NOISE: Disable specific error codes that don't matter
-# These are type inference issues that work fine at runtime
-disable_error_code = [
-    "arg-type",          # Argument type mismatches (often false positives)
-]
+# No error codes are globally disabled. arg-type is enforced on all first-party
+# trees (see the per-module note below); tests/examples/scripts scope-disable it.
 
 # Allow Any for flexibility
 disallow_any_unimported = false
@@ -191,71 +188,14 @@ exclude = [
 
 # Per-module configuration for SKUEL-specific patterns
 
-[[tool.mypy.overrides]]
-# arg-type ENFORCED on core/ (re-enabled 2026-05-29). The 12-PR sweep
-# (plan humble-swinging-penguin) drove `mypy --enable-error-code arg-type core`
-# from 194 → 0; ~80% of those were real signal — Result.fail propagation,
-# enum/NewType boundaries, DTO↔frozen-model crossings, typed-payload discipline
-# (ADR-035/ADR-065). arg-type is the enforcement layer named in
-# docs/roadmap/functional-direction.md. It stays globally disabled (above)
-# because the un-swept first-party trees (adapters 81, ui 78) and the
-# framework-noise trees (tests, scripts) still carry ~1700 sites that were never
-# in the sweep's scope. Enabling it here makes core/ the live enforcement surface
-# without breaking CI on the un-swept trees. services_bootstrap/ is now ALSO
-# enforced (see the override below); extending enforcement to adapters/ui is a
-# future sweep, not this flip.
-module = ["core.*"]
-enable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-# arg-type ENFORCED on services_bootstrap/ (flipped 2026-05-30). compose.py is the
-# composition root, so its arg-type errors are the AGGREGATION of service↔protocol
-# conformance gaps across the system. The typed-protocol-returns rung (PRs #122–127)
-# plus the ExerciseReport protocol split (PR #128) fixed all 21 underlying gaps
-# HONESTLY (zero suppressions), driving
-# `mypy --enable-error-code arg-type services_bootstrap` to 0. This flip makes that
-# the live enforcement surface: a stray dict/DTO/raw-str passed to a service ctor or
-# a Services dataclass field now re-breaks the build at the wiring root. (PR #120
-# tried to flip this FIRST and failed — it reached 0 only via 21 `# type: ignore`;
-# the lesson was to enforce conformance at the LEAVES first (core/), the ROOT last.)
-# adapters/ + ui/ remain un-swept (future sweep); tests/scripts are framework noise.
-module = ["services_bootstrap.*"]
-enable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-# arg-type ENFORCED on adapters/ (flipped 2026-05-31). adapters/ sits at/below the
-# hexagonal boundary (ADR-044) — the translation tier — so arg-type here enforces that
-# boundary code hands correctly-shaped VALUES into the typed surfaces it touches (enums
-# Domain/NeoLabel/RelationshipName, Result[T], protocols, typed configs, frozen models).
-# The 81 → 0 sweep ran as micro-PRs AD-1..AD-8 (PRs #131–141); it was a real bug-detector
-# (latent dead Cypher, a swallowed not_found double-wrap, a multipart UploadFile crash).
-# AD-9 (finance FinancesOperations→CRUDOperations) was dissolved by the finance demolition
-# (PR #144), not rewritten. The final 3 sites are irreducible Alpine `x-on:click` splats —
-# FastHTML's `_`→`-` mapping cannot express the colon, so they carry a surgical
-# `# type: ignore[arg-type]  # fasthtml dynamic-attr splat`. Those ignores MUST land WITH
-# this enable (with warn_unused_ignores=true they are unused-ignore errors until arg-type
-# is live for the module). ui/ remains un-swept (next sweep); deleting the global
-# disable_error_code is the final step, gated on ui/ reaching 0.
-module = ["adapters.*"]
-enable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-# arg-type ENFORCED on ui/ (flipped 2026-05-31) — the LAST un-swept first-party tree.
-# ui/ sits on the FastHTML + MonsterUI + Alpine.js + HTMX boundary. The 76 → 0 sweep ran
-# as micro-PRs UI-1..UI-4: UI-1 widened PageHeader.subtitle to str | None (component-is-lie,
-# 6), UI-2 retyped status_fn → Callable[..., str] dropping a too-strict StatusCalculator
-# protocol (protocol-is-lie, 6), UI-3 converted 23 reducible single-hyphen attr splats
-# (x-model/x-ref/required/onclick) to underscore-kwargs (FastHTML maps `_`→`-`; zero
-# suppressions). The remaining sites are genuinely irreducible — Alpine colon/@/dot
-# directives (`x-on:click`, `@click`, `:checked`, `x-bind:value`, `@click.stop`) that
-# FastHTML's `_`→`-` mapping cannot express, plus pin_button's conditionally-built
-# `**htmx_attrs` dynamic dict — so each carries a surgical
-# `# type: ignore[arg-type]  # fasthtml dynamic-attr splat`. Those ignores MUST land WITH
-# this enable (with warn_unused_ignores=true they are unused-ignore errors until arg-type
-# is live for the module). With ui/ at 0, all first-party trees are enforced; deleting the
-# global disable_error_code is the final follow-up step.
-module = ["ui.*"]
-enable_error_code = ["arg-type"]
+# arg-type is ENFORCED on all four first-party trees — core, services_bootstrap,
+# adapters, ui — globally enabled (the global disable_error_code was deleted above)
+# as of 2026-05-31, after each was swept to 0 across PRs #104–149. The former
+# per-module `enable_error_code = ["arg-type"]` overrides are gone (redundant once
+# global). arg-type is the mechanical enforcement layer of SKUEL's functional
+# direction (frozen models, Result[T], typed payloads — ADR-035/ADR-065); see
+# docs/roadmap/functional-direction.md. The only scoped EXCEPTION is the
+# tests/examples/scripts block below (framework-mock noise, ~1628 sites, never swept).
 
 [[tool.mypy.overrides]]
 # Core ports — strict typing enforced (0 untyped defs as of 2026-03-27).
@@ -409,13 +349,16 @@ warn_return_any = false
 #   type-var       — tests parameterize generics with DTOs (EntityDTO et al.)
 #                    that don't satisfy the production bound; fine for fixtures.
 #   misc           — Strawberry/Pydantic dynamic __init__ on test-only stubs.
+#   arg-type       — tests/scripts construct wrong-typed DTOs/mocks freely (~1628
+#                    sites); never in the sweep's scope. The four first-party trees
+#                    (core, services_bootstrap, adapters, ui) enforce arg-type.
 module = ["tests.*", "examples.*", "scripts.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = true
 warn_return_any = false  # too noisy for fixture helpers
 warn_unused_ignores = false  # tests use # type: ignore liberally for mocks
-disable_error_code = ["method-assign", "type-var", "misc"]
+disable_error_code = ["method-assign", "type-var", "misc", "arg-type"]
 
 # ============================================================================
 # PYRIGHT CONFIGURATION
