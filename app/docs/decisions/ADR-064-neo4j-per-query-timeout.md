@@ -110,7 +110,7 @@ Have `Neo4jConnection.connect()` itself return a `TimedDriver`, so even migratio
 
 ### Negative / caveats
 
-- `CypherExecutor` is annotated `session: AsyncSession` and now receives a `TimedSession` (a duck-typed proxy, not subclass). Safe under SKUEL's mypy because `arg-type` is globally disabled; pyright (warning-gate only) is silent here. If we ever tighten the `arg-type` policy, the fix is a small structural `Protocol` (`SessionLike` with `run` + `begin_transaction`) — not a redesign.
+- `CypherExecutor` is annotated `session: AsyncSession` and receives a `TimedSession` (a duck-typed proxy, not subclass). This passes under SKUEL's mypy even with `arg-type` now enforced on `adapters/`: the backends are annotated `driver: AsyncDriver`, so the executor sees an `AsyncSession` and there is no in-tree mismatch — the proxies flow through the composition boundary as the neo4j driver type. pyright (warning-gate only) is silent here. If a proxy were ever passed where the concrete type is statically required, the fix is a small structural `Protocol` (`SessionLike` with `run` + `begin_transaction`) — not a redesign.
 - ContextVars copy at `asyncio.create_task` time. A task that outlives a `with neo4j_query_timeout(...)` block keeps its copy; `reset()` on the outer token does not reach into it. Documentation flags this; SKUEL's ingestion path does not spawn detached mid-upsert tasks, so it doesn't bite in practice.
 - A reader at a `session.run` site does not see the timeout being applied; the value is set at compose and overridden via ContextVar. This indirection is documented in `timed_driver.py`'s module docstring and in `docs/patterns/NEO4J_QUERY_TIMEOUT.md`.
 

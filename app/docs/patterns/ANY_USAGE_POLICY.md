@@ -190,7 +190,11 @@ A fifth, narrower case — an **`arg-type` ignore**, not an `Any` annotation. Mo
 Button("Close", **{"x-on:click": close_expr})  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
 ```
 
-⚠️ This ignore is only valid where `arg-type` is **enabled** for the module (per-module `enable_error_code`). On a tree where `arg-type` is still globally disabled (`disable_error_code = ["arg-type"]`), the ignore is itself flagged `[unused-ignore]` under `warn_unused_ignores = true` — so introduce it **in the same change** that flips the per-module enable, never ahead of it. See `.claude/skills/ui-browser/SKILL.md` § Splat vs underscore-kwarg for the convert-vs-suppress decision table.
+**Escape DYNAMIC values with `json.dumps()`.** An Alpine handler attribute is JS source — a runtime value spliced into it can break out of its string literal (or inject). Use `**{"x-on:click": f"setTag({json.dumps(tag)})"}`, never `f"setTag('{tag}')"` (a tag like `it's` ends the JS string → the click throws). `json.dumps` emits a properly-escaped JS string literal, and FastHTML's attribute escaping handles the surrounding quotes. Static literals you control (e.g. a hardcoded `'all'`/`'overdue'` preset) are exempt.
+
+**A colon / `@` Alpine attr written as an underscore-kwarg renders DEAD, silently.** `x_on_click="open()"` → `x-on-click="open()"`, which Alpine never binds — no error, the click just does nothing. Always splat colon / `@` / dot attrs. Detect regressions: `grep -rn "x_on_\|x_bind_" ui/ adapters/inbound/`.
+
+⚠️ **Historical timing note:** the `# type: ignore[arg-type]` is only valid where `arg-type` is **enabled** for the module. During the sweep, adding it on a tree where `arg-type` was still globally disabled tripped `[unused-ignore]` (`warn_unused_ignores = true`), so each per-module flip landed its ignores together with the `enable_error_code`. `arg-type` is now enforced on all first-party trees, so this is no longer a live concern. See `.claude/skills/ui-browser/SKILL.md` § Splat vs underscore-kwarg for the full convert-vs-suppress decision table (incl. the `json.dumps` rule).
 
 #### What does NOT need a `# boundary:` tag
 
