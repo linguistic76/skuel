@@ -2583,6 +2583,27 @@ class TestSKUEL024:
         assert len(violations) == 1
         assert "bad" in violations[0].message
 
+    def test_lambda_closing_over_kwargs_flagged(self) -> None:
+        """A lambda that closes over the enclosing **kwargs still collides — lambdas
+        are not independently checked, so the enclosing scan must catch it."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def outer(**kwargs: Any) -> Any:\n"
+            '    make = lambda: Div(cls="base", **kwargs)\n'
+            "    return make()\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
+
+    def test_positional_only_cls_still_flagged(self) -> None:
+        """A positional-only `cls` cannot absorb a keyword `cls=` — still collides."""
+        linter = make_linter(["SKUEL024"])
+        content = "def Helper(cls, /, **kwargs: Any) -> Div:\n    return Div(cls=cls, **kwargs)\n"
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
+
     def test_no_kwargs_splat_clean(self) -> None:
         """A hardcoded cls= with no **kwargs to collide with is fine."""
         linter = make_linter(["SKUEL024"])

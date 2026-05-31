@@ -2395,17 +2395,23 @@ class SkuelLinter:
 
     @staticmethod
     def _calls_in_scope(node: ast.AST) -> list[ast.Call]:
-        """Calls lexically within ``node`` but NOT inside a nested function/class scope.
+        """Calls lexically within ``node``, excluding nested ``def``/``class`` scopes.
 
-        ``ast.walk`` descends into nested ``def``/``lambda``/``class`` bodies, where the
-        ``**kwargs`` name is rebound (the inner scope has its own parameters). Attributing
-        an inner call's ``**kwargs`` splat to the OUTER function is a false positive — e.g.
-        an inner factory ``def row(cls="", **kwargs): return Div(cls=..., **kwargs)`` is
-        safe (it has its own ``cls``) yet would be flagged against the outer helper. Each
-        nested function is checked on its own when the outer ``ast.walk(tree)`` loop reaches
-        it, so pruning nested scopes here loses nothing.
+        ``ast.walk`` descends into nested ``def``/``class`` bodies, where the ``**kwargs``
+        name is rebound (the inner scope has its own parameters). Attributing an inner
+        call's ``**kwargs`` splat to the OUTER function is a false positive — e.g. an inner
+        factory ``def row(cls="", **kwargs): return Div(cls=..., **kwargs)`` is safe (it has
+        its own ``cls``) yet would be flagged against the outer helper. Each nested
+        ``def``/``async def`` is checked on its own when the outer ``ast.walk(tree)`` loop
+        reaches it, so pruning those scopes loses nothing.
+
+        Lambdas are NOT pruned: the outer loop only checks ``FunctionDef`` /
+        ``AsyncFunctionDef``, so a lambda is never inspected independently. A lambda that
+        closes over the enclosing ``**kwargs`` and hardcodes ``cls=``
+        (``lambda: Div(cls="base", **kwargs)``) is a real collision that only the enclosing
+        scan can see — so its calls must stay attributed to the enclosing function.
         """
-        nested_scopes = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+        nested_scopes = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
         out: list[ast.Call] = []
         for child in ast.iter_child_nodes(node):
             if isinstance(child, nested_scopes):
@@ -2454,11 +2460,13 @@ class SkuelLinter:
             if kwarg is None:
                 continue  # no **kwargs — nothing to collide with
             kw_name = kwarg.arg
-            param_names = {
-                a.arg for a in node.args.args + node.args.kwonlyargs + node.args.posonlyargs
-            }
-            if "cls" in param_names:
-                continue  # explicit cls param absorbs a caller-supplied cls= — safe
+            # Only a parameter that can be passed BY KEYWORD absorbs a caller's `cls=`:
+            # positional-or-keyword (args) and keyword-only (kwonlyargs). A positional-only
+            # `cls` (def f(cls, /, **kwargs)) does NOT — `f(x, cls="y")` routes `cls` into
+            # **kwargs and still collides — so posonlyargs are excluded here.
+            keyword_passable = {a.arg for a in node.args.args + node.args.kwonlyargs}
+            if "cls" in keyword_passable:
+                continue  # explicit keyword-passable cls param absorbs a caller cls= — safe
 
             # Scan only this function's own scope — not nested def/lambda/class bodies,
             # which rebind **kwargs and are checked independently by the outer walk.
