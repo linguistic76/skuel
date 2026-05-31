@@ -17,6 +17,7 @@ ERROR (blocks CI):
   SKUEL021: No raw Cypher in the service layer (lives below the boundary, ADR-044)
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
   SKUEL023: core/ thin services must type self.backend against a core/ports protocol
+  SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
 
 WARNING (reported, doesn't block):
   SKUEL004: Confidence thresholds on semantic queries
@@ -608,6 +609,39 @@ class UnifiedSharingService:
     def __init__(self, backend: "SharingBackend") -> None:
         self.backend = backend""",
     },
+    "SKUEL024": {
+        "title": "No cls= / **kwargs Collision in FT Helpers",
+        "severity": "ERROR",
+        "description": """A helper that hardcodes a ``cls=`` keyword AND splats ``**kwargs``
+into the SAME call, without declaring an explicit ``cls`` parameter to absorb a
+caller-supplied one, is a latent crash. The moment any caller passes ``cls=``, that value
+lands in ``**kwargs`` and collides with the hardcoded keyword:
+``TypeError: <fn>() got multiple values for keyword argument 'cls'``.
+
+This bit production: ``SmallText("Recommended Actions:", cls="font-semibold mb-1")`` 500'd
+the /insights page (PR #154), and an AST sweep found five more sites (#156/#157). It is
+invisible to mypy and ruff — only a caller that actually passes ``cls=`` triggers it, so a
+helper can ship the landmine and sit dormant until the first styling override.
+
+AST-based: flags a function that (1) declares ``**kwargs`` (any name), (2) has NO explicit
+``cls`` parameter, and (3) contains a call passing both a ``cls=`` keyword and ``**kwargs``
+(that same param). The ``kwargs.pop("cls", ...)`` / ``.get("cls", ...)`` defusal form is
+NOT flagged (it removes ``cls`` from ``**kwargs`` before the splat, so no collision) — but
+the explicit ``cls: str = ""`` parameter is the preferred, self-documenting contract.
+
+Fix: add ``cls: str = ""`` and merge it into the base classes
+(``cls=f"...base... {cls}".strip()``). See ui/text.py / ui/patterns/ for the pattern, and
+tests/unit/ui/test_cls_merge_contract.py for the contract guard.
+
+Suppress: # skuel-lint: disable=SKUEL024 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL024 -- <reason>""",
+        "good": """# Explicit cls param merged into the base classes — no collision
+def SmallText(text: str, cls: str = "", **kwargs: Any) -> Span:
+    return Span(text, cls=f"text-sm {cls}".strip(), **kwargs)""",
+        "bad": """# Hardcoded cls= AND **kwargs, no cls param — caller cls= raises TypeError
+def SmallText(text: str, **kwargs: Any) -> Span:
+    return Span(text, cls="text-sm", **kwargs)  # SmallText("x", cls="y") -> crash""",
+    },
 }
 
 
@@ -969,6 +1003,8 @@ class SkuelLinter:
                 self._check_credential_env_reads(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL020") and not is_test:
                 self._check_request_annotation(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL024") and not is_test:
+                self._check_cls_kwargs_collision(file_path, rel_path, content, lines)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -2354,6 +2390,110 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    @staticmethod
+    def _function_pops_cls(node: ast.FunctionDef | ast.AsyncFunctionDef, kw_name: str) -> bool:
+        """True if the function reads ``cls`` out of its ``**kw_name`` before splatting it.
+
+        ``extra = kwargs.pop("cls", "")`` (or ``.get(...)``) removes ``cls`` from the
+        mapping, so the later ``**kwargs`` splat can't collide. That form is safe and is
+        not flagged by SKUEL024 (though an explicit ``cls`` parameter is preferred).
+        """
+        for n in ast.walk(node):
+            if (
+                isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Attribute)
+                and n.func.attr in ("pop", "get")
+                and isinstance(n.func.value, ast.Name)
+                and n.func.value.id == kw_name
+                and n.args
+                and isinstance(n.args[0], ast.Constant)
+                and n.args[0].value == "cls"
+            ):
+                return True
+        return False
+
+    def _check_cls_kwargs_collision(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL024 [ERROR]: a helper must not hardcode ``cls=`` AND splat ``**kwargs``
+        into the same call without an explicit ``cls`` parameter.
+
+        Such a helper raises ``TypeError: got multiple values for keyword argument
+        'cls'`` the moment a caller passes ``cls=`` — the value lands in ``**kwargs``
+        and collides with the hardcoded keyword. This 500'd /insights via ``SmallText``
+        (PR #154). Invisible to mypy/ruff; only a caller passing ``cls=`` surfaces it.
+
+        AST-based: a function that (1) declares ``**kwargs`` (any name), (2) has no
+        explicit ``cls`` parameter, and (3) passes both a ``cls=`` keyword and that
+        ``**kwargs`` into one call. The ``kwargs.pop("cls")`` defusal form is exempt.
+        """
+        if self._is_file_suppressed(content, "SKUEL024"):
+            return
+
+        # Cheap pre-filter: both a `cls=` keyword and a `**` splat must appear at all.
+        if "cls=" not in content or "**" not in content:
+            return
+
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            kwarg = node.args.kwarg
+            if kwarg is None:
+                continue  # no **kwargs — nothing to collide with
+            kw_name = kwarg.arg
+            param_names = {
+                a.arg for a in node.args.args + node.args.kwonlyargs + node.args.posonlyargs
+            }
+            if "cls" in param_names:
+                continue  # explicit cls param absorbs a caller-supplied cls= — safe
+            if self._function_pops_cls(node, kw_name):
+                continue  # cls popped out of **kwargs before the splat — no collision
+
+            for call in ast.walk(node):
+                if not isinstance(call, ast.Call):
+                    continue
+                passes_cls = any(k.arg == "cls" for k in call.keywords)
+                splats_kwargs = any(
+                    k.arg is None and isinstance(k.value, ast.Name) and k.value.id == kw_name
+                    for k in call.keywords
+                )
+                if not (passes_cls and splats_kwargs):
+                    continue
+
+                line_num = call.lineno
+                line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+                if self._is_line_suppressed(line, "SKUEL024"):
+                    continue
+
+                target = call.func
+                target_name = getattr(target, "id", getattr(target, "attr", "the call"))
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=line_num,
+                        column=call.col_offset,
+                        severity=Severity.ERROR,
+                        rule_id="SKUEL024",
+                        message=(
+                            f"`{node.name}` passes `cls=` and `**{kw_name}` to `{target_name}(...)` "
+                            f"with no `cls` parameter — a caller passing `cls=` raises "
+                            f"TypeError (multiple values for 'cls')"
+                        ),
+                        suggestion=(
+                            'Add an explicit `cls: str = ""` parameter and merge it: '
+                            'cls=f"...base... {cls}".strip()'
+                        ),
+                        line_content=line.strip(),
+                    )
+                )
+                break  # one violation per helper is enough
 
     # -------------------------------------------------------------------------
     # Authoring AST rules — the "iterate the field, never walk the node" rule.

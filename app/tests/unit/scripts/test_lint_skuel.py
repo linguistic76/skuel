@@ -69,6 +69,8 @@ def lint_content(
         linter._check_credential_env_reads(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL020") and not is_test:
         linter._check_request_annotation(fp, rel, content, lines)
+    if linter._should_run_rule("SKUEL024") and not is_test:
+        linter._check_cls_kwargs_collision(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -2465,4 +2467,107 @@ class TestSKUEL023:
             "        self.backend: cb.KuBackend = backend\n"
         )
         violations = lint_content(linter, content, file_path="core/services/ku_service.py")
+        assert violations == []
+
+
+class TestSKUEL024:
+    UI_FILE = "ui/text.py"
+
+    def test_detects_hardcoded_cls_with_kwargs_splat(self) -> None:
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def SmallText(text: str, **kwargs: Any) -> Span:\n"
+            '    return Span(text, cls="text-sm", **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path=self.UI_FILE)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
+        assert violations[0].severity == Severity.ERROR
+        assert "SmallText" in violations[0].message
+        assert "Span" in violations[0].message
+
+    def test_detects_cls_as_variable_not_just_literal(self) -> None:
+        """The hardcoded cls= can be a variable (StatusBadge: cls=badge_cls)."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def StatusBadge(status: str, **kwargs: Any) -> Any:\n"
+            "    badge_cls = compute(status)\n"
+            "    return Badge(status, variant=None, cls=badge_cls, **kwargs)\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/feedback.py")
+        assert len(violations) == 1
+        assert "StatusBadge" in violations[0].message
+
+    def test_detects_with_alternate_kwarg_name(self) -> None:
+        """The **var need not be named `kwargs`."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def Helper(text: str, **attrs: Any) -> Div:\n"
+            '    return Div(text, cls="base", **attrs)\n'
+        )
+        violations = lint_content(linter, content, file_path=self.UI_FILE)
+        assert len(violations) == 1
+
+    def test_explicit_cls_param_clean(self) -> None:
+        """An explicit cls parameter absorbs a caller-supplied cls= — no collision."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def SmallText(text: str, cls: str = '', **kwargs: Any) -> Span:\n"
+            '    return Span(text, cls=f"text-sm {cls}".strip(), **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path=self.UI_FILE)
+        assert violations == []
+
+    def test_keyword_only_cls_param_clean(self) -> None:
+        """cls declared keyword-only (after *children) still absorbs the collision."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def DashboardSection(title: str, *children: Any, cls: str = '', **kwargs: Any) -> Div:\n"
+            '    return Div(title, *children, cls=f"mt-8 {cls}".strip(), **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path="ui/layouts/dashboard.py")
+        assert violations == []
+
+    def test_kwargs_pop_cls_defused_clean(self) -> None:
+        """`kwargs.pop("cls")` removes cls from the splat — safe, not flagged."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def EmptyState(title: str, **kwargs: Any) -> Div:\n"
+            '    extra = kwargs.pop("cls", "")\n'
+            '    return Div(title, cls=f"base {extra}".strip(), **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/empty_state.py")
+        assert violations == []
+
+    def test_no_kwargs_splat_clean(self) -> None:
+        """A hardcoded cls= with no **kwargs to collide with is fine."""
+        linter = make_linter(["SKUEL024"])
+        content = "def Caption(text: str) -> Span:\n    return Span(text, cls='text-xs')\n"
+        violations = lint_content(linter, content, file_path=self.UI_FILE)
+        assert violations == []
+
+    def test_kwargs_without_cls_clean(self) -> None:
+        """Splatting **kwargs without a hardcoded cls= is fine."""
+        linter = make_linter(["SKUEL024"])
+        content = "def Wrapper(text: str, **kwargs: Any) -> Div:\n    return Div(text, **kwargs)\n"
+        violations = lint_content(linter, content, file_path=self.UI_FILE)
+        assert violations == []
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def SmallText(text: str, **kwargs: Any) -> Span:\n"
+            '    return Span(text, cls="text-sm", **kwargs)  # skuel-lint: disable=SKUEL024 -- legacy\n'
+        )
+        violations = lint_content(linter, content, file_path=self.UI_FILE)
+        assert violations == []
+
+    def test_not_run_on_tests(self) -> None:
+        """SKUEL024 is skipped on test files (mirrors the _lint_file gate)."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def SmallText(text: str, **kwargs: Any) -> Span:\n"
+            '    return Span(text, cls="text-sm", **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path="tests/unit/ui/test_x.py")
         assert violations == []

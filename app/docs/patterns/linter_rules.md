@@ -48,6 +48,8 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL020** | `request: Any` on `@rt`/`@app.*` handlers | Annotate `request: Request` (AST rule) |
 | **SKUEL021** | Raw Cypher anywhere in `core/` | Relocate below the boundary (ADR-044) |
 | **SKUEL022** | `adapters/` imports in `core/` | Depend on a `core/ports` protocol; inject the adapter (ADR-044) |
+| **SKUEL023** | `self.backend` typed against an adapter class in `core/` | Type against the `core/ports` protocol (AST rule, ADR-044) |
+| **SKUEL024** | Hardcoded `cls=` + `**kwargs` splat without a `cls` param | Add explicit `cls: str = ""` and merge (AST rule) |
 
 ### WARNING (reported, doesn't block)
 | Rule | Pattern | Enforcement |
@@ -482,6 +484,32 @@ if TYPE_CHECKING:
 **Suppression:**
 - `# skuel-lint: disable=SKUEL022 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL022 -- <reason>` (file)
+
+## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
+
+**Pattern:** A UI/FT helper that hardcodes a `cls=` keyword **and** splats `**kwargs` into the same call, without declaring an explicit `cls` parameter, is a latent crash. When any caller passes `cls=`, that value lands in `**kwargs` and collides with the hardcoded keyword: `TypeError: <fn>() got multiple values for keyword argument 'cls'`.
+
+```python
+# BAD — caller cls= collides with the hardcoded one
+def SmallText(text: str, **kwargs: Any) -> Span:
+    return Span(text, cls="text-sm", **kwargs)   # SmallText("x", cls="y") -> TypeError
+
+# GOOD — explicit cls param, merged into the base classes
+def SmallText(text: str, cls: str = "", **kwargs: Any) -> Span:
+    return Span(text, cls=f"text-sm {cls}".strip(), **kwargs)
+```
+
+**Why it matters:** this 500'd the `/insights` page in production via `SmallText("Recommended Actions:", cls="font-semibold mb-1")` (PR #154); an AST sweep then found six sibling helpers (PRs #156/#157). It is invisible to mypy and ruff — only a caller that actually passes `cls=` triggers it, so a helper can ship the landmine and sit dormant until the first styling override.
+
+**Detection (AST):** flags a function that (1) declares `**kwargs` (any name), (2) has **no** explicit `cls` parameter (positional, keyword-only, or positional-only), and (3) contains a call passing both a `cls=` keyword and that same `**kwargs`. The `kwargs.pop("cls", ...)` / `.get("cls", ...)` defusal form is exempt — it removes `cls` from the mapping before the splat, so no collision occurs — though the explicit `cls: str = ""` parameter is the preferred, self-documenting contract.
+
+**Scope:** all non-test files (the shape is language-general — any `f(cls=x, **kwargs)` without a `cls` param crashes when a caller passes `cls`). The contract is guarded at runtime by `tests/unit/ui/test_cls_merge_contract.py`, which renders every `cls`-merging helper with `cls=` set.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL024` covers literal and variable `cls=`, alternate `**` names, the explicit-param and keyword-only-param clean cases, the `kwargs.pop("cls")` exemption, no-kwargs / no-cls clean cases, suppression, and the test-file skip.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL024 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL024 -- <reason>` (file)
 
 ## Authoring AST Rules
 
