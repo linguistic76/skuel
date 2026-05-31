@@ -471,7 +471,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                     "Close",
                     variant=ButtonT.ghost,
                     cls="mt-4",
-                    **{"x-on:click": close_expr},
+                    **{"x-on:click": close_expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
                 ),
                 show="open",
                 close=close_expr,
