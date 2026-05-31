@@ -625,9 +625,11 @@ helper can ship the landmine and sit dormant until the first styling override.
 
 AST-based: flags a function that (1) declares ``**kwargs`` (any name), (2) has NO explicit
 ``cls`` parameter, and (3) contains a call passing both a ``cls=`` keyword and ``**kwargs``
-(that same param). The ``kwargs.pop("cls", ...)`` / ``.get("cls", ...)`` defusal form is
-NOT flagged (it removes ``cls`` from ``**kwargs`` before the splat, so no collision) — but
-the explicit ``cls: str = ""`` parameter is the preferred, self-documenting contract.
+(that same param). A ``kwargs.pop("cls", ...)`` that runs BEFORE the splat is exempt (it
+removes ``cls`` from the mapping, so no collision). ``kwargs.get("cls")`` is NOT a defusal —
+``get`` leaves ``cls`` in the mapping, so the splat still collides — nor is a splat that
+runs before the pop (e.g. on a guard-return path). The explicit ``cls: str = ""`` parameter
+is the preferred, self-documenting contract.
 
 Fix: add ``cls: str = ""`` and merge it into the base classes
 (``cls=f"...base... {cls}".strip()``). See ui/text.py / ui/patterns/ for the pattern, and
@@ -2392,26 +2394,28 @@ class SkuelLinter:
             )
 
     @staticmethod
-    def _function_pops_cls(node: ast.FunctionDef | ast.AsyncFunctionDef, kw_name: str) -> bool:
-        """True if the function reads ``cls`` out of its ``**kw_name`` before splatting it.
+    def _cls_pop_lines(node: ast.FunctionDef | ast.AsyncFunctionDef, kw_name: str) -> list[int]:
+        """Line numbers of ``kw_name.pop("cls", ...)`` calls within the function.
 
-        ``extra = kwargs.pop("cls", "")`` (or ``.get(...)``) removes ``cls`` from the
-        mapping, so the later ``**kwargs`` splat can't collide. That form is safe and is
-        not flagged by SKUEL024 (though an explicit ``cls`` parameter is preferred).
+        Only ``.pop`` removes ``cls`` from the mapping, so only ``.pop`` defuses the
+        later ``**kw_name`` splat. ``.get("cls")`` reads the value but LEAVES it in the
+        mapping — the splat still collides — so ``.get`` is deliberately NOT treated as
+        a defusal. A pop only defuses a splat that executes *after* it, so callers
+        compare line numbers rather than treating any pop in the function as a global
+        defuser (an early-return splat before the pop still crashes).
         """
-        for n in ast.walk(node):
-            if (
-                isinstance(n, ast.Call)
-                and isinstance(n.func, ast.Attribute)
-                and n.func.attr in ("pop", "get")
-                and isinstance(n.func.value, ast.Name)
-                and n.func.value.id == kw_name
-                and n.args
-                and isinstance(n.args[0], ast.Constant)
-                and n.args[0].value == "cls"
-            ):
-                return True
-        return False
+        return [
+            n.lineno
+            for n in ast.walk(node)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr == "pop"
+            and isinstance(n.func.value, ast.Name)
+            and n.func.value.id == kw_name
+            and n.args
+            and isinstance(n.args[0], ast.Constant)
+            and n.args[0].value == "cls"
+        ]
 
     def _check_cls_kwargs_collision(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -2427,7 +2431,9 @@ class SkuelLinter:
 
         AST-based: a function that (1) declares ``**kwargs`` (any name), (2) has no
         explicit ``cls`` parameter, and (3) passes both a ``cls=`` keyword and that
-        ``**kwargs`` into one call. The ``kwargs.pop("cls")`` defusal form is exempt.
+        ``**kwargs`` into one call. A ``kwargs.pop("cls")`` that PRECEDES the splat
+        defuses it (exempt); ``kwargs.get("cls")`` does not remove ``cls`` and is still
+        flagged, as is a splat that runs before the pop (e.g. a guard return).
         """
         if self._is_file_suppressed(content, "SKUEL024"):
             return
@@ -2453,8 +2459,7 @@ class SkuelLinter:
             }
             if "cls" in param_names:
                 continue  # explicit cls param absorbs a caller-supplied cls= — safe
-            if self._function_pops_cls(node, kw_name):
-                continue  # cls popped out of **kwargs before the splat — no collision
+            pop_lines = self._cls_pop_lines(node, kw_name)
 
             for call in ast.walk(node):
                 if not isinstance(call, ast.Call):
@@ -2465,6 +2470,11 @@ class SkuelLinter:
                     for k in call.keywords
                 )
                 if not (passes_cls and splats_kwargs):
+                    continue
+                # A `kwargs.pop("cls")` defuses only a splat that runs AFTER it. Exempt
+                # this call only if some pop precedes it; an earlier splat (e.g. on a
+                # guard-return path before the pop) still collides and is reported.
+                if any(pop_line < call.lineno for pop_line in pop_lines):
                     continue
 
                 line_num = call.lineno

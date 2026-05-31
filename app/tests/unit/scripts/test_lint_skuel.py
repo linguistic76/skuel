@@ -2529,7 +2529,7 @@ class TestSKUEL024:
         assert violations == []
 
     def test_kwargs_pop_cls_defused_clean(self) -> None:
-        """`kwargs.pop("cls")` removes cls from the splat — safe, not flagged."""
+        """`kwargs.pop("cls")` before the splat removes cls — safe, not flagged."""
         linter = make_linter(["SKUEL024"])
         content = (
             "def EmptyState(title: str, **kwargs: Any) -> Div:\n"
@@ -2538,6 +2538,33 @@ class TestSKUEL024:
         )
         violations = lint_content(linter, content, file_path="ui/patterns/empty_state.py")
         assert violations == []
+
+    def test_kwargs_get_cls_not_a_defusal(self) -> None:
+        """`get` reads but LEAVES cls in the mapping — the splat still collides."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def Helper(title: str, **kwargs: Any) -> Div:\n"
+            '    extra = kwargs.get("cls", "")\n'
+            '    return Div(title, cls=f"base {extra}".strip(), **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
+
+    def test_splat_before_pop_still_flagged(self) -> None:
+        """A guard-return splat that runs BEFORE the pop still crashes — must flag."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def Helper(title: str, flag: bool, **kwargs: Any) -> Div:\n"
+            "    if flag:\n"
+            '        return Div(title, cls="early", **kwargs)\n'
+            '    extra = kwargs.pop("cls", "")\n'
+            '    return Div(title, cls=f"base {extra}".strip(), **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert len(violations) == 1
+        # The flagged collision is the early-return splat (line 3), before the pop.
+        assert violations[0].line_number == 3
 
     def test_no_kwargs_splat_clean(self) -> None:
         """A hardcoded cls= with no **kwargs to collide with is fine."""
