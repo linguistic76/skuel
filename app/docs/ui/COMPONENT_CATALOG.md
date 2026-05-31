@@ -435,6 +435,15 @@ Row(
 
 Typography components for consistent text styling.
 
+**`cls` merge contract:** every typography helper (`PageTitle`, `SectionTitle`,
+`Subtitle`, `BodyText`, `SmallText`, `Caption`, `TruncatedText`) takes an explicit
+`cls: str = ""` parameter that is **merged** into the helper's base classes —
+`cls=f"...base... {cls}".strip()` — never passed through `**kwargs`. Always extend
+styling via `cls=`; passing it through `**kwargs` alongside the hardcoded base used
+to raise `TypeError: got multiple values for keyword argument 'cls'` (the
+`/insights` 500, fixed 2026-05-31). Reserve `**kwargs` for non-`cls` attributes
+(`id`, `x_show`, etc.).
+
 ### CardTitle(text, truncate, **kwargs)
 
 Card title with optional truncation.
@@ -444,21 +453,24 @@ Card title with optional truncation.
 - `truncate: bool` - Truncate long text (default: False)
 - `**kwargs` - Additional attributes
 
-### SmallText(text, **kwargs)
+### SmallText(text, muted=True, cls="", **kwargs)
 
-Small secondary text.
+Small secondary text (`<span>`).
 
 **Parameters:**
 - `text: str` - Text content
+- `muted: bool` - Use muted color (default: True)
+- `cls: str` - Additional CSS classes, merged into the base classes
 - `**kwargs` - Additional attributes
 
-### TruncatedText(text, lines, **kwargs)
+### TruncatedText(text, lines, cls="", **kwargs)
 
 Text truncated to specified number of lines.
 
 **Parameters:**
 - `text: str` - Text content
-- `lines: int` - Number of lines before truncation (default: 1)
+- `lines: int` - Number of lines before truncation (default: 1, clamped 1–3)
+- `cls: str` - Additional CSS classes, merged into the line-clamp class
 - `**kwargs` - Additional attributes
 
 **Examples:**
@@ -467,6 +479,9 @@ from ui.text import SmallText, TruncatedText
 
 # Small metadata text
 SmallText("Due: Dec 15, 2024")
+
+# Small text with extra styling — cls merges, never collides
+SmallText("Recommended Actions:", cls="font-semibold mb-1")
 
 # Multi-line truncation
 TruncatedText(
