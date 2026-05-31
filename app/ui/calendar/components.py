@@ -508,7 +508,7 @@ def create_quick_add_modal() -> Div:
                     name="start_time",
                     id="quick-add-datetime",
                     required=True,
-                    **{"x-model": "datetime"},
+                    x_model="datetime",
                 ),
                 cls="mb-4",
             ),
@@ -561,8 +561,8 @@ def create_reschedule_form() -> Form:
         Hidden form with HTMX attributes for reschedule submission
     """
     return Form(
-        Input(type="hidden", name="uid", **{"x-ref": "rescheduleUid"}),
-        Input(type="hidden", name="new_start", **{"x-ref": "rescheduleTime"}),
+        Input(type="hidden", name="uid", x_ref="rescheduleUid"),
+        Input(type="hidden", name="new_start", x_ref="rescheduleTime"),
         id="reschedule-form",
         style="display: none;",
         **{
