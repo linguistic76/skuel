@@ -92,8 +92,10 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                 label,
                 variant=ButtonT.ghost,
                 size=Size.sm,
-                x_bind_class=f"{{'bg-primary text-primary-foreground': filterPreset === '{value}', '': filterPreset !== '{value}'}}",
-                x_on_click=f"filterPreset = '{value}'",
+                **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    "x-bind:class": f"{{'bg-primary text-primary-foreground': filterPreset === '{value}', '': filterPreset !== '{value}'}}",
+                    "x-on:click": f"filterPreset = '{value}'",
+                },
             )
         )
 
@@ -128,7 +130,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                     ),
                     variant=ButtonT.ghost,
                     size=Size.sm,
-                    x_on_click="toggleShowAll()",
+                    **{"x-on:click": "toggleShowAll()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 ),
                 cls="ml-auto",
             ),
