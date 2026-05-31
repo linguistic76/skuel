@@ -175,6 +175,7 @@ from .infrastructure_protocols import (
     EventBusOperations,
     IngestionOperations,
     SchemaOperations,
+    SchemaQueryExecutor,
     UserActivityOperations,
     UserCrudOperations,
     UserLearningStateOperations,
@@ -446,6 +447,7 @@ __all__ = [
     "RelationshipQueryOperations",  # Relationship queries (3 methods)
     "Result",
     "SchemaOperations",
+    "SchemaQueryExecutor",
     "SearchOperations",
     "Serializable",
     "StreaksLike",

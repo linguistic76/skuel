@@ -34,7 +34,7 @@ from core.infrastructure.database.schema import (
 )
 
 # Import protocol interface
-from core.ports.infrastructure_protocols import SchemaOperations
+from core.ports.infrastructure_protocols import SchemaQueryExecutor
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -50,13 +50,16 @@ class Neo4jSchemaService:
     """
 
     def __init__(
-        self, neo4j_adapter: SchemaOperations, cache_ttl_minutes: int = 30, use_apoc: bool = False
+        self,
+        neo4j_adapter: SchemaQueryExecutor,
+        cache_ttl_minutes: int = 30,
+        use_apoc: bool = False,
     ) -> None:
         """
         Initialize schema service with Neo4j adapter.
 
         Args:
-            neo4j_adapter: Schema operations (protocol-based)
+            neo4j_adapter: Raw query executor (SchemaQueryExecutor protocol)
             cache_ttl_minutes: How long to cache schema before refresh
             use_apoc: Whether to use APOC for optimized schema introspection (default: False for portability)
         """
