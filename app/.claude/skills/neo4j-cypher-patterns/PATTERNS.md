@@ -41,11 +41,11 @@ RETURN r
 
 **Problem**: A mutation should only execute if the entity is in a valid source state. Pre-fetching then writing is a race condition; two concurrent requests can both read PROCESSING and both write COMPLETED.
 
-**Context**: `SubmissionsBackend.create_report_node()` and `approve_and_get_linked_kus()` — teacher review actions that set submission status atomically.
+**Context**: `ExerciseReportBackend.create_report_node()` and `UserEntryBackend.approve_and_get_linked_kus()` — teacher review actions that set submission status atomically.
 
 **Solution**:
 ```cypher
-// TeacherReviewService → SubmissionsBackend.create_report_node()
+// TeacherReviewService → ExerciseReportBackend.create_report_node()
 MATCH (submission:Entity {uid: $submission_uid})
 WHERE submission.status IN $allowed_from_statuses   // Cypher-level guard
 OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
@@ -61,7 +61,7 @@ RETURN submission.uid as uid, submission.status as status, ...
 ```python
 # TeacherReviewService.submit_report() — PROCESSING → COMPLETED
 allowed_from = [EntityStatus.PROCESSING.value]
-result = await self.submissions_backend.create_report_node({
+result = await self.report_backend.create_report_node({
     ...,
     "allowed_from_statuses": allowed_from,
     "submission_status": EntityStatus.COMPLETED.value,
@@ -78,7 +78,7 @@ if not records:
 - Zero extra queries — guard is part of the existing MATCH
 - Empty results are ambiguous (not found vs guard rejected) — resolve by checking existence separately first (e.g., `_verify_teacher_has_group_access`)
 
-**Real-world usage**: `SubmissionsBackend.create_report_node()` (submit_report, request_revision), `SubmissionsBackend.approve_and_get_linked_kus()` (approve_report). Guards enforce: PROCESSING→COMPLETED, COMPLETED→REVISION_REQUESTED, REVISION_REQUESTED→COMPLETED.
+**Real-world usage**: `ExerciseReportBackend.create_report_node()` (submit_report, request_revision), `UserEntryBackend.approve_and_get_linked_kus()` (approve_report). Guards enforce: PROCESSING→COMPLETED, COMPLETED→REVISION_REQUESTED, REVISION_REQUESTED→COMPLETED.
 
 ---
 
@@ -402,7 +402,7 @@ RETURN teacher.uid as teacher_uid  -- works for all entity types
 
 **COALESCE for hybrid queries** (supports both curriculum and user-owned types in one query):
 ```cypher
--- SubmissionsBackend.get_exercise_context() — works for Exercise AND RevisedExercise
+-- UserEntryBackend.get_exercise_context() — works for Exercise AND RevisedExercise
 MATCH (exercise:Entity {uid: $exercise_uid})
 WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
 OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
@@ -416,7 +416,7 @@ RETURN COALESCE(teacher.uid, exercise.user_uid) as teacher_uid
 teacher context have no OWNS relationship and no `user_uid`. The service layer must
 guard against `None` before calling downstream methods that require a teacher UID.
 
-**Real-world usage:** `SubmissionsBackend.get_exercise_context()`,
+**Real-world usage:** `UserEntryBackend.get_exercise_context()`,
 `ExerciseBackend.get_exercises_with_submission_counts()` (`MATCH (user)-[:OWNS]->(exercise)`),
 `TeacherReviewService.get_review_queue()` (OWNS-based: `(student)-[:OWNS]->(submission)
 WHERE student.uid <> teacher_uid` — catches all student submissions including
@@ -450,8 +450,8 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | Cypher Type | Location | Example |
 |-------------|----------|---------|
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
-| Domain-specific relationships | Domain backend in `backends/` | `SubmissionsBackend.link_to_exercise()` |
-| Atomic multi-entity creation | Domain backend in `backends/` | `SubmissionsBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
+| Domain-specific relationships | Domain backend in `backends/` | `RevisedExerciseBackend.link_to_exercise()` |
+| Atomic multi-entity creation | Domain backend in `backends/` | `ExerciseReportBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
 | PS-specific Cypher | 5 PsBackend mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY, `CrossDomainQueryService` (9 targeted reads → frozen typed dataclasses) |
 | Vector index calls | `VectorSearchBackend` in `vector_search_backend.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
@@ -467,7 +467,7 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | `backends/activity_backends.py` | HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend |
 | `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend |
 | `backends/exercise_backends.py` | ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend |
-| `backends/submissions_backend.py` | SubmissionsBackend (shell over 5 `_submission_*_mixin` files) |
+| `backends/user_entry_backend.py` | UserEntryBackend (shell over 5 `_user_entry_*_mixin` files) |
 | `backends/sharing_backend.py` | SharingBackend |
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |
 | `backends/journal_backends.py` | JournalInputBackend, JournalOutputBackend |
