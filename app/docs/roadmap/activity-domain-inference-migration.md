@@ -1,6 +1,6 @@
 # Activity Domain Inference Migration
 
-**Status:** Tasks complete (ADR-065, PR #101 merged `4b082db4` 2026-05-28). Goals, Habits, Events, Choices, Principles pending.
+**Status:** Tasks complete (ADR-065, PR #101 merged `4b082db4` 2026-05-28). Goals, Habits, Events, Choices, Principles pending — **blocked on product demand, not on engineering readiness** (see [Blockage status](#blockage-status-verified-2026-05-31)).
 **Pattern owner:** [ADR-065 — Functional Inference Contract](../decisions/ADR-065-functional-inference-contract.md).
 **Doctrine pointer:** [Three-Tier Type System § Intelligence is the Exception](../patterns/three_tier_type_system.md).
 
@@ -9,6 +9,16 @@
 ADR-065 closed ADR-035's deferred "intelligence services would operate on mutable DTOs (risky)" risk flag by adopting a **functional inference contract**: inference services return typed `*InferenceResult` frozen dataclasses; callers apply enrichment via `dataclasses.replace(entity, **result.as_kwargs())`. No in-place DTO mutation inside intelligence services.
 
 Tasks is the implemented template. The other five Activity Domains do not have inference services today — when they gain one, they will adopt the Tasks pattern. This roadmap captures what that adoption looks like so the work does not have to re-derive the contract per domain.
+
+## Blockage status (verified 2026-05-31)
+
+A functional-direction review (see [`functional-direction.md` § implementation status snapshot](functional-direction.md#implementation-status-snapshot-2026-05-31)) asked whether this migration could be pressed ahead. **It cannot be started usefully yet, and the blockage is product demand — not missing engineering.** The state below was confirmed empirically against the codebase:
+
+- **The 5 non-Task domains have no inference service at all.** Their `_core_intelligence_mixin` files are thin stubs (Goals/Habits) or do unrelated analytics (Events `analyze_event_performance`, Choices `get_decision_intelligence`) — zero `EntityInferenceService` injection, zero inference calls. Verified across `core/services/{goals,habits,events,choices,principles}/`.
+- **An `*InferenceResult` is the return type of a computation that does not exist.** Adding `GoalInferenceResult` etc. now would create the output shape of a service nobody has built, for demand nobody has expressed — speculative scaffolding, which SKUEL's One Path Forward philosophy forbids. The dataclass arrives *with* the inference service, not ahead of it.
+- **The engine-generalization prerequisite must also wait.** `AdvancedInferenceEngine` and `EntityInferenceService` still hardcode `TaskInferenceResult` (confirmed: both return `Result[TaskInferenceResult]`, the `entity_type` param is logging-only). The "Cross-cutting prerequisite" section below says to generalize them "before the second domain migrates" — doing it now would generalize a one-implementation dispatch with no second caller, which is premature abstraction (YAGNI). It is the *first step of the next domain's migration*, not standalone prep to do speculatively.
+
+**Trigger to unblock:** a concrete product decision that a specific domain (Goals is the recommended first per the sequence below) needs knowledge-graph inference. At that point, start with the engine generalization, then that domain. Until then, this doc is a captured plan, not active work.
 
 ## Domain status
 
@@ -35,7 +45,7 @@ For each non-Task Activity Domain `X` to reach inference parity:
 
 `AdvancedInferenceEngine` (`core/services/advanced_inference_engine.py`) is currently Task-shaped at its construction boundary — `analyze_content_advanced` reads `title` + `description` (already generic), but the result-construction path is wired to `TaskInferenceResult`. Before the second domain migrates, the engine needs to dispatch on `EntityType` (or accept a result-type parameter) so it can build `GoalInferenceResult`, `HabitInferenceResult`, etc.
 
-Estimated scope: ~50–100 LOC of generalization in a single PR, behavior-preserving for Tasks. This is the natural first step — once landed, each domain's adoption becomes mostly mechanical.
+Estimated scope: ~50–100 LOC of generalization in a single PR, behavior-preserving for Tasks. This is the natural first step — once landed, each domain's adoption becomes mostly mechanical. **Do not do it speculatively:** it is the first step *of* the second domain's migration, not standalone prep (see [Blockage status](#blockage-status-verified-2026-05-31)). Generalizing a one-implementation dispatch with no second caller is premature abstraction.
 
 `EntityInferenceService` (`core/services/entity_inference_service.py`) needs the same generalization at the `enhance_*_with_knowledge_inference` boundary.
 
