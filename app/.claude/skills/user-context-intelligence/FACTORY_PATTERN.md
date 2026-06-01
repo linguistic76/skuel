@@ -180,6 +180,7 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     # Curriculum (3)
     ps=learning_services["ps"],  # PsService facade
     lp=learning_services["learning_paths"].relationships,
+    exercises=services.exercises,  # ExerciseService facade (REQUIRED)
     # Processing (3)
     user_entries=entry_relationship_service,
     report=report_relationship_service,
