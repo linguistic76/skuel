@@ -99,7 +99,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, event: Event) -> Result[None] | None:
+    def _validate_create(self, event: Event) -> Result[None]:
         """
         Validate event creation with business rules.
 
@@ -135,9 +135,9 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                     )
                 )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Event, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Event, updates: dict[str, Any]) -> Result[None]:
         """
         Validate event updates with business rules.
 
@@ -190,7 +190,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                     )
                 )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
     # ========================================================================
     # BASIC CRUD OPERATIONS

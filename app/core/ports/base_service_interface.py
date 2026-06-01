@@ -209,7 +209,7 @@ class ConversionOperations(Protocol[T]):
         self,
         user_uid: UserUID | None,
         operation: str,
-    ) -> Result[None] | None:
+    ) -> Result[None]:
         """
         Validate that user_uid is present for an operation.
 
@@ -218,7 +218,7 @@ class ConversionOperations(Protocol[T]):
             operation: Operation name for error message (e.g., "task creation")
 
         Returns:
-            None if valid, Result.fail() if user_uid is missing
+            Result.ok(None) if valid, Result.fail() if user_uid is missing
         """
         ...
 

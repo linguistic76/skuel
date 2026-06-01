@@ -87,7 +87,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, task: Task) -> Result[None] | None:
+    def _validate_create(self, task: Task) -> Result[None]:
         """
         Validate task creation with business rules.
 
@@ -113,9 +113,9 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
                 )
             )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Task, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Task, updates: dict[str, Any]) -> Result[None]:
         """
         Validate task updates with business rules.
 
@@ -155,7 +155,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
                     )
                 )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
     # ========================================================================
     # READ OPERATIONS WITH GRAPH CONTEXT
@@ -217,7 +217,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "task creation")
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         # Build a frozen Task from the request, apply inference enrichment

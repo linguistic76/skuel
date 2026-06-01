@@ -78,7 +78,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, principle: Principle) -> Result[None] | None:
+    def _validate_create(self, principle: Principle) -> Result[None]:
         """
         Validate principle creation with business rules.
 
@@ -115,9 +115,9 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
                 )
             )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Principle, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Principle, updates: dict[str, Any]) -> Result[None]:
         """
         Validate principle updates with business rules.
 
@@ -197,7 +197,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
                     )
                 )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
     # ========================================================================
     # CORE CRUD OPERATIONS
@@ -233,7 +233,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             Result containing created Principle
         """
         validation = self._validate_required_user_uid(user_uid, "principle creation")
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         from core.utils.uid_generator import UIDGenerator

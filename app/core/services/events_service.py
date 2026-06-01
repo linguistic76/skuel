@@ -224,7 +224,7 @@ class EventsService(
     async def create_event(self, request: EventCreateRequest, user_uid: UserUID) -> Result[Event]:
         """Create an event from a validated request."""
         validation = self.core._validate_required_user_uid(user_uid, "event creation")
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         from core.utils.uid_generator import UIDGenerator
