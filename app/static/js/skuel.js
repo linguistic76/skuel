@@ -2798,6 +2798,80 @@
             };
         });
 
+        // Admin batch audio→text transcription panel.
+        // Drives POST /api/journals/batch-transcribe (admin-only, CSRF-protected).
+        // Preview lists audio files in the server-side input dir without
+        // transcribing; Transcribe All runs Deepgram and writes .txt output.
+        Alpine.data('batchTranscribe', function() {
+            return {
+                inputDir: 'data/je_inputs',
+                outputDir: 'data/je_outputs',
+                skipExisting: true,
+                loading: false,
+                error: '',
+                preview: null,
+                result: null,
+
+                _csrf: function() {
+                    var m = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+                    return m ? decodeURIComponent(m[1]) : '';
+                },
+
+                _call: async function(previewOnly) {
+                    this.loading = true;
+                    this.error = '';
+                    if (previewOnly) { this.result = null; } else { this.preview = null; }
+                    try {
+                        var resp = await fetch('/api/journals/batch-transcribe', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': this._csrf()
+                            },
+                            body: JSON.stringify({
+                                input_dir: this.inputDir,
+                                output_dir: this.outputDir,
+                                skip_existing: this.skipExisting,
+                                preview_only: previewOnly
+                            })
+                        });
+                        var data = await resp.json();
+                        if (!resp.ok) {
+                            this.error = (data && data.error && data.error.message) ||
+                                (data && data.message) ||
+                                ('Request failed (' + resp.status + ')');
+                            return;
+                        }
+                        if (previewOnly) { this.preview = data; } else { this.result = data; }
+                    } catch (e) {
+                        this.error = 'Request failed: ' + (e && e.message ? e.message : e);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                previewFiles: function() { return this._call(true); },
+                transcribeAll: function() { return this._call(false); },
+
+                previewSummary: function() {
+                    if (!this.preview) return '';
+                    var already = this.preview.already_transcribed
+                        ? this.preview.already_transcribed.length : 0;
+                    return this.preview.total_files + ' file(s), ' +
+                        this.preview.total_size_mb + ' MB total · ' +
+                        already + ' already transcribed';
+                },
+
+                resultSummary: function() {
+                    if (!this.result) return '';
+                    return this.result.succeeded + ' succeeded, ' +
+                        this.result.failed + ' failed, ' +
+                        this.result.skipped + ' skipped (of ' +
+                        this.result.total_files + ')';
+                }
+            };
+        });
+
     });
 
 })();

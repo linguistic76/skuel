@@ -41,6 +41,7 @@ from ui.admin.views import (
 )
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody, CardHeader, CardTitle
+from ui.journals.components import render_batch_transcription_panel
 from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
@@ -143,6 +144,16 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                         variant=ButtonT.ghost,
                         cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
                     ),
+                    ButtonLink(
+                        Div(
+                            Span("🎙️", cls="text-2xl"),
+                            Span("Batch Transcription", cls="font-medium"),
+                            cls="flex items-center gap-3",
+                        ),
+                        href="/admin/batch-transcribe",
+                        variant=ButtonT.ghost,
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                    ),
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 ),
                 cls="mb-8",
@@ -160,6 +171,34 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
             admin_username=current_user.display_name or current_user.title,
             title="Admin Dashboard",
             system_status=system_status.get("status", "unknown"),
+            request=request,
+        )
+
+    # ========================================================================
+    # BATCH TRANSCRIPTION
+    # ========================================================================
+
+    @rt("/admin/batch-transcribe")
+    @require_admin(get_user_service)
+    async def admin_batch_transcribe(request, current_user):
+        """Batch audio→text transcription console.
+
+        Renders the Alpine-driven panel that drives
+        POST /api/journals/batch-transcribe over a server-side directory.
+        """
+        content = Div(
+            PageHeader(
+                "Batch Transcription",
+                subtitle="Transcribe a server-side directory of audio files to text",
+            ),
+            render_batch_transcription_panel(),
+        )
+
+        return await create_admin_page(
+            content=content,
+            active_section="transcription",
+            admin_username=current_user.display_name or current_user.title,
+            title="Batch Transcription",
             request=request,
         )
 
