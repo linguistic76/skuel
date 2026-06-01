@@ -409,7 +409,7 @@ Routes registered directly with `@rt()` decorators inside the factory function. 
 
 **Use when:** The routes are structural (auth flow, PWA shell, GraphQL schema mounting, settings page) and don't map to an entity domain. These are stable and unlikely to grow.
 
-**Current adopters:** `home_routes.py`, `settings_routes.py`, `user_entry_ui.py`, `graphql_routes.py`.
+**Current adopters:** `home_routes.py`, `settings_routes.py`, `graphql_routes.py`.
 
 **Do not use for new entity domains** — reach for DomainRouteConfig instead.
 
