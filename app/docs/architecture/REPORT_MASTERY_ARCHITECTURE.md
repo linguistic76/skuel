@@ -30,7 +30,7 @@ Instead of passively accepting side effects, report generating services—like `
 
 The single `propagate_mastery()` pipeline conducts three fundamental steps:
 1. **Explicit Scoring Evaluation**: Uses the semantic definition of the exercise's `MasteryImpact` to construct either the rigorous Teacher Score or the flexible AI Score.
-2. **Explicit Node Recording**: Writes the calculated float evaluation score back onto the `exercise_submission` entity in Neo4j (via `SubmissionsBackend.update_submission_score`).
+2. **Explicit Node Recording**: Writes the calculated float evaluation score back onto the `UserEntry` node in Neo4j (via `UserEntryBackend.update_entry_score`).
 3. **Explicit Mastery Declaration**: Applies the resulting evaluation through `PsMasteryService.mark_mastered()`, publishing the mastery events throughout the remainder of the event stream using an honest score that correctly feeds the ZPD.
 
 ```mermaid
@@ -43,7 +43,7 @@ flowchart TD
     
     subgraph "ReportMasteryService"
     RMS --> S[Calculates Score from MasteryImpact]
-    S --> N[SubmissionsBackend.update_submission_score]
+    S --> N[UserEntryBackend.update_entry_score]
     N --> P[PsMasteryService.mark_mastered]
     end
     
