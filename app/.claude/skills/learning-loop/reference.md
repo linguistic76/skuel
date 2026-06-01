@@ -139,12 +139,16 @@ here; the pre-filled frontmatter is for the student's reference.
 - `GET /api/exercises/md?uid=` — Markdown worksheet download (pre-filled frontmatter)
 - `POST /api/user-entries/upload` — HTMX upload endpoint; exercise link via the `fulfills_exercise_uid` form field
 
-> **Critical:** The teacher queue depends on the `(teacher:User)-[:OWNS]->(exercise)` graph
-> relationship. `Exercise` extends `Curriculum(Entity)`, NOT `UserOwnedEntity` — so
-> `exercise.user_uid` is always `None` in Neo4j. Teacher identity is resolved via OWNS,
-> not via a node property. See `UserEntryBackend.get_exercise_context()` for the
-> `COALESCE(teacher.uid, exercise.user_uid)` pattern and the "Ownership Queries" pattern
-> in the neo4j-cypher-patterns skill.
+> **Critical (ADR-054):** The teacher review queue is assembled by group membership, not by
+> exercise ownership: `TeacherReviewService.get_review_queue()` →
+> `UserEntryBackend.get_review_queue_by_groups()` matches
+> `(teacher)-[:OWNS]->(:Group)<-[:SHARED_WITH_GROUP]-(entry:UserEntry)` where
+> `entry.pipeline = 'teacher_review'`. (The pre-ADR-054 `(teacher)-[:OWNS]->(exercise)`
+> traversal is no longer the queue path — relying on it hides valid group-shared entries.)
+> Separately, because `Exercise` extends `Curriculum(Entity)` — NOT `UserOwnedEntity` —
+> `exercise.user_uid` is always `None`; an exercise's owning teacher is resolved via the OWNS
+> edge (`UserEntryBackend.get_exercise_context()` uses the `COALESCE(teacher.uid,
+> exercise.user_uid)` pattern; see "Ownership Queries" in the neo4j-cypher-patterns skill).
 
 **Loop role:** Exercise is the *how* — it operationalizes Ku into a concrete task.
 Its `instructions` field serves double duty: directive for the student AND prompt for
@@ -192,12 +196,18 @@ max_retention: int | None           # FIFO cleanup limit (None = permanent)
 modality: SubmissionModality | None  # FILE_UPLOAD | STRUCTURED_FORM (None for text-only)
 ```
 
-> **Revision tracking is edge-native (ADR-054).** `revision_number` is NOT a node field —
-> it lives on the `FULFILLS_EXERCISE {revision}` edge (and the parallel
-> `FULFILLS_REVISED_EXERCISE {revision}` edge for revision-cycle entries). A second attempt
-> against the same exercise creates a new `UserEntry` whose edge carries `revision=2`.
-> `UserEntryService._next_revision()` computes it as `count_entries_for_exercise(...) + 1`
-> and passes it to `UserEntryBackend.create_with_exercise_link()`, which writes it onto the edge.
+> **Revision tracking is edge-authoritative, node-mirrored (ADR-054).** `revision_number` is
+> not a field on the frozen `UserEntry` dataclass. The authoritative value lives on the
+> `FULFILLS_EXERCISE {revision}` edge (and the parallel `FULFILLS_REVISED_EXERCISE {revision}`
+> edge for revision-cycle entries): `UserEntryService._next_revision()` computes it as
+> `count_entries_for_exercise(...) + 1` and passes it to
+> `UserEntryBackend.create_with_exercise_link()`, which stamps it onto the edge. A second
+> attempt against the same exercise creates a new `UserEntry` whose edge carries `revision=2`.
+> **Post-create**, `UserEntryExerciseLinker.process_exercise_submission()` (fired via the
+> `UserEntryCreated` event → `exercise_handler`) reads that edge revision, then writes a
+> revision-aware title (`"{exercise_title} v{revision}"`) **and a denormalized `revision_number`
+> property back onto the node** for cheap reads — so the node carries a mirror even though the
+> model class does not declare the field.
 
 **SubmissionModality vs Pipeline:** `SubmissionModality` records *how* the submission was
 created (file upload vs structured form). `Pipeline` records *what* happens to it.
@@ -245,7 +255,8 @@ Deepgram transcription, text/file → LLM summary/structuring, then
 > `FULFILLS_EXERCISE {revision}` to the **root Exercise** regardless of which node was
 > submitted against (it resolves a `RevisedExercise` to its original via `REVISES_EXERCISE`);
 > for revision-cycle entries it additionally writes `FULFILLS_REVISED_EXERCISE {revision}` to
-> the revision node. The `revision` value lives on the edge, not the node (see above).
+> the revision node. The edge is the authoritative `revision` (the node mirror is stamped
+> later by `UserEntryExerciseLinker` — see above).
 
 **Status:** `create_entry()` sets `SUBMITTED` for `pipeline=TEACHER_REVIEW` (so the entry enters
 the teacher review queue) and `ACTIVE` otherwise. `UserEntryProcessingService` advances processed
@@ -760,7 +771,9 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
        ↓
 4. FULFILLS_EXERCISE relationship created (always → root Exercise)
    FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
-   revision written onto the FULFILLS_EXERCISE edge (not the node)
+   revision stamped on the FULFILLS_EXERCISE edge; UserEntryExerciseLinker
+   (UserEntryCreated → exercise_handler) then mirrors revision_number + a
+   revision-aware title onto the node
        ↓
 5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
    Teacher sees pending user entries (their students' submitted+active
