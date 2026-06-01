@@ -17,6 +17,7 @@ ERROR (blocks CI):
   SKUEL021: No raw Cypher in the service layer (lives below the boundary, ADR-044)
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
   SKUEL023: core/ thin services must type self.backend against a core/ports protocol
+  SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
 
 WARNING (reported, doesn't block):
   SKUEL004: Confidence thresholds on semantic queries
@@ -608,6 +609,50 @@ class UnifiedSharingService:
     def __init__(self, backend: "SharingBackend") -> None:
         self.backend = backend""",
     },
+    "SKUEL024": {
+        "title": "No cls= / **kwargs Collision in FT Helpers",
+        "severity": "ERROR",
+        "description": """A helper that hardcodes a ``cls=`` keyword AND splats ``**kwargs``
+into the SAME call, without declaring an explicit ``cls`` parameter to absorb a
+caller-supplied one, is a latent crash. The moment any caller passes ``cls=``, that value
+lands in ``**kwargs`` and collides with the hardcoded keyword:
+``TypeError: <fn>() got multiple values for keyword argument 'cls'``.
+
+This bit production: ``SmallText("Recommended Actions:", cls="font-semibold mb-1")`` 500'd
+the /insights page (PR #154), and an AST sweep found five more sites (#156/#157). It is
+invisible to mypy and ruff — only a caller that actually passes ``cls=`` triggers it, so a
+helper can ship the landmine and sit dormant until the first styling override.
+
+AST-based, scope-resolution: for each call passing both a ``cls=`` keyword and a ``**Name``
+splat, resolve ``Name`` to the nearest enclosing function scope that binds it, and flag iff
+``Name`` is that scope's ``**kwargs`` parameter and the scope has no keyword-passable ``cls``
+param (a positional-only ``cls`` does not count). Resolution is STRUCTURAL (compile-time
+scope binding), so closures (a nested ``def``/``lambda`` splatting the outer ``**kwargs``)
+and rebinds (an inner factory with its own ``cls`` or a local ``kwargs = {}``) are handled
+soundly. There is no ``kwargs.pop("cls")`` / reassignment exemption — proving a pop or a
+conditional/post-splat reassign sanitizes every path needs control-flow domination, and the
+explicit ``cls: str = ""`` parameter is the contract anyway, so such helpers are flagged.
+
+Documented boundary — the rule resolves a NAME's scope but does not track a local
+variable's VALUE, so value-flow / alias / taint cases are not chased: ``attrs = kwargs;
+Div(.., **attrs)`` and copies/merges (``dict(kwargs)``, ``{**kwargs}``, ``kwargs | extra``).
+Sound detection there needs control-flow analysis (the same reason there is no pop/reassign
+exemption), these forms do not occur in real helpers, and the explicit parameter removes the
+whole class regardless. Adopt the explicit parameter, or suppress with a reason.
+
+Fix: add ``cls: str = ""`` and merge it into the base classes
+(``cls=f"...base... {cls}".strip()``). See ui/text.py / ui/patterns/ for the pattern, and
+tests/unit/ui/test_cls_merge_contract.py for the contract guard.
+
+Suppress: # skuel-lint: disable=SKUEL024 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL024 -- <reason>""",
+        "good": """# Explicit cls param merged into the base classes — no collision
+def SmallText(text: str, cls: str = "", **kwargs: Any) -> Span:
+    return Span(text, cls=f"text-sm {cls}".strip(), **kwargs)""",
+        "bad": """# Hardcoded cls= AND **kwargs, no cls param — caller cls= raises TypeError
+def SmallText(text: str, **kwargs: Any) -> Span:
+    return Span(text, cls="text-sm", **kwargs)  # SmallText("x", cls="y") -> crash""",
+    },
 }
 
 
@@ -969,6 +1014,8 @@ class SkuelLinter:
                 self._check_credential_env_reads(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL020") and not is_test:
                 self._check_request_annotation(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL024") and not is_test:
+                self._check_cls_kwargs_collision(file_path, rel_path, content, lines)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -2354,6 +2401,217 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    @staticmethod
+    def _locally_assigned_names(fn: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda) -> set:
+        """Names REBOUND in ``fn``'s own scope (not params), excluding nested scopes.
+
+        Any assignment to a name makes it function-local for that whole scope (Python
+        scoping). So ``def make(): kwargs = {...}; Div(cls=.., **kwargs)`` splats a LOCAL
+        dict — a caller's ``cls=`` cannot collide — even though an outer ``**kwargs`` shares
+        the name. Collects ``=`` / ``:=`` / augmented / annotated assignments, ``for`` /
+        ``with`` / ``except`` targets, import names, and nested ``def``/``class`` names,
+        WITHOUT descending into nested function/lambda/class bodies (their assignments are
+        their own). Names declared ``global`` / ``nonlocal`` are excluded — they refer
+        outward, so they do not shadow.
+        """
+        nested = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+        assigned: set[str] = set()
+        outward: set[str] = set()
+
+        def add_target(target: ast.AST) -> None:
+            for n in ast.walk(target):
+                if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
+                    assigned.add(n.id)
+
+        def visit(n: ast.AST) -> None:
+            if isinstance(n, ast.Assign):
+                for t in n.targets:
+                    add_target(t)
+            elif isinstance(n, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+                add_target(n.target)
+            elif isinstance(n, (ast.For, ast.AsyncFor)):
+                add_target(n.target)
+            elif isinstance(n, (ast.With, ast.AsyncWith)):
+                for item in n.items:
+                    if item.optional_vars is not None:
+                        add_target(item.optional_vars)
+            elif isinstance(n, ast.ExceptHandler):
+                if n.name:
+                    assigned.add(n.name)
+            elif isinstance(n, (ast.Import, ast.ImportFrom)):
+                for alias in n.names:
+                    assigned.add(alias.asname or alias.name.split(".")[0])
+            elif isinstance(n, (ast.Global, ast.Nonlocal)):
+                outward.update(n.names)
+            for child in ast.iter_child_nodes(n):
+                if isinstance(child, nested):
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        assigned.add(child.name)  # binds the def/class NAME in this scope
+                    continue  # but do not descend — its body is its own scope
+                visit(child)
+
+        body = fn.body if isinstance(fn.body, list) else [fn.body]  # Lambda body is an expr
+        for stmt in body:
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                assigned.add(stmt.name)
+                continue
+            if isinstance(stmt, ast.Lambda):
+                continue
+            visit(stmt)
+        return assigned - outward
+
+    @classmethod
+    def _cls_scope_descriptor(
+        cls, fn: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda
+    ) -> tuple:
+        """Describe a function scope for ``**kwargs`` / ``cls=`` resolution.
+
+        Returns ``(fn, kwarg_name, param_names, absorbs_cls, assigned_names)``:
+        - ``param_names`` — every parameter the scope binds.
+        - ``absorbs_cls`` — True iff the scope has a KEYWORD-PASSABLE ``cls`` param
+          (positional-or-keyword or keyword-only; a positional-only ``cls`` does NOT
+          absorb a keyword ``cls=`` and is excluded).
+        - ``assigned_names`` — names locally rebound in the scope (see
+          ``_locally_assigned_names``). Used ONLY for resolution/shadowing: a scope
+          binds a name if it is in ``param_names`` OR ``assigned_names``, so a nested
+          ``def make(): kwargs = {}; Div(cls=.., **kwargs)`` resolves the splat to
+          ``make`` (a local dict), not an outer ``**kwargs``. It is NOT used to clear a
+          collision in the ``**kwargs``-owning scope — a conditional/post-splat reassign
+          does not sanitize every path (no control-flow domination), mirroring the
+          absent ``kwargs.pop("cls")`` exemption.
+
+        The rule resolves a splat NAME to its binding scope (a structural, compile-time
+        fact), but does not track a local variable's VALUE — value-flow / alias / taint
+        analysis (``attrs = kwargs``, ``dict(kwargs)``) is a documented boundary, since it
+        cannot be done soundly without control-flow analysis.
+        """
+        args = fn.args
+        kwarg_name = args.kwarg.arg if args.kwarg else None
+        param_names = {a.arg for a in args.posonlyargs + args.args + args.kwonlyargs}
+        if args.vararg:
+            param_names.add(args.vararg.arg)
+        if kwarg_name:
+            param_names.add(kwarg_name)
+        # A @classmethod's first parameter (conventionally `cls`) is the bound class
+        # receiver, NOT a caller-passable style arg — `M(cls="x")` can't bind to it and
+        # collides in **kwargs. Exclude it from the absorbing-cls set so the rule still
+        # flags `@classmethod def M(cls, **kw): Span(cls="x", **kw)`.
+        decorators = getattr(fn, "decorator_list", [])
+        is_classmethod = any(
+            (isinstance(d, ast.Name) and d.id == "classmethod")
+            or (isinstance(d, ast.Attribute) and d.attr == "classmethod")
+            for d in decorators
+        )
+        positional = args.posonlyargs + args.args
+        receiver = positional[0].arg if is_classmethod and positional else None
+        absorbs_cls = "cls" in {a.arg for a in args.args + args.kwonlyargs if a.arg != receiver}
+        return (fn, kwarg_name, param_names, absorbs_cls, cls._locally_assigned_names(fn))
+
+    def _check_cls_kwargs_collision(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL024 [ERROR]: a helper must not hardcode ``cls=`` AND splat ``**kwargs``
+        into the same call without an explicit ``cls`` parameter.
+
+        Such a helper raises ``TypeError: got multiple values for keyword argument
+        'cls'`` the moment a caller passes ``cls=`` — the value lands in ``**kwargs``
+        and collides with the hardcoded keyword. This 500'd /insights via ``SmallText``
+        (PR #154). Invisible to mypy/ruff; only a caller passing ``cls=`` surfaces it.
+
+        Scope-resolution model: walk the tree carrying a stack of enclosing function
+        scopes. For each call passing both a ``cls=`` keyword and a ``**Name`` splat,
+        resolve ``Name`` to the NEAREST enclosing scope that binds it (handles closures —
+        a nested ``def``/``lambda`` splatting the outer ``**kwargs`` — and rebinds — an
+        inner factory with its OWN ``cls``/``**kwargs``). Flag iff that binding scope's
+        bound name is its ``**kwargs`` and it has no keyword-passable ``cls`` param.
+
+        No ``kwargs.pop("cls")`` exemption: proving a pop defuses the splat needs
+        control-flow domination (a conditional or post-splat pop does not), and the
+        explicit ``cls: str = ""`` parameter is the contract anyway — so pop-based helpers
+        are flagged too. Adopt the explicit parameter, or suppress with a reason if a
+        sound pop form is genuinely needed.
+        """
+        if self._is_file_suppressed(content, "SKUEL024"):
+            return
+
+        # Cheap pre-filter: a collision needs both a `cls` keyword and a `**` splat to
+        # appear at all. Match the bare `cls` substring (NOT `cls=`) so a spaced keyword
+        # (`cls = "x"`, valid Python) isn't skipped — the AST check below is the authority.
+        if "cls" not in content or "**" not in content:
+            return
+
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return
+
+        scope_types = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+        reported: set[int] = set()  # binding-scope ids — one violation per binder
+
+        def resolve_binder(name: str, stack: list[tuple]) -> tuple | None:
+            for desc in reversed(stack):  # nearest enclosing scope wins (shadowing)
+                if name in desc[2] or name in desc[4]:  # param_names or local assignments
+                    return desc
+            return None
+
+        def flag(call: ast.Call, binder: tuple) -> None:
+            fn, kw_name = binder[0], binder[1]
+            if id(fn) in reported:
+                return
+            line_num = call.lineno
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL024"):
+                return  # don't mark reported — another non-suppressed call may still fire
+            reported.add(id(fn))
+            fn_name = getattr(fn, "name", "<lambda>")
+            target = call.func
+            target_name = getattr(target, "id", getattr(target, "attr", "the call"))
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=call.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL024",
+                    message=(
+                        f"`{fn_name}` passes `cls=` and `**{kw_name}` to `{target_name}(...)` "
+                        f"with no `cls` parameter — a caller passing `cls=` raises "
+                        f"TypeError (multiple values for 'cls')"
+                    ),
+                    suggestion=(
+                        'Add an explicit `cls: str = ""` parameter and merge it: '
+                        'cls=f"...base... {cls}".strip()'
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+        def walk(node: ast.AST, stack: list[tuple]) -> None:
+            if isinstance(node, ast.Call) and any(k.arg == "cls" for k in node.keywords):
+                for k in node.keywords:
+                    if k.arg is None and isinstance(k.value, ast.Name):
+                        name = k.value.id
+                        binder = resolve_binder(name, stack)
+                        # Flag iff the splat NAME is the resolved scope's **kwargs param
+                        # and that scope has no keyword-passable cls. This is structural
+                        # (compile-time scope binding); the rule does NOT track a local
+                        # variable's VALUE. A local reassignment of an owned **kwargs is
+                        # not treated as clearing the collision (no control-flow
+                        # domination, same as the absent kwargs.pop("cls") exemption);
+                        # value-flow / alias / taint cases (attrs = kwargs, dict(kwargs))
+                        # are a documented boundary, not chased.
+                        if binder and binder[1] == name and not binder[3]:
+                            flag(node, binder)
+                            break
+            child_stack = stack
+            if isinstance(node, scope_types):
+                child_stack = stack + [self._cls_scope_descriptor(node)]
+            for child in ast.iter_child_nodes(node):
+                walk(child, child_stack)
+
+        walk(tree, [])
 
     # -------------------------------------------------------------------------
     # Authoring AST rules — the "iterate the field, never walk the node" rule.
