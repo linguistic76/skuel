@@ -666,8 +666,8 @@ if result.is_error:
 - **Backend:** `adapters/persistence/neo4j/backends/sharing_backend.py` — `SharingBackend`
 - **Service:** `core/services/sharing/unified_sharing_service.py`
 - **Protocol:** `core/ports/sharing_protocols.py`
-- **API Routes:** `adapters/inbound/submissions_sharing_api.py`
-- **Group sharing routes:** `adapters/inbound/submissions_sharing_api.py`
+- **Sharing at creation:** `adapters/inbound/user_entry_api.py` — entries are shared via the `share_with_groups` field on create (no standalone sharing-management routes)
+- **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}/entries/{entry_uid}`)
 - **UI Routes:** `adapters/inbound/study_ui.py`
 - **UI Components:** `ui/submissions/sharing.py`
 - **Profile Tab:** `adapters/inbound/user_profile_ui.py`
