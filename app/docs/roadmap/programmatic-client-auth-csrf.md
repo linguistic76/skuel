@@ -62,11 +62,17 @@ From `scripts/audit_route_security.py` `CSRF_EXEMPT` (run `./dev audit-routes
 
 | Endpoint | Current client | After |
 |---|---|---|
-| `batch_transcription_api.py:batch_transcribe` | `scripts/batch_transcribe.py` via httpx (CLI) | CLI sends a bearer token |
 | `graphql_routes.py:graphql_handler` (`POST /graphql`) | programmatic JSON GraphQL API | API clients send a bearer token |
 
 (The GraphQL *playground form* `/graphql/execute` stays cookie+CSRF — it's
 browser-driven.)
+
+`batch_transcription_api.py:batch_transcribe` was removed from `CSRF_EXEMPT`
+when its admin UI (`/admin/batch-transcribe`) made it browser-reachable: the
+handler is now `@csrf_protected`, the browser UI sends `X-CSRF-Token`, and the
+CLI (`scripts/batch_transcribe.py`) echoes the `csrf_token` cookie as the header
+as an **interim** measure. The bearer-token migration below still applies — it
+replaces that cookie-echo with a proper token path.
 
 **Related:** the `advanced_routes` admin endpoints (`/jupyter/save`,
 `/jupyter/sync-to-obsidian`, `/performance/optimize`) are now `@csrf_protected`

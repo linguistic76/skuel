@@ -92,9 +92,6 @@ AUTH_EXEMPT: dict[tuple[str, str], str] = {
 # These programmatic clients can't send a CSRF token; migrate them to bearer-token
 # auth and empty this table — see docs/roadmap/programmatic-client-auth-csrf.md.
 CSRF_EXEMPT: dict[tuple[str, str], str] = {
-    ("batch_transcription_api.py", "batch_transcribe"): (
-        "CLI-only (scripts/batch_transcribe.py via httpx) — no browser caller"
-    ),
     ("graphql_routes.py", "graphql_handler"): (
         "programmatic JSON API; the playground form /graphql/execute is separately protected"
     ),
