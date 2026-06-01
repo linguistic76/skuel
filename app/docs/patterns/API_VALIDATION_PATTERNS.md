@@ -944,7 +944,8 @@ def test_task_completion_request_defaults():
 - Request models: `CaptureVisionRequest`, `DesignateLifePathRequest` in `core/models/lifepath_request.py`
 
 **User Entry API** (`adapters/inbound/user_entry_api.py`):
-- Uses `parse_json_body()` for categorize, tags, bulk ops (6 content management routes)
+- Uses `parse_json_body()` for create, form submit, and process
+- Request models: `UserEntryCreateRequest`, `UserEntryProcessRequest` in `core/models/user_entry/user_entry_request.py`; `FormSubmitRequest` in `core/models/forms/form_submission_request.py`
 
 **User Pins API** (`adapters/inbound/user_pins_api.py`):
 - Uses `parse_json_body()` for pin and reorder operations
