@@ -3,20 +3,27 @@
 Batch Transcription CLI
 ========================
 
-Command-line interface for batch audio transcription and LLM processing.
+Command-line interface for batch audio→text transcription. Transcribes every
+audio file in a server-side directory via the admin batch endpoint.
 
 Usage:
-    uv run python scripts/batch_transcribe.py --preview                              # list files
-    uv run python scripts/batch_transcribe.py                                        # transcribe only
-    uv run python scripts/batch_transcribe.py --process --mode activity_tracking     # transcribe + process
-    uv run python scripts/batch_transcribe.py --process-only --input-dir data/je_outputs  # process existing .txt
+    uv run python scripts/batch_transcribe.py --preview                 # list audio files
+    uv run python scripts/batch_transcribe.py                           # transcribe to .txt
+    uv run python scripts/batch_transcribe.py --cookie "session=..."    # authenticated run
 
-Calls the batch API endpoints on localhost:8000.
+Calls POST /api/journals/batch-transcribe (admin-only, CSRF-protected). The
+admin UI for the same operation is at /admin/batch-transcribe. CSRF is handled
+transparently — the client obtains a csrf_token and echoes it, so a session
+cookie alone is enough.
+
+LLM txt→md processing (the former --process/--process-only/--combined paths)
+was retired with ADR-054 — it now lives in UserEntryProcessingService.
 """
 
 import argparse
 import json
 import sys
+from urllib.parse import urlparse
 
 import httpx
 
@@ -25,64 +32,56 @@ DEFAULT_INPUT_DIR = "data/je_inputs"
 DEFAULT_OUTPUT_DIR = "data/je_outputs"
 
 
-def _extract_cookie_value(cookie_header: str, name: str) -> str | None:
-    """Pull a single cookie value out of a 'k=v; k2=v2' Cookie header string."""
+def _seed_cookies(client: httpx.Client, cookie_header: str, host: str) -> None:
+    """Load 'k=v; k2=v2' pairs from --cookie into the client's cookie jar."""
     for part in cookie_header.split(";"):
         key, _, value = part.strip().partition("=")
-        if key == name:
-            return value or None
-    return None
+        if key:
+            client.cookies.set(key, value, domain=host)
+
+
+def _ensure_csrf_token(client: httpx.Client) -> str | None:
+    """Obtain a csrf_token for double-submit CSRF.
+
+    CSRFMiddleware mints a csrf_token cookie on any response when the request
+    lacks one, so a cheap GET yields a usable token — keeping the session-only
+    CLI invocation working against the @csrf_protected endpoint.
+    """
+    token = client.cookies.get("csrf_token")
+    if token:
+        return token
+    try:
+        client.get("/")
+    except httpx.HTTPError:
+        return None
+    return client.cookies.get("csrf_token")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Batch transcription and LLM processing")
+    parser = argparse.ArgumentParser(description="Batch audio→text transcription")
     parser.add_argument("--preview", action="store_true", help="Preview files without transcribing")
-    parser.add_argument("--process", action="store_true", help="Transcribe + process (combined)")
-    parser.add_argument(
-        "--process-only", action="store_true", help="Process existing .txt files only"
-    )
     parser.add_argument("--input-dir", default=DEFAULT_INPUT_DIR, help="Input directory")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Output directory")
-    parser.add_argument(
-        "--mode",
-        default=None,
-        help="Enrichment mode: activity_tracking|idea_articulation|critical_thinking",
-    )
-    parser.add_argument("--model", default="gpt-4o-mini", help="LLM model (default: gpt-4o-mini)")
-    parser.add_argument("--custom-instructions", default=None, help="Custom instruction text")
-    parser.add_argument("--no-skip", action="store_true", help="Re-process existing files")
+    parser.add_argument("--no-skip", action="store_true", help="Re-transcribe existing files")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="Server base URL")
-    parser.add_argument(
-        "--cookie",
-        default=None,
-        help="Auth cookies (name=value; ...). Include csrf_token=... for CSRF-protected endpoints.",
-    )
+    parser.add_argument("--cookie", default=None, help="Auth cookies (name=value; ...)")
 
     args = parser.parse_args()
 
-    headers: dict[str, str] = {}
-    if args.cookie:
-        headers["Cookie"] = args.cookie
-        # Double-submit CSRF: echo the csrf_token cookie as the X-CSRF-Token
-        # header so CSRF-protected endpoints (e.g. /api/journals/batch-transcribe)
-        # accept this programmatic caller. Pass a --cookie value that includes
-        # csrf_token=... copied from an authenticated browser session. Interim
-        # until bearer-token auth lands — docs/roadmap/programmatic-client-auth-csrf.md.
-        csrf = _extract_cookie_value(args.cookie, "csrf_token")
-        if csrf:
-            headers["X-CSRF-Token"] = csrf
-
+    host = urlparse(args.base_url).hostname or "localhost"
     skip_existing = not args.no_skip
 
-    with httpx.Client(base_url=args.base_url, headers=headers, timeout=600.0) as client:
+    with httpx.Client(base_url=args.base_url, timeout=600.0) as client:
+        if args.cookie:
+            _seed_cookies(client, args.cookie, host)
+        token = _ensure_csrf_token(client)
+        if token:
+            client.headers["X-CSRF-Token"] = token
+
         if args.preview:
             _preview(client, args.input_dir, args.output_dir)
-        elif args.process_only:
-            _process_only(client, args)
-        elif args.process:
-            _combined(client, args, skip_existing)
         else:
-            _transcribe_only(client, args.input_dir, args.output_dir, skip_existing)
+            _transcribe(client, args.input_dir, args.output_dir, skip_existing)
 
 
 def _preview(client: httpx.Client, input_dir: str, output_dir: str) -> None:
@@ -109,9 +108,7 @@ def _preview(client: httpx.Client, input_dir: str, output_dir: str) -> None:
             print(f"  {f['name']} ({f['size_mb']:.2f} MB){marker}")
 
 
-def _transcribe_only(
-    client: httpx.Client, input_dir: str, output_dir: str, skip_existing: bool
-) -> None:
+def _transcribe(client: httpx.Client, input_dir: str, output_dir: str, skip_existing: bool) -> None:
     """Transcribe audio files to .txt."""
     print(f"Transcribing: {input_dir} → {output_dir}")
     resp = client.post(
@@ -126,66 +123,13 @@ def _transcribe_only(
     _print_batch_result(resp.json())
 
 
-def _process_only(client: httpx.Client, args: argparse.Namespace) -> None:
-    """Process existing .txt files through LLM."""
-    print(f"Processing: {args.input_dir} (mode={args.mode or 'default'}, model={args.model})")
-    resp = client.post(
-        "/api/journals/batch-process",
-        json={
-            "input_dir": args.input_dir,
-            "output_dir": args.output_dir,
-            "enrichment_mode": args.mode,
-            "custom_instructions": args.custom_instructions,
-            "model": args.model,
-            "skip_existing": not args.no_skip,
-        },
-    )
-    _handle_response(resp, "Processing")
-    _print_batch_result(resp.json())
-
-
-def _combined(client: httpx.Client, args: argparse.Namespace, skip_existing: bool) -> None:
-    """Combined transcription + processing."""
-    print(
-        f"Combined pipeline: {args.input_dir} → {args.output_dir} "
-        f"(mode={args.mode or 'default'}, model={args.model})"
-    )
-    resp = client.post(
-        "/api/journals/batch-process",
-        json={
-            "combined": True,
-            "audio_dir": args.input_dir,
-            "output_dir": args.output_dir,
-            "enrichment_mode": args.mode,
-            "custom_instructions": args.custom_instructions,
-            "model": args.model,
-            "skip_existing": skip_existing,
-        },
-    )
-    _handle_response(resp, "Combined pipeline")
-
-    data = resp.json()
-    tier1 = data.get("transcription", {})
-    tier2 = data.get("processing", {})
-    print("\n--- Tier 1: Transcription ---")
-    print(
-        f"  Total: {tier1.get('total', 0)}, Succeeded: {tier1.get('succeeded', 0)}, "
-        f"Failed: {tier1.get('failed', 0)}, Skipped: {tier1.get('skipped', 0)}"
-    )
-    print("\n--- Tier 2: Processing ---")
-    print(
-        f"  Total: {tier2.get('total', 0)}, Succeeded: {tier2.get('succeeded', 0)}, "
-        f"Failed: {tier2.get('failed', 0)}, Skipped: {tier2.get('skipped', 0)}"
-    )
-
-
 def _handle_response(resp: httpx.Response, operation: str) -> None:
     """Check response status and exit on error."""
     if resp.status_code != 200:
         print(f"{operation} failed (HTTP {resp.status_code}):")
         try:
             print(json.dumps(resp.json(), indent=2))
-        except Exception:
+        except (httpx.DecodingError, ValueError):
             print(resp.text)
         sys.exit(1)
 
@@ -211,8 +155,6 @@ def _print_batch_result(data: dict) -> None:
             extra = ""
             if "word_count" in r:
                 extra = f" ({r['word_count']} words, confidence={r.get('confidence', 0):.2f})"
-            elif "output_chars" in r:
-                extra = f" ({r['output_chars']} chars)"
             print(f"  {r['name']}{extra}")
 
 

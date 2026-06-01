@@ -636,8 +636,7 @@ Routes / Application Code
 │
 ├─ transcription/
 │   ├─ transcription_service.py       (single-file Deepgram transcription)
-│   ├─ batch_transcription_service.py (Tier 1: batch audio → txt)
-│   └─ batch_processing_service.py    (Tier 2: batch txt → md via LLM)
+│   └─ batch_transcription_service.py (batch audio → txt)
 │
 └─ report/
     ├─ exercise_report_service.py     (entry point — uses UnifiedLLMCaller)
