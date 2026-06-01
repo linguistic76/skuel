@@ -313,8 +313,8 @@ def HomeHub(active_tab: str = "submissions") -> Div:
 **Preview endpoints:**
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
-- GradeBook: `/api/gradebook/{section}/preview` (3 sections, split across `user_entry_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
-- Submissions: `/api/submissions/{section}/preview` (2 sections: upload, submit — in `user_entry_ui.py`); history preview served via `/api/submissions/history/preview` (rendered in Library tab)
+- GradeBook: `/api/gradebook/{section}/preview` (3 sections, split across `exercise_reports_ui.py`, `activity_reports_ui.py`, `revised_exercises_ui.py`)
+- Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, journal — in `user_entry_ui.py`); history preview served via `/api/submissions/history/preview` (rendered in Library tab)
 - Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB — 3 buckets in one call) + `/api/teaching/students/{uid}/ku/preview` (independent — in `teaching_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
