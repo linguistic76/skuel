@@ -128,12 +128,13 @@ class UserContextIntelligenceFactory:
                 choices: Choices relationship service
                 principles: Principles relationship service
 
-            Curriculum Domains (2):
+            Curriculum Domains (3):
                 ps: PathStep service facade
                 lp: Learning path relationship service
+                exercises: ExerciseService facade
 
             Processing Domains (3):
-                submissions: Submission relationship service (student work + journals)
+                user_entries: UserEntry relationship service (student work + journals)
                 report: Report relationship service (pending submissions, completion rate)
                 analytics: Analytics relationship service (cross-domain)
 

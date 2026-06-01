@@ -299,8 +299,9 @@ factory = UserContextIntelligenceFactory(
     # Curriculum (3)
     ps=learning_services["ps"],  # PsService facade
     lp=learning_services["learning_paths"].relationships,
+    exercises=services.exercises,  # ExerciseService facade (REQUIRED)
     # Processing Domains (3)
-    submissions=submissions_relationship_service,
+    user_entries=entry_relationship_service,
     report=report_relationship_service,
     analytics=analytics_relationship_service,
     # Temporal Domain (1)
@@ -679,7 +680,7 @@ intelligence = factory.create(context)
 | `/core/services/user/intelligence/life_path_intelligence.py` | Method 7 |
 | `/core/services/user/intelligence/synergy_intelligence.py` | Method 6 |
 | `/core/services/user/intelligence/schedule_intelligence.py` | Method 8 |
-| `/core/services/submissions/submissions_relationship_service.py` | Level 1 — submission graph queries |
+| `/core/services/user_entry/relationship_service.py` | Level 1 — submission graph queries (`UserEntryRelationshipService`) |
 | `/core/services/report/report_relationship_service.py` | Level 1 — report loop graph queries |
 | `/core/services/analytics_relationship_service.py` | Level 1 — cross-domain analytics queries |
 | `/core/services/relationships/_domain_planning_mixin.py` | 6 domain-specific planning methods called by DailyPlanningMixin on URS instances |
