@@ -624,17 +624,21 @@ invisible to mypy and ruff — only a caller that actually passes ``cls=`` trigg
 helper can ship the landmine and sit dormant until the first styling override.
 
 AST-based, scope-resolution: for each call passing both a ``cls=`` keyword and a ``**Name``
-splat, resolve ``Name`` (through simple ``x = kwargs`` aliases) to the nearest enclosing
-function scope whose ``**kwargs`` parameter it is, and flag iff that scope has no
-keyword-passable ``cls`` param (a positional-only ``cls`` does not count). This handles
-closures (a nested ``def``/``lambda`` splatting the outer ``**kwargs``), rebinds (an inner
-factory with its own ``cls``), and simple aliases (``attrs = kwargs; Div(.., **attrs)``)
-uniformly. There is no ``kwargs.pop("cls")`` / reassignment exemption — proving a pop or a
+splat, resolve ``Name`` to the nearest enclosing function scope that binds it, and flag iff
+``Name`` is that scope's ``**kwargs`` parameter and the scope has no keyword-passable ``cls``
+param (a positional-only ``cls`` does not count). Resolution is STRUCTURAL (compile-time
+scope binding), so closures (a nested ``def``/``lambda`` splatting the outer ``**kwargs``)
+and rebinds (an inner factory with its own ``cls`` or a local ``kwargs = {}``) are handled
+soundly. There is no ``kwargs.pop("cls")`` / reassignment exemption — proving a pop or a
 conditional/post-splat reassign sanitizes every path needs control-flow domination, and the
-explicit ``cls: str = ""`` parameter is the contract anyway, so such helpers are flagged
-too. Documented boundary: taint through a copy/transform/merge (``dict(kwargs)``,
-``{**kwargs}``, ``kwargs | extra``) is not traced — undecidable in general; the explicit
-parameter removes the whole class. Adopt the explicit parameter, or suppress with a reason.
+explicit ``cls: str = ""`` parameter is the contract anyway, so such helpers are flagged.
+
+Documented boundary — the rule resolves a NAME's scope but does not track a local
+variable's VALUE, so value-flow / alias / taint cases are not chased: ``attrs = kwargs;
+Div(.., **attrs)`` and copies/merges (``dict(kwargs)``, ``{**kwargs}``, ``kwargs | extra``).
+Sound detection there needs control-flow analysis (the same reason there is no pop/reassign
+exemption), these forms do not occur in real helpers, and the explicit parameter removes the
+whole class regardless. Adopt the explicit parameter, or suppress with a reason.
 
 Fix: add ``cls: str = ""`` and merge it into the base classes
 (``cls=f"...base... {cls}".strip()``). See ui/text.py / ui/patterns/ for the pattern, and
@@ -2457,52 +2461,13 @@ class SkuelLinter:
             visit(stmt)
         return assigned - outward
 
-    @staticmethod
-    def _simple_alias_map(fn: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda) -> dict:
-        """Map ``local -> {source names}`` for bare ``target = SourceName`` aliases in
-        ``fn``'s own scope (not nested scopes), including ``:=`` and annotated forms.
-
-        Lets the rule trace a ``**alias`` splat back to a ``**kwargs`` parameter —
-        ``attrs = kwargs; Div(cls=.., **attrs)`` aliases the SAME dict and still collides.
-        Only a bare-``Name`` RHS is traced (conservatively, transitively). Taint through a
-        copy/transform/merge (``dict(kwargs)``, ``{**kwargs}``, ``kwargs | extra``) is a
-        DOCUMENTED BOUNDARY — undecidable in general, and the explicit ``cls: str = ""``
-        parameter is the contract that removes the whole class — so it is not chased.
-        """
-        nested = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
-        aliases: dict[str, set[str]] = {}
-
-        def record(target: ast.expr, value: ast.expr) -> None:
-            if isinstance(target, ast.Name) and isinstance(value, ast.Name):
-                aliases.setdefault(target.id, set()).add(value.id)
-
-        def visit(n: ast.AST) -> None:
-            if isinstance(n, ast.Assign):
-                for t in n.targets:
-                    record(t, n.value)
-            elif isinstance(n, ast.AnnAssign) and n.value is not None:
-                record(n.target, n.value)
-            elif isinstance(n, ast.NamedExpr):
-                record(n.target, n.value)
-            for child in ast.iter_child_nodes(n):
-                if isinstance(child, nested):
-                    continue
-                visit(child)
-
-        body = fn.body if isinstance(fn.body, list) else [fn.body]
-        for stmt in body:
-            if isinstance(stmt, nested):
-                continue
-            visit(stmt)
-        return aliases
-
     @classmethod
     def _cls_scope_descriptor(
         cls, fn: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda
     ) -> tuple:
         """Describe a function scope for ``**kwargs`` / ``cls=`` resolution.
 
-        Returns ``(fn, kwarg_name, param_names, absorbs_cls, assigned_names, alias_map)``:
+        Returns ``(fn, kwarg_name, param_names, absorbs_cls, assigned_names)``:
         - ``param_names`` — every parameter the scope binds.
         - ``absorbs_cls`` — True iff the scope has a KEYWORD-PASSABLE ``cls`` param
           (positional-or-keyword or keyword-only; a positional-only ``cls`` does NOT
@@ -2515,8 +2480,11 @@ class SkuelLinter:
           collision in the ``**kwargs``-owning scope — a conditional/post-splat reassign
           does not sanitize every path (no control-flow domination), mirroring the
           absent ``kwargs.pop("cls")`` exemption.
-        - ``alias_map`` — ``local -> {source names}`` for simple ``x = kwargs`` aliases
-          (see ``_simple_alias_map``), so a ``**alias`` splat traces back to the kwargs.
+
+        The rule resolves a splat NAME to its binding scope (a structural, compile-time
+        fact), but does not track a local variable's VALUE — value-flow / alias / taint
+        analysis (``attrs = kwargs``, ``dict(kwargs)``) is a documented boundary, since it
+        cannot be done soundly without control-flow analysis.
         """
         args = fn.args
         kwarg_name = args.kwarg.arg if args.kwarg else None
@@ -2526,14 +2494,7 @@ class SkuelLinter:
         if kwarg_name:
             param_names.add(kwarg_name)
         absorbs_cls = "cls" in {a.arg for a in args.args + args.kwonlyargs}
-        return (
-            fn,
-            kwarg_name,
-            param_names,
-            absorbs_cls,
-            cls._locally_assigned_names(fn),
-            cls._simple_alias_map(fn),
-        )
+        return (fn, kwarg_name, param_names, absorbs_cls, cls._locally_assigned_names(fn))
 
     def _check_cls_kwargs_collision(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -2583,32 +2544,6 @@ class SkuelLinter:
                     return desc
             return None
 
-        def resolve_kwargs_owner(name: str, stack: list[tuple]) -> tuple | None:
-            """Follow simple aliases to the scope whose ``**kwargs`` PARAM ``name`` is.
-
-            Explores ALL alias sources (an alias may have several bare-Name assignments,
-            e.g. ``if f: attrs = kwargs else: attrs = other``) and fails closed: returns
-            the owning scope if ANY source path reaches a ``**kwargs`` parameter. Sorted
-            worklist so the result does not depend on set iteration order (PYTHONHASHSEED).
-            Returns None only when no path reaches a kwargs param.
-            """
-            seen: set[str] = set()
-            work = [name]
-            while work:
-                cur = work.pop()
-                if cur in seen:
-                    continue
-                seen.add(cur)
-                binder = resolve_binder(cur, stack)
-                if binder is None:
-                    continue
-                if binder[1] == cur:  # cur is this scope's **kwargs parameter
-                    return binder
-                sources = binder[5].get(cur)  # alias_map: cur = <SourceName>(s)
-                if sources:
-                    work.extend(sorted(sources, reverse=True))  # deterministic order
-            return None
-
         def flag(call: ast.Call, binder: tuple) -> None:
             fn, kw_name = binder[0], binder[1]
             if id(fn) in reported:
@@ -2645,17 +2580,18 @@ class SkuelLinter:
             if isinstance(node, ast.Call) and any(k.arg == "cls" for k in node.keywords):
                 for k in node.keywords:
                     if k.arg is None and isinstance(k.value, ast.Name):
-                        # Trace the splat name (through simple aliases) to the scope whose
-                        # **kwargs parameter it is. Flag iff that scope has no keyword-
-                        # passable cls to absorb the duplicate. A local reassignment of an
-                        # owned **kwargs is NOT treated as clearing the collision (proving
-                        # a conditional/post-splat reassign sanitizes every path needs
-                        # control-flow domination — same reason there is no kwargs.pop("cls")
-                        # exemption); resolution/shadowing still uses assigned_names so a
-                        # nested local `kwargs = {}` resolves to itself and is cleared.
-                        owner = resolve_kwargs_owner(k.value.id, stack)
-                        if owner is not None and not owner[3]:
-                            flag(node, owner)
+                        name = k.value.id
+                        binder = resolve_binder(name, stack)
+                        # Flag iff the splat NAME is the resolved scope's **kwargs param
+                        # and that scope has no keyword-passable cls. This is structural
+                        # (compile-time scope binding); the rule does NOT track a local
+                        # variable's VALUE. A local reassignment of an owned **kwargs is
+                        # not treated as clearing the collision (no control-flow
+                        # domination, same as the absent kwargs.pop("cls") exemption);
+                        # value-flow / alias / taint cases (attrs = kwargs, dict(kwargs))
+                        # are a documented boundary, not chased.
+                        if binder and binder[1] == name and not binder[3]:
+                            flag(node, binder)
                             break
             child_stack = stack
             if isinstance(node, scope_types):

@@ -2654,61 +2654,27 @@ class TestSKUEL024:
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL024"
 
-    def test_simple_alias_of_kwargs_flagged(self) -> None:
-        """`attrs = kwargs` aliases the SAME dict — `**attrs` still collides."""
+    def test_value_flow_not_tracked_documented_boundary(self) -> None:
+        """DOCUMENTED BOUNDARY: the rule resolves a splat NAME's scope, not a variable's
+        VALUE. Aliases (`attrs = kwargs`) and copies (`dict(kwargs)`) are not chased —
+        sound detection needs control-flow analysis (flow-insensitive alias tracking
+        gives both false negatives and false positives); the explicit cls param is the
+        contract. These pin the intended boundary, not an endorsement of such helpers."""
         linter = make_linter(["SKUEL024"])
-        content = (
+        # Simple alias — `attrs` is a plain local, not the **kwargs param.
+        alias = (
             "def SmallText(text: str, **kwargs: Any) -> Span:\n"
             "    attrs = kwargs\n"
             '    return Span(text, cls="text-sm", **attrs)\n'
         )
-        violations = lint_content(linter, content, file_path=self.UI_FILE)
-        assert len(violations) == 1
-        assert violations[0].rule_id == "SKUEL024"
-
-    def test_multi_hop_alias_of_kwargs_flagged(self) -> None:
-        """Alias chains are followed transitively: a = kwargs; b = a; **b collides."""
-        linter = make_linter(["SKUEL024"])
-        content = (
-            "def Helper(**kwargs: Any) -> Div:\n"
-            "    a = kwargs\n"
-            "    b = a\n"
-            '    return Div(cls="base", **b)\n'
-        )
-        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
-        assert len(violations) == 1
-        assert violations[0].rule_id == "SKUEL024"
-
-    def test_multi_source_alias_flagged_deterministically(self) -> None:
-        """An alias with several sources (one of them kwargs) must flag regardless of
-        set iteration order — explore ALL sources, fail closed."""
-        content = (
-            "def Helper(flag: bool, other: dict, **kwargs: Any) -> Div:\n"
-            "    if flag:\n"
-            "        attrs = kwargs\n"
-            "    else:\n"
-            "        attrs = other\n"
-            '    return Div(cls="base", **attrs)\n'
-        )
-        # Run repeatedly: the flag decision must not depend on PYTHONHASHSEED.
-        for _ in range(5):
-            fresh = make_linter(["SKUEL024"])
-            violations = lint_content(fresh, content, file_path="ui/patterns/x.py")
-            assert len(violations) == 1
-            assert violations[0].rule_id == "SKUEL024"
-
-    def test_dict_copy_not_traced_documented_boundary(self) -> None:
-        """DOCUMENTED BOUNDARY: taint through a copy/transform (dict(kwargs)) is not
-        traced — undecidable in general; the explicit cls param is the contract. This
-        pins the intended boundary, not an endorsement of writing such helpers."""
-        linter = make_linter(["SKUEL024"])
-        content = (
+        assert lint_content(linter, alias, file_path=self.UI_FILE) == []
+        # Copy/transform.
+        copy = (
             "def Helper(**kwargs: Any) -> Div:\n"
             "    attrs = dict(kwargs)\n"
             '    return Div(cls="base", **attrs)\n'
         )
-        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
-        assert violations == []  # not traced through dict() — by design
+        assert lint_content(make_linter(["SKUEL024"]), copy, file_path="ui/patterns/x.py") == []
 
     def test_positional_only_cls_still_flagged(self) -> None:
         """A positional-only `cls` cannot absorb a keyword `cls=` — still collides."""
