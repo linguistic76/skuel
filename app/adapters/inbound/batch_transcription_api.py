@@ -18,6 +18,7 @@ from typing import Any
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -47,6 +48,7 @@ def create_batch_transcription_api_routes(
     get_user_service = make_service_getter(user_service)
 
     @rt("/api/journals/batch-transcribe")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=200)
     async def batch_transcribe(

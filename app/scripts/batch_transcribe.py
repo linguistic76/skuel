@@ -25,6 +25,15 @@ DEFAULT_INPUT_DIR = "data/je_inputs"
 DEFAULT_OUTPUT_DIR = "data/je_outputs"
 
 
+def _extract_cookie_value(cookie_header: str, name: str) -> str | None:
+    """Pull a single cookie value out of a 'k=v; k2=v2' Cookie header string."""
+    for part in cookie_header.split(";"):
+        key, _, value = part.strip().partition("=")
+        if key == name:
+            return value or None
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Batch transcription and LLM processing")
     parser.add_argument("--preview", action="store_true", help="Preview files without transcribing")
@@ -43,13 +52,25 @@ def main() -> None:
     parser.add_argument("--custom-instructions", default=None, help="Custom instruction text")
     parser.add_argument("--no-skip", action="store_true", help="Re-process existing files")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="Server base URL")
-    parser.add_argument("--cookie", default=None, help="Session cookie for auth (name=value)")
+    parser.add_argument(
+        "--cookie",
+        default=None,
+        help="Auth cookies (name=value; ...). Include csrf_token=... for CSRF-protected endpoints.",
+    )
 
     args = parser.parse_args()
 
     headers: dict[str, str] = {}
     if args.cookie:
         headers["Cookie"] = args.cookie
+        # Double-submit CSRF: echo the csrf_token cookie as the X-CSRF-Token
+        # header so CSRF-protected endpoints (e.g. /api/journals/batch-transcribe)
+        # accept this programmatic caller. Pass a --cookie value that includes
+        # csrf_token=... copied from an authenticated browser session. Interim
+        # until bearer-token auth lands — docs/roadmap/programmatic-client-auth-csrf.md.
+        csrf = _extract_cookie_value(args.cookie, "csrf_token")
+        if csrf:
+            headers["X-CSRF-Token"] = csrf
 
     skip_existing = not args.no_skip
 
