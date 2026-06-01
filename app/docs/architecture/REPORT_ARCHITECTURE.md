@@ -136,8 +136,9 @@ Each status guard is enforced atomically in Cypher via `WHERE status IN $allowed
 (exercise)-[:FOR_GROUP]->(group:Group)
 (student:User)-[:MEMBER_OF]->(group)
 
-// The submission (a UserEntry)
-(student)-[:OWNS]->(submission:Entity:UserEntry {entity_type: "exercise_submission"})
+// The submission (a UserEntry — entity_type is always 'user_entry', forced in
+// UserEntry.__post_init__; the `pipeline` field distinguishes a curriculum turn-in)
+(student)-[:OWNS]->(submission:Entity:UserEntry {entity_type: "user_entry", pipeline: "teacher_review"})
 (submission)-[:FULFILLS_EXERCISE]->(exercise)
 
 // Teacher discovers entries via the group-based review queue (ADR-040):
