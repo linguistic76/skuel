@@ -296,6 +296,7 @@ class _UserEntryAssessmentMixin:
         WHERE g.is_active = true
         MATCH (s:Entity:UserEntry {{uid: $entry_uid}})
               -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+        WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         RETURN s.uid AS uid,
@@ -328,6 +329,7 @@ class _UserEntryAssessmentMixin:
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (sub:Entity:UserEntry)
                       -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+          WHERE sub.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
         WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)

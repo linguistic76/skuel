@@ -113,7 +113,7 @@ WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids,
 // Exercise -> APPLIES_KNOWLEDGE -> Ku, Submission -> FULFILLS_EXERCISE -> Exercise
 CALL {
     WITH engaged_uids
-    MATCH (es:Entity:UserEntry)-[:FULFILLS_EXERCISE]->(ex:Entity)-[:APPLIES_KNOWLEDGE]->(ku_sub:Entity)
+    MATCH (owner:User {uid: $user_uid})-[:OWNS]->(es:Entity:UserEntry)-[:FULFILLS_EXERCISE]->(ex:Entity)-[:APPLIES_KNOWLEDGE]->(ku_sub:Entity)
     WHERE es.status IN ['completed', 'approved']
     WITH ku_sub.uid AS sub_ku_uid, max(coalesce(es.score, 0.0)) AS best_score, count(es) AS sub_count
     RETURN collect({ku_uid: sub_ku_uid, best_score: best_score, count: sub_count}) AS submission_data
@@ -156,7 +156,7 @@ WITH u, task_engaged_uids, journal_engaged_uids, collect(DISTINCT ku_h.uid) AS h
 // Submission scores for target KUs
 CALL {
     WITH u
-    MATCH (es:Entity:UserEntry)-[:FULFILLS_EXERCISE]->(ex:Entity)-[:APPLIES_KNOWLEDGE]->(ku_sub:Entity)
+    MATCH (u)-[:OWNS]->(es:Entity:UserEntry)-[:FULFILLS_EXERCISE]->(ex:Entity)-[:APPLIES_KNOWLEDGE]->(ku_sub:Entity)
     WHERE ku_sub.uid IN $ku_uids AND es.status IN ['completed', 'approved']
     WITH ku_sub.uid AS sub_ku_uid, max(coalesce(es.score, 0.0)) AS best_score, count(es) AS sub_count
     RETURN collect({ku_uid: sub_ku_uid, best_score: best_score, count: sub_count}) AS submission_data
