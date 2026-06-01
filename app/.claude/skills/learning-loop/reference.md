@@ -128,14 +128,16 @@ revision: 1                    ← student increments for resubmissions
 ```
 
 The student fills in responses and submits the file at `POST /api/user-entries/upload`.
-The upload handler parses the frontmatter to auto-detect `exercise_uid` and `revision` —
-no Identifier field or exercise selector required. Non-md files (audio, images) use the
-exercise selector dropdown or the `?exercise_uid=` deep-link hidden field instead.
+The exercise link is carried by the `fulfills_exercise_uid` form field (set by the `/submit`
+form via the exercise selector or the `?exercise_uid=` deep-link hidden field); the revision
+is computed server-side by `UserEntryService._next_revision()`. The current upload endpoint
+does **not** parse the worksheet's YAML frontmatter — that auto-detection is not implemented
+here; the pre-filled frontmatter is for the student's reference.
 
 **Student-facing routes:**
 - `GET /exercises/get?uid=` — detail page: metadata, form field prompts, instructions, Submit + Download buttons
 - `GET /api/exercises/md?uid=` — Markdown worksheet download (pre-filled frontmatter)
-- `POST /api/user-entries/upload` — HTMX upload endpoint; parses .md frontmatter if present
+- `POST /api/user-entries/upload` — HTMX upload endpoint; exercise link via the `fulfills_exercise_uid` form field
 
 > **Critical:** The teacher queue depends on the `(teacher:User)-[:OWNS]->(exercise)` graph
 > relationship. `Exercise` extends `Curriculum(Entity)`, NOT `UserOwnedEntity` — so
@@ -212,11 +214,13 @@ They are orthogonal — a form submission can still be part of a pipeline.
 | `TEACHER_REVIEW` | Exercise turn-in | None — routed to a teacher review queue via `SHARED_WITH_GROUP` |
 
 **Two creation paths — one create method (`UserEntryService.create_entry()`):**
+(The bytes-to-disk helper `UserEntryService.submit_file()` wraps `create_entry()` and is used
+by the `/journals/upload` route, not by `/api/user-entries/upload`.)
 ```
 FILE UPLOAD PATH                            INLINE FORM PATH
 POST /api/user-entries/upload               POST /api/user-entries/form
- → UserEntryService.submit_file()            → builds UserEntryCreateRequest
-   stores bytes to disk                        (form_data carried in metadata)
+ → builds UserEntryCreateRequest             → builds UserEntryCreateRequest
+   (file metadata: name/size/type)             (form_data carried in metadata)
         ↓                                            ↓
         └──────────────► UserEntryService.create_entry() ◄──────────────┘
                                   │
@@ -227,12 +231,15 @@ POST /api/user-entries/upload               POST /api/user-entries/form
    creates Interaction audit record (when exercise-linked)
    resolves audience + shares (UnifiedSharingService)
    publishes UserEntryCreated event
-                                  │
-   pipeline ≠ NONE/TEACHER_REVIEW → UserEntryProcessingService.process(entry):
-     audio → Deepgram transcription;  text/file → LLM summary/structuring
-     → update_processed_content() writes processed_content + status COMPLETED
-       (or marks FAILED on error)
 ```
+
+**Processing is a separate, explicit step.** The upload / form routes *only* call
+`create_entry()` — they do not run a pipeline. To process an entry,
+`POST /api/user-entries/process` (JSON body: entry `uid` + optional `pipeline` /
+`instructions` overrides) invokes `UserEntryProcessingService.process(entry)`: audio →
+Deepgram transcription, text/file → LLM summary/structuring, then
+`update_processed_content()` writes `processed_content` and advances status to `COMPLETED`
+(or marks `FAILED`). Entries with `pipeline=NONE`/`TEACHER_REVIEW` need no processing.
 
 > **FULFILLS edges & revision.** `UserEntryBackend.create_with_exercise_link()` writes
 > `FULFILLS_EXERCISE {revision}` to the **root Exercise** regardless of which node was
@@ -249,6 +256,7 @@ steps that own it.
 **API routes:**
 - `POST /api/user-entries/upload` — file upload (multipart form-data)
 - `POST /api/user-entries/form` — structured form data (JSON)
+- `POST /api/user-entries/process` — run a pipeline on an existing entry (JSON: `uid` + optional overrides)
 
 **Services:**
 ```python
@@ -744,8 +752,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 2. ExerciseBackend.link_to_curriculum()             → adapters/persistence/neo4j/backends/exercise_backends.py
    Teacher links Exercise to Ku via REQUIRES_KNOWLEDGE
        ↓
-3. Student submits file
-   UserEntryService.submit_file() → create_entry()  → core/services/user_entry/user_entry_service.py
+3. Student submits file (POST /api/user-entries/upload)
+   → UserEntryService.create_entry()              → core/services/user_entry/user_entry_service.py
    Creates :Entity:UserEntry (entity_type='user_entry', pipeline=TEACHER_REVIEW), status SUBMITTED
    (Processed pipelines move PROCESSING→COMPLETED via UserEntryProcessingService;
     journals use the TRANSCRIBE_AND_STRUCTURE pipeline)
