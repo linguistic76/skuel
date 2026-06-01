@@ -124,6 +124,38 @@ class TestDatabaseConfig:
         assert config.max_connection_pool_size == 50
         assert config.connection_timeout == 30.0
         assert config.encrypted is False
+        # Schema monitoring is opt-in (off by default).
+        assert config.schema_monitoring_enabled is False
+        assert config.schema_monitoring_interval == 900
+
+    def test_schema_monitoring_defaults_off_in_from_env(self):
+        """from_env leaves schema monitoring off when the env vars are unset."""
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch("core.config.unified_config._get_neo4j_password", return_value="test_pass"),
+        ):
+            # Ensure no ambient values leak in from the shell.
+            for key in ("NEO4J_SCHEMA_MONITORING", "NEO4J_SCHEMA_MONITORING_INTERVAL"):
+                os.environ.pop(key, None)
+            config = DatabaseConfig.from_env()
+            assert config.schema_monitoring_enabled is False
+            assert config.schema_monitoring_interval == 900
+
+    def test_schema_monitoring_enabled_via_env(self):
+        """from_env parses the schema-monitoring opt-in flag and interval."""
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "NEO4J_SCHEMA_MONITORING": "true",
+                    "NEO4J_SCHEMA_MONITORING_INTERVAL": "120",
+                },
+            ),
+            patch("core.config.unified_config._get_neo4j_password", return_value="test_pass"),
+        ):
+            config = DatabaseConfig.from_env()
+            assert config.schema_monitoring_enabled is True
+            assert config.schema_monitoring_interval == 120
 
     def test_from_env_reads_environment(self):
         """Test from_env reads NEO4J_* environment variables."""

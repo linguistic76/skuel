@@ -281,6 +281,14 @@ class DatabaseConfig:
     transaction_timeout: float = 120.0
     enable_query_logging: bool = False
 
+    # Schema-change monitoring: opt-in background loop that polls the Neo4j schema
+    # on an interval and invalidates the adapter's query-optimization caches when
+    # the schema drifts. OFF by default — CORE tier spins up no background workers
+    # (see docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md). Enable per
+    # environment. Env: NEO4J_SCHEMA_MONITORING, NEO4J_SCHEMA_MONITORING_INTERVAL.
+    schema_monitoring_enabled: bool = False
+    schema_monitoring_interval: int = 900
+
     # Performance
     batch_size: int = 1000
     use_bulk_operations: bool = True
@@ -302,6 +310,9 @@ class DatabaseConfig:
             max_retry_time=float(os.getenv("NEO4J_MAX_TRANSACTION_RETRY_TIME", "30")),
             encrypted=os.getenv("NEO4J_ENCRYPTED", "false").lower() == "true",
             transaction_timeout=float(os.getenv("NEO4J_TRANSACTION_TIMEOUT", "120")),
+            schema_monitoring_enabled=os.getenv("NEO4J_SCHEMA_MONITORING", "false").lower()
+            == "true",
+            schema_monitoring_interval=int(os.getenv("NEO4J_SCHEMA_MONITORING_INTERVAL", "900")),
         )
 
 

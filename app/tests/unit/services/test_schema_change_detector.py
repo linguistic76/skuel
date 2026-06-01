@@ -219,3 +219,40 @@ def test_adaptive_handler_is_constructible_from_adapter() -> None:
     )
     handler = AdaptiveOptimizationHandler(adapter)
     assert handler.adapter is adapter
+
+
+@pytest.mark.asyncio
+async def test_initialize_and_stop_schema_monitoring_lifecycle() -> None:
+    """The adapter methods compose.py wires must start and stop the poll loop.
+
+    `initialize_schema_monitoring()` (called at startup when
+    NEO4J_SCHEMA_MONITORING is on) baselines the detector and launches its
+    internal poll task; `stop_schema_monitoring()` (called at shutdown) cancels
+    it. This guards the bootstrap wiring end to end.
+    """
+    fake = _FakeSchemaService(_make_schema(labels=["Entity"], index_names=["idx_uid"]))
+    adapter = _adapter_with_schema(fake)
+
+    # Disable persistence on the cached detector before the loop touches disk.
+    detector = adapter.get_schema_change_detector()
+    detector.enable_persistence = False
+
+    start = await adapter.initialize_schema_monitoring(interval_seconds=900)
+    assert start.is_ok
+    assert detector._is_monitoring is True
+    assert detector._monitor_task is not None
+
+    stop = await adapter.stop_schema_monitoring()
+    assert stop.is_ok
+    assert detector._is_monitoring is False
+    assert detector._monitor_task.done()
+
+
+@pytest.mark.asyncio
+async def test_stop_schema_monitoring_is_safe_when_never_started() -> None:
+    """Shutdown must not error if monitoring was never started (flag off)."""
+    adapter = _adapter_with_schema(
+        _FakeSchemaService(_make_schema(labels=["Entity"], index_names=["idx_uid"]))
+    )
+    result = await adapter.stop_schema_monitoring()
+    assert result.is_ok

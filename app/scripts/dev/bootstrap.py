@@ -832,6 +832,15 @@ async def shutdown_skuel(container: AppContainer) -> None:
             except Exception as e:
                 logger.warning(f"⚠️  Error stopping progress report worker: {e}")
 
+        # Stop schema-change monitoring if it was started (opt-in via NEO4J_SCHEMA_MONITORING).
+        # The detector owns its own poll task; stop_schema_monitoring() cancels it cleanly.
+        if container.config.database.schema_monitoring_enabled:
+            graph_adapter = container.services.graph_adapter
+            if graph_adapter is not None:
+                logger.info("🛑 Stopping schema-change monitoring...")
+                await graph_adapter.stop_schema_monitoring()
+                logger.info("✅ Schema-change monitoring stopped")
+
         # Single cleanup path through Services.stop()
         await container.services.cleanup()
         logger.info("✅ Application shutdown complete")
