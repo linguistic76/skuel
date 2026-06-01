@@ -615,7 +615,7 @@ grep "SEVERITY_CRITICAL" logs/*.log
 Errors automatically capture origin for server-side debugging (stripped from client responses):
 ```python
 error.source_location
-# "services/submissions_core_service.py:create_report:45"
+# "core/services/user_entry/user_entry_service.py:create_entry:45"
 ```
 
 ### Rich Context for Debugging
