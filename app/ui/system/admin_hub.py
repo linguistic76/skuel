@@ -23,9 +23,15 @@ def render_admin_hub_content() -> Any:
             href="/teaching/students",
             description="Review queue, student management, and class groups",
         ),
+        HubCardData(
+            icon="🎙️",
+            name="Journals",
+            href="/journals/submit",
+            description="Upload audio, video, or text for transcription and structuring",
+        ),
     ]
 
     return Div(
         PageHeader("Home", subtitle="Welcome back"),
-        HubSection(title=None, cards=cards, cols=2),
+        HubSection(title=None, cards=cards, cols=3),
     )
