@@ -429,7 +429,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         """Get teacher's exercises with submission and reviewed counts."""
         query = f"""
         MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
-        OPTIONAL MATCH (s:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
+        OPTIONAL MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
         WITH exercise, count(s) AS total_count,
              count(CASE WHEN s.status = 'completed' THEN 1 END) AS reviewed_count
         RETURN exercise.uid AS uid, exercise.title AS title,
@@ -526,9 +526,8 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """
         return await self.execute_query(
             """
-            MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity)
+            MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity:UserEntry)
             MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
-            WHERE submission.entity_type = 'exercise_submission'
             RETURN submission.uid AS submission_uid
             """,
             {

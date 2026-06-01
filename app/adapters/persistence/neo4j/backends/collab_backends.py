@@ -170,7 +170,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
         OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-        OPTIONAL MATCH (sub:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
+        OPTIONAL MATCH (sub:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
           WHERE NOT sub.status IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
@@ -191,7 +191,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: $group_uid}})
         MATCH (member:User)-[r:{RelationshipName.MEMBER_OF.value}]->(g)
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(sub:Entity {{entity_type: 'exercise_submission'}})
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(sub:Entity:UserEntry)
           WHERE (member)-[:{RelationshipName.OWNS.value}]->(sub)
         RETURN member.uid AS user_uid,
                member.name AS user_name,

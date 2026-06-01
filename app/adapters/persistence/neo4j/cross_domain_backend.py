@@ -782,7 +782,8 @@ class CrossDomainBackend:
         """Exercise submissions for a user with linked exercise and report count."""
         return await self.executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[:OWNS]->(sub:Entity {entity_type: 'exercise_submission'})
+            MATCH (u:User {uid: $user_uid})-[:OWNS]->(sub:Entity:UserEntry)
+            WHERE EXISTS { (sub)-[:FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE]->() }
             OPTIONAL MATCH (sub)-[:FULFILLS_EXERCISE]->(ex:Entity)
             OPTIONAL MATCH (report:Entity {entity_type: 'exercise_report'})-[:REPORT_FOR]->(sub)
             RETURN sub.uid AS submission_uid,

@@ -207,7 +207,7 @@ class _UserEntryAssessmentMixin:
     ) -> Result[list[Neo4jProperties]]:
         """All entries against an exercise (teacher review view)."""
         query = f"""
-        MATCH (s:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
+        MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, student, count(fb) AS feedback_count
@@ -222,8 +222,9 @@ class _UserEntryAssessmentMixin:
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
         """Get students who have submitted work, with entry counts."""
         query = f"""
-        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
         WHERE student.uid <> $teacher_uid
+          AND ku.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
         WITH student,
              count(DISTINCT ku) AS submission_count,
              count(DISTINCT CASE WHEN ku.status = 'completed' THEN ku.uid END) AS reviewed_count
@@ -252,7 +253,8 @@ class _UserEntryAssessmentMixin:
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
               <-[:{RelationshipName.MEMBER_OF.value}]-(student:User {{uid: $student_uid}})
         WHERE g.is_active = true
-        MATCH (student)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        MATCH (student)-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
+        WHERE ku.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
@@ -271,8 +273,7 @@ class _UserEntryAssessmentMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Update the score on an entry explicitly."""
         query = """
-        MATCH (sub:Entity {uid: $entry_uid})
-        WHERE sub.entity_type = 'exercise_submission'
+        MATCH (sub:Entity:UserEntry {uid: $entry_uid})
         SET sub.score = $score
         RETURN sub.uid as uid, sub.score as score
         """
@@ -293,7 +294,7 @@ class _UserEntryAssessmentMixin:
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         WHERE g.is_active = true
-        MATCH (s:Entity {{entity_type: 'exercise_submission', uid: $entry_uid}})
+        MATCH (s:Entity:UserEntry {{uid: $entry_uid}})
               -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
@@ -325,7 +326,7 @@ class _UserEntryAssessmentMixin:
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
-        OPTIONAL MATCH (sub:Entity {{entity_type: 'exercise_submission'}})
+        OPTIONAL MATCH (sub:Entity:UserEntry)
                       -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
         WHERE student.uid <> $teacher_uid
