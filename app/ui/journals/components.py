@@ -2,10 +2,9 @@
 
 from typing import Any
 
-from fasthtml.common import H4, H5, Div, Option, P, Textarea
+from fasthtml.common import H4, H5, Div, Option, P, Span, Template
 
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.user_entry_enums import EnrichmentMode
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT
@@ -98,99 +97,123 @@ def render_journals_grid_container() -> Any:
     )
 
 
-def render_batch_directories_card() -> Any:
-    """Render the batch operations directories card."""
-    return Card(
-        CardBody(
-            H5("Directories", cls="mb-3 font-semibold"),
-            Div(
-                Label("Audio Input Directory"),
-                Input(type="text", id="input-dir", value="data/je_inputs"),
-                cls="mb-3",
-            ),
-            Div(
-                Label("Output Directory"),
-                Input(type="text", id="output-dir", value="data/je_outputs"),
-                cls="mb-3",
-            ),
-            Div(
-                Button(
-                    "Preview Files",
-                    variant=ButtonT.outline,
-                    type="button",
-                    id="preview-btn",
+def render_batch_transcription_panel() -> Any:
+    """Admin batch audio→text transcription panel.
+
+    Alpine-driven (``batchTranscribe`` in static/js/skuel.js): drives
+    ``POST /api/journals/batch-transcribe``. "Preview Files" lists the audio
+    files in the server-side input directory without transcribing; "Transcribe
+    All" runs Deepgram over them and writes ``.txt`` files to the output
+    directory. Operates on server-side paths — not browser-picked files.
+    """
+    return Div(
+        Card(
+            CardBody(
+                H5("Directories", cls="mb-3 font-semibold"),
+                Div(
+                    Label("Audio Input Directory"),
+                    Input(type="text", id="input-dir", **{"x-model": "inputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls="mb-3",
                 ),
-                Button(
-                    "Transcribe All",
-                    variant=ButtonT.primary,
-                    type="button",
-                    id="transcribe-btn",
-                    cls="ml-2",
+                Div(
+                    Label("Output Directory"),
+                    Input(type="text", id="output-dir", **{"x-model": "outputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls="mb-3",
                 ),
-                cls="flex gap-2",
+                Label(
+                    Input(
+                        type="checkbox",
+                        id="skip-existing",
+                        full_width=False,
+                        **{"x-model": "skipExisting"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    ),
+                    Span("Skip files already transcribed", cls="ml-2"),
+                    cls="flex items-center mb-3",
+                ),
+                Div(
+                    Button(
+                        "Preview Files",
+                        variant=ButtonT.outline,
+                        type="button",
+                        id="preview-btn",
+                        **{"@click": "previewFiles()", ":disabled": "loading"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    ),
+                    Button(
+                        "Transcribe All",
+                        variant=ButtonT.primary,
+                        type="button",
+                        id="transcribe-btn",
+                        cls="ml-2",
+                        **{"@click": "transcribeAll()", ":disabled": "loading"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    ),
+                    cls="flex gap-2",
+                ),
+                P(
+                    "Supported audio: mp3, wav, m4a, ogg, flac, webm. "
+                    "Runs against the server-side directory above.",
+                    cls="text-xs text-muted-foreground mt-3",
+                ),
             ),
+            cls="bg-background shadow-sm mb-4",
         ),
-        cls="bg-background shadow-sm mb-4",
+        _render_batch_results(),
+        **{"x-data": "batchTranscribe"},
     )
 
 
-def render_batch_processing_card() -> Any:
-    """Render the batch LLM processing options card."""
-    return Card(
-        CardBody(
-            H5("LLM Processing Options", cls="mb-3 font-semibold"),
-            Div(
-                Label("Enrichment Mode"),
-                Select(
-                    Option(
-                        "Activity Tracking",
-                        value=EnrichmentMode.ACTIVITY_TRACKING.value,
-                        selected=True,
-                    ),
-                    Option("Idea Articulation", value=EnrichmentMode.IDEA_ARTICULATION.value),
-                    Option("Critical Thinking", value=EnrichmentMode.CRITICAL_THINKING.value),
-                    id="enrichment-mode",
-                    name="enrichment_mode",
-                ),
-                cls="mb-3",
-            ),
-            Div(
-                Label("Model"),
-                Select(
-                    Option("GPT-4o Mini", value="gpt-4o-mini", selected=True),
-                    Option("GPT-4o", value="gpt-4o"),
-                    id="llm-model",
-                    name="model",
-                ),
-                cls="mb-3",
-            ),
-            Div(
-                Label("Custom Instructions (optional — overrides mode)"),
-                Textarea(
-                    id="custom-instructions",
-                    name="custom_instructions",
-                    rows="3",
-                    placeholder="Leave blank to use the enrichment mode template",
-                    cls="w-full",
-                ),
-                cls="mb-3",
-            ),
-            Div(
-                Button(
-                    "Process Transcripts",
-                    variant=ButtonT.outline,
-                    type="button",
-                    id="process-btn",
-                ),
-                Button(
-                    "Transcribe + Process",
-                    variant=ButtonT.primary,
-                    type="button",
-                    id="combined-btn",
-                    cls="ml-2",
-                ),
-                cls="flex gap-2",
-            ),
+def _render_batch_results() -> Any:
+    """Alpine-bound results region for the batch transcription panel."""
+    return Div(
+        P(
+            "Working…",
+            cls="text-sm text-muted-foreground",
+            **{"x-show": "loading"},
         ),
-        cls="bg-background shadow-sm mb-4",
+        Div(
+            Alert(P("", cls="mb-0", **{"x-text": "error"}), variant=AlertT.error),
+            cls="mb-4",
+            **{"x-show": "error", "x-cloak": True},
+        ),
+        # Preview: file list without transcribing
+        Div(
+            H5("Preview", cls="font-semibold mb-2"),
+            P("", cls="text-sm mb-2", **{"x-text": "previewSummary()"}),
+            Template(
+                Div(
+                    Span("", **{"x-text": "f.name"}),
+                    Span(
+                        "",
+                        cls="text-muted-foreground ml-2",
+                        **{"x-text": "'(' + f.size_mb + ' MB)'"},
+                    ),
+                    cls="text-sm",
+                ),
+                **{"x-for": "f in preview.files", ":key": "f.name"},
+            ),
+            cls="mb-4",
+            **{"x-show": "preview", "x-cloak": True},
+        ),
+        # Transcribe: aggregate result + per-file errors
+        Div(
+            H5("Transcription Result", cls="font-semibold mb-2"),
+            P("", cls="text-sm mb-2", **{"x-text": "resultSummary()"}),
+            Div(
+                H5("Errors", cls="font-semibold text-destructive mb-1 text-sm"),
+                Template(
+                    P(
+                        Span("", cls="font-medium", **{"x-text": "e.name"}),
+                        Span(
+                            "",
+                            cls="text-muted-foreground",
+                            **{"x-text": "': ' + e.error"},
+                        ),
+                        cls="text-sm",
+                    ),
+                    **{"x-for": "e in result.errors", ":key": "e.name"},
+                ),
+                **{"x-show": "result && result.errors && result.errors.length"},
+            ),
+            **{"x-show": "result", "x-cloak": True},
+        ),
+        cls="mt-4",
     )

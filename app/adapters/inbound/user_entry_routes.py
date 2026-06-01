@@ -67,7 +67,7 @@ def create_user_entry_routes(
             app,
             rt,
             batch_transcription_service=batch_transcription_svc,
-            user_service=getattr(services, "user_service", None),
+            user_service=getattr(services, "user", None),
         )
         logger.info("UserEntry: batch transcription API routes registered (admin-only)")
 
