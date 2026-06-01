@@ -286,7 +286,6 @@ module = [
     "adapters.persistence.neo4j.backends.activity_backends",
     "adapters.persistence.neo4j.backends.curriculum_backends",
     "adapters.persistence.neo4j.backends.exercise_backends",
-    "adapters.persistence.neo4j.backends.submissions_backend",
     "adapters.persistence.neo4j.backends.sharing_backend",
     "adapters.persistence.neo4j.backends.forms_backends",
     "adapters.persistence.neo4j.backends.collab_backends",
