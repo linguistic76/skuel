@@ -181,7 +181,7 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     ps=learning_services["ps"],  # PsService facade
     lp=learning_services["learning_paths"].relationships,
     # Processing (3)
-    submissions=submissions_relationship_service,
+    user_entries=entry_relationship_service,
     report=report_relationship_service,
     analytics=analytics_relationship_service,
     # Temporal Domain (1)
