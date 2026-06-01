@@ -70,9 +70,10 @@ browser-driven.)
 `batch_transcription_api.py:batch_transcribe` was removed from `CSRF_EXEMPT`
 when its admin UI (`/admin/batch-transcribe`) made it browser-reachable: the
 handler is now `@csrf_protected`, the browser UI sends `X-CSRF-Token`, and the
-CLI (`scripts/batch_transcribe.py`) echoes the `csrf_token` cookie as the header
-as an **interim** measure. The bearer-token migration below still applies — it
-replaces that cookie-echo with a proper token path.
+CLI (`scripts/batch_transcribe.py`) obtains a `csrf_token` transparently (a GET
+mints one via `CSRFMiddleware`) and echoes it — so a session cookie alone works,
+no manual token handling. The bearer-token migration below still applies as the
+end-state; it would let token-authenticated calls skip CSRF entirely.
 
 **Related:** the `advanced_routes` admin endpoints (`/jupyter/save`,
 `/jupyter/sync-to-obsidian`, `/performance/optimize`) are now `@csrf_protected`
