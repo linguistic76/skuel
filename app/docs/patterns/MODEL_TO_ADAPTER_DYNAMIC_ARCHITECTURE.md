@@ -109,19 +109,19 @@ adapters/persistence/neo4j/
     _lp_step_mixin.py             # _LpStepMixin — LP step management CRUD + path CRUD (14 methods)
     _lp_progress_mixin.py         # _LpProgressMixin — KU mastery progress + search queries (6 methods)
     _lp_intelligence_mixin.py     # _LpIntelligenceMixin — intelligence + adaptive learning (8 methods)
-    _submission_crud_mixin.py     # _SubmissionCrudMixin — ambient submission CRUD + teacher feedback state
-    _submission_lifecycle_mixin.py # _SubmissionLifecycleMixin — exercise processing, temporal/thematic relationships
-    _submission_assessment_mixin.py # _SubmissionAssessmentMixin — assessments + teacher review operations
-    _submission_report_query_mixin.py # _SubmissionReportQueryMixin — report relationship queries, learning loop chains
-    _submission_content_mixin.py  # _SubmissionContentMixin — journal processing context + exercise-instruction enrichment
+    _user_entry_crud_mixin.py     # _UserEntryCrudMixin — UserEntry CRUD + content-search operations
+    _user_entry_lifecycle_mixin.py # _UserEntryLifecycleMixin — UserEntry lifecycle (exercise processing, temporal/thematic relationships)
+    _user_entry_assessment_mixin.py # _UserEntryAssessmentMixin — assessment scoring + teacher-review workflow
+    _user_entry_report_query_mixin.py # _UserEntryReportQueryMixin — report-relationship cross-joins + learning-loop chain reads
+    _user_entry_content_mixin.py  # _UserEntryContentMixin — content enrichment operations
     backends/
         activity_backends.py      # HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
         curriculum_backends.py    # KuBackend, PsBackend, LpBackend
         exercise_backends.py      # ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
-        submissions_backend.py    # SubmissionsBackend (shell over 5 _submission_*_mixin files)
+        user_entry_backend.py     # UserEntryBackend (shell over 5 _user_entry_*_mixin files)
         sharing_backend.py        # SharingBackend
         forms_backends.py         # FormTemplateBackend, FormSubmissionBackend
-        journal_backends.py       # JournalInputBackend, JournalOutputBackend
+        templates_backends.py     # TaskTemplateBackend, GoalTemplateBackend, HabitTemplateBackend, EventTemplateBackend, ChoiceTemplateBackend, PrincipleTemplateBackend
         collab_backends.py        # GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend
         misc_backends.py          # ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend
 ```
