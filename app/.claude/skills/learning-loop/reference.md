@@ -245,8 +245,10 @@ POST /api/user-entries/upload               POST /api/user-entries/form
 
 **Processing is a separate, explicit step.** The upload / form routes *only* call
 `create_entry()` — they do not run a pipeline. To process an entry,
-`POST /api/user-entries/process` (JSON body: entry `uid` + optional `pipeline` /
-`instructions` overrides) invokes `UserEntryProcessingService.process(entry)`: audio →
+`POST /api/user-entries/process` (JSON body: entry `uid` + an optional per-run
+`instructions` override) invokes `UserEntryProcessingService.process(entry)`, which
+dispatches strictly on the entry's **stored** `pipeline` (the request's `pipeline`
+field is not applied): audio →
 Deepgram transcription, text/file → LLM summary/structuring, then
 `update_processed_content()` writes `processed_content` and advances status to `COMPLETED`
 (or marks `FAILED`). Entries with `pipeline=NONE`/`TEACHER_REVIEW` need no processing.
@@ -267,7 +269,7 @@ steps that own it.
 **API routes:**
 - `POST /api/user-entries/upload` — file upload (multipart form-data)
 - `POST /api/user-entries/form` — structured form data (JSON)
-- `POST /api/user-entries/process` — run a pipeline on an existing entry (JSON: `uid` + optional overrides)
+- `POST /api/user-entries/process` — run the entry's stored pipeline (JSON: `uid` + optional `instructions`)
 
 **Services:**
 ```python
