@@ -3,7 +3,7 @@ title: Report Architecture
 updated: 2026-06-01
 status: current
 category: architecture
-version: 3.0.0
+version: 3.1.0
 tags:
 - report
 - activity_report
@@ -38,20 +38,24 @@ For implementation guidance, see:
 
 ## The EntityTypes
 
-| EntityType | Who Creates | Purpose | ReportSource |
+| EntityType | Who Creates | Purpose | Discriminator |
 |------------|-------------|---------|---------------|
-| `EXERCISE_SUBMISSION` | Student uploads file | Raw student work (audio, text, images) | `HUMAN` |
-| `EXERCISE_REPORT` | Teacher **or** AI | Assessment with `subject_uid` pointing to a submission | `HUMAN` (teacher) or `LLM` (AI) |
-| `ACTIVITY_REPORT` | System **or** Admin | Activity-level feedback (not tied to artifact) | `AUTOMATIC`, `LLM`, or `HUMAN` |
+| `USER_ENTRY` | Student uploads file / fills form | Raw student work (audio, text, images, structured form) — the curriculum turn-in | `pipeline` (e.g. `teacher_review`) |
+| `EXERCISE_REPORT` | Teacher **or** AI | Assessment with `subject_uid` pointing to a submission | `processor_type`: `HUMAN` (teacher) or `LLM` (AI) |
+| `ACTIVITY_REPORT` | System **or** Admin | Activity-level feedback (not tied to artifact) | `processor_type`: `AUTOMATIC`, `LLM`, or `HUMAN` |
+
+There is **no** `EXERCISE_SUBMISSION` EntityType — ADR-054 collapsed it (with `JE_INPUT` / `JE_OUTPUT`) into the single `USER_ENTRY` type, discriminated by its `pipeline` field rather than by entity_type.
 
 **Hierarchy:**
 - `UserEntry` extends `UserOwnedEntity` — file/processing fields
-- `ExerciseReport` extends `UserOwnedEntity` — report fields only (NOT Submission)
+- `ExerciseReport` extends `UserOwnedEntity` — report fields only (no file/processing fields, unlike `UserEntry`)
 - `ActivityReport` extends `UserOwnedEntity` directly — no file fields, responds to aggregate activity patterns
 
-**Note:** Journal types (`JE_INPUT`, `JE_OUTPUT`) are now a standalone domain, not part of the submissions/reports hierarchy. See [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md).
+**Note:** Journaling is a `Pipeline` (`TRANSCRIBE_AND_STRUCTURE`), not a separate domain — the former `JE_INPUT` / `JE_OUTPUT` types were collapsed into `USER_ENTRY` alongside `EXERCISE_SUBMISSION` (ADR-054). See [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md).
 
-**Removed aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT` (removed from enum; old string values still parsed via `from_string()`).
+**Deleted EntityTypes / aliases:** `EXERCISE_SUBMISSION`, `JE_INPUT`, and `JE_OUTPUT` are gone from `EntityType`; their legacy string values still *parse* via `from_string()` but redirect to `USER_ENTRY` (not to any standalone type). The old `SUBMISSION_REPORT` / `JOURNAL_SUBMISSION` strings are not in the alias map, so `from_string()` returns `None` for them — assessment now produces an `EXERCISE_REPORT`.
+
+> **⚠️ Migration debt — `entity_type` write/read split.** The write path forces `entity_type = 'user_entry'` (`UserEntry.__post_init__`); the curriculum turn-in is identified by its `pipeline` field, **not** by a distinct entity_type. But several legacy read queries still filter on the historical `entity_type = 'exercise_submission'` value (`_user_entry_report_query_mixin.py`, `_user_entry_assessment_mixin.py`, `_user_entry_content_mixin.py`, `exercise_backends.py`, `collab_backends.py`, `cross_domain_backend.py`, `zpd_backend.py`; `user_context_queries.py` hedges with `entity_type IN ['exercise_submission', 'je_input', 'je_output', 'user_entry']`). A freshly-written `'user_entry'` node therefore does **not** match those `'exercise_submission'`-only filters — a known migration artifact, not the intended shape. The canonical written discriminator is `'user_entry'`; this doc never depicts a `:UserEntry {entity_type: 'exercise_submission'}` node.
 
 ---
 
@@ -158,8 +162,8 @@ Each status guard is enforced atomically in Cypher via `WHERE status IN $allowed
 Curriculum Work                 Activity Domains
      │                               │
      ▼                               ▼
- EXERCISE_SUBMISSION            (no artifact —
-     │                            aggregate over
+ USER_ENTRY                     (no artifact —
+ (curriculum turn-in)            aggregate over
      │                            time window)
      │                               │
      └───────────┬───────────────────┘
@@ -176,7 +180,7 @@ Curriculum Work                 Activity Domains
 
 ### 1. `EXERCISE_REPORT` — Response to an Exercise Submission
 
-`EXERCISE_REPORT` is created in response to a **specific submitted artifact** (an `EXERCISE_SUBMISSION` entity).
+`EXERCISE_REPORT` is created in response to a **specific submitted artifact** (a turned-in `UserEntry` — `entity_type` `'user_entry'`).
 
 | Field | Value |
 |-------|-------|
@@ -199,7 +203,10 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 ```cypher
 // student always owns the report (access ownership)
 (student:User)-[:OWNS]->(report:Entity:ExerciseReport {entity_type: 'exercise_report'})
-(report)-[:REPORT_FOR]->(submission:Entity {entity_type: 'exercise_submission'})
+(report)-[:REPORT_FOR]->(submission:Entity:UserEntry {entity_type: 'user_entry'})
+// report creation (create_report_node) matches the submission by uid only — no
+// entity_type filter — so REPORT_FOR points at the :UserEntry node as written.
+// (Legacy chain reads still filter 'exercise_submission' — see migration-debt note above.)
 // for HUMAN reports, teacher identity is in report.author_uid (null for LLM reports)
 ```
 
@@ -265,9 +272,9 @@ class ActivityReport(UserOwnedEntity):
 
 | ReportSource | Who | Applies To |
 |---------------|-----|-----------|
-| `HUMAN` | Teacher writes | `SUBMISSION_REPORT` (teacher assessment) |
+| `HUMAN` | Teacher writes | `EXERCISE_REPORT` (teacher assessment) |
 | `HUMAN` | Admin writes | `ACTIVITY_REPORT` (activity review) |
-| `LLM` | AI via Exercise | `SUBMISSION_REPORT` (AI assessment of submission) |
+| `LLM` | AI via Exercise | `EXERCISE_REPORT` (AI assessment of submission) |
 | `LLM` | AI on demand | `ACTIVITY_REPORT` (activity summary with LLM insights) |
 | `AUTOMATIC` | Scheduled system | `ACTIVITY_REPORT` (periodic progress report) |
 
@@ -339,13 +346,13 @@ ActivityReportBackend   ← owns ActivityReport persistence + privacy audit quer
 
 Reports split into two structurally different positions:
 
-### SUBMISSION_REPORT — Leaf Domain
+### EXERCISE_REPORT — Leaf Domain
 
-`SUBMISSION_REPORT` fits the leaf domain model. One submission goes in, one ExerciseReport node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
+`EXERCISE_REPORT` fits the leaf domain model. One submission goes in, one ExerciseReport node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
 
 ```
-Submission  →  ExerciseReportService / AssessmentService  →  SUBMISSION_REPORT node
-               (one artifact in, one report node out)
+UserEntry  →  ExerciseReportService / AssessmentService  →  EXERCISE_REPORT node
+              (one artifact in, one report node out)
 ```
 
 ### ACTIVITY_REPORT — Cross-Domain Aggregator
@@ -368,7 +375,7 @@ ACTIVITY_REPORT node
 
 | Report Mode | Structural Position | Why |
 |-------------|--------------------|----|
-| `SUBMISSION_REPORT` | Leaf domain — fits 4-layer pattern | One artifact in, one node out; single-domain scope |
+| `EXERCISE_REPORT` | Leaf domain — fits 4-layer pattern | One artifact in, one node out; single-domain scope |
 | `ACTIVITY_REPORT` | Cross-domain aggregator + `ActivityReportBackend` | Content reads from 6 Activity Domain backends; persistence via `ActivityReportBackend` |
 
 The learning loop does not end at a leaf domain — it fans back out across the user's entire lived activity. That is what makes `ACTIVITY_REPORT` architecturally distinct from the other three stages of the loop.
@@ -476,7 +483,7 @@ When `openai_service` is available, the generator:
 | `/api/activity-review/request` | POST | User | Request an activity review from admin |
 | `/api/activity-review/queue` | GET | Admin | Pending review queue |
 | `/api/activity-review/history` | GET | User/Admin | Received activity feedback history |
-| `/api/reports/assessments` | POST | Teacher | Create teacher assessment (`SUBMISSION_REPORT`) |
+| `/api/reports/assessments` | POST | Teacher | Create teacher assessment (`EXERCISE_REPORT`) |
 | `/api/reports/assessments/for-student` | GET | Teacher | Student's received assessments |
 | `/api/reports/assessments/by-teacher` | GET | Teacher | Teacher's authored assessments |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
@@ -505,7 +512,7 @@ When `openai_service` is available, the generator:
 // subject_uid is NOT stored as a node property — it is projected from the
 // REPORT_FOR edge on read by ExerciseReportBackend.get / list_for_submission:
 //   OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}
-(:Entity:ExerciseReport)-[:REPORT_FOR]->(:Entity {entity_type: 'exercise_submission'})
+(:Entity:ExerciseReport)-[:REPORT_FOR]->(:Entity:UserEntry {entity_type: 'user_entry'})
 (:Entity:ExerciseReport)-[:SHARES_WITH]->(:User)  // submission owner — makes content visible to the student
 
 // ACTIVITY_REPORT — tied to a user's activity patterns
