@@ -177,9 +177,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
     #
     # Subclasses compose these as needed, adding domain-specific logic between steps.
 
-    def _validate_required_user_uid(
-        self, user_uid: UserUID | None, operation: str
-    ) -> Result[None] | None:
+    def _validate_required_user_uid(self, user_uid: UserUID | None, operation: str) -> Result[None]:
         """
         Validate that user_uid is present for an operation.
 
@@ -190,12 +188,12 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
             operation: Operation name for error message (e.g., "task creation")
 
         Returns:
-            None if valid, Result.fail() if user_uid is missing.
+            Result.ok(None) if valid, Result.fail() if user_uid is missing.
 
         Example:
             validation = self._validate_required_user_uid(user_uid, "task creation")
-            if validation:
-                return validation
+            if validation.is_error:
+                return Result.fail(validation)
         """
         if not user_uid:
             return Result.fail(
@@ -205,7 +203,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
                     value=user_uid,
                 )
             )
-        return None
+        return Result.ok(None)
 
     async def _create_and_convert(
         self,

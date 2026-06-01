@@ -73,18 +73,18 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # Type hints for attributes that must be provided by composing class
     backend: B
 
-    def _validate_create(self, entity: T) -> Result[None] | None:
+    def _validate_create(self, entity: T) -> Result[None]:
         """Validation hook - override in subclass."""
-        return None
+        return Result.ok(None)
 
-    def _validate_update(self, current: T, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: T, updates: dict[str, Any]) -> Result[None]:
         """
         Validation hook - override in subclass.
 
         Note: Uses dict[str, Any] because domain-specific validation needs
         to access domain-specific keys (priority, amount, label, etc.)
         """
-        return None
+        return Result.ok(None)
 
     # ========================================================================
     # POST-LIFECYCLE HOOKS (March 2026)
@@ -115,7 +115,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         """Create a new entity."""
         # Call domain-specific validation hook
         validation = self._validate_create(entity)
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         result = await self.backend.create(entity)
@@ -172,7 +172,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         # Call domain-specific validation hook
         validation = self._validate_update(old_entity, updates)
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         result = await self.backend.update(uid, updates)
@@ -305,7 +305,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         # Call domain-specific validation hook
         validation = self._validate_update(ownership_result.value, updates)
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         # Perform the update
