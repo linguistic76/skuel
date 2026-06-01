@@ -10,29 +10,24 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from core.services.system_service import SystemService
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
 
 
 def _make_service_checker(
-    services: Any, attr: str, name: str
-) -> Callable[[], Coroutine[Any, Any, Result[bool]]]:
-    """Factory for simple service presence health checkers."""
+    services: Any, attr: str, _name: str
+) -> Callable[[], Coroutine[Any, Any, bool]]:
+    """Factory for simple service-presence health checkers.
 
-    async def check() -> Result[bool]:
-        try:
-            return Result.ok(bool(getattr(services, attr, None)))
-        except (AttributeError, TypeError) as e:
-            return Result.fail(
-                Errors.system(
-                    message=f"{name} health check failed",
-                    exception=e,
-                    operation=f"check_{attr}",
-                )
-            )
+    Returns a plain ``bool`` per the ``register_component_checker`` contract;
+    ``SystemService.get_health_status`` records any raised exception as an
+    error component, so checkers signal failure by returning ``False``.
+    """
+
+    async def check() -> bool:
+        return bool(getattr(services, attr, None))
 
     check.__name__ = f"check_{attr}"
     return check
@@ -55,22 +50,18 @@ async def initialize_system_service(system_service: SystemService, services: Any
     # DATABASE HEALTH CHECKER
     # ========================================================================
 
-    async def check_database() -> Result[bool]:
-        """Check if database connection is healthy."""
-        try:
-            # Use driver directly for health check
-            if services.neo4j_driver:
-                async with services.neo4j_driver.session() as session:
-                    await session.run("RETURN 1 as ping")
-                return Result.ok(True)
-            return Result.ok(False)
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Database health check failed: {e}")
-            return Result.fail(
-                Errors.system(
-                    message="Database health check failed", exception=e, operation="check_database"
-                )
-            )
+    async def check_database() -> bool:
+        """Check if database connection is healthy.
+
+        Returns ``False`` when no driver is configured; a connection error
+        propagates and is recorded as an error component by the caller.
+        """
+        # Use driver directly for health check
+        if services.neo4j_driver:
+            async with services.neo4j_driver.session() as session:
+                await session.run("RETURN 1 as ping")
+            return True
+        return False
 
     # ========================================================================
     # REGISTER ALL CHECKERS
@@ -81,7 +72,7 @@ async def initialize_system_service(system_service: SystemService, services: Any
 
     # Core services
     system_service.register_component_checker(
-        "user_service", _make_service_checker(services, "user_service", "User service")
+        "user_service", _make_service_checker(services, "user", "User service")
     )
     system_service.register_component_checker(
         "tasks", _make_service_checker(services, "tasks", "Tasks service")
@@ -90,7 +81,7 @@ async def initialize_system_service(system_service: SystemService, services: Any
         "knowledge", _make_service_checker(services, "ku", "Knowledge service")
     )
     system_service.register_component_checker(
-        "context", _make_service_checker(services, "context_service", "Context service")
+        "context", _make_service_checker(services, "context", "Context service")
     )
 
     logger.info(f"Registered {len(system_service._component_checkers)} health checkers")

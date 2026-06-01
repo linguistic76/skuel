@@ -85,7 +85,7 @@ def create_system_api_routes(
     @rt("/api/health")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def health_check_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def health_check_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         Basic health check endpoint.
 
@@ -120,7 +120,7 @@ def create_system_api_routes(
     @rt("/api/status")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def status_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def status_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         Basic status endpoint with health summary.
 
@@ -166,7 +166,7 @@ def create_system_api_routes(
     @rt("/api/health/detailed")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def detailed_health_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def detailed_health_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         Detailed health check with component status.
 
@@ -206,7 +206,7 @@ def create_system_api_routes(
     @rt("/api/version")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def version_info_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def version_info_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         Get version information.
 
@@ -230,7 +230,7 @@ def create_system_api_routes(
     @rt("/api/metrics")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def system_metrics_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def system_metrics_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         System metrics using SystemService data.
 
@@ -287,7 +287,7 @@ def create_system_api_routes(
     @rt("/api/diagnostics")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def system_diagnostics_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def system_diagnostics_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         System diagnostics for troubleshooting.
 
@@ -428,7 +428,7 @@ def create_system_api_routes(
     @rt("/api/services")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def list_services_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def list_services_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         List all registered services.
 
@@ -452,7 +452,7 @@ def create_system_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def validate_system_route(
-        _request: Request, current_user
+        request: Request, current_user
     ) -> Result[HealthCheckValidation]:
         """
         Validate health checkers and system components.
@@ -482,7 +482,7 @@ def create_system_api_routes(
     @rt("/api/summary")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def system_summary_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def system_summary_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         Complete system summary - all key information in one call.
 
@@ -581,7 +581,7 @@ def create_system_api_routes(
     @rt("/api/alerts")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def check_alerts_route(_request: Request, current_user) -> Result[AlertCheckResult]:
+    async def check_alerts_route(request: Request, current_user) -> Result[AlertCheckResult]:
         """
         Check for triggered alerts.
 
@@ -611,7 +611,7 @@ def create_system_api_routes(
     @rt("/api/alerts/thresholds")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_alert_thresholds_route(_request: Request, current_user) -> Result[dict[str, Any]]:
+    async def get_alert_thresholds_route(request: Request, current_user) -> Result[dict[str, Any]]:
         """
         Get current alert thresholds.
 
