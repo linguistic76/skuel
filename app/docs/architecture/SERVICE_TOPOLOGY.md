@@ -65,7 +65,7 @@ Infrastructure modules with no root-level facade.
 | `relationships/` | UnifiedRelationshipService + 6 mixin files |
 | `sharing/` | UnifiedSharingService (entity-agnostic sharing) |
 | `search/` | Unified search across all domains |
-| `submissions/` | Student work — CRUD, processing, search |
+| `user_entry/` | UserEntry domain (ADR-054) — submissions + journal pipeline: CRUD, processing, learning-loop reads |
 | `report/` | Teacher/AI reports, activity reports, review queue |
 | `output/` | InstructionResolver (unified instruction resolution) |
 | `transcription/` | TranscriptionService + BatchTranscriptionService + BatchProcessingService |
@@ -318,9 +318,9 @@ ActivityKnowledgeIntelligenceService (core/services/knowledge/)
                — all 6 facades inherit this mixin instead of repeating delegation methods
 ```
 
-**Learning Loop Intelligence:** `LearningLoopEventHandlerService` follows the same fire-and-forget pattern but is wired directly (not part of a facade). Subscribes to `SubmissionCreated`, `ReportSubmitted`, `SubmissionApproved`. Persists `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, and `MASTERY_ACHIEVED` insights. File: `core/services/submissions/learning_loop_event_handler_service.py`.
+**Learning Loop Intelligence:** `LearningLoopEventHandlerService` follows the same fire-and-forget pattern but is wired directly (not part of a facade). Subscribes to `UserEntryCreated`, `ReportSubmitted`, `UserEntryApproved`. Persists `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, and `MASTERY_ACHIEVED` insights. File: `core/services/user_entry/learning_loop_handler.py`.
 
-Its read-side peer is `LearningLoopQueryService` (file: `core/services/submissions/learning_loop_query_service.py`), which owns Cypher that traverses Interaction/Exercise/Report edges — e.g. `get_submissions_for_path_step()`. Keeping these queries out of `SubmissionsSearchService` means generic submission search stays free of learning-loop shape. New learning-loop reads land in the query service.
+Its read-side peer is `LearningLoopQueryService` (file: `core/services/user_entry/learning_loop_query.py`), which exposes learning-loop reads that traverse Interaction/Exercise/Report edges — e.g. `get_submissions_for_path_step()` (delegating to `UserEntryBackend.get_entries_for_path_step()`). Keeping these reads here means the generic entity search `UserEntryService` inherits from `BaseService` stays free of learning-loop shape. New learning-loop reads land in the query service.
 
 ---
 
@@ -407,12 +407,6 @@ services_bootstrap/compose.py:  habits.goals_service = goals       # facade-leve
 GoalsIntelligenceService.__init__:  self.habits_service = None
 
 services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # sub-service-level
-```
-
-```
-SubmissionsCoreService.__init__:  self.assessments = AssessmentService(...)
-
-# Journal is a standalone domain with JournalInputService (CRUD) + JournalOutputService (LLM)
 ```
 
 **Rule:** Routes never pass cross-domain services as parameters. Orchestration methods (e.g., `create_with_goal_links`) use `self.*_service` internally.
@@ -619,17 +613,15 @@ Routes / Application Code
 ├─ sharing/
 │   └─ unified_sharing_service.py     (entity-agnostic SHARES_WITH + SHARED_WITH_GROUP)
 │
-├─ submissions/
-│   ├─ submissions_service.py              (entry point — not a root-level facade)
-│   ├─ submissions_core_service.py
-│   ├─ submissions_search_service.py       (generic: date-bounded, text CONTAINS, recency, stats)
-│   ├─ submissions_processing_service.py
-│   ├─ submissions_relationship_service.py
-│   ├─ learning_loop_event_handler_service.py  (event-driven writes)
-│   └─ learning_loop_query_service.py          (read-side: Interaction/Report traversals)
-│
-├─ journal/
-│   ├─ user_entry_processing_service.py     (LLM processing → UserEntry)
+├─ user_entry/                            (ADR-054 — replaces submissions/ + journal/)
+│   ├─ user_entry_service.py              (entry point — UserEntryService facade over UserEntryBackend)
+│   ├─ assessment_service.py             (AssessmentService — teacher assessments → ExerciseReport)
+│   ├─ user_entry_processing_service.py  (UserEntryProcessingService — transcription/LLM → UserEntry)
+│   ├─ exercise_linker.py                (UserEntryExerciseLinker — links UserEntry to Exercise)
+│   ├─ relationship_service.py           (UserEntryRelationshipService)
+│   ├─ audience_resolver.py              (AudienceResolver — shared sharing/audience helper)
+│   ├─ learning_loop_handler.py          (LearningLoopEventHandlerService — event-driven writes)
+│   └─ learning_loop_query.py            (read-side: Interaction/Report traversals)
 │
 ├─ output/
 │   └─ instruction_resolver.py        (unified instruction resolution)
@@ -642,7 +634,7 @@ Routes / Application Code
     ├─ exercise_report_service.py     (entry point — uses UnifiedLLMCaller)
     ├─ activity_report_service.py     (CRUD for ActivityReport — delegates to ActivityReportBackend)
     ├─ review_queue_service.py        (ReviewRequest node management)
-    ├─ teacher_review_service.py      (delegates to SubmissionsBackend, ExerciseBackend, GroupBackend)
+    ├─ teacher_review_service.py      (delegates to UserEntryBackend, ExerciseReportBackend, ExerciseBackend, GroupBackend)
     ├─ progress_report_generator.py   (LLM → processed_content)
     └─ progress_schedule_service.py
 ```

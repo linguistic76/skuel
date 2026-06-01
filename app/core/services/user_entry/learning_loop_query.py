@@ -10,10 +10,9 @@ PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exerc
 (denormalized as ``Exercise.path_step_uid`` for PERSONAL scope). Interaction
 nodes provide situated context for each UserEntry.
 
-Ported from ``LearningLoopQueryService`` unchanged — the backing Cypher is
-label-agnostic and works against ``:Entity`` regardless of subtype. Only
-the ``submission_type`` filter is updated to include USER_ENTRY alongside
-EXERCISE_SUBMISSION for the additive-through-6a window.
+The backing Cypher (in ``UserEntryBackend``) is label-agnostic and works
+against ``:Entity`` regardless of subtype; post-ADR-054 the matched rows are
+``:UserEntry`` nodes.
 """
 
 from core.constants import QueryLimit
