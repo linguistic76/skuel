@@ -204,10 +204,12 @@ modality: SubmissionModality | None  # FILE_UPLOAD | STRUCTURED_FORM (None for t
 > `UserEntryBackend.create_with_exercise_link()`, which stamps it onto the edge. A second
 > attempt against the same exercise creates a new `UserEntry` whose edge carries `revision=2`.
 > **Post-create**, `UserEntryExerciseLinker.process_exercise_submission()` (fired via the
-> `UserEntryCreated` event → `exercise_handler`) reads that edge revision, then writes a
-> revision-aware title (`"{exercise_title} v{revision}"`) **and a denormalized `revision_number`
-> property back onto the node** for cheap reads — so the node carries a mirror even though the
-> model class does not declare the field.
+> `UserEntryCreated` event → `exercise_handler`) reads that edge revision and — **only for
+> `ASSIGNED`-scope exercises and valid `RevisedExercise` resubmissions** — writes a revision-aware
+> title (`"{exercise_title} v{revision}"`) and a denormalized `revision_number` property back onto
+> the node for cheap reads. It returns early (`NOT_ASSIGNED`) for `PERSONAL` / `ASSESSMENT`
+> exercises, which therefore keep only the `FULFILLS_EXERCISE {revision}` edge and no node mirror.
+> The frozen model class never declares the field either way.
 
 **SubmissionModality vs Pipeline:** `SubmissionModality` records *how* the submission was
 created (file upload vs structured form). `Pipeline` records *what* happens to it.
@@ -257,8 +259,8 @@ Deepgram transcription, text/file → LLM summary/structuring, then
 > `FULFILLS_EXERCISE {revision}` to the **root Exercise** regardless of which node was
 > submitted against (it resolves a `RevisedExercise` to its original via `REVISES_EXERCISE`);
 > for revision-cycle entries it additionally writes `FULFILLS_REVISED_EXERCISE {revision}` to
-> the revision node. The edge is the authoritative `revision` (the node mirror is stamped
-> later by `UserEntryExerciseLinker` — see above).
+> the revision node. The edge is the authoritative `revision` (a node mirror is stamped later by
+> `UserEntryExerciseLinker`, but only for `ASSIGNED` / `RevisedExercise` submissions — see above).
 
 **Status:** `create_entry()` sets `SUBMITTED` for `pipeline=TEACHER_REVIEW` (so the entry enters
 the teacher review queue) and `ACTIVE` otherwise. `UserEntryProcessingService` advances processed
@@ -305,7 +307,7 @@ Without Submission, the loop has no student voice.
 
 When `UserEntryService.create_entry()` creates an exercise-linked `UserEntry`,
 it calls `_create_interaction_record()` which persists an **Interaction** node
-capturing the user's curriculum position at that exact moment.
+recording that a submission happened against a given exercise.
 
 **EntityType:** `EntityType.INTERACTION`
 **Model:** `core/models/interaction/interaction.py` — `Interaction(UserOwnedEntity)`
@@ -314,32 +316,25 @@ capturing the user's curriculum position at that exact moment.
 **Enums:** `InteractionType` (EXERCISE_SUBMISSION, KU_VIEW, PATH_STEP_COMPLETION, FORM_SUBMISSION),
 `InteractionResult` (PENDING → REPORT_GENERATED → SHARED_WITH_TEACHER → COMPLETED/FAILED)
 
-**UI flow that makes context deterministic (2026-04-02):**
-1. PathStep detail page (`/explore/ps/{uid}`) is the **learning loop anchor** — HTMX-loads exercises
-   (with status pills), submissions, and feedback for authenticated users
-2. Exercise detail "Submit →" forwards `from_ps` → `/submit?exercise_uid=...&from_ps={ps_uid}`
-3. Submit form embeds `from_ps` as hidden field (`render_upload_form(from_ps=...)`)
-4. Upload and form handlers call `_get_learning_context(explicit_ps_uid=from_ps)` — uses explicit value, no guessing
-   - File upload: `from_ps` read from form field
-   - Form submission: `from_ps` field on `FormSubmitRequest` Pydantic model
-5. Interaction record gets the correct PathStep UID every time
+**What it captures today (ADR-054).** `_create_interaction_record()` builds the Interaction
+with only three fields:
+- `interaction_type`: `InteractionType.EXERCISE_SUBMISSION`
+- `target_uid`: the Exercise UID being submitted against
+- `source_entity_uid`: back-pointer to the `UserEntry` UID
 
-When `from_ps` is absent (standalone submission), `_get_learning_context` falls back to
-`next(iter(ctx.current_ps_uids), None)` as best-effort.
+> **Not currently wired:** the deterministic PathStep / LearningPath context capture —
+> `from_ps` → `context_path_step_uid` / `context_learning_path_uid` (the earlier
+> `_get_learning_context` / `render_upload_form` flow) — is **not** implemented on the
+> `create_entry()` path. The form route only stashes `from_ps` in entry metadata; the
+> Interaction's context fields are left null. Consequently the `INTERACTION_DURING` /
+> `INTERACTION_WITHIN` edges below are **not** created for create_entry-path interactions.
+> Wiring curriculum context back into the Interaction is open follow-up (see ZPD/Askesis below).
 
-**What it captures (6 interaction-specific fields):**
-- `interaction_type`: What kind of event (EXERCISE_SUBMISSION in Phase 1)
-- `target_uid`: The Exercise UID being submitted against
-- `context_path_step_uid`: PathStep UID from explicit `from_ps` navigation (or UserContext fallback)
-- `context_learning_path_uid`: The LearningPath the user was enrolled in (from UserContext)
-- `source_entity_uid`: Back-pointer to the UserEntry UID
-- `result_status`: Processing outcome (starts PENDING, updated as pipeline progresses)
-
-**Graph relationships created:**
+**Graph relationships:**
 ```cypher
-(interaction)-[:RECORDS]->(submission)           // back-pointer to source artifact
-(interaction)-[:INTERACTION_DURING]->(pathstep)  // curriculum position (if set)
-(interaction)-[:INTERACTION_WITHIN]->(lp)        // path enrollment (if set)
+(interaction)-[:RECORDS]->(submission)           // back-pointer to source artifact — created today
+(interaction)-[:INTERACTION_DURING]->(pathstep)  // only if context_path_step_uid is set (currently unset)
+(interaction)-[:INTERACTION_WITHIN]->(lp)        // only if context_learning_path_uid is set (currently unset)
 ```
 
 **Why a separate node, not fields on UserEntry?** Interaction is queryable as
@@ -776,7 +771,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
    FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
    revision stamped on the FULFILLS_EXERCISE edge; UserEntryExerciseLinker
    (UserEntryCreated → exercise_handler) then mirrors revision_number + a
-   revision-aware title onto the node
+   revision-aware title onto the node — ASSIGNED / RevisedExercise submissions only
        ↓
 5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
    Teacher sees pending user entries (their students' submitted+active
