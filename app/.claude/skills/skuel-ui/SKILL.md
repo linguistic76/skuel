@@ -381,7 +381,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
 | `/ui/workbench/hub.py` | `SUBMISSIONS_BLOCKS` — block definitions for Submissions tab in `HomeHub` |
 | `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
-| `/adapters/inbound/user_entry_ui.py` | Submissions hub page + HTMX preview endpoints + history |
+| `/adapters/inbound/user_entry_ui.py` | Submission preview + history endpoints, journal submit/browse/download (the `/submissions` hub root is a `/profile?tab=submissions` tab) |
 | `/adapters/inbound/settings_routes.py` | Settings page (extracted from Workbench) — `/settings` + `/settings/save` |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
 | `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (embedded in `/profile`, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |

@@ -391,7 +391,7 @@ Declarative config object + `register_domain_routes()`. Soft-fails when primary 
 
 **Use when:** Standard entity domain with a primary service + optional related services, and distinct `*_api.py` / `*_ui.py` factories.
 
-**Examples:** Every Activity Domain, Ku, PathStep, LearningPath, Exercises, Forms, Finance, Ingestion, UserEntry, Upload.
+**Examples:** Every Activity Domain, Ku, PathStep, LearningPath, Exercises, Forms, Finance, Ingestion, Journals, Upload.
 
 ### Pattern B: Orchestrator-Driven (3 files)
 
@@ -409,7 +409,7 @@ Routes registered directly with `@rt()` decorators inside the factory function. 
 
 **Use when:** The routes are structural (auth flow, PWA shell, GraphQL schema mounting, settings page) and don't map to an entity domain. These are stable and unlikely to grow.
 
-**Current adopters:** `home_routes.py`, `settings_routes.py`, `graphql_routes.py`.
+**Current adopters:** `home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`, `graphql_routes.py`.
 
 **Do not use for new entity domains** — reach for DomainRouteConfig instead.
 
@@ -1031,10 +1031,11 @@ All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()`
 10. `/adapters/inbound/pathways_routes.py` - LP + PS routes
 11. `/adapters/inbound/askesis_routes.py`
 
-**UserEntry/Forms (3):**
-14. `/adapters/inbound/user_entry_routes.py` (submissions + journals consolidated, ADR-054)
-15. `/adapters/inbound/form_templates_routes.py`
-16. `/adapters/inbound/form_submissions_routes.py`
+**Submissions/Forms/Journals (4):**
+14. `/adapters/inbound/submissions_routes.py`
+15. `/adapters/inbound/journals_routes.py` (standalone journal domain)
+16. `/adapters/inbound/form_templates_routes.py`
+17. `/adapters/inbound/form_submissions_routes.py`
 
 **Other Domains (13):**
 17. `/adapters/inbound/finance_routes.py`
