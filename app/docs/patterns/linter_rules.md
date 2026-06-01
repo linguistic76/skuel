@@ -48,6 +48,8 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL020** | `request: Any` on `@rt`/`@app.*` handlers | Annotate `request: Request` (AST rule) |
 | **SKUEL021** | Raw Cypher anywhere in `core/` | Relocate below the boundary (ADR-044) |
 | **SKUEL022** | `adapters/` imports in `core/` | Depend on a `core/ports` protocol; inject the adapter (ADR-044) |
+| **SKUEL023** | `self.backend` typed against an adapter class in `core/` | Type against the `core/ports` protocol (AST rule, ADR-044) |
+| **SKUEL024** | Hardcoded `cls=` + `**kwargs` splat without a `cls` param | Add explicit `cls: str = ""` and merge (AST rule) |
 
 ### WARNING (reported, doesn't block)
 | Rule | Pattern | Enforcement |
@@ -482,6 +484,36 @@ if TYPE_CHECKING:
 **Suppression:**
 - `# skuel-lint: disable=SKUEL022 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL022 -- <reason>` (file)
+
+## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
+
+**Pattern:** A UI/FT helper that hardcodes a `cls=` keyword **and** splats `**kwargs` into the same call, without declaring an explicit `cls` parameter, is a latent crash. When any caller passes `cls=`, that value lands in `**kwargs` and collides with the hardcoded keyword: `TypeError: <fn>() got multiple values for keyword argument 'cls'`.
+
+```python
+# BAD — caller cls= collides with the hardcoded one
+def SmallText(text: str, **kwargs: Any) -> Span:
+    return Span(text, cls="text-sm", **kwargs)   # SmallText("x", cls="y") -> TypeError
+
+# GOOD — explicit cls param, merged into the base classes
+def SmallText(text: str, cls: str = "", **kwargs: Any) -> Span:
+    return Span(text, cls=f"text-sm {cls}".strip(), **kwargs)
+```
+
+**Why it matters:** this 500'd the `/insights` page in production via `SmallText("Recommended Actions:", cls="font-semibold mb-1")` (PR #154); an AST sweep then found six sibling helpers (PRs #156/#157). It is invisible to mypy and ruff — only a caller that actually passes `cls=` triggers it, so a helper can ship the landmine and sit dormant until the first styling override.
+
+**Detection (AST), scope-resolution model:** the rule walks the tree carrying a stack of enclosing function scopes. For each call passing **both** a `cls=` keyword and a `**Name` splat, it resolves `Name` to the **nearest enclosing scope that binds it** (where "binds" means a parameter **or any local assignment**: `=`, `:=`, augmented/annotated, `for`/`with`/`except` targets, imports, nested `def`/`class` names — matching Python's symbol-table scoping). It flags the call iff `Name` is that resolved scope's `**kwargs` parameter and the scope has **no keyword-passable `cls` parameter** (positional-or-keyword or keyword-only; a *positional-only* `cls` does **not** absorb a keyword `cls=`). Resolution is **structural** (a compile-time scope-binding fact), so it handles every nesting case soundly: a nested `def`/`lambda` that **closes over** the outer `**kwargs` is flagged against the outer scope; a nested factory whose own scope **owns** the name as a plain local (`def make(): kwargs = {...}; Div(cls=.., **kwargs)`, no `**kwargs` param) resolves to itself and is cleared by the param mismatch.
+
+A local **reassignment of an owned `**kwargs`** is **not** treated as clearing the collision — proving it sanitizes every path needs control-flow domination (a conditional or post-splat `kwargs = {}` does not), the same reason there is no `kwargs.pop("cls")` exemption.
+
+**Documented boundary — name resolution, not value tracking.** The rule resolves a splat *name* to its binding scope but does **not** track a local variable's *value*. So value-flow / alias / taint cases are deliberately **not** chased: a simple alias (`attrs = kwargs; Div(cls=.., **attrs)`) and copies/transforms/merges (`dict(kwargs)`, `{**kwargs}`, `kwargs | extra`). Sound detection there requires control-flow analysis (flow-insensitive alias tracking gives both false negatives *and* false positives — e.g. an earlier `Div(cls=.., **attrs)` before a later `attrs = kwargs`), these forms do not occur in real FT helpers, and the explicit `cls: str = ""` parameter is the contract that removes the entire class regardless. One violation per binding scope. There is **no** `kwargs.pop("cls")` exemption: proving a pop actually defuses the splat needs control-flow domination — a conditional pop (`if flag: kwargs.pop("cls")`), a pop *after* the splat, or a `kwargs.get("cls")` (which doesn't remove the key) all leave the collision live — and the explicit `cls: str = ""` parameter is the contract anyway. Pop-based helpers are therefore flagged too; adopt the explicit parameter, or suppress with a reason if a genuinely-sound pop form is needed. (The simpler, sound rule beats an exemption heuristic with an unbounded tail of unsound cases.)
+
+**Scope:** all non-test files (the shape is language-general — any `f(cls=x, **kwargs)` without a `cls` param crashes when a caller passes `cls`). The contract is guarded at runtime by `tests/unit/ui/test_cls_merge_contract.py`, which renders every `cls`-merging helper with `cls=` set.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL024` covers literal and variable `cls=`, alternate `**` names, the explicit-param / keyword-only-param / positional-or-keyword clean cases, positional-only `cls` flagged, the `@classmethod` receiver flagged, closures and nested-`def`/`lambda` resolution, nested-local-rebinding clean, the no-pop-exemption (pop / conditional-pop flagged), the no-reassignment-exemption (conditional and same-scope reassign flagged), the documented value-flow boundary (alias and `dict(kwargs)` copy not chased), spaced `cls = "x"`, no-kwargs / no-cls clean cases, suppression, and the test-file skip.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL024 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL024 -- <reason>` (file)
 
 ## Authoring AST Rules
 
