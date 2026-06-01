@@ -287,7 +287,7 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 ### EventHandlerService
 
 **Domains:** Tasks, Goals, Habits, Events, Choices, Principles + Learning Loop
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `event_event_handler_service.py`, `choice_event_handler_service.py`, `principle_event_handler_service.py`, `learning_loop_event_handler_service.py`
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `event_event_handler_service.py`, `choice_event_handler_service.py`, `principle_event_handler_service.py`, `user_entry/learning_loop_handler.py`
 
 **Responsibility:** Event-driven reactive logic (fire-and-forget handlers) with insight persistence to InsightStore
 
@@ -345,8 +345,8 @@ handler = TaskEventHandlerService(
 # Learning Loop handler — wired directly (not part of a facade)
 from core.services.user_entry import LearningLoopEventHandlerService
 
-handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_store=insight_store)
-# Subscribes to: SubmissionCreated, ReportSubmitted, SubmissionApproved
+handler = LearningLoopEventHandlerService(backend=user_entry_backend, insight_store=insight_store)
+# Subscribes to: UserEntryCreated, ReportSubmitted, UserEntryApproved
 ```
 
 ---
@@ -362,7 +362,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 **Rationale:** Isolates learning-loop reads (Interaction/Exercise/Report traversals) from generic entity search, which `UserEntryService` inherits from `BaseService`. New learning-loop reads land here.
 
 **Key Methods:**
-- `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` - Submissions + report status for a PathStep, discovered via Interaction edges. Bounded by `limit` (default 100) so a learner with hundreds of submissions on one PathStep can't unbounded-load the detail page. The entity_type filter is parameterized via `EntityType.EXERCISE_SUBMISSION.value` (no inline string literals). Powers the PathStep detail page's submissions/feedback HTMX fragment.
+- `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` - Submissions + report status for a PathStep, discovered via Interaction edges. Bounded by `limit` (default 100) so a learner with hundreds of submissions on one PathStep can't unbounded-load the detail page. Delegates to `UserEntryBackend.get_entries_for_path_step()`; entity-type filtering lives in the backend (post-ADR-054 the rows are `:UserEntry` nodes). Powers the PathStep detail page's submissions/feedback HTMX fragment.
 
 **Consumers:** `ExploreOrchestrator` (for the PathStep detail page).
 
@@ -370,7 +370,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 ```python
 from core.services.user_entry import LearningLoopQueryService
 
-service = LearningLoopQueryService(submissions_backend=submissions_backend)
+service = LearningLoopQueryService(user_entry_backend=user_entry_backend)
 result = await service.get_submissions_for_path_step(user_uid, ps_uid)
 ```
 
