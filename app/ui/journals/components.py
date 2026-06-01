@@ -188,7 +188,9 @@ def _render_batch_results() -> Any:
                     ),
                     cls="text-sm",
                 ),
-                **{"x-for": "f in preview.files", ":key": "f.name"},
+                # Null-safe: Alpine evaluates x-for at init even under a falsy
+                # ancestor x-show, and preview/result start null.
+                **{"x-for": "f in (preview && preview.files) || []", ":key": "f.name"},
             ),
             cls="mb-4",
             **{"x-show": "preview", "x-cloak": True},
@@ -209,7 +211,7 @@ def _render_batch_results() -> Any:
                         ),
                         cls="text-sm",
                     ),
-                    **{"x-for": "e in result.errors", ":key": "e.name"},
+                    **{"x-for": "e in (result && result.errors) || []", ":key": "e.name"},
                 ),
                 **{"x-show": "result && result.errors && result.errors.length"},
             ),
