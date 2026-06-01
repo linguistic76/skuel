@@ -509,7 +509,7 @@ A local **reassignment of an owned `**kwargs`** is **not** treated as clearing t
 
 **Scope:** all non-test files (the shape is language-general — any `f(cls=x, **kwargs)` without a `cls` param crashes when a caller passes `cls`). The contract is guarded at runtime by `tests/unit/ui/test_cls_merge_contract.py`, which renders every `cls`-merging helper with `cls=` set.
 
-**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL024` covers literal and variable `cls=`, alternate `**` names, the explicit-param and keyword-only-param clean cases, the `kwargs.pop("cls")` exemption, no-kwargs / no-cls clean cases, suppression, and the test-file skip.
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL024` covers literal and variable `cls=`, alternate `**` names, the explicit-param / keyword-only-param / positional-or-keyword clean cases, positional-only `cls` flagged, the `@classmethod` receiver flagged, closures and nested-`def`/`lambda` resolution, nested-local-rebinding clean, the no-pop-exemption (pop / conditional-pop flagged), the no-reassignment-exemption (conditional and same-scope reassign flagged), the documented value-flow boundary (alias and `dict(kwargs)` copy not chased), spaced `cls = "x"`, no-kwargs / no-cls clean cases, suppression, and the test-file skip.
 
 **Suppression:**
 - `# skuel-lint: disable=SKUEL024 -- <reason>` (line)
