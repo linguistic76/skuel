@@ -13,17 +13,16 @@ By isolating view needs into a dedicated Facade layer (`app/core/orchestrator/`)
 
 ---
 
-## Phase 1–7: Completed (all 11 orchestrators hardened)
+## Phase 1–7: Completed (all 10 orchestrators hardened)
 
 All orchestrators follow the **Fail-Fast Dependency Philosophy** — typed `TYPE_CHECKING` imports, no `| None` defaults for required services, no `if not self._service` guards.
 
 - [x] **User Profile Hub** (`user_profile_ui.py`) → `ProfileOrchestrator` — 9 → 1. Intelligence moved in; partial-failure isolation per intelligence call.
-- [x] **Submissions Hub** (`submissions_routes.py` + 4 sub-factories) → `SubmissionsOrchestrator` — 9 → 1. Eliminated multi-factory injection pattern.
+- [x] **UserEntry Hub** (`user_entry_routes.py` + `user_entry_ui.py`) → `UserEntryOrchestrator` — 9 → 1. Superseded both the former Submissions Hub and Journal / Timeline Hub orchestrators (ADR-054 Commit 5c); eliminated the multi-factory injection pattern. Compound `get_journal_for_download()` consolidates ownership check + TRANSFORMS lookup; centralises `journal_output_service` availability guards (CORE tier) into one place.
 - [x] **Explore Hub** (`explore_ui.py`) → `ExploreOrchestrator` — 5 → 1. Absorbed 80-line concurrent loader + 90-line Vis.js graph builder.
 - [x] **Library Hub** (`library_ui.py`) → `LibraryOrchestrator` — 6 → 1. Unified UID-resolve → batch-fetch pattern for bookmarked KUs and enrolled PathSteps.
 - [x] **Teaching & Review Hub** (`teaching_ui.py`) → `TeacherOrchestrator` — 4 → 1. Review queue, student list, groups, KU detail consolidated; `admin_stats` optional (degrades gracefully).
 - [x] **Admin Dashboard** (`admin_dashboard_ui.py`) → `AdminOrchestrator` — 3 → 1. Eliminated `_get_system_status(services)` helper repeated across 4 routes; `get_analytics_data()` collapses two service calls into one aggregated method.
-- [x] **Journal / Timeline Hub** (`journals_ui.py`) → `JournalOrchestrator` — 6 → 1. Compound `get_journal_for_download()` consolidates ownership check + TRANSFORMS lookup; centralises `journal_output_service` availability guards (CORE tier) into one place.
 - [x] **Activity Review Admin Hub** (`activity_review_ui.py`) → `ActivityReviewOrchestrator` — 4 → 1. Collapses ActivityReportOperations + ReviewQueueOperations + UserService + UserContextBuilder; `context_builder` gracefully returns `Result.fail` when unavailable.
 - [x] **Pathways UI** (`pathways_ui.py`) → `PathwaysOrchestrator` — 3 → 1. Wraps LpService with UserProgressService injection; all `lp_service.method(user_uid, user_progress)` calls simplified to `orchestrator.method(user_uid)` in routes.
 - [x] **Lateral Relationships API** (`lateral_routes.py`) → `LateralRelationshipsOrchestrator` — 7 → 1. Absorbed `_create_relationship` / `_get_relationships` module-level helpers; routes extract `user_uid` themselves and delegate; `lateral_service` property exposes the raw service for `LateralRouteFactory` construction (necessary since the factory lives in the adapter layer). Replaced `DomainRouteConfig` with direct early-return wiring. Route file: 399 → 285 lines.

@@ -438,8 +438,8 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 | File | Protocols | Route Consumers |
 |------|-----------|-----------------|
-| `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_report_api.py` |
-| `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
+| `submission_protocols.py` | 3 protocols | `user_entry_api.py`, `progress_report_api.py` |
+| `sharing_protocols.py` | 1 protocol | `user_entry_api.py` |
 | `report_protocols.py` | 7 protocols | `exercises_api.py`, `exercise_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
 | `form_protocols.py` | 4 protocols | `form_templates_api.py`, `form_submissions_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
@@ -453,9 +453,9 @@ Map to the **UserEntry** (submission) stage of the 4-phase educational loop (`Ex
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `exercise_report_api.py` |
-| `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `submissions_api.py` |
-| `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_report_statistics, get_recent_submissions, get_submissions_with_feedback_status) | consumed by `SubmissionsOrchestrator` — no direct route callers |
+| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `user_entry_api.py`, `exercise_report_api.py` |
+| `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `user_entry_api.py` |
+| `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_report_statistics, get_recent_submissions, get_submissions_with_feedback_status) | no orchestrator/route consumer (reachable via SearchRouter `submissions` alias) |
 
 ### Sharing Protocol (1) — `sharing_protocols.py`
 
@@ -463,7 +463,7 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `submissions_sharing_api.py` |
+| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `user_entry_api.py` |
 
 ### Report Protocols (8) — `report_protocols.py`
 
@@ -575,7 +575,7 @@ if TYPE_CHECKING:
     from core.ports.sharing_protocols import SharingOperations
     from core.ports.submission_protocols import SubmissionOperations
 
-def create_submissions_sharing_api_routes(
+def create_user_entry_api_routes(
     _app: Any,
     rt: Any,
     sharing_service: "SharingOperations",

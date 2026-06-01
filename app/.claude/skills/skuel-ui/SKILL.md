@@ -381,14 +381,14 @@ When building a new SKUEL page or feature, verify:
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
 | `/ui/workbench/hub.py` | `SUBMISSIONS_BLOCKS` — block definitions for Submissions tab in `HomeHub` |
 | `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
-| `/adapters/inbound/submissions_hub_routes.py` | Submissions hub page + HTMX preview endpoints + history |
+| `/adapters/inbound/user_entry_ui.py` | Submissions hub page + HTMX preview endpoints + history |
 | `/adapters/inbound/settings_routes.py` | Settings page (extracted from Workbench) — `/settings` + `/settings/save` |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
 | `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (embedded in `/profile`, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
 | `/adapters/inbound/library_routes.py` | Library hub orchestrator — wires `library_ui.py` with its 6 service dependencies (extracted from `learning_loop_routes.py`) |
 | `/adapters/inbound/library_ui.py` | `/library` sidebar pages + dual-purpose routes: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only, fetched via `backend.get_many()` by pinned UIDs), `/library/path-steps` (IN_PROGRESS only, fetched via `backend.get_many()` by enrolled UIDs). Exercise status helpers extracted to `ui/learning_loop/exercise_status.py` |
 | `/adapters/inbound/explore_ui.py` | Explore hub + PS detail page + 2 PathStep learning loop HTMX fragments (`/learning-loop/ps/{ps_uid}/exercises`, `/learning-loop/ps/{ps_uid}/submissions-and-feedback`) wired in `create_explore_ui_routes` |
-| `/adapters/inbound/submissions_routes.py` | Submissions hub orchestrator (`create_submissions_ui_orchestrator`) — wires submissions_ui, exercise_reports_ui, activity_reports_ui, revised_exercises_ui sub-factories |
+| `/adapters/inbound/user_entry_routes.py` | UserEntry hub orchestrator (`create_user_entry_routes`) — wires user_entry_ui, exercise_reports_ui, activity_reports_ui, revised_exercises_ui sub-factories |
 | `/ui/learning_loop/` | Shared learning loop renderers: `exercise_status.py` (status pills, action links, exercise list), `submissions_section.py` (PS submissions), `feedback_section.py` (PS feedback) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/activities/filter_bar.py` | Config-driven `ActivityFilterBar` component (`FilterBarConfig`, `FilterSelect`) — shared across all 6 Activity Domains |
@@ -396,7 +396,7 @@ When building a new SKUEL page or feature, verify:
 | `/core/utils/connection_configs.py` | Pure-data `ConnectionConfig` + 6 per-domain constants. The batch connection Cypher lives below the boundary in `ConnectionFetchBackend` (behind `ConnectionFetchOperations`, ADR-044); UI factories receive the port as `ActivityUIConfig.backend` |
 | `/core/utils/entity_filters.py` | `filter_tasks/goals/habits/events/choices/principles()` — business filtering/sorting logic extracted from UI views |
 | `/adapters/inbound/activity_ui_factory.py` | `ActivityUIConfig` dataclass + `create_activity_ui_routes()` — shared factory generating 5 routes per Activity Domain (page shell, content fragment, list-fragment, detail shell, detail content). Each `{domain}_ui.py` is ~50 lines creating an `ActivityUIConfig` and delegating here |
-| `/ui/journals/` | Journal UI rendering: `cards.py`, `components.py`, `forms.py` — extracted from `journals_ui.py` |
+| `/ui/journals/` | Journal UI rendering: `cards.py`, `components.py`, `forms.py` — extracted from `user_entry_ui.py` |
 | `/ui/insights/` | Insight UI rendering: `components.py`, `filters.py`, `insight_card.py` — extracted from `insights_ui.py` |
 | `/ui/pathways/` | Pathways UI rendering: `components.py` — extracted from `pathways_ui.py` |
 | `/ui/notifications/` | Notification UI rendering: `cards.py` — extracted from `notifications_routes.py` |
