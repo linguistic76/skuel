@@ -2493,7 +2493,19 @@ class SkuelLinter:
             param_names.add(args.vararg.arg)
         if kwarg_name:
             param_names.add(kwarg_name)
-        absorbs_cls = "cls" in {a.arg for a in args.args + args.kwonlyargs}
+        # A @classmethod's first parameter (conventionally `cls`) is the bound class
+        # receiver, NOT a caller-passable style arg — `M(cls="x")` can't bind to it and
+        # collides in **kwargs. Exclude it from the absorbing-cls set so the rule still
+        # flags `@classmethod def M(cls, **kw): Span(cls="x", **kw)`.
+        decorators = getattr(fn, "decorator_list", [])
+        is_classmethod = any(
+            (isinstance(d, ast.Name) and d.id == "classmethod")
+            or (isinstance(d, ast.Attribute) and d.attr == "classmethod")
+            for d in decorators
+        )
+        positional = args.posonlyargs + args.args
+        receiver = positional[0].arg if is_classmethod and positional else None
+        absorbs_cls = "cls" in {a.arg for a in args.args + args.kwonlyargs if a.arg != receiver}
         return (fn, kwarg_name, param_names, absorbs_cls, cls._locally_assigned_names(fn))
 
     def _check_cls_kwargs_collision(

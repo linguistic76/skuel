@@ -2654,6 +2654,31 @@ class TestSKUEL024:
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL024"
 
+    def test_classmethod_cls_receiver_does_not_absorb_flagged(self) -> None:
+        """A @classmethod's `cls` is the bound class receiver, not a style arg — it
+        cannot absorb a keyword `cls=`, so the collision must still be flagged."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "class C:\n"
+            "    @classmethod\n"
+            "    def SmallText(cls, text: str, **kwargs: Any) -> Span:\n"
+            '        return Span(text, cls="text-sm", **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path=self.UI_FILE)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL024"
+
+    def test_regular_function_cls_param_still_absorbs_clean(self) -> None:
+        """A plain function's `cls` parameter IS keyword-passable (no classmethod
+        receiver) and absorbs a caller cls= — not flagged."""
+        linter = make_linter(["SKUEL024"])
+        content = (
+            "def Helper(cls: str, **kwargs: Any) -> Span:\n"
+            '    return Span(cls=f"base {cls}".strip(), **kwargs)\n'
+        )
+        violations = lint_content(linter, content, file_path="ui/patterns/x.py")
+        assert violations == []
+
     def test_value_flow_not_tracked_documented_boundary(self) -> None:
         """DOCUMENTED BOUNDARY: the rule resolves a splat NAME's scope, not a variable's
         VALUE. Aliases (`attrs = kwargs`) and copies (`dict(kwargs)`) are not chased —
