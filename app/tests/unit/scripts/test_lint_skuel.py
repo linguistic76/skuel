@@ -2679,6 +2679,24 @@ class TestSKUEL024:
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL024"
 
+    def test_multi_source_alias_flagged_deterministically(self) -> None:
+        """An alias with several sources (one of them kwargs) must flag regardless of
+        set iteration order — explore ALL sources, fail closed."""
+        content = (
+            "def Helper(flag: bool, other: dict, **kwargs: Any) -> Div:\n"
+            "    if flag:\n"
+            "        attrs = kwargs\n"
+            "    else:\n"
+            "        attrs = other\n"
+            '    return Div(cls="base", **attrs)\n'
+        )
+        # Run repeatedly: the flag decision must not depend on PYTHONHASHSEED.
+        for _ in range(5):
+            fresh = make_linter(["SKUEL024"])
+            violations = lint_content(fresh, content, file_path="ui/patterns/x.py")
+            assert len(violations) == 1
+            assert violations[0].rule_id == "SKUEL024"
+
     def test_dict_copy_not_traced_documented_boundary(self) -> None:
         """DOCUMENTED BOUNDARY: taint through a copy/transform (dict(kwargs)) is not
         traced — undecidable in general; the explicit cls param is the contract. This

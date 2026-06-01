@@ -2584,21 +2584,29 @@ class SkuelLinter:
             return None
 
         def resolve_kwargs_owner(name: str, stack: list[tuple]) -> tuple | None:
-            """Follow simple aliases to the scope whose ``**kwargs`` PARAM ``name`` is
-            (transitively); return that scope, or None if ``name`` is not kwargs."""
+            """Follow simple aliases to the scope whose ``**kwargs`` PARAM ``name`` is.
+
+            Explores ALL alias sources (an alias may have several bare-Name assignments,
+            e.g. ``if f: attrs = kwargs else: attrs = other``) and fails closed: returns
+            the owning scope if ANY source path reaches a ``**kwargs`` parameter. Sorted
+            worklist so the result does not depend on set iteration order (PYTHONHASHSEED).
+            Returns None only when no path reaches a kwargs param.
+            """
             seen: set[str] = set()
-            cur = name
-            while cur not in seen:
+            work = [name]
+            while work:
+                cur = work.pop()
+                if cur in seen:
+                    continue
                 seen.add(cur)
                 binder = resolve_binder(cur, stack)
                 if binder is None:
-                    return None
+                    continue
                 if binder[1] == cur:  # cur is this scope's **kwargs parameter
                     return binder
-                sources = binder[5].get(cur)  # alias_map: cur = <SourceName>
-                if not sources:
-                    return None  # a genuine local (or copy/transform) — not kwargs
-                cur = next(iter(sources))  # follow the alias (conservative: take one)
+                sources = binder[5].get(cur)  # alias_map: cur = <SourceName>(s)
+                if sources:
+                    work.extend(sorted(sources, reverse=True))  # deterministic order
             return None
 
         def flag(call: ast.Call, binder: tuple) -> None:
