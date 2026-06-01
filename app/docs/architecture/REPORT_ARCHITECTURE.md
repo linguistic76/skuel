@@ -471,7 +471,6 @@ When `openai_service` is available, the generator:
 | `/api/teaching/review/{uid}/feedback` | POST | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |
 | `/api/journals/batch-transcribe` | POST | Admin | Batch audio → txt (preview or run) |
-| `/api/journals/batch-process` | POST | Admin | Batch txt → md via LLM (process or combined) |
 
 ---
 

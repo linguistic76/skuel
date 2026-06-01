@@ -23,12 +23,12 @@ SKUEL's audio transcription converts spoken audio into formatted text via Deepgr
                          /              \
                         v                v
           TranscriptionService    BatchTranscriptionService
-          (individual uploads)    (directory batch — Tier 1)
-                                         |
-                                         v
-                                 BatchProcessingService
-                                 (LLM enrichment — Tier 2)
+          (individual uploads)    (directory batch — audio → txt)
 ```
+
+> Batch txt → md LLM enrichment (formerly "Tier 2", `BatchProcessingService`)
+> was retired with ADR-054. Per-entry enrichment now lives in
+> `UserEntryProcessingService`.
 
 ## Configuration Layer
 
@@ -159,23 +159,17 @@ class TranscriptionProcessOptions(BaseModel):
 Admin places audio files in data/je_inputs/
        |
        v
-BatchTranscriptionService.transcribe_batch()  ── Tier 1
+BatchTranscriptionService.transcribe_batch()
        |  (concurrent with semaphore, skip existing)
        |  (uses DeepgramAdapter with config defaults — no per-call overrides)
        v
 .txt files written to data/je_outputs/
-       |
-       v
-BatchProcessingService.process_batch()  ── Tier 2
-       |  (LLM enrichment: activity_tracking / articulation / exploration)
-       v
-.md files written to data/je_outputs/
 ```
 
 **Access points:**
-- **UI:** `/journals/batch` (admin-only page with preview/transcribe/process buttons)
+- **UI:** `/admin/batch-transcribe` (admin-only page with preview/transcribe buttons)
 - **CLI:** `uv run python scripts/batch_transcribe.py`
-- **API:** `POST /api/journals/batch-transcribe`, `POST /api/journals/batch-process`
+- **API:** `POST /api/journals/batch-transcribe`
 
 ## Intelligence Features (Prepared, Not Yet Extracted)
 
@@ -206,12 +200,12 @@ The config file exposes five Deepgram intelligence features:
 | `core/config/deepgram_config.py` | TOML loader + `DeepgramConfig` frozen dataclass |
 | `adapters/external/deepgram/adapter.py` | API adapter — `transcribe()` + `_build_options()` |
 | `core/services/transcription/transcription_service.py` | Individual transcription lifecycle |
-| `core/services/transcription/batch_transcription_service.py` | Batch Tier 1: audio -> txt |
-| `core/services/transcription/batch_processing_service.py` | Batch Tier 2: txt -> md via LLM |
+| `core/services/transcription/batch_transcription_service.py` | Batch transcription: audio -> txt |
 | `core/models/transcription/transcription.py` | Domain model + `TranscriptionProcessOptions` |
-| `adapters/inbound/batch_transcription_api.py` | Batch API routes (admin-only) |
-| `adapters/inbound/journals_ui.py` | Batch UI page + journal upload UI |
-| `scripts/batch_transcribe.py` | CLI for batch operations |
+| `adapters/inbound/batch_transcription_api.py` | Batch API route (admin-only) |
+| `adapters/inbound/user_entry_ui.py` | Journal upload UI (`/journals/submit`, `/journals/browse`) |
+| `adapters/inbound/admin_dashboard_ui.py` | Admin batch transcription page (`/admin/batch-transcribe`) |
+| `scripts/batch_transcribe.py` | CLI for batch transcription |
 | `docs/configuration/DEEPGRAM_CONFIG.md` | Configuration guide |
 
 ## See Also
