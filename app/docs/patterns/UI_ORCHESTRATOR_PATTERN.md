@@ -33,11 +33,10 @@ For implementation guidance, see:
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_dashboard_ui.py` | 3 → 1 | Eliminated repeated `_get_system_status(services)` helper across 4 routes; `get_analytics_data()` collapses two service calls into one |
 | `ProfileOrchestrator` | `user_profile_ui.py` | 9 → 1 | Terminal-state filtering, priority sorting |
-| `SubmissionsOrchestrator` | `submissions_routes.py` + 4 sub-factories | 10 → 1 | Eliminated multi-factory injection pattern; `get_exercise_report_view()` collapses fetch → access check → revision lookup; `submit_file_with_learning_context()` enriches submissions with PS/LP audit context so routes stay thin |
+| `UserEntryOrchestrator` | `user_entry_routes.py` + 4 sub-factories | 9 → 1 | Successor to the former Submissions + Journal orchestrators (ADR-054 Commit 5c); eliminated multi-factory injection. `get_exercise_report_view()` collapses fetch → access check → revision lookup; `get_entry()` backs ownership-verified journal download |
 | `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder + sidebar data aggregation (`get_sidebar_data`) |
 | `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
 | `TeacherOrchestrator` | `teaching_ui.py` | 4 → 1 | Review queue, student list, groups, KU detail under one facade |
-| `JournalOrchestrator` | `journals_ui.py` | 6 → 1 | Compound `get_journal_for_download()` consolidates ownership check + TRANSFORMS lookup; centralises `journal_output_service` availability guards (CORE tier) |
 | `ActivityReviewOrchestrator` | `activity_review_ui.py` | 4 → 1 | Collapses ActivityReportOperations + ReviewQueueOperations + UserService + UserContextBuilder; context_builder gracefully degrades when unavailable |
 | `PathwaysOrchestrator` | `pathways_ui.py` | 3 → 1 | Wraps LpService with UserProgressService injection; routes never reference user_progress directly |
 | `LateralRelationshipsOrchestrator` | `lateral_routes.py` | 7 → 1 | Absorbed `_create_relationship` / `_get_relationships` module-level helpers; routes extract `user_uid` themselves and delegate; `lateral_service` property exposes the raw service for `LateralRouteFactory` construction |
@@ -64,11 +63,10 @@ graph TD
     subgraph "Orchestrator Layer (Facades)"
         AO[AdminOrchestrator]
         PO[ProfileOrchestrator]
-        SO[SubmissionsOrchestrator]
+        UEO[UserEntryOrchestrator]
         EO[ExploreOrchestrator]
         LO[LibraryOrchestrator]
         TO[TeacherOrchestrator]
-        JO[JournalOrchestrator]
         ARO[ActivityReviewOrchestrator]
         PWO[PathwaysOrchestrator]
         LRO[LateralRelationshipsOrchestrator]
@@ -91,7 +89,7 @@ graph TD
 
     UI_Routes --> AO
     UI_Routes --> PO
-    UI_Routes --> SO
+    UI_Routes --> UEO
     UI_Routes --> EO
     UI_Routes --> LO
     UI_Routes --> TO
@@ -102,7 +100,7 @@ graph TD
 
     AO --> US ; AO --> AS ; AO --> SS
     PO --> TS ; PO --> GS ; PO --> HS
-    SO --> Sub ; SO --> Proc ; SO --> Rev
+    UEO --> Sub ; UEO --> Proc ; UEO --> Rev
     EO --> KU ; EO --> PS ; EO --> Ex
     LO --> Res ; LO --> UR ; LO --> Ex
     TO --> TR ; TO --> AS
@@ -116,7 +114,7 @@ graph TD
     classDef dev fill:#dfd,stroke:#333;
 
     class UI_Routes route;
-    class AO,PO,SO,EO,LO,TO,ARO,PWO,LRO,COO facade;
+    class AO,PO,UEO,EO,LO,TO,ARO,PWO,LRO,COO facade;
     class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS,AR,RQ,CB,LP,UP,LAT,EV,CH,PR,CAL dev;
 ```
 

@@ -569,7 +569,7 @@ status pills or submission/feedback sections.
 |---|---|
 | Learning loop UI renderers | `ui/learning_loop/` (`exercise_status.py`, `submissions_section.py`, `feedback_section.py`) |
 | PS learning loop fragment routes | `adapters/inbound/explore_ui.py` (`create_explore_ui_routes`) |
-| Submissions UI orchestration (GradeBook sub-factories) | `adapters/inbound/submissions_routes.py` (`create_submissions_ui_orchestrator`) |
+| UserEntry UI orchestration (GradeBook sub-factories) | `adapters/inbound/user_entry_routes.py` (`create_user_entry_routes`) |
 | PathStep domain model | `core/models/pathways/path_step.py` |
 | Mastery + intelligence models | `core/models/pathways/mastery.py` |
 | Curriculum progress + journey models | `core/models/pathways/learning_progress.py` |
