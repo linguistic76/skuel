@@ -52,6 +52,8 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **Per-query server-side timeout:** every query through the shared driver carries a server-side per-tx ceiling (`NEO4J_TRANSACTION_TIMEOUT`, default 120s; `0`=unbounded). Wired at compose via `TimedDriver` — single chokepoint, no call-site edits. Bulk ingestion wraps to 600s; startup DDL stays untimed (`Neo4jSchemaManager(raw_driver)` carve-out). Override per op with `neo4j_query_timeout(s)` / `unbounded_neo4j_query_timeout()`.
 
+**Schema-change monitoring (opt-in, default OFF):** `SchemaChangeDetector` fingerprints the live schema and invalidates query-optimization caches on drift. On-demand via `Neo4jAdapter.check_schema_changes()`; or wire a background poll at startup with `NEO4J_SCHEMA_MONITORING=true` (+ `NEO4J_SCHEMA_MONITORING_INTERVAL`, default 900s, validated ≥1). Tier-independent (not `INTELLIGENCE_TIER`-gated) — off by default keeps the CORE-tier "no background workers" guarantee. **See:** neo4j-cypher-patterns skill § 7.
+
 **See:** `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`, `/docs/decisions/ADR-064-neo4j-per-query-timeout.md`, `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-049-huggingface-embeddings-migration.md`
 
 ## Skills & Documentation Cross-Reference

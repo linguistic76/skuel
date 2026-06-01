@@ -14,7 +14,9 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 1. **Development velocity.** Working on ingestion YAML, file uploads, curriculum structure, or any "analog" workflow should never require a HuggingFace API token. You iterate on fundamentals without paying API costs or waiting for embedding generation.
 
-2. **Cost control.** `INTELLIGENCE_TIER=core` costs $0. No API calls are made. No background workers spin up. This is the right mode for content authoring, schema changes, and structural work.
+2. **Cost control.** `INTELLIGENCE_TIER=core` costs $0. No API calls are made. No background workers spin up by default. This is the right mode for content authoring, schema changes, and structural work.
+
+   > The one background worker outside the tier system is the **schema-change monitor**, gated by its own `NEO4J_SCHEMA_MONITORING` flag (default **off**), not by `INTELLIGENCE_TIER`. It is plain Neo4j infrastructure (no API calls), so it can run in either tier — but it stays off unless explicitly enabled, preserving the "no workers by default" guarantee. See the neo4j-cypher-patterns skill § Schema-Change Monitoring.
 
 3. **Deployment flexibility.** A fresh deployment works immediately. Embeddings and AI features are activated when the curriculum is mature enough to benefit from them — not as a prerequisite.
 
