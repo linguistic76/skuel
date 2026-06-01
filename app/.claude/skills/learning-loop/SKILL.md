@@ -115,8 +115,8 @@ LearningPath progress. See
 - **Read side** — `LearningLoopQueryService` (Cypher queries that traverse
   `Interaction`/`Exercise`/`Report` edges). New learning-loop reads land here,
   not on the generic `BaseService` search path that `UserEntryService` inherits
-  (date-bounded reads, recency, text CONTAINS, stats — scoped via
-  `entity_type='exercise_submission'`).
+  (date-bounded reads, recency, text CONTAINS, stats — matches on the `:Entity`
+  label and text predicates only; it does **not** filter by `entity_type`).
 
 `LearningLoopEventHandlerService` listens to
 `UserEntryCreated`, `ReportSubmitted`, and `UserEntryApproved` to track submission
