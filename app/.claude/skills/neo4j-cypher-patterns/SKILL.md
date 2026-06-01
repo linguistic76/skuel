@@ -348,6 +348,25 @@ with unbounded_neo4j_query_timeout():
 
 See: [`docs/patterns/NEO4J_QUERY_TIMEOUT.md`](/docs/patterns/NEO4J_QUERY_TIMEOUT.md) for the override mechanism, when-to-wrap table, and the `ContextVar` + `asyncio.create_task` caveat.
 
+### 7. Schema-Change Monitoring (opt-in)
+
+`SchemaChangeDetector` (`core/services/schema_change_detector.py`) fingerprints the live Neo4j schema (labels, indexes, constraints, relationship types) and, on drift, invalidates the adapter's lazily-built query-optimization caches (`_index_aware_builder`, `_enhanced_templates`) via the auto-registered `AdaptiveOptimizationHandler`.
+
+It is exposed as an **on-demand** capability on the adapter — `Neo4jAdapter.check_schema_changes()`, `initialize_schema_monitoring()`, `stop_schema_monitoring()` — and is wired into the composition root as an **opt-in background poll**:
+
+```bash
+# In .env — both default off / 900s
+NEO4J_SCHEMA_MONITORING=true            # start the background poll at startup
+NEO4J_SCHEMA_MONITORING_INTERVAL=900    # poll interval (seconds); must be ≥ 1
+```
+
+- **Off by default.** Gated by `config.database.schema_monitoring_enabled`, *not* by `INTELLIGENCE_TIER` — it's plain graph infrastructure (no API calls), so it can run in either tier. Keeping it off by default preserves the CORE-tier "no background workers" guarantee.
+- **Where it's wired.** `services_bootstrap/compose.py` calls `initialize_schema_monitoring()` right after the startup DDL sync (so it baselines against the freshly-synced schema); `shutdown_skuel` calls `stop_schema_monitoring()`. The detector owns its own `asyncio` poll task, which lives on the single loop shared by bootstrap and `server.serve()`.
+- **Non-fatal.** A failed start warns and continues — monitoring is an optimization, never a correctness gate.
+- **Interval is validated at the env boundary** (`DatabaseConfig.from_env` rejects values < 1): a non-positive interval is truthy and would make `asyncio.sleep(<=0)` busy-spin Neo4j introspection.
+
+**Rule:** Don't enable it where the schema is static after startup DDL (the common case) — it catches nothing at runtime and adds periodic introspection load. Enable it only where schema genuinely drifts mid-session.
+
 ## Additional Resources
 
 - [reference.md](reference.md) - Complete relationship type catalog (80+ types)
