@@ -156,7 +156,7 @@ class DomainRelationshipConfig:
 |----------|---------|----------------------|-------|
 | **Activity (6)** | Tasks, Goals, Habits, Events, Choices, Principles | ✅ | Config-driven via registry |
 | **Curriculum (3)** | KU, PS, LP | ✅ | `is_shared_content=True`; ordered relationships for hierarchy |
-| **Submissions + Reports** | Submissions, Journals | ✅ | `SubmissionsBackend` owns SHARES_WITH Cypher |
+| **UserEntry** | UserEntry | ✅ | SHARES_WITH owned by the entity-agnostic `SharingBackend` (ADR-042) |
 | **Life Path** | LifePath | ✅ | ULTIMATE_PATH + SERVES_LIFE_PATH |
 | **Finance** | Finance | ❌ | Standalone bookkeeping — no relationship service |
 
@@ -173,7 +173,7 @@ Complex relationship Cypher that is domain-specific belongs on the domain backen
 | `TasksBackend` | Hierarchy via `_HierarchyMixin` (subtask ops) |
 | `GoalsBackend` | Hierarchy via `_HierarchyMixin` (subgoal ops) |
 | `KuBackend` | `organize()`, `unorganize()`, `reorder()`, `get_organized_children()`, `find_organizers()`, `list_root_organizers()`, `is_organizer()` |
-| `SubmissionsBackend` | `share_submission()`, `unshare_submission()`, `get_shared_with_users()`, `get_submissions_shared_with_me()`, `set_visibility()`, `check_access()`, `verify_shareable()` |
+| `SharingBackend` (entity-agnostic, ADR-042) | `create_share()`, `delete_share()`, `update_visibility()`, `query_access()`, `query_shareable_status()`, `query_shared_with_users()`, `query_shared_with_me()`, `create_group_share()` |
 | `LpBackend` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |
 | `ExerciseBackend` | `link_to_curriculum()`, `unlink_from_curriculum()`, `get_required_knowledge()` |
 
