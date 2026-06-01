@@ -86,7 +86,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, choice: Choice) -> Result[None] | None:
+    def _validate_create(self, choice: Choice) -> Result[None]:
         """
         Validate choice creation with business rules.
 
@@ -104,7 +104,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         from core.utils.result_simplified import Errors
 
         if not isinstance(choice, Choice):
-            return None
+            return Result.ok(None)
 
         # Business Rule 1: Minimum options
         if not choice.options or len(choice.options) < 2:
@@ -139,9 +139,9 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
                 )
             )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Choice, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Choice, updates: dict[str, Any]) -> Result[None]:
         """
         Validate choice updates with business rules.
 
@@ -187,7 +187,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
                 )
             )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
     async def create_choice(
         self, choice_request: ChoiceCreateRequest, user_uid: UserUID
@@ -204,7 +204,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "choice creation")
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         # Create DTO from request using entity factory method

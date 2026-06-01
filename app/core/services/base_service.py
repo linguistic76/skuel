@@ -542,7 +542,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     # DOMAIN-SPECIFIC HOOKS (Optional)
     # ========================================================================
 
-    def _validate_create(self, entity: T) -> Result[None] | None:
+    def _validate_create(self, entity: T) -> Result[None]:
         """
         Optional hook for domain-specific creation validation.
 
@@ -552,11 +552,11 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
             entity: The entity being created
 
         Returns:
-            None if valid, Result.fail() if validation fails
+            Result.ok(None) if valid, Result.fail() if validation fails
         """
-        return None
+        return Result.ok(None)
 
-    def _validate_update(self, current: T, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: T, updates: dict[str, Any]) -> Result[None]:
         """
         Optional hook for domain-specific update validation.
 
@@ -570,11 +570,11 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
             updates: Dictionary of fields being updated
 
         Returns:
-            None if valid, Result.fail() if validation fails
+            Result.ok(None) if valid, Result.fail() if validation fails
         """
-        return None
+        return Result.ok(None)
 
-    def _validate_content(self, content: str) -> Result[None] | None:
+    def _validate_content(self, content: str) -> Result[None]:
         """
         Optional hook for content validation.
 
@@ -584,15 +584,15 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
             content: The content being stored
 
         Returns:
-            None if valid, Result.fail() if validation fails
+            Result.ok(None) if valid, Result.fail() if validation fails
         """
-        return None
+        return Result.ok(None)
 
     def _validate_prerequisites(
         self,
         entity_uid: EntityUID,
         prerequisite_uids: list[str],
-    ) -> Result[None] | None:
+    ) -> Result[None]:
         """
         Optional hook for prerequisite relationship validation.
 
@@ -603,9 +603,9 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
             prerequisite_uids: UIDs of proposed prerequisites
 
         Returns:
-            None if valid, Result.fail() if validation fails
+            Result.ok(None) if valid, Result.fail() if validation fails
         """
-        return None
+        return Result.ok(None)
 
     # ========================================================================
     # STATUS AND PROGRESS TRACKING

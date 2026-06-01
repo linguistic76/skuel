@@ -99,7 +99,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, goal: Goal) -> Result[None] | None:
+    def _validate_create(self, goal: Goal) -> Result[None]:
         """
         Validate goal creation with business rules.
 
@@ -123,9 +123,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                 )
             )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Goal, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Goal, updates: dict[str, Any]) -> Result[None]:
         """
         Validate goal updates with business rules.
 
@@ -183,7 +183,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                         )
                     )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
     # ========================================================================
     # READ OPERATIONS WITH GRAPH CONTEXT
@@ -294,7 +294,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "goal creation")
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         # Create DTO from request with all fields

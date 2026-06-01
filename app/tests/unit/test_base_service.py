@@ -605,5 +605,87 @@ class TestInfrastructure:
         assert result.is_ok
 
 
+# ============================================================================
+# TESTS: Validation Hook Contract (Result[None], not Result[None] | None)
+# ============================================================================
+
+
+class _FailingValidationService(BaseService["BackendOperations[MockModel]", MockModel]):
+    """Service whose validation hooks reject every create/update."""
+
+    _dto_class = MockDTO
+    _model_class = MockModel
+    _user_ownership_relationship: ClassVar[str | None] = RelationshipName.OWNS
+
+    def _validate_create(self, entity: MockModel) -> Result[None]:
+        return Result.fail(Errors.validation(message="nope", field="title"))
+
+    def _validate_update(self, current: MockModel, updates: dict[str, Any]) -> Result[None]:
+        return Result.fail(Errors.validation(message="nope", field="title"))
+
+
+class TestValidationHookContract:
+    """
+    Guards the collapsed validation-hook contract: hooks return Result[None]
+    (Result.ok(None) on pass), never bare None.
+
+    This is the truthiness regression vector mypy CANNOT catch: Result has no
+    __bool__, so every Result instance is truthy. A call site using the old
+    `if validation:` form would treat a passing Result.ok(None) as a failure.
+    These tests fail loudly if any call site regresses to truthiness checks.
+    """
+
+    def test_default_validate_create_returns_ok_result_not_none(self, service):
+        """Default _validate_create returns Result.ok(None), not None."""
+        result = service._validate_create(MockModel(uid="u1", title="T", description="D"))
+        assert isinstance(result, Result)
+        assert result.is_ok
+
+    def test_default_validate_update_returns_ok_result_not_none(self, service):
+        """Default _validate_update returns Result.ok(None), not None."""
+        result = service._validate_update(
+            MockModel(uid="u1", title="T", description="D"), {"title": "New"}
+        )
+        assert isinstance(result, Result)
+        assert result.is_ok
+
+    def test_default_validate_prerequisites_returns_ok_result_not_none(self, service):
+        """Default _validate_prerequisites returns Result.ok(None), not None."""
+        result = service._validate_prerequisites("u1", ["p1"])
+        assert isinstance(result, Result)
+        assert result.is_ok
+
+    def test_validate_required_user_uid_pass_returns_ok_result(self, service):
+        """_validate_required_user_uid returns Result.ok(None) for a present uid."""
+        result = service._validate_required_user_uid("user_123", "create")
+        assert isinstance(result, Result)
+        assert result.is_ok
+
+    def test_validate_required_user_uid_missing_returns_failure(self, service):
+        """_validate_required_user_uid fails (not None) when uid is absent."""
+        result = service._validate_required_user_uid(None, "create")
+        assert isinstance(result, Result)
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_create_succeeds_when_validation_passes(self, service, mock_backend):
+        """
+        A passing hook (Result.ok(None), truthy) must NOT block create.
+
+        Direct guard against `if validation:` resurfacing at the call site.
+        """
+        result = await service.create(MockModel(uid="u1", title="T", description="D"))
+        assert result.is_ok
+        mock_backend.create.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_blocked_when_validation_fails(self, mock_backend):
+        """A failing hook short-circuits create before touching the backend."""
+        failing = _FailingValidationService(backend=mock_backend)
+        result = await failing.create(MockModel(uid="u1", title="T", description="D"))
+        assert result.is_error
+        mock_backend.create.assert_not_called()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

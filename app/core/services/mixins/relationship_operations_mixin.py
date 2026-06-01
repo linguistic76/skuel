@@ -96,9 +96,9 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     def _validate_prerequisites(
         self, entity_uid: EntityUID, prerequisite_uids: builtins.list[str]
-    ) -> Result[None] | None:
+    ) -> Result[None]:
         """Validation hook - override in subclass."""
-        return None
+        return Result.ok(None)
 
     # ========================================================================
     # RELATIONSHIP OPERATIONS - The Heart of SKUEL
@@ -326,7 +326,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         # Validate
         validation = self._validate_prerequisites(entity_uid, [prerequisite_uid])
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         # Use first prerequisite relationship type

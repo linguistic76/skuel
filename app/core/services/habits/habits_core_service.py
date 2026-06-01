@@ -80,7 +80,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, habit: Habit) -> Result[None] | None:
+    def _validate_create(self, habit: Habit) -> Result[None]:
         """
         Validate habit creation with business rules.
 
@@ -109,9 +109,9 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
                 )
             )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Habit, updates: dict[str, Any]) -> Result[None] | None:
+    def _validate_update(self, current: Habit, updates: dict[str, Any]) -> Result[None]:
         """
         Validate habit updates with business rules.
 
@@ -166,9 +166,9 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         # Allow archive if force_archive flag is present
         if updates.get("force_archive"):
-            return None  # Bypass streak protection
+            return Result.ok(None)  # Bypass streak protection
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
     # ========================================================================
     # BASIC CRUD OPERATIONS
@@ -272,7 +272,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "habit creation")
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         # Create DTO from request with all fields

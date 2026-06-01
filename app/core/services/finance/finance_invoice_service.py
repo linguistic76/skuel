@@ -85,7 +85,7 @@ class FinanceInvoiceService:
         """
         # Validate
         validation_error = self._validate_create(invoice)
-        if validation_error is not None:
+        if validation_error.is_error:
             return Result.fail(validation_error)
 
         self.logger.info(
@@ -279,7 +279,7 @@ class FinanceInvoiceService:
     # VALIDATION
     # ========================================================================
 
-    def _validate_create(self, invoice: InvoicePure) -> Result[None] | None:
+    def _validate_create(self, invoice: InvoicePure) -> Result[None]:
         """
         Validate invoice creation.
 
@@ -287,7 +287,7 @@ class FinanceInvoiceService:
             invoice: Invoice to validate
 
         Returns:
-            None if valid, Result.fail() if invalid
+            Result.ok(None) if valid, Result.fail() if invalid
         """
         # Must have at least one line item
         if not invoice.items:
@@ -318,7 +318,7 @@ class FinanceInvoiceService:
                     )
                 )
 
-        return None
+        return Result.ok(None)
 
     # ========================================================================
     # STATISTICS
