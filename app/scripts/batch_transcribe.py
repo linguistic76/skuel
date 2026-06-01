@@ -23,7 +23,6 @@ was retired with ADR-054 — it now lives in UserEntryProcessingService.
 import argparse
 import json
 import sys
-from urllib.parse import urlparse
 
 import httpx
 
@@ -32,12 +31,17 @@ DEFAULT_INPUT_DIR = "data/je_inputs"
 DEFAULT_OUTPUT_DIR = "data/je_outputs"
 
 
-def _seed_cookies(client: httpx.Client, cookie_header: str, host: str) -> None:
-    """Load 'k=v; k2=v2' pairs from --cookie into the client's cookie jar."""
+def _seed_cookies(client: httpx.Client, cookie_header: str) -> None:
+    """Load 'k=v; k2=v2' pairs from --cookie into the client's cookie jar.
+
+    No explicit domain — httpx/cookielib drops cookies set with a dotless
+    domain like ``localhost`` (the default --base-url host), so a domainless
+    cookie is the portable form that's sent to every host of the client.
+    """
     for part in cookie_header.split(";"):
         key, _, value = part.strip().partition("=")
         if key:
-            client.cookies.set(key, value, domain=host)
+            client.cookies.set(key, value)
 
 
 def _ensure_csrf_token(client: httpx.Client) -> str | None:
@@ -68,12 +72,11 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    host = urlparse(args.base_url).hostname or "localhost"
     skip_existing = not args.no_skip
 
     with httpx.Client(base_url=args.base_url, timeout=600.0) as client:
         if args.cookie:
-            _seed_cookies(client, args.cookie, host)
+            _seed_cookies(client, args.cookie)
         token = _ensure_csrf_token(client)
         if token:
             client.headers["X-CSRF-Token"] = token
