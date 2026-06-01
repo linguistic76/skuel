@@ -296,6 +296,16 @@ class DatabaseConfig:
     @classmethod
     def from_env(cls) -> "DatabaseConfig":
         """Create config from environment variables"""
+        # A non-positive poll interval makes the monitor loop busy-spin: a
+        # negative delay is truthy (so start_monitoring installs it) and
+        # asyncio.sleep(<=0) returns immediately, hammering Neo4j introspection.
+        # Reject it at the boundary rather than letting it reach the poller.
+        schema_monitoring_interval = int(os.getenv("NEO4J_SCHEMA_MONITORING_INTERVAL", "900"))
+        if schema_monitoring_interval < 1:
+            raise ValueError(
+                "NEO4J_SCHEMA_MONITORING_INTERVAL must be a positive number of seconds "
+                f"(got {schema_monitoring_interval})."
+            )
         return cls(
             neo4j_uri=os.getenv("NEO4J_URI", "neo4j://localhost:7687"),
             neo4j_username=os.getenv("NEO4J_USERNAME", "neo4j"),
@@ -312,7 +322,7 @@ class DatabaseConfig:
             transaction_timeout=float(os.getenv("NEO4J_TRANSACTION_TIMEOUT", "120")),
             schema_monitoring_enabled=os.getenv("NEO4J_SCHEMA_MONITORING", "false").lower()
             == "true",
-            schema_monitoring_interval=int(os.getenv("NEO4J_SCHEMA_MONITORING_INTERVAL", "900")),
+            schema_monitoring_interval=schema_monitoring_interval,
         )
 
 

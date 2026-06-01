@@ -16,6 +16,8 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from core.config.unified_config import (
     APIConfig,
     AskesisConfig,
@@ -156,6 +158,15 @@ class TestDatabaseConfig:
             config = DatabaseConfig.from_env()
             assert config.schema_monitoring_enabled is True
             assert config.schema_monitoring_interval == 120
+
+    def test_schema_monitoring_rejects_non_positive_interval(self):
+        """from_env fails fast on a non-positive interval (would busy-spin the poller)."""
+        with (
+            patch.dict(os.environ, {"NEO4J_SCHEMA_MONITORING_INTERVAL": "-5"}),
+            patch("core.config.unified_config._get_neo4j_password", return_value="test_pass"),
+            pytest.raises(ValueError, match="must be a positive"),
+        ):
+            DatabaseConfig.from_env()
 
     def test_from_env_reads_environment(self):
         """Test from_env reads NEO4J_* environment variables."""
