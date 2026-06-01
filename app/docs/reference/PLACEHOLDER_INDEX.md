@@ -142,7 +142,7 @@ habit nodes, these private methods can traverse the context rather than issuing 
 | ~~`adapters/persistence/neo4j/user_backend.py`~~ | ~~952~~ | ~~`get_user_context()`~~ | ~~`_user_uid: str`~~ | **Removed** (March 2026) — was never a backend operation; use `UserService.get_user_context()` |
 | `adapters/persistence/neo4j/_relationship_crud_mixin.py` | 744 | (inline comment) | `_props` | Property validation not yet implemented |
 | `core/services/calendar/calendar_optimization_service.py` | 539 | `_get_user_energy_profile()` | `_user_uid: str` | Returns demo/static pattern; real profile query deferred |
-| `core/services/infrastructure/schema_change_detector.py` | 545 | `_update_optimizations()` | `_report: SchemaChangeReport` | Query optimization update deferred |
+| `core/services/schema_change_detector.py` | 560 | `_update_optimizations()` | `_report: SchemaChangeReport` | Clears optimization caches; full re-optimization from the report deferred |
 | `adapters/persistence/neo4j/jupyter_neo4j_sync.py` | 431 | `_check_for_conflicts()` | `_new_hash: str` | Conflict detection not yet implemented |
 | `core/services/goals/goaps_intelligence_service.py` | 1270 | `_determine_trend()` | `_lookback_days: int` | Trend direction ignores lookback window |
 | `core/services/user/lp_intelligence/learning_recommendation_engine.py` | 217 | (inline comment) | `recommended_ku_uids = []` | Returns empty list; real recommendation logic deferred |
