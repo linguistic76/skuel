@@ -1,6 +1,6 @@
 # Functional Direction Roadmap
 
-**Status:** Doctrine established (ADR-035 + ADR-065); targeted extensions identified, none in flight beyond the existing inference migration.
+**Status:** Doctrine established (ADR-035 + ADR-065); **enforcement infrastructure complete (2026-05-31)** — mypy `arg-type` is the toolchain default on all first-party trees, the global disable deleted. The three targeted *extensions* below remain largely open: #1 inference parity is 1/6 (Task only), #2 typed update intents and #3 the `Result[None] | None` collapse are not started. See the [implementation status snapshot](#implementation-status-snapshot-2026-05-31).
 **Doctrine owners:** [ADR-035 — Tier Selection Guidelines](../decisions/ADR-035-tier-selection-guidelines.md) (frozen domain models), [ADR-065 — Functional Inference Contract](../decisions/ADR-065-functional-inference-contract.md) (typed return values, no input mutation).
 **Pattern pointer:** [Three-Tier Type System § Intelligence is the Exception](../patterns/three_tier_type_system.md).
 
@@ -34,13 +34,29 @@ Bias: **frozen at the core, functional at the boundary, mutable only at the pers
 
 The direction is well-established. What follows is where it has *not* yet been extended.
 
+## Implementation status snapshot (2026-05-31)
+
+The question "is the functional direction implemented?" has two halves — the *enforcement layer* and the *extension items* — and they are at very different stages.
+
+**Enforcement layer — ✅ COMPLETE.** The ~30-PR arg-type campaign (PRs #104–150) is finished. `core/` (sweep PRs F–L), `services_bootstrap/` (#121–129), `adapters/` (AD-1..AD-8, #131–145), and `ui/` (UI-1..UI-5, #146–150) were each driven to 0 honestly — zero unjustified suppressions — and the global `disable_error_code=["arg-type"]` was deleted in #150. The frozen-value / typed-payload / NewType-UID contracts on `core/` are now checked by the toolchain everywhere except `tests`/`scripts`. This is what the recent PRs delivered: the *mechanism* that keeps the direction true, not the remaining *extensions*.
+
+**Extension items — mostly open.** None of the three were touched by the recent PR wave (#131–161 were enforcement, finance demolition, UI cls-merge / Alpine fixes, and schema monitoring):
+
+| Extension | Target | Status (2026-05-31) | Evidence |
+|-----------|--------|---------------------|----------|
+| #1 Inference parity | `{Domain}InferenceResult` for all 6 Activity Domains | **PARTIAL — 1/6** | Only `TaskInferenceResult` exists (`core/models/task/task_inference_result.py`). Goals/Habits/Events/Choices/Principles have none. |
+| #2 Typed update intents | `update_X(uid, intent: {Domain}UpdateIntent)` | **NOT STARTED** | No `*UpdateIntent` dataclass exists; all 6 `update_X` still take `dict` / `dict[str, Any]`. |
+| #3 Collapse `Result[None] \| None` | hooks return `Result[None]` | **NOT STARTED** | `_validate_create` / `_validate_update` still annotated `Result[None] \| None` in `base_service.py` and all 6 domain overrides. |
+
+The enforcement layer being live is precisely what makes the three extensions *mechanical* when they land — a stray `dict` sneaking back into an `update_X` signature (#2) or a `TaskDTO` passed where a frozen `Task` is expected is now an arg-type error at the call site, not a silent regression.
+
 **What makes the direction *mechanical* rather than doctrinal:** mypy's `arg-type` error code is the enforcement layer for the frozen-models / typed-payloads / typed-intents disciplines on `core/`. Without it, a `TaskDTO` passed where a frozen `Task` is expected, a raw `str` passed where a `UserUID` is expected, or a `dict[str, Any]` passed where a typed payload is expected all pass silently — the roadmap stays aspirational. With `arg-type` live on `core/`, those crossings become type errors at the call site, so the frozen-value contract is checked by the toolchain, not just reviewed by humans. It was re-enabled by a 12-PR sweep (`mypy --enable-error-code arg-type core`: 194 → 0; ~80% real signal). A follow-on campaign (PRs #121–128) then drove `services_bootstrap/` — the composition root, where service↔protocol conformance gaps aggregate — to 0 honestly and flipped enforcement on there too (2026-05-30). The `adapters/` sweep followed as micro-PRs AD-1..AD-8 (81 → 0; AD-9 finance was dissolved by the finance demolition, #144), and the `ui/` sweep as UI-1..UI-4 (76 → 0; the FastHTML/MonsterUI boundary, where the genuinely-irreducible Alpine colon/`@`/dot attribute splats carry a `# fasthtml dynamic-attr splat` ignore). With all four first-party trees at 0, the **global `disable_error_code` was deleted (2026-05-31)** — arg-type is now the toolchain default everywhere, with only `tests`/`scripts` scope-disabled (framework-mock noise, ~1628 sites, never swept). Throughout, the discipline was zero unjustified suppressions: a tree that needed `# type: ignore` to pass meant the wrong sequencing, not a reason to suppress. When item #2 below (typed update intents) lands, `arg-type` is what will keep a stray `dict` from sneaking back into an `update_X` signature.
 
 ## Where the direction wants to be extended
 
 Three candidates, ordered by ratio of (clarity gained) to (work required). None of these is urgent; #1 is the only one with active roadmap commitment.
 
-### 1. Inference parity across the 5 remaining Activity Domains (already in flight)
+### 1. Inference parity across the 5 remaining Activity Domains (already in flight) — *1/6 done*
 
 Goals, Habits, Events, Choices, Principles each gain a `{Domain}InferenceResult` mirroring `TaskInferenceResult`. Engine generalization (`AdvancedInferenceEngine`, `EntityInferenceService`) is the single cross-cutting prerequisite.
 
@@ -48,7 +64,7 @@ This is a direct, mechanical extension of ADR-065. The pattern is specified; the
 
 **Already a separate roadmap doc:** [`activity-domain-inference-migration.md`](activity-domain-inference-migration.md). Listed here only so the broader functional direction picture is complete.
 
-### 2. Typed update intents — replace `dict[str, Any]` update payloads with frozen `*UpdateIntent` dataclasses
+### 2. Typed update intents — replace `dict[str, Any]` update payloads with frozen `*UpdateIntent` dataclasses — *not started*
 
 **Current shape:** every `*CoreService` exposes `update_X(uid: str, updates: dict[str, Any]) -> Result[X]`. The `dict[str, Any]` is the same opaque "any field, any value" contract that ADR-065 closed for inference — implicit at the boundary, drift-prone over time.
 
@@ -62,7 +78,7 @@ This is a direct, mechanical extension of ADR-065. The pattern is specified; the
 
 **Touches:** `update_X` signatures across all 6 Activity Domains + inbound route handlers that construct the dict today. Estimate: 1 PR per domain (6 total), or a single bundled PR if engine-style generalization fits.
 
-### 3. Collapse the `Result[None] | None` wart on validation hooks
+### 3. Collapse the `Result[None] | None` wart on validation hooks — *not started*
 
 **Current shape:** `_validate_create / _validate_update` hooks return `Result[None] | None` (None = "no error"; `Result.fail(...)` = error).
 
