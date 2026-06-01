@@ -474,15 +474,17 @@ async def _wire_all_routes(
     # Section 1: INFRASTRUCTURE (always registered)
     # ========================================================================
 
-    # System routes (includes SystemService initialization)
-    from core.services.system_service import SystemService
+    # System routes (includes SystemService initialization).
+    # Initialize the SystemService instance composed in compose.py — the SAME
+    # object the AdminOrchestrator captured. Creating a fresh instance here would
+    # register checkers on a throwaway the orchestrator never sees, leaving
+    # /admin/system with empty component health.
     from core.services.system_service_init import initialize_system_service
 
-    system_service = SystemService()
-    init_result = await initialize_system_service(system_service, services)
+    assert services.system is not None, "SystemService must be composed before initialization"
+    init_result = await initialize_system_service(services.system, services)
     if init_result.is_error:
         raise ValueError(f"Failed to initialize SystemService: {init_result.error}")
-    services.system = system_service
 
     from adapters.inbound.system_routes import create_system_routes
 
