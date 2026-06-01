@@ -224,6 +224,29 @@ async def compose_services(
             f"✅ Fulltext indexes synced: {len(fulltext_summary['created'])} created/verified"
         )
 
+        # ========================================================================
+        # SCHEMA-CHANGE MONITORING (opt-in — NEO4J_SCHEMA_MONITORING)
+        # ========================================================================
+        # Baseline the schema-change detector against the schema we just synced,
+        # then start its background poll. On drift it invalidates the adapter's
+        # query-optimization caches (see core/services/schema_change_detector.py).
+        # OFF by default: CORE tier spins up no background workers
+        # (docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md). Non-fatal —
+        # monitoring is an optimization, never a correctness requirement.
+        if config.database.schema_monitoring_enabled:
+            interval = config.database.schema_monitoring_interval
+            monitor_result = await neo4j_adapter.initialize_schema_monitoring(
+                interval_seconds=interval
+            )
+            if monitor_result.is_error:
+                logger.warning(
+                    f"⚠️ Schema-change monitoring failed to start: {monitor_result.error}"
+                )
+            else:
+                logger.info(f"✅ Schema-change monitoring started (poll interval: {interval}s)")
+        else:
+            logger.info("⏭️  Schema-change monitoring disabled (NEO4J_SCHEMA_MONITORING off)")
+
         # Cleanup expired sessions and reset tokens (daily maintenance at startup)
         from adapters.persistence.neo4j.session_backend import SessionBackend
 
