@@ -768,8 +768,9 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 3. Student submits file (POST /api/user-entries/upload)
    → UserEntryService.create_entry()              → core/services/user_entry/user_entry_service.py
    Creates :Entity:UserEntry (entity_type='user_entry', pipeline=TEACHER_REVIEW), status SUBMITTED
-   (Processed pipelines move PROCESSING→COMPLETED via UserEntryProcessingService;
-    journals use the TRANSCRIBE_AND_STRUCTURE pipeline)
+   (Non-TEACHER_REVIEW pipelines are created ACTIVE and move to COMPLETED/FAILED via
+    UserEntryProcessingService — no PROCESSING state is persisted; journals use the
+    TRANSCRIBE_AND_STRUCTURE pipeline)
        ↓
 4. FULFILLS_EXERCISE relationship created (always → root Exercise)
    FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
