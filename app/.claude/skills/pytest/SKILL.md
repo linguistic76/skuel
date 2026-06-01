@@ -313,9 +313,8 @@ The core learning-loop services have dedicated unit tests using the `_make_servi
 
 | Service | Test File | Tests | Pattern |
 |---------|-----------|-------|---------|
-| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 3 backend mocks (`_make_submissions_backend()`, `_make_exercise_backend()`, `_make_group_backend()`) with per-method `AsyncMock` return values |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | Full `BackendOperations` mock (`get`, `create`, `update`, `delete`, `find_by`, `list`, `execute_query`) + orchestrator service mocks |
-| `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Same backend mock pattern |
+| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 4 backend mocks (`_make_user_entry_backend()`, `_make_report_backend()`, `_make_exercise_backend()`, `_make_group_backend()`) with per-method `AsyncMock` return values |
+| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Backend + report-backend mock pattern |
 
 **Key mocking patterns in these tests:**
 - Backend method mocks: `backend.method_name = AsyncMock(return_value=Result.ok([...]))` for per-method return values

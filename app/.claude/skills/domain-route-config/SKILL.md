@@ -246,13 +246,12 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 ```python
 STUDY_CONFIG = DomainRouteConfig(
     domain_name="study",
-    primary_service_attr="submissions",
+    primary_service_attr="user_entry",
     ui_factory=create_study_ui_routes,
     ui_related_services={
-        "processing_service": "submissions_processor",
+        "processing_service": "user_entry_processor",
         "user_service": "user_service",
         "exercises_service": "exercises",
-        "submissions_core_service": "submissions_core",
         "activity_report_service": "activity_report",
         "teacher_review_service": "teacher_review",
     },
