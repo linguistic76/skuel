@@ -207,7 +207,7 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_orchestrator.py` | 3 | Admin Dashboard |
 | `ProfileOrchestrator` | `profile_orchestrator.py` | 9 | User Profile |
-| `UserEntryOrchestrator` | `user_entry_orchestrator.py` | 10 | UserEntry (Submissions + Journals / Timeline; owns `get_exercise_report_view` + `submit_file_with_learning_context` compositions) |
+| `UserEntryOrchestrator` | `user_entry_orchestrator.py` | 10 | UserEntry (Submissions + Journals / Timeline; owns `get_exercise_report_view` + `get_entry` compositions) |
 | `ExploreOrchestrator` | `explore_orchestrator.py` | 5 | Explore & Knowledge |
 | `LibraryOrchestrator` | `library_orchestrator.py` | 6 | Library / Assets |
 | `TeacherOrchestrator` | `teacher_orchestrator.py` | 4 | Teaching & Review |

@@ -33,7 +33,7 @@ For implementation guidance, see:
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_dashboard_ui.py` | 3 → 1 | Eliminated repeated `_get_system_status(services)` helper across 4 routes; `get_analytics_data()` collapses two service calls into one |
 | `ProfileOrchestrator` | `user_profile_ui.py` | 9 → 1 | Terminal-state filtering, priority sorting |
-| `UserEntryOrchestrator` | `user_entry_routes.py` + 4 sub-factories | 10 → 1 | Eliminated multi-factory injection pattern; `get_exercise_report_view()` collapses fetch → access check → revision lookup; `submit_file_with_learning_context()` enriches submissions with PS/LP audit context so routes stay thin; compound `get_journal_for_download()` consolidates ownership check + TRANSFORMS lookup; centralises `journal_output_service` availability guards (CORE tier) |
+| `UserEntryOrchestrator` | `user_entry_routes.py` + 4 sub-factories | 10 → 1 | Successor to the former Submissions + Journal orchestrators (ADR-054 Commit 5c); eliminated multi-factory injection. `get_exercise_report_view()` collapses fetch → access check → revision lookup; `get_entry()` backs ownership-verified journal download |
 | `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder + sidebar data aggregation (`get_sidebar_data`) |
 | `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
 | `TeacherOrchestrator` | `teaching_ui.py` | 4 → 1 | Review queue, student list, groups, KU detail under one facade |

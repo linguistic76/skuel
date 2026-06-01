@@ -458,7 +458,7 @@ async def update_progress(request, uid: str):
 
 All manual routes operating on user-owned entities by UID now have ownership verification:
 
-**Submissions API (`user_entry_api.py`):**
+**Submissions API (`submissions_api.py`):**
 - `POST /api/submissions/upload` - Upload file (was accepting user_uid from form data)
 - `POST /api/submissions/form` - Submit structured form data
 - `GET /api/submissions` - List submissions (was accepting user_uid query param)

@@ -327,7 +327,7 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/choices_ui.py` - Form validation example
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
 - `/adapters/inbound/study_ui.py` - HTMX fragments with `render_inline_error()` preserving target IDs
-- `/adapters/inbound/user_entry_ui.py` - HTMX fragments: category selector, tags manager, shared users; journal loading, download auth, file-not-found errors (unified submissions + journals surface, ADR-054)
+- `/adapters/inbound/user_entry_ui.py` - HTMX fragments: journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
 - `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard, `render_inline_error()` for edit/view
 - `/adapters/inbound/habits_ui.py` - `render_inline_error()` for completion, patterns, goal analytics
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state distinction
@@ -375,7 +375,7 @@ def test_validate_task_form_data_missing_title():
 **Non-Activity Domains** (render_error_banner standardized, 2026-03-18; render_inline_error for HTMX, 2026-03-19):
 - ✅ Teaching (`teaching_ui.py`) — 10 error sites, fixed `.is_ok` → `.is_error` bug (SKUEL003)
 - ✅ Study (`study_ui.py`) — `render_inline_error()` for HTMX fragments preserving target IDs
-- ✅ UserEntry (`user_entry_ui.py`) — `render_inline_error()` for category selector, tags manager, shared users, report loading; journal loading, download auth, file-not-found (unified submissions + journals surface, ADR-054)
+- ✅ UserEntry (`user_entry_ui.py`) — `render_inline_error()` for journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
 - ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; `render_inline_error()` for edit/view not-found
 - ✅ Habits (`habits_ui.py`) — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact
 - ✅ Goals (`goals_ui.py`) — `render_error_banner()` for full-page not-found; `render_inline_error()` for gantt view
