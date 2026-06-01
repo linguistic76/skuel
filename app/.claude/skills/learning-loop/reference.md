@@ -213,7 +213,7 @@ They are orthogonal — a form submission can still be part of a pipeline.
 
 **Two creation paths — one create method (`UserEntryService.create_entry()`):**
 ```
-FILE UPLOAD PATH (modality=FILE_UPLOAD)     INLINE FORM PATH (modality=STRUCTURED_FORM)
+FILE UPLOAD PATH                            INLINE FORM PATH
 POST /api/user-entries/upload               POST /api/user-entries/form
  → UserEntryService.submit_file()            → builds UserEntryCreateRequest
    stores bytes to disk                        (form_data carried in metadata)
