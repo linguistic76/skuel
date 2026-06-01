@@ -21,13 +21,14 @@ allowed-tools: Read, Grep, Glob
 > `Pipeline` enum (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`,
 > `TRANSCRIBE_AND_STRUCTURE`). Revision count moved onto the edge:
 > `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Reports use a new
-> `ReportSource` enum (`HUMAN`, `LLM`, `AUTOMATIC`) in place of `ProcessorType`. The
+> `ReportSource` enum (`HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC`) in place of `ProcessorType`. The
 > journal track is now a *pipeline*, not a domain: audio uploads create a source
 > `UserEntry` with `pipeline=TRANSCRIBE_AND_STRUCTURE`, which is then transformed into a
 > structured second `UserEntry` via `(structured)-[:TRANSFORMS]->(source)`. Activity
 > extraction from journals (DSL auto-creating Tasks/Goals) was **dropped**.
 > Services live in `core/services/user_entry/`; the legacy `core/services/submissions/`
-> and `core/services/journal/` packages are shelved. Historical references to
+> and `core/services/journal/` packages were deleted (SKUEL deletes, it does not
+> shelve). Historical references to
 > `ExerciseSubmission`, `JeInput`, `JeOutput`, `ProcessorType`,
 > `SubmissionsBackend`, `submission_protocols.py`, and `process_exercise_submission()`
 > in this file now point to their `UserEntry` / `UserEntryBackend` /
@@ -108,19 +109,21 @@ LearningPath progress. See
 [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
 
 **Learning loop intelligence:** The learning loop has two sibling services in
-`core/services/submissions/`:
+`core/services/user_entry/`:
 
 - **Write side** — `LearningLoopEventHandlerService` (event-driven, fire-and-forget).
 - **Read side** — `LearningLoopQueryService` (Cypher queries that traverse
   `Interaction`/`Exercise`/`Report` edges). New learning-loop reads land here,
-  not on `SubmissionsSearchService` (which is for generic date-bounded reads,
-  recency, text CONTAINS, and stats — whitelisted to `EXERCISE_SUBMISSION`).
+  not on the generic `BaseService` search path that `UserEntryService` inherits
+  (`:UserEntry`-label-scoped text/date/category search — recency, CONTAINS,
+  stats). The graph-shaped loop reads belong in `LearningLoopQueryService`; the
+  inherited path is already domain-scoped by the `:UserEntry` label.
 
 `LearningLoopEventHandlerService` listens to
-`SubmissionCreated`, `ReportSubmitted`, and `SubmissionApproved` to track submission
+`UserEntryCreated`, `ReportSubmitted`, and `UserEntryApproved` to track submission
 iterations (how many attempts per exercise), teacher feedback turnaround (EMA on
 User node), and mastery velocity (quick vs persistent learner). Persists insights
-to `InsightStore`. File: `core/services/submissions/learning_loop_event_handler_service.py`.
+to `InsightStore`. File: `core/services/user_entry/learning_loop_handler.py`.
 
 ---
 
@@ -272,13 +275,13 @@ that never closes the loop.
 
 | Service | Test File | Tests | Coverage |
 |---------|-----------|-------|----------|
-| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% (171/172 lines) |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% (491/625 lines) |
-| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD only |
+| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 76% (157/207 lines) |
+| `UserEntryService` | `tests/unit/services/test_user_entry_service.py` | 41 | 69% (146/211 lines) |
+| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | 88% (69/78 lines) |
 
 **TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — requires teacher and student share an active group), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
-**SubmissionsCoreService tests cover:** retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export. (Journal tests were removed — journal is now a standalone domain with `JournalOutputService`.)
+**UserEntryService tests cover:** the consolidated `UserEntry` write path (ADR-054) — `create_entry`, exercise linking, pipeline dispatch, and ownership/access checks across the file-upload and structured-form entry modes.
 
 ---
 
@@ -293,17 +296,16 @@ that never closes the loop.
 | `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
 | `adapters/inbound/revised_exercises_ui.py` | 5 | RevisedExercise student UI routes (GradeBook sidebar) |
 | `adapters/inbound/exercise_reports_ui.py` | 4 | ExerciseReport UI routes (list + detail page) |
-| `ui/submissions/revised_exercise.py` | 5 | RevisedExercise renderers (detail, card, list views) |
-| `ui/submissions/report.py` | 4 | ExerciseReport renderers (detail page with outcome/processor badges) |
+| `ui/learning_loop/revised_exercise.py` | 5 | RevisedExercise renderers (detail, card, list views) |
+| `ui/learning_loop/report.py` | 4 | ExerciseReport renderers (detail page with outcome/processor badges) |
 | `ui/patterns/modal.py` | support | AlpineModal — standardized Alpine.js modal wrapper |
 | `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
-| `core/models/submissions/submission.py` | 3 | Submission base (UserEntry) |
+| `core/models/user_entry/user_entry.py` | 3 | UserEntry frozen dataclass (`UserOwnedEntity`) |
 | `core/models/report/exercise_report.py` | 4 | ExerciseReport model |
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
-| `core/services/submissions/submissions_core_service.py` | 3+4 | Facade — delegates assessment to sub-services |
-| `core/services/journal/journal_input_service.py` | — | Journal CRUD + file upload (standalone domain, not part of learning loop) |
-| `core/services/journal/journal_output_service.py` | — | Journal LLM processing (standalone domain) |
-| `core/services/submissions/assessment_service.py` | 4 | Teacher assessment CRUD, authority verification |
+| `core/services/user_entry/user_entry_service.py` | 3+4 | UserEntry facade (BaseService) — shared `create_entry` write path, exercise linking |
+| `core/services/user_entry/user_entry_processing_service.py` | 3 | Pipeline processing — transcription, LLM summary/structure (the former journal track, now a `Pipeline`) |
+| `core/services/user_entry/assessment_service.py` | 4 | Teacher assessment CRUD, authority verification |
 | `core/services/report/exercise_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
 | `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
 | `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
@@ -315,7 +317,7 @@ that never closes the loop.
 | `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
 | `core/services/report/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
 | `core/services/background/progress_report_worker.py` | 4 | Scheduled activity report background worker |
-| `core/ports/submission_protocols.py` | 3 | Submission protocols — typed enum params (`EntityType`, `Pipeline`, `EntityStatus`, `Visibility`) |
+| `core/ports/user_entry_protocols.py` | 3 | UserEntry protocols — backend port (`UserEntryOperations`) + CRUD/lifecycle/assessment/report-query/content sub-protocols |
 | `core/ports/report_protocols.py` | 7 | All report protocols incl. `TeacherReviewOperations`, `ReviewQueueOperations`, `ReportRelationshipOperations` — typed returns (`ReviewRequestResult`, `PendingReviewItem`, `GroupMemberProgress`) |
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
