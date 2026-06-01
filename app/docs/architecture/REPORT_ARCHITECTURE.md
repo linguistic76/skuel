@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-03-09
+updated: 2026-06-01
 status: current
 category: architecture
 version: 3.0.0
@@ -60,8 +60,8 @@ For implementation guidance, see:
 **SUBMISSION** (not "assignment") because:
 - "Assignment" is what a **teacher gives** — that's an `Exercise` with `scope=ASSIGNED`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
-- Matches service names: `SubmissionsService`, protocol: `SubmissionOperations`
-- Matches route language: `/submit` (UI), `/api/submissions/*` (API)
+- Backed by the unified content service `UserEntryService` (ADR-054 consolidation; backend port `UserEntryOperations`) — a turned-in `UserEntry` *is* the submission
+- Matches route language: `/submit` (UI), `/api/submissions/*` (HTMX preview endpoints)
 
 ---
 
@@ -96,28 +96,37 @@ Exercise (scope=ASSIGNED)
 1. Teacher creates Exercise (scope=ASSIGNED, targets Group)
        |
        v
-2. Student submits file → SubmissionsService.submit_file()
-       |                   Creates Entity with entity_type=SUBMISSION
+2. Student submits → UserEntryService.submit_file() (bytes→disk) / create_entry()
+       |             Creates a :UserEntry node — status SUBMITTED for the
+       |             teacher_review pipeline, else ACTIVE
        v
-3. Processing routes by MIME type (not EntityType):
-       audio/* → TranscriptionService → text
-       text/*  → Read raw content
+3. Processing is a separate, explicit step:
+       POST /api/user-entries/process → UserEntryProcessingService.process()
+       dispatches on entry.pipeline:
+         TRANSCRIBE               → Deepgram audio → transcript
+         LLM_SUMMARY              → LLM summarization
+         TRANSCRIBE_AND_STRUCTURE → transcribe + LLM structuring (2nd UserEntry)
+         TEACHER_REVIEW / NONE    → no-op
        |
        v
-4. Status transition: SUBMITTED → QUEUED → PROCESSING → COMPLETED
-       |               (enforced by update_submission_status() via can_transition_to())
+4. Status: SUBMITTED/ACTIVE → COMPLETED (update_processed_content) or FAILED.
+       |   No QUEUED/PROCESSING status is persisted; process() emits a
+       |   UserEntryProcessingStarted event only.
        v
-5. Auto-sharing: FULFILLS_EXERCISE + SHARES_WITH created
-       |                             (student → teacher)
+5. Auto-sharing (teacher_review + exercise link): FULFILLS_EXERCISE {revision}
+       |   + SHARED_WITH_GROUP to the exercise's assigned groups (UnifiedSharingService)
        v
-6. Teacher reviews in queue → writes EXERCISE_REPORT
-       |   submit_report: PROCESSING → COMPLETED (Cypher-level guard)
-       |   request_revision: COMPLETED → REVISION_REQUESTED (Cypher-level guard)
-       |   approve_report: REVISION_REQUESTED → COMPLETED (Cypher-level guard)
+6. Teacher reviews via the group-based queue → writes EXERCISE_REPORT
+       |   submit_report:    SUBMITTED/ACTIVE   → COMPLETED          (Cypher guard)
+       |   request_revision: SUBMITTED/ACTIVE   → REVISION_REQUESTED (Cypher guard)
+       |   approve_report:   REVISION_REQUESTED → COMPLETED          (Cypher guard)
        v
-7. Student sees feedback, optionally resubmits
-       (reprocessing: COMPLETED/FAILED → SUBMITTED via reprocess_submission())
+7. Student sees the report, optionally resubmits — a resubmission is a new
+       UserEntry (FULFILLS_EXERCISE / FULFILLS_REVISED_EXERCISE stamped with an
+       incremented revision); there is no in-place reprocess
 ```
+
+Each status guard is enforced atomically in Cypher via `WHERE status IN $allowed_from_statuses` — race-safe, no pre-fetch.
 
 ### Relationship Graph
 
@@ -127,12 +136,14 @@ Exercise (scope=ASSIGNED)
 (exercise)-[:FOR_GROUP]->(group:Group)
 (student:User)-[:MEMBER_OF]->(group)
 
-// The submission
-(student)-[:OWNS]->(submission:Entity {entity_type: "exercise_submission"})
+// The submission (a UserEntry — entity_type is always 'user_entry', forced in
+// UserEntry.__post_init__; the `pipeline` field distinguishes a curriculum turn-in)
+(student)-[:OWNS]->(submission:Entity:UserEntry {entity_type: "user_entry", pipeline: "teacher_review"})
 (submission)-[:FULFILLS_EXERCISE]->(exercise)
 
-// Teacher discovers submissions via OWNS-based review queue (ADR-040)
-// No SHARES_WITH relationship between teacher and submission
+// Teacher discovers entries via the group-based review queue (ADR-040):
+// the entry is SHARED_WITH_GROUP to a Group the teacher OWNS, pipeline = 'teacher_review'
+(submission)-[:SHARED_WITH_GROUP]->(group)
 
 // Teacher report — student owns the report (access ownership); teacher is recorded via author_uid
 (student)-[:OWNS]->(report:Entity {entity_type: "exercise_report", author_uid: "teacher_uid"})
@@ -282,10 +293,10 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Responsibility |
 |---------|----------|---------------|
-| `SubmissionsService` | `SubmissionOperations` | File upload, storage, submission record creation |
-| `SubmissionsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
+| `UserEntryService` | concrete facade (backend port `UserEntryOperations`) | UserEntry creation (`create_entry` / `submit_file`), exercise linking, audience resolution |
+| `UserEntryProcessingService` | `UserEntryProcessingOperations` | Pipeline dispatcher: reads `entry.pipeline`, routes to transcription / LLM processors |
 | `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
-| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision_with_exercise()` creates ExerciseReport + RevisedExercise in a single Neo4j transaction (all-or-nothing). |
+| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `UserEntryBackend`, `ExerciseReportBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision_with_exercise()` creates ExerciseReport + RevisedExercise in a single Neo4j transaction (all-or-nothing). |
 
 **Report producers:**
 
@@ -301,9 +312,9 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Responsibility |
 |---------|----------|---------------|
-| `ReportRelationshipService` | `ReportRelationshipOperations` | Pending submissions, report summary, learning loop chain traversal (delegates Cypher to `SubmissionsBackend`) |
+| `ReportRelationshipService` | `ReportRelationshipOperations` | Pending submissions, report summary, learning loop chain traversal (delegates Cypher to `UserEntryBackend`) |
 
-Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report_summary()`, `get_learning_loop_chain(exercise_uid)`, `get_submission_chain(submission_uid)`. All 5 methods delegate to named `SubmissionsBackend` methods (zero inline Cypher). Used by `UserContextIntelligenceFactory`.
+Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report_summary()`, `get_learning_loop_chain(exercise_uid)`, `get_submission_chain(submission_uid)`. All 5 methods delegate to named `UserEntryBackend` methods (zero inline Cypher). Used by `UserContextIntelligenceFactory`.
 
 **Protocols:** `core/ports/report_protocols.py`
 
@@ -320,7 +331,8 @@ The first three stages are **leaf domains** — each owns its own Neo4j nodes an
 
 KuBackend               ← owns ORGANIZES, KU curriculum queries
 ExerciseBackend         ← owns curriculum linking Cypher + teacher exercise stats
-SubmissionsBackend      ← owns SHARES_WITH, access control, teacher review Cypher
+UserEntryBackend        ← owns UserEntry persistence + group-based teacher review queue Cypher
+SharingBackend          ← owns SHARES_WITH / SHARED_WITH_GROUP access control (entity-agnostic, ADR-042)
 GroupBackend            ← owns MEMBER_OF, teacher group stats
 ActivityReportBackend   ← owns ActivityReport persistence + privacy audit queries
 ```
@@ -374,7 +386,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 | `/journals/submit` | Admin | Upload files for AI (LLM) processing |
 | `/profile/shared` | Any user | "Shared With Me" inbox |
 | `/api/teaching/review-queue` | Teacher | Pending submission review queue |
-| `/api/teaching/review/{uid}/feedback` | Teacher | Submit human report on submission |
+| `/api/teaching/review/{uid}/report` | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | Teacher | Approve submission |
 
 **Activity report track:**
@@ -468,7 +480,7 @@ When `openai_service` is available, the generator:
 | `/api/reports/assessments/for-student` | GET | Teacher | Student's received assessments |
 | `/api/reports/assessments/by-teacher` | GET | Teacher | Teacher's authored assessments |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
-| `/api/teaching/review/{uid}/feedback` | POST | Teacher | Submit human report on submission |
+| `/api/teaching/review/{uid}/report` | POST | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |
 | `/api/journals/batch-transcribe` | POST | Admin | Batch audio → txt (preview or run) |
 
@@ -567,9 +579,9 @@ User annotates report (additive or revision mode)
 
 | Service | Test File | Tests | Coverage |
 |---------|-----------|-------|----------|
-| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% |
-| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD |
+| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 76% |
+| `UserEntryService` | `tests/unit/services/test_user_entry_service.py` | 41 | 69% |
+| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | 88% |
 
 ---
 
