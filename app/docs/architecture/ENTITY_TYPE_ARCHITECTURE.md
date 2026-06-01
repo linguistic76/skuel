@@ -378,9 +378,9 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> ExerciseReport -> Re
 | Enum | Applies to | Values | Purpose |
 |------|-----------|--------|---------|
 | `Pipeline` | `UserEntry` nodes | `NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE` | How a user entry is processed after creation. Drives `UserEntryProcessingService` dispatch. |
-| `ReportSource` | `ExerciseReport`, `ActivityReport` | `HUMAN`, `LLM`, `AUTOMATIC` | Who or what produced the report. Stored as `report_source` on the report node. |
+| `ReportSource` | `ExerciseReport`, `ActivityReport` | `HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC` | Who or what produced the report. Stored as `report_source` on the report node. |
 
-Both live in `core/models/enums/user_entry_enums.py` (formerly `submissions_enums.py`). `SubmissionModality` and `EnrichmentMode` remain in the same file — both are still load-bearing.
+Both `Pipeline` and `ReportSource` live in `core/models/enums/pipeline.py`. `SubmissionModality` and `EnrichmentMode` live in `core/models/enums/user_entry_enums.py` (formerly `submissions_enums.py`) — both still load-bearing.
 
 `ProcessorType` has been removed from the codebase. Legacy aliases ensure old serialized data continues to read: the ingestion alias map redirects legacy string values onto the new enums.
 
