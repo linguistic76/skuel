@@ -449,7 +449,8 @@ async def test_list_with_sorting():
     result = await backend.list(sort_by="due_date", sort_order="desc", limit=50)
 
     assert result.is_ok
-    call_args = mock_session.run.call_args
+    # list() runs the page query first, then a separate count() query — inspect the first.
+    call_args = mock_session.run.call_args_list[0]
     cypher = call_args[0][0]
 
     assert "ORDER BY n.due_date DESC" in cypher
@@ -465,7 +466,8 @@ async def test_list_with_pagination():
     result = await backend.list(offset=25, limit=25)
 
     assert result.is_ok
-    call_args = mock_session.run.call_args
+    # list() runs the page query first, then a separate count() query — inspect the first.
+    call_args = mock_session.run.call_args_list[0]
     cypher = call_args[0][0]
     params = call_args[0][1]
 

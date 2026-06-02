@@ -113,7 +113,7 @@ class _SearchMixin[T: DomainModelProtocol]:
             filters: dict[str, Any] | None = None,
             sort_by: str | None = None,
             sort_order: str = "asc",
-        ) -> Result[builtins.list[T]]: ...
+        ) -> Result[tuple[builtins.list[T], int]]: ...
 
     # ============================================================================
     # A: UNIVERSAL DOMAIN-SPECIFIC OPERATIONS
@@ -275,7 +275,12 @@ class _SearchMixin[T: DomainModelProtocol]:
         sort_order = filters.pop("sort_order", "asc")
 
         if not filters and not self.default_filters:
-            return await self.list(limit=limit)
+            # list() returns (page, total_count); find_by contracts a bare list.
+            list_result = await self.list(limit=limit)
+            if list_result.is_error:
+                return Result.fail(list_result)
+            entities, _total = list_result.value
+            return Result.ok(entities)
 
         # Merge default_filters (non-overridable) with caller filters
         all_filters = {**filters, **self.default_filters}

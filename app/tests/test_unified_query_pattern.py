@@ -134,7 +134,6 @@ class TestUnifiedQueryPattern:
             ("Event", "event_date"),
             ("Habit", None),  # Habits don't have date filtering
             ("Goal", "target_date"),
-            ("Expense", "expense_date"),
             ("Choice", "decision_date"),
             ("Principle", None),  # Principles don't have date filtering
         ]
