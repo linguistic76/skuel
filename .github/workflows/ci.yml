@@ -277,21 +277,30 @@ jobs:
               body: comment
             });
 
-      - name: Warn on skills metadata issues (non-blocking)
-        if: steps.skills.outputs.skills_failed == 'true'
-        run: |
-          echo "::warning::Skills metadata validation reported issues (non-blocking hygiene)"
-          echo "Run locally to see details: uv run python scripts/skills_validator.py"
-
       - name: Fail if critical issues found
-        if: steps.freshness.outputs.freshness_failed == 'true'
+        # Blocks on documentation-freshness OR skills-validation errors. Both
+        # steps run with continue-on-error so the PR-comment step above can
+        # report them first; this step is the single chokepoint that reds the
+        # job. The validator exits non-zero only on errors (not soft warnings),
+        # so the 500-line monolith cap etc. still pass — same errors-vs-warnings
+        # split as ./dev quality.
+        if: >-
+          steps.freshness.outputs.freshness_failed == 'true' ||
+          steps.skills.outputs.skills_failed == 'true'
         run: |
-          echo "::error::Critical documentation freshness issues found"
+          freshness_failed="${{ steps.freshness.outputs.freshness_failed }}"
+          skills_failed="${{ steps.skills.outputs.skills_failed }}"
+          echo "Documentation freshness: $([ "$freshness_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
+          echo "Skills validation:       $([ "$skills_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
           echo ""
-          echo "Documentation freshness: ❌ FAILED"
-          echo ""
-          echo "Run locally to see details:"
-          echo "  uv run python scripts/docs_freshness.py --critical-only"
+          if [ "$freshness_failed" == "true" ]; then
+            echo "::error::Critical documentation freshness issues found"
+            echo "  Run locally: uv run python scripts/docs_freshness.py --critical-only"
+          fi
+          if [ "$skills_failed" == "true" ]; then
+            echo "::error::Skills validation errors found (.claude/skills/*/SKILL.md)"
+            echo "  Run locally: uv run python scripts/skills_validator.py"
+          fi
           exit 1
 
   # Documentation metrics — main pushes only (skipped on PRs, as before).
