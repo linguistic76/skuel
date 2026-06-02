@@ -48,7 +48,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
-from core.models.relationship_registry import DomainRelationshipConfig
+from core.models.relationship_registry import (
+    DomainRelationshipConfig,
+    UnifiedRelationshipDefinition,
+)
 from core.models.type_hints import EntityUID
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
@@ -418,11 +421,30 @@ class UnifiedRelationshipService[
             )
 
         result = await self.backend.create_relationships_batch(
-            [(from_uid, to_uid, spec.relationship.value, properties)]
+            [self._orient_edge(spec, from_uid, to_uid, properties)]
         )
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value > 0)
+
+    @staticmethod
+    def _orient_edge(
+        spec: UnifiedRelationshipDefinition,
+        from_uid: str,
+        to_uid: str,
+        properties: dict[str, Any] | None,
+    ) -> tuple[str, str, str, dict[str, Any] | None]:
+        """Build a ``(from, to, type, props)`` edge oriented per the registry direction.
+
+        ``from_uid`` is the entity that owns this domain config, ``to_uid`` the related
+        entity. The registry read paths are direction-aware, so an ``incoming`` spec
+        (the edge is stored related→owner, e.g. goals ``supporting_habits`` =
+        ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``) must be written with endpoints swapped —
+        otherwise the edge is created backwards and the direction-aware reader never sees it.
+        """
+        if spec.direction == "incoming":
+            return (to_uid, from_uid, spec.relationship.value, properties)
+        return (from_uid, to_uid, spec.relationship.value, properties)
 
     async def delete_relationship(
         self,
@@ -486,9 +508,10 @@ class UnifiedRelationshipService[
                 self.logger.warning(f"Unknown relationship key '{relationship_key}', skipping")
                 continue
 
-            # Use batch creation via backend - build relationships list
+            # Use batch creation via backend — orient each edge per the registry
+            # direction so incoming specs are not written backwards (see _orient_edge).
             relationships_batch = [
-                (entity_uid, uid, spec.relationship.value, None) for uid in target_uids
+                self._orient_edge(spec, entity_uid, uid, None) for uid in target_uids
             ]
             result = await self.backend.create_relationships_batch(relationships_batch)
 

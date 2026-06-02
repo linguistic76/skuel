@@ -14,14 +14,25 @@ which is why it survived. These tests create the edge against a real Neo4j and r
 back. Each fails against the pre-fix dynamic-dispatch body and passes against the fix.
 """
 
+from datetime import date, timedelta
 from typing import Any
 
 import pytest
 
 from core.models.curriculum import Curriculum
-from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern, SELCategory
+from core.models.enums import (
+    Domain,
+    EntityStatus,
+    GoalTimeframe,
+    GoalType,
+    MeasurementType,
+    Priority,
+    RecurrencePattern,
+    SELCategory,
+)
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory
+from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import HABITS_CONFIG
@@ -135,3 +146,64 @@ class TestRelationshipLinkRoundTrip:
         assert edges.is_ok
         assert [r["type"] for r in edges.value] == ["REINFORCES_KNOWLEDGE"]
         assert edges.value[0]["target_uid"] == "ku:habit_target"
+
+    async def test_incoming_spec_edge_is_oriented_related_to_owner(
+        self, services, habits_backend, clean_neo4j
+    ):
+        """An incoming spec writes the edge related→owner, not owner→related.
+
+        Goals ``supporting_habits`` is the registry-incoming ``SUPPORTS_GOAL``
+        (``(Habit)-[:SUPPORTS_GOAL]->(Goal)``). Calling create_relationship with
+        ``(goal, habit)`` must store ``habit→goal`` so the direction-aware reader sees
+        it — writing ``goal→habit`` (the naive from→to) would be silently invisible.
+        """
+        today = date.today()
+        goal = Goal(
+            uid="goal:incoming_owner",
+            user_uid="user_test",
+            title="Goal",
+            description="incoming-orientation fixture",
+            goal_type=GoalType.LEARNING,
+            domain=Domain.TECH,
+            timeframe=GoalTimeframe.QUARTERLY,
+            measurement_type=MeasurementType.PERCENTAGE,
+            target_value=100.0,
+            current_value=0.0,
+            start_date=today,
+            target_date=today + timedelta(days=90),
+            status=EntityStatus.ACTIVE,
+            priority=Priority.HIGH,
+        )
+        assert (await services.goals.backend.create(goal)).is_ok
+        habit = Habit(
+            uid="habit:incoming_related",
+            user_uid="user_test",
+            entity_type=EntityType.HABIT,
+            title="Habit",
+            description="incoming-orientation fixture",
+            habit_category=HabitCategory.LEARNING,
+            status=EntityStatus.ACTIVE,
+            recurrence_pattern=RecurrencePattern.DAILY,
+        )
+        assert (await habits_backend.create(habit)).is_ok
+
+        result = await services.goals.relationships.create_relationship(
+            "supporting_habits", "goal:incoming_owner", "habit:incoming_related"
+        )
+        assert result.is_ok
+        assert result.value is True
+
+        # The goal has an INCOMING SUPPORTS_GOAL edge from the habit...
+        incoming = await services.goals.backend.get_relationships(
+            "goal:incoming_owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="incoming"
+        )
+        assert incoming.is_ok
+        assert [r["type"] for r in incoming.value] == ["SUPPORTS_GOAL"]
+        assert incoming.value[0]["target_uid"] == "habit:incoming_related"
+
+        # ...and NOT a backwards outgoing edge from the goal.
+        outgoing = await services.goals.backend.get_relationships(
+            "goal:incoming_owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="outgoing"
+        )
+        assert outgoing.is_ok
+        assert outgoing.value == []
