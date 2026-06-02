@@ -51,24 +51,22 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
     - Count choices with filters
     """
 
-    def __init__(
-        self, backend: ChoicesOperations, event_bus=None, relationship_service=None
-    ) -> None:
+    def __init__(self, backend: ChoicesOperations, event_bus=None) -> None:
         """
         Initialize choices core service.
 
         Args:
             backend: Protocol-based backend for choice operations
             event_bus: Event bus for publishing domain events (optional)
-            relationship_service: Optional relationship service for creating choice relationships
 
         Note:
             Context invalidation now happens via event-driven architecture.
             Created choices trigger ChoiceCreated events which invalidate context.
+            Knowledge edges are created GRAPH-NATIVELY via the backend batch path
+            (mirrors TasksCoreService), not via a relationship service.
         """
         super().__init__(backend, "choices")
         self.event_bus = event_bus
-        self.relationship_service = relationship_service
         self.logger = get_logger("skuel.services.choices.core")  # type: ignore[assignment]  # structlog BoundLogger
 
     # ========================================================================
@@ -225,15 +223,19 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # _create_and_convert returns domain model
         choice = create_result.value
 
-        # Create knowledge relationships if provided
-        if choice_request.informed_by_knowledge_uids and self.relationship_service:
-            rel_result = await self.relationship_service.create_choice_relationships(
-                choice_uid=choice.uid,
-                informed_by_knowledge_uids=choice_request.informed_by_knowledge_uids,
-            )
-            if rel_result.is_error:
+        # GRAPH-NATIVE: Create (Choice)-[:INFORMED_BY_KNOWLEDGE]->(Ku) edges in a
+        # single batch (mirrors TasksCoreService.create_task). Edges live in the
+        # graph, never on the Choice/DTO; read back via PsService.find_choices_informed_by_knowledge.
+        if choice_request.informed_by_knowledge_uids:
+            relationships: list[tuple[str, str, str, Neo4jProperties | None]] = [
+                (choice.uid, knowledge_uid, RelationshipName.INFORMED_BY_KNOWLEDGE.value, None)
+                for knowledge_uid in choice_request.informed_by_knowledge_uids
+            ]
+            batch_result = await self.backend.create_relationships_batch(relationships)
+            if batch_result.is_error:
                 self.logger.warning(
-                    f"Failed to create knowledge relationships for choice {choice.uid}: {rel_result.error}"
+                    f"Failed to create {len(relationships)} knowledge relationships "
+                    f"for choice {choice.uid}: {batch_result.error}"
                 )
 
         # Publish ChoiceCreated event (event-driven architecture)
