@@ -62,15 +62,17 @@ async def teacher_review_fixture(neo4j_driver):
         MERGE (s2)-[:MEMBER_OF {role: 'student'}]->(gy)
         MERGE (s1)-[:MEMBER_OF {role: 'student'}]->(gz)
 
-        MERGE (sub1:Entity {uid: $submission_1})
-          SET sub1.entity_type = 'exercise_submission',
+        MERGE (sub1:Entity:UserEntry {uid: $submission_1})
+          SET sub1.entity_type = 'user_entry',
               sub1.title = 'S1 submission',
               sub1.status = 'submitted',
+              sub1.pipeline = 'teacher_review',
               sub1.user_uid = $student_1
-        MERGE (sub2:Entity {uid: $submission_2})
-          SET sub2.entity_type = 'exercise_submission',
+        MERGE (sub2:Entity:UserEntry {uid: $submission_2})
+          SET sub2.entity_type = 'user_entry',
               sub2.title = 'S2 submission',
               sub2.status = 'submitted',
+              sub2.pipeline = 'teacher_review',
               sub2.user_uid = $student_2
 
         MERGE (s1)-[:OWNS]->(sub1)
@@ -160,8 +162,9 @@ class TestVerifyTeacherHasGroupAccess:
         await neo4j_driver.execute_query(
             """
             MERGE (ta:User {uid: $teacher_a})
-            MERGE (self:Entity {uid: $self_owned})
-              SET self.entity_type = 'exercise_submission',
+            MERGE (self:Entity:UserEntry {uid: $self_owned})
+              SET self.entity_type = 'user_entry',
+                  self.pipeline = 'teacher_review',
                   self.status = 'submitted'
             MERGE (ta)-[:OWNS]->(self)
             """,

@@ -63,14 +63,14 @@ async def two_classroom_fixture(neo4j_driver):
         MERGE (s2)-[:MEMBER_OF {role: 'student'}]->(gy)
 
         MERGE (sub1:Entity:UserEntry {uid: $submission_1})
-          SET sub1.entity_type = 'exercise_submission',
+          SET sub1.entity_type = 'user_entry',
               sub1.title = 'S1 submission',
               sub1.status = 'submitted',
               sub1.pipeline = 'teacher_review',
               sub1.created_at = datetime($now),
               sub1.user_uid = $student_1
         MERGE (sub2:Entity:UserEntry {uid: $submission_2})
-          SET sub2.entity_type = 'exercise_submission',
+          SET sub2.entity_type = 'user_entry',
               sub2.title = 'S2 submission',
               sub2.status = 'submitted',
               sub2.pipeline = 'teacher_review',
