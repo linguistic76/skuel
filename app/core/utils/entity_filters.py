@@ -141,6 +141,10 @@ def filter_goals(
     filtered = list(goals)
 
     if status_filter == "active":
+        # ACTIVE only is correct: GoalsCoreService.create_goal forces status=ACTIVE
+        # (overriding the DRAFT default) so new goals land here, and goal stats /
+        # tabs treat ACTIVE as the open state. DRAFT/SCHEDULED are not goal states
+        # reached in practice, so widening this set would only desync the tab.
         filtered = [g for g in filtered if not g.status or g.status == EntityStatus.ACTIVE]
     elif status_filter == "completed":
         filtered = [g for g in filtered if g.is_completed]
