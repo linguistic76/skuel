@@ -419,7 +419,15 @@ class TasksService(
         habit_uid = updates.pop("reinforces_habit_uid", None)
         applies_knowledge_uids = updates.pop("applies_knowledge_uids", None)
 
-        result = await self.core.update_task(task_uid, updates)
+        # A relationship-only update (e.g. only applies_knowledge_uids, which
+        # TaskUpdateRequest permits) leaves no node properties to write. The backend
+        # rejects an empty update dict, so fetch the task to confirm it exists and to
+        # have a Task to return — then fall through to the edge-mutation blocks. A
+        # genuinely empty call (no properties, no edges) keeps the validation error.
+        if updates or (habit_uid is None and applies_knowledge_uids is None):
+            result = await self.core.update_task(task_uid, updates)
+        else:
+            result = await self.core.get_task(task_uid)
         if result.is_error:
             return result
 

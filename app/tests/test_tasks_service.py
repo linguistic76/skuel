@@ -318,3 +318,83 @@ class TestUncompleteTask:
         service.core.update_task.assert_called_once_with(
             "task_abc", {"status": EntityStatus.ACTIVE}
         )
+
+
+# ---------------------------------------------------------------------------
+# TestUpdateTaskKnowledgeEdges — applies_knowledge_uids is a graph edge, not a
+# node property. See /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md.
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateTaskKnowledgeEdges:
+    @pytest.mark.asyncio
+    async def test_relationship_only_update_syncs_edges_without_property_write(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """Updating only applies_knowledge_uids must sync edges, not fail on empty props.
+
+        Popping the edge key leaves no node properties; the backend rejects an empty
+        update dict, so the facade fetches the task instead and still runs edge sync.
+        """
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.core.update_task = AsyncMock()
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["ku_old"]))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+
+        result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
+
+        assert result.is_ok
+        # No node properties remained → property-write path skipped, entity fetched.
+        service.core.update_task.assert_not_called()
+        service.core.get_task.assert_awaited_once_with("task_abc")
+        # Old knowledge edge removed, new one created.
+        service.relationships.delete_relationship.assert_awaited_once_with(
+            "knowledge", "task_abc", "ku_old"
+        )
+        service.relationships.create_relationship.assert_awaited_once_with(
+            "knowledge", "task_abc", "ku_new"
+        )
+
+    @pytest.mark.asyncio
+    async def test_mixed_update_pops_edge_key_from_property_write(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """A mixed update writes real properties (edge key popped) and syncs the edge."""
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.core.get_task = AsyncMock()
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
+        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+
+        result = await service.update_task(
+            "task_abc", {"title": "New", "applies_knowledge_uids": ["ku_x"]}
+        )
+
+        assert result.is_ok
+        # Knowledge key is popped — only the real property reaches core.update_task.
+        service.core.update_task.assert_awaited_once_with("task_abc", {"title": "New"})
+        service.core.get_task.assert_not_called()
+        service.relationships.create_relationship.assert_awaited_once_with(
+            "knowledge", "task_abc", "ku_x"
+        )
+
+    @pytest.mark.asyncio
+    async def test_empty_knowledge_list_clears_edges(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """An empty applies_knowledge_uids list clears all knowledge edges."""
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(
+            return_value=Result.ok(["ku_old1", "ku_old2"])
+        )
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.relationships.create_relationship = AsyncMock()
+
+        result = await service.update_task("task_abc", {"applies_knowledge_uids": []})
+
+        assert result.is_ok
+        assert service.relationships.delete_relationship.await_count == 2
+        service.relationships.create_relationship.assert_not_called()
