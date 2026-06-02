@@ -67,7 +67,7 @@ class ZPDBackendOperations(Protocol):
 
     async def get_targeted_ku_engagement(
         self, user_uid: UserUID, ku_uids: list[str]
-    ) -> Result[tuple[list[str], list[str], list[str], list[SubmissionScore]]]:
+    ) -> Result[tuple[list[str], list[str], list[SubmissionScore]]]:
         """Fetch engagement data for specific KU UIDs only.
 
         Lightweight alternative to get_zone_data() for query-time ZPD.
@@ -75,7 +75,6 @@ class ZPDBackendOperations(Protocol):
         Returns:
             Result containing a tuple of:
                 - task_engaged: KU UIDs engaged via tasks
-                - journal_engaged: KU UIDs engaged via journals
                 - habit_engaged: KU UIDs engaged via habits
                 - submission_data: Submission scores per KU
         """
@@ -92,7 +91,6 @@ class ZPDBackendOperations(Protocol):
             list[str],
             list[str],
             list[str],
-            list[str],
             list[SubmissionScore],
         ]
     ]:
@@ -106,7 +104,6 @@ class ZPDBackendOperations(Protocol):
                 - prereq_data: Raw prerequisite counts per proximal KU
                 - blocking_gaps: Prerequisite KU UIDs not yet met
                 - task_engaged: KU UIDs engaged via tasks
-                - journal_engaged: KU UIDs engaged via journals
                 - habit_engaged: KU UIDs engaged via habits
                 - submission_data: Submission scores per KU
         """

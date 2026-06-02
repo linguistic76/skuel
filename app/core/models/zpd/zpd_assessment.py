@@ -44,7 +44,6 @@ class ZoneEvidence:
     best_submission_score: float = 0.0
     habit_reinforcement: bool = False
     task_application: bool = False
-    journal_application: bool = False
 
     @property
     def signal_count(self) -> int:
@@ -54,7 +53,6 @@ class ZoneEvidence:
                 self.submission_count > 0,
                 self.habit_reinforcement,
                 self.task_application,
-                self.journal_application,
             ]
         )
 

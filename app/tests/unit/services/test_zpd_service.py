@@ -45,7 +45,6 @@ def _make_backend(
             ],
             [],  # blocking_gaps
             ["ku_a"],  # task_engaged
-            ["ku_b"],  # journal_engaged
             ["ku_a"],  # habit_engaged
             [  # submission_data
                 {"ku_uid": "ku_a", "best_score": 0.9, "count": 2},
@@ -74,7 +73,6 @@ class TestBuildZoneEvidence:
         evidence = service._build_zone_evidence(
             current_zone=["ku_a", "ku_b"],
             task_engaged=["ku_a"],
-            journal_engaged=["ku_b"],
             habit_engaged=["ku_a"],
             submission_data=[{"ku_uid": "ku_a", "best_score": 0.9, "count": 2}],
         )
@@ -83,12 +81,12 @@ class TestBuildZoneEvidence:
         assert evidence["ku_a"].signal_count == 3
         assert evidence["ku_a"].best_submission_score == 0.9
 
-        # ku_b: journal only = 1 signal -> not confirmed
+        # ku_b: no signals -> not confirmed
         assert not evidence["ku_b"].is_confirmed
 
     def test_empty_zone(self) -> None:
         service = ZPDService(backend=_make_backend())
-        evidence = service._build_zone_evidence([], [], [], [], [])
+        evidence = service._build_zone_evidence([], [], [], [])
         assert evidence == {}
 
 
@@ -147,7 +145,7 @@ class TestBuildRecommendedActions:
             "ku_a": ZoneEvidence(
                 ku_uid="ku_a", task_application=True, habit_reinforcement=True
             ),  # confirmed
-            "ku_b": ZoneEvidence(ku_uid="ku_b", journal_application=True),  # thin — 1 signal
+            "ku_b": ZoneEvidence(ku_uid="ku_b", task_application=True),  # thin — 1 signal
         }
         actions = service._build_recommended_actions(
             proximal_zone=[],
