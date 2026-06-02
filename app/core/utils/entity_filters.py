@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
+
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
     from core.models.event.event import Event
@@ -19,6 +21,41 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
+
+
+# -- Shared status groupings --------------------------------------------------
+# Entity.status is always a canonical EntityStatus (set in __post_init__), so the
+# "active" tabs must group by enum members — never by alias spellings. The old
+# code compared `status.value` against strings like "in_progress"/"ready"/
+# "not_started", which are *alias* inputs (resolved to canonical values by
+# EntityStatus.from_string at ingest) and therefore could never match a stored
+# value — silently dead branches. These sets encode the intended grouping using
+# the canonical members those aliases resolve to (ready/planned -> SCHEDULED,
+# in_progress -> ACTIVE, not_started/pending/todo -> DRAFT).
+
+_TASK_ACTIVE_STATUSES = frozenset(
+    {
+        EntityStatus.ACTIVE,
+        EntityStatus.SCHEDULED,
+        EntityStatus.DRAFT,
+        EntityStatus.BLOCKED,
+    }
+)
+
+_GOAL_ACTIVE_STATUSES = frozenset(
+    {
+        EntityStatus.ACTIVE,
+        EntityStatus.SCHEDULED,
+        EntityStatus.DRAFT,
+    }
+)
+
+_HABIT_ACTIVE_STATUSES = frozenset(
+    {
+        EntityStatus.ACTIVE,
+        EntityStatus.SCHEDULED,
+    }
+)
 
 
 # -- Shared sort constants ----------------------------------------------------
@@ -65,14 +102,9 @@ def filter_tasks(
     filtered = list(tasks)
 
     if status_filter == "active":
-        filtered = [
-            t
-            for t in filtered
-            if not t.status
-            or t.status.value in ("active", "in_progress", "ready", "draft", "blocked")
-        ]
+        filtered = [t for t in filtered if not t.status or t.status in _TASK_ACTIVE_STATUSES]
     elif status_filter == "completed":
-        filtered = [t for t in filtered if t.status and t.status.value == "completed"]
+        filtered = [t for t in filtered if t.status == EntityStatus.COMPLETED]
     elif status_filter == "overdue":
         filtered = [t for t in filtered if t.is_overdue()]
 
@@ -121,11 +153,7 @@ def filter_goals(
     filtered = list(goals)
 
     if status_filter == "active":
-        filtered = [
-            g
-            for g in filtered
-            if not g.status or g.status.value in ("active", "in_progress", "not_started", "ready")
-        ]
+        filtered = [g for g in filtered if not g.status or g.status in _GOAL_ACTIVE_STATUSES]
     elif status_filter == "completed":
         filtered = [g for g in filtered if g.is_completed]
     elif status_filter == "on_track":
@@ -160,15 +188,11 @@ def filter_habits(
     filtered = list(habits)
 
     if status_filter == "active":
-        filtered = [
-            h
-            for h in filtered
-            if not h.status or h.status.value in ("active", "in_progress", "ready")
-        ]
+        filtered = [h for h in filtered if not h.status or h.status in _HABIT_ACTIVE_STATUSES]
     elif status_filter == "paused":
-        filtered = [h for h in filtered if h.status and h.status.value == "paused"]
+        filtered = [h for h in filtered if h.status == EntityStatus.PAUSED]
     elif status_filter == "completed":
-        filtered = [h for h in filtered if h.status and h.status.value == "completed"]
+        filtered = [h for h in filtered if h.status == EntityStatus.COMPLETED]
     elif status_filter == "keystone":
         filtered = [h for h in filtered if h.is_keystone]
 
@@ -214,7 +238,7 @@ def filter_events(
     elif status_filter == "today":
         filtered = [e for e in filtered if e.is_today()]
     elif status_filter == "completed":
-        filtered = [e for e in filtered if e.status and e.status.value == "completed"]
+        filtered = [e for e in filtered if e.status == EntityStatus.COMPLETED]
 
     def by_date(e: Any) -> str:
         return str(e.event_date or "9999-12-31")
@@ -249,15 +273,9 @@ def filter_choices(
     filtered = list(choices)
 
     if status_filter == "pending":
-        filtered = [
-            c
-            for c in filtered
-            if not c.decided_at and not (c.status and c.status.value == "completed")
-        ]
+        filtered = [c for c in filtered if not c.decided_at and c.status != EntityStatus.COMPLETED]
     elif status_filter == "decided":
-        filtered = [
-            c for c in filtered if c.decided_at or (c.status and c.status.value == "completed")
-        ]
+        filtered = [c for c in filtered if c.decided_at or c.status == EntityStatus.COMPLETED]
 
     def by_deadline(c: Any) -> str:
         return str(c.decision_deadline or "9999-12-31")[:10]
