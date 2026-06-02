@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import EntityStatus, Priority
+from core.models.relationship_names import RelationshipName
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Errors, Result
@@ -327,6 +328,11 @@ class TestUncompleteTask:
 
 
 class TestUpdateTaskKnowledgeEdges:
+    @staticmethod
+    def _knowledge_edge(task_uid: str, ku_uid: str) -> tuple[str, str, str, None]:
+        """The (from, to, rel_type, props) tuple the create-batch path expects."""
+        return (task_uid, ku_uid, RelationshipName.APPLIES_KNOWLEDGE.value, None)
+
     @pytest.mark.asyncio
     async def test_relationship_only_update_syncs_edges_without_property_write(
         self, tasks_service_with_mocked_subservices: TasksService
@@ -341,7 +347,7 @@ class TestUpdateTaskKnowledgeEdges:
         service.core.update_task = AsyncMock()
         service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["ku_old"]))
         service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
 
         result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
 
@@ -349,12 +355,12 @@ class TestUpdateTaskKnowledgeEdges:
         # No node properties remained → property-write path skipped, entity fetched.
         service.core.update_task.assert_not_called()
         service.core.get_task.assert_awaited_once_with("task_abc")
-        # Old knowledge edge removed, new one created.
+        # Old knowledge edge removed, new one created via the proven batch path.
         service.relationships.delete_relationship.assert_awaited_once_with(
             "knowledge", "task_abc", "ku_old"
         )
-        service.relationships.create_relationship.assert_awaited_once_with(
-            "knowledge", "task_abc", "ku_new"
+        service.backend.create_relationships_batch.assert_awaited_once_with(
+            [self._knowledge_edge("task_abc", "ku_new")]
         )
 
     @pytest.mark.asyncio
@@ -366,7 +372,7 @@ class TestUpdateTaskKnowledgeEdges:
         service.core.update_task = AsyncMock(return_value=Result.ok(Mock()))
         service.core.get_task = AsyncMock()
         service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
-        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
 
         result = await service.update_task(
             "task_abc", {"title": "New", "applies_knowledge_uids": ["ku_x"]}
@@ -376,28 +382,28 @@ class TestUpdateTaskKnowledgeEdges:
         # Knowledge key is popped — only the real property reaches core.update_task.
         service.core.update_task.assert_awaited_once_with("task_abc", {"title": "New"})
         service.core.get_task.assert_not_called()
-        service.relationships.create_relationship.assert_awaited_once_with(
-            "knowledge", "task_abc", "ku_x"
+        service.backend.create_relationships_batch.assert_awaited_once_with(
+            [self._knowledge_edge("task_abc", "ku_x")]
         )
 
     @pytest.mark.asyncio
     async def test_empty_knowledge_list_clears_edges(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
-        """An empty applies_knowledge_uids list clears all knowledge edges."""
+        """An empty applies_knowledge_uids list clears all knowledge edges, creates none."""
         service = tasks_service_with_mocked_subservices
         service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
         service.relationships.get_related_uids = AsyncMock(
             return_value=Result.ok(["ku_old1", "ku_old2"])
         )
         service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        service.relationships.create_relationship = AsyncMock()
+        service.backend.create_relationships_batch = AsyncMock()
 
         result = await service.update_task("task_abc", {"applies_knowledge_uids": []})
 
         assert result.is_ok
         assert service.relationships.delete_relationship.await_count == 2
-        service.relationships.create_relationship.assert_not_called()
+        service.backend.create_relationships_batch.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_api_update_path_syncs_edges(
@@ -411,13 +417,13 @@ class TestUpdateTaskKnowledgeEdges:
         service = tasks_service_with_mocked_subservices
         service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
         service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
-        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
 
         result = await service.update("task_abc", {"applies_knowledge_uids": ["ku_new"]})
 
         assert result.is_ok
-        service.relationships.create_relationship.assert_awaited_once_with(
-            "knowledge", "task_abc", "ku_new"
+        service.backend.create_relationships_batch.assert_awaited_once_with(
+            [self._knowledge_edge("task_abc", "ku_new")]
         )
 
     @pytest.mark.asyncio
@@ -429,7 +435,7 @@ class TestUpdateTaskKnowledgeEdges:
         service.verify_ownership = AsyncMock(return_value=Result.ok(Mock()))
         service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["ku_old"]))
         service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
 
         result = await service.update_for_user(
             "task_abc", {"applies_knowledge_uids": ["ku_new"]}, "user_x"
@@ -440,8 +446,8 @@ class TestUpdateTaskKnowledgeEdges:
         service.relationships.delete_relationship.assert_awaited_once_with(
             "knowledge", "task_abc", "ku_old"
         )
-        service.relationships.create_relationship.assert_awaited_once_with(
-            "knowledge", "task_abc", "ku_new"
+        service.backend.create_relationships_batch.assert_awaited_once_with(
+            [self._knowledge_edge("task_abc", "ku_new")]
         )
 
     @pytest.mark.asyncio
@@ -458,13 +464,13 @@ class TestUpdateTaskKnowledgeEdges:
                 Errors.database(message="transient Neo4j error", operation="delete_relationship")
             )
         )
-        service.relationships.create_relationship = AsyncMock()
+        service.backend.create_relationships_batch = AsyncMock()
 
         result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
 
         assert result.is_error
         # New edge must NOT be created when stale-edge removal failed.
-        service.relationships.create_relationship.assert_not_called()
+        service.backend.create_relationships_batch.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_edge_only_update_publishes_invalidation_event(
@@ -475,7 +481,7 @@ class TestUpdateTaskKnowledgeEdges:
         service = tasks_service_with_mocked_subservices
         service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
         service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
-        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
         service._publish_edge_only_update = AsyncMock()
 
         result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
@@ -492,7 +498,7 @@ class TestUpdateTaskKnowledgeEdges:
         service = tasks_service_with_mocked_subservices
         service.core.update_task = AsyncMock(return_value=Result.ok(Mock()))
         service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
-        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
         service._publish_edge_only_update = AsyncMock()
 
         result = await service.update_task(

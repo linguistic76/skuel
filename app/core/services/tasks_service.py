@@ -35,8 +35,10 @@ if TYPE_CHECKING:
 # Domain models
 from core.events import TaskUpdated, publish_event
 from core.models.enums import EntityStatus
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.type_hints import Neo4jProperties
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 
 # Base service
@@ -441,6 +443,11 @@ class TasksService(
         # stale edges attached while still creating new ones and returning success —
         # so cleared/replaced knowledge would keep affecting detectors and graph
         # queries. Fail the whole sync on any fetch or delete error.
+        #
+        # New edges go through backend.create_relationships_batch (the same proven path
+        # the create flow uses) with explicit RelationshipName values — NOT
+        # UnifiedRelationshipService.create_relationship, whose dynamic
+        # `link_task_to_<key>` backend method does not exist for tasks.
         if habit_uid is not None:
             # (Task)-[:REINFORCES_HABIT]->(Habit): replace any existing reinforced habit.
             existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
@@ -453,9 +460,12 @@ class TasksService(
                 if deleted.is_error:
                     return Result.fail(deleted)
             if habit_uid:  # non-empty → create the new edge (empty string = cleared)
-                edge = await self.relationships.create_relationship("habits", task_uid, habit_uid)
-                if edge.is_error:
-                    return Result.fail(edge)
+                edges: list[tuple[str, str, str, Neo4jProperties | None]] = [
+                    (task_uid, habit_uid, RelationshipName.REINFORCES_HABIT.value, None)
+                ]
+                batch = await self.backend.create_relationships_batch(edges)
+                if batch.is_error:
+                    return Result.fail(batch)
 
         if applies_knowledge_uids is not None:
             # (Task)-[:APPLIES_KNOWLEDGE]->(Ku): replace the full applied-knowledge set.
@@ -471,10 +481,14 @@ class TasksService(
                 )
                 if deleted.is_error:
                     return Result.fail(deleted)
-            for ku_uid in applies_knowledge_uids:
-                edge = await self.relationships.create_relationship("knowledge", task_uid, ku_uid)
-                if edge.is_error:
-                    return Result.fail(edge)
+            if applies_knowledge_uids:
+                ku_edges: list[tuple[str, str, str, Neo4jProperties | None]] = [
+                    (task_uid, ku_uid, RelationshipName.APPLIES_KNOWLEDGE.value, None)
+                    for ku_uid in applies_knowledge_uids
+                ]
+                batch = await self.backend.create_relationships_batch(ku_edges)
+                if batch.is_error:
+                    return Result.fail(batch)
         return Result.ok(None)
 
     async def _publish_edge_only_update(
