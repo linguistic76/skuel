@@ -214,6 +214,21 @@ class TestTasksCRUD:
         assert result.value.uid == "task:test_1"
 ```
 
+### Guard tests: where mocks are blind
+
+A mocked backend (`AsyncMock`) resolves **any** attribute, so it returns success for a
+backend method that does not exist — hiding missing-method bugs (e.g. a service calling
+`getattr(backend, "link_task_to_<key>")`). Round-trip behaviour against a **real Neo4j**
+is the only thing that catches this class of bug. When you fix one:
+
+1. Write the guard as an **integration** test that creates the edge/row and reads it
+   back (e.g. `backend.get_relationships(rel_type=...)`), not a mock assertion.
+2. **Prove it fails first** — temporarily restore the broken code and confirm the test
+   goes red, then revert. A regression test never shown to fail against the bug is
+   theatre.
+
+See `tests/integration/test_task_dependency_edge_roundtrip.py` for a worked example.
+
 ## SKUEL-Specific Patterns
 
 ### Testing with Ownership
