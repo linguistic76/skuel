@@ -106,7 +106,7 @@ from core.models.context_types import (
 | 8 | PS | `UnifiedRelationshipService` | `self.ps` |
 | 9 | LP | `UnifiedRelationshipService` | `self.lp` |
 | **Processing (3)** |
-| 10 | Submissions | `SubmissionsRelationshipService` | `self.submissions` |
+| 10 | User Entries | `UserEntryRelationshipService` | `self.user_entries` |
 | 11 | Report | `ReportRelationshipService` | `self.report` |
 | 12 | Analytics | `AnalyticsRelationshipService` | `self.analytics` |
 | **Temporal (1)** |
@@ -330,7 +330,7 @@ class UserContextIntelligenceFactory:
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
         # Processing (3)
-        submissions: SubmissionsRelationshipService,
+        user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)

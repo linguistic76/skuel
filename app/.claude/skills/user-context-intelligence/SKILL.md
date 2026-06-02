@@ -252,7 +252,7 @@ UserContextIntelligence (Level 1)
 └── ScheduleIntelligenceMixin     → Pure Cypher: calendar + capacity scoring
 ```
 
-All 12 required services are Level 1. `SubmissionsRelationshipService`, `ReportRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
+All 12 required services are Level 1. `UserEntryRelationshipService`, `ReportRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
 
 ### Level 2 — AI Enhancement (Optional)
 
@@ -267,7 +267,7 @@ tasks_ai_service.py            ← Level 2: BaseAIService (optional, requires LL
 
 ### Why the Processing Domains Are Wired But Not Called
 
-`self.submissions`, `self.report`, and `self.analytics` are Level 1 services stored on the instance. The mixin methods that CALL them have not been written yet — the architecture is established, the implementation is next.
+`self.user_entries`, `self.report`, and `self.analytics` are Level 1 services stored on the instance. The mixin methods that CALL them have not been written yet — the architecture is established, the implementation is next.
 
 This is by design. The slot reservation ensures future implementation is a fill-in, not a redesign.
 
@@ -348,7 +348,7 @@ async def get_ready_to_work_on_today(
     - Submissions Domain (1): self.report — Priority 2.5: unsubmitted exercises
 
     Processing Domains (2): wired, not yet called
-    - self.submissions: cross-domain submission state (planned)
+    - self.user_entries: cross-domain submission state (planned)
     - self.analytics: cross-domain pattern scoring (planned)
 
     Respects:
