@@ -9,11 +9,8 @@ Pipeline:
 Submit (voice or text) → Extract (transcribe if audio) → Enrich (LLM + instructions)
 
 The power comes from Neo4j context awareness:
-- Recent entries, active goals, habits, tasks
-- UserContext for personalized editing
+- Active goals for personalized, goal-aware editing
 - Processing instructions stored as Exercise Entity nodes in Neo4j
-
-Renamed from ContentEnrichmentService to ContentEnrichmentService
 """
 
 from dataclasses import asdict
@@ -33,7 +30,6 @@ from core.services.content_enrichment.types import (
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import parse_neo4j_json
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -124,7 +120,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         - SubmissionsRelationshipService creates graph relationships
 
         Steps:
-        1. Pull relevant context from Neo4j (UserContext, recent journals, goals, tasks)
+        1. Pull active-goal context from Neo4j
         2. Load formatting instructions (from Neo4j markdown)
         3. Apply AI-powered editing with context awareness
         4. Return formatted insights (NO entity creation)
@@ -225,24 +221,18 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         self, user_uid: UserUID
     ) -> Result[EnrichmentContext]:
         """
-        Get comprehensive context for intelligent journal processing.
+        Get active-goal context for intelligent transcript processing.
 
-        Step 3 Implementation (November 2025): Single Query Context Retrieval
-        UPDATED (January 2026): Queries Report nodes instead of Journal nodes
-
-        This single Cypher query replaces multiple separate queries, gathering:
-        - Recent journal-type reports (last 7 days)
-        - Active goals for progress tracking
-        - Trending topics (last 30 days) for thematic continuity
-        - Recent mood averages for emotional awareness
-
-        Queries Entity nodes with entity_type="exercise_submission".
+        ADR-054 dismantled the rich-journal model (mood/energy_level/key_topics/
+        entry_date were dropped from UserEntry), so the former recent-journal,
+        trending-topic, and mood-trend signals read gone properties and were
+        removed. Active goals are the only live enrichment context.
 
         Args:
             user_uid: User identifier
 
         Returns:
-            Result containing EnrichmentContext with all contextual data
+            Result containing EnrichmentContext with active-goal context
         """
         query_result = await self.backend.get_journal_processing_context(user_uid)  # type: ignore[attr-defined]
 
@@ -250,41 +240,8 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             return Result.fail(query_result)
 
         records = query_result.value or []
-        if not records:
-            # No data found - return empty context
-            return Result.ok(
-                EnrichmentContext(
-                    user_uid=user_uid,
-                    gathered_at=datetime.now().isoformat(),
-                    recent_journals=[],
-                    active_goals=[],
-                    recent_topics=[],
-                    mood_trends=None,
-                )
-            )
+        context_data = records[0]["context"] if records else {}
 
-        record = records[0]
-        context_data = record["context"]
-
-        # Process recent journals
-        recent_journals_list = []
-        for j in context_data.get("recent_entries", []):
-            if j and j.get("uid"):
-                key_topics = parse_neo4j_json(j.get("key_topics"), default=[])
-
-                recent_journals_list.append(
-                    {
-                        "uid": j["uid"],
-                        "title": j.get("title", ""),
-                        "content_excerpt": j.get("content", "")[:200] if j.get("content") else "",
-                        "date": j.get("entry_date", ""),
-                        "mood": j.get("mood") or "not specified",
-                        "energy_level": j.get("energy_level") or 0,
-                        "key_topics": key_topics,
-                    }
-                )
-
-        # Process active goals
         active_goals_list = [
             {
                 "uid": g["uid"],
@@ -295,83 +252,27 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             if g and g.get("uid")
         ]
 
-        # Process topics - aggregate and count
-        from collections import Counter
-
-        all_topics = []
-        for topics_json in context_data.get("all_topics_json", []):
-            topics = parse_neo4j_json(topics_json, default=[])
-            if isinstance(topics, list):
-                all_topics.extend(topics)
-
-        # Get top 10 trending topics
-        topic_counts = Counter(all_topics)
-        trending_topics = [topic for topic, count in topic_counts.most_common(10)]
-
-        # Build mood trends
-        avg_energy = context_data.get("recent_mood_avg", 0.0)
-        data_points = context_data.get("data_points", 0)
-
-        # Simple trend detection (comparing first half vs second half of recent journals)
-        trend = "stable"
-        if len(recent_journals_list) >= 4:
-            mid_point = len(recent_journals_list) // 2
-            recent_half = [
-                j["energy_level"] for j in recent_journals_list[:mid_point] if j["energy_level"]
-            ]
-            older_half = [
-                j["energy_level"] for j in recent_journals_list[mid_point:] if j["energy_level"]
-            ]
-
-            if recent_half and older_half:
-                recent_avg = sum(recent_half) / len(recent_half)
-                older_avg = sum(older_half) / len(older_half)
-
-                if recent_avg > older_avg + 1:
-                    trend = "improving"
-                elif recent_avg < older_avg - 1:
-                    trend = "declining"
-
-        mood_trends = {
-            "average_energy": round(avg_energy, 1),
-            "recent_moods": [
-                j["mood"]
-                for j in recent_journals_list[:5]
-                if j["mood"] and j["mood"] != "not specified"
-            ],
-            "trend": trend,
-            "data_points": data_points,
-        }
-
         return Result.ok(
             EnrichmentContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
-                recent_journals=recent_journals_list,
                 active_goals=active_goals_list,
-                recent_topics=trending_topics,
-                mood_trends=mood_trends,
             )
         )
 
     async def _gather_context(self, user_uid: UserUID) -> EnrichmentContext:
         """
-        Gather relevant context from Neo4j for intelligent editing.
+        Gather active-goal context from Neo4j for intelligent editing.
 
-        Step 3 Implementation (November 2025): Uses optimized single-query approach
-        via get_journal_context_for_processing() instead of multiple separate queries.
-
-        This is a convenience wrapper that returns EnrichmentContext directly (not Result[T])
-        for backward compatibility with existing code.
-
-        Legacy multi-query helpers (_get_recent_journals, etc.) are kept for
-        potential future use but no longer called by default.
+        Convenience wrapper that returns EnrichmentContext directly (not Result[T])
+        for the transcript-processing path, falling back to an empty context on
+        error so enrichment degrades gracefully.
 
         Args:
             user_uid: User identifier
 
         Returns:
-            Context dataclass for AI editing with enhanced intelligence
+            Context dataclass for AI editing
         """
         result = await self.get_journal_context_for_processing(user_uid)
 
@@ -381,159 +282,10 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             return EnrichmentContext(
                 user_uid=user_uid,
                 gathered_at=datetime.now().isoformat(),
-                recent_journals=[],
                 active_goals=[],
-                recent_topics=[],
-                mood_trends=None,
             )
 
         return result.value
-
-    async def _get_recent_journals(self, user_uid: UserUID, days: int = 7) -> list[dict[str, str]]:
-        """
-        Get recent journal entries for context awareness.
-
-        Updated February 2026: Queries Entity nodes with entity_type="submission".
-
-        Args:
-            user_uid: User identifier
-            days: Number of days to look back (default: 7)
-
-        Returns:
-            List of journal dictionaries with title, content excerpt, date, mood, topics
-        """
-        from datetime import timedelta
-
-        cutoff_datetime = datetime.now() - timedelta(days=days)
-
-        result = await self.backend.get_recent_journal_entries(  # type: ignore[attr-defined]
-            user_uid=user_uid, cutoff_datetime=cutoff_datetime.isoformat()
-        )
-
-        if result.is_error:
-            self.logger.warning(f"Failed to get recent journals: {result.error}")
-            return []
-
-        journals = []
-        for record in result.value or []:
-            # Parse key_topics from JSON string or list
-            key_topics = parse_neo4j_json(record["key_topics"], default=[])
-
-            journals.append(
-                {
-                    "uid": record["uid"],
-                    "title": record["title"] or "Untitled",
-                    "content_excerpt": record["content"][:200] if record["content"] else "",
-                    "date": str(record["entry_date"]) if record["entry_date"] else "",
-                    "mood": record["mood"] or "not specified",
-                    "energy_level": record["energy_level"] or 0,
-                    "key_topics": key_topics,
-                }
-            )
-
-        return journals
-
-    async def _get_active_goals(self, user_uid: UserUID) -> list[dict[str, str]]:
-        """
-        Get active goals for the user.
-
-        Args:
-            user_uid: User identifier
-
-        Returns:
-            List of goal dictionaries with title and description
-        """
-        result = await self.backend.get_active_goals_for_user(user_uid)  # type: ignore[attr-defined]
-
-        if result.is_error:
-            self.logger.warning(f"Failed to get active goals: {result.error}")
-            return []
-
-        return [
-            {
-                "uid": record["uid"],
-                "title": record["title"],
-                "description": record["description"] or "",
-            }
-            for record in result.value or []
-        ]
-
-    async def _get_recent_topics(self, user_uid: UserUID, days: int = 30) -> list[str]:
-        """
-        Extract recurring topics from recent journals.
-
-        Updated February 2026: Queries Entity nodes with entity_type="submission".
-
-        Args:
-            user_uid: User identifier
-            days: Number of days to look back (default: 30)
-
-        Returns:
-            List of unique topics sorted by frequency
-        """
-        from collections import Counter
-        from datetime import timedelta
-
-        cutoff_datetime = datetime.now() - timedelta(days=days)
-
-        result = await self.backend.get_recent_journal_topics(  # type: ignore[attr-defined]
-            user_uid=user_uid, cutoff_datetime=cutoff_datetime.isoformat()
-        )
-
-        if result.is_error:
-            self.logger.warning(f"Failed to get recent topics: {result.error}")
-            return []
-
-        # Aggregate all topics
-        all_topics = []
-        for record in result.value or []:
-            topics = parse_neo4j_json(record["key_topics"], default=[])
-            if isinstance(topics, list):
-                all_topics.extend(topics)
-
-        # Count frequency and return top 10
-        topic_counts = Counter(all_topics)
-        return [topic for topic, count in topic_counts.most_common(10)]
-
-    async def _summarize_mood_trends(self, journals: list[dict[str, str]]) -> dict[str, Any]:
-        """
-        Analyze mood patterns from recent journals.
-
-        Args:
-            journals: List of journal dictionaries with mood and energy data
-
-        Returns:
-            Dictionary with mood trend summary
-        """
-        if not journals:
-            return {"average_energy": 0, "recent_moods": [], "trend": "insufficient data"}
-
-        # Extract energy levels and moods (energy_level stored as numeric string)
-        energy_levels: list[int] = [int(j["energy_level"]) for j in journals if j["energy_level"]]
-        moods = [j["mood"] for j in journals if j["mood"] and j["mood"] != "not specified"]
-
-        avg_energy: float = sum(energy_levels) / len(energy_levels) if energy_levels else 0
-
-        # Simple trend detection
-        trend = "stable"
-        if len(energy_levels) >= 3:
-            recent_avg = sum(energy_levels[:3]) / 3
-            older_avg = (
-                sum(energy_levels[3:]) / len(energy_levels[3:])
-                if len(energy_levels) > 3
-                else recent_avg
-            )
-            if recent_avg > older_avg + 1:
-                trend = "improving"
-            elif recent_avg < older_avg - 1:
-                trend = "declining"
-
-        return {
-            "average_energy": round(avg_energy, 1),
-            "recent_moods": moods[:5],  # Last 5 moods
-            "trend": trend,
-            "data_points": len(journals),
-        }
 
     # ========================================================================
     # INSTRUCTION SET MANAGEMENT
@@ -751,7 +503,7 @@ Preserve the author's voice and authenticity while improving readability.
                     ]
                 )
 
-                # Active Goals
+                # Active Goals (the only live enrichment signal post-ADR-054)
                 self.logger.info("Processing active_goals context section")
                 if context.get("active_goals"):
                     prompt_parts.append("**Active Goals**:")
@@ -762,81 +514,8 @@ Preserve the author's voice and authenticity while improving readability.
                     )
                     prompt_parts.append("")
 
-                # Recent Topics (thematic continuity)
-                self.logger.info("Processing recent_topics context section")
-                if context.get("recent_topics"):
-                    topics_str = ", ".join(context["recent_topics"][:10])
-                    prompt_parts.append(f"**Recent Themes** (last 30 days): {topics_str}")
-                    prompt_parts.append("")
-
-                # Mood Trends
-                self.logger.info("Processing mood_trends context section")
-                if context.get("mood_trends"):
-                    trends = context["mood_trends"]
-                    if trends and isinstance(trends, dict):  # Defensive check
-                        prompt_parts.append("**Recent Mood Patterns**:")
-                        prompt_parts.append(
-                            f"  - Average Energy: {trends.get('average_energy', 0)}/10"
-                        )
-                        prompt_parts.append(f"  - Trend: {trends.get('trend', 'stable')}")
-                        if trends.get("recent_moods"):
-                            prompt_parts.append(
-                                f"  - Recent Moods: {', '.join(trends['recent_moods'][:3])}"
-                            )
-                        prompt_parts.append("")
-
-                # Recent Journals (for continuity)
-                self.logger.info("Processing recent_journals context section")
-                if context.get("recent_journals"):
-                    prompt_parts.append("**Recent Journal Themes** (last 7 days, for continuity):")
-                    for j in context["recent_journals"][:5]:
-                        if j and isinstance(j, dict):  # Defensive check
-                            mood_info = (
-                                f" (Mood: {j.get('mood', '')}, Energy: {j.get('energy_level', 0)}/10)"
-                                if j.get("mood")
-                                else ""
-                            )
-                            prompt_parts.append(
-                                f"  - {j.get('title', 'Untitled')}: {j.get('content_excerpt', '')[:80]}{mood_info}"
-                            )
-                            if j.get("key_topics"):
-                                topics = (
-                                    ", ".join(j["key_topics"][:3])
-                                    if isinstance(j["key_topics"], list)
-                                    else ""
-                                )
-                                if topics:
-                                    prompt_parts.append(f"    Topics: {topics}")
-                    prompt_parts.append("")
-
                 # Extraction guidance - with defensive None handling
                 self.logger.info("Building extraction guidance")
-                try:
-                    recent_themes = (
-                        ", ".join(context.get("recent_topics", [])[:5])
-                        if context.get("recent_topics")
-                        else "none"
-                    )
-                except (TypeError, AttributeError, KeyError) as e:
-                    self.logger.error(
-                        f"Error building recent_themes: {e}, context.get('recent_topics') = {context.get('recent_topics')}"
-                    )
-                    recent_themes = "none"
-
-                mood_trends_data: Any = {}
-                try:
-                    mood_trends_data = context.get("mood_trends") or {}
-                    trend_text = (
-                        mood_trends_data.get("trend", "stable")
-                        if isinstance(mood_trends_data, dict)
-                        else "stable"
-                    )
-                except (TypeError, AttributeError, KeyError) as e:
-                    self.logger.error(
-                        f"Error building trend_text: {e}, mood_trends_data = {mood_trends_data}"
-                    )
-                    trend_text = "stable"
-
                 active_goals_list: Any = []
                 try:
                     active_goals_list = context.get("active_goals", []) or []
@@ -856,12 +535,10 @@ Preserve the author's voice and authenticity while improving readability.
                 prompt_parts.extend(
                     [
                         "**Extract from this transcript**:",
-                        f"1. **Key topics** (connecting to recent themes: {recent_themes})",
-                        f"2. **Mood and energy level** (context: recent trend is {trend_text})",
-                        "3. **Knowledge applications** (which concepts are being used/practiced?)",
-                        f"4. **Goal progress** (which goals mentioned: {goal_titles if goal_titles else 'none'})",
-                        "5. **Action items** (specific next steps mentioned)",
-                        "6. **Connections to previous entries** (themes, emotions, topics)",
+                        "1. **Key topics** (main subjects discussed)",
+                        "2. **Knowledge applications** (which concepts are being used/practiced?)",
+                        f"3. **Goal progress** (which goals mentioned: {goal_titles if goal_titles else 'none'})",
+                        "4. **Action items** (specific next steps mentioned)",
                         "",
                     ]
                 )

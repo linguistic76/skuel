@@ -9,21 +9,23 @@ no longer coupled to the legacy Submission naming.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
 class EnrichmentContext:
-    """Neo4j-gathered context consumed by ContentEnrichmentService."""
+    """Neo4j-gathered context consumed by ContentEnrichmentService.
+
+    Active goals are the only live enrichment signal: ADR-054 dismantled the
+    rich-journal model (``mood``/``energy_level``/``key_topics``/``entry_date``
+    were dropped from ``UserEntry``), so the former recent-journals, topic, and
+    mood-trend fields read gone properties and have been removed.
+    """
 
     user_uid: UserUID
     gathered_at: str
-    recent_journals: list[dict[str, str]] = field(default_factory=list)
     active_goals: list[dict[str, str]] = field(default_factory=list)
-    recent_topics: list[str] = field(default_factory=list)
-    mood_trends: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
