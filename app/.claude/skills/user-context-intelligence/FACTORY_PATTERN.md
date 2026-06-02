@@ -78,7 +78,7 @@ class UserContextIntelligenceFactory:
         ku: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
         # Processing (3)
-        submissions: SubmissionsRelationshipService,
+        user_entries: UserEntryRelationshipService,
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
