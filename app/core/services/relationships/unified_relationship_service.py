@@ -48,7 +48,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
-from core.models.relationship_registry import DomainRelationshipConfig
+from core.models.relationship_registry import (
+    DomainRelationshipConfig,
+    UnifiedRelationshipDefinition,
+)
 from core.models.type_hints import EntityUID
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
@@ -391,21 +394,23 @@ class UnifiedRelationshipService[
         properties: dict[str, Any] | None = None,
     ) -> Result[bool]:
         """
-        Create a relationship between entities.
+        Create a single relationship edge between entities.
 
-        This generic method replaces domain-specific methods like:
-        - link_task_to_knowledge()
-        - link_goal_to_habit()
-        - link_habit_to_principle()
+        Routes through the proven ``backend.create_relationships_batch`` path (the same
+        one create-flows and ``create_relationships_batch`` use), with the edge type
+        taken from the registry ``spec`` for ``relationship_key``. This replaced a
+        dynamic ``link_{domain}_to_{key}`` backend-method dispatch that existed only for
+        two habit cases and failed at runtime ("Backend method not found") for every
+        other domain — see ``/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md``.
 
         Args:
             relationship_key: Key from config
             from_uid: Source entity UID
             to_uid: Target entity UID
-            properties: Optional relationship properties
+            properties: Optional edge properties (persisted on the relationship)
 
         Returns:
-            Result[bool] indicating success
+            Result[bool] — True when the edge was created.
         """
         spec = self.config.get_relationship_by_method(relationship_key)
         if not spec:
@@ -415,13 +420,40 @@ class UnifiedRelationshipService[
                 )
             )
 
-        return await self.relationship_helper.create_relationship(
-            backend_method=f"link_{self.config.domain.value.rstrip('s')}_to_{relationship_key}",
-            from_uid=from_uid,
-            to_uid=to_uid,
-            relationship_label=spec.relationship.value,
-            properties=properties,
+        result = await self.backend.create_relationships_batch(
+            [self._orient_edge(spec, from_uid, to_uid, properties)]
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value > 0)
+
+    @staticmethod
+    def _orient(spec: UnifiedRelationshipDefinition, from_uid: str, to_uid: str) -> tuple[str, str]:
+        """Orient ``(owner, related)`` → ``(edge_from, edge_to)`` per the registry direction.
+
+        ``from_uid`` is the entity that owns this domain config, ``to_uid`` the related
+        entity. The registry read paths are direction-aware, so an ``incoming`` spec
+        (stored related→owner, e.g. goals ``supporting_habits`` =
+        ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``) must have its endpoints swapped — on write
+        AND on delete — otherwise the edge is created/matched backwards and the
+        direction-aware reader never sees it. Shared by create_relationship,
+        create_relationships_batch, and delete_relationship so all three agree.
+        """
+        if spec.direction == "incoming":
+            return (to_uid, from_uid)
+        return (from_uid, to_uid)
+
+    @classmethod
+    def _orient_edge(
+        cls,
+        spec: UnifiedRelationshipDefinition,
+        from_uid: str,
+        to_uid: str,
+        properties: dict[str, Any] | None,
+    ) -> tuple[str, str, str, dict[str, Any] | None]:
+        """``_orient`` plus the relationship type and properties, as a batch edge tuple."""
+        edge_from, edge_to = cls._orient(spec, from_uid, to_uid)
+        return (edge_from, edge_to, spec.relationship.value, properties)
 
     async def delete_relationship(
         self,
@@ -448,9 +480,10 @@ class UnifiedRelationshipService[
                 )
             )
 
+        edge_from, edge_to = self._orient(spec, from_uid, to_uid)
         return await self.backend.delete_relationship(
-            from_uid=from_uid,
-            to_uid=to_uid,
+            from_uid=edge_from,
+            to_uid=edge_to,
             relationship_type=spec.relationship,
         )
 
@@ -485,9 +518,10 @@ class UnifiedRelationshipService[
                 self.logger.warning(f"Unknown relationship key '{relationship_key}', skipping")
                 continue
 
-            # Use batch creation via backend - build relationships list
+            # Use batch creation via backend — orient each edge per the registry
+            # direction so incoming specs are not written backwards (see _orient_edge).
             relationships_batch = [
-                (entity_uid, uid, spec.relationship.value, None) for uid in target_uids
+                self._orient_edge(spec, entity_uid, uid, None) for uid in target_uids
             ]
             result = await self.backend.create_relationships_batch(relationships_batch)
 
