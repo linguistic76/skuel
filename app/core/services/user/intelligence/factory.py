@@ -16,7 +16,7 @@ UserContextIntelligence instances when given a UserContext.
 **Entity Types:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
 - Curriculum Domains (2): ps, lp
-- Processing Domains (3): submissions, report, analytics
+- Processing Domains (3): user_entries, report, analytics
 - Temporal Domain (1): calendar
 
 **Usage:**
@@ -70,7 +70,7 @@ class UserContextIntelligenceFactory:
     **Entity Types:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
     - Curriculum Domains (2): ps, lp
-    - Processing Domains (3): submissions, report, analytics
+    - Processing Domains (3): user_entries, report, analytics
     - Temporal Domain (1): calendar
 
     **Usage:**

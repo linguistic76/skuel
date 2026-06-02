@@ -157,7 +157,7 @@ class UserContextIntelligence(
                 lp: Learning path service for critical path analysis
 
             Processing Domains (3):
-                submissions: Submission relationship service (student work + journals)
+                user_entries: UserEntry relationship service (student work + journals)
                 report: Report relationship service (pending submissions, completion rate)
                 analytics: Analytics relationship service (cross-domain)
 
