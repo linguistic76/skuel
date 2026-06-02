@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-03-01
+updated: 2026-06-02
 category: patterns
 related_skills:
 - base-analytics-service
@@ -262,24 +262,40 @@ entities = await service.get_related_entities("knowledge", "task:123")
 ### Relationship Creation (6 methods)
 
 ```python
-# Create single relationship
-await service.create_relationship(
-    "task:123",
-    "knowledge",
-    "ku:python-basics",
-    properties={"confidence": 0.9}
-)
-
-# Batch create
+# Batch create — canonical, every-domain-safe. Signature is
+# (entity_uid, {relationship_key: [target_uids]}). Each key's targets go through
+# one validated backend.create_relationships_batch (atomic per key). NOTE: a
+# multi-key call iterates keys, so it is NOT all-or-nothing across keys — a
+# per-key failure is skipped, not rolled back. Use one key for atomic semantics.
 await service.create_relationships_batch(
-    "task:123",
-    "knowledge",
-    ["ku:py", "ku:js", "ku:sql"]
+    EntityUID("task:123"),
+    {"knowledge": ["ku:py", "ku:js", "ku:sql"]},
 )
 
 # Delete relationship
 await service.delete_relationship("task:123", "knowledge", "ku:py")
 ```
+
+> **⚠️ Do NOT use the single `create_relationship(key, from_uid, to_uid, properties)` —
+> it is broken for tasks and most domains.** It dynamically dispatches to a
+> `link_{domain}_to_{key}` *backend* method (e.g. `link_task_to_knowledge`), and those
+> methods exist only for two habit cases (`link_habit_to_knowledge`,
+> `link_habit_to_principle`). For tasks — and nearly every other domain/key — no such
+> backend method exists, so the call fails at runtime with "Backend method not found".
+> A mocked backend resolves any attribute, so this survives unit tests; only a
+> real-Neo4j round-trip (or reading into the `getattr`) catches it.
+>
+> **Create a single edge through the proven backend batch path instead:**
+> ```python
+> await backend.create_relationships_batch(
+>     [(from_uid, to_uid, RelationshipName.DEPENDS_ON.value, properties)]
+> )
+> ```
+> This is exactly what `TasksService.create_task_dependency` does — `DEPENDS_ON` has no
+> typed `link_to_*` method (see *Typed Link Methods* below for the ones that do). After an
+> edge-only mutation, publish the domain's `*Updated` event (e.g. `TaskUpdated`) so
+> `UnifiedUserContext` caches invalidate.
+> See `/docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md`.
 
 ### Domain Relationships (3 methods)
 
