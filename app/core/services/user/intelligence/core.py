@@ -85,7 +85,7 @@ class UserContextIntelligence(
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
     Processing Domains (3):
-    - submissions: SubmissionsRelationshipService - Student submissions + journals
+    - user_entries: UserEntryRelationshipService - Student submissions + journals
     - feedback: ReportRelationshipService - Report loop graph queries
     - analytics: AnalyticsRelationshipOperations - Cross-domain analytics
 

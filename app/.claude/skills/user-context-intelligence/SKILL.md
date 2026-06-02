@@ -90,7 +90,7 @@ UserContextIntelligence = UserContext + 12 Domain Services
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
-| Submissions | `self.submissions` | Student work relationship graph — FOLLOWS, RELATED_TO, SUPPORTS_GOAL (`SubmissionsRelationshipService`) |
+| User Entries | `self.user_entries` | Student work relationship graph — FOLLOWS, RELATED_TO, SUPPORTS_GOAL (`UserEntryRelationshipService`) |
 | Report | `self.report` | Report loop graph queries — pending submissions, completion rate (`ReportRelationshipService`) |
 | Analytics | `self.analytics` | Cross-domain analytics (`AnalyticsRelationshipService`) |
 
@@ -98,7 +98,7 @@ UserContextIntelligence = UserContext + 12 Domain Services
 >
 > | Service | Status |
 > |---------|--------|
-> | `self.submissions` | Wired, not called (cross-domain submission state planned) |
+> | `self.user_entries` | Wired, not called (cross-domain submission state planned) |
 > | `self.analytics` | Wired, not called (cross-domain pattern queries planned) |
 > | `self.report` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5) and `context.pending_revised_exercises` (Priority 2.3). Daily planning reads both fields directly. |
 

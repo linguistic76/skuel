@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
+
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
     from core.models.event.event import Event
@@ -19,6 +21,29 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
+
+
+# -- Shared status groupings --------------------------------------------------
+# Entity.status is always a canonical EntityStatus (set in __post_init__), so
+# status grouping must compare enum members, never raw strings. The previous code
+# compared `status.value` against alias spellings ("in_progress", "ready",
+# "not_started") that EntityStatus.from_string normalizes away at ingest — so
+# those branches never matched a stored value and were dead.
+#
+# This migration is behavior-preserving: each set is exactly the canonical members
+# the old string list *actually matched*, not the (wider) set the dead aliases
+# would have implied. Activating those aliases — e.g. folding SCHEDULED into
+# "active" — would desync these tabs from each domain's own "active" semantics
+# (compute_habit_stats and Habit.should_do_today gate strictly on ACTIVE), so any
+# such widening is a deliberate cross-domain decision, not part of this refactor.
+
+_TASK_ACTIVE_STATUSES = frozenset(
+    {
+        EntityStatus.ACTIVE,
+        EntityStatus.DRAFT,
+        EntityStatus.BLOCKED,
+    }
+)
 
 
 # -- Shared sort constants ----------------------------------------------------
@@ -65,14 +90,9 @@ def filter_tasks(
     filtered = list(tasks)
 
     if status_filter == "active":
-        filtered = [
-            t
-            for t in filtered
-            if not t.status
-            or t.status.value in ("active", "in_progress", "ready", "draft", "blocked")
-        ]
+        filtered = [t for t in filtered if not t.status or t.status in _TASK_ACTIVE_STATUSES]
     elif status_filter == "completed":
-        filtered = [t for t in filtered if t.status and t.status.value == "completed"]
+        filtered = [t for t in filtered if t.status == EntityStatus.COMPLETED]
     elif status_filter == "overdue":
         filtered = [t for t in filtered if t.is_overdue()]
 
@@ -121,11 +141,11 @@ def filter_goals(
     filtered = list(goals)
 
     if status_filter == "active":
-        filtered = [
-            g
-            for g in filtered
-            if not g.status or g.status.value in ("active", "in_progress", "not_started", "ready")
-        ]
+        # ACTIVE only is correct: GoalsCoreService.create_goal forces status=ACTIVE
+        # (overriding the DRAFT default) so new goals land here, and goal stats /
+        # tabs treat ACTIVE as the open state. DRAFT/SCHEDULED are not goal states
+        # reached in practice, so widening this set would only desync the tab.
+        filtered = [g for g in filtered if not g.status or g.status == EntityStatus.ACTIVE]
     elif status_filter == "completed":
         filtered = [g for g in filtered if g.is_completed]
     elif status_filter == "on_track":
@@ -160,15 +180,11 @@ def filter_habits(
     filtered = list(habits)
 
     if status_filter == "active":
-        filtered = [
-            h
-            for h in filtered
-            if not h.status or h.status.value in ("active", "in_progress", "ready")
-        ]
+        filtered = [h for h in filtered if not h.status or h.status == EntityStatus.ACTIVE]
     elif status_filter == "paused":
-        filtered = [h for h in filtered if h.status and h.status.value == "paused"]
+        filtered = [h for h in filtered if h.status == EntityStatus.PAUSED]
     elif status_filter == "completed":
-        filtered = [h for h in filtered if h.status and h.status.value == "completed"]
+        filtered = [h for h in filtered if h.status == EntityStatus.COMPLETED]
     elif status_filter == "keystone":
         filtered = [h for h in filtered if h.is_keystone]
 
@@ -214,7 +230,7 @@ def filter_events(
     elif status_filter == "today":
         filtered = [e for e in filtered if e.is_today()]
     elif status_filter == "completed":
-        filtered = [e for e in filtered if e.status and e.status.value == "completed"]
+        filtered = [e for e in filtered if e.status == EntityStatus.COMPLETED]
 
     def by_date(e: Any) -> str:
         return str(e.event_date or "9999-12-31")
@@ -249,15 +265,9 @@ def filter_choices(
     filtered = list(choices)
 
     if status_filter == "pending":
-        filtered = [
-            c
-            for c in filtered
-            if not c.decided_at and not (c.status and c.status.value == "completed")
-        ]
+        filtered = [c for c in filtered if not c.decided_at and c.status != EntityStatus.COMPLETED]
     elif status_filter == "decided":
-        filtered = [
-            c for c in filtered if c.decided_at or (c.status and c.status.value == "completed")
-        ]
+        filtered = [c for c in filtered if c.decided_at or c.status == EntityStatus.COMPLETED]
 
     def by_deadline(c: Any) -> str:
         return str(c.decision_deadline or "9999-12-31")[:10]
