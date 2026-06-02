@@ -4,19 +4,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
     from core.models.task.task import Task
-    from core.models.type_hints import UserUID
+    from core.models.type_hints import Neo4jProperties, UserUID
 
 
 class _RelationshipMixin:
     """Relationship and context retrieval methods for TasksService."""
 
     relationships: Any
+    backend: Any
     logger: Any
 
     async def get_task_with_context(
@@ -80,14 +82,24 @@ class _RelationshipMixin:
         is_hard_dependency: bool = True,
         dependency_type: str = "blocks",
     ) -> Result[bool]:
-        """Create dependency between tasks."""
-        properties = {
+        """Create a ``(dependent)-[:DEPENDS_ON]->(blocks)`` dependency edge between tasks.
+
+        Backend: UniversalNeo4jBackend.create_relationships_batch — the same proven
+        path the create/update flows use. NOT UnifiedRelationshipService.create_relationship,
+        whose dynamic ``link_task_to_<key>`` backend method does not exist for tasks
+        (it getattrs a missing method and fails at runtime — the bug this method had).
+        """
+        properties: Neo4jProperties = {
             "is_hard_dependency": is_hard_dependency,
             "dependency_type": dependency_type,
         }
-        return await self.relationships.create_relationship(
-            "prerequisite_tasks", dependent_task_uid, blocks_task_uid, properties
-        )
+        edges: list[tuple[str, str, str, Neo4jProperties | None]] = [
+            (dependent_task_uid, blocks_task_uid, RelationshipName.DEPENDS_ON.value, properties)
+        ]
+        result = await self.backend.create_relationships_batch(edges)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(True)
 
     async def get_tasks_requiring_knowledge(
         self, knowledge_uid: str, _user_uid: UserUID | None = None, _limit: int = 100
