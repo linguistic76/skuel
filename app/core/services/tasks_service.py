@@ -409,28 +409,29 @@ class TasksService(
             include_completed=include_completed,
         )
 
-    async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
-        # Both habit reinforcement and knowledge application are graph edges, not
-        # node properties — route them out of the property updates into edge
-        # mutation. The backend update does an unfiltered `SET n += $updates`, so
-        # a relationship-typed key left in `updates` would write a junk denormalized
-        # property onto the node AND silently skip the edge (the very split the
-        # ADR-035/ADR-065 graph-native migration removed).
+    # Relationship-typed update keys are graph edges, not node properties. They must
+    # be popped from the property update and synced as edges regardless of which entry
+    # point a caller uses — update_task (UI route), or the inherited update /
+    # update_for_user (generated CRUD JSON route). The backend update does an
+    # unfiltered `SET n += $updates`, so a relationship-typed key left in `updates`
+    # would write a junk denormalized property onto the node AND skip the edge (the
+    # very split the ADR-035/ADR-065 graph-native migration removed).
+    @staticmethod
+    def _pop_relationship_updates(updates: dict) -> tuple[str | None, list[str] | None]:
+        """Remove edge-typed keys from a property-update dict, returning their values."""
         habit_uid = updates.pop("reinforces_habit_uid", None)
         applies_knowledge_uids = updates.pop("applies_knowledge_uids", None)
+        return habit_uid, applies_knowledge_uids
 
-        # A relationship-only update (e.g. only applies_knowledge_uids, which
-        # TaskUpdateRequest permits) leaves no node properties to write. The backend
-        # rejects an empty update dict, so fetch the task to confirm it exists and to
-        # have a Task to return — then fall through to the edge-mutation blocks. A
-        # genuinely empty call (no properties, no edges) keeps the validation error.
-        if updates or (habit_uid is None and applies_knowledge_uids is None):
-            result = await self.core.update_task(task_uid, updates)
-        else:
-            result = await self.core.get_task(task_uid)
-        if result.is_error:
-            return result
+    async def _sync_relationship_edges(
+        self, task_uid: str, habit_uid: str | None, applies_knowledge_uids: list[str] | None
+    ) -> Result[None]:
+        """Replace the task's habit/knowledge edges from popped update values.
 
+        ``None`` means "not in this update" (leave edges untouched); a value (incl.
+        an empty list / empty string) means "replace" — clearing all edges of that
+        kind when empty.
+        """
         if habit_uid is not None:
             # (Task)-[:REINFORCES_HABIT]->(Habit): replace any existing reinforced habit.
             existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
@@ -455,7 +456,62 @@ class TasksService(
                 edge = await self.relationships.create_relationship("knowledge", task_uid, ku_uid)
                 if edge.is_error:
                     return Result.fail(edge)
-        return result
+        return Result.ok(None)
+
+    async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
+        """Facade update (UI route). Writes node properties via core (events fire) and
+        syncs habit/knowledge edges. See `_sync_relationship_edges`."""
+        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+
+        # A relationship-only update (e.g. only applies_knowledge_uids, which
+        # TaskUpdateRequest permits) leaves no node properties to write. The backend
+        # rejects an empty update dict, so fetch the task to confirm it exists and to
+        # have a Task to return. A genuinely empty call keeps the validation error.
+        if updates or (habit_uid is None and applies_knowledge_uids is None):
+            result = await self.core.update_task(task_uid, updates)
+        else:
+            result = await self.core.get_task(task_uid)
+        if result.is_error:
+            return result
+
+        sync = await self._sync_relationship_edges(task_uid, habit_uid, applies_knowledge_uids)
+        return result if sync.is_ok else Result.fail(sync)
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Task]:
+        """Override the inherited CRUD update (generated JSON route, no ownership check)
+        so the API path syncs habit/knowledge edges instead of writing them as junk
+        node properties. See `_sync_relationship_edges`."""
+        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+
+        if updates or (habit_uid is None and applies_knowledge_uids is None):
+            result = await super().update(uid, updates)
+        else:
+            result = await self.core.get_task(uid)
+        if result.is_error:
+            return result
+
+        sync = await self._sync_relationship_edges(uid, habit_uid, applies_knowledge_uids)
+        return result if sync.is_ok else Result.fail(sync)
+
+    async def update_for_user(
+        self, uid: str, updates: dict[str, Any], user_uid: UserUID
+    ) -> Result[Task]:
+        """Override the inherited ownership-verified CRUD update (generated JSON route)
+        so the API path syncs habit/knowledge edges. Ownership is verified before any
+        edge mutation, including on the relationship-only path. See
+        `_sync_relationship_edges`."""
+        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+
+        if updates or (habit_uid is None and applies_knowledge_uids is None):
+            result = await super().update_for_user(uid, updates, user_uid)
+        else:
+            # Relationship-only update: still verify ownership before touching edges.
+            result = await self.verify_ownership(uid, user_uid)
+        if result.is_error:
+            return result
+
+        sync = await self._sync_relationship_edges(uid, habit_uid, applies_knowledge_uids)
+        return result if sync.is_ok else Result.fail(sync)
 
     async def get_reinforced_habit(self, task_uid: str) -> Result[str | None]:
         """Return the habit uid this task reinforces via (Task)-[:REINFORCES_HABIT]->(Habit).

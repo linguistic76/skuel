@@ -398,3 +398,48 @@ class TestUpdateTaskKnowledgeEdges:
         assert result.is_ok
         assert service.relationships.delete_relationship.await_count == 2
         service.relationships.create_relationship.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_api_update_path_syncs_edges(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """The generated CRUD JSON route calls inherited update() — it must sync edges.
+
+        Guards against the API path writing applies_knowledge_uids as a junk node
+        property instead of replacing APPLIES_KNOWLEDGE edges.
+        """
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
+        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+
+        result = await service.update("task_abc", {"applies_knowledge_uids": ["ku_new"]})
+
+        assert result.is_ok
+        service.relationships.create_relationship.assert_awaited_once_with(
+            "knowledge", "task_abc", "ku_new"
+        )
+
+    @pytest.mark.asyncio
+    async def test_api_update_for_user_verifies_ownership_then_syncs_edges(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """The ownership-verified API route must verify ownership BEFORE editing edges."""
+        service = tasks_service_with_mocked_subservices
+        service.verify_ownership = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["ku_old"]))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+
+        result = await service.update_for_user(
+            "task_abc", {"applies_knowledge_uids": ["ku_new"]}, "user_x"
+        )
+
+        assert result.is_ok
+        service.verify_ownership.assert_awaited_once_with("task_abc", "user_x")
+        service.relationships.delete_relationship.assert_awaited_once_with(
+            "knowledge", "task_abc", "ku_old"
+        )
+        service.relationships.create_relationship.assert_awaited_once_with(
+            "knowledge", "task_abc", "ku_new"
+        )
