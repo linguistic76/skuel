@@ -89,18 +89,23 @@ _STDLIB = set(sys.stdlib_module_names) | {"__future__"}
 
 
 def _type_checking_import_lines(tree: ast.AST) -> frozenset[int]:
-    """Line numbers of imports guarded by ``if TYPE_CHECKING:`` (any branch).
+    """Line numbers of imports in the ``if TYPE_CHECKING:`` *body* only.
 
     These imports never execute at runtime, so they cannot create a runtime
     vendor dependency — the same carve-out SKUEL022 grants ``import adapters``.
     A ``_typeshed`` / SDK-types import used only for annotations is fine here.
+
+    Only ``node.body`` is exempt, never ``node.orelse``: the ``else`` branch of
+    ``if TYPE_CHECKING:`` is the *runtime* branch, so an import there (e.g.
+    ``else: import requests``) must still be flagged.
     """
     lines: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.If) and _is_type_checking_test(node.test):
-            for child in ast.walk(node):
-                if isinstance(child, ast.Import | ast.ImportFrom):
-                    lines.add(child.lineno)
+            for child in node.body:
+                for nested in ast.walk(child):
+                    if isinstance(nested, ast.Import | ast.ImportFrom):
+                        lines.add(nested.lineno)
     return frozenset(lines)
 
 
@@ -217,6 +222,26 @@ def test_allowlist_fails_closed_on_unlisted_and_misplaced_imports() -> None:
 
     # The same SDK exception-class import IS allowed inside exception_types.py.
     assert _violations_for(_EXCEPTION_CLASS_FILE, ast.parse("from openai import APIError")) == []
+
+
+def test_type_checking_carveout_exempts_only_the_type_checking_branch() -> None:
+    """The TYPE_CHECKING-body exemption must not leak into the runtime ``else``.
+
+    The body of ``if TYPE_CHECKING:`` never executes, so a ``_typeshed`` import
+    there is fine. The ``else`` branch is the *runtime* branch — a vendor import
+    there must still be flagged (else the carve-out becomes a boundary hole).
+    """
+    src = (
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n"
+        "    from _typeshed import SupportsRichComparison  # exempt — never runs\n"
+        "else:\n"
+        "    import requests  # runtime — MUST be flagged\n"
+    )
+    flagged = {
+        v.split("`")[1] for v in _violations_for("core/utils/sort_functions.py", ast.parse(src))
+    }
+    assert flagged == {"requests"}, flagged
 
 
 def test_exception_class_exemptions_are_still_load_bearing() -> None:
