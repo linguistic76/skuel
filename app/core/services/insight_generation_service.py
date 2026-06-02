@@ -468,8 +468,11 @@ class InsightGenerationService:
         See: /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md
         """
         # The relationship service is reached through the injected tasks facade
-        # (facade.relationships is the UnifiedRelationshipService). It is optional at
-        # construction time, so degrade gracefully rather than failing the whole run.
+        # (facade.relationships is the UnifiedRelationshipService). Production wires
+        # this at bootstrap (services_bootstrap/compose.py — late back-reference, since
+        # the generator is built before TasksService). This guard is the safety net for
+        # that true-circular-dependency window and for tests; if it ever trips in
+        # production the bootstrap wiring regressed.
         relationship_service = getattr(self.tasks_service, "relationships", None)
         if relationship_service is None:
             self.logger.debug(

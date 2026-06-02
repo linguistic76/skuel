@@ -102,6 +102,29 @@ async def test_graceful_when_no_relationship_service() -> None:
     assert await svc._analyze_knowledge_application_patterns(tasks) == []
 
 
+async def test_bootstrap_late_wire_activates_detector() -> None:
+    """Pins the production wiring contract (services_bootstrap/compose.py).
+
+    The generator is constructed with no ``tasks_service`` (true circular dependency:
+    it is built before TasksService). Bootstrap then assigns the facade back onto it.
+    Before that assignment the detector is dead; after it, it works — so the
+    back-reference is load-bearing, not decorative.
+    """
+    knowledge = {f"k{i}": ["ku_python"] for i in range(3)}
+    tasks = [_task(f"k{i}", actual=10, estimated=10) for i in range(3)]
+    tasks += [_task(f"n{i}", actual=20, estimated=10) for i in range(3)]
+
+    # Constructed bare, exactly like compose.py `InsightGenerationService()`.
+    svc = InsightGenerationService()
+    assert await svc._analyze_knowledge_application_patterns(tasks) == []
+
+    # Bootstrap late-wire: `ku_generation_service.tasks_service = tasks_service`.
+    svc.tasks_service = SimpleNamespace(relationships=_FakeRelationshipService(knowledge))
+    patterns = await svc._analyze_knowledge_application_patterns(tasks)
+    assert len(patterns) == 1
+    assert patterns[0].pattern_type is PatternType.KNOWLEDGE_APPLICATION
+
+
 @pytest.mark.parametrize("benefit_ratio_pattern", ["knowledge_application_benefit"])
 async def test_pattern_id_drives_learning_insight(benefit_ratio_pattern: str) -> None:
     # The detected pattern must flow through to a LEARNING insight end-to-end.
