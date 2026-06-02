@@ -531,6 +531,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             """
             MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity:UserEntry)
             MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
+            WHERE EXISTS { (submission)-[:FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE]->() }
             RETURN submission.uid AS submission_uid
             """,
             {
