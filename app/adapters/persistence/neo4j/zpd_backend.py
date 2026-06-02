@@ -39,21 +39,19 @@ _ZONE_QUERY = """
 // Returns per-source lists for compound evidence tracking.
 MATCH (u:User {uid: $user_uid})
 OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
-OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'je_input'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
 OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
 WITH u,
      [uid IN collect(DISTINCT ku_t.uid) WHERE uid IS NOT NULL] AS task_engaged_uids,
-     [uid IN collect(DISTINCT ku_j.uid) WHERE uid IS NOT NULL] AS journal_engaged_uids,
      [uid IN collect(DISTINCT ku_h.uid) WHERE uid IS NOT NULL] AS habit_engaged_uids
 
 // Combine all engaged UIDs (deduplicated via UNWIND + DISTINCT, no APOC)
 CALL {
-    WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids
-    UNWIND (task_engaged_uids + journal_engaged_uids + habit_engaged_uids) AS uid
+    WITH task_engaged_uids, habit_engaged_uids
+    UNWIND (task_engaged_uids + habit_engaged_uids) AS uid
     WITH DISTINCT uid WHERE uid IS NOT NULL
     RETURN collect(uid) AS engaged_uids
 }
-WITH u, task_engaged_uids, journal_engaged_uids, habit_engaged_uids, engaged_uids
+WITH u, task_engaged_uids, habit_engaged_uids, engaged_uids
 
 // ── Step 2: Proximal zone — structurally adjacent, not yet engaged ─────────
 UNWIND CASE WHEN size(engaged_uids) = 0 THEN [null] ELSE engaged_uids END AS engaged_uid
@@ -63,12 +61,12 @@ OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:COMPLEMENTARY_TO]->(adj:Ent
 OPTIONAL MATCH (lp:Entity)-[:ORGANIZES]->(path_next:Entity)
 WHERE (lp)-[:ORGANIZES]->(:Entity {uid: engaged_uid})
 
-WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids, engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids, engaged_uids,
      collect(DISTINCT next.uid) + collect(DISTINCT adj.uid) + collect(DISTINCT path_next.uid)
      AS candidate_uids_raw
 
 // Proximal = adjacent candidates NOT already in current zone, and non-null
-WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids, engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids, engaged_uids,
      [uid IN candidate_uids_raw
       WHERE uid IS NOT NULL AND NOT uid IN engaged_uids] AS proximal_uids
 
@@ -77,13 +75,13 @@ WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids, engaged_uids,
 // are in the current zone
 UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS proximal_uid
 OPTIONAL MATCH (prox:Entity {uid: proximal_uid})<-[:PREREQUISITE_FOR]-(prereq:Entity)
-WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids,
      engaged_uids, proximal_uids,
      proximal_uid,
      count(prereq) AS total_prereqs,
      count(CASE WHEN prereq.uid IN engaged_uids THEN 1 END) AS met_prereqs
 
-WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids,
      engaged_uids, proximal_uids,
      collect({
          ku_uid: proximal_uid,
@@ -94,7 +92,7 @@ WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids,
 // ── Step 4: Engaged Learning Paths ───────────────────────────────────────
 OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[:ORGANIZES]->(step:Entity)
 WHERE step.uid IN engaged_uids
-WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids,
      engaged_uids, proximal_uids, prereq_data,
      collect(DISTINCT lp.uid) AS engaged_path_uids
 
@@ -105,7 +103,7 @@ UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS p
 OPTIONAL MATCH (p:Entity {uid: p_uid})<-[:PREREQUISITE_FOR]-(gap:Entity)
 WHERE gap.uid IS NOT NULL AND NOT gap.uid IN engaged_uids
 
-WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids,
      engaged_uids, proximal_uids, prereq_data, engaged_path_uids,
      collect(DISTINCT gap.uid) AS blocking_gap_uids
 
@@ -126,7 +124,6 @@ RETURN
     prereq_data        AS prereq_data,
     blocking_gap_uids  AS blocking_gaps,
     task_engaged_uids  AS task_engaged,
-    journal_engaged_uids AS journal_engaged,
     habit_engaged_uids AS habit_engaged,
     submission_data    AS submission_data
 LIMIT 1
@@ -143,15 +140,10 @@ OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE
 WHERE ku_t.uid IN $ku_uids
 WITH u, collect(DISTINCT ku_t.uid) AS task_engaged_uids
 
-// Journal engagement
-OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'je_input'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
-WHERE ku_j.uid IN $ku_uids
-WITH u, task_engaged_uids, collect(DISTINCT ku_j.uid) AS journal_engaged_uids
-
 // Habit engagement
 OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
 WHERE ku_h.uid IN $ku_uids
-WITH u, task_engaged_uids, journal_engaged_uids, collect(DISTINCT ku_h.uid) AS habit_engaged_uids
+WITH u, task_engaged_uids, collect(DISTINCT ku_h.uid) AS habit_engaged_uids
 
 // Submission scores for target KUs
 CALL {
@@ -164,7 +156,6 @@ CALL {
 
 RETURN
     task_engaged_uids    AS task_engaged,
-    journal_engaged_uids AS journal_engaged,
     habit_engaged_uids   AS habit_engaged,
     submission_data      AS submission_data
 LIMIT 1
@@ -205,7 +196,7 @@ class ZPDBackend:
 
     async def get_targeted_ku_engagement(
         self, user_uid: UserUID, ku_uids: list[str]
-    ) -> Result[tuple[list[str], list[str], list[str], list[SubmissionScore]]]:
+    ) -> Result[tuple[list[str], list[str], list[SubmissionScore]]]:
         """Fetch engagement data for specific KU UIDs only.
 
         Lightweight alternative to get_zone_data() — queries only the target
@@ -215,12 +206,11 @@ class ZPDBackend:
         Returns:
             Result containing a tuple of:
                 - task_engaged: KU UIDs engaged via tasks
-                - journal_engaged: KU UIDs engaged via journals
                 - habit_engaged: KU UIDs engaged via habits
                 - submission_data: Submission scores per KU
         """
         if not ku_uids:
-            return Result.ok(([], [], [], []))
+            return Result.ok(([], [], []))
 
         try:
             records, _, _ = await self._driver.execute_query(
@@ -237,11 +227,10 @@ class ZPDBackend:
             )
 
         if not records:
-            return Result.ok(([], [], [], []))
+            return Result.ok(([], [], []))
 
         row = records[0]
         task_engaged: list[str] = list(row.get("task_engaged") or [])
-        journal_engaged: list[str] = list(row.get("journal_engaged") or [])
         habit_engaged: list[str] = list(row.get("habit_engaged") or [])
         # boundary: Neo4j Record row shape is fixed by the RETURN projection
         # in _TARGETED_KU_ENGAGEMENT_QUERY's submission_data collect{...}.
@@ -249,7 +238,7 @@ class ZPDBackend:
             cast("SubmissionScore", item) for item in (row.get("submission_data") or [])
         ]
 
-        return Result.ok((task_engaged, journal_engaged, habit_engaged, submission_data))
+        return Result.ok((task_engaged, habit_engaged, submission_data))
 
     async def get_zone_data(
         self, user_uid: UserUID
@@ -259,7 +248,6 @@ class ZPDBackend:
             list[str],
             list[str],
             list[PrereqCount],
-            list[str],
             list[str],
             list[str],
             list[str],
@@ -276,7 +264,6 @@ class ZPDBackend:
                 - prereq_data: Raw prerequisite counts per proximal KU
                 - blocking_gaps: Prerequisite KU UIDs not yet met
                 - task_engaged: KU UIDs engaged via tasks
-                - journal_engaged: KU UIDs engaged via journals
                 - habit_engaged: KU UIDs engaged via habits
                 - submission_data: Submission scores per KU
         """
@@ -292,7 +279,7 @@ class ZPDBackend:
             )
 
         if not records:
-            return Result.ok(([], [], [], [], [], [], [], [], []))
+            return Result.ok(([], [], [], [], [], [], [], []))
 
         row = records[0]
         current_zone: list[str] = list(row.get("current_zone") or [])
@@ -305,7 +292,6 @@ class ZPDBackend:
             cast("PrereqCount", item) for item in (row.get("prereq_data") or [])
         ]
         task_engaged: list[str] = list(row.get("task_engaged") or [])
-        journal_engaged: list[str] = list(row.get("journal_engaged") or [])
         habit_engaged: list[str] = list(row.get("habit_engaged") or [])
         submission_data: list[SubmissionScore] = [
             cast("SubmissionScore", item) for item in (row.get("submission_data") or [])
@@ -319,7 +305,6 @@ class ZPDBackend:
                 prereq_data,
                 blocking_gaps,
                 task_engaged,
-                journal_engaged,
                 habit_engaged,
                 submission_data,
             )

@@ -46,20 +46,19 @@ class TestZoneEvidence:
             ku_uid="ku_1",
             submission_count=1,
             task_application=True,
-            journal_application=True,
+            habit_reinforcement=True,
         )
         assert ev.signal_count == 3
         assert ev.is_confirmed
 
-    def test_all_four_signals(self) -> None:
+    def test_all_signals(self) -> None:
         ev = ZoneEvidence(
             ku_uid="ku_1",
             submission_count=2,
             habit_reinforcement=True,
             task_application=True,
-            journal_application=True,
         )
-        assert ev.signal_count == 4
+        assert ev.signal_count == 3
         assert ev.is_confirmed
 
 
