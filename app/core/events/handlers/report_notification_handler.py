@@ -84,7 +84,7 @@ async def handle_submission_approved(
         title="Your submission was approved",
         message=message,
         source_uid=event.entity_uid,
-        source_type="exercise_submission",
+        source_type="user_entry",
     )
 
     if result.is_error:
