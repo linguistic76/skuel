@@ -207,3 +207,14 @@ class TestRelationshipLinkRoundTrip:
         )
         assert outgoing.is_ok
         assert outgoing.value == []
+
+        # Deletion must orient identically (owner/related order) — unlink actually removes it.
+        deleted = await services.goals.relationships.delete_relationship(
+            "supporting_habits", "goal:incoming_owner", "habit:incoming_related"
+        )
+        assert deleted.is_ok
+        after = await services.goals.backend.get_relationships(
+            "goal:incoming_owner", rel_type=RelationshipName.SUPPORTS_GOAL, direction="incoming"
+        )
+        assert after.is_ok
+        assert after.value == []

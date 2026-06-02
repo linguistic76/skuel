@@ -428,23 +428,34 @@ class UnifiedRelationshipService[
         return Result.ok(result.value > 0)
 
     @staticmethod
+    def _orient(
+        spec: UnifiedRelationshipDefinition, from_uid: str, to_uid: str
+    ) -> tuple[str, str]:
+        """Orient ``(owner, related)`` → ``(edge_from, edge_to)`` per the registry direction.
+
+        ``from_uid`` is the entity that owns this domain config, ``to_uid`` the related
+        entity. The registry read paths are direction-aware, so an ``incoming`` spec
+        (stored related→owner, e.g. goals ``supporting_habits`` =
+        ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``) must have its endpoints swapped — on write
+        AND on delete — otherwise the edge is created/matched backwards and the
+        direction-aware reader never sees it. Shared by create_relationship,
+        create_relationships_batch, and delete_relationship so all three agree.
+        """
+        if spec.direction == "incoming":
+            return (to_uid, from_uid)
+        return (from_uid, to_uid)
+
+    @classmethod
     def _orient_edge(
+        cls,
         spec: UnifiedRelationshipDefinition,
         from_uid: str,
         to_uid: str,
         properties: dict[str, Any] | None,
     ) -> tuple[str, str, str, dict[str, Any] | None]:
-        """Build a ``(from, to, type, props)`` edge oriented per the registry direction.
-
-        ``from_uid`` is the entity that owns this domain config, ``to_uid`` the related
-        entity. The registry read paths are direction-aware, so an ``incoming`` spec
-        (the edge is stored related→owner, e.g. goals ``supporting_habits`` =
-        ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``) must be written with endpoints swapped —
-        otherwise the edge is created backwards and the direction-aware reader never sees it.
-        """
-        if spec.direction == "incoming":
-            return (to_uid, from_uid, spec.relationship.value, properties)
-        return (from_uid, to_uid, spec.relationship.value, properties)
+        """``_orient`` plus the relationship type and properties, as a batch edge tuple."""
+        edge_from, edge_to = cls._orient(spec, from_uid, to_uid)
+        return (edge_from, edge_to, spec.relationship.value, properties)
 
     async def delete_relationship(
         self,
@@ -471,9 +482,10 @@ class UnifiedRelationshipService[
                 )
             )
 
+        edge_from, edge_to = self._orient(spec, from_uid, to_uid)
         return await self.backend.delete_relationship(
-            from_uid=from_uid,
-            to_uid=to_uid,
+            from_uid=edge_from,
+            to_uid=edge_to,
             relationship_type=spec.relationship,
         )
 
