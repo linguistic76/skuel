@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -170,8 +171,9 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
         OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-        OPTIONAL MATCH (sub:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
-          WHERE NOT sub.status IN ['completed', 'archived']
+        OPTIONAL MATCH (sub:Entity:UserEntry)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+          WHERE sub.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+            AND NOT sub.status IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
                g.description AS description,
@@ -191,15 +193,16 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: $group_uid}})
         MATCH (member:User)-[r:{RelationshipName.MEMBER_OF.value}]->(g)
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(sub:Entity:UserEntry)
-          WHERE (member)-[:{RelationshipName.OWNS.value}]->(sub)
+        OPTIONAL MATCH (member)-[:{RelationshipName.OWNS.value}]->(sub:Entity:UserEntry)
+                      -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+          WHERE sub.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
         RETURN member.uid AS user_uid,
                member.name AS user_name,
                r.role AS role,
                r.joined_at AS joined_at,
-               count(sub) AS submission_count,
-               count(CASE WHEN sub.status = 'completed' THEN 1 END) AS reviewed_count,
-               count(CASE WHEN sub.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count
+               count(DISTINCT sub) AS submission_count,
+               count(DISTINCT CASE WHEN sub.status = 'completed' THEN sub.uid END) AS reviewed_count,
+               count(DISTINCT CASE WHEN sub.status IN ['submitted', 'active', 'revision_requested'] THEN sub.uid END) AS pending_count
         ORDER BY r.joined_at
         """
         return await self.execute_query(query, {"group_uid": group_uid, "teacher_uid": teacher_uid})
