@@ -88,18 +88,67 @@ _EXCEPTION_CLASS_FILE = "core/utils/exception_types.py"
 _STDLIB = set(sys.stdlib_module_names) | {"__future__"}
 
 
+def _type_checking_import_lines(tree: ast.AST) -> frozenset[int]:
+    """Line numbers of imports in the ``if TYPE_CHECKING:`` *body* only.
+
+    These imports never execute at runtime, so they cannot create a runtime
+    vendor dependency — the same carve-out SKUEL022 grants ``import adapters``.
+    A ``_typeshed`` / SDK-types import used only for annotations is fine here.
+
+    Only ``node.body`` is exempt, never ``node.orelse``: the ``else`` branch of
+    ``if TYPE_CHECKING:`` is the *runtime* branch, so an import there (e.g.
+    ``else: import requests``) must still be flagged.
+    """
+    lines: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If) and _is_type_checking_test(node.test):
+            for child in node.body:
+                for nested in ast.walk(child):
+                    if isinstance(nested, ast.Import | ast.ImportFrom):
+                        lines.add(nested.lineno)
+    return frozenset(lines)
+
+
+def _is_type_checking_test(test: ast.expr) -> bool:
+    """True for ``TYPE_CHECKING`` / ``typing.TYPE_CHECKING`` guard expressions.
+
+    The attribute form is matched only on the ``typing`` module, never any
+    ``*.TYPE_CHECKING`` (e.g. ``settings.TYPE_CHECKING`` is a runtime guard, not
+    the typing sentinel, and its imports must stay in scope).
+    """
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    return (
+        isinstance(test, ast.Attribute)
+        and test.attr == "TYPE_CHECKING"
+        and isinstance(test.value, ast.Name)
+        and test.value.id == "typing"
+    )
+
+
 def _imported_top_level_modules(tree: ast.AST) -> list[tuple[str, int]]:
     """Top-level module names referenced by ``import x`` / ``from x import ...``.
 
     Returns ``(top_level_name, lineno)`` pairs. Relative imports (``node.level
     > 0``) are skipped — they resolve to first-party ``core/`` siblings, never
-    a vendor package.
+    a vendor package. ``TYPE_CHECKING``-guarded imports are skipped — they never
+    execute, so they cannot pull a vendor client into the runtime.
     """
+    skip = _type_checking_import_lines(tree)
     out: list[tuple[str, int]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            out.extend((alias.name.split(".")[0], node.lineno) for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            out.extend(
+                (alias.name.split(".")[0], node.lineno)
+                for alias in node.names
+                if node.lineno not in skip
+            )
+        elif (
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.level == 0
+            and node.lineno not in skip
+        ):
             out.append((node.module.split(".")[0], node.lineno))
     return out
 
@@ -183,6 +232,39 @@ def test_allowlist_fails_closed_on_unlisted_and_misplaced_imports() -> None:
 
     # The same SDK exception-class import IS allowed inside exception_types.py.
     assert _violations_for(_EXCEPTION_CLASS_FILE, ast.parse("from openai import APIError")) == []
+
+
+def test_type_checking_carveout_exempts_only_the_type_checking_branch() -> None:
+    """The TYPE_CHECKING-body exemption must not leak into the runtime ``else``.
+
+    The body of ``if TYPE_CHECKING:`` never executes, so a ``_typeshed`` import
+    there is fine. The ``else`` branch is the *runtime* branch — a vendor import
+    there must still be flagged (else the carve-out becomes a boundary hole).
+    """
+    src = (
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n"
+        "    from _typeshed import SupportsRichComparison  # exempt — never runs\n"
+        "else:\n"
+        "    import requests  # runtime — MUST be flagged\n"
+    )
+    flagged = {
+        v.split("`")[1] for v in _violations_for("core/utils/sort_functions.py", ast.parse(src))
+    }
+    assert flagged == {"requests"}, flagged
+
+    # A non-typing guard (settings.TYPE_CHECKING) is NOT the sentinel — its
+    # runtime import must still be flagged.
+    custom_guard = (
+        "import settings\n"
+        "if settings.TYPE_CHECKING:\n"
+        "    import requests  # runtime — MUST be flagged\n"
+    )
+    flagged_custom = {
+        v.split("`")[1]
+        for v in _violations_for("core/utils/sort_functions.py", ast.parse(custom_guard))
+    }
+    assert "requests" in flagged_custom, flagged_custom
 
 
 def test_exception_class_exemptions_are_still_load_bearing() -> None:
