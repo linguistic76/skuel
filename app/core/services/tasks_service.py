@@ -410,22 +410,41 @@ class TasksService(
         )
 
     async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
-        # Habit reinforcement is a graph edge ((Task)-[:REINFORCES_HABIT]->(Habit)),
-        # not a property — route it out of the property updates into edge mutation
-        # (replace any existing reinforced habit with the new one).
+        # Both habit reinforcement and knowledge application are graph edges, not
+        # node properties — route them out of the property updates into edge
+        # mutation. The backend update does an unfiltered `SET n += $updates`, so
+        # a relationship-typed key left in `updates` would write a junk denormalized
+        # property onto the node AND silently skip the edge (the very split the
+        # ADR-035/ADR-065 graph-native migration removed).
         habit_uid = updates.pop("reinforces_habit_uid", None)
+        applies_knowledge_uids = updates.pop("applies_knowledge_uids", None)
 
         result = await self.core.update_task(task_uid, updates)
         if result.is_error:
             return result
 
         if habit_uid is not None:
+            # (Task)-[:REINFORCES_HABIT]->(Habit): replace any existing reinforced habit.
             existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
             if existing.is_ok:
                 for old_habit in existing.value or []:
                     await self.relationships.delete_relationship("habits", task_uid, old_habit)
             if habit_uid:  # non-empty → create the new edge (empty string = cleared)
                 edge = await self.relationships.create_relationship("habits", task_uid, habit_uid)
+                if edge.is_error:
+                    return Result.fail(edge)
+
+        if applies_knowledge_uids is not None:
+            # (Task)-[:APPLIES_KNOWLEDGE]->(Ku): replace the full applied-knowledge set.
+            # An empty list clears all knowledge edges (mirrors the habit-clear semantics).
+            existing_ku = await self.relationships.get_related_uids(
+                "knowledge", EntityUID(task_uid)
+            )
+            if existing_ku.is_ok:
+                for old_ku in existing_ku.value or []:
+                    await self.relationships.delete_relationship("knowledge", task_uid, old_ku)
+            for ku_uid in applies_knowledge_uids:
+                edge = await self.relationships.create_relationship("knowledge", task_uid, ku_uid)
                 if edge.is_error:
                     return Result.fail(edge)
         return result

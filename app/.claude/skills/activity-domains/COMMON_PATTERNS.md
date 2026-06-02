@@ -217,6 +217,25 @@ connections:
 
 See `yaml_templates/_schemas/` for complete field reference. See `/docs/architecture/knowledge_substance_philosophy.md` for the substance scoring model.
 
+### Knowledge application is graph-native (no node field)
+
+`applies_knowledge` is stored **only** as the edge `(Task)-[:APPLIES_KNOWLEDGE]->(Ku)` —
+there is no `applies_knowledge_uids` property on the frozen models (removed in the
+ADR-035/ADR-065 graph-native migration; do not reintroduce it). The string list survives
+*only* at the API boundary (`TaskCreateRequest`/`TaskUpdateRequest`/`TaskResponse`); the
+service layer translates it to/from edges.
+
+- **Write:** both create AND update must route `applies_knowledge_uids` to edge mutation.
+  `TasksService.update_task` pops it out of the property `updates` dict and re-syncs edges
+  (symmetric to `reinforces_habit_uid`) — leaving it in `updates` writes a junk node
+  property and silently skips the edge, because the backend does `SET n += $updates`.
+- **Read:** `TaskRelationships.fetch(uid, service.relationships)` or
+  `get_related_uids("knowledge", uid)` — never a node attribute.
+- **Consume:** `InsightGenerationService._analyze_knowledge_application_patterns` emits a
+  `KNOWLEDGE_APPLICATION` pattern when knowledge-applying tasks are >10% more efficient.
+
+**See:** `/docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md`.
+
 ### Runtime (Service API)
 
 **Writes** — All domains connect via `UnifiedRelationshipService`:
