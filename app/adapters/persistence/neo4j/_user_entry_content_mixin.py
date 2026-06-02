@@ -53,102 +53,25 @@ class _UserEntryContentMixin:
     async def get_journal_processing_context(
         self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Gather journal processing context in a single query."""
+        """Gather active-goal context for the enrichment pipeline.
+
+        ADR-054 dismantled the rich-journal model, so the former recent-journal,
+        topic, and mood-trend bundles read gone properties and were removed.
+        Active goals remain the only live enrichment signal.
+        """
         cypher = """
         MATCH (u:User {uid: $user_uid})
-
-        // Recent journal-type reports (last 7 days)
-        OPTIONAL MATCH (u)-[:OWNS]->(recent:Entity)
-        WHERE recent.entity_type = 'exercise_submission'
-          AND recent.created_at >= datetime() - duration('P7D')
-        WITH u, collect({
-            uid: recent.uid,
-            title: recent.title,
-            content: recent.content,
-            entry_date: toString(date(recent.entry_date)),
-            mood: recent.mood,
-            energy_level: recent.energy_level,
-            key_topics: recent.key_topics
-        }) as recent_journals
-
-        // Active goals
         OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
         WHERE g.status = 'active'
-        WITH u, recent_journals, collect({
-            uid: g.uid,
-            title: g.title,
-            description: g.description
-        }) as active_goals
-
-        // Recent topics (from last 30 days) - journal-type reports
-        OPTIONAL MATCH (u)-[:OWNS]->(j:Entity)
-        WHERE j.entity_type = 'exercise_submission'
-          AND j.created_at >= datetime() - duration('P30D')
-          AND j.key_topics IS NOT NULL
-        WITH u, recent_journals, active_goals,
-             collect(j.key_topics) as all_topics_raw,
-             collect(j.energy_level) as all_energy_levels
-
         RETURN {
-            recent_entries: recent_journals,
-            active_goals: active_goals,
-            all_topics_json: all_topics_raw,
-            recent_mood_avg:
-                CASE
-                    WHEN size([e IN all_energy_levels WHERE e IS NOT NULL]) > 0
-                    THEN reduce(sum = 0.0, e IN [x IN all_energy_levels WHERE x IS NOT NULL] | sum + e) /
-                         size([e IN all_energy_levels WHERE e IS NOT NULL])
-                    ELSE 0.0
-                END,
-            data_points: size(all_energy_levels)
+            active_goals: collect({
+                uid: g.uid,
+                title: g.title,
+                description: g.description
+            })
         } as context
         """
         return await self.execute_query(cypher, {"user_uid": user_uid})
-
-    async def get_recent_journal_entries(
-        self, user_uid: UserUID, cutoff_datetime: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Get recent journal-type report entries."""
-        cypher = """
-        MATCH (j:Report {user_uid: $user_uid, report_type: 'journal'})
-        WHERE j.created_at >= datetime($cutoff_datetime)
-        RETURN j.uid as uid,
-               j.title as title,
-               j.content as content,
-               date(j.entry_date) as entry_date,
-               j.mood as mood,
-               j.energy_level as energy_level,
-               j.key_topics as key_topics
-        ORDER BY j.created_at DESC
-        LIMIT 10
-        """
-        return await self.execute_query(
-            cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime}
-        )
-
-    async def get_active_goals_for_user(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Get active goals for a user (for content enrichment context)."""
-        cypher = """
-        MATCH (g:Goal {user_uid: $user_uid})
-        WHERE g.status = 'active'
-        RETURN g.uid as uid, g.title as title, g.description as description
-        ORDER BY g.created_at DESC
-        LIMIT 10
-        """
-        return await self.execute_query(cypher, {"user_uid": user_uid})
-
-    async def get_recent_journal_topics(
-        self, user_uid: UserUID, cutoff_datetime: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Get key_topics from recent journal entries for topic aggregation."""
-        cypher = """
-        MATCH (j:Report {user_uid: $user_uid, report_type: 'journal'})
-        WHERE j.created_at >= datetime($cutoff_datetime)
-        RETURN j.key_topics as key_topics
-        """
-        return await self.execute_query(
-            cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime}
-        )
 
     async def load_exercise_instructions(self, uid: str) -> Result[list[Neo4jProperties]]:
         """Load formatting instructions from an Exercise entity node."""
