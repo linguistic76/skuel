@@ -260,9 +260,9 @@ class UserEntryAssessmentOperations(Protocol):
         ...
 
     async def get_entries_for_exercise_review(
-        self, exercise_uid: str
+        self, exercise_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """All entries against an exercise (teacher review view)."""
+        """Entries against an exercise shared with the requesting teacher's groups."""
         ...
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:

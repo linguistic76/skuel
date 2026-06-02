@@ -55,7 +55,7 @@ There is **no** `EXERCISE_SUBMISSION` EntityType — ADR-054 collapsed it (with 
 
 **Deleted EntityTypes / aliases:** `EXERCISE_SUBMISSION`, `JE_INPUT`, and `JE_OUTPUT` are gone from `EntityType`; their legacy string values still *parse* via `from_string()` but redirect to `USER_ENTRY` (not to any standalone type). The old `SUBMISSION_REPORT` / `JOURNAL_SUBMISSION` strings are not in the alias map, so `from_string()` returns `None` for them — assessment now produces an `EXERCISE_REPORT`.
 
-> **⚠️ Migration debt — `entity_type` write/read split.** The write path forces `entity_type = 'user_entry'` (`UserEntry.__post_init__`); the curriculum turn-in is identified by its `pipeline` field, **not** by a distinct entity_type. But several legacy read queries still filter on the historical `entity_type = 'exercise_submission'` value (`_user_entry_report_query_mixin.py`, `_user_entry_assessment_mixin.py`, `_user_entry_content_mixin.py`, `exercise_backends.py`, `collab_backends.py`, `cross_domain_backend.py`, `zpd_backend.py`; `user_context_queries.py` hedges with `entity_type IN ['exercise_submission', 'je_input', 'je_output', 'user_entry']`). A freshly-written `'user_entry'` node therefore does **not** match those `'exercise_submission'`-only filters — a known migration artifact, not the intended shape. The canonical written discriminator is `'user_entry'`; this doc never depicts a `:UserEntry {entity_type: 'exercise_submission'}` node.
+> **Canonical discriminator — match the `:UserEntry` label, not `entity_type`.** The write path forces `entity_type = 'user_entry'` (`UserEntry.__post_init__`) and the migration relabelled every historical node `:UserEntry` with `entity_type = 'user_entry'`. A curriculum turn-in is identified by the `:UserEntry` label plus either its `pipeline` (`teacher_review`) or a `FULFILLS_EXERCISE` edge — **never** by a distinct entity_type. Read queries for turn-ins (teacher review, assessment, ZPD submission scores, cross-domain, group counts, learning-loop chains) now match `(:Entity:UserEntry)` accordingly; `user_context_queries.py` is migration-aware (counts `entity_type = 'user_entry'` by `pipeline`). The two remaining `entity_type = 'exercise_submission'` / `'je_input'` filters — journal-processing context (`_user_entry_content_mixin.py`) and ZPD journal-engagement (`zpd_backend.py`) — are journal-semantics sites pending a separate decision on journal-entry identity (ADR-054 dropped journal→KU extraction). This doc never depicts a `:UserEntry {entity_type: 'exercise_submission'}` node.
 
 ---
 
@@ -206,7 +206,6 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 (report)-[:REPORT_FOR]->(submission:Entity:UserEntry {entity_type: 'user_entry'})
 // report creation (create_report_node) matches the submission by uid only — no
 // entity_type filter — so REPORT_FOR points at the :UserEntry node as written.
-// (Legacy chain reads still filter 'exercise_submission' — see migration-debt note above.)
 // for HUMAN reports, teacher identity is in report.author_uid (null for LLM reports)
 ```
 

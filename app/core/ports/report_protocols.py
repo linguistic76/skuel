@@ -660,9 +660,9 @@ class TeacherReviewOperations(Protocol):
         ...
 
     async def get_submissions_for_exercise(
-        self, exercise_uid: str
+        self, exercise_uid: str, teacher_uid: str
     ) -> Result[list[SubmissionForExercise]]:
-        """Get all submissions against an exercise."""
+        """Get submissions against an exercise that are shared with the teacher's groups."""
         ...
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[StudentSummaryItem]]:

@@ -203,11 +203,18 @@ class _UserEntryAssessmentMixin:
         )
 
     async def get_entries_for_exercise_review(
-        self, exercise_uid: str
+        self, exercise_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """All entries against an exercise (teacher review view)."""
+        """Entries against an exercise that are shared with the requesting teacher's groups.
+
+        Scoped to teacher-review turn-ins ``SHARED_WITH_GROUP`` an active or
+        inactive group the teacher owns — a teacher supplying another teacher's
+        exercise UID gets an empty result rather than that classroom's work.
+        """
         query = f"""
-        MATCH (s:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
+        MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
+        WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          AND EXISTS {{ (s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, student, count(fb) AS feedback_count
@@ -217,13 +224,17 @@ class _UserEntryAssessmentMixin:
                student.name AS student_name, feedback_count
         ORDER BY s.created_at DESC
         """
-        return await self.execute_query(query, {"exercise_uid": exercise_uid})
+        return await self.execute_query(
+            query, {"exercise_uid": exercise_uid, "teacher_uid": teacher_uid}
+        )
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
         """Get students who have submitted work, with entry counts."""
         query = f"""
-        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
         WHERE student.uid <> $teacher_uid
+          AND ku.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          AND EXISTS {{ (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         WITH student,
              count(DISTINCT ku) AS submission_count,
              count(DISTINCT CASE WHEN ku.status = 'completed' THEN ku.uid END) AS reviewed_count
@@ -239,20 +250,26 @@ class _UserEntryAssessmentMixin:
     async def get_student_entries_for_teacher(
         self, teacher_uid: str, student_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """All entries owned by a student, gated by shared active group.
+        """A student's teacher-review entries that are shared with the teacher's groups.
 
-        Model A gate: anchors on the (teacher, student) pair via
-        ``(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)``.
-        Empty result when teacher and student do not share an active group —
-        callers map empty to "no entries", which is indistinguishable from a
-        genuinely empty per-student history, so we do not leak the existence
-        of unrelated students' submissions.
+        Gate: each entry must itself be ``SHARED_WITH_GROUP`` an active group the
+        requesting teacher owns — not merely prove that teacher and student share
+        *some* group. This stops a teacher who shares one group with a multi-class
+        student from reading entries the student only shared with another teacher's
+        group. Empty result when nothing the student owns is shared with this
+        teacher's groups — indistinguishable from a genuinely empty history, so the
+        existence of other classrooms' submissions is not leaked. (Mirrors the
+        entry-level gate used by ``get_entry_detail_for_teacher``; ``EXISTS`` avoids
+        inflating ``feedback_count`` when an entry is shared with several of the
+        teacher's groups.)
         """
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-              <-[:{RelationshipName.MEMBER_OF.value}]-(student:User {{uid: $student_uid}})
-        WHERE g.is_active = true
-        MATCH (student)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
+        WHERE ku.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          AND EXISTS {{
+            (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group {{is_active: true}})
+                <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}})
+          }}
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
@@ -271,8 +288,7 @@ class _UserEntryAssessmentMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Update the score on an entry explicitly."""
         query = """
-        MATCH (sub:Entity {uid: $entry_uid})
-        WHERE sub.entity_type = 'exercise_submission'
+        MATCH (sub:Entity:UserEntry {uid: $entry_uid})
         SET sub.score = $score
         RETURN sub.uid as uid, sub.score as score
         """
@@ -293,8 +309,9 @@ class _UserEntryAssessmentMixin:
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         WHERE g.is_active = true
-        MATCH (s:Entity {{entity_type: 'exercise_submission', uid: $entry_uid}})
+        MATCH (s:Entity:UserEntry {{uid: $entry_uid}})
               -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+        WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         RETURN s.uid AS uid,
@@ -325,13 +342,14 @@ class _UserEntryAssessmentMixin:
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
-        OPTIONAL MATCH (sub:Entity {{entity_type: 'exercise_submission'}})
+        OPTIONAL MATCH (sub:Entity:UserEntry)
                       -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+          WHERE sub.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
         WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
         RETURN
-          count(CASE WHEN sub.status IN ['submitted', 'active'] THEN 1 END) AS pending_count,
+          count(DISTINCT CASE WHEN sub.status IN ['submitted', 'active'] THEN sub.uid END) AS pending_count,
           count(DISTINCT student) AS total_students,
           count(DISTINCT ex) AS total_exercises,
           count(DISTINCT g) AS total_groups
