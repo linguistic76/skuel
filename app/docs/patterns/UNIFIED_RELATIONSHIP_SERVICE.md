@@ -263,8 +263,10 @@ entities = await service.get_related_entities("knowledge", "task:123")
 
 ```python
 # Batch create — canonical, every-domain-safe. Signature is
-# (entity_uid, {relationship_key: [target_uids]}); routes to
-# backend.create_relationships_batch (validated, single transaction).
+# (entity_uid, {relationship_key: [target_uids]}). Each key's targets go through
+# one validated backend.create_relationships_batch (atomic per key). NOTE: a
+# multi-key call iterates keys, so it is NOT all-or-nothing across keys — a
+# per-key failure is skipped, not rolled back. Use one key for atomic semantics.
 await service.create_relationships_batch(
     EntityUID("task:123"),
     {"knowledge": ["ku:py", "ku:js", "ku:sql"]},
