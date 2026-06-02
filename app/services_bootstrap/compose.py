@@ -548,6 +548,15 @@ async def compose_services(
         context_service.tasks_service = tasks_service
         logger.info("✅ UserContextService wired with TasksService")
 
+        # Late-wire tasks_service into the knowledge generator. True circular
+        # dependency: the generator is constructed before TasksService (which holds a
+        # reference to it), so it cannot receive tasks_service at construction. Without
+        # this back-reference the APPLIES_KNOWLEDGE pattern detector and completed-task
+        # knowledge extraction have no relationship/task access and degrade to no-ops.
+        # See: /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md
+        ku_generation_service.tasks_service = tasks_service
+        logger.info("✅ InsightGenerationService wired with TasksService")
+
         # Note: TranscriptionService is already created in core_services with Deepgram wiring
         # Note: MarkdownSyncService DELETED (January 2026) - use UnifiedIngestionService
 

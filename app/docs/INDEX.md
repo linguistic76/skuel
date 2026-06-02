@@ -153,6 +153,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [UnifiedRelationshipService - Configuration-Driven](patterns/UNIFIED_RELATIONSHIP_SERVICE.md) | 2025-12-03 | 550 |
 | [Graph Access Patterns Guide](patterns/GRAPH_ACCESS_PATTERNS.md) | 2025-11-27 | 999 |
 | [HTTP Status Codes - REST Best Practices](patterns/http_status_codes.md) | 2025-10-17 | 167 |
+| **[Knowledge Application Tracking](patterns/KNOWLEDGE_APPLICATION_TRACKING.md)** | **2026-06-02** | **—** |
 | **[Insight Action Tracking Pattern](patterns/INSIGHT_ACTION_TRACKING.md)** | **2026-01-31** | **420** |
 | [Logging Patterns](patterns/LOGGING_PATTERNS.md) | 2026-01-03 | 130 |
 | [EntityTimestampMixin - Consistent Timestamp & Meta...](patterns/entity_timestamp_mixin.md) | 2025-11-28 | 247 |
