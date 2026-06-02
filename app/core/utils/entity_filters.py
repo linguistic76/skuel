@@ -24,36 +24,24 @@ if TYPE_CHECKING:
 
 
 # -- Shared status groupings --------------------------------------------------
-# Entity.status is always a canonical EntityStatus (set in __post_init__), so the
-# "active" tabs must group by enum members — never by alias spellings. The old
-# code compared `status.value` against strings like "in_progress"/"ready"/
-# "not_started", which are *alias* inputs (resolved to canonical values by
-# EntityStatus.from_string at ingest) and therefore could never match a stored
-# value — silently dead branches. These sets encode the intended grouping using
-# the canonical members those aliases resolve to (ready/planned -> SCHEDULED,
-# in_progress -> ACTIVE, not_started/pending/todo -> DRAFT).
+# Entity.status is always a canonical EntityStatus (set in __post_init__), so
+# status grouping must compare enum members, never raw strings. The previous code
+# compared `status.value` against alias spellings ("in_progress", "ready",
+# "not_started") that EntityStatus.from_string normalizes away at ingest — so
+# those branches never matched a stored value and were dead.
+#
+# This migration is behavior-preserving: each set is exactly the canonical members
+# the old string list *actually matched*, not the (wider) set the dead aliases
+# would have implied. Activating those aliases — e.g. folding SCHEDULED into
+# "active" — would desync these tabs from each domain's own "active" semantics
+# (compute_habit_stats and Habit.should_do_today gate strictly on ACTIVE), so any
+# such widening is a deliberate cross-domain decision, not part of this refactor.
 
 _TASK_ACTIVE_STATUSES = frozenset(
     {
         EntityStatus.ACTIVE,
-        EntityStatus.SCHEDULED,
         EntityStatus.DRAFT,
         EntityStatus.BLOCKED,
-    }
-)
-
-_GOAL_ACTIVE_STATUSES = frozenset(
-    {
-        EntityStatus.ACTIVE,
-        EntityStatus.SCHEDULED,
-        EntityStatus.DRAFT,
-    }
-)
-
-_HABIT_ACTIVE_STATUSES = frozenset(
-    {
-        EntityStatus.ACTIVE,
-        EntityStatus.SCHEDULED,
     }
 )
 
@@ -153,7 +141,7 @@ def filter_goals(
     filtered = list(goals)
 
     if status_filter == "active":
-        filtered = [g for g in filtered if not g.status or g.status in _GOAL_ACTIVE_STATUSES]
+        filtered = [g for g in filtered if not g.status or g.status == EntityStatus.ACTIVE]
     elif status_filter == "completed":
         filtered = [g for g in filtered if g.is_completed]
     elif status_filter == "on_track":
@@ -188,7 +176,7 @@ def filter_habits(
     filtered = list(habits)
 
     if status_filter == "active":
-        filtered = [h for h in filtered if not h.status or h.status in _HABIT_ACTIVE_STATUSES]
+        filtered = [h for h in filtered if not h.status or h.status == EntityStatus.ACTIVE]
     elif status_filter == "paused":
         filtered = [h for h in filtered if h.status == EntityStatus.PAUSED]
     elif status_filter == "completed":
