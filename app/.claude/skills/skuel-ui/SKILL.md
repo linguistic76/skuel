@@ -18,6 +18,30 @@ allowed-tools: Read, Grep, Glob
 
 ---
 
+## Design Direction (Aesthetic Intent)
+
+> "Commit to a direction before coding. Intent through tokens — never ad-hoc hex or fonts."
+
+The stack is fixed (FastHTML + MonsterUI/FrankenUI + Tailwind + Alpine/HTMX). Aesthetic
+intent is expressed *through existing components and tokens*, never by fighting the stack
+with raw HTML, CDN fonts, or bespoke CSS.
+
+**Pre-coding pass — commit to four dimensions before writing FT:**
+1. **Purpose** — what problem, who uses it (mirror the route's `*PageContext`).
+2. **Constraints** — stack is fixed: `BasePage`/`AuthPage` → `build_head()`, server-rendered, accessible (see `accessibility-guide`).
+3. **Differentiation** — the one thing a user remembers; earned by deliberate hierarchy/density, not novelty CSS.
+4. **Tone** — pick a committed direction (refined-minimal ↔ dense-utilitarian) and hold it across the page.
+
+**Express intent through the stack:**
+- **Typography = hierarchy via components.** `PageHeader`/`SectionHeader` carry the type scale — never raw `H1()`/`H2()` with ad-hoc classes. Wholesale font swaps fight the MonsterUI Tailwind stack and are out of scope; a distinctive display font, if ever wanted, must be vendored through `build_head()` — never a CDN `<link>`, never `NotStr`.
+- **Color = semantic tokens.** Dominant-color-plus-sharp-accent via MonsterUI variants (`ButtonT.primary`, `BadgeT.accent`) and semantic tokens (`text-base-content/70`) / `/core/utils/palette.py` constants — never raw `text-gray-600` or bespoke hex. See `ui-css`.
+- **Motion = Alpine/HTMX seams.** Reserve motion for high-impact moments — the shell-first reveal (`content_loading_placeholder` + HTMX swap) and Alpine `x-transition` — not scattered JS micro-animations. See `ui-browser`.
+- **Composition = design tokens.** Deliberate negative space OR controlled density via `Container.*`, `Spacing.*`, `Card.*` (`/ui/tokens.py`) — never magic widths.
+
+**Avoid AI-slop:** no purple-gradient-on-white clichés, no cookie-cutter layout lacking context-specific character; raw `H1()` → `PageHeader`, bespoke hex/font → semantic tokens / vendored fonts, scattered micro-animations → high-impact seams.
+
+---
+
 ## 1. Page Architecture
 
 ### BasePage — The Foundation
@@ -313,6 +337,16 @@ Form(hx_post="/tasks/create")
 P("text", cls="text-gray-600")
 # ✅ Semantic tokens
 P("text", cls="text-base-content/70")
+
+# ❌ Raw H1/H2 for hierarchy — ad-hoc type scale, no committed direction
+H1("Tasks", cls="text-3xl font-bold")
+# ✅ PageHeader/SectionHeader carry the type scale (design intent)
+PageHeader("Tasks", subtitle="Manage your daily work")
+
+# ❌ Bespoke hex or hand-linked/CDN font — fights the MonsterUI stack
+Span("New", style="color:#7c3aed")
+# ✅ Semantic variant/token; fonts vendored via build_head()
+Badge("New", variant=BadgeT.accent)
 ```
 
 ---
@@ -356,6 +390,12 @@ When building a new SKUEL page or feature, verify:
 - [ ] Keyboard navigation works (Tab, Enter, Escape)
 - [ ] Dynamic updates announced (`aria-live="polite"`)
 - [ ] Focus management after HTMX swaps
+
+**Design intent:**
+- [ ] Committed tone held across the page (not generic/cookie-cutter)
+- [ ] Hierarchy via `PageHeader`/`SectionHeader` (no raw `H1()`/`H2()`)
+- [ ] Color via semantic tokens / `palette.py` (no bespoke hex, no `text-gray-*`)
+- [ ] Motion only at high-impact seams (`content_loading_placeholder`, `x-transition`)
 
 ---
 
