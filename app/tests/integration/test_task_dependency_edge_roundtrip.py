@@ -17,6 +17,8 @@ code it fails (no edge is created); against the fix it passes.
 
 import pytest
 
+from adapters.infrastructure.event_bus import InMemoryEventBus
+from core.events import TaskUpdated
 from core.models.enums import EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
@@ -83,3 +85,29 @@ class TestTaskDependencyEdgeRoundTrip:
         )
         assert reverse.is_ok
         assert reverse.value == []
+
+    async def test_create_task_dependency_publishes_invalidation_event(self, services, clean_neo4j):
+        """A successful edge-only mutation publishes TaskUpdated so context caches invalidate.
+
+        DEPENDS_ON data feeds UnifiedUserContext.task_dependencies; without this event,
+        the owner's cached rich context keeps stale dependency data until the TTL expires.
+        Both endpoints share an owner here, so the per-owner dedup yields exactly one event.
+        """
+        bus = InMemoryEventBus(capture_history=True)
+        services.tasks.event_bus = bus
+
+        await self._create_task(services, "task:evt_dependent", "Dependent Task")
+        await self._create_task(services, "task:evt_blocks", "Blocking Task")
+
+        assert (
+            await services.tasks.create_task_dependency(
+                dependent_task_uid="task:evt_dependent",
+                blocks_task_uid="task:evt_blocks",
+            )
+        ).is_ok
+
+        updates = [e for e in bus.get_event_history() if isinstance(e, TaskUpdated)]
+        assert len(updates) == 1  # both tasks owned by user_test → deduped to one owner
+        assert updates[0].task_uid == "task:evt_dependent"
+        assert updates[0].user_uid == "user_test"
+        assert "dependencies" in updates[0].updated_fields

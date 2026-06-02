@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.events import TaskUpdated, publish_event
 from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
@@ -19,6 +20,7 @@ class _RelationshipMixin:
 
     relationships: Any
     backend: Any
+    event_bus: Any
     logger: Any
 
     async def get_task_with_context(
@@ -99,7 +101,34 @@ class _RelationshipMixin:
         result = await self.backend.create_relationships_batch(edges)
         if result.is_error:
             return Result.fail(result)
+        await self._publish_dependency_update(dependent_task_uid, blocks_task_uid)
         return Result.ok(True)
+
+    async def _publish_dependency_update(
+        self, dependent_task_uid: str, blocks_task_uid: str
+    ) -> None:
+        """Publish TaskUpdated for the affected owners after a DEPENDS_ON edge change.
+
+        The dependency graph feeds ``UnifiedUserContext.task_dependencies`` and the
+        inverse blockers view, so a successful edge-only mutation must invalidate the
+        owners' rich-context caches — otherwise dependency context stays stale until
+        the TTL expires (same reason ``_publish_edge_only_update`` exists for the
+        habit/knowledge edges). Best-effort: with no event bus wired, or a task that
+        no longer resolves, this is a no-op — the edge is already written.
+        """
+        if self.event_bus is None:
+            return
+        seen: set[str] = set()
+        for uid in (dependent_task_uid, blocks_task_uid):
+            fetched = await self.backend.get(uid)
+            if fetched.is_error or fetched.value is None:
+                continue
+            user_uid = fetched.value.user_uid
+            if not user_uid or user_uid in seen:
+                continue
+            seen.add(user_uid)
+            event = TaskUpdated(task_uid=uid, user_uid=user_uid, updated_fields=["dependencies"])
+            await publish_event(self.event_bus, event, self.logger)
 
     async def get_tasks_requiring_knowledge(
         self, knowledge_uid: str, _user_uid: UserUID | None = None, _limit: int = 100
