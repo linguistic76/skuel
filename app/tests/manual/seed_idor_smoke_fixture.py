@@ -100,7 +100,7 @@ async def seed() -> None:
         await driver.execute_query(
             """
             MERGE (sub1:Entity:UserEntry {uid: $sub1})
-              SET sub1.entity_type = 'exercise_submission',
+              SET sub1.entity_type = 'user_entry',
                   sub1.title = 'IDOR S1 submission',
                   sub1.status = 'submitted',
                   sub1.pipeline = 'teacher_review',
@@ -108,7 +108,7 @@ async def seed() -> None:
                   sub1.updated_at = $now,
                   sub1.user_uid = $student_1
             MERGE (sub2:Entity:UserEntry {uid: $sub2})
-              SET sub2.entity_type = 'exercise_submission',
+              SET sub2.entity_type = 'user_entry',
                   sub2.title = 'IDOR S2 submission',
                   sub2.status = 'submitted',
                   sub2.pipeline = 'teacher_review',

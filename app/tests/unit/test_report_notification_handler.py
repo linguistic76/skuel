@@ -103,7 +103,7 @@ async def test_handle_submission_approved_creates_notification(mock_notification
         title="Your submission was approved",
         message="Your teacher approved your work on this submission.",
         source_uid="ku_submission_123",
-        source_type="exercise_submission",
+        source_type="user_entry",
     )
 
 
