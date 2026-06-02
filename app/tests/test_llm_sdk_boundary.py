@@ -110,10 +110,20 @@ def _type_checking_import_lines(tree: ast.AST) -> frozenset[int]:
 
 
 def _is_type_checking_test(test: ast.expr) -> bool:
-    """True for ``TYPE_CHECKING`` / ``typing.TYPE_CHECKING`` guard expressions."""
+    """True for ``TYPE_CHECKING`` / ``typing.TYPE_CHECKING`` guard expressions.
+
+    The attribute form is matched only on the ``typing`` module, never any
+    ``*.TYPE_CHECKING`` (e.g. ``settings.TYPE_CHECKING`` is a runtime guard, not
+    the typing sentinel, and its imports must stay in scope).
+    """
     if isinstance(test, ast.Name):
         return test.id == "TYPE_CHECKING"
-    return isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+    return (
+        isinstance(test, ast.Attribute)
+        and test.attr == "TYPE_CHECKING"
+        and isinstance(test.value, ast.Name)
+        and test.value.id == "typing"
+    )
 
 
 def _imported_top_level_modules(tree: ast.AST) -> list[tuple[str, int]]:
@@ -242,6 +252,19 @@ def test_type_checking_carveout_exempts_only_the_type_checking_branch() -> None:
         v.split("`")[1] for v in _violations_for("core/utils/sort_functions.py", ast.parse(src))
     }
     assert flagged == {"requests"}, flagged
+
+    # A non-typing guard (settings.TYPE_CHECKING) is NOT the sentinel — its
+    # runtime import must still be flagged.
+    custom_guard = (
+        "import settings\n"
+        "if settings.TYPE_CHECKING:\n"
+        "    import requests  # runtime — MUST be flagged\n"
+    )
+    flagged_custom = {
+        v.split("`")[1]
+        for v in _violations_for("core/utils/sort_functions.py", ast.parse(custom_guard))
+    }
+    assert "requests" in flagged_custom, flagged_custom
 
 
 def test_exception_class_exemptions_are_still_load_bearing() -> None:
