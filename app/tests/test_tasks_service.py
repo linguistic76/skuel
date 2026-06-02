@@ -465,3 +465,39 @@ class TestUpdateTaskKnowledgeEdges:
         assert result.is_error
         # New edge must NOT be created when stale-edge removal failed.
         service.relationships.create_relationship.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_edge_only_update_publishes_invalidation_event(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """Edge-only updates bypass core.update_task (which fires TaskUpdated), so the
+        facade must publish the invalidation event itself — else rich context stays stale."""
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
+        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+        service._publish_edge_only_update = AsyncMock()
+
+        result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
+
+        assert result.is_ok
+        service._publish_edge_only_update.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_property_update_does_not_double_publish(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """A property update goes through core.update_task (which already fires
+        TaskUpdated), so the facade must NOT publish a second edge-only event."""
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
+        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(Mock()))
+        service._publish_edge_only_update = AsyncMock()
+
+        result = await service.update_task(
+            "task_abc", {"title": "New", "applies_knowledge_uids": ["ku_x"]}
+        )
+
+        assert result.is_ok
+        service._publish_edge_only_update.assert_not_called()

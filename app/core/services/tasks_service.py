@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from core.services.tasks.tasks_ai_service import TasksAIService
 
 # Domain models
+from core.events import TaskUpdated, publish_event
 from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
@@ -340,6 +341,9 @@ class TasksService(
         self.core = TasksCoreService(
             backend=backend, ku_inference_service=ku_inference_service, event_bus=event_bus
         )
+        # Held for edge-only updates: those bypass core.update_task (which publishes
+        # TaskUpdated), so the facade publishes the invalidation event itself.
+        self.event_bus = event_bus
 
         # Intelligence service now uses BaseAnalyticsService (no AI dependencies)
         # See ADR-030 for the intelligence layer separation
@@ -473,6 +477,29 @@ class TasksService(
                     return Result.fail(edge)
         return Result.ok(None)
 
+    async def _publish_edge_only_update(
+        self, task: Task, habit_uid: str | None, applies_knowledge_uids: list[str] | None
+    ) -> None:
+        """Publish TaskUpdated after an edge-only update so user-context caches invalidate.
+
+        Property updates publish TaskUpdated via TasksCoreService.update_task, but the
+        relationship-only path bypasses it (fetch-only) — without this, rich context
+        (entities_rich, ZPD, applied-knowledge/habit links) stays stale until the cache
+        TTL expires. TaskUpdated is wired to context invalidation in _event_wiring.py.
+        """
+        changed_fields = [
+            name
+            for name, value in (
+                ("reinforces_habit_uid", habit_uid),
+                ("applies_knowledge_uids", applies_knowledge_uids),
+            )
+            if value is not None
+        ]
+        event = TaskUpdated(
+            task_uid=task.uid, user_uid=task.user_uid, updated_fields=changed_fields
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
     async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
         """Facade update (UI route). Writes node properties via core (events fire) and
         syncs habit/knowledge edges. See `_sync_relationship_edges`."""
@@ -482,7 +509,8 @@ class TasksService(
         # TaskUpdateRequest permits) leaves no node properties to write. The backend
         # rejects an empty update dict, so fetch the task to confirm it exists and to
         # have a Task to return. A genuinely empty call keeps the validation error.
-        if updates or (habit_uid is None and applies_knowledge_uids is None):
+        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        if wrote_properties:
             result = await self.core.update_task(task_uid, updates)
         else:
             result = await self.core.get_task(task_uid)
@@ -490,7 +518,11 @@ class TasksService(
             return result
 
         sync = await self._sync_relationship_edges(task_uid, habit_uid, applies_knowledge_uids)
-        return result if sync.is_ok else Result.fail(sync)
+        if sync.is_error:
+            return Result.fail(sync)
+        if not wrote_properties:  # edge-only: core.update_task didn't fire TaskUpdated
+            await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
+        return result
 
     # boundary: `updates` is a heterogeneous partial-update payload and must keep the
     # inherited CrudOperationsMixin `dict[str, Any]` signature (LSP — narrowing to a
@@ -501,7 +533,8 @@ class TasksService(
         node properties. See `_sync_relationship_edges`."""
         habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
 
-        if updates or (habit_uid is None and applies_knowledge_uids is None):
+        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        if wrote_properties:
             result = await super().update(uid, updates)
         else:
             result = await self.core.get_task(uid)
@@ -509,7 +542,11 @@ class TasksService(
             return result
 
         sync = await self._sync_relationship_edges(uid, habit_uid, applies_knowledge_uids)
-        return result if sync.is_ok else Result.fail(sync)
+        if sync.is_error:
+            return Result.fail(sync)
+        if not wrote_properties:
+            await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
+        return result
 
     async def update_for_user(
         self,
@@ -524,7 +561,8 @@ class TasksService(
         `_sync_relationship_edges`."""
         habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
 
-        if updates or (habit_uid is None and applies_knowledge_uids is None):
+        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        if wrote_properties:
             result = await super().update_for_user(uid, updates, user_uid)
         else:
             # Relationship-only update: still verify ownership before touching edges.
@@ -533,7 +571,11 @@ class TasksService(
             return result
 
         sync = await self._sync_relationship_edges(uid, habit_uid, applies_knowledge_uids)
-        return result if sync.is_ok else Result.fail(sync)
+        if sync.is_error:
+            return Result.fail(sync)
+        if not wrote_properties:
+            await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
+        return result
 
     async def get_reinforced_habit(self, task_uid: str) -> Result[str | None]:
         """Return the habit uid this task reinforces via (Task)-[:REINFORCES_HABIT]->(Habit).
