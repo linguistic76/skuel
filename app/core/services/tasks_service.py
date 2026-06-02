@@ -432,12 +432,22 @@ class TasksService(
         an empty list / empty string) means "replace" — clearing all edges of that
         kind when empty.
         """
+        # Stale-edge removal must succeed before new edges are created. Treating a
+        # failed fetch as "no old edges", or ignoring a failed delete, would leave
+        # stale edges attached while still creating new ones and returning success —
+        # so cleared/replaced knowledge would keep affecting detectors and graph
+        # queries. Fail the whole sync on any fetch or delete error.
         if habit_uid is not None:
             # (Task)-[:REINFORCES_HABIT]->(Habit): replace any existing reinforced habit.
             existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
-            if existing.is_ok:
-                for old_habit in existing.value or []:
-                    await self.relationships.delete_relationship("habits", task_uid, old_habit)
+            if existing.is_error:
+                return Result.fail(existing)
+            for old_habit in existing.value or []:
+                deleted = await self.relationships.delete_relationship(
+                    "habits", task_uid, old_habit
+                )
+                if deleted.is_error:
+                    return Result.fail(deleted)
             if habit_uid:  # non-empty → create the new edge (empty string = cleared)
                 edge = await self.relationships.create_relationship("habits", task_uid, habit_uid)
                 if edge.is_error:
@@ -449,9 +459,14 @@ class TasksService(
             existing_ku = await self.relationships.get_related_uids(
                 "knowledge", EntityUID(task_uid)
             )
-            if existing_ku.is_ok:
-                for old_ku in existing_ku.value or []:
-                    await self.relationships.delete_relationship("knowledge", task_uid, old_ku)
+            if existing_ku.is_error:
+                return Result.fail(existing_ku)
+            for old_ku in existing_ku.value or []:
+                deleted = await self.relationships.delete_relationship(
+                    "knowledge", task_uid, old_ku
+                )
+                if deleted.is_error:
+                    return Result.fail(deleted)
             for ku_uid in applies_knowledge_uids:
                 edge = await self.relationships.create_relationship("knowledge", task_uid, ku_uid)
                 if edge.is_error:

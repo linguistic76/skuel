@@ -443,3 +443,25 @@ class TestUpdateTaskKnowledgeEdges:
         service.relationships.create_relationship.assert_awaited_once_with(
             "knowledge", "task_abc", "ku_new"
         )
+
+    @pytest.mark.asyncio
+    async def test_failed_stale_edge_delete_fails_update_without_creating(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """A failed stale-edge delete must fail the update — not leave stale edges and
+        create new ones (which would let cleared knowledge keep affecting detectors)."""
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["ku_old"]))
+        service.relationships.delete_relationship = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(message="transient Neo4j error", operation="delete_relationship")
+            )
+        )
+        service.relationships.create_relationship = AsyncMock()
+
+        result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
+
+        assert result.is_error
+        # New edge must NOT be created when stale-edge removal failed.
+        service.relationships.create_relationship.assert_not_called()
