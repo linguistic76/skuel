@@ -215,7 +215,7 @@ case "$1" in
     echo "  ./dev format-check   - Check formatting without changes"
     echo "  ./dev lint           - Run all linters (Ruff + SKUEL patterns)"
     echo "  ./dev lint-fix       - Auto-fix linting issues"
-    echo "  ./dev quality        - Run ALL quality checks (format + lint + patterns + Cypher)"
+    echo "  ./dev quality        - Run ALL quality checks (format + lint + patterns + Cypher + skills)"
     echo "  ./dev quality-fix    - Run quality checks with auto-fix"
     echo "  ./dev audit-routes   - Audit @rt handlers for CSRF + auth gaps (--form-only, --verbose)"
     echo ""
