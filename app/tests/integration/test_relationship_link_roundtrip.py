@@ -15,7 +15,6 @@ back. Each fails against the pre-fix dynamic-dispatch body and passes against th
 """
 
 from datetime import date, timedelta
-from typing import Any
 
 import pytest
 
@@ -129,12 +128,9 @@ class TestRelationshipLinkRoundTrip:
         assert (await habits_backend.create(habit)).is_ok
         await self._make_ku(ku_backend, "ku:habit_target")
 
-        habits_relationships: UnifiedRelationshipService[Any, Any, Any] = (
-            UnifiedRelationshipService(backend=habits_backend, config=HABITS_CONFIG)
-        )
-        result = await habits_relationships.create_relationship(
-            "knowledge", "habit:link_ku_src", "ku:habit_target"
-        )
+        result = await UnifiedRelationshipService(
+            backend=habits_backend, config=HABITS_CONFIG
+        ).create_relationship("knowledge", "habit:link_ku_src", "ku:habit_target")
         assert result.is_ok
         assert result.value is True
 
