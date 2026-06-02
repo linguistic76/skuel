@@ -428,9 +428,7 @@ class UnifiedRelationshipService[
         return Result.ok(result.value > 0)
 
     @staticmethod
-    def _orient(
-        spec: UnifiedRelationshipDefinition, from_uid: str, to_uid: str
-    ) -> tuple[str, str]:
+    def _orient(spec: UnifiedRelationshipDefinition, from_uid: str, to_uid: str) -> tuple[str, str]:
         """Orient ``(owner, related)`` → ``(edge_from, edge_to)`` per the registry direction.
 
         ``from_uid`` is the entity that owns this domain config, ``to_uid`` the related
