@@ -15,6 +15,13 @@ entity type split. Revises the "learning loop" framing of ADR-040.
 > §Rollout is superseded by One Path Forward — shims and label-inclusive
 > reads were not built. Activity extraction from the journal pipeline was
 > dropped; journals no longer auto-create Tasks/Goals via DSL.
+>
+> **The collapse is fully landed in code; see the [Postscript](#postscript-2026-06-02)
+> for execution outcomes and one material divergence from §5 (rich journaling
+> has since been abandoned). The body below is preserved as the decision record
+> — its decision-time service/backend names (`SubmissionsBackend`,
+> `submissions_processing_service.py`, …) were accurate when written and are
+> deliberately not back-renamed.**
 
 ## Context
 
@@ -472,3 +479,76 @@ Phase 1 work:
    `PRIVATE`? Leaning: start `PRIVATE`, because the derived entry is the
    "polished" output the user may want to share differently from the raw
    input. Confirm at Phase 1 UI review.
+
+## Postscript (2026-06-02)
+
+The collapse is fully executed in code, and a documentation de-stale campaign
+has brought every *reference* doc and skill into line with the landed shape.
+This addendum records the actual outcomes and the points where reality diverged
+from the body above. The body is kept verbatim as the decision record.
+
+### What landed
+
+- **One type, as decided.** `EntityType.EXERCISE_SUBMISSION` / `JE_INPUT` /
+  `JE_OUTPUT` are deleted; `EntityType.USER_ENTRY` (NeoLabel `UserEntry`, UID
+  prefix `ue`) is the single user-authored content type. The three legacy
+  strings survive only as `from_string()` aliases mapping to `USER_ENTRY` (pure
+  dict lookup — ingestion/DSL backward read), not as live types.
+- **Services/backends renamed and collapsed.** The decision-time names in the
+  body map to current code as: `submissions_processing_service.py` →
+  `core/services/user_entry/user_entry_processing_service.py`;
+  `SubmissionsService` → `UserEntryService`
+  (`core/services/user_entry/user_entry_service.py`); `SubmissionsBackend` →
+  `UserEntryBackend` (`adapters/persistence/neo4j/backends/user_entry_backend.py`,
+  composed from `_user_entry_*_mixin.py`). No standalone `submissions/` or
+  `journal_*` service files remain.
+- **`Pipeline` / `ReportSource` split** (`core/models/enums/pipeline.py`) shipped;
+  `ProcessorType` is gone. `ReportSource` carries four values incl. `HYBRID`.
+- **Review queue** is the group-symmetric pattern of §6: backend method
+  `get_review_queue_by_groups()` (matches `:UserEntry`-`SHARED_WITH_GROUP`→
+  teacher-owned `Group`, `pipeline='teacher_review'`), wrapped by the service's
+  `get_review_queue()`. Not an OWNS-the-exercise gate.
+- **Read-filter bug fixed (#182).** The §Rollout "label-inclusive reads were not
+  built" note left ~15 read queries filtering only the *deleted*
+  `entity_type='exercise_submission'` — after migration relabelled everything
+  to `user_entry`, they matched nothing (teacher review, assessment, ZPD, group
+  counts silently dead). Fixed to match the `:UserEntry` label + canonical
+  turn-in predicate. Fixing the dead filters activated the latent bugs they had
+  masked (cross-user/cross-teacher leaks, count inflation) — all closed in #182.
+
+### Material divergence from §5 — rich journaling abandoned
+
+§5 ("Journal input → output, preserved") and Open Question 2 present journaling
+as a live, forward-looking feature. **It is not.** Mike confirmed rich
+journaling is abandoned, and the journal→KU DSL connector was wired into no live
+path. Consequently:
+
+- The rich-journal data model (`mood`, `energy_level`, `key_topics`,
+  `entry_date`) was dropped from `UserEntry`.
+- The ZPD `je_input` engagement signal was removed — it could never match, so
+  `ZoneEvidence.journal_application` was permanently `False` (#183). Compound
+  evidence now counts three signal types, not four.
+- Content-enrichment rich-journal fields (`recent_journals`, `recent_topics`,
+  `mood_trends`) were stripped from `EnrichmentContext`; the journal-context
+  helpers were rewritten goals-only (#185). The `mood_trends` dict was a truthy
+  hollow value that had been injecting a junk "Average Energy 0.0/10" block into
+  every enrichment LLM prompt.
+
+The `Pipeline.TRANSCRIBE_AND_STRUCTURE` *mechanism* (audio → transcribed entry →
+LLM-structured second `UserEntry` linked by `TRANSFORMS`) and the
+`/journals/submit` route still exist, and the PRIVATE-by-policy rule
+(`Pipeline.allows_sharing()` returns `False` only for this pipeline) still holds —
+so §5 is **mechanically** intact but no longer feeds any intelligence consumer.
+Open Question 2 is effectively decided: the derived entry persists
+`visibility=PRIVATE`.
+
+### Still open / remaining cleanup
+
+- **Open Question 1 (exercise version pinning at submit time)** was never
+  addressed — no `exercise_version_hash` on `FULFILLS_EXERCISE`. Still open.
+- **Phase 3 "delete label-inclusive read helpers" is not fully done.** A few
+  defensive label-inclusive reads remain (e.g.
+  `user_context_queries.py` filters `entity_type IN ['exercise_submission',
+  'je_input', 'je_output', 'user_entry']`). These are harmless — the legacy
+  branches simply never match post-migration — but they are dead and slated for
+  removal under One Path Forward.
