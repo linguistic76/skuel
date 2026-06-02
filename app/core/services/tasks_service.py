@@ -492,6 +492,9 @@ class TasksService(
         sync = await self._sync_relationship_edges(task_uid, habit_uid, applies_knowledge_uids)
         return result if sync.is_ok else Result.fail(sync)
 
+    # boundary: `updates` is a heterogeneous partial-update payload and must keep the
+    # inherited CrudOperationsMixin `dict[str, Any]` signature (LSP — narrowing to a
+    # TypedDict would break override variance and the route's model_dump() callers).
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[Task]:
         """Override the inherited CRUD update (generated JSON route, no ownership check)
         so the API path syncs habit/knowledge edges instead of writing them as junk
@@ -509,7 +512,11 @@ class TasksService(
         return result if sync.is_ok else Result.fail(sync)
 
     async def update_for_user(
-        self, uid: str, updates: dict[str, Any], user_uid: UserUID
+        self,
+        uid: str,
+        # boundary: heterogeneous partial-update payload — see `update` above.
+        updates: dict[str, Any],
+        user_uid: UserUID,
     ) -> Result[Task]:
         """Override the inherited ownership-verified CRUD update (generated JSON route)
         so the API path syncs habit/knowledge edges. Ownership is verified before any
