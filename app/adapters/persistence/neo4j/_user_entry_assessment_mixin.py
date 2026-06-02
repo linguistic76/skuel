@@ -250,21 +250,26 @@ class _UserEntryAssessmentMixin:
     async def get_student_entries_for_teacher(
         self, teacher_uid: str, student_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """All entries owned by a student, gated by shared active group.
+        """A student's teacher-review entries that are shared with the teacher's groups.
 
-        Model A gate: anchors on the (teacher, student) pair via
-        ``(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)``.
-        Empty result when teacher and student do not share an active group —
-        callers map empty to "no entries", which is indistinguishable from a
-        genuinely empty per-student history, so we do not leak the existence
-        of unrelated students' submissions.
+        Gate: each entry must itself be ``SHARED_WITH_GROUP`` an active group the
+        requesting teacher owns — not merely prove that teacher and student share
+        *some* group. This stops a teacher who shares one group with a multi-class
+        student from reading entries the student only shared with another teacher's
+        group. Empty result when nothing the student owns is shared with this
+        teacher's groups — indistinguishable from a genuinely empty history, so the
+        existence of other classrooms' submissions is not leaked. (Mirrors the
+        entry-level gate used by ``get_entry_detail_for_teacher``; ``EXISTS`` avoids
+        inflating ``feedback_count`` when an entry is shared with several of the
+        teacher's groups.)
         """
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-              <-[:{RelationshipName.MEMBER_OF.value}]-(student:User {{uid: $student_uid}})
-        WHERE g.is_active = true
-        MATCH (student)-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
+        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
         WHERE ku.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          AND EXISTS {{
+            (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group {{is_active: true}})
+                <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}})
+          }}
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
