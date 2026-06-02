@@ -391,21 +391,23 @@ class UnifiedRelationshipService[
         properties: dict[str, Any] | None = None,
     ) -> Result[bool]:
         """
-        Create a relationship between entities.
+        Create a single relationship edge between entities.
 
-        This generic method replaces domain-specific methods like:
-        - link_task_to_knowledge()
-        - link_goal_to_habit()
-        - link_habit_to_principle()
+        Routes through the proven ``backend.create_relationships_batch`` path (the same
+        one create-flows and ``create_relationships_batch`` use), with the edge type
+        taken from the registry ``spec`` for ``relationship_key``. This replaced a
+        dynamic ``link_{domain}_to_{key}`` backend-method dispatch that existed only for
+        two habit cases and failed at runtime ("Backend method not found") for every
+        other domain — see ``/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md``.
 
         Args:
             relationship_key: Key from config
             from_uid: Source entity UID
             to_uid: Target entity UID
-            properties: Optional relationship properties
+            properties: Optional edge properties (persisted on the relationship)
 
         Returns:
-            Result[bool] indicating success
+            Result[bool] — True when the edge was created.
         """
         spec = self.config.get_relationship_by_method(relationship_key)
         if not spec:
@@ -415,13 +417,12 @@ class UnifiedRelationshipService[
                 )
             )
 
-        return await self.relationship_helper.create_relationship(
-            backend_method=f"link_{self.config.domain.value.rstrip('s')}_to_{relationship_key}",
-            from_uid=from_uid,
-            to_uid=to_uid,
-            relationship_label=spec.relationship.value,
-            properties=properties,
+        result = await self.backend.create_relationships_batch(
+            [(from_uid, to_uid, spec.relationship.value, properties)]
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value > 0)
 
     async def delete_relationship(
         self,

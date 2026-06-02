@@ -25,7 +25,6 @@ from core.ports.query_types import (
     PrincipleStats,
     TaskStats,
 )
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -50,8 +49,6 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
     - get_user_habits(uid)    → not matched by any __getattr__ pattern
     - archive_habit(uid)      → status transition (not just delete)
     - get_stats_for_user(uid) → habit count stats (total/active/streaks)
-    - link_habit_to_knowledge → Cypher MERGE
-    - link_habit_to_principle → Cypher MERGE
     - create_user_habit_relationship → wraps create_user_relationship()
     """
 
@@ -159,29 +156,6 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
                 "streaks": record.get("streaks", 0),
             }
         )
-
-    async def link_habit_to_knowledge(self, habit_uid: str, knowledge_uid: str) -> Result[bool]:
-        """
-        Link habit to knowledge it practices.
-        Creates: (Habit)-[:REINFORCES_KNOWLEDGE]->(Entity)
-        """
-        try:
-            query = """
-            MATCH (h:Habit {uid: $habit_uid})
-            MATCH (k:Entity {uid: $knowledge_uid})
-            MERGE (h)-[r:REINFORCES_KNOWLEDGE]->(k)
-            RETURN r
-            """
-            result = await self.execute_query(
-                query, {"habit_uid": habit_uid, "knowledge_uid": knowledge_uid}
-            )
-            if result.is_error:
-                return Result.fail(result)
-            self.logger.info(f"Linked Habit:{habit_uid} to Knowledge:{knowledge_uid}")
-            return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link habit to knowledge: {e}")
-            return Result.fail(Errors.database(operation="link_habit_to_knowledge", message=str(e)))
 
     async def get_user_badges(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all badges earned by a user via EARNED_BADGE relationships."""
@@ -386,29 +360,6 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
                 }
             )
         return Result.ok(result.value[0])
-
-    async def link_habit_to_principle(self, habit_uid: str, principle_uid: str) -> Result[bool]:
-        """
-        Link habit to principle it embodies.
-        Creates: (Habit)-[:EMBODIES_PRINCIPLE]->(Entity)
-        """
-        try:
-            query = """
-            MATCH (h:Habit {uid: $habit_uid})
-            MATCH (p:Entity {uid: $principle_uid})
-            MERGE (h)-[r:EMBODIES_PRINCIPLE]->(p)
-            RETURN r
-            """
-            result = await self.execute_query(
-                query, {"habit_uid": habit_uid, "principle_uid": principle_uid}
-            )
-            if result.is_error:
-                return Result.fail(result)
-            self.logger.info(f"Linked Habit:{habit_uid} to Principle:{principle_uid}")
-            return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link habit to principle: {e}")
-            return Result.fail(Errors.database(operation="link_habit_to_principle", message=str(e)))
 
 
 class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
