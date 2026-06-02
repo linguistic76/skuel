@@ -256,6 +256,21 @@ related_uids = await service.relationships.get_related_uids(
 )
 ```
 
+For a relationship with **no typed `link_to_*` method** (e.g. task dependencies,
+`DEPENDS_ON`), create the edge through the backend batch path — **never** the generic
+`service.create_relationship(key, ...)`, which is broken for tasks (it dispatches to a
+non-existent `link_task_to_<key>` backend method and fails at runtime; mocks hide it):
+
+```python
+await backend.create_relationships_batch(
+    [(dependent_uid, blocks_uid, RelationshipName.DEPENDS_ON.value, props)]
+)  # e.g. TasksService.create_task_dependency
+```
+
+After **any** edge-only mutation (no node property changed), publish the domain's
+`*Updated` event (e.g. `TaskUpdated`) so `UnifiedUserContext` caches invalidate — the
+same rule that applies to `applies_knowledge_uids`/`reinforces_habit_uid` edge syncs.
+
 **Reads (cross-domain)** — Queries spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`):
 
 ```python
