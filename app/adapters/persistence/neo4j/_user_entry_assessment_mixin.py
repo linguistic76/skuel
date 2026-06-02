@@ -334,7 +334,7 @@ class _UserEntryAssessmentMixin:
         WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
         RETURN
-          count(CASE WHEN sub.status IN ['submitted', 'active'] THEN 1 END) AS pending_count,
+          count(DISTINCT CASE WHEN sub.status IN ['submitted', 'active'] THEN sub.uid END) AS pending_count,
           count(DISTINCT student) AS total_students,
           count(DISTINCT ex) AS total_exercises,
           count(DISTINCT g) AS total_groups
