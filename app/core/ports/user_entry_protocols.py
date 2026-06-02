@@ -361,9 +361,9 @@ class UserEntryReportQueryOperations(Protocol):
 class UserEntryContentOperations(Protocol):
     """Processing context + exercise-instruction enrichment reads.
 
-    Journal-flavored methods now operate on ``UserEntry`` with
-    ``pipeline IN ('transcribe_and_structure', ...)`` rather than on a
-    distinct ``JeInput``/``JeOutput`` label.
+    The processing-context read returns active goals only — ADR-054 dismantled
+    the rich-journal model, so the former recent-journal/topic/mood reads were
+    removed.
 
     Implementation: ``_UserEntryContentMixin`` (Step 4).
     """
@@ -371,23 +371,7 @@ class UserEntryContentOperations(Protocol):
     async def get_journal_processing_context(
         self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Single-query context bundle for the journal enrichment pipeline."""
-        ...
-
-    async def get_recent_journal_entries(
-        self, user_uid: UserUID, cutoff_datetime: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Recent journal-flavored entries."""
-        ...
-
-    async def get_active_goals_for_user(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Active goals for a user (enrichment context)."""
-        ...
-
-    async def get_recent_journal_topics(
-        self, user_uid: UserUID, cutoff_datetime: str
-    ) -> Result[list[Neo4jProperties]]:
-        """``key_topics`` from recent journal entries for aggregation."""
+        """Single-query active-goal context bundle for the enrichment pipeline."""
         ...
 
     async def load_exercise_instructions(self, uid: str) -> Result[list[Neo4jProperties]]:
