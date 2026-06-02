@@ -13,14 +13,16 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.task.task import Task
     from core.models.type_hints import Neo4jProperties, UserUID
+    from core.ports.domain_protocols import TasksOperations
+    from core.ports.infrastructure_protocols import EventBusOperations
 
 
 class _RelationshipMixin:
     """Relationship and context retrieval methods for TasksService."""
 
     relationships: Any
-    backend: Any
-    event_bus: Any
+    backend: TasksOperations
+    event_bus: EventBusOperations | None
     logger: Any
 
     async def get_task_with_context(
