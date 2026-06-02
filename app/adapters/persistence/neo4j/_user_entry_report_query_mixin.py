@@ -121,8 +121,7 @@ class _UserEntryReportQueryMixin:
         query = f"""
         MATCH (ex:Entity {{uid: $exercise_uid}})
         WHERE ex.entity_type IN ['exercise', 'revised_exercise']
-        OPTIONAL MATCH (sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE.value}|{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(ex)
-          WHERE sub.entity_type = 'exercise_submission'
+        OPTIONAL MATCH (sub:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}|{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(ex)
         OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
           WHERE fb.entity_type = 'exercise_report'
         OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
@@ -137,7 +136,7 @@ class _UserEntryReportQueryMixin:
     async def get_submission_chain_raw(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """Traverse learning loop chain from a specific entry."""
         query = f"""
-        MATCH (sub:Entity {{uid: $submission_uid, entity_type: 'exercise_submission'}})
+        MATCH (sub:Entity:UserEntry {{uid: $submission_uid}})
         OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
           WHERE ex.entity_type IN ['exercise', 'revised_exercise']
         OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)

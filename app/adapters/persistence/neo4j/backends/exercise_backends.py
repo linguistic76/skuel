@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.enums.pipeline import Pipeline
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
 from core.models.report.exercise_report import ExerciseReport
@@ -429,9 +430,11 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         """Get teacher's exercises with submission and reviewed counts."""
         query = f"""
         MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
-        OPTIONAL MATCH (s:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
-        WITH exercise, count(s) AS total_count,
-             count(CASE WHEN s.status = 'completed' THEN 1 END) AS reviewed_count
+        OPTIONAL MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
+          WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+            AND EXISTS {{ (s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(user) }}
+        WITH exercise, count(DISTINCT s) AS total_count,
+             count(DISTINCT CASE WHEN s.status = 'completed' THEN s.uid END) AS reviewed_count
         RETURN exercise.uid AS uid, exercise.title AS title,
                exercise.scope AS scope, exercise.created_at AS created_at,
                total_count, reviewed_count,
@@ -526,9 +529,9 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """
         return await self.execute_query(
             """
-            MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity)
+            MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity:UserEntry)
             MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
-            WHERE submission.entity_type = 'exercise_submission'
+            WHERE EXISTS { (submission)-[:FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE]->() }
             RETURN submission.uid AS submission_uid
             """,
             {
