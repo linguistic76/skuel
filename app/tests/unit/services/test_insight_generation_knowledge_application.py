@@ -22,18 +22,20 @@ from core.utils.result_simplified import Result
 class _FakeRelationshipService:
     """Minimal stand-in for UnifiedRelationshipService.
 
-    Only implements ``get_related_uids(key, uid)``; returns the seeded knowledge
-    UIDs for the ``"knowledge"`` key and an empty list for every other relationship
-    key (subtasks, principles, …) so the rest of TaskRelationships fetches cleanly.
+    Implements ``batch_get_related_uids(key, uids)`` — the single-query path the
+    detector uses — returning the seeded knowledge UIDs per task for the
+    ``"knowledge"`` key and empty lists for any other relationship key.
     """
 
     def __init__(self, knowledge_by_task: dict[str, list[str]]) -> None:
         self._knowledge_by_task = knowledge_by_task
 
-    async def get_related_uids(self, relationship_key: str, uid: str) -> Result[list[str]]:
-        if relationship_key == "knowledge":
-            return Result.ok(list(self._knowledge_by_task.get(uid, [])))
-        return Result.ok([])
+    async def batch_get_related_uids(
+        self, relationship_key: str, entity_uids: list[str]
+    ) -> Result[dict[str, list[str]]]:
+        if relationship_key != "knowledge":
+            return Result.ok({uid: [] for uid in entity_uids})
+        return Result.ok({uid: list(self._knowledge_by_task.get(uid, [])) for uid in entity_uids})
 
 
 def _task(uid: str, *, actual: int, estimated: int) -> Task:

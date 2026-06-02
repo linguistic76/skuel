@@ -21,7 +21,6 @@ Architecture:
 - See `/core/services/ps/` for architecture overview
 """
 
-import asyncio
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -34,7 +33,6 @@ from core.models.enums import Domain, EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.models.type_hints import UserUID
 from core.ports import HasMetadata, HasSummary
-from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -450,12 +448,14 @@ class InsightGenerationService:
         Knowledge application is graph-native: the linkage lives on
         ``(Task)-[:APPLIES_KNOWLEDGE]->(Ku)`` edges, not as a property on the Task
         model (removed in the ADR-035/ADR-065 graph-native migration). This detector
-        fetches those edges via the relationship service, partitions completed tasks
-        into the knowledge-applying cohort vs. the whole, and emits a
+        fetches those edges in a single batched query, partitions completed tasks into
+        the knowledge-applying cohort vs. the whole, and emits a
         ``KNOWLEDGE_APPLICATION`` pattern when the knowledge cohort is meaningfully
         (>10%) more efficient — the core "applied knowledge compounds" signal.
 
-        Backend: UnifiedRelationshipService.get_related_uids (APPLIES_KNOWLEDGE).
+        Backend: UnifiedRelationshipService.batch_get_related_uids (APPLIES_KNOWLEDGE) —
+        one query for all tasks, reading only the knowledge key (avoids the
+        N-times-all-specs fan-out of a per-task relationship fetch on large histories).
 
         Args:
             tasks: Completed tasks to analyze.
@@ -480,14 +480,16 @@ class InsightGenerationService:
             )
             return []
 
-        # Fetch APPLIES_KNOWLEDGE edges for every task in parallel.
-        task_rels = await asyncio.gather(
-            *(TaskRelationships.fetch(task.uid, relationship_service) for task in tasks)
+        # Fetch APPLIES_KNOWLEDGE edges for all tasks in ONE query (knowledge key only).
+        knowledge_result = await relationship_service.batch_get_related_uids(
+            "knowledge", [task.uid for task in tasks]
         )
+        if knowledge_result.is_error:
+            self.logger.debug("Skipping knowledge-application pattern: knowledge edge fetch failed")
+            return []
+        knowledge_by_task = knowledge_result.value
 
-        knowledge_tasks = [
-            task for task, rels in zip(tasks, task_rels, strict=True) if rels.applies_knowledge_uids
-        ]
+        knowledge_tasks = [task for task in tasks if knowledge_by_task.get(task.uid)]
         if len(knowledge_tasks) < self.min_pattern_frequency:
             return []
 
@@ -499,7 +501,7 @@ class InsightGenerationService:
             return []
 
         applied_knowledge_uids = sorted(
-            {uid for rels in task_rels for uid in rels.applies_knowledge_uids}
+            {uid for uids in knowledge_by_task.values() for uid in uids}
         )
         benefit_ratio = knowledge_efficiency / overall_efficiency
 
