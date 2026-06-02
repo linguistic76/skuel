@@ -33,9 +33,12 @@ if TYPE_CHECKING:
     from core.services.tasks.tasks_ai_service import TasksAIService
 
 # Domain models
+from core.events import TaskUpdated, publish_event
 from core.models.enums import EntityStatus
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.type_hints import Neo4jProperties
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 
 # Base service
@@ -340,6 +343,9 @@ class TasksService(
         self.core = TasksCoreService(
             backend=backend, ku_inference_service=ku_inference_service, event_bus=event_bus
         )
+        # Held for edge-only updates: those bypass core.update_task (which publishes
+        # TaskUpdated), so the facade publishes the invalidation event itself.
+        self.event_bus = event_bus
 
         # Intelligence service now uses BaseAnalyticsService (no AI dependencies)
         # See ADR-030 for the intelligence layer separation
@@ -409,25 +415,180 @@ class TasksService(
             include_completed=include_completed,
         )
 
-    async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
-        # Habit reinforcement is a graph edge ((Task)-[:REINFORCES_HABIT]->(Habit)),
-        # not a property — route it out of the property updates into edge mutation
-        # (replace any existing reinforced habit with the new one).
+    # Relationship-typed update keys are graph edges, not node properties. They must
+    # be popped from the property update and synced as edges regardless of which entry
+    # point a caller uses — update_task (UI route), or the inherited update /
+    # update_for_user (generated CRUD JSON route). The backend update does an
+    # unfiltered `SET n += $updates`, so a relationship-typed key left in `updates`
+    # would write a junk denormalized property onto the node AND skip the edge (the
+    # very split the ADR-035/ADR-065 graph-native migration removed).
+    @staticmethod
+    def _pop_relationship_updates(updates: dict) -> tuple[str | None, list[str] | None]:
+        """Remove edge-typed keys from a property-update dict, returning their values."""
         habit_uid = updates.pop("reinforces_habit_uid", None)
+        applies_knowledge_uids = updates.pop("applies_knowledge_uids", None)
+        return habit_uid, applies_knowledge_uids
 
-        result = await self.core.update_task(task_uid, updates)
+    async def _sync_relationship_edges(
+        self, task_uid: str, habit_uid: str | None, applies_knowledge_uids: list[str] | None
+    ) -> Result[None]:
+        """Replace the task's habit/knowledge edges from popped update values.
+
+        ``None`` means "not in this update" (leave edges untouched); a value (incl.
+        an empty list / empty string) means "replace" — clearing all edges of that
+        kind when empty.
+        """
+        # Stale-edge removal must succeed before new edges are created. Treating a
+        # failed fetch as "no old edges", or ignoring a failed delete, would leave
+        # stale edges attached while still creating new ones and returning success —
+        # so cleared/replaced knowledge would keep affecting detectors and graph
+        # queries. Fail the whole sync on any fetch or delete error.
+        #
+        # New edges go through backend.create_relationships_batch (the same proven path
+        # the create flow uses) with explicit RelationshipName values — NOT
+        # UnifiedRelationshipService.create_relationship, whose dynamic
+        # `link_task_to_<key>` backend method does not exist for tasks.
+        if habit_uid is not None:
+            # (Task)-[:REINFORCES_HABIT]->(Habit): replace any existing reinforced habit.
+            existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
+            if existing.is_error:
+                return Result.fail(existing)
+            for old_habit in existing.value or []:
+                deleted = await self.relationships.delete_relationship(
+                    "habits", task_uid, old_habit
+                )
+                if deleted.is_error:
+                    return Result.fail(deleted)
+            if habit_uid:  # non-empty → create the new edge (empty string = cleared)
+                edges: list[tuple[str, str, str, Neo4jProperties | None]] = [
+                    (task_uid, habit_uid, RelationshipName.REINFORCES_HABIT.value, None)
+                ]
+                batch = await self.backend.create_relationships_batch(edges)
+                if batch.is_error:
+                    return Result.fail(batch)
+
+        if applies_knowledge_uids is not None:
+            # (Task)-[:APPLIES_KNOWLEDGE]->(Ku): replace the full applied-knowledge set.
+            # An empty list clears all knowledge edges (mirrors the habit-clear semantics).
+            existing_ku = await self.relationships.get_related_uids(
+                "knowledge", EntityUID(task_uid)
+            )
+            if existing_ku.is_error:
+                return Result.fail(existing_ku)
+            for old_ku in existing_ku.value or []:
+                deleted = await self.relationships.delete_relationship(
+                    "knowledge", task_uid, old_ku
+                )
+                if deleted.is_error:
+                    return Result.fail(deleted)
+            if applies_knowledge_uids:
+                ku_edges: list[tuple[str, str, str, Neo4jProperties | None]] = [
+                    (task_uid, ku_uid, RelationshipName.APPLIES_KNOWLEDGE.value, None)
+                    for ku_uid in applies_knowledge_uids
+                ]
+                batch = await self.backend.create_relationships_batch(ku_edges)
+                if batch.is_error:
+                    return Result.fail(batch)
+        return Result.ok(None)
+
+    async def _publish_edge_only_update(
+        self, task: Task, habit_uid: str | None, applies_knowledge_uids: list[str] | None
+    ) -> None:
+        """Publish TaskUpdated after an edge-only update so user-context caches invalidate.
+
+        Property updates publish TaskUpdated via TasksCoreService.update_task, but the
+        relationship-only path bypasses it (fetch-only) — without this, rich context
+        (entities_rich, ZPD, applied-knowledge/habit links) stays stale until the cache
+        TTL expires. TaskUpdated is wired to context invalidation in _event_wiring.py.
+        """
+        changed_fields = [
+            name
+            for name, value in (
+                ("reinforces_habit_uid", habit_uid),
+                ("applies_knowledge_uids", applies_knowledge_uids),
+            )
+            if value is not None
+        ]
+        event = TaskUpdated(
+            task_uid=task.uid, user_uid=task.user_uid, updated_fields=changed_fields
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+    async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
+        """Facade update (UI route). Writes node properties via core (events fire) and
+        syncs habit/knowledge edges. See `_sync_relationship_edges`."""
+        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+
+        # A relationship-only update (e.g. only applies_knowledge_uids, which
+        # TaskUpdateRequest permits) leaves no node properties to write. The backend
+        # rejects an empty update dict, so fetch the task to confirm it exists and to
+        # have a Task to return. A genuinely empty call keeps the validation error.
+        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        if wrote_properties:
+            result = await self.core.update_task(task_uid, updates)
+        else:
+            result = await self.core.get_task(task_uid)
         if result.is_error:
             return result
 
-        if habit_uid is not None:
-            existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
-            if existing.is_ok:
-                for old_habit in existing.value or []:
-                    await self.relationships.delete_relationship("habits", task_uid, old_habit)
-            if habit_uid:  # non-empty → create the new edge (empty string = cleared)
-                edge = await self.relationships.create_relationship("habits", task_uid, habit_uid)
-                if edge.is_error:
-                    return Result.fail(edge)
+        sync = await self._sync_relationship_edges(task_uid, habit_uid, applies_knowledge_uids)
+        if sync.is_error:
+            return Result.fail(sync)
+        if not wrote_properties:  # edge-only: core.update_task didn't fire TaskUpdated
+            await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
+        return result
+
+    # boundary: `updates` is a heterogeneous partial-update payload and must keep the
+    # inherited CrudOperationsMixin `dict[str, Any]` signature (LSP — narrowing to a
+    # TypedDict would break override variance and the route's model_dump() callers).
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Task]:
+        """Override the inherited CRUD update (generated JSON route, no ownership check)
+        so the API path syncs habit/knowledge edges instead of writing them as junk
+        node properties. See `_sync_relationship_edges`."""
+        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+
+        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        if wrote_properties:
+            result = await super().update(uid, updates)
+        else:
+            result = await self.core.get_task(uid)
+        if result.is_error:
+            return result
+
+        sync = await self._sync_relationship_edges(uid, habit_uid, applies_knowledge_uids)
+        if sync.is_error:
+            return Result.fail(sync)
+        if not wrote_properties:
+            await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
+        return result
+
+    async def update_for_user(
+        self,
+        uid: str,
+        # boundary: heterogeneous partial-update payload — see `update` above.
+        updates: dict[str, Any],
+        user_uid: UserUID,
+    ) -> Result[Task]:
+        """Override the inherited ownership-verified CRUD update (generated JSON route)
+        so the API path syncs habit/knowledge edges. Ownership is verified before any
+        edge mutation, including on the relationship-only path. See
+        `_sync_relationship_edges`."""
+        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+
+        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        if wrote_properties:
+            result = await super().update_for_user(uid, updates, user_uid)
+        else:
+            # Relationship-only update: still verify ownership before touching edges.
+            result = await self.verify_ownership(uid, user_uid)
+        if result.is_error:
+            return result
+
+        sync = await self._sync_relationship_edges(uid, habit_uid, applies_knowledge_uids)
+        if sync.is_error:
+            return Result.fail(sync)
+        if not wrote_properties:
+            await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
         return result
 
     async def get_reinforced_habit(self, task_uid: str) -> Result[str | None]:

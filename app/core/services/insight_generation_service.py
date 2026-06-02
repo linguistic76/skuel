@@ -443,63 +443,86 @@ class InsightGenerationService:
 
     async def _analyze_knowledge_application_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
         """
-        Analyze patterns in knowledge application efficiency.
+        Detect whether tasks that apply knowledge complete more efficiently.
 
-        DEFERRED IMPLEMENTATION (Graph-Native):
-        ==================================
-        Parameter accepted but unused pending UnifiedRelationshipService wiring.
+        Knowledge application is graph-native: the linkage lives on
+        ``(Task)-[:APPLIES_KNOWLEDGE]->(Ku)`` edges, not as a property on the Task
+        model (removed in the ADR-035/ADR-065 graph-native migration). This detector
+        fetches those edges in a single batched query, partitions completed tasks into
+        the knowledge-applying cohort vs. the whole, and emits a
+        ``KNOWLEDGE_APPLICATION`` pattern when the knowledge cohort is meaningfully
+        (>10%) more efficient — the core "applied knowledge compounds" signal.
 
-        Why Deferred:
-        - Service already detects 4 other pattern types (time, priority, project, workflow)
-        - This is 1 of 5 pattern detection methods - not critical path
-        - Wiring UnifiedRelationshipService requires bootstrap changes
-        - Better ROI focusing on other refactorings first
-
-        Future Implementation (High Value):
-        1. Wire UnifiedRelationshipService into this service's __init__
-        2. Fetch TaskRelationships for each task (parallel with asyncio.gather)
-        3. Filter tasks where rels.applies_knowledge_uids is not empty
-        4. Calculate efficiency: knowledge-tasks vs. all tasks
-        5. Detect pattern: "Tasks with applied knowledge show 10%+ higher efficiency"
+        Backend: UnifiedRelationshipService.batch_get_related_uids (APPLIES_KNOWLEDGE) —
+        one query for all tasks, reading only the knowledge key (avoids the
+        N-times-all-specs fan-out of a per-task relationship fetch on large histories).
 
         Args:
-            tasks: User tasks (currently unused - see deferral note above)
+            tasks: Completed tasks to analyze.
 
         Returns:
-            Empty list (graceful degradation - other pattern types still detected)
+            A single-element list with the detected pattern, or an empty list when
+            there is no relationship service wired, too few knowledge-applying tasks,
+            or no efficiency benefit (graceful — other pattern detectors still run).
+
+        See: /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md
         """
-        # DEFERRED: Knowledge application pattern analysis
-        # For now, return empty - other pattern detection methods still functional
+        # The relationship service is reached through the injected tasks facade
+        # (facade.relationships is the UnifiedRelationshipService). Production wires
+        # this at bootstrap (services_bootstrap/compose.py — late back-reference, since
+        # the generator is built before TasksService). This guard is the safety net for
+        # that true-circular-dependency window and for tests; if it ever trips in
+        # production the bootstrap wiring regressed.
+        relationship_service = getattr(self.tasks_service, "relationships", None)
+        if relationship_service is None:
+            self.logger.debug(
+                "Skipping knowledge-application pattern: no relationship service wired"
+            )
+            return []
 
-        # Original logic commented out until relationship fetching is implemented:
-        # knowledge_tasks = [
-        # task for task in tasks
-        # if task.applies_knowledge_uids # Field doesn't exist anymore
-        # ]
-        #
-        # if len(knowledge_tasks) >= self.min_pattern_frequency:
-        # knowledge_efficiency = self._calculate_task_efficiency(knowledge_tasks)
-        # overall_efficiency = self._calculate_task_efficiency(tasks)
-        #
-        # if knowledge_efficiency > overall_efficiency * 1.1:
-        # patterns.append(TaskPattern(
-        # pattern_id=f"knowledge_application_benefit_{datetime.now().strftime('%Y%m%d')}",
-        # pattern_type=PatternType.BEST_PRACTICE,
-        # confidence_score=knowledge_efficiency / overall_efficiency,
-        # supporting_tasks=[task.uid for task in knowledge_tasks],
-        # description="Tasks with applied knowledge show higher efficiency",
-        # evidence=[
-        # f"Knowledge tasks efficiency: {knowledge_efficiency:.1%}",
-        # f"Overall efficiency: {overall_efficiency:.1%}",
-        # f"Improvement: {(knowledge_efficiency/overall_efficiency - 1):.1%}"
-        # ],
-        # frequency=len(knowledge_tasks),
-        # success_rate=knowledge_efficiency,
-        # knowledge_uids_involved=list(set().union(*[task.applies_knowledge_uids for task in knowledge_tasks])),
-        # metadata={'knowledge_benefit': knowledge_efficiency / overall_efficiency}
-        # ))
+        # Fetch APPLIES_KNOWLEDGE edges for all tasks in ONE query (knowledge key only).
+        knowledge_result = await relationship_service.batch_get_related_uids(
+            "knowledge", [task.uid for task in tasks]
+        )
+        if knowledge_result.is_error:
+            self.logger.debug("Skipping knowledge-application pattern: knowledge edge fetch failed")
+            return []
+        knowledge_by_task = knowledge_result.value
 
-        return []
+        knowledge_tasks = [task for task in tasks if knowledge_by_task.get(task.uid)]
+        if len(knowledge_tasks) < self.min_pattern_frequency:
+            return []
+
+        knowledge_efficiency = self._calculate_task_efficiency(knowledge_tasks)
+        overall_efficiency = self._calculate_task_efficiency(tasks)
+
+        # Require a real (>10%) lift over the baseline before claiming a benefit.
+        if overall_efficiency <= 0 or knowledge_efficiency <= overall_efficiency * 1.1:
+            return []
+
+        applied_knowledge_uids = sorted(
+            {uid for uids in knowledge_by_task.values() for uid in uids}
+        )
+        benefit_ratio = knowledge_efficiency / overall_efficiency
+
+        return [
+            TaskPattern(
+                pattern_id=f"knowledge_application_benefit_{datetime.now().strftime('%Y%m%d')}",
+                pattern_type=PatternType.KNOWLEDGE_APPLICATION,
+                confidence_score=min(benefit_ratio, 1.0),
+                supporting_tasks=[task.uid for task in knowledge_tasks],
+                description="Tasks that apply knowledge complete more efficiently",
+                evidence=[
+                    f"Knowledge-applying tasks efficiency: {knowledge_efficiency:.1%}",
+                    f"Overall efficiency: {overall_efficiency:.1%}",
+                    f"Improvement: {(benefit_ratio - 1):.1%}",
+                ],
+                frequency=len(knowledge_tasks),
+                success_rate=knowledge_efficiency,
+                knowledge_uids_involved=applied_knowledge_uids,
+                metadata={"knowledge_benefit": benefit_ratio},
+            )
+        ]
 
     async def _analyze_workflow_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
         """Analyze workflow and process patterns."""
@@ -616,12 +639,50 @@ class InsightGenerationService:
 
         if pattern_type == PatternType.BEST_PRACTICE:
             insights.extend(self._generate_best_practice_insights(patterns))
+        elif pattern_type == PatternType.KNOWLEDGE_APPLICATION:
+            insights.extend(self._generate_knowledge_application_insights(patterns))
         elif pattern_type == PatternType.WORKFLOW_OPTIMIZATION:
             insights.extend(self._generate_workflow_insights(patterns))
         elif pattern_type == PatternType.TIME_MANAGEMENT:
             insights.extend(self._generate_time_management_insights(patterns))
 
         return insights
+
+    def _generate_knowledge_application_insights(
+        self, patterns: list[TaskPattern]
+    ) -> list[GeneratedInsight]:
+        """Generate LEARNING insights from knowledge-application efficiency patterns.
+
+        Emitted by :meth:`_analyze_knowledge_application_patterns` — the signal that
+        explicitly applying knowledge (``APPLIES_KNOWLEDGE`` edges) drives efficiency,
+        which is the heart of SKUEL as a semantic knowledge graph.
+        """
+        return [
+            GeneratedInsight(
+                insight_id=f"insight_knowledge_application_{datetime.now().strftime('%Y%m%d_%H%M')}",
+                category=InsightCategory.LEARNING,
+                title="Knowledge Application Drives Efficiency",
+                description=(
+                    "Tasks that explicitly apply existing knowledge consistently show "
+                    "higher efficiency and success rates."
+                ),
+                actionable_recommendation=(
+                    "When creating new tasks, actively identify and link relevant "
+                    "knowledge units to improve execution efficiency."
+                ),
+                supporting_patterns=[pattern.pattern_id],
+                confidence_score=pattern.confidence_score,
+                impact_score=0.8,
+                generated_at=datetime.now(),
+                tags=["knowledge-application", "efficiency", "best-practice"],
+                metadata={
+                    "pattern_type": "knowledge_application",
+                    "efficiency_improvement": pattern.metadata.get("knowledge_benefit", 0),
+                    "knowledge_uids_involved": pattern.knowledge_uids_involved,
+                },
+            )
+            for pattern in patterns
+        ]
 
     def _generate_best_practice_insights(
         self, patterns: list[TaskPattern]
@@ -630,27 +691,7 @@ class InsightGenerationService:
         insights = []
 
         for pattern in patterns:
-            if "knowledge_application" in pattern.pattern_id:
-                insights.append(
-                    GeneratedInsight(
-                        insight_id=f"insight_knowledge_application_{datetime.now().strftime('%Y%m%d_%H%M')}",
-                        category=InsightCategory.LEARNING,
-                        title="Knowledge Application Drives Efficiency",
-                        description="Tasks that explicitly apply existing knowledge consistently show higher efficiency and success rates.",
-                        actionable_recommendation="When creating new tasks, actively identify and link relevant knowledge units to improve execution efficiency.",
-                        supporting_patterns=[pattern.pattern_id],
-                        confidence_score=pattern.confidence_score,
-                        impact_score=0.8,
-                        generated_at=datetime.now(),
-                        tags=["knowledge-application", "efficiency", "best-practice"],
-                        metadata={
-                            "pattern_type": "knowledge_application",
-                            "efficiency_improvement": pattern.metadata.get("knowledge_benefit", 0),
-                        },
-                    )
-                )
-
-            elif "time_estimation" in pattern.pattern_id:
+            if "time_estimation" in pattern.pattern_id:
                 insights.append(
                     GeneratedInsight(
                         insight_id=f"insight_time_estimation_{datetime.now().strftime('%Y%m%d_%H%M')}",
