@@ -88,18 +88,52 @@ _EXCEPTION_CLASS_FILE = "core/utils/exception_types.py"
 _STDLIB = set(sys.stdlib_module_names) | {"__future__"}
 
 
+def _type_checking_import_lines(tree: ast.AST) -> frozenset[int]:
+    """Line numbers of imports guarded by ``if TYPE_CHECKING:`` (any branch).
+
+    These imports never execute at runtime, so they cannot create a runtime
+    vendor dependency — the same carve-out SKUEL022 grants ``import adapters``.
+    A ``_typeshed`` / SDK-types import used only for annotations is fine here.
+    """
+    lines: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If) and _is_type_checking_test(node.test):
+            for child in ast.walk(node):
+                if isinstance(child, ast.Import | ast.ImportFrom):
+                    lines.add(child.lineno)
+    return frozenset(lines)
+
+
+def _is_type_checking_test(test: ast.expr) -> bool:
+    """True for ``TYPE_CHECKING`` / ``typing.TYPE_CHECKING`` guard expressions."""
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    return isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+
+
 def _imported_top_level_modules(tree: ast.AST) -> list[tuple[str, int]]:
     """Top-level module names referenced by ``import x`` / ``from x import ...``.
 
     Returns ``(top_level_name, lineno)`` pairs. Relative imports (``node.level
     > 0``) are skipped — they resolve to first-party ``core/`` siblings, never
-    a vendor package.
+    a vendor package. ``TYPE_CHECKING``-guarded imports are skipped — they never
+    execute, so they cannot pull a vendor client into the runtime.
     """
+    skip = _type_checking_import_lines(tree)
     out: list[tuple[str, int]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            out.extend((alias.name.split(".")[0], node.lineno) for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            out.extend(
+                (alias.name.split(".")[0], node.lineno)
+                for alias in node.names
+                if node.lineno not in skip
+            )
+        elif (
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.level == 0
+            and node.lineno not in skip
+        ):
             out.append((node.module.split(".")[0], node.lineno))
     return out
 
