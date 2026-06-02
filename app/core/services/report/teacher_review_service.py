@@ -609,18 +609,23 @@ class TeacherReviewService:
     async def get_submissions_for_exercise(
         self,
         exercise_uid: str,
+        teacher_uid: str,
     ) -> Result[list[SubmissionForExercise]]:
         """
-        Get all submissions against a specific exercise.
+        Get submissions against a specific exercise, scoped to the teacher's classroom.
 
         Args:
             exercise_uid: Exercise UID to fetch submissions for
+            teacher_uid: Requesting teacher — only submissions shared with a
+                group this teacher owns are returned (cross-teacher isolation)
 
         Returns:
             Result containing list of submission dicts with student info
             and feedback count
         """
-        result = await self.user_entry_backend.get_entries_for_exercise_review(exercise_uid)
+        result = await self.user_entry_backend.get_entries_for_exercise_review(
+            exercise_uid, teacher_uid
+        )
         if result.is_error:
             return Result.fail(result)
 

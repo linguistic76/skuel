@@ -930,7 +930,7 @@ class TestGetSubmissionsForExercise:
         backend.get_entries_for_exercise_review.return_value = Result.ok(records)
         service = _make_service(user_entry_backend=backend)
 
-        result = await service.get_submissions_for_exercise(EXERCISE_UID)
+        result = await service.get_submissions_for_exercise(EXERCISE_UID, TEACHER_UID)
 
         assert not result.is_error
         assert len(result.value) == 1
@@ -940,7 +940,7 @@ class TestGetSubmissionsForExercise:
     async def test_empty_list(self):
         service = _make_service()
 
-        result = await service.get_submissions_for_exercise(EXERCISE_UID)
+        result = await service.get_submissions_for_exercise(EXERCISE_UID, TEACHER_UID)
 
         assert not result.is_error
         assert result.value == []
@@ -952,7 +952,7 @@ class TestGetSubmissionsForExercise:
         backend.get_entries_for_exercise_review.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend)
 
-        result = await service.get_submissions_for_exercise(EXERCISE_UID)
+        result = await service.get_submissions_for_exercise(EXERCISE_UID, TEACHER_UID)
 
         assert result.is_error
 

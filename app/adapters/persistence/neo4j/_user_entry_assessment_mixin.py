@@ -203,11 +203,18 @@ class _UserEntryAssessmentMixin:
         )
 
     async def get_entries_for_exercise_review(
-        self, exercise_uid: str
+        self, exercise_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """All entries against an exercise (teacher review view)."""
+        """Entries against an exercise that are shared with the requesting teacher's groups.
+
+        Scoped to teacher-review turn-ins ``SHARED_WITH_GROUP`` an active or
+        inactive group the teacher owns — a teacher supplying another teacher's
+        exercise UID gets an empty result rather than that classroom's work.
+        """
         query = f"""
         MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
+        WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          AND EXISTS {{ (s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, student, count(fb) AS feedback_count
@@ -217,7 +224,9 @@ class _UserEntryAssessmentMixin:
                student.name AS student_name, feedback_count
         ORDER BY s.created_at DESC
         """
-        return await self.execute_query(query, {"exercise_uid": exercise_uid})
+        return await self.execute_query(
+            query, {"exercise_uid": exercise_uid, "teacher_uid": teacher_uid}
+        )
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
         """Get students who have submitted work, with entry counts."""
@@ -225,6 +234,7 @@ class _UserEntryAssessmentMixin:
         MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
         WHERE student.uid <> $teacher_uid
           AND ku.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          AND EXISTS {{ (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         WITH student,
              count(DISTINCT ku) AS submission_count,
              count(DISTINCT CASE WHEN ku.status = 'completed' THEN ku.uid END) AS reviewed_count

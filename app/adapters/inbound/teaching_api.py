@@ -316,8 +316,10 @@ def create_teaching_api_routes(
     async def get_exercise_submissions(
         request: Request, uid: str, current_user: Any = None
     ) -> Result[list[SubmissionForExercise]]:
-        """Get all submissions against an exercise."""
-        return await teacher_review_service.get_submissions_for_exercise(exercise_uid=uid)
+        """Get all submissions against an exercise (scoped to the teacher's classroom)."""
+        return await teacher_review_service.get_submissions_for_exercise(
+            exercise_uid=uid, teacher_uid=current_user.uid
+        )
 
     @rt("/api/teaching/students", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
