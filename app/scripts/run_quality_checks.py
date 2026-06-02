@@ -8,7 +8,9 @@ Runs all code quality checks in sequence:
 2. Ruff linting
 3. SKUEL linting (consolidated architecture + patterns)
 4. Cypher query validation
-5. MyPy + Pyright type checking (optional)
+5. Route security audit
+6. Skills validation (.claude/skills/*/SKILL.md structure)
+7. MyPy + Pyright type checking (optional)
 
 `./dev typecheck-strict` runs only Pyright. See [tool.pyright] in pyproject.toml.
 
@@ -130,7 +132,15 @@ def main():
     ):
         all_passed = False
 
-    # 6. Type Checking (optional - slow)
+    # 6. Skills Validation (.claude/skills/*/SKILL.md structure; fails on errors, not warnings)
+    if not run_command(
+        ["uv", "run", "python", "scripts/skills_validator.py"],
+        "Skills Validation",
+        check=False,
+    ):
+        all_passed = False
+
+    # 7. Type Checking (optional - slow)
     if not args.fast:
         print("\n💡 Running type checks (slow). Use --fast to skip.")
 
