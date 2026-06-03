@@ -88,6 +88,41 @@ def _generic_label_last(rel: UnifiedRelationshipDefinition) -> bool:
     return rel.target_label == "Entity"
 
 
+def _mapping_sort_key(rel: UnifiedRelationshipDefinition) -> tuple[bool, bool]:
+    """Categorization order: property-FILTERED mappings first, then generic-label-last.
+
+    Several mappings can share a relationship + direction and differ only by an edge
+    property: GOALS' incoming SUPPORTS_GOAL splits into ``essential_habits`` /
+    ``critical_habits`` / ``optional_habits`` (each ``filter_property="essentiality"``)
+    plus the unfiltered ``contributing_habits`` catch-all. The first-match ``break`` means
+    the catch-all would swallow every habit before a tier is reached, so filtered mappings
+    (``filter_property is None`` → ``False``) must sort BEFORE the catch-all (``True``); an
+    essential habit then lands in ``essential_habits`` and only un-tiered habits fall
+    through to ``contributing_habits``. The second key preserves the existing
+    generic-``Entity``-last routing (see _generic_label_last). Stable sort keeps config
+    order within each group, and configs with no filtered mappings are unaffected (the
+    first key is constant, so ordering collapses to _generic_label_last).
+    """
+    return (rel.filter_property is None, _generic_label_last(rel))
+
+
+def _filter_matches(
+    rel: UnifiedRelationshipDefinition,
+    incident_rel_properties: dict[str, Any] | None,
+) -> bool:
+    """Does the incident edge satisfy a mapping's optional edge-property filter?
+
+    Unfiltered mappings (``filter_property is None``) always match. A filtered mapping
+    matches only when the incident edge carries the configured property value — e.g.
+    ``essential_habits`` accepts a SUPPORTS_GOAL edge only when its
+    ``essentiality`` property equals ``"essential"``. Paired with _mapping_sort_key
+    (filtered-first), this partitions a shared relationship into its tier buckets.
+    """
+    if rel.filter_property is None:
+        return True
+    return (incident_rel_properties or {}).get(rel.filter_property) == rel.filter_value
+
+
 class IntelligenceMixin:
     """
     Mixin providing graph intelligence, semantic, and cross-domain context methods.
@@ -187,12 +222,15 @@ class IntelligenceMixin:
         # itself on a cycle, e.g. the canonical INSPIRES_HABIT <-> EMBODIES_PRINCIPLE
         # pair — used to leak into a sibling bucket). The Cypher excludes related == center.
         #
-        # Specific target labels sort before the catch-all "Entity" bucket so the
-        # first-match `break` routes each node to its most precise mapping (see
-        # _generic_label_last). Stable sort preserves config order within each group.
+        # A node must ALSO satisfy a mapping's optional edge-property filter
+        # (`filter_property`/`filter_value`, e.g. SUPPORTS_GOAL {essentiality} habit
+        # tiers) — see _filter_matches. Mappings sort property-FILTERED first, then
+        # specific target labels before the catch-all "Entity" bucket, so the first-match
+        # `break` routes each node to its most precise mapping (see _mapping_sort_key).
+        # Stable sort preserves config order within each group.
         cross_domain_rels = sorted(
             (r for r in self.config.relationships if r.is_cross_domain_mapping),
-            key=_generic_label_last,
+            key=_mapping_sort_key,
         )
         categorized: dict[str, list[dict]] = {
             rel.context_field_name: [] for rel in cross_domain_rels
@@ -202,13 +240,18 @@ class IntelligenceMixin:
             labels = entity.get("labels", [])
             incident_rel_type = entity.get("incident_rel_type")
             incident_into_related = entity.get("incident_into_related")
+            incident_rel_properties = entity.get("incident_rel_properties")
 
             for rel in cross_domain_rels:
-                if rel.target_label in labels and _incident_matches(
-                    rel.direction,
-                    rel.relationship.value,
-                    incident_rel_type,
-                    incident_into_related,
+                if (
+                    rel.target_label in labels
+                    and _incident_matches(
+                        rel.direction,
+                        rel.relationship.value,
+                        incident_rel_type,
+                        incident_into_related,
+                    )
+                    and _filter_matches(rel, incident_rel_properties)
                 ):
                     categorized[rel.context_field_name].append(
                         {

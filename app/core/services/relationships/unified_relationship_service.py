@@ -72,6 +72,20 @@ T = TypeVar("T")  # Domain model type
 D = TypeVar("D")  # DTO type
 
 
+def _spec_edge_filter(spec: UnifiedRelationshipDefinition) -> dict[str, Any] | None:
+    """Edge-property filter for a relationship spec, or ``None`` when unfiltered.
+
+    A spec with ``filter_property`` (e.g. GOAPS_CONFIG's ``essential_habits`` =
+    SUPPORTS_GOAL incoming filtered by ``essentiality="essential"``) selects only edges
+    carrying that property value. Without this, every essentiality tier resolved to the
+    same unfiltered set — the read half of the goal-habit essentiality bug. The backend
+    ``get_related_uids`` / ``count_related`` apply it as ``WHERE r.<prop> = $value``.
+    """
+    if spec.filter_property is None:
+        return None
+    return {spec.filter_property: spec.filter_value}
+
+
 class UnifiedRelationshipService[
     Ops: BackendOperations,
     Model: DomainModelProtocol,
@@ -243,6 +257,7 @@ class UnifiedRelationshipService[
             uid=entity_uid,
             relationship_type=spec.relationship,
             direction=spec.direction,
+            properties=_spec_edge_filter(spec),
         )
 
     async def has_relationship(
@@ -277,6 +292,7 @@ class UnifiedRelationshipService[
             uid=entity_uid,
             relationship_type=spec.relationship,
             direction=spec.direction,
+            properties=_spec_edge_filter(spec),
         )
 
         if count_result.is_error:
@@ -311,6 +327,7 @@ class UnifiedRelationshipService[
             uid=entity_uid,
             relationship_type=spec.relationship,
             direction=spec.direction,
+            properties=_spec_edge_filter(spec),
         )
 
     # =========================================================================

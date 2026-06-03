@@ -175,14 +175,18 @@ class TestGoalsServiceOrchestration:
 
 class TestGoalsServiceRelationships:
     @pytest.mark.asyncio
-    async def test_link_goal_to_habit_passes_weight_and_contribution_type(
+    async def test_link_goal_to_habit_passes_weight_and_essentiality(
         self, goals_service: GoalsService
     ) -> None:
-        """link_goal_to_habit passes weight and contribution_type to relationships."""
+        """link_goal_to_habit writes the SUPPORTS_GOAL edge with weight + essentiality tier.
+
+        The essentiality property (not the former ``contribution_type``) is THE key the
+        GOAPS_CONFIG tier mappings filter on — see test_goal_habit_essentiality.py.
+        """
         goals_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         result = await goals_service.link_goal_to_habit(
-            "goal_abc", "habit_xyz", weight=0.7, contribution_type="consistency"
+            "goal_abc", "habit_xyz", weight=0.7, essentiality="essential"
         )
 
         assert result.is_ok
@@ -190,7 +194,7 @@ class TestGoalsServiceRelationships:
             "supporting_habits",
             "goal_abc",
             "habit_xyz",
-            {"weight": 0.7, "contribution_type": "consistency"},
+            {"weight": 0.7, "essentiality": "essential"},
         )
 
     @pytest.mark.asyncio

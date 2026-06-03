@@ -44,10 +44,19 @@ class _RelationshipMixin:
         goal_uid: str,
         habit_uid: str,
         weight: float = 1.0,
-        contribution_type: str = "consistency",
+        essentiality: str = "supporting",
     ) -> Result[bool]:
-        """Link goal to supporting habit with weighted contribution."""
-        properties = {"weight": weight, "contribution_type": contribution_type}
+        """Link goal to supporting habit, tagged with its essentiality tier.
+
+        Writes ``(Habit)-[:SUPPORTS_GOAL {weight, essentiality}]->(Goal)``. The
+        ``essentiality`` property (``essential`` / ``critical`` / ``supporting`` /
+        ``optional``) is THE single source for the GOAPS_CONFIG tier buckets
+        (``essential_habits`` / ``critical_habits`` / ``optional_habits``, with the
+        ``supporting`` and unset cases falling to the ``contributing_habits`` catch-all).
+        It MUST match the read mappings' ``filter_property="essentiality"`` — storing the
+        tier under any other key (the former ``contribution_type``) left every tier empty.
+        """
+        properties = {"weight": weight, "essentiality": essentiality}
         return await self.relationships.create_relationship(
             "supporting_habits", goal_uid, habit_uid, properties
         )

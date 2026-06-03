@@ -218,14 +218,14 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             )
             # Cypher: MATCH (n {uid: $uid})-[:RELATED_TO]-(related) RETURN related.uid
 
-            # Get habits with property filtering (e.g., essentiality="essential")
+            # Get a goal's essential habits (incoming SUPPORTS_GOAL, filtered by tier)
             result = await backend.get_related_uids(
                 uid="goal:fitness",
-                relationship_type="REQUIRES_HABIT",
-                direction="outgoing",
+                relationship_type="SUPPORTS_GOAL",
+                direction="incoming",
                 properties={"essentiality": "essential"}
             )
-            # Cypher: MATCH (n {uid: $uid})-[r:REQUIRES_HABIT]->(related)
+            # Cypher: MATCH (n {uid: $uid})<-[r:SUPPORTS_GOAL]-(related)
             # WHERE r.essentiality = $prop_essentiality
             # RETURN related.uid
 
