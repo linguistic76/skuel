@@ -137,20 +137,26 @@ class PrincipleEventHandlerService:
                 )
                 return
 
-            # 2. Query connected goals
+            # 2. Query connected goals via the principle's GUIDES_GOAL edge.
+            # ("get_principle_goals" was a phantom — declared on the protocol but
+            # implemented nowhere; the generic reader keyed by config method is the
+            # one real path. See PRINCIPLES_CONFIG: GUIDES_GOAL → "guided_goals".)
             goal_uids: list[str] = []
             if self.relationships:
-                goal_result = await self.relationships.get_principle_goals(
-                    event.principle_uid,
+                goal_result = await self.relationships.get_related_uids(
+                    "guided_goals", EntityUID(event.principle_uid)
                 )
                 if goal_result.is_ok:
                     goal_uids = goal_result.value
 
-            # 3. Query connected habits
+            # 3. Query connected habits via the principle's INSPIRES_HABIT edge.
+            # ("habits" was not a valid PRINCIPLES_CONFIG method key → the reader
+            # failed and silently returned none; "inspired_habits" is the key for
+            # INSPIRES_HABIT, the principle→habit cascade direction.)
             habit_uids: list[str] = []
             if self.relationships:
                 habit_result = await self.relationships.get_related_uids(
-                    "habits", EntityUID(event.principle_uid)
+                    "inspired_habits", EntityUID(event.principle_uid)
                 )
                 if habit_result.is_ok:
                     habit_uids = habit_result.value
