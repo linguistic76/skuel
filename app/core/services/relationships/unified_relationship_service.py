@@ -52,7 +52,7 @@ from core.models.relationship_registry import (
     DomainRelationshipConfig,
     UnifiedRelationshipDefinition,
 )
-from core.models.type_hints import EntityUID
+from core.models.type_hints import EntityUID, Neo4jProperties
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.infrastructure import SemanticRelationshipLinker
@@ -72,7 +72,7 @@ T = TypeVar("T")  # Domain model type
 D = TypeVar("D")  # DTO type
 
 
-def _spec_edge_filter(spec: UnifiedRelationshipDefinition) -> dict[str, Any] | None:
+def _spec_edge_filter(spec: UnifiedRelationshipDefinition) -> Neo4jProperties | None:
     """Edge-property filter for a relationship spec, or ``None`` when unfiltered.
 
     A spec with ``filter_property`` (e.g. GOAPS_CONFIG's ``essential_habits`` =

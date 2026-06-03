@@ -24,7 +24,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.constants import GraphDepth
-from core.models.type_hints import EntityUID
+from core.models.type_hints import EntityUID, Neo4jProperties
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -108,7 +108,7 @@ def _mapping_sort_key(rel: UnifiedRelationshipDefinition) -> tuple[bool, bool]:
 
 def _filter_matches(
     rel: UnifiedRelationshipDefinition,
-    incident_rel_properties: dict[str, Any] | None,
+    incident_rel_properties: Neo4jProperties | None,
 ) -> bool:
     """Does the incident edge satisfy a mapping's optional edge-property filter?
 
