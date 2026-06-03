@@ -53,11 +53,19 @@ class TaskCrossContext:
 
     Contains UIDs of related entities across domains:
     - prerequisite_task_uids: Tasks that must be completed first
-    - dependent_task_uids: Tasks that depend on this task
     - required_knowledge_uids: Knowledge needed to complete task
     - applied_knowledge_uids: Knowledge this task applies/practices
     - contributing_goal_uids: Goals this task fulfills
     - aligned_principle_uids: Principles this task aligns with
+
+    Note: there is no ``dependent_task_uids`` (the reverse "tasks that depend on this").
+    The canonical dependency writer (``create_task_dependency``) writes
+    ``(dependent)-[:DEPENDS_ON]->(blocks)``, so a task's dependents are its INCOMING
+    DEPENDS_ON edges — but TASKS_CONFIG exposes no incoming-DEPENDS_ON bucket (its
+    ``dependents`` bucket reads incoming BLOCKED_BY, which the canonical path never
+    writes). Rather than read a structurally dead bucket, the field was dropped. Restore
+    it only alongside an incoming-DEPENDS_ON mapping on TASKS_CONFIG that actually
+    surfaces those edges.
 
     Usage:
         context_dict = await relationships.get_task_cross_domain_context(uid)
@@ -67,7 +75,6 @@ class TaskCrossContext:
     """
 
     prerequisite_task_uids: list[str] = field(default_factory=list)
-    dependent_task_uids: list[str] = field(default_factory=list)
     required_knowledge_uids: list[str] = field(default_factory=list)
     applied_knowledge_uids: list[str] = field(default_factory=list)
     contributing_goal_uids: list[str] = field(default_factory=list)
@@ -75,14 +82,21 @@ class TaskCrossContext:
 
     @classmethod
     def from_dict(cls, context_dict: dict[str, Any]) -> TaskCrossContext:
-        """Extract typed context from untyped dict."""
+        """Extract typed context from a get_cross_domain_context() response.
+
+        Keys are the TASKS_CONFIG ``context_field_name`` buckets, NOT generic domain
+        names. Prerequisite tasks are DEPENDS_ON (``dependencies``); contributing goals
+        span CONTRIBUTES_TO_GOAL (``contributing_goals``) and the single FULFILLS_GOAL
+        (``goal_context``); aligned principles are ALIGNED_WITH_PRINCIPLE
+        (``aligned_principles``); knowledge spans REQUIRES_KNOWLEDGE
+        (``required_knowledge``) and APPLIES_KNOWLEDGE (``applied_knowledge``).
+        """
         return cls(
-            prerequisite_task_uids=context_dict.get("prerequisite_tasks", []),
-            dependent_task_uids=context_dict.get("dependent_tasks", []),
-            required_knowledge_uids=context_dict.get("required_knowledge", []),
-            applied_knowledge_uids=context_dict.get("applied_knowledge", []),
-            contributing_goal_uids=context_dict.get("goals", []),
-            aligned_principle_uids=context_dict.get("principles", []),
+            prerequisite_task_uids=_uids(context_dict, "dependencies"),
+            required_knowledge_uids=_uids(context_dict, "required_knowledge"),
+            applied_knowledge_uids=_uids(context_dict, "applied_knowledge"),
+            contributing_goal_uids=_uids(context_dict, "contributing_goals", "goal_context"),
+            aligned_principle_uids=_uids(context_dict, "aligned_principles"),
         )
 
     def total_knowledge_count(self) -> int:
@@ -267,11 +281,19 @@ class EventCrossContext:
 
     @classmethod
     def from_dict(cls, context_dict: dict[str, Any]) -> EventCrossContext:
-        """Extract typed context from untyped dict."""
+        """Extract typed context from a get_cross_domain_context() response.
+
+        Keys are the EVENTS_CONFIG ``context_field_name`` buckets, NOT generic domain
+        names. Supporting goals span CONTRIBUTES_TO_GOAL (``supported_goals``) and the
+        milestone CELEBRATES_GOAL (``celebrated_goals``); reinforcing habits span the
+        outgoing REINFORCES_HABIT (``reinforced_habits``) and the incoming
+        PRACTICED_AT_EVENT (``practiced_habits``); practiced knowledge is
+        APPLIES_KNOWLEDGE (``applied_knowledge``).
+        """
         return cls(
-            supporting_goal_uids=context_dict.get("goals", []),
-            reinforcing_habit_uids=context_dict.get("habits", []),
-            practicing_knowledge_uids=context_dict.get("knowledge", []),
+            supporting_goal_uids=_uids(context_dict, "supported_goals", "celebrated_goals"),
+            reinforcing_habit_uids=_uids(context_dict, "reinforced_habits", "practiced_habits"),
+            practicing_knowledge_uids=_uids(context_dict, "applied_knowledge"),
         )
 
     def has_goal_support(self) -> bool:
@@ -441,52 +463,42 @@ class PrincipleCrossContext:
 @dataclass(frozen=True)
 class KnowledgeCrossContext:
     """
-    Typed cross-domain context for knowledge units.
+    Typed cross-domain context for knowledge units (Kus).
 
     Contains UIDs of related entities:
-    - prerequisite_knowledge_uids: Knowledge required before this
-    - dependent_knowledge_uids: Knowledge that builds on this
-    - applying_task_uids: Tasks that apply this knowledge
-    - path_step_uids: Learning steps that teach this
-    - supported_goal_uids: Goals this knowledge supports
+    - path_step_uids: PathSteps that compose (USES_KU) or train (TRAINS_KU) this Ku
+
+    Note: a Ku is the atomic ontology node, so its only cross-domain reach is the
+    curriculum layer. In the graph, Activity domains (Task/Goal/Habit/Choice) attach
+    their knowledge edges to PathSteps (``entity_type='path_step'``), NEVER to a ``:Ku``,
+    and KU_CONFIG traverses only USES_KU/TRAINS_KU. The former
+    ``prerequisite_knowledge``/``dependent_knowledge``/``applying_task``/
+    ``supported_goal`` fields read generic keys KU_CONFIG never emits and had no usable
+    config source, so they were dropped rather than wired to edges nothing surfaces.
+    Ku↔Ku PREREQUISITE_FOR edges do exist but sit outside KU_CONFIG's traversal — restore
+    prerequisite/dependent fields only alongside the matching KU_CONFIG mappings.
 
     Usage:
         context = KnowledgeCrossContext.from_dict(context_dict)
-        if context.is_foundational():
-            print("This is foundational knowledge with many dependents")
+        if context.is_curriculum_integrated():
+            print("This Ku is taught by learning steps")
     """
 
-    prerequisite_knowledge_uids: list[str] = field(default_factory=list)
-    dependent_knowledge_uids: list[str] = field(default_factory=list)
-    applying_task_uids: list[str] = field(default_factory=list)
     path_step_uids: list[str] = field(default_factory=list)
-    supported_goal_uids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, context_dict: dict[str, Any]) -> KnowledgeCrossContext:
-        """Extract typed context from untyped dict."""
+        """Extract typed context from a get_cross_domain_context() response.
+
+        Keys are the KU_CONFIG ``context_field_name`` buckets — PathSteps that compose
+        (USES_KU, ``used_by_steps``) or train (TRAINS_KU, ``trained_by_steps``) this Ku.
+        """
         return cls(
-            prerequisite_knowledge_uids=context_dict.get("prerequisites", []),
-            dependent_knowledge_uids=context_dict.get("dependents", []),
-            applying_task_uids=context_dict.get("tasks", []),
-            path_step_uids=context_dict.get("path_steps", []),
-            supported_goal_uids=context_dict.get("goals", []),
+            path_step_uids=_uids(context_dict, "used_by_steps", "trained_by_steps"),
         )
 
-    def has_prerequisites(self) -> bool:
-        """Check if knowledge has prerequisites."""
-        return bool(self.prerequisite_knowledge_uids)
-
-    def is_foundational(self) -> bool:
-        """Check if knowledge is foundational (has dependents)."""
-        return len(self.dependent_knowledge_uids) > 2
-
-    def is_applied(self) -> bool:
-        """Check if knowledge is being applied in tasks."""
-        return bool(self.applying_task_uids)
-
     def is_curriculum_integrated(self) -> bool:
-        """Check if knowledge is part of learning paths."""
+        """Check if knowledge is taught by any learning step."""
         return bool(self.path_step_uids)
 
 
