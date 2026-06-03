@@ -267,42 +267,24 @@ def calculate_principle_metrics(principle: Any, context: PrincipleCrossContext) 
 
 def calculate_knowledge_metrics(ku: Any, context: KnowledgeCrossContext) -> dict[str, Any]:
     """
-    Calculate standard metrics for knowledge unit analysis.
+    Calculate standard metrics for knowledge unit (Ku) analysis.
 
     Metrics produced:
-    - prerequisite_count: Number of prerequisites
-    - dependent_count: Number of dependents (who build on this)
-    - application_count: Tasks applying this knowledge
-    - path_step_count: Learning steps teaching this
-    - supported_goal_count: Goals this knowledge supports
-    - is_foundational: Boolean if many dependents
-    - is_applied: Boolean if being used in tasks
-    - curriculum_integration_score: How integrated into learning paths
+    - path_step_count: Learning steps that compose/train this Ku
+    - is_curriculum_integrated: Boolean if taught by any learning step
+
+    A Ku's cross-domain reach is its composing PathSteps (KU_CONFIG traverses only
+    USES_KU/TRAINS_KU); application, goal-support, and prerequisite chains live at the
+    PathStep curriculum layer rather than on the atomic Ku, so they are not surfaced here.
 
     Args:
-        ku: KnowledgeUnitDTO or KnowledgeUnit entity
+        ku: KuDTO or Ku entity
         context: KnowledgeCrossContext with cross-domain relationships
 
     Returns:
         Dictionary of calculated metrics
     """
-    # Curriculum integration: in learning paths + has tasks applying it
-    curriculum_factors = [
-        context.is_curriculum_integrated(),
-        context.is_applied(),
-        bool(context.supported_goal_uids),
-    ]
-    curriculum_score = sum(1 for f in curriculum_factors if f) / len(curriculum_factors)
-
     return {
-        "prerequisite_count": len(context.prerequisite_knowledge_uids),
-        "dependent_count": len(context.dependent_knowledge_uids),
-        "application_count": len(context.applying_task_uids),
         "path_step_count": len(context.path_step_uids),
-        "supported_goal_count": len(context.supported_goal_uids),
-        "has_prerequisites": context.has_prerequisites(),
-        "is_foundational": context.is_foundational(),
-        "is_applied": context.is_applied(),
         "is_curriculum_integrated": context.is_curriculum_integrated(),
-        "curriculum_integration_score": round(curriculum_score, 2),
     }
