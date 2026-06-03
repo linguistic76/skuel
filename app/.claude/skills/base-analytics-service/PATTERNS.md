@@ -282,9 +282,9 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         """Generate actionable recommendations."""
         recommendations = []
 
-        if metrics["blocking_tasks_count"] > 0:
+        if metrics["supporting_tasks_count"] == 0:
             recommendations.append(
-                f"Complete {metrics['blocking_tasks_count']} blocking tasks to unblock progress"
+                "Break this goal into supporting tasks to drive concrete progress"
             )
 
         if metrics["supporting_habits_count"] < 2:
