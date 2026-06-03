@@ -320,9 +320,13 @@ class TestHandleTaskPriorityChanged:
         mock_backend: Mock,
         mock_relationships: AsyncMock,
     ):
-        """Cascade impact queries dependents when relationship service available."""
+        """Cascade impact queries dependents (incoming DEPENDS_ON) via the backend."""
         mock_backend.find_by.return_value = Result.ok([])
-        mock_relationships.get_related_uids.return_value = Result.ok(["task_dep_1", "task_dep_2"])
+        # Dependents are read from the backend with direction="incoming", not the
+        # relationship service (whose method_key lookup has no incoming-DEPENDS_ON key).
+        mock_backend.get_related_uids = AsyncMock(
+            return_value=Result.ok(["task_dep_1", "task_dep_2"])
+        )
 
         event = TaskPriorityChanged(
             task_uid="task_test_abc",

@@ -235,10 +235,16 @@ class TaskEventHandlerService:
                 },
             )
 
-            # 2. Cascade impact — find tasks that depend on this one
+            # 2. Cascade impact — find tasks that depend on this one. Those are the tasks
+            # with an INCOMING DEPENDS_ON edge ((dependent)-[:DEPENDS_ON]->(this)); read
+            # the backend directly with the correct direction. (The previous service call
+            # passed RelationshipName.DEPENDS_ON.value as a method_key — never matched, so
+            # the cascade silently found nothing.)
             if self.relationships and change_type in ("escalation", "de-escalation"):
-                depends_result = await self.relationships.get_related_uids(
-                    RelationshipName.DEPENDS_ON.value, EntityUID(event.task_uid)
+                depends_result = await self.backend.get_related_uids(
+                    EntityUID(event.task_uid),
+                    RelationshipName.DEPENDS_ON,
+                    direction="incoming",
                 )
                 if depends_result.is_ok and depends_result.value:
                     affected_uids = depends_result.value
@@ -381,8 +387,10 @@ class TaskEventHandlerService:
         if not self.relationships:
             return
 
+        # "principles" is the Task→Principle config key (ALIGNED_WITH_PRINCIPLE); the
+        # service takes a method_key, not a raw RelationshipName.value (never matched).
         aligned_result = await self.relationships.get_related_uids(
-            RelationshipName.ALIGNED_WITH_PRINCIPLE.value, EntityUID(event.task_uid)
+            "principles", EntityUID(event.task_uid)
         )
         if aligned_result.is_ok and aligned_result.value:
             principle_uids = aligned_result.value

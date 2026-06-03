@@ -27,6 +27,7 @@ from core.models.relationship_registry import (
     GOAPS_CONFIG,
     HABITS_CONFIG,
     PRINCIPLES_CONFIG,
+    PS_CONFIG,
     TASKS_CONFIG,
     DomainRelationshipConfig,
 )
@@ -53,6 +54,32 @@ FACADE_LINK_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
 ]
 
 
+# (call site, domain config, method_key passed to get_related_uids / delete_relationship).
+# The READ side of the same contract: event handlers, dual-track signal calculators, and
+# intelligence services call `service.get_related_uids("<key>", uid)` (2-arg — the service
+# resolves the key against the registry). Passing a raw RelationshipName.value (e.g.
+# "ALIGNED_WITH_PRINCIPLE") or the 3-arg backend signature silently returns nothing, so
+# these reads need the same coverage guard as the writes above.
+HANDLER_READ_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
+    ("choices behavioral signal: principle alignment", CHOICES_CONFIG, "principles"),
+    ("choice event handler: principles", CHOICES_CONFIG, "principles"),
+    ("event handler: goal alignment", EVENTS_CONFIG, "goals"),
+    ("events_service: celebrated_goals", EVENTS_CONFIG, "celebrated_goals"),
+    ("habit event handler: knowledge reinforcement", HABITS_CONFIG, "knowledge"),
+    ("habit enrichment: prerequisite_habits", HABITS_CONFIG, "prerequisite_habits"),
+    ("habit enrichment: principles", HABITS_CONFIG, "principles"),
+    ("habit enrichment: supported_goals", HABITS_CONFIG, "supported_goals"),
+    ("task handler: principle alignment", TASKS_CONFIG, "principles"),
+    ("tasks_service: knowledge", TASKS_CONFIG, "knowledge"),
+    ("viz aggregation: prerequisite_tasks", TASKS_CONFIG, "prerequisite_tasks"),
+    ("goal handler: principle alignment", GOAPS_CONFIG, "principles"),
+    ("goal relationship: supporting_habits", GOAPS_CONFIG, "supporting_habits"),
+    ("principle handler/alignment: guided_goals", PRINCIPLES_CONFIG, "guided_goals"),
+    ("principle handler/alignment: inspired_habits", PRINCIPLES_CONFIG, "inspired_habits"),
+    ("ps_service: in_paths", PS_CONFIG, "in_paths"),
+]
+
+
 @pytest.mark.parametrize(
     ("method_name", "config", "key"),
     FACADE_LINK_KEYS,
@@ -67,6 +94,28 @@ def test_facade_link_key_resolves_in_config(
         f"{method_name} writes create_relationship({key!r}, ...) but "
         f"{config.entity_label}'s config has no '{key}' method_key — the link would "
         f"silently fail. Available: {sorted(config.get_all_relationship_methods())}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("call_site", "config", "key"),
+    HANDLER_READ_KEYS,
+    ids=[row[0] for row in HANDLER_READ_KEYS],
+)
+def test_handler_read_key_resolves_in_config(
+    call_site: str, config: DomainRelationshipConfig, key: str
+) -> None:
+    """Each method_key a handler/intelligence read passes to get_related_uids resolves.
+
+    Guards the ``RelationshipName.value``-as-method-key class of bug (e.g. passing
+    "ALIGNED_WITH_PRINCIPLE" where "principles" is expected) that silently returned
+    nothing in event handlers and dual-track signal calculators.
+    """
+    spec = config.get_relationship_by_method(key)
+    assert spec is not None, (
+        f"{call_site} reads get_related_uids({key!r}, ...) but "
+        f"{config.entity_label}'s config has no '{key}' method_key — the read would "
+        f"silently return nothing. Available: {sorted(config.get_all_relationship_methods())}"
     )
 
 

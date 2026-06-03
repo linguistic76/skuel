@@ -30,7 +30,6 @@ from core.events.goal_events import (
     GoalRecommendationsGenerated,
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -589,8 +588,10 @@ class GoalEventHandlerService:
         if not self.relationships:
             return
 
+        # "principles" is the Goal→Principle config key (GUIDED_BY_PRINCIPLE); the service
+        # takes a method_key, not a raw RelationshipName.value (never matched → empty).
         aligned_result = await self.relationships.get_related_uids(
-            RelationshipName.ALIGNED_WITH_PRINCIPLE.value, EntityUID(event.goal_uid)
+            "principles", EntityUID(event.goal_uid)
         )
         if aligned_result.is_ok and aligned_result.value:
             principle_uids = aligned_result.value
