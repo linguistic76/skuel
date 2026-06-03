@@ -28,7 +28,6 @@ from core.events.calendar_event_events import (
     CalendarEventRescheduled,
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -349,8 +348,10 @@ class EventEventHandlerService:
         if not self.relationships:
             return
 
+        # "goals" is the Event→Goal config key (CONTRIBUTES_TO_GOAL); the service takes a
+        # method_key, not a raw RelationshipName.value (which never matched → empty).
         aligned_result = await self.relationships.get_related_uids(
-            RelationshipName.SUPPORTS_GOAL.value, EntityUID(event.event_uid)
+            "goals", EntityUID(event.event_uid)
         )
         if aligned_result.is_ok and aligned_result.value:
             goal_uids = aligned_result.value
