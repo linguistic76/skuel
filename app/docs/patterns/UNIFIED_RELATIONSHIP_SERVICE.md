@@ -414,6 +414,26 @@ Each Activity/Curriculum facade exposes domain-named wrappers (`link_task_to_goa
 guarded by `tests/test_cross_domain_link_keys.py`; the real-Neo4j round-trips live in
 `tests/integration/test_relationship_link_roundtrip.py`.
 
+### User→Entity ownership edges — `create_user_relationship`
+
+`create_user_relationship(user_uid, entity_uid, properties)` writes the domain's
+registry-defined ownership edge (`config.ownership_relationship` — `HAS_TASK`, `HAS_EVENT`,
+`OWNS`, …). It routes straight through the backend's **generic**
+`create_user_relationship(relationship_type=<RelationshipName>, metadata=…)` (defined on
+every domain backend via `_user_entity_mixin`) — the ownership relationship is a
+registry-validated `RelationshipName`, so there is **no dynamic dispatch and no
+stringly-typed key**.
+
+> **No `RelationshipCreator` helper.** This method used to delegate to a generic
+> `RelationshipCreator` infrastructure helper whose `create_relationship(backend_method=…)`
+> and `get_{singular}_cross_domain_context` paths dispatched to dynamically-named backend
+> methods (`getattr(backend, backend_method)`) — the same phantom-dispatch class as the old
+> single `create_relationship` (#197) and `create_user_{domain}_relationship` (#205). Those
+> paths were already dead (superseded by the registry-validated `create_relationship` and the
+> config-driven `get_cross_domain_context`); the helper was **deleted in #208** and its one
+> live method inlined here. Do not reintroduce a dispatch helper — name the
+> `RelationshipName`/`method_key` explicitly and let the registry validate it.
+
 ### Semantic Operations (4 methods)
 
 ```python
