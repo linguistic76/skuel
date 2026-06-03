@@ -274,7 +274,6 @@ await service.create_relationships_batch(
 
 # Delete relationship
 await service.delete_relationship("task:123", "knowledge", "ku:py")
-```
 
 # Single edge — config-keyed, every-domain-safe (root-fixed PR #197)
 await service.create_relationship("knowledge", "task:123", "ku:py", {"confidence": 0.9})
