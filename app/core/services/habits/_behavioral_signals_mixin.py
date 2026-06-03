@@ -110,7 +110,6 @@ class _BehavioralSignalsMixin:
         # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(  # type: ignore[attr-defined]
             uid=uid,
-            context_method="get_habit_cross_domain_context",
             context_type=HabitCrossContext,
             metrics_fn=calculate_habit_metrics,
             recommendations_fn=self._generate_performance_recommendations,
@@ -218,7 +217,6 @@ class _BehavioralSignalsMixin:
         # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(  # type: ignore[attr-defined]
             uid=uid,
-            context_method="get_habit_cross_domain_context",
             context_type=HabitCrossContext,
             metrics_fn=calculate_habit_metrics,
             depth=depth,
@@ -337,7 +335,6 @@ class _BehavioralSignalsMixin:
         # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(  # type: ignore[attr-defined]
             uid=uid,
-            context_method="get_habit_cross_domain_context",
             context_type=HabitCrossContext,
             metrics_fn=calculate_habit_metrics,
             recommendations_fn=self._generate_goal_support_recommendations,

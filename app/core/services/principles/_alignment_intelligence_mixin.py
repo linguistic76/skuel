@@ -72,7 +72,6 @@ class _AlignmentIntelligenceMixin:
         # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(  # type: ignore[attr-defined]
             uid=principle_uid,
-            context_method="get_principle_cross_domain_context",
             context_type=PrincipleCrossContext,
             metrics_fn=calculate_principle_metrics,
             recommendations_fn=self._generate_alignment_recommendations,

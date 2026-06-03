@@ -289,7 +289,6 @@ class BaseAnalyticsService(Generic[B, T]):
     async def _analyze_entity_with_context(
         self,
         uid: str,
-        context_method: str,
         context_type: type,
         metrics_fn: Callable[[Any, Any], dict[str, Any]],
         recommendations_fn: Callable[[Any, Any, dict[str, Any]], list[str]] | None = None,
@@ -305,13 +304,19 @@ class BaseAnalyticsService(Generic[B, T]):
         4. Generate recommendations (optional)
         5. Return structured result
 
+        Cross-domain context comes from the generic, config-driven
+        `UnifiedRelationshipService.get_cross_domain_context()` — the relationship
+        service is domain-aware through its injected config, so there is no
+        per-domain method-name dispatch (One Path Forward; the former
+        `get_{domain}_cross_domain_context` getattr-by-name resolved to None on the
+        injected `UnifiedRelationshipService` and silently degraded analytics).
+
         Args:
             uid: Entity UID to analyze
-            context_method: Method name on relationships service
             context_type: Expected context dataclass type
             metrics_fn: Function (entity, context) -> metrics dict
             recommendations_fn: Optional function (entity, context, metrics) -> list[str]
-            **context_kwargs: Additional args for context method
+            **context_kwargs: Additional args (depth, min_confidence) for context fetch
 
         Returns:
             Result[dict] with structure:
@@ -333,44 +338,37 @@ class BaseAnalyticsService(Generic[B, T]):
         if not entity:
             return Result.fail(Errors.not_found(f"Entity not found: {uid}"))
 
-        # 2. Get context via relationships service
+        # 2. Get cross-domain context via the generic, config-driven relationship method.
+        #    The relationship service is domain-aware through its injected config, so a
+        #    single fixed method serves every domain — no getattr-by-name dispatch.
         context = None
         if self.relationships:
-            context_fn = getattr(self.relationships, context_method, None)
-            if context_fn:
-                try:
-                    if context_kwargs:
-                        try:
-                            context_result = await context_fn(uid, **context_kwargs)
-                        except TypeError:
-                            self.logger.debug(
-                                f"Context method {context_method} doesn't accept kwargs"
-                            )
-                            context_result = await context_fn(uid)
-                    else:
-                        context_result = await context_fn(uid)
+            try:
+                context_result = await self.relationships.get_cross_domain_context(
+                    uid, **context_kwargs
+                )
 
-                    # Handle Result wrapper if present
-                    if isinstance(context_result, Result):
-                        if context_result.is_ok:
-                            raw_context = context_result.value
-                        else:
-                            self.logger.warning(
-                                f"Context fetch failed for {uid}: {context_result.expect_error()}"
-                            )
-                            raw_context = None
+                # Handle Result wrapper if present
+                if isinstance(context_result, Result):
+                    if context_result.is_ok:
+                        raw_context = context_result.value
                     else:
-                        raw_context = context_result
+                        self.logger.warning(
+                            f"Context fetch failed for {uid}: {context_result.expect_error()}"
+                        )
+                        raw_context = None
+                else:
+                    raw_context = context_result
 
-                    # Convert to typed context using from_dict if available
-                    if raw_context is not None:
-                        from_dict_method = getattr(context_type, "from_dict", None)
-                        if from_dict_method is not None and isinstance(raw_context, dict):
-                            context = from_dict_method(raw_context)
-                        else:
-                            context = raw_context
-                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-                    self.logger.warning(f"Failed to get context for {uid}: {e}")
+                # Convert to typed context using from_dict if available
+                if raw_context is not None:
+                    from_dict_method = getattr(context_type, "from_dict", None)
+                    if from_dict_method is not None and isinstance(raw_context, dict):
+                        context = from_dict_method(raw_context)
+                    else:
+                        context = raw_context
+            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
+                self.logger.warning(f"Failed to get context for {uid}: {e}")
 
         # 3. Calculate metrics
         metrics: dict[str, Any] = {}
