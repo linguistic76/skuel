@@ -301,47 +301,57 @@ class ChoiceCrossContext:
     Typed cross-domain context for choices (decisions).
 
     Contains UIDs of related entities:
-    - informing_principle_uids: Principles that inform this choice
-    - supporting_goal_uids: Goals this choice supports
-    - conflicting_goal_uids: Goals this choice may conflict with
-    - required_knowledge_uids: Knowledge needed for informed decision
+    - informing_principle_uids: Principles that inform/guide this choice
+    - affected_goal_uids: Goals this choice affects
+    - required_knowledge_uids: Knowledge informing the decision
+
+    Note: there is no supporting-vs-conflicting goal split. The choice↔goal
+    relationship is a single, polarity-free ``AFFECTS_GOAL`` edge (config bucket
+    ``affected_goals``); the former ``conflicting_goal_uids`` field had no graph
+    source — nothing writes a "conflicting goal" edge — so it was dropped rather than
+    wired to an edge nobody emits. Add it back only alongside a real edge (or an
+    ``AFFECTS_GOAL`` polarity property) that something writes.
 
     Usage:
         context = ChoiceCrossContext.from_dict(context_dict)
-        if context.has_conflicts():
-            print("Warning: choice has goal conflicts")
+        if context.affects_goals():
+            print(f"Choice affects {len(context.affected_goal_uids)} goals")
     """
 
     informing_principle_uids: list[str] = field(default_factory=list)
-    supporting_goal_uids: list[str] = field(default_factory=list)
-    conflicting_goal_uids: list[str] = field(default_factory=list)
+    affected_goal_uids: list[str] = field(default_factory=list)
     required_knowledge_uids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, context_dict: dict[str, Any]) -> ChoiceCrossContext:
-        """Extract typed context from untyped dict."""
+        """Extract typed context from a get_cross_domain_context() response.
+
+        Keys are the CHOICES_CONFIG ``context_field_name`` buckets, NOT generic domain
+        names. Informing principles span both directions — INFORMED_BY_PRINCIPLE
+        (outgoing, ``aligned_principles``) and GUIDES_CHOICE (incoming,
+        ``guiding_principles``); goals come from the single AFFECTS_GOAL edge
+        (``affected_goals``); knowledge from INFORMED_BY_KNOWLEDGE
+        (``informed_by_knowledge``).
+        """
         return cls(
-            informing_principle_uids=context_dict.get("principles", []),
-            supporting_goal_uids=context_dict.get("supporting_goals", []),
-            conflicting_goal_uids=context_dict.get("conflicting_goals", []),
-            required_knowledge_uids=context_dict.get("knowledge", []),
+            informing_principle_uids=_uids(
+                context_dict, "aligned_principles", "guiding_principles"
+            ),
+            affected_goal_uids=_uids(context_dict, "affected_goals"),
+            required_knowledge_uids=_uids(context_dict, "informed_by_knowledge"),
         )
 
     def is_principle_informed(self) -> bool:
         """Check if choice is informed by principles."""
         return bool(self.informing_principle_uids)
 
-    def has_conflicts(self) -> bool:
-        """Check if choice has any goal conflicts."""
-        return bool(self.conflicting_goal_uids)
+    def affects_goals(self) -> bool:
+        """Check if choice affects any goals."""
+        return bool(self.affected_goal_uids)
 
     def has_knowledge_base(self) -> bool:
         """Check if choice has knowledge grounding."""
         return bool(self.required_knowledge_uids)
-
-    def all_goal_uids(self) -> list[str]:
-        """All goals (supporting + conflicting)."""
-        return self.supporting_goal_uids + self.conflicting_goal_uids
 
 
 @dataclass(frozen=True)

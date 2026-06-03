@@ -28,6 +28,7 @@ from __future__ import annotations
 import pytest
 
 from core.models.relationship_registry import (
+    CHOICES_CONFIG,
     GOAPS_CONFIG,
     HABITS_CONFIG,
     PRINCIPLES_CONFIG,
@@ -115,6 +116,13 @@ FROM_DICT_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
     ("principle.grounding_knowledge_uids", PRINCIPLES_CONFIG, "grounding_knowledge"),
     ("principle.aligned_habit_uids", PRINCIPLES_CONFIG, "inspired_habits"),
     ("principle.aligned_habit_uids", PRINCIPLES_CONFIG, "embodying_habits"),
+    # ChoiceCrossContext.from_dict — informing principles span both the outgoing
+    # INFORMED_BY_PRINCIPLE and incoming GUIDES_CHOICE edges; goals come from the
+    # single polarity-free AFFECTS_GOAL edge (no conflicting-goal bucket exists).
+    ("choice.informing_principle_uids", CHOICES_CONFIG, "aligned_principles"),
+    ("choice.informing_principle_uids", CHOICES_CONFIG, "guiding_principles"),
+    ("choice.affected_goal_uids", CHOICES_CONFIG, "affected_goals"),
+    ("choice.required_knowledge_uids", CHOICES_CONFIG, "informed_by_knowledge"),
 ]
 
 
