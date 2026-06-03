@@ -141,10 +141,9 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 **Responsibility:** Cross-domain graph relationships
 
 **Key Methods:**
-- `link_to_knowledge()` - Link entity to KU
-- `link_to_goal()` - Link entity to Goal
-- `link_to_life_path()` - Link entity to LifePath
-- `get_related_uids()` - Query relationships
+- `create_relationship(method_key, from_uid, to_uid, properties)` - The single cross-domain link write path (registry-validated key, fails closed)
+- `delete_relationship(method_key, from_uid, to_uid)` - Remove a link
+- `get_related_uids(method_key, entity_uid)` - Query relationships
 - `get_with_context()` - Get entity with graph context
 - `create_semantic_relationship()` - Create semantic links
 
@@ -161,7 +160,9 @@ from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 rels = UnifiedRelationshipService(backend=backend, config=TASKS_CONFIG)
-result = await rels.link_to_knowledge(task_uid, ku_uid, knowledge_score_required=0.8)
+result = await rels.create_relationship(
+    "knowledge", task_uid, ku_uid, {"knowledge_score_required": 0.8}
+)
 ```
 
 ---

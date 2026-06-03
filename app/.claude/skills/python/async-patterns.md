@@ -80,7 +80,7 @@ async def create_task_with_goal(data: dict) -> Result[Task]:
         return task_result
 
     # Link task to goal
-    return await self.tasks_service.link_to_goal(
+    return await self.tasks_service.link_task_to_goal(
         task_result.value.uid,
         data["goal_uid"]
     )

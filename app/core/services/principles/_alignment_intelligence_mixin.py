@@ -15,7 +15,6 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel
-from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.services.intelligence import (
@@ -244,20 +243,23 @@ class _AlignmentIntelligenceMixin:
         total_score = 0.0
         count = 0
 
-        # Check connected goals and habits via relationships
+        # Check connected goals and habits via relationships.
+        # self.relationships is the UnifiedRelationshipService — get_related_uids takes
+        # (method_key, entity_uid). The keys below are PRINCIPLES_CONFIG method keys, not
+        # raw RelationshipName values + direction (that is the backend signature).
         if self.relationships:
-            # Get guided goals
-            goals_result = await self.relationships.get_related_uids(
-                principle.uid, RelationshipName.ALIGNED_WITH_PRINCIPLE.value, "incoming"
-            )
+            # Get goals guided by this principle (GUIDES_GOAL)
+            goals_result = await self.relationships.get_related_uids("guided_goals", principle.uid)
             if goals_result.is_ok and goals_result.value:
                 for goal_uid in goals_result.value:
                     evidence.append(f"Goal '{goal_uid}' embodies this principle")
                     total_score += 0.75  # MOSTLY_ALIGNED score
                     count += 1
 
-            # Get inspired habits
-            habits_result = await self.relationships.get_related_uids("habits", principle.uid)
+            # Get habits inspired by this principle (INSPIRES_HABIT)
+            habits_result = await self.relationships.get_related_uids(
+                "inspired_habits", principle.uid
+            )
             if habits_result.is_ok and habits_result.value:
                 for habit_uid in habits_result.value:
                     evidence.append(f"Habit '{habit_uid}' practices this principle")

@@ -155,22 +155,23 @@ class _OrchestrationMixin:
         skill_level: str = "beginner",
         proficiency_gain_rate: float = 0.1,
     ) -> Result[bool]:
-        """Link habit to knowledge/skill it develops."""
-        return await self.relationships.link_to_knowledge(
+        """Link habit to knowledge/skill it develops (``REINFORCES_KNOWLEDGE``)."""
+        return await self.relationships.create_relationship(
+            "knowledge",
             habit_uid,
             knowledge_uid,
-            skill_level=skill_level,
-            proficiency_gain_rate=proficiency_gain_rate,
+            {"skill_level": skill_level, "proficiency_gain_rate": proficiency_gain_rate},
         )
 
     async def link_habit_to_principle(
         self, habit_uid: str, principle_uid: str, embodiment_strength: float = 1.0
     ) -> Result[bool]:
-        """Link habit to principle/value it embodies."""
-        return await self.relationships.link_to_principle(
+        """Link habit to principle/value it embodies (``EMBODIES_PRINCIPLE``)."""
+        return await self.relationships.create_relationship(
+            "principles",
             habit_uid,
             principle_uid,
-            embodiment_strength=embodiment_strength,
+            {"embodiment_strength": embodiment_strength},
         )
 
     async def get_skills_developed_by_habits(self, user_uid: UserUID) -> Result[dict[str, Any]]:

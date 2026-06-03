@@ -15,7 +15,7 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
-from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     ChoiceStats,
     EventStats,
@@ -49,7 +49,6 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
     - get_user_habits(uid)    → not matched by any __getattr__ pattern
     - archive_habit(uid)      → status transition (not just delete)
     - get_stats_for_user(uid) → habit count stats (total/active/streaks)
-    - create_user_habit_relationship → wraps create_user_relationship()
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -88,12 +87,6 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         if update_result.is_error:
             return Result.fail(update_result)
         return Result.ok(True)
-
-    async def create_user_habit_relationship(
-        self, user_uid: UserUID, habit_uid: EntityUID
-    ) -> Result[bool]:
-        """Create User→Habit OWNS relationship in the graph."""
-        return await self.create_user_relationship(user_uid, habit_uid)
 
     async def get_active_habits_prioritized(
         self,
@@ -375,7 +368,6 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     - link_goal_to_habit    → Cypher MERGE
     - link_goal_to_knowledge → Cypher MERGE
     - link_goal_to_principle → Cypher MERGE
-    - create_user_goal_relationship → wraps create_user_relationship()
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -407,13 +399,6 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             return Result.fail(page_result)
         goals, _ = page_result.value
         return Result.ok(goals)
-
-    async def create_user_goal_relationship(
-        self, user_uid: UserUID, goal_uid: EntityUID
-    ) -> Result[bool]:
-        """Create User→Goal OWNS relationship in the graph."""
-        rel_result: Result[bool] = await self.create_user_relationship(user_uid, goal_uid)
-        return rel_result
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[GoalStats]:
         """Count goal stats: total, active, completed."""
@@ -1159,7 +1144,6 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     - list_by_user(uid, limit)             → wraps get_user_entities(), extracts list
     - get_user_choices(uid)                → alias for list_by_user()
     - get_stats_for_user(uid)              → choice count stats (total/pending/decided)
-    - create_user_choice_relationship(...) → wraps create_user_relationship()
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -1264,12 +1248,6 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
             return Result.fail(result)
         return Result.ok([record["c"] for record in result.value])
 
-    async def create_user_choice_relationship(
-        self, user_uid: UserUID, choice_uid: EntityUID
-    ) -> Result[bool]:
-        """Create User→Choice OWNS relationship in the graph."""
-        return await self.create_user_relationship(user_uid, choice_uid)
-
 
 class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
     """
@@ -1281,7 +1259,6 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
     - list_by_user(uid, limit)                  → wraps get_user_entities(), extracts list
     - get_user_principles(uid)                  → alias for list_by_user()
     - get_stats_for_user(uid)                   → principle count stats (total/core/active)
-    - create_user_principle_relationship(...)   → wraps create_user_relationship()
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -1528,12 +1505,6 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok([record["p"] for record in result.value])
-
-    async def create_user_principle_relationship(
-        self, user_uid: UserUID, principle_uid: EntityUID
-    ) -> Result[bool]:
-        """Create User→Principle OWNS relationship in the graph."""
-        return await self.create_user_relationship(user_uid, principle_uid)
 
     async def get_choice_influence_stats(
         self, principle_uid: str, user_uid: UserUID, period_days: int

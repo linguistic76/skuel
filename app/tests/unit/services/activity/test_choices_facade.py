@@ -112,7 +112,7 @@ class TestChoicesServiceRelationships:
         )
 
         choices_service.relationships.create_relationship.assert_called_once_with(
-            "habits",
+            "impacted_habits",
             "choice_abc",
             "habit_xyz",
             {"reinforcement_strength": 0.7},
@@ -122,30 +122,32 @@ class TestChoicesServiceRelationships:
     async def test_link_choice_to_principle_calls_relationships(
         self, choices_service: ChoicesService
     ) -> None:
-        """link_choice_to_principle delegates to relationships.link_to_principle."""
-        choices_service.relationships.link_to_principle = AsyncMock(return_value=Result.ok(True))
+        """link_choice_to_principle writes the INFORMED_BY_PRINCIPLE ('principles') edge."""
+        choices_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await choices_service.link_choice_to_principle(
             "choice_abc", "principle_xyz", alignment_score=0.6
         )
 
-        choices_service.relationships.link_to_principle.assert_called_once_with(
+        choices_service.relationships.create_relationship.assert_called_once_with(
+            "principles",
             "choice_abc",
             "principle_xyz",
-            alignment_score=0.6,
+            {"alignment_score": 0.6},
         )
 
     @pytest.mark.asyncio
     async def test_link_choice_to_goal_calls_relationships(
         self, choices_service: ChoicesService
     ) -> None:
-        """link_choice_to_goal delegates to relationships.link_to_goal."""
-        choices_service.relationships.link_to_goal = AsyncMock(return_value=Result.ok(True))
+        """link_choice_to_goal writes the AFFECTS_GOAL ('goals') edge."""
+        choices_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await choices_service.link_choice_to_goal("choice_abc", "goal_xyz", contribution_score=0.4)
 
-        choices_service.relationships.link_to_goal.assert_called_once_with(
+        choices_service.relationships.create_relationship.assert_called_once_with(
+            "goals",
             "choice_abc",
             "goal_xyz",
-            contribution_score=0.4,
+            {"contribution_score": 0.4},
         )

@@ -67,20 +67,20 @@ class _RelationshipMixin:
         proficiency_required: str = "intermediate",
         priority: int = 1,
     ) -> Result[bool]:
-        """Link goal to required knowledge/skill."""
-        return await self.relationships.link_to_knowledge(
+        """Link goal to required knowledge/skill (``REQUIRES_KNOWLEDGE``)."""
+        return await self.relationships.create_relationship(
+            "knowledge",
             goal_uid,
             knowledge_uid,
-            proficiency_required=proficiency_required,
-            priority=priority,
+            {"proficiency_required": proficiency_required, "priority": priority},
         )
 
     async def link_goal_to_principle(
         self, goal_uid: str, principle_uid: str, alignment_strength: float = 1.0
     ) -> Result[bool]:
-        """Link goal to guiding principle/value."""
-        return await self.relationships.link_to_principle(
-            goal_uid, principle_uid, alignment_strength=alignment_strength
+        """Link goal to guiding principle/value (``GUIDED_BY_PRINCIPLE``)."""
+        return await self.relationships.create_relationship(
+            "principles", goal_uid, principle_uid, {"alignment_strength": alignment_strength}
         )
 
     async def create_semantic_goal_relationship(

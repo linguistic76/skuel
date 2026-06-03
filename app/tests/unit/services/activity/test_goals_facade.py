@@ -197,33 +197,34 @@ class TestGoalsServiceRelationships:
     async def test_link_goal_to_knowledge_passes_proficiency_params(
         self, goals_service: GoalsService
     ) -> None:
-        """link_goal_to_knowledge passes proficiency_required and priority to relationships."""
-        goals_service.relationships.link_to_knowledge = AsyncMock(return_value=Result.ok(True))
+        """link_goal_to_knowledge writes the REQUIRES_KNOWLEDGE ('knowledge') edge with props."""
+        goals_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await goals_service.link_goal_to_knowledge(
             "goal_abc", "ku_python_abc", proficiency_required="advanced", priority=2
         )
 
-        goals_service.relationships.link_to_knowledge.assert_called_once_with(
+        goals_service.relationships.create_relationship.assert_called_once_with(
+            "knowledge",
             "goal_abc",
             "ku_python_abc",
-            proficiency_required="advanced",
-            priority=2,
+            {"proficiency_required": "advanced", "priority": 2},
         )
 
     @pytest.mark.asyncio
     async def test_link_goal_to_principle_passes_alignment_strength(
         self, goals_service: GoalsService
     ) -> None:
-        """link_goal_to_principle passes alignment_strength to relationships."""
-        goals_service.relationships.link_to_principle = AsyncMock(return_value=Result.ok(True))
+        """link_goal_to_principle writes the GUIDED_BY_PRINCIPLE ('principles') edge."""
+        goals_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await goals_service.link_goal_to_principle(
             "goal_abc", "principle_xyz", alignment_strength=0.9
         )
 
-        goals_service.relationships.link_to_principle.assert_called_once_with(
+        goals_service.relationships.create_relationship.assert_called_once_with(
+            "principles",
             "goal_abc",
             "principle_xyz",
-            alignment_strength=0.9,
+            {"alignment_strength": 0.9},
         )

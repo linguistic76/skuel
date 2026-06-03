@@ -18,6 +18,7 @@ from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeR
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.ports.query_types import EventUpdatePayload
 from core.utils.result_simplified import Errors, Result
@@ -124,9 +125,9 @@ class _OrchestrationMixin:
     async def link_event_to_goal(
         self, event_uid: str, goal_uid: str, contribution_weight: float = 1.0
     ) -> Result[bool]:
-        """Link event to goal it supports."""
-        return await self.relationships.link_to_goal(
-            event_uid, goal_uid, contribution_weight=contribution_weight
+        """Link event to goal it contributes to (``CONTRIBUTES_TO_GOAL``)."""
+        return await self.relationships.create_relationship(
+            "goals", event_uid, goal_uid, {"contribution_weight": contribution_weight}
         )
 
     async def link_event_to_habit(self, event_uid: str, habit_uid: str) -> Result[bool]:
@@ -149,8 +150,17 @@ class _OrchestrationMixin:
     # ========================================================================
 
     async def get_event_attendees(self, event_uid: str) -> Result[list[str]]:
-        """Get attendees for an event."""
-        return await self.relationships.get_related_uids("attendees", event_uid)
+        """Get attendee user UIDs for an event.
+
+        Attendees are users joined via ``(User)-[:HAS_EVENT]->(Event)`` — the same edge
+        ``add_attendee``/``remove_attendee`` create and delete. Read it as an *incoming*
+        ``HAS_EVENT`` traversal on the backend. (The previous ``get_related_uids("attendees",
+        event_uid)`` used a config method_key that does not exist, so it always failed
+        validation and returned nothing — the write path and read path had diverged.)
+        """
+        return await self.backend.get_related_uids(
+            event_uid, RelationshipName.HAS_EVENT, direction="incoming"
+        )
 
     async def add_attendee(self, request: AddAttendeeRequest) -> Result[bool]:
         """
