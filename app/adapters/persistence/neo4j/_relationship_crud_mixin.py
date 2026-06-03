@@ -641,11 +641,11 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 direction="outgoing"
             )
 
-            # Count essential habits (with property filtering)
+            # Count a goal's essential habits (incoming SUPPORTS_GOAL, filtered by tier)
             essential_count = await backend.count_related(
                 uid="goal:fitness",
-                relationship_type=RelationshipName.REQUIRES_HABIT,
-                direction="outgoing",
+                relationship_type=RelationshipName.SUPPORTS_GOAL,
+                direction="incoming",
                 properties={"essentiality": "essential"}
             )
             print(f"Goal has {essential_count.value} essential habits")

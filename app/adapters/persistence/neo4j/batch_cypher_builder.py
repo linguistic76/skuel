@@ -748,60 +748,6 @@ class BatchCypherBuilder:
 
         return relationships
 
-    @staticmethod
-    def build_relationships_list_with_essentiality(
-        source_uid: str,
-        relationship_specs: list[tuple[list[str] | None, str, str]],
-    ) -> list[tuple[str, str, str, dict[str, Any] | None]]:
-        """
-        Build flattened relationship list with essentiality property.
-
-        Specialized version for Goal→Habit relationships where essentiality
-        varies by category (essential, critical, supporting, optional).
-
-        Args:
-            source_uid: The source entity UID (e.g., goal_uid)
-            relationship_specs: List of (target_uids, rel_type, essentiality) tuples
-                - target_uids: List of target UIDs
-                - rel_type: Relationship type (typically "REQUIRES_HABIT")
-                - essentiality: String value (essential/critical/supporting/optional)
-
-        Returns:
-            Flattened list with {"essentiality": value} in properties
-
-        Example:
-            # Before (per-domain relationship service - 20+ lines)
-            if essential_habit_uids:
-                relationships.extend(
-                    (goal_uid, habit_uid, "REQUIRES_HABIT", {"essentiality": "essential"})
-                    for habit_uid in essential_habit_uids
-                )
-            if critical_habit_uids:
-                relationships.extend(...)
-            # ... more blocks
-
-            # After (1 line)
-            relationships = BatchCypherBuilder.build_relationships_list_with_essentiality(
-                source_uid=goal_uid,
-                relationship_specs=[
-                    (essential_habit_uids, "REQUIRES_HABIT", "essential"),
-                    (critical_habit_uids, "REQUIRES_HABIT", "critical"),
-                    (supporting_habit_uids, "REQUIRES_HABIT", "supporting"),
-                    (optional_habit_uids, "REQUIRES_HABIT", "optional"),
-                ]
-            )
-        """
-        relationships: list[tuple[str, str, str, dict[str, Any] | None]] = []
-
-        for target_uids, rel_type, essentiality in relationship_specs:
-            if target_uids:
-                properties = {"essentiality": essentiality}
-                relationships.extend(
-                    (source_uid, target_uid, rel_type, properties) for target_uid in target_uids
-                )
-
-        return relationships
-
 
 # ============================================================================
 # PRIVATE HELPER FUNCTIONS

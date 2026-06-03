@@ -128,7 +128,7 @@ class _OrchestrationMixin:
                     await self.goals_service.link_goal_to_habit(
                         goal_uid=goal_uid,
                         habit_uid=habit.uid,
-                        contribution_type=essentiality,
+                        essentiality=essentiality,
                     )
                 except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     self.logger.warning(f"Failed to link habit to goal {goal_uid}: {e}")
