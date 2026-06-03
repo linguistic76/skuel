@@ -468,6 +468,32 @@ context = await service.get_cross_domain_context("task:123")
 analysis = await service.analyze_cross_domain_connections("task:123")
 ```
 
+**Categorization — incident-edge attribution (PR #212).** `get_cross_domain_context`
+returns one bucket per config `context_field_name`, each entry a
+`{"uid", "title", "distance", "path_strength", "via_relationships"}` dict. The
+traversal **always goes both directions**, and each related node is bucketed by the
+edge **incident to it** (its last hop), not by any earlier edge in the path:
+
+- The backend emits `incident_rel_type` (type of the last hop) and
+  `incident_into_related` (`True` when the edge points *into* the node — the node is
+  the relationship's object). A node lands in a mapping's bucket iff its incident
+  edge matches the mapping's `relationship` **and** `direction`
+  (`outgoing ⟺ into_related True`, `incoming ⟺ False`, `both ⟺ either`).
+- This makes `depth` a real knob: a node *N* hops out is attributed by the edge that
+  actually touches it (each entry carries its `distance`, so callers can filter to
+  `distance == 1` for direct-only). `depth=2` therefore includes correctly-attributed
+  transitive context — without the depth≥2 over-inclusion that center-relative marker
+  matching once produced. The source is excluded from its own context (no cycle leaks).
+- The per-config `bidirectional_relationships` field is **not** the direction signal
+  here — direction is decided per-mapping by the incident edge. Mappings that share a
+  relationship but differ by `target_label` are tried specific-label-first (the generic
+  `Entity` bucket is the catch-all), so e.g. a Task reinforcing a habit lands in
+  `reinforcing_tasks`, not the catch-all `reinforcing_habits`.
+
+See: `core/services/relationships/_intelligence_mixin.py` (`get_cross_domain_context`,
+`_incident_matches`, `_generic_label_last`) and `build_domain_context_with_paths` in
+`adapters/persistence/neo4j/query/cypher/semantic_queries.py`.
+
 ---
 
 ## Path-Aware Types
