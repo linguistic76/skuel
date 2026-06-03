@@ -269,3 +269,60 @@ async def test_habit_incoming_buckets_populate(neo4j_driver, rel_backend, clean_
     assert ctx.aligned_principle_uids == [R_PRINCIPLE]
     assert R_HABIT not in ctx.aligned_principle_uids
     assert R_GOAL in ctx.linked_goal_uids
+
+
+# uid prefix for the label-specificity routing graph.
+S = "xdctx_label_"
+S_HABIT = S + "habit"
+S_TASK = S + "task"
+S_EVENT = S + "event"
+S_OTHER_HABIT = S + "other_habit"
+
+
+@pytest.mark.asyncio
+async def test_incoming_buckets_route_by_specific_label(neo4j_driver, rel_backend, clean_neo4j):
+    """A shared relationship must route to the label-SPECIFIC bucket, not generic Entity.
+
+    HABITS' incoming REINFORCES_HABIT splits into reinforcing_tasks (Task),
+    reinforcing_events (Event), and reinforcing_habits (Entity). Every node carries the
+    :Entity label, so the generic bucket matched first under config order and swallowed
+    Task/Event before their specific buckets — a latent bug the always-bidirectional
+    fetch newly activated (these incoming buckets were dead under outgoing-only
+    traversal). Specific-label-first sorting must send each node to its precise bucket.
+    """
+    async with neo4j_driver.session() as s:
+        for uid, label, etype in [
+            (S_HABIT, "Habit", "habit"),
+            (S_TASK, "Task", "task"),
+            (S_EVENT, "Event", "event"),
+            (S_OTHER_HABIT, "Habit", "habit"),
+        ]:
+            await s.run(
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+        # All three reinforce S_HABIT (incoming REINFORCES_HABIT edges).
+        for src in (S_TASK, S_EVENT, S_OTHER_HABIT):
+            await s.run(
+                "MATCH (a {uid:$a}),(h {uid:$h}) "
+                "CREATE (a)-[:REINFORCES_HABIT {confidence:0.95}]->(h)",
+                a=src,
+                h=S_HABIT,
+            )
+
+    habit_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=HABITS_CONFIG, graph_intel=None
+    )
+    res = await habit_rel.get_cross_domain_context(S_HABIT, depth=2, min_confidence=0.7)
+    assert res.is_ok, res
+    raw = res.value
+
+    def _uids(bucket: str) -> set[str]:
+        return {e["uid"] for e in raw.get(bucket) or []}
+
+    # Each node lands in its own label-specific bucket — and ONLY there.
+    assert _uids("reinforcing_tasks") == {S_TASK}
+    assert _uids("reinforcing_events") == {S_EVENT}
+    assert _uids("reinforcing_habits") == {S_OTHER_HABIT}  # generic Entity bucket: habits only

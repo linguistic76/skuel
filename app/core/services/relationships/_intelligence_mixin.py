@@ -32,7 +32,10 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
     from core.models.protocols import DomainModelProtocol
-    from core.models.relationship_registry import DomainRelationshipConfig
+    from core.models.relationship_registry import (
+        DomainRelationshipConfig,
+        UnifiedRelationshipDefinition,
+    )
     from core.services.relationships.path_aware_factory import CrossContext
 
 Model = TypeVar("Model", bound="DomainModelProtocol")
@@ -61,6 +64,21 @@ def _direction_matches(direction: str, rel_value: str, via_relationships: list[s
         return incoming in via_relationships
     # "both": either orientation of a direct edge qualifies.
     return outgoing in via_relationships or incoming in via_relationships
+
+
+def _generic_label_last(rel: UnifiedRelationshipDefinition) -> bool:
+    """Sort key putting catch-all ``Entity`` mappings AFTER label-specific ones.
+
+    The categorization loop takes the FIRST matching mapping per entity (``break``).
+    When several mappings share a relationship + direction but differ by target label
+    — e.g. HABITS' incoming REINFORCES_HABIT splits into ``reinforcing_tasks`` (Task),
+    ``reinforcing_events`` (Event), ``reinforcing_habits`` (Entity) — the generic
+    ``Entity`` bucket matches every node (all nodes are ``:Entity``) and would swallow
+    a Task/Event before its specific bucket is reached. Trying specific labels first
+    (this key is ``False`` for them, ``True`` for ``Entity``; stable sort preserves
+    config order within each group) routes each node to its most precise bucket.
+    """
+    return rel.target_label == "Entity"
 
 
 class IntelligenceMixin:
@@ -159,7 +177,13 @@ class IntelligenceMixin:
         #     related node), so a 2-hop neighbour — or the source itself on a cycle
         #     (e.g. the canonical INSPIRES_HABIT <-> EMBODIES_PRINCIPLE pair) — leaked
         #     into a sibling bucket. The Cypher also excludes related == center.
-        cross_domain_rels = [r for r in self.config.relationships if r.is_cross_domain_mapping]
+        # Specific target labels before the catch-all "Entity" bucket, so the
+        # first-match `break` routes each node to its most precise mapping (see
+        # _generic_label_last). Stable sort preserves config order within each group.
+        cross_domain_rels = sorted(
+            (r for r in self.config.relationships if r.is_cross_domain_mapping),
+            key=_generic_label_last,
+        )
         categorized: dict[str, list[dict]] = {
             rel.context_field_name: [] for rel in cross_domain_rels
         }
