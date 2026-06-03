@@ -25,6 +25,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from neo4j import AsyncSession
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
@@ -171,7 +172,7 @@ R_HABIT = R + "habit"
 R_GOAL = R + "goal"
 
 
-async def _seed_reciprocal_pair(session: Any) -> None:
+async def _seed_reciprocal_pair(session: AsyncSession) -> None:
     """principle <-> habit reciprocal pair, each also tied to one goal.
 
     Edges:
