@@ -247,7 +247,7 @@ TasksService (Facade)
     ├─ self.relationships: UnifiedRelationshipService
     │   ├─ Extends: N/A (standalone service)
     │   ├─ Responsibility: Cross-domain relationships
-    │   └─ Methods: link_to_knowledge(), get_with_context()
+    │   └─ Methods: create_relationship(key, …), get_related_uids(key, uid), get_with_context()
     │
     ├─ self.intelligence: TasksIntelligenceService
     │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]

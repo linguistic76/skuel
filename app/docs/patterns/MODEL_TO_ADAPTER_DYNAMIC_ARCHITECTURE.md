@@ -686,7 +686,9 @@ CREATE INDEX task_due_date IF NOT EXISTS FOR (t:Task) ON (t.due_date)
 **Current State:**
 ```python
 # Cross-domain relationships created via UnifiedRelationshipService (not domain backends)
-# Facade delegates: tasks_service.link_task_to_goal() → self.relationships.link_to_goal()
+# Facade delegates: tasks_service.link_task_to_goal()
+#   → self.relationships.create_relationship("contributes_to_goal", task_uid, goal_uid, props)
+# (explicit registry method_key — the old candidate-list link_to_goal() wrapper was removed)
 await tasks_service.link_task_to_goal(task_uid, goal_uid, contribution_percentage=0.1)
 ```
 

@@ -781,7 +781,8 @@ class _RelationshipMixin:
     relationships: Any  # populated by ChoicesService.__init__
 
     async def link_choice_to_goal(self, ...) -> Result[bool]:
-        return await self.relationships.link_to_goal(...)
+        # explicit registry method_key — create_relationship fails closed on a typo
+        return await self.relationships.create_relationship("goals", choice_uid, goal_uid, props)
 
 # core/services/choices_service.py
 class ChoicesService(
