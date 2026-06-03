@@ -280,9 +280,9 @@ class TestLinkTaskToKnowledge:
     async def test_passes_correct_kwargs_to_relationships(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
-        """link_task_to_knowledge passes knowledge_score_required and is_learning_opportunity."""
+        """link_task_to_knowledge writes the APPLIES_KNOWLEDGE ('knowledge') edge with props."""
         service = tasks_service_with_mocked_subservices
-        service.relationships.link_to_knowledge = AsyncMock(return_value=Result.ok(True))
+        service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await service.link_task_to_knowledge(
             "task_abc",
@@ -291,11 +291,11 @@ class TestLinkTaskToKnowledge:
             is_learning_opportunity=True,
         )
 
-        service.relationships.link_to_knowledge.assert_called_once_with(
+        service.relationships.create_relationship.assert_called_once_with(
+            "knowledge",
             "task_abc",
             "ku_python_xyz",
-            knowledge_score_required=0.9,
-            is_learning_opportunity=True,
+            {"knowledge_score_required": 0.9, "is_learning_opportunity": True},
         )
 
 

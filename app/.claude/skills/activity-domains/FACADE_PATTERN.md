@@ -24,8 +24,11 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService[TasksOperat
     async def search_tasks(self, *args: Any, **kwargs: Any) -> Any:
         return await self.search.search(*args, **kwargs)
 
-    async def link_to_goal(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.relationships.link_to_goal(*args, **kwargs)
+    async def link_task_to_goal(self, task_uid: str, goal_uid: str, **props: Any) -> Any:
+        # Facade names the explicit registry method_key; create_relationship validates it.
+        return await self.relationships.create_relationship(
+            "contributes_to_goal", task_uid, goal_uid, props or None
+        )
 
     async def get_task_with_context(self, *args: Any, **kwargs: Any) -> Any:
         return await self.intelligence.get_task_with_context(*args, **kwargs)
@@ -39,7 +42,7 @@ Created via `create_common_sub_services()` factory:
 |-------------|---------|-------------|
 | `core` | CRUD operations | `create_*`, `update_*`, `delete_*`, `get_*` |
 | `search` | Text search, filtering | `search()`, `get_by_status()`, `get_prioritized()` |
-| `relationships` | Cross-domain links | `link_to_goal()`, `link_to_principle()`, `get_related_uids()` |
+| `relationships` | Cross-domain links | `create_relationship(method_key, ...)`, `delete_relationship()`, `get_related_uids()` |
 | `intelligence` | Analysis & insights | `get_*_with_context()`, domain-specific analysis |
 
 ## Domain-Specific Sub-services

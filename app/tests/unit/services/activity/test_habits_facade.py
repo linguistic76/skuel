@@ -199,8 +199,8 @@ class TestHabitsServiceRelationships:
     async def test_link_habit_to_knowledge_passes_skill_params(
         self, habits_service: HabitsService
     ) -> None:
-        """link_habit_to_knowledge passes skill_level and proficiency_gain_rate."""
-        habits_service.relationships.link_to_knowledge = AsyncMock(return_value=Result.ok(True))
+        """link_habit_to_knowledge writes the REINFORCES_KNOWLEDGE ('knowledge') edge."""
+        habits_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await habits_service.link_habit_to_knowledge(
             "habit_abc",
@@ -209,26 +209,27 @@ class TestHabitsServiceRelationships:
             proficiency_gain_rate=0.2,
         )
 
-        habits_service.relationships.link_to_knowledge.assert_called_once_with(
+        habits_service.relationships.create_relationship.assert_called_once_with(
+            "knowledge",
             "habit_abc",
             "ku_python_xyz",
-            skill_level="intermediate",
-            proficiency_gain_rate=0.2,
+            {"skill_level": "intermediate", "proficiency_gain_rate": 0.2},
         )
 
     @pytest.mark.asyncio
     async def test_link_habit_to_principle_passes_embodiment_strength(
         self, habits_service: HabitsService
     ) -> None:
-        """link_habit_to_principle passes embodiment_strength to relationships."""
-        habits_service.relationships.link_to_principle = AsyncMock(return_value=Result.ok(True))
+        """link_habit_to_principle writes the EMBODIES_PRINCIPLE ('principles') edge."""
+        habits_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await habits_service.link_habit_to_principle(
             "habit_abc", "principle_xyz", embodiment_strength=0.8
         )
 
-        habits_service.relationships.link_to_principle.assert_called_once_with(
+        habits_service.relationships.create_relationship.assert_called_once_with(
+            "principles",
             "habit_abc",
             "principle_xyz",
-            embodiment_strength=0.8,
+            {"embodiment_strength": 0.8},
         )

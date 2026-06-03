@@ -33,26 +33,30 @@ class _RelationshipMixin:
     async def link_choice_to_goal(
         self, choice_uid: str, goal_uid: str, contribution_score: float = 0.5
     ) -> Result[bool]:
-        """Link choice to goal it supports/advances."""
-        return await self.relationships.link_to_goal(
-            choice_uid, goal_uid, contribution_score=contribution_score
+        """Link choice to goal it affects/advances (``AFFECTS_GOAL``)."""
+        return await self.relationships.create_relationship(
+            "goals", choice_uid, goal_uid, {"contribution_score": contribution_score}
         )
 
     async def link_choice_to_habit(
         self, choice_uid: str, habit_uid: str, reinforcement_strength: float = 0.5
     ) -> Result[bool]:
-        """Link choice to habit it reinforces/weakens."""
+        """Link choice to habit it reinforces/weakens (``IMPACTS_HABIT``).
+
+        Uses the ``impacted_habits`` config key — Choices has no ``"habits"`` key
+        (that earlier value silently failed config validation in create_relationship).
+        """
         properties = {"reinforcement_strength": reinforcement_strength}
         return await self.relationships.create_relationship(
-            "habits", choice_uid, habit_uid, properties
+            "impacted_habits", choice_uid, habit_uid, properties
         )
 
     async def link_choice_to_principle(
         self, choice_uid: str, principle_uid: str, alignment_score: float = 0.5
     ) -> Result[bool]:
-        """Link choice to principle it aligns with."""
-        return await self.relationships.link_to_principle(
-            choice_uid, principle_uid, alignment_score=alignment_score
+        """Link choice to principle it is informed by (``INFORMED_BY_PRINCIPLE``)."""
+        return await self.relationships.create_relationship(
+            "principles", choice_uid, principle_uid, {"alignment_score": alignment_score}
         )
 
     async def create_semantic_choice_relationship(

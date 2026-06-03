@@ -194,15 +194,18 @@ class TestPrinciplesServiceRelationships:
     async def test_link_principle_to_knowledge_passes_relevance(
         self, principles_service: PrinciplesService
     ) -> None:
-        """link_principle_to_knowledge passes relevance param to relationships."""
-        principles_service.relationships.link_to_knowledge = AsyncMock(return_value=Result.ok(True))
+        """link_principle_to_knowledge writes the GROUNDED_IN_KNOWLEDGE ('knowledge') edge."""
+        principles_service.relationships.create_relationship = AsyncMock(
+            return_value=Result.ok(True)
+        )
 
         await principles_service.link_principle_to_knowledge(
             "principle_abc", "ku_stoicism_xyz", relevance="foundational"
         )
 
-        principles_service.relationships.link_to_knowledge.assert_called_once_with(
+        principles_service.relationships.create_relationship.assert_called_once_with(
+            "knowledge",
             "principle_abc",
             "ku_stoicism_xyz",
-            relevance="foundational",
+            {"relevance": "foundational"},
         )
