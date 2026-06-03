@@ -147,11 +147,11 @@ async def _publish_event(self, event: Any) -> None:
 async def _analyze_entity_with_context(
     self,
     uid: str,
-    context_method: str,           # e.g., "get_goal_cross_domain_context"
     context_type: type,            # e.g., GoalCrossContext
     metrics_fn: Callable[[Any, Any], dict[str, Any]],
     recommendations_fn: Callable[[Any, Any, dict], list[str]] | None = None,
-    **context_kwargs: Any,
+    **context_kwargs: Any,         # depth, min_confidence — forwarded to the generic
+                                   # config-driven get_cross_domain_context
 ) -> Result[dict[str, Any]]:
     """Template for entity + context analysis."""
 
