@@ -17,7 +17,7 @@ are already native and intentionally left uncoerced.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, cast
+from typing import cast
 
 import pytest
 
@@ -28,6 +28,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit import Habit
 from core.models.report_schedule.report_schedule import ReportSchedule
+from core.models.type_hints import Neo4jProperties
 
 
 @pytest.mark.asyncio
@@ -49,7 +50,7 @@ class TestTimestampFieldCoercionResidual:
 
         result = await backend.get_due_schedules(min_interval_hours=1)
         assert result.is_ok, f"get_due_schedules failed: {result}"
-        uids = {cast("dict[str, Any]", row["s"])["uid"] for row in result.value}
+        uids = {cast("Neo4jProperties", row["s"])["uid"] for row in result.value}
         assert "sched_due" in uids  # empty under string-vs-datetime
 
     async def test_get_active_insights_includes_string_future_expiry(
@@ -74,7 +75,7 @@ class TestTimestampFieldCoercionResidual:
 
         result = await backend.get_active_insights("user_insight", None, 10)
         assert result.is_ok, f"get_active_insights failed: {result}"
-        ids = {cast("dict[str, Any]", row["i"])["insight_id"] for row in result.value}
+        ids = {cast("Neo4jProperties", row["i"])["insight_id"] for row in result.value}
         assert "ins_active" in ids  # excluded under string-vs-datetime
 
     async def test_active_habits_prioritized_streak_at_risk_first(self, neo4j_driver, clean_neo4j):
