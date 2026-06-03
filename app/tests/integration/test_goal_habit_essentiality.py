@@ -217,6 +217,40 @@ async def test_untiered_habit_falls_to_catch_all(neo4j_driver, goal_rel, clean_n
 
 
 @pytest.mark.asyncio
+async def test_create_via_filtered_key_round_trips(neo4j_driver, goal_rel, clean_neo4j):
+    """Write/read symmetry: creating via a FILTERED key stamps the edge property.
+
+    Codex P2: the new read filter (``r.essentiality = "essential"``) would make a bare-edge
+    create via the same key invisible — create succeeds, read returns empty. ``_orient_edge``
+    now stamps the filtered spec's property on write, so ``create_relationship`` and
+    ``get_related_uids`` round-trip through the ``essential_habits`` key with no explicit
+    property from the caller.
+    """
+    async with neo4j_driver.session() as s:
+        await _seed_goal_and_habits(s, GOAL, [H_ESSENTIAL])
+
+    # Create via the FILTERED key, passing NO explicit essentiality property.
+    res = await goal_rel.create_relationship("essential_habits", GOAL, H_ESSENTIAL)
+    assert res.is_ok, res
+
+    # The edge carries the stamped tier property.
+    async with neo4j_driver.session() as s:
+        rec = await (
+            await s.run(
+                "MATCH (h:Habit {uid:$h})-[r:SUPPORTS_GOAL]->(g:Goal {uid:$g}) "
+                "RETURN r.essentiality AS e",
+                h=H_ESSENTIAL,
+                g=GOAL,
+            )
+        ).single()
+    assert rec is not None and rec["e"] == "essential"
+
+    # And it reads back through the same filtered key (pre-fix: empty).
+    r = await goal_rel.get_related_uids("essential_habits", GOAL)
+    assert r.is_ok and r.value == [H_ESSENTIAL]
+
+
+@pytest.mark.asyncio
 async def test_essentiality_tiers_filter_via_get_with_context_path(
     neo4j_driver, goal_rel, clean_neo4j
 ):
