@@ -64,7 +64,7 @@ UnifiedRelationshipService[Ops, Model, DtoType]
 - `get_related_uids(relationship_key, entity_uid)` → `Result[list[str]]`
 - `has_relationship(relationship_key, entity_uid)` → `Result[bool]`
 - `count_related(relationship_key, entity_uid)` → `Result[int]`
-- `create_relationship(relationship_key, from_uid, to_uid, properties)` → `Result[bool]` — ⚠️ broken for most domains: it dispatches to a `link_{domain}_to_{key}` backend method that exists only for two habit cases (`link_habit_to_knowledge`, `link_habit_to_principle`). The typed `link_to_*` convenience methods below wrap this same call, so they fail too (e.g. for any task relationship). Use `create_relationships_batch` instead. See [UNIFIED_RELATIONSHIP_SERVICE.md](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md).
+- `create_relationship(relationship_key, from_uid, to_uid, properties)` → `Result[bool]` — root-fixed PR #197: routes through `backend.create_relationships_batch` with the registry `spec` for `relationship_key`, orients direction via `_orient_edge`, and **fails closed** on an unknown key. The typed `link_to_*` methods below all delegate to it, so they work too. (Historically it dispatched to a dynamic `link_{domain}_to_{key}` backend method that existed for only two habit cases — that dispatch is gone.) See [UNIFIED_RELATIONSHIP_SERVICE.md](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md).
 - `delete_relationship(relationship_key, from_uid, to_uid)` → `Result[bool]`
 - `fetch_all_relationships(entity_uid)` → `Result[dict[str, list[str]]]`
 - `link_to_knowledge(entity_uid, knowledge_uid, **properties)` → `Result[bool]`

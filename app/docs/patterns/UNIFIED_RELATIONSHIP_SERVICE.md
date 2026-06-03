@@ -274,28 +274,56 @@ await service.create_relationships_batch(
 
 # Delete relationship
 await service.delete_relationship("task:123", "knowledge", "ku:py")
+
+# Single edge — config-keyed, every-domain-safe (root-fixed PR #197)
+await service.create_relationship("knowledge", "task:123", "ku:py", {"confidence": 0.9})
 ```
 
-> **⚠️ Do NOT use the single `create_relationship(key, from_uid, to_uid, properties)` —
-> it is broken for tasks and most domains.** It dynamically dispatches to a
-> `link_{domain}_to_{key}` *backend* method (e.g. `link_task_to_knowledge`), and those
-> methods exist only for two habit cases (`link_habit_to_knowledge`,
-> `link_habit_to_principle`). For tasks — and nearly every other domain/key — no such
-> backend method exists, so the call fails at runtime with "Backend method not found".
-> A mocked backend resolves any attribute, so this survives unit tests; only a
-> real-Neo4j round-trip (or reading into the `getattr`) catches it.
+> **`create_relationship(key, from_uid, to_uid, properties)` is safe** (root-fixed
+> PR #197). It looks up the registry `spec` for `key`, orients direction via
+> `_orient_edge` (an *incoming* spec swaps endpoints on write/delete so direction-aware
+> reads still match), and routes through the same `backend.create_relationships_batch`
+> path create-flows use. It **fails closed** on an unknown key (`Result.fail`, no edge).
+> It previously dispatched to a dynamic `link_{domain}_to_{key}` backend method that
+> existed for only two habit cases and failed at runtime everywhere else — that whole
+> dispatch is gone.
 >
-> **Create a single edge through the proven backend batch path instead:**
+> **For an edge whose type is NOT a config method-key** (e.g. an explicit
+> `DEPENDS_ON` with edge properties), call the backend batch path directly:
 > ```python
 > await backend.create_relationships_batch(
 >     [(from_uid, to_uid, RelationshipName.DEPENDS_ON.value, properties)]
 > )
 > ```
-> This is exactly what `TasksService.create_task_dependency` does — `DEPENDS_ON` has no
-> typed `link_to_*` method (see *Typed Link Methods* below for the ones that do). After an
-> edge-only mutation, publish the domain's `*Updated` event (e.g. `TaskUpdated`) so
-> `UnifiedUserContext` caches invalidate.
-> See `/docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md`.
+> This is what `TasksService.create_task_dependency` does. After any edge-only mutation,
+> publish the domain's `*Updated` event (e.g. `TaskUpdated`) so `UnifiedUserContext`
+> caches invalidate. See `/docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md`.
+
+### ⚠️ Phantom methods & keys — the #1 relationship trap
+
+`UnifiedRelationshipService` has **no `__getattr__`**, so calling a method it does not
+define raises `AttributeError`. Several historical bugs (PRs #198/#200/#201) were
+services calling **methods that exist nowhere** — `create_choice_relationships`,
+`get_principle_goals`, `get_task_prerequisites`, `get_goal_tasks`. Some were even
+declared on a `*RelationshipOperations` **protocol** with no implementation — a
+landmine, because the call type-checks but blows up (or, behind a swallowing
+`try/except`, silently does nothing).
+
+- **`get_related_uids(method_key, uid)` takes a CONFIG METHOD-KEY**, not a
+  `RelationshipName`. Resolution is **exact-match** (`get_relationship_by_method`, no
+  aliases) and **fails closed**: a wrong key (e.g. `"habits"` when the config defines
+  `"inspired_habits"`/`"embodying_habits"`) returns `Result.fail`, not an exception —
+  so the feature silently returns nothing. Pull keys from the domain's
+  `DomainRelationshipConfig` (see *Domain Configurations*).
+- **Before calling a relationship method, confirm it is actually defined** on
+  `UnifiedRelationshipService` (or its mixins) — not merely declared on a protocol.
+  If you need "goals guided by this principle," it is `get_related_uids("guided_goals", uid)`,
+  not a bespoke `get_principle_goals`.
+- **Mocked backends/services hide all of this** — an `AsyncMock` resolves any attribute
+  and returns success for any key. **Guard relationship reads/writes with a real-Neo4j
+  round-trip** that creates the edge and reads it back, with a negative control. See
+  `tests/integration/test_choice_knowledge_edge_roundtrip.py`,
+  `test_principle_cascade_reads_roundtrip.py`.
 
 ### Domain Relationships (3 methods)
 
