@@ -367,6 +367,14 @@ NEO4J_SCHEMA_MONITORING_INTERVAL=900    # poll interval (seconds); must be ≥ 1
 
 **Rule:** Don't enable it where the schema is static after startup DDL (the common case) — it catches nothing at runtime and adds periodic introspection load. Enable it only where schema genuinely drifts mid-session.
 
+### 8. Coerce string-stored temporals in comparisons
+
+Date/datetime fields are stored as **ISO strings** (DTO `.isoformat()`), so comparing them directly to `date()`/`datetime()` yields `null` and silently drops rows. Wrap the stored side: `datetime(n.created_at) >= datetime($w)`. `datetime()` is universally safe (parses date and datetime strings, no-op on natives); `date()` **errors on a datetime string** → use `date(datetime(field))`. The writer decides the type: DTO `.isoformat()` → string (coerce); Cypher `= datetime()` → native (leave). **See [PATTERNS.md](PATTERNS.md) Pattern 10 + Key Rules #17–18.**
+
+### 9. Relationship reads/writes go through real, config-keyed methods
+
+`UnifiedRelationshipService` has no `__getattr__` — calling a method it doesn't define is an `AttributeError`, and `get_related_uids(method_key, uid)` takes an **exact** `DomainRelationshipConfig` method-key that **fails closed** on a typo. Don't invent `get_<x>_<y>` methods or guess keys; never trust a mocked relationship service (it resolves any attribute). **See [/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md) § Phantom methods & keys.**
+
 ## Additional Resources
 
 - [reference.md](reference.md) - Complete relationship type catalog (80+ types)
