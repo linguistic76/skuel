@@ -267,8 +267,8 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return {
             "progress_percentage": goal.progress * 100,
             "days_remaining": (goal.target_date - date.today()).days,
-            "supporting_habits_count": len(context.supporting_habits),
-            "blocking_tasks_count": len(context.blocking_tasks),
+            "supporting_habits_count": len(context.supporting_habit_uids),
+            "supporting_tasks_count": len(context.supporting_task_uids),
             "is_on_track": goal.is_on_track(),
             "momentum_score": self._calculate_momentum(goal, context),
         }

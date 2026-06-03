@@ -226,8 +226,8 @@ async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
 def _calculate_goal_metrics(self, goal: Goal, context: GoalCrossContext) -> dict:
     return {
         "progress_percentage": goal.progress * 100,
-        "supporting_habits_count": len(context.supporting_habits),
-        "blocking_tasks": len(context.blocking_tasks),
+        "supporting_habits_count": len(context.supporting_habit_uids),
+        "supporting_tasks_count": len(context.supporting_task_uids),
     }
 
 def _generate_progress_recommendations(
