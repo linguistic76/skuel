@@ -95,7 +95,7 @@ class InsightBackend:
         MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
         WHERE i.dismissed = false
           AND i.actioned = false
-          AND (i.expires_at IS NULL OR i.expires_at > datetime())
+          AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())
           {domain_filter}
         RETURN i
         ORDER BY
@@ -128,7 +128,7 @@ class InsightBackend:
         query = f"""
         MATCH (i:Insight {{entity_uid: $entity_uid, user_uid: $user_uid}})
         WHERE i.actioned = false
-          AND (i.expires_at IS NULL OR i.expires_at > datetime())
+          AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())
           {dismissed_filter}
         RETURN i
         ORDER BY i.created_at DESC
@@ -181,7 +181,7 @@ class InsightBackend:
         return await self._executor.execute_query(
             """
             MATCH (i:Insight)
-            WHERE i.expires_at IS NOT NULL AND i.expires_at < datetime()
+            WHERE i.expires_at IS NOT NULL AND datetime(i.expires_at) < datetime()
             DETACH DELETE i
             RETURN count(i) as deleted_count
             """,
@@ -223,7 +223,7 @@ class InsightBackend:
             RETURN
                 count(i) as total_insights,
                 count(CASE WHEN i.dismissed = false AND i.actioned = false
-                           AND (i.expires_at IS NULL OR i.expires_at > datetime())
+                           AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())
                       THEN 1 END) as active_insights,
                 count(CASE WHEN i.dismissed = true THEN 1 END) as dismissed_insights,
                 count(CASE WHEN i.actioned = true THEN 1 END) as actioned_insights,
@@ -241,7 +241,7 @@ class InsightBackend:
             MATCH (u:User {uid: $user_uid})-[:HAS_INSIGHT]->(i:Insight)
             WHERE i.dismissed = false
               AND i.actioned = false
-              AND (i.expires_at IS NULL OR i.expires_at > datetime())
+              AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())
             RETURN i.domain as domain, count(i) as count
             ORDER BY count DESC
             """,
