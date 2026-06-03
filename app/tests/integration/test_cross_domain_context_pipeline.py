@@ -326,3 +326,70 @@ async def test_incoming_buckets_route_by_specific_label(neo4j_driver, rel_backen
     assert _uids("reinforcing_tasks") == {S_TASK}
     assert _uids("reinforcing_events") == {S_EVENT}
     assert _uids("reinforcing_habits") == {S_OTHER_HABIT}  # generic Entity bucket: habits only
+
+
+# uid prefix for the transitive-depth graph.
+T = "xdctx_transitive_"
+T_HABIT = T + "habit"
+T_MID = T + "mid_habit"
+T_NEAR_GOAL = T + "near_goal"
+T_FAR_GOAL = T + "far_goal"
+
+
+@pytest.mark.asyncio
+async def test_depth_surfaces_transitive_node_correctly_attributed(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """`depth` is a real knob: a 2-hop node is attributed by the edge INCIDENT to it.
+
+    Graph (from the source habit):
+        habit -[SUPPORTS_GOAL]->      near_goal          (direct, distance 1)
+        habit -[RELATED_TO]->  mid -[SUPPORTS_GOAL]-> far_goal   (transitive, distance 2)
+
+    far_goal's incident edge is SUPPORTS_GOAL pointing INTO it, so it is correctly a
+    supported goal of the habit at distance 2 — attributed by its own last hop, NOT by
+    the RELATED_TO first hop that merely left the source. depth=1 sees only near_goal;
+    depth=2 additionally surfaces far_goal (tagged distance=2). This is the capability
+    the depth parameter exists for — and the over-inclusion fix keeps it honest.
+    """
+    async with neo4j_driver.session() as s:
+        for uid, label, etype in [
+            (T_HABIT, "Habit", "habit"),
+            (T_MID, "Habit", "habit"),
+            (T_NEAR_GOAL, "Goal", "goal"),
+            (T_FAR_GOAL, "Goal", "goal"),
+        ]:
+            await s.run(
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+        for a, rel, b in [
+            (T_HABIT, "SUPPORTS_GOAL", T_NEAR_GOAL),
+            (T_HABIT, "RELATED_TO", T_MID),
+            (T_MID, "SUPPORTS_GOAL", T_FAR_GOAL),
+        ]:
+            await s.run(
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
+                a=a,
+                b=b,
+            )
+
+    habit_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=HABITS_CONFIG, graph_intel=None
+    )
+
+    # depth=1: only the direct supported goal.
+    d1 = await habit_rel.get_cross_domain_context(T_HABIT, depth=1, min_confidence=0.7)
+    assert d1.is_ok, d1
+    assert HabitCrossContext.from_dict(d1.value).linked_goal_uids == [T_NEAR_GOAL]
+
+    # depth=2: the transitive goal is surfaced too, tagged with its true distance.
+    d2 = await habit_rel.get_cross_domain_context(T_HABIT, depth=2, min_confidence=0.7)
+    assert d2.is_ok, d2
+    linked = set(HabitCrossContext.from_dict(d2.value).linked_goal_uids)
+    assert linked == {T_NEAR_GOAL, T_FAR_GOAL}, linked
+    by_uid = {e["uid"]: e["distance"] for e in d2.value["supported_goals"]}
+    assert by_uid[T_NEAR_GOAL] == 1
+    assert by_uid[T_FAR_GOAL] == 2

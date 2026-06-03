@@ -41,29 +41,36 @@ if TYPE_CHECKING:
 Model = TypeVar("Model", bound="DomainModelProtocol")
 
 
-def _direction_matches(direction: str, rel_value: str, via_relationships: list[str]) -> bool:
-    """Does a related node's incident edge match a mapping's relationship + direction?
+def _incident_matches(
+    mapping_direction: str,
+    mapping_rel: str,
+    incident_rel_type: str | None,
+    incident_into_related: bool | None,
+) -> bool:
+    """Does the edge INCIDENT to a related node match a mapping's relationship + direction?
 
-    ``via_relationships`` carries center-relative markers (``->REL`` when the edge
-    leaves the source, ``<-REL`` when it enters the source). At distance 1 the single
-    edge is the one incident to the related node, so the marker encodes its direction
-    exactly:
+    Each related node is attributed by the LAST hop of its path — the edge incident to
+    it — not by any edge in the path. ``incident_rel_type`` is that edge's type and
+    ``incident_into_related`` is its orientation: ``True`` when it points INTO the node
+    (the node is the relationship's object), ``False`` when it points OUT (the node is
+    the subject). This holds at ANY distance, so ``depth`` genuinely controls how far
+    transitive context reaches without mis-attributing nodes:
 
-        outgoing mapping (source -> related)  ⟺ ``->REL``
-        incoming mapping (related -> source)  ⟺ ``<-REL``
-        both                                  ⟺ either
+        outgoing mapping (source REL related; related is the object)  ⟺ into_related True
+        incoming mapping (related REL source; related is the subject) ⟺ into_related False
+        both                                                          ⟺ either orientation
 
-    Matching the wrong direction (the pre-fix behaviour accepted bare/``->``/``<-``
-    indiscriminately) put incoming edges into outgoing buckets and vice versa.
+    Using the incident edge (vs. matching any path edge against center-relative markers)
+    is what kills the depth>=2 over-inclusion: a 2-hop node is bucketed by the edge
+    actually touching it, never by the first hop that merely left the source.
     """
-    outgoing = f"->{rel_value}"
-    incoming = f"<-{rel_value}"
-    if direction == "outgoing":
-        return outgoing in via_relationships
-    if direction == "incoming":
-        return incoming in via_relationships
-    # "both": either orientation of a direct edge qualifies.
-    return outgoing in via_relationships or incoming in via_relationships
+    if incident_rel_type != mapping_rel:
+        return False
+    if mapping_direction == "outgoing":
+        return incident_into_related is True
+    if mapping_direction == "incoming":
+        return incident_into_related is False
+    return True  # "both": orientation-agnostic
 
 
 def _generic_label_last(rel: UnifiedRelationshipDefinition) -> bool:
@@ -130,9 +137,16 @@ class IntelligenceMixin:
         Uses config.cross_domain_relationship_types and config.relationships
         to determine which relationships to query and how to categorize results.
 
+        ``depth`` is a genuine traversal knob: each related entity is bucketed by the
+        edge INCIDENT to it (its last hop), so a node 2 hops out is attributed to the
+        right relationship just like a direct neighbour — never to the first hop that
+        merely left the source. Every bucket entry carries its ``distance``, so callers
+        wanting direct-only context can filter on ``distance == 1``.
+
         Args:
             entity_uid: Entity UID
-            depth: Graph traversal depth (default 2)
+            depth: Graph traversal depth — how many hops of transitive context to
+                include (default 2; depth=1 is direct connections only)
             min_confidence: Minimum path confidence filter (default 0.7)
 
         Returns:
@@ -140,13 +154,13 @@ class IntelligenceMixin:
         """
         # Step 1: Get raw graph context from backend.
         #
-        # Always traverse BOTH directions: categorization below is direction-aware
-        # per cross-domain mapping (each mapping's `direction` is matched against the
-        # edge actually incident to the related node), so the single query-wide
-        # `bidirectional` flag no longer decides which mappings can populate. Fetching
-        # only outgoing edges (the former `len(bidirectional_relationships) > 0` rule)
-        # structurally starved every INCOMING mapping for outgoing-only configs — e.g.
-        # HABITS_CONFIG's inspiring_principles / reinforcing_* buckets were always empty.
+        # Always traverse BOTH directions: categorization below matches each mapping's
+        # `direction` against the orientation of the edge incident to the related node,
+        # so the single query-wide `bidirectional` flag no longer decides which mappings
+        # can populate. Fetching only outgoing edges (the former
+        # `len(bidirectional_relationships) > 0` rule) structurally starved every
+        # INCOMING mapping for outgoing-only configs — e.g. HABITS_CONFIG's
+        # inspiring_principles / reinforcing_* buckets were always empty.
         raw_result = await self.backend.get_domain_context_raw(
             entity_uid=entity_uid,
             entity_label=self.config.entity_label,
@@ -161,23 +175,19 @@ class IntelligenceMixin:
 
         raw_context = raw_result.value
 
-        # Step 2: Categorize raw context using relationship definitions.
+        # Step 2: Categorize raw context by the edge INCIDENT to each related node.
         #
-        # An entity is bucketed into a mapping only when the edge INCIDENT to it (its
-        # direct, distance-1 cross-domain edge) matches that mapping's relationship AND
-        # direction. This is what makes the buckets mean what their consumers assume —
-        # direct cross-domain relationships. Two failure modes this guards against,
-        # both verified against the live graph (depth-2 over-inclusion was a real bug):
-        #   * Direction: an OUTGOING mapping matches only `->REL`, an INCOMING mapping
-        #     only `<-REL` (the marker is center-relative, so at distance 1 it encodes
-        #     the edge direction exactly). The old code matched any of bare/`->`/`<-`,
-        #     conflating "center has this edge" with "the related node has it".
-        #   * Distance: only distance-1 nodes are categorized. At depth >= 2 the old
-        #     guard matched on a HOP-1 edge marker (incident to center, not to the
-        #     related node), so a 2-hop neighbour — or the source itself on a cycle
-        #     (e.g. the canonical INSPIRES_HABIT <-> EMBODIES_PRINCIPLE pair) — leaked
-        #     into a sibling bucket. The Cypher also excludes related == center.
-        # Specific target labels before the catch-all "Entity" bucket, so the
+        # A node lands in a mapping's bucket iff its incident edge (the last hop) is the
+        # mapping's relationship in the mapping's orientation — `incident_into_related`
+        # True for OUTGOING mappings (the node is the object), False for INCOMING (the
+        # node is the subject), either for "both" (see _incident_matches). This is what
+        # makes `depth` correct: a 2-hop node is attributed by the edge actually touching
+        # it, so transitive context is included WITHOUT the depth>=2 over-inclusion the
+        # old center-relative-marker matching produced (a 2-hop neighbour — or the source
+        # itself on a cycle, e.g. the canonical INSPIRES_HABIT <-> EMBODIES_PRINCIPLE
+        # pair — used to leak into a sibling bucket). The Cypher excludes related == center.
+        #
+        # Specific target labels sort before the catch-all "Entity" bucket so the
         # first-match `break` routes each node to its most precise mapping (see
         # _generic_label_last). Stable sort preserves config order within each group.
         cross_domain_rels = sorted(
@@ -189,16 +199,16 @@ class IntelligenceMixin:
         }
 
         for entity in raw_context:
-            # Direct cross-domain edges only; never the source entity itself.
-            if entity.get("distance") != 1 or entity.get("uid") == entity_uid:
-                continue
-
             labels = entity.get("labels", [])
-            via_rels = entity.get("via_relationships", [])
+            incident_rel_type = entity.get("incident_rel_type")
+            incident_into_related = entity.get("incident_into_related")
 
             for rel in cross_domain_rels:
-                if rel.target_label in labels and _direction_matches(
-                    rel.direction, rel.relationship.value, via_rels
+                if rel.target_label in labels and _incident_matches(
+                    rel.direction,
+                    rel.relationship.value,
+                    incident_rel_type,
+                    incident_into_related,
                 ):
                     categorized[rel.context_field_name].append(
                         {
@@ -206,7 +216,7 @@ class IntelligenceMixin:
                             "title": entity.get("title"),
                             "distance": entity.get("distance"),
                             "path_strength": entity.get("path_strength"),
-                            "via_relationships": via_rels,
+                            "via_relationships": entity.get("via_relationships", []),
                         }
                     )
                     break  # Only add to one category

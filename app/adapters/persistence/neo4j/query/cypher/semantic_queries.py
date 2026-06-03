@@ -138,6 +138,12 @@ def build_domain_context_with_paths(
     - distance: Number of hops from source
     - path_strength: Confidence cascade (product of relationship confidences)
     - via_relationships: Sequence of relationship types in path
+    - incident_rel_type: Type of the edge INCIDENT to the related node (the last hop),
+      i.e. the edge that determines which cross-domain bucket the node belongs to.
+    - incident_into_related: True if that last edge points INTO the related node
+      (``related`` is its DB endNode → the node is the object of the relationship),
+      False if it points OUT (``related`` is the subject). Lets categorization match a
+      mapping's direction at ANY distance, not just distance 1.
 
     Args:
         node_uid: Starting node UID
@@ -182,7 +188,8 @@ def build_domain_context_with_paths(
                     ELSE type(rel)
                 END
             ],
-            via_relationships_plain: [rel in rels | type(rel)]
+            incident_rel_type: type(last(rels)),
+            incident_into_related: endNode(last(rels)) = related
         }}) as domain_context
     """
 
