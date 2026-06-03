@@ -155,7 +155,7 @@ MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Habit)
 WITH pid, collect(DISTINCT h.uid) AS habit_uids
 OPTIONAL MATCH (hc:HabitCompletion)
 WHERE hc.habit_uid IN habit_uids
-  AND hc.completed_at >= $cutoff
+  AND datetime(hc.completed_at) >= $cutoff
 RETURN pid AS principle_uid,
        size(habit_uids) AS habit_count,
        count(hc) AS completion_count

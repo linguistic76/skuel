@@ -119,7 +119,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         WHERE NOT h.status IN $terminal_statuses
         RETURN h
         ORDER BY
-            CASE WHEN h.current_streak > 0 AND h.last_completed < date() THEN 0 ELSE 1 END,
+            CASE WHEN h.current_streak > 0 AND date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END,
             h.current_streak DESC,
             h.created_at DESC
         LIMIT $fetch_limit
