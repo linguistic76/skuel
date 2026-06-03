@@ -197,10 +197,9 @@ def calculate_choice_metrics(choice: Any, context: ChoiceCrossContext) -> dict[s
 
     Metrics produced:
     - principle_guidance_count: Principles informing this choice
-    - supporting_goal_count: Goals this choice supports
-    - conflicting_goal_count: Goals this choice conflicts with
+    - affected_goal_count: Goals this choice affects
     - knowledge_grounding_count: Knowledge informing decision
-    - has_conflicts: Boolean indicating goal conflicts
+    - affects_goals: Boolean indicating goal impact
     - is_principled: Boolean if informed by principles
     - decision_clarity_score: How clear the decision is (0.0-1.0)
 
@@ -211,21 +210,20 @@ def calculate_choice_metrics(choice: Any, context: ChoiceCrossContext) -> dict[s
     Returns:
         Dictionary of calculated metrics
     """
-    # Decision clarity: high when grounded in principles/knowledge, low when conflicted
+    # Decision clarity: high when grounded in principles AND knowledge. (The former
+    # "no goal conflicts" factor is gone — the graph has no conflicting-goal edge; the
+    # choice↔goal link is the polarity-free AFFECTS_GOAL.)
     clarity_factors = [
-        context.is_principle_informed(),  # +0.33 if principled
-        context.has_knowledge_base(),  # +0.33 if knowledge-grounded
-        not context.has_conflicts(),  # +0.33 if no conflicts
+        context.is_principle_informed(),  # +0.5 if principled
+        context.has_knowledge_base(),  # +0.5 if knowledge-grounded
     ]
     decision_clarity = sum(1 for f in clarity_factors if f) / len(clarity_factors)
 
     return {
         "principle_guidance_count": len(context.informing_principle_uids),
-        "supporting_goal_count": len(context.supporting_goal_uids),
-        "conflicting_goal_count": len(context.conflicting_goal_uids),
+        "affected_goal_count": len(context.affected_goal_uids),
         "knowledge_grounding_count": len(context.required_knowledge_uids),
-        "total_goal_impact": len(context.all_goal_uids()),
-        "has_conflicts": context.has_conflicts(),
+        "affects_goals": context.affects_goals(),
         "is_principled": context.is_principle_informed(),
         "has_knowledge_base": context.has_knowledge_base(),
         "decision_clarity_score": round(decision_clarity, 2),
