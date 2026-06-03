@@ -58,7 +58,6 @@ class _AnalyticsMixin:
         # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
-            context_method="get_goal_cross_domain_context",
             context_type=GoalCrossContext,
             metrics_fn=calculate_goal_metrics,
             recommendations_fn=self._generate_progress_recommendations,
@@ -179,7 +178,6 @@ class _AnalyticsMixin:
         # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
-            context_method="get_goal_cross_domain_context",
             context_type=GoalCrossContext,
             metrics_fn=calculate_goal_metrics,
             depth=depth,
@@ -270,7 +268,6 @@ class _AnalyticsMixin:
         # Use base class template for standardized analysis
         analysis_result = await self._analyze_entity_with_context(
             uid=uid,
-            context_method="get_goal_cross_domain_context",
             context_type=GoalCrossContext,
             metrics_fn=calculate_goal_metrics,
             recommendations_fn=self._generate_learning_recommendations,
