@@ -367,7 +367,6 @@ Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtoco
 | `PrerequisiteChecker` | Unified prerequisite checking (returns `PrerequisiteResult` with score, is_ready, blocking_reasons) |
 | `LearningAlignmentBridge` | LP integration for any domain |
 | `SemanticRelationshipLinker` | Semantic relationship ops |
-| `RelationshipCreator` | Cross-domain rel creation |
 
 ## Fail-Fast Dependency Philosophy
 
