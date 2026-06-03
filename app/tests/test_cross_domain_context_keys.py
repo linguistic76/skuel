@@ -47,10 +47,21 @@ PER_DOMAIN_DISPATCH_NAMES = [
     "get_principle_cross_domain_context",
 ]
 
+_MISSING = object()  # sentinel — getattr-based attribute probe (SKUEL011: no hasattr)
+
+
+def _resolves(name: str) -> bool:
+    """True iff ``name`` resolves on UnifiedRelationshipService.
+
+    There is no ``__getattr__`` (asserted below), so a class-level ``getattr`` against a
+    unique sentinel is an exact, sound presence check — no ``hasattr`` needed.
+    """
+    return getattr(UnifiedRelationshipService, name, _MISSING) is not _MISSING
+
 
 def test_unified_relationship_service_exposes_generic_context_method() -> None:
     """The single method the analytics template now calls must exist."""
-    assert hasattr(UnifiedRelationshipService, "get_cross_domain_context")
+    assert _resolves("get_cross_domain_context")
 
 
 def test_unified_relationship_service_has_no_getattr_rescue() -> None:
@@ -65,7 +76,7 @@ def test_per_domain_dispatch_names_do_not_resolve(name: str) -> None:
     If one reappears here, someone re-introduced a per-domain wrapper and the
     getattr-to-None silent-degradation trap is back.
     """
-    assert not hasattr(UnifiedRelationshipService, name), (
+    assert not _resolves(name), (
         f"{name!r} resolves on UnifiedRelationshipService again — the analytics "
         f"template must call the generic get_cross_domain_context, not dispatch by name."
     )
@@ -96,7 +107,6 @@ FROM_DICT_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
     ("habit.linked_goal_uids", HABITS_CONFIG, "supported_goals"),
     ("habit.knowledge_reinforcement_uids", HABITS_CONFIG, "reinforced_knowledge"),
     ("habit.aligned_principle_uids", HABITS_CONFIG, "embodied_principles"),
-    ("habit.aligned_principle_uids", HABITS_CONFIG, "inspiring_principles"),
     ("habit.prerequisite_habit_uids", HABITS_CONFIG, "prerequisite_habits"),
     # PrincipleCrossContext.from_dict
     ("principle.guided_goal_uids", PRINCIPLES_CONFIG, "guided_goals"),

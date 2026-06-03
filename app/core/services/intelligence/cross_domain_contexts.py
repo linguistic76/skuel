@@ -205,15 +205,19 @@ class HabitCrossContext:
     def from_dict(cls, context_dict: dict[str, Any]) -> HabitCrossContext:
         """Extract typed context from a get_cross_domain_context() response.
 
-        Keys are the HABITS_CONFIG ``context_field_name`` buckets; aligned principles
-        span EMBODIES_PRINCIPLE (outgoing) and INSPIRES_HABIT (incoming).
+        Keys are the HABITS_CONFIG ``context_field_name`` buckets. Only the OUTGOING
+        habit mappings are read: ``HABITS_CONFIG.bidirectional_relationships`` is empty,
+        so ``get_cross_domain_context()`` traverses outgoing edges only and every
+        incoming habit bucket (``inspiring_principles`` via INSPIRES_HABIT,
+        ``reinforcing_*``, ``enabling_habits``, ``impacting_choices``) is always empty.
+        Aligned principles therefore come solely from EMBODIES_PRINCIPLE (outgoing) —
+        principle-inspired alignment needs habit context to fetch incoming mappings
+        first (tracked separately; reading those buckets here would be a silent no-op).
         """
         return cls(
             linked_goal_uids=_uids(context_dict, "supported_goals"),
             knowledge_reinforcement_uids=_uids(context_dict, "reinforced_knowledge"),
-            aligned_principle_uids=_uids(
-                context_dict, "embodied_principles", "inspiring_principles"
-            ),
+            aligned_principle_uids=_uids(context_dict, "embodied_principles"),
             prerequisite_habit_uids=_uids(context_dict, "prerequisite_habits"),
         )
 
