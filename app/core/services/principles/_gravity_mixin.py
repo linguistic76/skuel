@@ -115,8 +115,7 @@ class _GravityMixin:
             return Result.fail(
                 Errors.validation(
                     message=(
-                        f"Unknown link_type: {link_type}. "
-                        f"Valid: {', '.join(self._LINK_TYPE_MAP)}"
+                        f"Unknown link_type: {link_type}. Valid: {', '.join(self._LINK_TYPE_MAP)}"
                     ),
                     field="link_type",
                 )

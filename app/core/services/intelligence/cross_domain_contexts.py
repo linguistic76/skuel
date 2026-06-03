@@ -205,19 +205,26 @@ class HabitCrossContext:
     def from_dict(cls, context_dict: dict[str, Any]) -> HabitCrossContext:
         """Extract typed context from a get_cross_domain_context() response.
 
-        Keys are the HABITS_CONFIG ``context_field_name`` buckets. Only the OUTGOING
-        habit mappings are read: ``HABITS_CONFIG.bidirectional_relationships`` is empty,
-        so ``get_cross_domain_context()`` traverses outgoing edges only and every
-        incoming habit bucket (``inspiring_principles`` via INSPIRES_HABIT,
-        ``reinforcing_*``, ``enabling_habits``, ``impacting_choices``) is always empty.
-        Aligned principles therefore come solely from EMBODIES_PRINCIPLE (outgoing) —
-        principle-inspired alignment needs habit context to fetch incoming mappings
-        first (tracked separately; reading those buckets here would be a silent no-op).
+        Keys are the HABITS_CONFIG ``context_field_name`` buckets. Aligned principles
+        span BOTH directions — EMBODIES_PRINCIPLE (outgoing, ``embodied_principles``)
+        and INSPIRES_HABIT (incoming, ``inspiring_principles``) — mirroring the
+        symmetric aggregation on ``PrincipleCrossContext.aligned_habit_uids``. The
+        incoming bucket populates now that ``get_cross_domain_context()`` traverses
+        both directions and categorizes per-mapping ``direction`` (it was structurally
+        empty under the former outgoing-only traversal).
+
+        The other now-live incoming habit buckets (``reinforcing_habits``,
+        ``enabling_habits``, ``reinforcing_events``, ``reinforcing_tasks``,
+        ``impacting_choices``) are intentionally NOT surfaced as typed fields — no
+        metric or dashboard consumes them. They remain in the raw response dict for any
+        future consumer; promote them here only when something reads them.
         """
         return cls(
             linked_goal_uids=_uids(context_dict, "supported_goals"),
             knowledge_reinforcement_uids=_uids(context_dict, "reinforced_knowledge"),
-            aligned_principle_uids=_uids(context_dict, "embodied_principles"),
+            aligned_principle_uids=_uids(
+                context_dict, "embodied_principles", "inspiring_principles"
+            ),
             prerequisite_habit_uids=_uids(context_dict, "prerequisite_habits"),
         )
 

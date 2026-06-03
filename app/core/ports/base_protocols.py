@@ -177,6 +177,12 @@ class GraphContextNode(TypedDict, total=False):
     path_strength: float
     via_relationships: list[str]
 
+    # Incident-edge attribution (the last hop, the edge incident to this node).
+    # Categorization buckets a node by the relationship + orientation of THIS edge,
+    # so attribution stays correct at any distance (not just direct connections).
+    incident_rel_type: str
+    incident_into_related: bool  # True: edge points INTO this node (node is the object)
+
     # Common optional fields (present in most entities)
     title: str
     entity_type: str  # EntityType.value when available
