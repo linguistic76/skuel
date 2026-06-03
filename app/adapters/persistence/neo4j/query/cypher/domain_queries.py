@@ -1455,8 +1455,11 @@ def build_user_activity_query(
 
     # Date range filtering (if provided)
     if date_field and start_date and end_date:
-        where_clauses.append(f"n.{date_field} >= date($start_date)")
-        where_clauses.append(f"n.{date_field} <= date($end_date)")
+        # date(...) coerces ISO-string-stored date fields so the comparison is
+        # date-vs-date, not string-vs-date (which Neo4j evaluates to null → the
+        # row is silently dropped). No-op for fields already stored as temporal types.
+        where_clauses.append(f"date(n.{date_field}) >= date($start_date)")
+        where_clauses.append(f"date(n.{date_field}) <= date($end_date)")
 
     # Status filtering (if provided)
     if exclude_statuses:
@@ -1536,10 +1539,10 @@ def build_due_soon_query(
     today = date.today()
     end_date = today + timedelta(days=days_ahead)
 
-    # Build WHERE clauses
+    # Build WHERE clauses (date(...) coerces ISO-string date fields — see build_user_activity_query)
     where_clauses = [
-        f"n.{date_field} >= date($today)",
-        f"n.{date_field} <= date($end_date)",
+        f"date(n.{date_field}) >= date($today)",
+        f"date(n.{date_field}) <= date($end_date)",
     ]
 
     if exclude_statuses:
@@ -1619,9 +1622,9 @@ def build_overdue_query(
 
     today = date.today()
 
-    # Build WHERE clauses
+    # Build WHERE clauses (date(...) coerces ISO-string date fields — see build_user_activity_query)
     where_clauses = [
-        f"n.{date_field} < date($today)",
+        f"date(n.{date_field}) < date($today)",
     ]
 
     if exclude_statuses:

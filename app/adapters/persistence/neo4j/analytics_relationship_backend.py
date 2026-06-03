@@ -341,8 +341,8 @@ class AnalyticsRelationshipBackend:
         return await self.executor.execute(
             query="""
                 MATCH (report:Report {user_uid: $user_uid})
-                WHERE report.period_start >= date($start_date)
-                  AND report.period_end <= date($end_date)
+                WHERE date(report.period_start) >= date($start_date)
+                  AND date(report.period_end) <= date($end_date)
                 RETURN report.uid as uid
                 ORDER BY report.generated_at DESC
             """,
