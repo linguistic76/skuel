@@ -288,13 +288,14 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         Why Deferred:
         - Graph-native migration removed applies_knowledge_uids from TaskDTO
         - Need to create graph relationships after task creation
-        - Requires calling self.relationships.add_task_knowledge() for each UID
+        - Requires calling self.relationships.create_relationship("knowledge", ...) per UID
         - Better ROI focusing on other refactorings first
 
         Future Implementation:
         1. Create task (current behavior - working)
         2. Loop through knowledge_uids
-        3. Call self.relationships.add_task_knowledge(task.uid, knowledge_uid) for each
+        3. Call self.relationships.create_relationship("knowledge", task.uid, knowledge_uid)
+           for each (the APPLIES_KNOWLEDGE config key; there is no add_task_knowledge method)
         4. Create (Task)-[:APPLIES_KNOWLEDGE]->(Knowledge) relationships in graph
 
         Args:

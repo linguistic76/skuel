@@ -27,7 +27,6 @@ from collections import defaultdict
 from typing import Any
 
 from core.models.enums.activity_enums import DecisionQualityLevel
-from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
@@ -166,10 +165,12 @@ class _BehavioralSignalsMixin:
         principle_aligned_count = 0
         if self.relationships:
             for choice in decided[:10]:  # Sample first 10 for efficiency
+                # Service get_related_uids takes (method_key, uid). "principles" is the
+                # Choice→Principle config key (INFORMED_BY_PRINCIPLE); the previous 3-arg
+                # backend signature with a raw RelationshipName.value never matched.
                 rel_result = await self.relationships.get_related_uids(
+                    "principles",
                     choice.uid,
-                    RelationshipName.ALIGNED_WITH_PRINCIPLE.value,
-                    "outgoing",
                 )
                 if rel_result.is_ok and rel_result.value:
                     principle_aligned_count += 1

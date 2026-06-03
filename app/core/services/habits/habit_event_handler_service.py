@@ -32,7 +32,6 @@ from core.events.habit_events import (
     HabitStreakMilestone,
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -373,8 +372,10 @@ class HabitEventHandlerService:
             # 2. Query knowledge reinforcement relationships
             knowledge_uids: list[str] = []
             if self.relationships is not None:
+                # "knowledge" is the Habit→Knowledge config key (REINFORCES_KNOWLEDGE);
+                # the service takes a method_key, not a raw RelationshipName.value.
                 rel_result = await self.relationships.get_related_uids(
-                    RelationshipName.REINFORCES_KNOWLEDGE.value,
+                    "knowledge",
                     EntityUID(event.habit_uid),
                 )
                 if rel_result.is_ok:
