@@ -1542,7 +1542,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         query = f"""
         MATCH (p:Principle {{uid: $principle_uid}})-[:{RelationshipName.GUIDES_CHOICE.value}]->(c:Choice)
         WHERE c.user_uid = $user_uid
-          AND c.created_at >= datetime() - duration({{days: $period_days}})
+          AND datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
 
         RETURN
             count(c) AS total_choices,

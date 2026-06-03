@@ -459,7 +459,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // CHOICES - Fetch UIDs AND rich data (pending/active; windowed completed also included)
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
-WHERE choice.status IN ['draft', 'active'] OR choice.created_at >= datetime($window_start)
+WHERE choice.status IN ['draft', 'active'] OR datetime(choice.created_at) >= datetime($window_start)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -887,7 +887,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      latest_ar, active_insights_raw,
      count(CASE WHEN sub.entity_type = 'exercise_submission' OR (sub.entity_type = 'user_entry' AND sub.pipeline IS NOT NULL AND sub.pipeline <> 'transcribe_and_structure') THEN 1 END) AS total_submission_count,
      count(CASE WHEN sub.entity_type = 'je_input' OR (sub.entity_type = 'user_entry' AND sub.pipeline = 'transcribe_and_structure') THEN 1 END) AS total_journal_count,
-     count(CASE WHEN sub.created_at >= datetime($window_start) THEN 1 END) AS submissions_in_window,
+     count(CASE WHEN datetime(sub.created_at) >= datetime($window_start) THEN 1 END) AS submissions_in_window,
      max(sub.created_at) AS last_submission_date,
      collect(sub.uid) AS all_submission_uids
 
@@ -910,7 +910,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      total_submission_count, total_journal_count, submissions_in_window,
      last_submission_date, all_submission_uids,
      count(fb) AS feedback_received_count,
-     count(CASE WHEN fb.created_at >= datetime($window_start) THEN 1 END) AS feedback_in_window,
+     count(CASE WHEN datetime(fb.created_at) >= datetime($window_start) THEN 1 END) AS feedback_in_window,
      collect(DISTINCT owned_sub.uid) AS submissions_with_feedback
 
 // Pending feedback = submissions without any feedback

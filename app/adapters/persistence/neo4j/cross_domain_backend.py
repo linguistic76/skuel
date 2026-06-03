@@ -106,7 +106,7 @@ RETURN h.uid AS habit_uid,
 
 _CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
-WHERE c.created_at >= datetime() - duration({{days: $period_days}})
+WHERE datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
 
 OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
 
@@ -138,7 +138,7 @@ RETURN e.uid AS event_uid,
 
 _CHOICE_CONFLICT_COUNT_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
-WHERE c.created_at >= datetime() - duration({{days: 30}})
+WHERE datetime(c.created_at) >= datetime() - duration({{days: 30}})
 MATCH (c)-[:{RelationshipName.CONFLICTS_WITH_PRINCIPLE.value}]->(:Entity {{entity_type: 'principle'}})
 RETURN count(DISTINCT c) AS conflict_count
 """
@@ -996,8 +996,8 @@ class CrossDomainBackend:
             """
             MATCH (j:UserEntry {user_uid: $user_uid})
             WHERE j.pipeline = 'transcribe_and_structure'
-              AND j.created_at >= datetime($start_datetime)
-              AND j.created_at <= datetime($end_datetime)
+              AND datetime(j.created_at) >= datetime($start_datetime)
+              AND datetime(j.created_at) <= datetime($end_datetime)
             RETURN j.uid as uid,
                    coalesce(j.processed_content, j.content) as processed_content,
                    {title: j.title, summary: j.summary, themes: j.key_topics} as metadata,
