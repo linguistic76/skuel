@@ -199,10 +199,10 @@ class ReportScheduleBackend(UniversalNeo4jBackend["ReportSchedule"]):
             """
             MATCH (s:ReportSchedule)
             WHERE s.is_active = true
-              AND s.next_due_at <= datetime()
+              AND datetime(s.next_due_at) <= datetime()
               AND (
                 s.last_generated_at IS NULL
-                OR s.last_generated_at <= datetime() - duration({hours: $min_interval_hours})
+                OR datetime(s.last_generated_at) <= datetime() - duration({hours: $min_interval_hours})
               )
             RETURN s
             ORDER BY s.next_due_at ASC

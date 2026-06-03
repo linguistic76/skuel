@@ -152,7 +152,7 @@ class UserProgressBackend:
         return await self._executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[r:NEEDS_REVIEW]->(k:Entity)
-            WHERE r.next_review_due <= date()
+            WHERE date(r.next_review_due) <= date()
             RETURN collect(k.uid) as review_uids
             """,
             {"user_uid": user_uid},

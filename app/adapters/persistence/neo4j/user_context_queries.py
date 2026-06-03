@@ -844,7 +844,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      latest_ar, ins
 WHERE ins IS NULL OR (
     NOT ins.dismissed AND NOT ins.actioned
-    AND (ins.expires_at IS NULL OR ins.expires_at > datetime())
+    AND (ins.expires_at IS NULL OR datetime(ins.expires_at) > datetime())
 )
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
