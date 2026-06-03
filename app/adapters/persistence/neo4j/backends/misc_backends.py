@@ -231,7 +231,7 @@ class ActivityReportGeneratorBackend:
             """
             MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
             WHERE ar.entity_type = 'activity_report'
-              AND ar.created_at >= datetime() - duration({minutes: $cooldown_minutes})
+              AND datetime(ar.created_at) >= datetime() - duration({minutes: $cooldown_minutes})
             RETURN count(ar) AS recent_count
             """,
             {"user_uid": user_uid, "cooldown_minutes": cooldown_minutes},

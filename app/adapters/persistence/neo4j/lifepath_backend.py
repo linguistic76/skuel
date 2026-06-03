@@ -281,14 +281,14 @@ class LifePathBackend:
             // Recent week activities
             MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
             WHERE ku.uid IN lp_knowledge
-              AND task.created_at >= $seven_days_ago
+              AND datetime(task.created_at) >= datetime($seven_days_ago)
             WITH lp_knowledge, count(task) AS recent_tasks
 
             // Previous week activities
             MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
             WHERE ku.uid IN lp_knowledge
-              AND task.created_at >= $fourteen_days_ago
-              AND task.created_at < $seven_days_ago
+              AND datetime(task.created_at) >= datetime($fourteen_days_ago)
+              AND datetime(task.created_at) < datetime($seven_days_ago)
             WITH recent_tasks, count(task) AS previous_tasks
 
             // Calculate momentum (positive if increasing, negative if decreasing)
