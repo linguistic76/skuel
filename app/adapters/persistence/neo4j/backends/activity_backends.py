@@ -672,7 +672,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             count(n) AS total,
             count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed,
             count(CASE WHEN n.due_date IS NOT NULL
-                       AND n.due_date < date()
+                       AND date(n.due_date) < date()
                        AND n.status <> 'completed'
                   THEN 1 END) AS overdue
         """
@@ -1067,7 +1067,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         """Count events in a date range."""
         query = """
         MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event'})
-        WHERE e.event_date >= $start_date AND e.event_date <= $end_date
+        WHERE date(e.event_date) >= date($start_date) AND date(e.event_date) <= date($end_date)
         RETURN count(e) as event_count
         """
         result = await self.execute_query(

@@ -80,6 +80,27 @@ class TestDateRangeStringCoercion:
         assert result.is_ok
         assert task.uid not in {t.uid for t in result.value}
 
+    async def test_overdue_stat_counts_string_past_due_date(
+        self, services, neo4j_driver, clean_neo4j
+    ):
+        """get_stats_for_user counts a task whose string due_date is in the past as overdue."""
+        user = await self._user(neo4j_driver, "user_overdue")
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        # create_task forbids past due_dates, so seed the overdue node directly.
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                CREATE (n:Entity:Task {uid: 't_overdue', user_uid: $u,
+                                       entity_type: 'task', status: 'active', due_date: $d})
+                """,
+                u=user,
+                d=yesterday,
+            )
+
+        stats = await services.tasks.backend.get_stats_for_user(user)
+        assert stats.is_ok, f"get_stats_for_user failed: {stats}"
+        assert stats.value["overdue"] >= 1  # 0 under string-vs-date comparison
+
     async def test_get_events_in_range_matches_string_event_date(
         self, services, neo4j_driver, clean_neo4j
     ):
