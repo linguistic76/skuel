@@ -217,18 +217,17 @@ Consolidates the common pattern: fetch entity -> get context -> calculate metric
 async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
     return await self._analyze_entity_with_context(
         uid=uid,
-        context_method="get_goal_cross_domain_context",
         context_type=GoalCrossContext,
         metrics_fn=self._calculate_goal_metrics,
         recommendations_fn=self._generate_progress_recommendations,
-        min_confidence=0.7,
+        min_confidence=0.7,  # forwarded to the generic get_cross_domain_context
     )
 
 def _calculate_goal_metrics(self, goal: Goal, context: GoalCrossContext) -> dict:
     return {
         "progress_percentage": goal.progress * 100,
-        "supporting_habits_count": len(context.supporting_habits),
-        "blocking_tasks": len(context.blocking_tasks),
+        "supporting_habits_count": len(context.supporting_habit_uids),
+        "supporting_tasks_count": len(context.supporting_task_uids),
     }
 
 def _generate_progress_recommendations(

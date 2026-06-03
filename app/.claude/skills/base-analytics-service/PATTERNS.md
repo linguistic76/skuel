@@ -254,11 +254,10 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         """Get comprehensive goal progress analysis."""
         return await self._analyze_entity_with_context(
             uid=uid,
-            context_method="get_goal_cross_domain_context",
             context_type=GoalCrossContext,
             metrics_fn=self._calculate_goal_metrics,
             recommendations_fn=self._generate_goal_recommendations,
-            min_confidence=0.7,
+            min_confidence=0.7,  # forwarded to the generic get_cross_domain_context
         )
 
     def _calculate_goal_metrics(
@@ -268,8 +267,8 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return {
             "progress_percentage": goal.progress * 100,
             "days_remaining": (goal.target_date - date.today()).days,
-            "supporting_habits_count": len(context.supporting_habits),
-            "blocking_tasks_count": len(context.blocking_tasks),
+            "supporting_habits_count": len(context.supporting_habit_uids),
+            "supporting_tasks_count": len(context.supporting_task_uids),
             "is_on_track": goal.is_on_track(),
             "momentum_score": self._calculate_momentum(goal, context),
         }
@@ -283,9 +282,9 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         """Generate actionable recommendations."""
         recommendations = []
 
-        if metrics["blocking_tasks_count"] > 0:
+        if metrics["supporting_tasks_count"] == 0:
             recommendations.append(
-                f"Complete {metrics['blocking_tasks_count']} blocking tasks to unblock progress"
+                "Break this goal into supporting tasks to drive concrete progress"
             )
 
         if metrics["supporting_habits_count"] < 2:
