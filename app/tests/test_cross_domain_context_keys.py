@@ -107,6 +107,7 @@ FROM_DICT_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
     ("habit.linked_goal_uids", HABITS_CONFIG, "supported_goals"),
     ("habit.knowledge_reinforcement_uids", HABITS_CONFIG, "reinforced_knowledge"),
     ("habit.aligned_principle_uids", HABITS_CONFIG, "embodied_principles"),
+    ("habit.aligned_principle_uids", HABITS_CONFIG, "inspiring_principles"),
     ("habit.prerequisite_habit_uids", HABITS_CONFIG, "prerequisite_habits"),
     # PrincipleCrossContext.from_dict
     ("principle.guided_goal_uids", PRINCIPLES_CONFIG, "guided_goals"),

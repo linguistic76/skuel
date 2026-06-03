@@ -25,6 +25,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from neo4j import AsyncSession
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
@@ -71,7 +72,9 @@ async def test_cross_domain_context_pipeline_round_trip(neo4j_driver, rel_backen
                 u=uid,
                 t=etype,
             )
-        await s.run("CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=KU)
+        await s.run(
+            "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=KU
+        )
         # Clean depth-1 edges (no cycles → no depth-2 over-inclusion).
         await s.run(
             "MATCH (h{uid:$h}),(g{uid:$g}) CREATE (h)-[:SUPPORTS_GOAL {confidence:0.95}]->(g)",
@@ -159,3 +162,235 @@ async def test_cross_domain_context_empty_when_no_edges(neo4j_driver, rel_backen
     assert ctx.required_knowledge_uids == []
     assert ctx.guiding_principle_uids == []
     assert calculate_goal_metrics(None, ctx)["habit_support_count"] == 0
+
+
+# uid prefix for the depth-2 / direction-aware regression graph (the canonical
+# INSPIRES_HABIT <-> EMBODIES_PRINCIPLE reciprocal pair — the natural 2-cycle).
+R = "xdctx_recip_"
+R_PRINCIPLE = R + "principle"
+R_HABIT = R + "habit"
+R_GOAL = R + "goal"
+
+
+async def _seed_reciprocal_pair(session: AsyncSession) -> None:
+    """principle <-> habit reciprocal pair, each also tied to one goal.
+
+    Edges:
+        principle -[INSPIRES_HABIT]->  habit       (principle's outgoing / habit's incoming)
+        habit     -[EMBODIES_PRINCIPLE]-> principle (habit's outgoing / principle's incoming)
+        principle -[GUIDES_GOAL]->      goal
+        habit     -[SUPPORTS_GOAL]->     goal
+    The two cross-domain edges between principle and habit form a 2-cycle, so a
+    depth-2 traversal revisits the source — the exact shape that used to leak the
+    source into its own sibling bucket.
+    """
+    for uid, label, etype in [
+        (R_PRINCIPLE, "Principle", "principle"),
+        (R_HABIT, "Habit", "habit"),
+        (R_GOAL, "Goal", "goal"),
+    ]:
+        await session.run(
+            f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+            f"status:'active', created_at:datetime()}})",
+            u=uid,
+            t=etype,
+        )
+    for a, rel, b in [
+        (R_PRINCIPLE, "INSPIRES_HABIT", R_HABIT),
+        (R_HABIT, "EMBODIES_PRINCIPLE", R_PRINCIPLE),
+        (R_PRINCIPLE, "GUIDES_GOAL", R_GOAL),
+        (R_HABIT, "SUPPORTS_GOAL", R_GOAL),
+    ]:
+        await session.run(
+            f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
+            a=a,
+            b=b,
+        )
+
+
+@pytest.mark.asyncio
+async def test_depth2_does_not_self_include_on_reciprocal_cycle(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """At depth=2 (the dashboard default) the source must not land in its own buckets.
+
+    Pre-fix, ``get_cross_domain_context`` matched any path edge (not just the edge
+    incident to the related node) and never excluded ``related == center``, so the
+    canonical principle<->habit 2-cycle put the principle's own uid into
+    ``aligned_habit_uids`` (and a :Principle node into a habit bucket, since the
+    mapping's ``target_label="Entity"`` matches every node). Verified live before the
+    fix; this locks the regression. depth=2 is essential — depth=1 never reproduced it.
+    """
+    async with neo4j_driver.session() as s:
+        await _seed_reciprocal_pair(s)
+
+    prin_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=PRINCIPLES_CONFIG, graph_intel=None
+    )
+    # depth=2 is the production default for the principles dashboard.
+    res = await prin_rel.get_cross_domain_context(R_PRINCIPLE, depth=2, min_confidence=0.7)
+    assert res.is_ok, res
+    ctx = PrincipleCrossContext.from_dict(res.value)
+
+    # The principle's direct, distance-1 alignment is the habit — and ONLY the habit.
+    assert R_HABIT in ctx.aligned_habit_uids
+    assert R_PRINCIPLE not in ctx.aligned_habit_uids, "source leaked into its own bucket"
+    assert ctx.aligned_habit_uids == [R_HABIT], f"over-inclusion: {ctx.aligned_habit_uids}"
+    assert R_GOAL in ctx.guided_goal_uids
+
+
+@pytest.mark.asyncio
+async def test_habit_incoming_buckets_populate(neo4j_driver, rel_backend, clean_neo4j):
+    """Habit INCOMING cross-domain buckets must populate (Step 2 of the fix).
+
+    ``HABITS_CONFIG.bidirectional_relationships`` is empty, which formerly made
+    ``get_cross_domain_context`` traverse outgoing edges only — so every incoming
+    habit bucket (here ``inspiring_principles`` via the incoming INSPIRES_HABIT edge
+    ``principle -> habit``) was structurally always empty. The traversal now always
+    fetches both directions and categorizes per-mapping ``direction``, so the bucket
+    fills and ``aligned_principle_uids`` spans both EMBODIES_PRINCIPLE (outgoing) and
+    INSPIRES_HABIT (incoming), mirroring the principle side.
+    """
+    async with neo4j_driver.session() as s:
+        await _seed_reciprocal_pair(s)
+
+    habit_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=HABITS_CONFIG, graph_intel=None
+    )
+    res = await habit_rel.get_cross_domain_context(R_HABIT, depth=2, min_confidence=0.7)
+    assert res.is_ok, res
+
+    # The incoming-only bucket now carries the principle that inspires this habit.
+    inspiring = [e["uid"] for e in res.value.get("inspiring_principles") or []]
+    assert R_PRINCIPLE in inspiring, f"incoming bucket still dead: {inspiring}"
+
+    ctx = HabitCrossContext.from_dict(res.value)
+    # aligned_principle_uids = embodied (outgoing) ∪ inspiring (incoming) — here both
+    # resolve to the same principle, so de-dup leaves exactly one entry, no self-include.
+    assert ctx.aligned_principle_uids == [R_PRINCIPLE]
+    assert R_HABIT not in ctx.aligned_principle_uids
+    assert R_GOAL in ctx.linked_goal_uids
+
+
+# uid prefix for the label-specificity routing graph.
+S = "xdctx_label_"
+S_HABIT = S + "habit"
+S_TASK = S + "task"
+S_EVENT = S + "event"
+S_OTHER_HABIT = S + "other_habit"
+
+
+@pytest.mark.asyncio
+async def test_incoming_buckets_route_by_specific_label(neo4j_driver, rel_backend, clean_neo4j):
+    """A shared relationship must route to the label-SPECIFIC bucket, not generic Entity.
+
+    HABITS' incoming REINFORCES_HABIT splits into reinforcing_tasks (Task),
+    reinforcing_events (Event), and reinforcing_habits (Entity). Every node carries the
+    :Entity label, so the generic bucket matched first under config order and swallowed
+    Task/Event before their specific buckets — a latent bug the always-bidirectional
+    fetch newly activated (these incoming buckets were dead under outgoing-only
+    traversal). Specific-label-first sorting must send each node to its precise bucket.
+    """
+    async with neo4j_driver.session() as s:
+        for uid, label, etype in [
+            (S_HABIT, "Habit", "habit"),
+            (S_TASK, "Task", "task"),
+            (S_EVENT, "Event", "event"),
+            (S_OTHER_HABIT, "Habit", "habit"),
+        ]:
+            await s.run(
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+        # All three reinforce S_HABIT (incoming REINFORCES_HABIT edges).
+        for src in (S_TASK, S_EVENT, S_OTHER_HABIT):
+            await s.run(
+                "MATCH (a {uid:$a}),(h {uid:$h}) "
+                "CREATE (a)-[:REINFORCES_HABIT {confidence:0.95}]->(h)",
+                a=src,
+                h=S_HABIT,
+            )
+
+    habit_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=HABITS_CONFIG, graph_intel=None
+    )
+    res = await habit_rel.get_cross_domain_context(S_HABIT, depth=2, min_confidence=0.7)
+    assert res.is_ok, res
+    raw = res.value
+
+    def _uids(bucket: str) -> set[str]:
+        return {e["uid"] for e in raw.get(bucket) or []}
+
+    # Each node lands in its own label-specific bucket — and ONLY there.
+    assert _uids("reinforcing_tasks") == {S_TASK}
+    assert _uids("reinforcing_events") == {S_EVENT}
+    assert _uids("reinforcing_habits") == {S_OTHER_HABIT}  # generic Entity bucket: habits only
+
+
+# uid prefix for the transitive-depth graph.
+T = "xdctx_transitive_"
+T_HABIT = T + "habit"
+T_MID = T + "mid_habit"
+T_NEAR_GOAL = T + "near_goal"
+T_FAR_GOAL = T + "far_goal"
+
+
+@pytest.mark.asyncio
+async def test_depth_surfaces_transitive_node_correctly_attributed(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """`depth` is a real knob: a 2-hop node is attributed by the edge INCIDENT to it.
+
+    Graph (from the source habit):
+        habit -[SUPPORTS_GOAL]->      near_goal          (direct, distance 1)
+        habit -[RELATED_TO]->  mid -[SUPPORTS_GOAL]-> far_goal   (transitive, distance 2)
+
+    far_goal's incident edge is SUPPORTS_GOAL pointing INTO it, so it is correctly a
+    supported goal of the habit at distance 2 — attributed by its own last hop, NOT by
+    the RELATED_TO first hop that merely left the source. depth=1 sees only near_goal;
+    depth=2 additionally surfaces far_goal (tagged distance=2). This is the capability
+    the depth parameter exists for — and the over-inclusion fix keeps it honest.
+    """
+    async with neo4j_driver.session() as s:
+        for uid, label, etype in [
+            (T_HABIT, "Habit", "habit"),
+            (T_MID, "Habit", "habit"),
+            (T_NEAR_GOAL, "Goal", "goal"),
+            (T_FAR_GOAL, "Goal", "goal"),
+        ]:
+            await s.run(
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+        for a, rel, b in [
+            (T_HABIT, "SUPPORTS_GOAL", T_NEAR_GOAL),
+            (T_HABIT, "RELATED_TO", T_MID),
+            (T_MID, "SUPPORTS_GOAL", T_FAR_GOAL),
+        ]:
+            await s.run(
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
+                a=a,
+                b=b,
+            )
+
+    habit_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=HABITS_CONFIG, graph_intel=None
+    )
+
+    # depth=1: only the direct supported goal.
+    d1 = await habit_rel.get_cross_domain_context(T_HABIT, depth=1, min_confidence=0.7)
+    assert d1.is_ok, d1
+    assert HabitCrossContext.from_dict(d1.value).linked_goal_uids == [T_NEAR_GOAL]
+
+    # depth=2: the transitive goal is surfaced too, tagged with its true distance.
+    d2 = await habit_rel.get_cross_domain_context(T_HABIT, depth=2, min_confidence=0.7)
+    assert d2.is_ok, d2
+    linked = set(HabitCrossContext.from_dict(d2.value).linked_goal_uids)
+    assert linked == {T_NEAR_GOAL, T_FAR_GOAL}, linked
+    by_uid = {e["uid"]: e["distance"] for e in d2.value["supported_goals"]}
+    assert by_uid[T_NEAR_GOAL] == 1
+    assert by_uid[T_FAR_GOAL] == 2

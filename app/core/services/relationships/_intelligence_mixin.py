@@ -32,10 +32,60 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
     from core.models.protocols import DomainModelProtocol
-    from core.models.relationship_registry import DomainRelationshipConfig
+    from core.models.relationship_registry import (
+        DomainRelationshipConfig,
+        UnifiedRelationshipDefinition,
+    )
     from core.services.relationships.path_aware_factory import CrossContext
 
 Model = TypeVar("Model", bound="DomainModelProtocol")
+
+
+def _incident_matches(
+    mapping_direction: str,
+    mapping_rel: str,
+    incident_rel_type: str | None,
+    incident_into_related: bool | None,
+) -> bool:
+    """Does the edge INCIDENT to a related node match a mapping's relationship + direction?
+
+    Each related node is attributed by the LAST hop of its path — the edge incident to
+    it — not by any edge in the path. ``incident_rel_type`` is that edge's type and
+    ``incident_into_related`` is its orientation: ``True`` when it points INTO the node
+    (the node is the relationship's object), ``False`` when it points OUT (the node is
+    the subject). This holds at ANY distance, so ``depth`` genuinely controls how far
+    transitive context reaches without mis-attributing nodes:
+
+        outgoing mapping (source REL related; related is the object)  ⟺ into_related True
+        incoming mapping (related REL source; related is the subject) ⟺ into_related False
+        both                                                          ⟺ either orientation
+
+    Using the incident edge (vs. matching any path edge against center-relative markers)
+    is what kills the depth>=2 over-inclusion: a 2-hop node is bucketed by the edge
+    actually touching it, never by the first hop that merely left the source.
+    """
+    if incident_rel_type != mapping_rel:
+        return False
+    if mapping_direction == "outgoing":
+        return incident_into_related is True
+    if mapping_direction == "incoming":
+        return incident_into_related is False
+    return True  # "both": orientation-agnostic
+
+
+def _generic_label_last(rel: UnifiedRelationshipDefinition) -> bool:
+    """Sort key putting catch-all ``Entity`` mappings AFTER label-specific ones.
+
+    The categorization loop takes the FIRST matching mapping per entity (``break``).
+    When several mappings share a relationship + direction but differ by target label
+    — e.g. HABITS' incoming REINFORCES_HABIT splits into ``reinforcing_tasks`` (Task),
+    ``reinforcing_events`` (Event), ``reinforcing_habits`` (Entity) — the generic
+    ``Entity`` bucket matches every node (all nodes are ``:Entity``) and would swallow
+    a Task/Event before its specific bucket is reached. Trying specific labels first
+    (this key is ``False`` for them, ``True`` for ``Entity``; stable sort preserves
+    config order within each group) routes each node to its most precise bucket.
+    """
+    return rel.target_label == "Entity"
 
 
 class IntelligenceMixin:
@@ -87,22 +137,37 @@ class IntelligenceMixin:
         Uses config.cross_domain_relationship_types and config.relationships
         to determine which relationships to query and how to categorize results.
 
+        ``depth`` is a genuine traversal knob: each related entity is bucketed by the
+        edge INCIDENT to it (its last hop), so a node 2 hops out is attributed to the
+        right relationship just like a direct neighbour — never to the first hop that
+        merely left the source. Every bucket entry carries its ``distance``, so callers
+        wanting direct-only context can filter on ``distance == 1``.
+
         Args:
             entity_uid: Entity UID
-            depth: Graph traversal depth (default 2)
+            depth: Graph traversal depth — how many hops of transitive context to
+                include (default 2; depth=1 is direct connections only)
             min_confidence: Minimum path confidence filter (default 0.7)
 
         Returns:
             Result containing rich context dictionary with path-aware entities
         """
-        # Step 1: Get raw graph context from backend
+        # Step 1: Get raw graph context from backend.
+        #
+        # Always traverse BOTH directions: categorization below matches each mapping's
+        # `direction` against the orientation of the edge incident to the related node,
+        # so the single query-wide `bidirectional` flag no longer decides which mappings
+        # can populate. Fetching only outgoing edges (the former
+        # `len(bidirectional_relationships) > 0` rule) structurally starved every
+        # INCOMING mapping for outgoing-only configs — e.g. HABITS_CONFIG's
+        # inspiring_principles / reinforcing_* buckets were always empty.
         raw_result = await self.backend.get_domain_context_raw(
             entity_uid=entity_uid,
             entity_label=self.config.entity_label,
             relationship_types=self.config.cross_domain_relationship_types,
             depth=depth,
             min_confidence=min_confidence,
-            bidirectional=len(self.config.bidirectional_relationships) > 0,
+            bidirectional=True,
         )
 
         if raw_result.is_error:
@@ -110,35 +175,51 @@ class IntelligenceMixin:
 
         raw_context = raw_result.value
 
-        # Step 2: Categorize raw context using relationship definitions
-        cross_domain_rels = [r for r in self.config.relationships if r.is_cross_domain_mapping]
+        # Step 2: Categorize raw context by the edge INCIDENT to each related node.
+        #
+        # A node lands in a mapping's bucket iff its incident edge (the last hop) is the
+        # mapping's relationship in the mapping's orientation — `incident_into_related`
+        # True for OUTGOING mappings (the node is the object), False for INCOMING (the
+        # node is the subject), either for "both" (see _incident_matches). This is what
+        # makes `depth` correct: a 2-hop node is attributed by the edge actually touching
+        # it, so transitive context is included WITHOUT the depth>=2 over-inclusion the
+        # old center-relative-marker matching produced (a 2-hop neighbour — or the source
+        # itself on a cycle, e.g. the canonical INSPIRES_HABIT <-> EMBODIES_PRINCIPLE
+        # pair — used to leak into a sibling bucket). The Cypher excludes related == center.
+        #
+        # Specific target labels sort before the catch-all "Entity" bucket so the
+        # first-match `break` routes each node to its most precise mapping (see
+        # _generic_label_last). Stable sort preserves config order within each group.
+        cross_domain_rels = sorted(
+            (r for r in self.config.relationships if r.is_cross_domain_mapping),
+            key=_generic_label_last,
+        )
         categorized: dict[str, list[dict]] = {
             rel.context_field_name: [] for rel in cross_domain_rels
         }
 
         for entity in raw_context:
             labels = entity.get("labels", [])
-            via_rels = entity.get("via_relationships", [])
+            incident_rel_type = entity.get("incident_rel_type")
+            incident_into_related = entity.get("incident_into_related")
 
             for rel in cross_domain_rels:
-                if rel.target_label in labels:
-                    # Check if entity came via expected relationship
-                    rel_value = rel.relationship.value
-                    if (
-                        rel_value in via_rels
-                        or f"->{rel_value}" in via_rels
-                        or f"<-{rel_value}" in via_rels
-                    ):
-                        categorized[rel.context_field_name].append(
-                            {
-                                "uid": entity.get("uid"),
-                                "title": entity.get("title"),
-                                "distance": entity.get("distance"),
-                                "path_strength": entity.get("path_strength"),
-                                "via_relationships": via_rels,
-                            }
-                        )
-                        break  # Only add to one category
+                if rel.target_label in labels and _incident_matches(
+                    rel.direction,
+                    rel.relationship.value,
+                    incident_rel_type,
+                    incident_into_related,
+                ):
+                    categorized[rel.context_field_name].append(
+                        {
+                            "uid": entity.get("uid"),
+                            "title": entity.get("title"),
+                            "distance": entity.get("distance"),
+                            "path_strength": entity.get("path_strength"),
+                            "via_relationships": entity.get("via_relationships", []),
+                        }
+                    )
+                    break  # Only add to one category
 
         # Step 3: Build response
         response: dict[str, Any] = {f"{self.config.domain.value.rstrip('s')}_uid": entity_uid}
