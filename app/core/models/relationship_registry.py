@@ -296,6 +296,11 @@ class UnifiedRelationshipDefinition:
         }
         if self.limit is not None:
             spec["limit"] = self.limit
+        # Edge-property filter (e.g. SUPPORTS_GOAL essentiality tiers) — so the
+        # build_entity_with_context path filters tiers like the other read paths.
+        if self.filter_property is not None:
+            spec["filter_property"] = self.filter_property
+            spec["filter_value"] = self.filter_value
         return spec
 
 

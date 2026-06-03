@@ -596,10 +596,15 @@ def build_entity_with_context(
         validate_identifier(rel["alias"], "alias")
         for field in rel.get("fields", ["uid", "title"]):
             validate_identifier(field, "field")
+        # filter_property is interpolated into Cypher (the value is parameterized).
+        filter_property = rel.get("filter_property")
+        if filter_property:
+            validate_identifier(filter_property, "filter property")
 
     parts = []
     with_vars = ["entity"]
     return_vars = ["entity"]
+    filter_params: dict[str, Neo4jValue] = {}  # edge-property filter values, collected per spec
 
     # Initial MATCH
     parts.append(f"MATCH (entity:{entity_label} {{uid: $uid}})")
@@ -632,9 +637,19 @@ def build_entity_with_context(
             f"OPTIONAL MATCH (entity){arrow_left}[{rel_var}:{rel_types}]{arrow_right}({alias}_node:{target_label})"
         )
 
-        # Confidence filter if needed
+        # Combine all edge predicates into ONE WHERE (Cypher allows a single WHERE per
+        # clause): confidence threshold and/or an edge-property filter (e.g. essentiality
+        # tier). The filter value is parameterized; its property name was validated above.
+        where_conditions = []
         if use_confidence:
-            parts.append(f"WHERE coalesce({rel_var}.confidence, 1.0) >= ${confidence_param}")
+            where_conditions.append(f"coalesce({rel_var}.confidence, 1.0) >= ${confidence_param}")
+        filter_property = rel.get("filter_property")
+        if filter_property:
+            filter_param = f"{alias}_filter"
+            where_conditions.append(f"{rel_var}.{filter_property} = ${filter_param}")
+            filter_params[filter_param] = rel.get("filter_value")
+        if where_conditions:
+            parts.append(f"WHERE {' AND '.join(where_conditions)}")
 
         # Build field collection
         field_parts = [f"{field}: {alias}_node.{field}" for field in fields]
@@ -670,7 +685,7 @@ def build_entity_with_context(
     parts.append(f"RETURN {', '.join(return_vars)}")
 
     cypher = "\n".join(parts)
-    parameters: dict[str, Neo4jValue] = {}
+    parameters: dict[str, Neo4jValue] = dict(filter_params)
 
     if any(rel.get("use_confidence", False) for rel in relationships):
         parameters[confidence_param or "min_confidence"] = default_confidence

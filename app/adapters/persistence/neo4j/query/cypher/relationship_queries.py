@@ -54,11 +54,11 @@ def build_relationship_count(
             direction="outgoing"
         )
 
-        # Count with property filtering
+        # Count a goal's essential habits (incoming SUPPORTS_GOAL, filtered by tier)
         query, params = build_relationship_count(
             uid="goal:fitness",
-            relationship_type="REQUIRES_HABIT",
-            direction="outgoing",
+            relationship_type="SUPPORTS_GOAL",
+            direction="incoming",
             properties={"essentiality": "essential"}
         )
     """
@@ -129,11 +129,11 @@ def build_relationship_uids_query(
             direction="outgoing"
         )
 
-        # Get UIDs with property filtering
+        # Get a goal's essential habits (incoming SUPPORTS_GOAL, filtered by tier)
         query, params = build_relationship_uids_query(
             uid="goal:fitness",
-            relationship_type="REQUIRES_HABIT",
-            direction="outgoing",
+            relationship_type="SUPPORTS_GOAL",
+            direction="incoming",
             properties={"essentiality": "essential"}
         )
     """

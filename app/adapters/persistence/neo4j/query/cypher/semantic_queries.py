@@ -144,6 +144,11 @@ def build_domain_context_with_paths(
       (``related`` is its DB endNode → the node is the object of the relationship),
       False if it points OUT (``related`` is the subject). Lets categorization match a
       mapping's direction at ANY distance, not just distance 1.
+    - incident_rel_properties: the incident edge's properties map (e.g.
+      ``{"essentiality": "essential"}``). Lets categorization route a node to a
+      property-filtered mapping (``filter_property``/``filter_value``) — e.g. a goal's
+      essential vs critical vs optional supporting habits, which all share the
+      SUPPORTS_GOAL relationship and differ only by this edge property.
 
     Args:
         node_uid: Starting node UID
@@ -189,7 +194,8 @@ def build_domain_context_with_paths(
                 END
             ],
             incident_rel_type: type(last(rels)),
-            incident_into_related: endNode(last(rels)) = related
+            incident_into_related: endNode(last(rels)) = related,
+            incident_rel_properties: properties(last(rels))
         }}) as domain_context
     """
 

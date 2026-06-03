@@ -52,7 +52,7 @@ from core.models.relationship_registry import (
     DomainRelationshipConfig,
     UnifiedRelationshipDefinition,
 )
-from core.models.type_hints import EntityUID
+from core.models.type_hints import EntityUID, Neo4jProperties
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.infrastructure import SemanticRelationshipLinker
@@ -70,6 +70,20 @@ if TYPE_CHECKING:
 # Type variables
 T = TypeVar("T")  # Domain model type
 D = TypeVar("D")  # DTO type
+
+
+def _spec_edge_filter(spec: UnifiedRelationshipDefinition) -> Neo4jProperties | None:
+    """Edge-property filter for a relationship spec, or ``None`` when unfiltered.
+
+    A spec with ``filter_property`` (e.g. GOAPS_CONFIG's ``essential_habits`` =
+    SUPPORTS_GOAL incoming filtered by ``essentiality="essential"``) selects only edges
+    carrying that property value. Without this, every essentiality tier resolved to the
+    same unfiltered set — the read half of the goal-habit essentiality bug. The backend
+    ``get_related_uids`` / ``count_related`` apply it as ``WHERE r.<prop> = $value``.
+    """
+    if spec.filter_property is None:
+        return None
+    return {spec.filter_property: spec.filter_value}
 
 
 class UnifiedRelationshipService[
@@ -243,6 +257,7 @@ class UnifiedRelationshipService[
             uid=entity_uid,
             relationship_type=spec.relationship,
             direction=spec.direction,
+            properties=_spec_edge_filter(spec),
         )
 
     async def has_relationship(
@@ -277,6 +292,7 @@ class UnifiedRelationshipService[
             uid=entity_uid,
             relationship_type=spec.relationship,
             direction=spec.direction,
+            properties=_spec_edge_filter(spec),
         )
 
         if count_result.is_error:
@@ -311,6 +327,7 @@ class UnifiedRelationshipService[
             uid=entity_uid,
             relationship_type=spec.relationship,
             direction=spec.direction,
+            properties=_spec_edge_filter(spec),
         )
 
     # =========================================================================
@@ -451,9 +468,38 @@ class UnifiedRelationshipService[
         to_uid: str,
         properties: dict[str, Any] | None,
     ) -> tuple[str, str, str, dict[str, Any] | None]:
-        """``_orient`` plus the relationship type and properties, as a batch edge tuple."""
+        """``_orient`` plus the relationship type and (filter-stamped) properties.
+
+        A *filtered* spec (e.g. ``essential_habits`` = SUPPORTS_GOAL with
+        ``essentiality="essential"``) defines edges by an edge property. Writing through
+        that key must stamp the property, or the read side — which now requires
+        ``r.essentiality = "essential"`` — would never see the edge back (create succeeds,
+        read returns empty). The stamp uses ``setdefault`` so an explicit caller value
+        wins. Unfiltered specs (the ``supporting_habits`` catch-all, all other domains)
+        are untouched.
+        """
         edge_from, edge_to = cls._orient(spec, from_uid, to_uid)
-        return (edge_from, edge_to, spec.relationship.value, properties)
+        return (
+            edge_from,
+            edge_to,
+            spec.relationship.value,
+            cls._stamp_spec_filter(spec, properties),
+        )
+
+    @staticmethod
+    def _stamp_spec_filter(
+        spec: UnifiedRelationshipDefinition, properties: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """Merge a filtered spec's ``filter_property=filter_value`` into write properties.
+
+        Keeps create/read symmetric for property-filtered relationship keys (see
+        _orient_edge). No-op for unfiltered specs; an explicit caller value is preserved.
+        """
+        if spec.filter_property is None:
+            return properties
+        stamped = dict(properties or {})
+        stamped.setdefault(spec.filter_property, spec.filter_value)
+        return stamped
 
     async def delete_relationship(
         self,

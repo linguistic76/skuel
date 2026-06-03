@@ -111,6 +111,7 @@ class RelationshipMetadata(TypedDict, total=False):
     contribution_type: str
     dependency_type: str
     support_type: str
+    essentiality: str  # SUPPORTS_GOAL tier: essential / critical / supporting / optional
 
 
 class HierarchyContextRaw(TypedDict):
@@ -182,6 +183,9 @@ class GraphContextNode(TypedDict, total=False):
     # so attribution stays correct at any distance (not just direct connections).
     incident_rel_type: str
     incident_into_related: bool  # True: edge points INTO this node (node is the object)
+    # Properties of the incident edge — lets categorization route a node to a
+    # property-filtered mapping (e.g. SUPPORTS_GOAL {essentiality} habit tiers).
+    incident_rel_properties: Neo4jProperties
 
     # Common optional fields (present in most entities)
     title: str
