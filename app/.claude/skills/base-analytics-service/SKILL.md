@@ -239,6 +239,13 @@ def _generate_progress_recommendations(
     return recommendations
 ```
 
+> **Context kwargs forward to `get_cross_domain_context`.** Extra kwargs
+> (`min_confidence`, `depth`) pass straight through. Since PR #212, `depth` is a real
+> transitive knob (default `2`): related entities up to `depth` hops are bucketed by
+> the edge **incident to each one**, so `*CrossContext` (and the metrics built from it)
+> count correctly-attributed transitive context, each entry tagged with its `distance`.
+> Pass `depth=1` if a dashboard should count **direct** cross-domain relationships only.
+
 ### `_dual_track_assessment()` (Template Method)
 
 Compare user self-assessment (vision) with system measurement (action):
