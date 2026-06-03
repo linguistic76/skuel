@@ -23,6 +23,29 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+def _uids(context_dict: dict[str, Any], *keys: str) -> list[str]:
+    """Collect entity UIDs from one or more cross-domain context buckets.
+
+    ``UnifiedRelationshipService.get_cross_domain_context()`` emits one bucket per
+    config ``context_field_name`` (e.g. ``contributing_habits``, ``required_knowledge``),
+    each a list of ``{"uid", "title", ...}`` dicts. A single typed field often
+    aggregates several buckets — a goal's supporting habits span the
+    ``contributing``/``essential``/``critical``/``optional`` SUPPORTS_GOAL tiers, and a
+    principle's aligned habits span both INSPIRES_HABIT (outgoing) and EMBODIES_PRINCIPLE
+    (incoming). UIDs are de-duplicated across buckets, order-preserving. Tolerant of the
+    raw ``str`` form in case a producer hands back bare UIDs.
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for key in keys:
+        for entity in context_dict.get(key) or []:
+            uid = entity.get("uid") if isinstance(entity, dict) else entity
+            if uid and uid not in seen:
+                seen.add(uid)
+                out.append(uid)
+    return out
+
+
 @dataclass(frozen=True)
 class TaskCrossContext:
     """
@@ -106,14 +129,27 @@ class GoalCrossContext:
 
     @classmethod
     def from_dict(cls, context_dict: dict[str, Any]) -> GoalCrossContext:
-        """Extract typed context from untyped dict."""
+        """Extract typed context from a get_cross_domain_context() response.
+
+        Keys are the GOAPS_CONFIG ``context_field_name`` buckets, NOT generic
+        domain names — supporting habits span the four SUPPORTS_GOAL-incoming tiers
+        and guiding principles span both the outgoing/incoming directions.
+        """
         return cls(
-            supporting_task_uids=context_dict.get("tasks", []),
-            supporting_habit_uids=context_dict.get("habits", []),
-            required_knowledge_uids=context_dict.get("knowledge", []),
-            learning_path_uids=context_dict.get("learning_paths", []),
-            sub_goal_uids=context_dict.get("sub_goals", []),
-            guiding_principle_uids=context_dict.get("principles", []),
+            supporting_task_uids=_uids(context_dict, "contributing_tasks"),
+            supporting_habit_uids=_uids(
+                context_dict,
+                "contributing_habits",
+                "essential_habits",
+                "critical_habits",
+                "optional_habits",
+            ),
+            required_knowledge_uids=_uids(context_dict, "required_knowledge"),
+            learning_path_uids=_uids(context_dict, "aligned_paths", "required_paths"),
+            sub_goal_uids=_uids(context_dict, "sub_goals"),
+            guiding_principle_uids=_uids(
+                context_dict, "aligned_principles", "guiding_principles_incoming"
+            ),
         )
 
     def support_coverage(self) -> float:
@@ -167,12 +203,22 @@ class HabitCrossContext:
 
     @classmethod
     def from_dict(cls, context_dict: dict[str, Any]) -> HabitCrossContext:
-        """Extract typed context from untyped dict."""
+        """Extract typed context from a get_cross_domain_context() response.
+
+        Keys are the HABITS_CONFIG ``context_field_name`` buckets. Only the OUTGOING
+        habit mappings are read: ``HABITS_CONFIG.bidirectional_relationships`` is empty,
+        so ``get_cross_domain_context()`` traverses outgoing edges only and every
+        incoming habit bucket (``inspiring_principles`` via INSPIRES_HABIT,
+        ``reinforcing_*``, ``enabling_habits``, ``impacting_choices``) is always empty.
+        Aligned principles therefore come solely from EMBODIES_PRINCIPLE (outgoing) —
+        principle-inspired alignment needs habit context to fetch incoming mappings
+        first (tracked separately; reading those buckets here would be a silent no-op).
+        """
         return cls(
-            linked_goal_uids=context_dict.get("goals", []),
-            knowledge_reinforcement_uids=context_dict.get("knowledge", []),
-            aligned_principle_uids=context_dict.get("principles", []),
-            prerequisite_habit_uids=context_dict.get("prerequisite_habits", []),
+            linked_goal_uids=_uids(context_dict, "supported_goals"),
+            knowledge_reinforcement_uids=_uids(context_dict, "reinforced_knowledge"),
+            aligned_principle_uids=_uids(context_dict, "embodied_principles"),
+            prerequisite_habit_uids=_uids(context_dict, "prerequisite_habits"),
         )
 
     def is_goal_connected(self) -> bool:
@@ -314,12 +360,16 @@ class PrincipleCrossContext:
 
     @classmethod
     def from_dict(cls, context_dict: dict[str, Any]) -> PrincipleCrossContext:
-        """Extract typed context from untyped dict."""
+        """Extract typed context from a get_cross_domain_context() response.
+
+        Keys are the PRINCIPLES_CONFIG ``context_field_name`` buckets; aligned habits
+        span INSPIRES_HABIT (outgoing) and EMBODIES_PRINCIPLE (incoming).
+        """
         return cls(
-            guided_goal_uids=context_dict.get("goals", []),
-            informed_choice_uids=context_dict.get("choices", []),
-            grounding_knowledge_uids=context_dict.get("knowledge", []),
-            aligned_habit_uids=context_dict.get("habits", []),
+            guided_goal_uids=_uids(context_dict, "guided_goals"),
+            informed_choice_uids=_uids(context_dict, "guided_choices"),
+            grounding_knowledge_uids=_uids(context_dict, "grounding_knowledge"),
+            aligned_habit_uids=_uids(context_dict, "inspired_habits", "embodying_habits"),
         )
 
     # Alias properties for simpler access patterns

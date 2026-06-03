@@ -44,7 +44,7 @@ from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -359,11 +359,6 @@ class HabitsService(
         return await self.learning.assess_habit_learning_impact(habit_uid, learning_position)
 
     # Relationship delegations
-    async def get_habit_cross_domain_context(
-        self, entity_uid: EntityUID, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
-
     async def get_habit_with_semantic_context(
         self,
         uid: str,

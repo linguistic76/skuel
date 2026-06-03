@@ -389,11 +389,6 @@ class GoalsService(
         return await self.learning.get_goals_blocked_by_knowledge(user_context)
 
     # Relationship delegations
-    async def get_goal_cross_domain_context(
-        self, entity_uid: EntityUID, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
-
     async def get_goal_with_semantic_context(
         self,
         uid: str,

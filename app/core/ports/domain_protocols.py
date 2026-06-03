@@ -991,19 +991,6 @@ class TasksRelationshipOperations(BaseRelationshipOperations, Protocol):
 class HabitsRelationshipOperations(BaseRelationshipOperations, Protocol):
     """Habits relationship operations protocol."""
 
-    async def get_habit_cross_domain_context(
-        self, habit_uid: str, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[GraphContextResult]:
-        """
-        Get cross-domain context for a habit with configurable graph traversal depth.
-
-        Args:
-            habit_uid: Habit UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-            min_confidence: Minimum confidence threshold for relationships (default=0.7)
-        """
-        ...
-
     async def get_habit_knowledge(self, habit_uid: str) -> Result[builtins.list[str]]:
         """Get knowledge UIDs reinforced by this habit."""
         ...
@@ -1052,19 +1039,6 @@ class EventsRelationshipOperations(BaseRelationshipOperations, Protocol):
 class GoalsRelationshipOperations(BaseRelationshipOperations, Protocol):
     """Goals relationship operations protocol."""
 
-    async def get_goal_cross_domain_context(
-        self, goal_uid: str, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[GraphContextResult]:
-        """
-        Get cross-domain context for a goal with configurable graph traversal depth.
-
-        Args:
-            goal_uid: Goal UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-            min_confidence: Minimum confidence threshold for relationships (default=0.7)
-        """
-        ...
-
     async def get_goal_habits(self, goal_uid: str) -> Result[builtins.list[str]]:
         """Get habit UIDs supporting this goal."""
         ...
@@ -1077,18 +1051,6 @@ class GoalsRelationshipOperations(BaseRelationshipOperations, Protocol):
 @runtime_checkable
 class PrinciplesRelationshipOperations(BaseRelationshipOperations, Protocol):
     """Principles relationship operations protocol."""
-
-    async def get_principle_cross_domain_context(
-        self, principle_uid: str, depth: int = 2
-    ) -> Result[GraphContextResult]:
-        """
-        Get cross-domain context for a principle with configurable graph traversal depth.
-
-        Args:
-            principle_uid: Principle UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-        """
-        ...
 
     async def get_principle_choices(self, principle_uid: str) -> Result[builtins.list[str]]:
         """Get choice UIDs informed by this principle."""

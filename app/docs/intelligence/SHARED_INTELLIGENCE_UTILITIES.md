@@ -480,7 +480,6 @@ async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
         entity_uid=uid,
         backend=self.backend,
         relationships=self.relationships,
-        context_method="get_goal_cross_domain_context",
         context_type=GoalCrossContext,
         metrics_fn=calculate_goal_metrics,
         ...
@@ -503,11 +502,10 @@ async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
     # Phase 5: Use base class template
     analysis_result = await self._analyze_entity_with_context(
         uid=uid,
-        context_method="get_goal_cross_domain_context",
         context_type=GoalCrossContext,
         metrics_fn=calculate_goal_metrics,
         recommendations_fn=self._generate_progress_recommendations,
-        min_confidence=0.7,  # Optional kwargs supported
+        min_confidence=0.7,  # Optional kwargs (depth, min_confidence) supported
     )
 
     if analysis_result.is_error:
@@ -529,11 +527,11 @@ async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
 async def _analyze_entity_with_context(
     self,
     uid: str,
-    context_method: str,           # e.g., "get_goal_cross_domain_context"
     context_type: type,            # e.g., GoalCrossContext
     metrics_fn: Callable,          # (entity, context) -> dict
     recommendations_fn: Callable | None = None,  # (entity, context, metrics) -> list
-    **context_kwargs: Any,         # min_confidence, depth, etc.
+    **context_kwargs: Any,         # min_confidence, depth (forwarded to the generic
+                                   # config-driven get_cross_domain_context)
 ) -> Result[dict[str, Any]]:
 ```
 
