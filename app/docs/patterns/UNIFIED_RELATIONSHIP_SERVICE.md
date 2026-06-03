@@ -674,7 +674,7 @@ SKUEL uses two distinct relationship service patterns, each optimized for differ
 
 **Characteristics:**
 - BackendOperations[T] protocol + BaseService inheritance
-- RelationshipCreator + SemanticRelationshipLinker composition
+- SemanticRelationshipLinker composition (semantic relationship operations)
 - Cross-domain context with path-aware entities
 - UserContext-aware methods (get_actionable_for_user, etc.)
 - Semantic relationship operations

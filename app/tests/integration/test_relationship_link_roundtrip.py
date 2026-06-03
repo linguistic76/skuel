@@ -45,7 +45,7 @@ from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
-from core.models.relationship_registry import HABITS_CONFIG
+from core.models.relationship_registry import HABITS_CONFIG, TASKS_CONFIG
 from core.models.task.task import Task
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
@@ -387,3 +387,33 @@ class TestRelationshipLinkRoundTrip:
         habits_read = await rels.get_related_uids("inspired_habits", "principle:align_rt")
         assert habits_read.is_ok, f"inspired_habits read failed: {habits_read}"
         assert habits_read.value == ["habit:align_rt"]
+
+    async def test_create_user_relationship_writes_registry_ownership_edge(
+        self, services, clean_neo4j
+    ):
+        """`create_user_relationship` writes a (User)-[:<ownership>]->(Entity) edge for the
+        domain's registry ownership relationship — read back through the 3-arg backend signature.
+
+        This is the sole live method of the former `RelationshipCreator` helper, now inlined
+        into `UnifiedRelationshipService`. It routes through the backend's generic
+        `create_user_relationship(relationship_type=<RelationshipName>, metadata=...)` —
+        no dynamic `create_user_{domain}_relationship` dispatch (the #197/#205 phantom class).
+        TASKS_CONFIG.ownership_relationship is HAS_TASK while `create()` auto-writes OWNS, so
+        the incoming-HAS_TASK read isolates the edge written by the explicit path under test.
+        """
+        await self._make_task(services, "task:user_rel_rt")
+
+        rels = services.tasks.relationships
+        ownership = TASKS_CONFIG.ownership_relationship  # HAS_TASK
+        assert ownership is not None
+
+        created = await rels.create_user_relationship(
+            "user_test_456", "task:user_rel_rt", {"participation_type": "co_owner"}
+        )
+        assert created.is_ok, f"create_user_relationship failed: {created}"
+
+        owners = await services.tasks.backend.get_related_uids(
+            "task:user_rel_rt", ownership, direction="incoming"
+        )
+        assert owners.is_ok, f"ownership read failed: {owners}"
+        assert "user_test_456" in owners.value

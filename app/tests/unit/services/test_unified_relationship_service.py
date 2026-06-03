@@ -10,7 +10,7 @@ from the facades (no candidate-list wrappers); its registry-validation guard is 
 the ``create_relationship`` path and tests/test_cross_domain_link_keys.py.
 
 Fixture strategy: object.__new__() bypasses the complex __init__ (which requires backend,
-DomainRelationshipConfig, RelationshipCreator, etc.). Sub-attributes are mocked
+DomainRelationshipConfig, SemanticRelationshipLinker, etc.). Sub-attributes are mocked
 directly — the same pattern used for LessonService in Phase 2.
 """
 
