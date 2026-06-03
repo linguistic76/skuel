@@ -273,6 +273,11 @@ class VisualizationAggregationService:
         if project:
             tasks = [t for t in tasks if getattr(t, "project", None) == project]
 
+        # Only emit dependencies that point at a task actually in the chart — a
+        # prerequisite outside the date window (or filtered out by `project`) would
+        # otherwise be a dangling id; Frappe Gantt dereferences a missing dependency
+        # bar (undefined) when the dependent bar is dragged.
+        rendered_ids = {task.uid for task in tasks}
         dependencies: dict[str, list[str]] = {}
         for task in tasks:
             # Prerequisite tasks live on the (Task)-[:DEPENDS_ON]->(prereq) edge;
@@ -283,7 +288,9 @@ class VisualizationAggregationService:
                 "prerequisite_tasks", task.uid
             )
             if deps_result.is_ok and deps_result.value:
-                dependencies[task.uid] = deps_result.value
+                in_view = [uid for uid in deps_result.value if uid in rendered_ids]
+                if in_view:
+                    dependencies[task.uid] = in_view
 
         return self.vis.format_for_gantt(tasks, dependencies)
 

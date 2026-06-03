@@ -69,20 +69,36 @@ class TestGanttAggregationRoundTrip:
             )
         ).value
 
-        # (dependent)-[:DEPENDS_ON]->(prereq): prereq is the prerequisite.
-        assert (
-            await services.tasks.create_task_dependency(
-                dependent_task_uid=dependent.uid, blocks_task_uid=prereq.uid
+        # A second prerequisite that falls OUTSIDE the [today-7, +60] window — it is
+        # not rendered, so it must not appear as a dangling dependency id (Frappe Gantt
+        # crashes dereferencing a missing dependency bar).
+        far_prereq = (
+            await services.tasks.create_task(
+                TaskCreateRequest(
+                    title="Far prerequisite", due_date=date.today() + timedelta(days=120)
+                ),
+                user,
             )
-        ).is_ok
+        ).value
+
+        # (dependent)-[:DEPENDS_ON]->(prereq): prereq is the prerequisite.
+        for blocker in (prereq.uid, far_prereq.uid):
+            assert (
+                await services.tasks.create_task_dependency(
+                    dependent_task_uid=dependent.uid, blocks_task_uid=blocker
+                )
+            ).is_ok
 
         result = await self._vis(services).get_tasks_gantt_data(user_uid=user)
         assert result.is_ok, f"get_tasks_gantt_data failed: {result}"
 
         by_id = {t["id"]: t for t in result.value["tasks"]}
         assert dependent.uid in by_id
-        # The dependency string must name the prerequisite — empty under the old phantom call.
-        assert prereq.uid in by_id[dependent.uid]["dependencies"]
+        deps = by_id[dependent.uid]["dependencies"]
+        # The in-window prerequisite is named; the out-of-window one is dropped.
+        assert prereq.uid in deps
+        assert far_prereq.uid not in deps
+        assert far_prereq.uid not in by_id  # not rendered at all
 
     async def test_goal_gantt_includes_fulfilling_tasks(self, services, neo4j_driver, clean_neo4j):
         """get_goal_gantt_data returns the goal plus its FULFILLS_GOAL tasks (was a 500)."""
