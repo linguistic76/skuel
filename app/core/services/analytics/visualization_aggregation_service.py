@@ -273,16 +273,24 @@ class VisualizationAggregationService:
         if project:
             tasks = [t for t in tasks if getattr(t, "project", None) == project]
 
+        # Only emit dependencies that point at a task actually in the chart — a
+        # prerequisite outside the date window (or filtered out by `project`) would
+        # otherwise be a dangling id; Frappe Gantt dereferences a missing dependency
+        # bar (undefined) when the dependent bar is dragged.
+        rendered_ids = {task.uid for task in tasks}
         dependencies: dict[str, list[str]] = {}
         for task in tasks:
-            try:
-                deps_result = await self.tasks_service.relationships.get_task_prerequisites(
-                    task.uid
-                )
-                if deps_result.is_ok and deps_result.value:
-                    dependencies[task.uid] = [d.uid for d in deps_result.value]
-            except Exception:  # safety-net: dependency lookup is optional enrichment
-                pass
+            # Prerequisite tasks live on the (Task)-[:DEPENDS_ON]->(prereq) edge;
+            # the generic service reader keys it as "prerequisite_tasks" and
+            # returns the prerequisite UIDs directly. A per-task failure is
+            # skipped so one bad lookup never drops the whole Gantt.
+            deps_result = await self.tasks_service.relationships.get_related_uids(
+                "prerequisite_tasks", task.uid
+            )
+            if deps_result.is_ok and deps_result.value:
+                in_view = [uid for uid in deps_result.value if uid in rendered_ids]
+                if in_view:
+                    dependencies[task.uid] = in_view
 
         return self.vis.format_for_gantt(tasks, dependencies)
 
@@ -297,10 +305,15 @@ class VisualizationAggregationService:
         if goal_result.is_error:
             return Result.fail(goal_result)
 
+        # Tasks fulfilling the goal traverse (Task)-[:FULFILLS_GOAL]->(Goal);
+        # get_tasks_for_goal returns full Task models, which format_goal_gantt needs.
+        # get_tasks_for_goal is NOT user-scoped (find_by on fulfills_goal_uid only), so
+        # filter to the authenticated owner — a foreign task linked to this goal UID must
+        # not leak its title/dates/status into the response (user-owned read invariant).
         tasks: list[Any] = []
-        tasks_result = await self.goals_service.relationships.get_goal_tasks(goal_uid)
+        tasks_result = await self.tasks_service.get_tasks_for_goal(goal_uid)
         if tasks_result.is_ok:
-            tasks = tasks_result.value or []
+            tasks = [t for t in (tasks_result.value or []) if t.user_uid == user_uid]
 
         return self.vis.format_goal_gantt(goal_result.value, tasks)
 
