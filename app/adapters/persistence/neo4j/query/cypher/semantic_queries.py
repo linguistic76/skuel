@@ -131,6 +131,9 @@ def build_domain_context_with_paths(
     Accepts LITERAL relationship type strings instead of SemanticRelationshipType enum.
     Essential for domain-specific relationships like "INFORMED_BY_PRINCIPLE", "SUPPORTS_GOAL".
 
+    The source node is excluded from its own context (``related.uid <> center.uid``),
+    so a cycle back to the center never lands the entity in its own result buckets.
+
     Returns path metadata for each related entity:
     - distance: Number of hops from source
     - path_strength: Confidence cascade (product of relationship confidences)
@@ -161,6 +164,7 @@ def build_domain_context_with_paths(
          length(path) as path_length,
          nodes(path) as path_nodes
     WHERE related IS NOT NULL
+      AND related.uid <> center.uid
       AND all(c in confidences WHERE c >= $min_confidence)
     RETURN
         center.uid as center_uid,

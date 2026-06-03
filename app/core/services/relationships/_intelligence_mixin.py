@@ -38,6 +38,31 @@ if TYPE_CHECKING:
 Model = TypeVar("Model", bound="DomainModelProtocol")
 
 
+def _direction_matches(direction: str, rel_value: str, via_relationships: list[str]) -> bool:
+    """Does a related node's incident edge match a mapping's relationship + direction?
+
+    ``via_relationships`` carries center-relative markers (``->REL`` when the edge
+    leaves the source, ``<-REL`` when it enters the source). At distance 1 the single
+    edge is the one incident to the related node, so the marker encodes its direction
+    exactly:
+
+        outgoing mapping (source -> related)  ⟺ ``->REL``
+        incoming mapping (related -> source)  ⟺ ``<-REL``
+        both                                  ⟺ either
+
+    Matching the wrong direction (the pre-fix behaviour accepted bare/``->``/``<-``
+    indiscriminately) put incoming edges into outgoing buckets and vice versa.
+    """
+    outgoing = f"->{rel_value}"
+    incoming = f"<-{rel_value}"
+    if direction == "outgoing":
+        return outgoing in via_relationships
+    if direction == "incoming":
+        return incoming in via_relationships
+    # "both": either orientation of a direct edge qualifies.
+    return outgoing in via_relationships or incoming in via_relationships
+
+
 class IntelligenceMixin:
     """
     Mixin providing graph intelligence, semantic, and cross-domain context methods.
@@ -95,14 +120,22 @@ class IntelligenceMixin:
         Returns:
             Result containing rich context dictionary with path-aware entities
         """
-        # Step 1: Get raw graph context from backend
+        # Step 1: Get raw graph context from backend.
+        #
+        # Always traverse BOTH directions: categorization below is direction-aware
+        # per cross-domain mapping (each mapping's `direction` is matched against the
+        # edge actually incident to the related node), so the single query-wide
+        # `bidirectional` flag no longer decides which mappings can populate. Fetching
+        # only outgoing edges (the former `len(bidirectional_relationships) > 0` rule)
+        # structurally starved every INCOMING mapping for outgoing-only configs — e.g.
+        # HABITS_CONFIG's inspiring_principles / reinforcing_* buckets were always empty.
         raw_result = await self.backend.get_domain_context_raw(
             entity_uid=entity_uid,
             entity_label=self.config.entity_label,
             relationship_types=self.config.cross_domain_relationship_types,
             depth=depth,
             min_confidence=min_confidence,
-            bidirectional=len(self.config.bidirectional_relationships) > 0,
+            bidirectional=True,
         )
 
         if raw_result.is_error:
@@ -110,35 +143,49 @@ class IntelligenceMixin:
 
         raw_context = raw_result.value
 
-        # Step 2: Categorize raw context using relationship definitions
+        # Step 2: Categorize raw context using relationship definitions.
+        #
+        # An entity is bucketed into a mapping only when the edge INCIDENT to it (its
+        # direct, distance-1 cross-domain edge) matches that mapping's relationship AND
+        # direction. This is what makes the buckets mean what their consumers assume —
+        # direct cross-domain relationships. Two failure modes this guards against,
+        # both verified against the live graph (depth-2 over-inclusion was a real bug):
+        #   * Direction: an OUTGOING mapping matches only `->REL`, an INCOMING mapping
+        #     only `<-REL` (the marker is center-relative, so at distance 1 it encodes
+        #     the edge direction exactly). The old code matched any of bare/`->`/`<-`,
+        #     conflating "center has this edge" with "the related node has it".
+        #   * Distance: only distance-1 nodes are categorized. At depth >= 2 the old
+        #     guard matched on a HOP-1 edge marker (incident to center, not to the
+        #     related node), so a 2-hop neighbour — or the source itself on a cycle
+        #     (e.g. the canonical INSPIRES_HABIT <-> EMBODIES_PRINCIPLE pair) — leaked
+        #     into a sibling bucket. The Cypher also excludes related == center.
         cross_domain_rels = [r for r in self.config.relationships if r.is_cross_domain_mapping]
         categorized: dict[str, list[dict]] = {
             rel.context_field_name: [] for rel in cross_domain_rels
         }
 
         for entity in raw_context:
+            # Direct cross-domain edges only; never the source entity itself.
+            if entity.get("distance") != 1 or entity.get("uid") == entity_uid:
+                continue
+
             labels = entity.get("labels", [])
             via_rels = entity.get("via_relationships", [])
 
             for rel in cross_domain_rels:
-                if rel.target_label in labels:
-                    # Check if entity came via expected relationship
-                    rel_value = rel.relationship.value
-                    if (
-                        rel_value in via_rels
-                        or f"->{rel_value}" in via_rels
-                        or f"<-{rel_value}" in via_rels
-                    ):
-                        categorized[rel.context_field_name].append(
-                            {
-                                "uid": entity.get("uid"),
-                                "title": entity.get("title"),
-                                "distance": entity.get("distance"),
-                                "path_strength": entity.get("path_strength"),
-                                "via_relationships": via_rels,
-                            }
-                        )
-                        break  # Only add to one category
+                if rel.target_label in labels and _direction_matches(
+                    rel.direction, rel.relationship.value, via_rels
+                ):
+                    categorized[rel.context_field_name].append(
+                        {
+                            "uid": entity.get("uid"),
+                            "title": entity.get("title"),
+                            "distance": entity.get("distance"),
+                            "path_strength": entity.get("path_strength"),
+                            "via_relationships": via_rels,
+                        }
+                    )
+                    break  # Only add to one category
 
         # Step 3: Build response
         response: dict[str, Any] = {f"{self.config.domain.value.rstrip('s')}_uid": entity_uid}
