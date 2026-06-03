@@ -425,6 +425,48 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 
 ---
 
+## Pattern 10: Temporal Property Coercion (string-stored dates vs `date()`/`datetime()`)
+
+**Problem:** SKUEL stores temporal fields as **ISO strings** (DTOs serialize `datetime`/`date` via `.isoformat()`). Neo4j evaluates `string >= date(...)` / `string >= datetime(...)` as **`null`** — not an error, so the predicate silently fails and the row is dropped (or a `CASE` falls through). Whole features quietly return nothing.
+
+**The discriminator — the WRITER decides the stored type:**
+
+| Write path | Stored type | A direct `field OP date()/datetime()` is… |
+|---|---|---|
+| DTO `.isoformat()` (domain entities: `due_date`, `event_date`, `created_at`, `expires_at`, `next_due_at`, `last_completed`, …) | **STRING** | **broken** (string vs temporal → null) |
+| Cypher `SET n.x = datetime()` / `datetime($param)` (sessions, tokens, `updated_at`, `achieved_at`, `mastered_at`) | **native ZONED DATETIME** | fine |
+
+Before "fixing" a comparison, **grep the write path**: `.isoformat()` → string (coerce); `= datetime(` / `datetime($` → native (leave). Some columns are **mixed** (e.g. `created_at`: mostly strings + a few native datetimes from legacy writes) — coercion handles both.
+
+**The fix — coerce the stored side:**
+```cypher
+-- datetime-typed field (has a time component): use datetime()
+WHERE datetime(n.created_at) >= datetime($window_start)
+WHERE datetime(s.next_due_at) <= datetime()
+
+-- date-typed field (date-only string "2026-06-05"): use date()
+WHERE date(n.due_date) >= date($start_date)
+```
+
+🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`). For a **datetime**-typed field compared against a *date*, parse-then-extract:
+```cypher
+-- last_completed is a datetime string; we want "before today"
+CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
+```
+
+**Coercion safety cheat-sheet:**
+- `datetime(x)` — parses date-only **and** datetime ISO strings; **no-op** on a native datetime. **Universally safe.**
+- `date(x)` — parses date-only strings and native temporals; **ERRORS on a datetime string**. Safe only for date-typed fields.
+- So when unsure, `datetime(...)` (or `date(datetime(...))` if you need a date) is the safe choice.
+
+**Two valid styles, but pick one and be consistent on BOTH sides:** either coerce the stored field as above, OR (Key Rule #17) build the comparison bound as a matching ISO **string** and compare string-vs-string. Mixing a string field with a temporal bound (or vice-versa) is the bug.
+
+**Verify against real Neo4j** — `string >= datetime()` returning `null` cannot be caught by a mocked backend; a unit test with stubbed rows passes while production returns empty. Seed both a string and a native value, assert the row is matched, and prove the test fails before the coercion (`datetime(string) >= datetime($w) → true`, `string >= datetime($w) → null`).
+
+**Real-world:** PRs #199 (date fields), #202 (`created_at` mixed column), #203 (`next_due_at`/`last_generated_at`/`expires_at`/`completed_at`/`last_completed`). Guards: `tests/integration/test_date_range_string_coercion.py`, `test_created_at_window_coercion.py`, `test_timestamp_field_coercion_residual.py`.
+
+---
+
 ## Key Rules
 
 1. **Always use parameters** (`$uid`, never string interpolation) — prevents injection
@@ -444,6 +486,7 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 15. **Reject `start_date > end_date` upfront** — an inverted date range produces an impossible `created_at__gte=X AND created_at__lt=Y` Cypher predicate that silently returns `[]`. Callers see "no results" and assume the database is empty. Return `Errors.validation(...)` before hitting the backend so the caller bug surfaces immediately.
 16. **Sanitize text-search inputs before CONTAINS** — `toLower(s.processed_content) CONTAINS toLower($query)` with `query=""` is caught by `if not query:`, but `"   "` and `"a"` sail through and scan every row. Strip and require `len(query.strip()) >= 2` before building the Cypher. Short-circuit to `Result.ok([])` when below threshold.
 17. **Match ISO-string date bounds to the storage invariant** — SKUEL stores `created_at` as naive-local via `datetime.now().isoformat()` with no tz suffix. Date-boundary queries must build bounds the same way: `datetime.combine(target_date, time.min).isoformat()`. Mixing a naive stored value with a tz-aware bound string (`"...+00:00"` or `"...Z"`) is silently broken at day boundaries — string comparison sorts `"2026-04-05T00:00:00"` differently from `"2026-04-05T00:00:00+00:00"`. Document the invariant at the top of any service that builds ISO-string bounds; if the storage format ever changes, every boundary construction must move in lockstep.
+18. **Coerce string-stored temporals before comparing to `date()`/`datetime()`** — the flip side of #17: when a query compares a stored temporal against a Cypher temporal value (not another string), `string OP date()/datetime()` evaluates to `null` and the row is silently dropped. Wrap the stored field: `datetime(n.created_at) >= datetime($w)`. `datetime()` is universally safe (parses both string shapes, no-op on natives); `date()` ERRORS on a datetime string, so use `date(datetime(field))` for a datetime field compared to a date. The WRITER decides the type — DTO `.isoformat()` → string (coerce); Cypher `= datetime()` → native (leave). **See Pattern 10.**
 
 ## Where Does Cypher Live?
 
