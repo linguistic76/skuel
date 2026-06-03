@@ -1065,10 +1065,6 @@ class GoalsRelationshipOperations(BaseRelationshipOperations, Protocol):
         """
         ...
 
-    async def get_goal_tasks(self, goal_uid: str) -> Result[builtins.list[str]]:
-        """Get task UIDs fulfilling this goal."""
-        ...
-
     async def get_goal_habits(self, goal_uid: str) -> Result[builtins.list[str]]:
         """Get habit UIDs supporting this goal."""
         ...

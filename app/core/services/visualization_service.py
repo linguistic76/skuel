@@ -759,9 +759,15 @@ class VisualizationService:
             for gid in sorted(group_ids)
         ]
 
-    def _get_priority_class(self, priority: Priority) -> str:
-        """Get CSS class for priority."""
-        return f"priority-{priority.value}"
+    def _get_priority_class(self, priority: Priority | str) -> str:
+        """Get CSS class for priority.
+
+        Accepts a Priority enum or its raw string value: entities loaded from Neo4j
+        carry ``priority`` as a plain string (not the enum), so ``priority.value``
+        would raise AttributeError on the persisted-task path.
+        """
+        value = priority.value if isinstance(priority, Priority) else str(priority)
+        return f"priority-{value}"
 
     def _get_gantt_class(self, task: Any) -> str:
         """Get CSS class for Gantt task based on status and priority."""
@@ -775,6 +781,6 @@ class VisualizationService:
             classes.append("blocked")
 
         priority = getattr(task, "priority", Priority.MEDIUM)
-        classes.append(f"priority-{priority.value}")
+        classes.append(self._get_priority_class(priority))
 
         return " ".join(classes)
