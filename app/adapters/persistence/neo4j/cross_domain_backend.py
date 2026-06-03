@@ -127,8 +127,8 @@ RETURN
 _EVENT_IMPACT_BATCH_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity {{entity_type: 'event'}})
 WHERE e.status IN ['scheduled', 'active']
-  AND e.event_date >= date($start_date)
-  AND e.event_date <= date($end_date)
+  AND date(e.event_date) >= date($start_date)
+  AND date(e.event_date) <= date($end_date)
 OPTIONAL MATCH (e)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
 OPTIONAL MATCH (e)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity {{entity_type: 'ku'}})
 RETURN e.uid AS event_uid,

@@ -281,7 +281,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      knowledge_mastery_data, knowledge_rich,
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata, habits_rich,
-     collect(CASE WHEN event.event_date >= date($today) THEN event.uid END) as upcoming_event_uids,
+     collect(CASE WHEN date(event.event_date) >= date($today) THEN event.uid END) as upcoming_event_uids,
      collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids,
      collect(event) as all_event_nodes
 
@@ -1176,7 +1176,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Events - parallel collection with date filtering
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
-WHERE event.event_date >= date($today)
+WHERE date(event.event_date) >= date($today)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
