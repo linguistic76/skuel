@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 
+from adapters.persistence.neo4j.query import generate_context_query
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_registry import GOAPS_CONFIG
@@ -213,3 +214,52 @@ async def test_untiered_habit_falls_to_catch_all(neo4j_driver, goal_rel, clean_n
     assert {e["uid"] for e in raw.get("contributing_habits") or []} == {H_PLAIN}
     assert (raw.get("essential_habits") or []) == []
     assert GoalCrossContext.from_dict(raw).supporting_habit_uids == [H_PLAIN]
+
+
+@pytest.mark.asyncio
+async def test_essentiality_tiers_filter_via_get_with_context_path(
+    neo4j_driver, goal_rel, clean_neo4j
+):
+    """READ path 3: the build_entity_with_context (generate_context_query) path filters too.
+
+    ``to_relationship_spec()`` used to drop ``filter_property``, so this path's per-tier
+    aliases (essential_habits / critical_habits / optional_habits) all collapsed to the
+    same unfiltered set. The spec now carries the filter and ``build_entity_with_context``
+    emits a parameterized ``WHERE r.<prop> = $value``, so the three context read paths
+    (get_related_uids, get_cross_domain_context, get_with_context) finally agree.
+    """
+    habits = [H_ESSENTIAL, H_CRITICAL, H_SUPPORTING, H_OPTIONAL]
+    async with neo4j_driver.session() as s:
+        await _seed_goal_and_habits(s, GOAL, habits)
+
+    for habit, tier in [
+        (H_ESSENTIAL, "essential"),
+        (H_CRITICAL, "critical"),
+        (H_SUPPORTING, "supporting"),
+        (H_OPTIONAL, "optional"),
+    ]:
+        res = await goal_rel.create_relationship(
+            "supporting_habits", GOAL, habit, {"weight": 1.0, "essentiality": tier}
+        )
+        assert res.is_ok, res
+
+    # The exact runtime query the get_with_context path builds from the registry.
+    query, params = generate_context_query("Goal")
+    params["uid"] = GOAL
+    async with neo4j_driver.session() as s:
+        rec = await (await s.run(query, params)).single()
+    assert rec is not None
+
+    def alias(name: str) -> set[str]:
+        return {h["uid"] for h in rec[name] if h and h.get("uid")}
+
+    # The fix: each tier alias now filters to its own edge (pre-fix all three returned
+    # the full set of four). Each alias is an INDEPENDENT OPTIONAL MATCH here — there is
+    # no first-match partition like get_cross_domain_context — so the unfiltered
+    # ``contributing_habits`` catch-all returns ALL supporting habits, matching
+    # get_related_uids("supporting_habits"). The two unfiltered views agree; the union is
+    # identical either way.
+    assert alias("essential_habits") == {H_ESSENTIAL}
+    assert alias("critical_habits") == {H_CRITICAL}
+    assert alias("optional_habits") == {H_OPTIONAL}
+    assert alias("contributing_habits") == set(habits)

@@ -41,6 +41,10 @@ class RelationshipSpec(TypedDict, total=False):
         use_confidence: Apply confidence filtering (default False)
         include_rel_type: Include relationship type in results (default False)
         single: Expect single result vs list (default False)
+        limit: Max related results to collect (omit for unlimited)
+        filter_property/filter_value: Restrict to edges whose property equals a value
+            (e.g. SUPPORTS_GOAL with essentiality="essential"). Both must be set together;
+            the value is parameterized, the property name is identifier-validated.
     """
 
     rel_types: str
@@ -51,6 +55,9 @@ class RelationshipSpec(TypedDict, total=False):
     use_confidence: bool
     include_rel_type: bool
     single: bool
+    limit: int
+    filter_property: str
+    filter_value: str
 
 
 class CypherQueryParams(TypedDict, total=False):
