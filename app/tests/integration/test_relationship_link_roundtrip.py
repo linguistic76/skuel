@@ -1,23 +1,29 @@
 """Real-Neo4j guard tests for the UnifiedRelationshipService single-edge path.
 
-`UnifiedRelationshipService.create_relationship` (and the typed `link_to_*` wrappers
-that call it, and every facade `link_{domain}_to_{key}` that delegates to those) used
-to dispatch to a dynamically-named `link_{domain}_to_{key}` *backend* method. Only two
-such methods ever existed (`link_habit_to_knowledge`, `link_habit_to_principle`), so the
-call failed at runtime ("Backend method not found") for every other domain — including
-reachable routes (`POST /goals/generate-tasks` → `link_task_to_knowledge`). The fix
-routes the single method through the proven `backend.create_relationships_batch` path,
-keyed off the registry spec.
+`UnifiedRelationshipService.create_relationship` used to dispatch to a dynamically-named
+`link_{domain}_to_{key}` *backend* method. Only two such methods ever existed
+(`link_habit_to_knowledge`, `link_habit_to_principle`), so the call failed at runtime
+("Backend method not found") for every other domain — including reachable routes
+(`POST /goals/generate-tasks` → `link_task_to_knowledge`). The fix routes the single
+method through the proven `backend.create_relationships_batch` path, keyed off the
+registry spec.
 
-Mocked unit tests structurally cannot catch this (an `AsyncMock` resolves any attribute),
-which is why it survived. These tests create the edge against a real Neo4j and read it
-back. Each fails against the pre-fix dynamic-dispatch body and passes against the fix.
+Every facade `link_{domain}_to_{key}` method now passes its explicit registry method_key
+straight to `create_relationship` (the candidate-list `link_to_*` wrappers were deleted):
+the registry validates the key (fails closed on a typo) and orients direction. The static
+half of that contract is guarded by tests/test_cross_domain_link_keys.py; these tests are
+the dynamic half — they create the edge against a real Neo4j and read it back.
+
+Mocked unit tests structurally cannot catch a wrong key (an `AsyncMock` resolves any
+attribute and accepts any argument), which is why the `link_choice_to_habit` "habits"
+typo survived undetected until the registry guard surfaced it.
 """
 
 from datetime import date, timedelta
 
 import pytest
 
+from core.models.choice.choice import Choice
 from core.models.curriculum import Curriculum
 from core.models.enums import (
     Domain,
@@ -29,10 +35,15 @@ from core.models.enums import (
     RecurrencePattern,
     SELCategory,
 )
+from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory
+from core.models.enums.principle_enums import PrincipleCategory
+from core.models.event.event import Event
+from core.models.event.event_request import AddAttendeeRequest, RemoveAttendeeRequest
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
+from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import HABITS_CONFIG
 from core.models.task.task import Task
@@ -214,3 +225,165 @@ class TestRelationshipLinkRoundTrip:
         )
         assert after.is_ok
         assert after.value == []
+
+    async def test_link_choice_to_habit_creates_impacts_habit_edge(
+        self, services, habits_backend, clean_neo4j
+    ):
+        """link_choice_to_habit writes a real IMPACTS_HABIT edge with its property.
+
+        Pre-fix this facade passed the key ``"habits"``, which is not a method_key in
+        CHOICES_CONFIG (the Choice→Habit edge is ``impacted_habits``/IMPACTS_HABIT), so
+        create_relationship failed config validation and the link was silently dropped.
+        A mocked unit test passed regardless because the AsyncMock accepted ``"habits"``.
+        """
+        choice = Choice(
+            uid="choice:link_habit_src",
+            title="Choice",
+            description="choice→habit link round-trip fixture",
+            user_uid="user_test",
+            choice_type=ChoiceType.MULTIPLE,
+            status=EntityStatus.DRAFT,
+            priority=Priority.MEDIUM,
+            domain=Domain.TECH,
+        )
+        assert (await services.choices.backend.create(choice)).is_ok
+        habit = Habit(
+            uid="habit:link_choice_target",
+            user_uid="user_test",
+            entity_type=EntityType.HABIT,
+            title="Habit",
+            description="choice→habit link round-trip fixture",
+            habit_category=HabitCategory.LEARNING,
+            status=EntityStatus.ACTIVE,
+            recurrence_pattern=RecurrencePattern.DAILY,
+        )
+        assert (await habits_backend.create(habit)).is_ok
+
+        result = await services.choices.link_choice_to_habit(
+            "choice:link_habit_src", "habit:link_choice_target", reinforcement_strength=0.7
+        )
+        assert result.is_ok, f"link_choice_to_habit failed: {result}"
+
+        edges = await services.choices.backend.get_relationships(
+            "choice:link_habit_src",
+            rel_type=RelationshipName.IMPACTS_HABIT,
+            direction="outgoing",
+        )
+        assert edges.is_ok
+        assert [r["type"] for r in edges.value] == ["IMPACTS_HABIT"]
+        assert edges.value[0]["target_uid"] == "habit:link_choice_target"
+
+    async def test_get_event_attendees_round_trips_has_event_edges(self, services, clean_neo4j):
+        """add_attendee writes (User)-[:HAS_EVENT]->(Event); get_event_attendees reads it back.
+
+        Pre-fix the read used `get_related_uids("attendees", ...)` — a config method_key
+        that does not exist — so it always returned empty while `add_attendee` wrote a real
+        HAS_EVENT edge: the read and write paths had silently diverged.
+        """
+        event = Event(
+            uid="event:attendee_rt",
+            user_uid="user_test",
+            title="Event",
+            description="attendee round-trip fixture",
+            event_date=date.today(),
+            event_type="WORK",
+            status=EntityStatus.SCHEDULED,
+            priority=Priority.MEDIUM,
+        )
+        assert (await services.events.backend.create(event)).is_ok
+
+        added = await services.events.add_attendee(
+            AddAttendeeRequest(
+                event_uid="event:attendee_rt",
+                user_uid="user_test_456",
+                send_notification=False,
+            )
+        )
+        assert added.is_ok, f"add_attendee failed: {added}"
+
+        attendees = await services.events.get_event_attendees("event:attendee_rt")
+        assert attendees.is_ok, f"get_event_attendees failed: {attendees}"
+        assert "user_test_456" in attendees.value
+
+        removed = await services.events.remove_attendee(
+            RemoveAttendeeRequest(
+                event_uid="event:attendee_rt",
+                user_uid="user_test_456",
+                send_notification=False,
+            )
+        )
+        assert removed.is_ok
+        after = await services.events.get_event_attendees("event:attendee_rt")
+        assert after.is_ok
+        assert "user_test_456" not in after.value
+
+    async def test_principle_alignment_keys_resolve_and_read_back(
+        self, services, habits_backend, clean_neo4j
+    ):
+        """The dual-track alignment read keys resolve and return data on a real Neo4j.
+
+        `_calculate_system_alignment_for_dual_track` reads goals via `"guided_goals"`
+        (GUIDES_GOAL) and habits via `"inspired_habits"` (INSPIRES_HABIT) through the
+        2-arg service `get_related_uids(method_key, uid)`. Pre-fix it called the 3-arg
+        *backend* signature (`get_related_uids(uid, REL, "incoming")` → TypeError, swallowed
+        by the dual-track try/except) and used the phantom key `"habits"` — so system
+        alignment silently scored nothing. These are the exact calls the fixed method makes.
+        """
+        principle = Principle(
+            uid="principle:align_rt",
+            user_uid="user_test",
+            title="Principle",
+            statement="alignment round-trip fixture",
+            description="alignment round-trip fixture",
+            principle_category=PrincipleCategory.INTELLECTUAL,
+        )
+        assert (await services.principles.backend.create(principle)).is_ok
+
+        today = date.today()
+        goal = Goal(
+            uid="goal:align_rt",
+            user_uid="user_test",
+            title="Goal",
+            description="alignment round-trip fixture",
+            goal_type=GoalType.LEARNING,
+            domain=Domain.TECH,
+            timeframe=GoalTimeframe.QUARTERLY,
+            measurement_type=MeasurementType.PERCENTAGE,
+            target_value=100.0,
+            current_value=0.0,
+            start_date=today,
+            target_date=today + timedelta(days=90),
+            status=EntityStatus.ACTIVE,
+            priority=Priority.HIGH,
+        )
+        assert (await services.goals.backend.create(goal)).is_ok
+        habit = Habit(
+            uid="habit:align_rt",
+            user_uid="user_test",
+            entity_type=EntityType.HABIT,
+            title="Habit",
+            description="alignment round-trip fixture",
+            habit_category=HabitCategory.LEARNING,
+            status=EntityStatus.ACTIVE,
+            recurrence_pattern=RecurrencePattern.DAILY,
+        )
+        assert (await habits_backend.create(habit)).is_ok
+
+        rels = services.principles.relationships
+        assert (
+            await rels.create_relationship("guided_goals", "principle:align_rt", "goal:align_rt")
+        ).is_ok
+        assert (
+            await rels.create_relationship(
+                "inspired_habits", "principle:align_rt", "habit:align_rt"
+            )
+        ).is_ok
+
+        # The exact 2-arg service reads the fixed method performs:
+        goals_read = await rels.get_related_uids("guided_goals", "principle:align_rt")
+        assert goals_read.is_ok, f"guided_goals read failed: {goals_read}"
+        assert goals_read.value == ["goal:align_rt"]
+
+        habits_read = await rels.get_related_uids("inspired_habits", "principle:align_rt")
+        assert habits_read.is_ok, f"inspired_habits read failed: {habits_read}"
+        assert habits_read.value == ["habit:align_rt"]

@@ -942,111 +942,12 @@ class UnifiedRelationshipService[
         return reasons
 
     # =========================================================================
-    # TYPED LINK METHODS
+    # CROSS-DOMAIN LINKING
     # =========================================================================
-    # Domain-specific link methods with typed parameters.
-
-    async def link_to_knowledge(
-        self,
-        entity_uid: EntityUID,
-        knowledge_uid: str,
-        **properties: Any,
-    ) -> Result[bool]:
-        """
-        Link entity to knowledge unit with domain-specific properties.
-
-        This is a typed convenience method that wraps create_relationship()
-        with the appropriate relationship key for knowledge links.
-
-        Args:
-            entity_uid: Source entity UID
-            knowledge_uid: Target knowledge UID
-            **properties: Domain-specific properties (varies by domain)
-                - Tasks: knowledge_score_required, is_learning_opportunity
-                - Goals: proficiency_required, priority
-                - Habits: skill_level, proficiency_gain_rate
-
-        Returns:
-            Result[bool] indicating success
-        """
-        # Try different knowledge relationship keys
-        for key in ["knowledge", "prerequisite_knowledge", "required_knowledge"]:
-            if self.config.get_relationship_by_method(key):
-                return await self.create_relationship(
-                    relationship_key=key,
-                    from_uid=entity_uid,
-                    to_uid=knowledge_uid,
-                    properties=properties if properties else None,
-                )
-
-        return Result.fail(
-            Errors.validation(
-                f"No knowledge relationship configured for {self.config.entity_label}"
-            )
-        )
-
-    async def link_to_goal(
-        self,
-        entity_uid: EntityUID,
-        goal_uid: str,
-        **properties: Any,
-    ) -> Result[bool]:
-        """
-        Link entity to goal with domain-specific properties.
-
-        Args:
-            entity_uid: Source entity UID
-            goal_uid: Target goal UID
-            **properties: Domain-specific properties
-                - Tasks: contribution_percentage, milestone_uid
-                - Habits: weight, contribution_type
-
-        Returns:
-            Result[bool] indicating success
-        """
-        for key in ["contributes_to_goal", "fulfills_goal", "supported_goals", "goals"]:
-            if self.config.get_relationship_by_method(key):
-                return await self.create_relationship(
-                    relationship_key=key,
-                    from_uid=entity_uid,
-                    to_uid=goal_uid,
-                    properties=properties if properties else None,
-                )
-
-        return Result.fail(
-            Errors.validation(f"No goal relationship configured for {self.config.entity_label}")
-        )
-
-    async def link_to_principle(
-        self,
-        entity_uid: EntityUID,
-        principle_uid: str,
-        **properties: Any,
-    ) -> Result[bool]:
-        """
-        Link entity to principle with domain-specific properties.
-
-        Args:
-            entity_uid: Source entity UID
-            principle_uid: Target principle UID
-            **properties: Domain-specific properties
-                - Goals: alignment_strength
-                - Habits: embodiment_strength
-
-        Returns:
-            Result[bool] indicating success
-        """
-        for key in ["principles", "aligned_principles", "embodying_principles"]:
-            if self.config.get_relationship_by_method(key):
-                return await self.create_relationship(
-                    relationship_key=key,
-                    from_uid=entity_uid,
-                    to_uid=principle_uid,
-                    properties=properties if properties else None,
-                )
-
-        return Result.fail(
-            Errors.validation(
-                f"No principle relationship configured for {self.config.entity_label}"
-            )
-        )
+    # Activity/Curriculum facades link into the semantic graph via
+    # ``create_relationship("<explicit method_key>", ...)`` — the registry validates
+    # the key (fails closed on a typo), orients direction via ``_orient_edge``, and
+    # writes through the proven batch path. The facade is where domain intent lives
+    # (``link_task_to_goal`` knows it means ``contributes_to_goal``), so the key is
+    # named explicitly there rather than guessed from a candidate list here.
+    # Coverage is guarded by tests/test_cross_domain_link_keys.py.

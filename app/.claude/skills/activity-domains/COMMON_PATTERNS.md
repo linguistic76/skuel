@@ -238,28 +238,32 @@ service layer translates it to/from edges.
 
 ### Runtime (Service API)
 
-**Writes** — All domains connect via `UnifiedRelationshipService`:
+**Writes** — All domains connect via `UnifiedRelationshipService.create_relationship`,
+keyed off an **explicit** registry `method_key`. The facade exposes domain-named wrappers
+that supply the key (it knows which edge it means):
 
 ```python
-# Link to goal
-await service.link_to_goal(entity_uid, goal_uid, contribution_score=0.8)
+# Facade wrapper -> create_relationship with the explicit key:
+async def link_choice_to_goal(self, choice_uid, goal_uid, contribution_score=0.5):
+    return await self.relationships.create_relationship(
+        "goals", choice_uid, goal_uid, {"contribution_score": contribution_score}
+    )
 
-# Link to principle
-await service.link_to_principle(entity_uid, principle_uid, alignment_score=0.9)
+# create_relationship validates the key against the domain config (fails closed on a
+# typo — e.g. "habits" when the Choice config key is "impacted_habits"), orients
+# direction from the registry spec, and writes via the proven batch path.
 
-# Link to knowledge
-await service.link_to_knowledge(entity_uid, ku_uid, relevance="fundamental")
-
-# Get related entities
-related_uids = await service.relationships.get_related_uids(
-    "knowledge", entity_uid, direction="outgoing"
-)
+# Get related entities (key + uid — no direction arg; the registry spec supplies it):
+related_uids = await service.relationships.get_related_uids("knowledge", entity_uid)
 ```
 
-For a relationship with **no typed `link_to_*` method** (e.g. task dependencies,
-`DEPENDS_ON`), create the edge through the backend batch path — **never** the generic
-`service.create_relationship(key, ...)`, which is broken for tasks (it dispatches to a
-non-existent `link_task_to_<key>` backend method and fails at runtime; mocks hide it):
+> Do **not** reintroduce candidate-list `link_to_goal`/`link_to_knowledge`/`link_to_principle`
+> wrappers on the service — they guessed the key from a hand-maintained list and silently
+> failed on a coverage gap or picked the wrong edge. Name the key explicitly at the facade.
+> Coverage is guarded by `tests/test_cross_domain_link_keys.py`.
+
+For a relationship best expressed without a config `method_key` (e.g. task dependencies,
+`DEPENDS_ON`), create the edge through the backend batch path directly:
 
 ```python
 await backend.create_relationships_batch(

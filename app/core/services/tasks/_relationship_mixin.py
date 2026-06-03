@@ -56,12 +56,15 @@ class _RelationshipMixin:
         knowledge_score_required: float = 0.8,
         is_learning_opportunity: bool = False,
     ) -> Result[bool]:
-        """Link task to required knowledge unit."""
-        return await self.relationships.link_to_knowledge(
+        """Link task to the knowledge it applies (``APPLIES_KNOWLEDGE``)."""
+        return await self.relationships.create_relationship(
+            "knowledge",
             task_uid,
             knowledge_uid,
-            knowledge_score_required=knowledge_score_required,
-            is_learning_opportunity=is_learning_opportunity,
+            {
+                "knowledge_score_required": knowledge_score_required,
+                "is_learning_opportunity": is_learning_opportunity,
+            },
         )
 
     async def link_task_to_goal(
@@ -71,12 +74,15 @@ class _RelationshipMixin:
         contribution_percentage: float = 0.1,
         milestone_uid: str | None = None,
     ) -> Result[bool]:
-        """Link task to goal it contributes to."""
-        return await self.relationships.link_to_goal(
+        """Link task to goal it contributes to (``CONTRIBUTES_TO_GOAL``)."""
+        return await self.relationships.create_relationship(
+            "contributes_to_goal",
             task_uid,
             goal_uid,
-            contribution_percentage=contribution_percentage,
-            milestone_uid=milestone_uid,
+            {
+                "contribution_percentage": contribution_percentage,
+                "milestone_uid": milestone_uid,
+            },
         )
 
     async def create_task_dependency(

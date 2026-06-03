@@ -383,31 +383,36 @@ learning = await service.get_learning_related_for_user(
 goal_aligned = await service.get_goal_aligned_for_user(context, goal_uid="goal:123")
 ```
 
-### Typed Link Methods (8 methods)
+### Cross-domain linking — `create_relationship(method_key, ...)`
+
+There is **one** write path for cross-domain links: `create_relationship`, keyed off an
+explicit registry `method_key`. The earlier `link_to_knowledge` / `link_to_goal` /
+`link_to_principle` convenience wrappers (which guessed the key from a hand-maintained
+candidate list and silently `Result.fail`-ed when none matched) were removed — the facade
+already knows exactly which edge it means, so it names the key directly.
 
 ```python
-# Link to knowledge with properties
-await service.link_to_knowledge(
+# Facade method names the explicit key; create_relationship validates it against the
+# registry (fails closed on a typo), orients direction, and writes via the batch path.
+await service.create_relationship(
+    "knowledge",            # method_key in this domain's config -> APPLIES_KNOWLEDGE
     "task:123",
     "ku:python",
-    semantic_type=SemanticRelationshipType.APPLIES_KNOWLEDGE,
-    confidence=0.9,
-    source_tag="manual"
+    {"knowledge_score_required": 0.9, "is_learning_opportunity": True},
 )
 
-# Link to goal
-await service.link_to_goal(
+await service.create_relationship(
+    "contributes_to_goal",  # -> CONTRIBUTES_TO_GOAL (Task config)
     "task:123",
     "goal:456",
-    relationship_type="fulfills"  # or "supports", "contributes"
+    {"contribution_percentage": 0.1},
 )
-
-# Link to principle
-await service.link_to_principle("task:123", "principle:789", alignment_score=0.85)
-
-# Link to habit
-await service.link_to_habit("task:123", "habit:abc", reinforcement_type="practice")
 ```
+
+Each Activity/Curriculum facade exposes domain-named wrappers (`link_task_to_goal`,
+`link_choice_to_habit`, …) that supply the explicit key. The (facade, key) coverage is
+guarded by `tests/test_cross_domain_link_keys.py`; the real-Neo4j round-trips live in
+`tests/integration/test_relationship_link_roundtrip.py`.
 
 ### Semantic Operations (4 methods)
 
@@ -567,10 +572,10 @@ context = await tasks_service.get_cross_domain_context_typed(task_uid)
 | Old Method | New Method |
 |------------|------------|
 | `get_task_knowledge()` | `get_related_uids("knowledge", uid)` |
-| `get_task_goals()` | `get_related_uids("goal", uid)` |
+| `get_task_goals()` | `get_related_uids("contributes_to_goal", uid)` |
 | `get_task_dependencies()` | `get_task_dependencies_for_user(uid, context)` (context-enriched, supports transitive via `include_transitive=True, max_depth=N`) |
 | `get_task_cross_domain_context()` | `get_cross_domain_context_typed(uid)` |
-| `create_knowledge_link()` | `link_to_knowledge(uid, ku_uid, ...)` |
+| `create_knowledge_link()` | `create_relationship("knowledge", uid, ku_uid, props)` |
 | `TaskRelationships.fetch()` | `fetch_all_relationships(uid)` |
 
 ---

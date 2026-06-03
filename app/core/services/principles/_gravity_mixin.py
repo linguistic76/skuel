@@ -11,7 +11,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
@@ -28,6 +28,18 @@ class _GravityMixin:
     # Populated by PrinciplesService.__init__
     relationships: Any
     logger: Any
+
+    # Maps a public link_type to its PRINCIPLES_CONFIG relationship method key.
+    # Single source for both create_principle_link (write) and get_principle_links
+    # (read) so the two can never drift to different keys. Each value must be a real
+    # method_key in PRINCIPLES_CONFIG — guarded by tests/test_cross_domain_link_keys.py.
+    _LINK_TYPE_MAP: ClassVar[dict[str, str]] = {
+        "goal": "guided_goals",
+        "habit": "inspired_habits",
+        "knowledge": "knowledge",
+        "principle": "supporting_principles",
+        "choice": "guided_choices",
+    }
 
     # ========================================================================
     # USER-PRINCIPLE RELATIONSHIP
@@ -51,9 +63,9 @@ class _GravityMixin:
     async def link_principle_to_knowledge(
         self, principle_uid: str, knowledge_uid: str, relevance: str = "fundamental"
     ) -> Result[bool]:
-        """Link principle to knowledge it's based on."""
-        return await self.relationships.link_to_knowledge(
-            principle_uid, knowledge_uid, relevance=relevance
+        """Link principle to knowledge it's grounded in (``GROUNDED_IN_KNOWLEDGE``)."""
+        return await self.relationships.create_relationship(
+            "knowledge", principle_uid, knowledge_uid, {"relevance": relevance}
         )
 
     # ========================================================================
@@ -98,19 +110,14 @@ class _GravityMixin:
             )
 
         # Map link_type to PRINCIPLES_CONFIG relationship config key
-        link_type_map = {
-            "goal": "guided_goals",
-            "habit": "inspired_habits",
-            "knowledge": "grounding_knowledge",
-            "principle": "supporting_principles",
-            "choice": "guided_choices",
-        }
-
-        config_key = link_type_map.get(link_type)
+        config_key = self._LINK_TYPE_MAP.get(link_type)
         if not config_key:
             return Result.fail(
                 Errors.validation(
-                    message=f"Unknown link_type: {link_type}. Valid: {', '.join(link_type_map)}",
+                    message=(
+                        f"Unknown link_type: {link_type}. "
+                        f"Valid: {', '.join(self._LINK_TYPE_MAP)}"
+                    ),
                     field="link_type",
                 )
             )
@@ -153,21 +160,15 @@ class _GravityMixin:
         Returns:
             Result with list of link dicts containing target info
         """
-        # Map link_type to config keys
-        link_type_map = {
-            "goal": "guided_goals",
-            "habit": "inspired_habits",
-            "knowledge": "grounding_knowledge",
-            "principle": "supporting_principles",
-            "choice": "guided_choices",
-        }
-
         if link_type:
-            config_key = link_type_map.get(link_type)
+            config_key = self._LINK_TYPE_MAP.get(link_type)
             if not config_key:
                 return Result.fail(
                     Errors.validation(
-                        message=f"Unknown link_type: {link_type}. Valid: {', '.join(link_type_map)}",
+                        message=(
+                            f"Unknown link_type: {link_type}. "
+                            f"Valid: {', '.join(self._LINK_TYPE_MAP)}"
+                        ),
                         field="link_type",
                     )
                 )
@@ -180,7 +181,7 @@ class _GravityMixin:
 
         # No filter — get all link types
         all_links: list[dict[str, Any]] = []
-        for lt, config_key in link_type_map.items():
+        for lt, config_key in self._LINK_TYPE_MAP.items():
             uids_result = await self.relationships.get_related_uids(config_key, principle_uid)
             if uids_result.is_error:
                 continue  # Skip failed queries, return what we can

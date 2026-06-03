@@ -25,6 +25,7 @@ from typing import Any
 
 from core.models.enums import Domain
 from core.models.protocols.domain_model_protocol import DTOProtocol
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.utils.decorators import with_error_handling
@@ -211,59 +212,39 @@ class RelationshipCreator[T, DTO: DTOProtocol]:
         entity_uid: EntityUID,
         relationship_label: str,
         properties: dict[str, Any] | None = None,
-        backend_method: str | None = None,
     ) -> Result[bool]:
         """
-        Generic implementation of create_user_X_relationship() pattern.
+        Create a User→Entity edge of the given type, with optional edge properties.
 
-        Handles the complete user→entity relationship creation flow:
-        1. Call backend method to create User→Entity edge
-        2. Log success/failure
-        3. Return Result[bool]
-
-        Generic implementation for all domains via UnifiedRelationshipService.
+        Routes through the backend's **generic** ``create_user_relationship`` (defined on
+        every domain backend via ``_user_entity_mixin``), which honors both the relationship
+        type and the edge metadata. This replaced a dynamic dispatch to
+        ``create_user_{domain}_relationship`` that (a) existed for only four domains — so it
+        failed at runtime ("Backend method not found") for events/tasks, breaking event
+        attendees — and (b) where it did exist, those thin wrappers ignored both the
+        ``relationship_label`` (always wrote ``OWNS``) and ``properties`` (dropped them).
+        Same fail-class and fix as ``UnifiedRelationshipService.create_relationship`` (#197).
 
         Args:
             user_uid: User UID,
-            entity_uid: Entity UID (habit, goal, task, etc.),
-            relationship_label: Cypher relationship label (e.g., "HAS_HABIT", "ASSIGNED_TO"),
-            properties: Dict of relationship properties (e.g., {"commitment_level": "active"}),
-            backend_method: Optional backend method name (defaults to "create_user_{domain}_relationship")
+            entity_uid: Entity UID (habit, goal, task, event, etc.),
+            relationship_label: Cypher relationship label (e.g. "HAS_HABIT", "HAS_EVENT"),
+            properties: Optional edge properties (e.g. {"participation_type": "attendee"}),
 
         Returns:
             Result[bool] indicating success
-
-        Example:
-            ```python
-            # Usage example:
-            async def create_user_habit_relationship(
-                self, user_uid: UserUID, habit_uid: str, commitment_level: str = "active"
-            ) -> Result[bool]:
-                return await self.relationship_helper.create_user_relationship(
-                    user_uid=user_uid,
-                    entity_uid=habit_uid,
-                    relationship_label="HAS_HABIT",
-                    properties={"commitment_level": commitment_level},
-                )
-            ```
         """
-        # Step 1: Determine backend method name
-        if not backend_method:
-            # Default: create_user_{domain}_relationship
-            domain_name = self.domain.value  # e.g., "habits"
-            backend_method = f"create_user_{domain_name.rstrip('s')}_relationship"
-            # habits → create_user_habit_relationship
-            # goals → create_user_goal_relationship
-
-        # Step 2: Use generic create_relationship method
-        return await self.create_relationship(
-            backend_method=backend_method,
-            from_uid=user_uid,
-            to_uid=entity_uid,
-            relationship_label=relationship_label,
-            properties=properties,
-            log_message=f"Created {relationship_label} relationship: {user_uid} → {entity_uid}",
+        result: Result[bool] = await self.backend.create_user_relationship(
+            user_uid=user_uid,
+            entity_uid=entity_uid,
+            relationship_type=RelationshipName(relationship_label),
+            metadata=properties,
         )
+        if result.is_ok:
+            self.logger.info(
+                f"Created {relationship_label} relationship: {user_uid} → {entity_uid}"
+            )
+        return result
 
     @with_error_handling(error_type="database", uid_param="entity_uid")
     async def get_cross_domain_context(

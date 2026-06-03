@@ -41,7 +41,7 @@ class LinkMethodSpec:
     like link_task_to_knowledge(task_uid, ku_uid, knowledge_score_required=0.8).
     """
 
-    method_name: str  # e.g., "link_to_knowledge"
+    method_name: str  # e.g., "link_task_to_knowledge"
     target_domain: Domain  # e.g., Domain.KNOWLEDGE
     relationship: RelationshipName  # e.g., APPLIES_KNOWLEDGE
     # Parameter specifications: (name, type, default_value or None)
