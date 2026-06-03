@@ -1094,10 +1094,6 @@ class PrinciplesRelationshipOperations(BaseRelationshipOperations, Protocol):
         """
         ...
 
-    async def get_principle_goals(self, principle_uid: str) -> Result[builtins.list[str]]:
-        """Get goal UIDs guided by this principle."""
-        ...
-
     async def get_principle_choices(self, principle_uid: str) -> Result[builtins.list[str]]:
         """Get choice UIDs informed by this principle."""
         ...
