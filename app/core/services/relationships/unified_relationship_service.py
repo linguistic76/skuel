@@ -55,7 +55,7 @@ from core.models.relationship_registry import (
 from core.models.type_hints import EntityUID
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
-from core.services.infrastructure import RelationshipCreator, SemanticRelationshipLinker
+from core.services.infrastructure import SemanticRelationshipLinker
 from core.services.relationships._batch_operations_mixin import BatchOperationsMixin
 from core.services.relationships._intelligence_mixin import IntelligenceMixin
 from core.services.relationships._ordered_relationships_mixin import OrderedRelationshipsMixin
@@ -103,7 +103,6 @@ class UnifiedRelationshipService[
     ```
     UnifiedRelationshipService
     ├── DomainRelationshipConfig (from relationship registry — single source of truth)
-    ├── RelationshipCreator (cross-domain link creation)
     ├── SemanticRelationshipLinker (semantic relationship operations)
     └── GraphIntelligenceService (intent-based graph queries)
     ```
@@ -141,15 +140,6 @@ class UnifiedRelationshipService[
         self._dto_class = config.dto_class
         self._model_class = config.model_class
         self._backend_get_method = config.backend_get_method
-
-        # Initialize RelationshipCreator (always)
-        self.relationship_helper = RelationshipCreator[Model, DtoType](
-            service=self,
-            backend_get_method=config.backend_get_method,
-            dto_class=config.dto_class,
-            model_class=config.model_class,
-            domain=config.domain,
-        )
 
         # Initialize SemanticRelationshipLinker (optional)
         if config.use_semantic_helper:
@@ -344,19 +334,29 @@ class UnifiedRelationshipService[
         Returns:
             Result[bool] indicating success
         """
-        if not self.config.ownership_relationship:
+        ownership_relationship = self.config.ownership_relationship
+        if not ownership_relationship:
             return Result.fail(
                 Errors.validation(
                     f"No ownership relationship defined for {self.config.entity_label}"
                 )
             )
 
-        return await self.relationship_helper.create_user_relationship(
+        # Route through the backend's generic create_user_relationship (defined on every
+        # domain backend via _user_entity_mixin), which honors both the relationship type
+        # and the edge metadata. The ownership relationship is a registry-validated
+        # RelationshipName — no dynamic dispatch, no stringly-typed key (see #197/#205).
+        result: Result[bool] = await self.backend.create_user_relationship(
             user_uid=user_uid,
             entity_uid=entity_uid,
-            relationship_label=self.config.ownership_relationship.value,
-            properties=properties,
+            relationship_type=ownership_relationship,
+            metadata=properties,
         )
+        if result.is_ok:
+            self.logger.info(
+                f"Created {ownership_relationship.value} relationship: {user_uid} → {entity_uid}"
+            )
+        return result
 
     async def delete_user_relationship(
         self,
