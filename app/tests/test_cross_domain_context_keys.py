@@ -29,9 +29,12 @@ import pytest
 
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
+    EVENTS_CONFIG,
     GOAPS_CONFIG,
     HABITS_CONFIG,
+    KU_CONFIG,
     PRINCIPLES_CONFIG,
+    TASKS_CONFIG,
     DomainRelationshipConfig,
 )
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
@@ -123,6 +126,30 @@ FROM_DICT_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
     ("choice.informing_principle_uids", CHOICES_CONFIG, "guiding_principles"),
     ("choice.affected_goal_uids", CHOICES_CONFIG, "affected_goals"),
     ("choice.required_knowledge_uids", CHOICES_CONFIG, "informed_by_knowledge"),
+    # EventCrossContext.from_dict — supporting goals span CONTRIBUTES_TO_GOAL and the
+    # milestone CELEBRATES_GOAL; reinforcing habits span outgoing REINFORCES_HABIT and
+    # incoming PRACTICED_AT_EVENT; practiced knowledge is APPLIES_KNOWLEDGE.
+    ("event.supporting_goal_uids", EVENTS_CONFIG, "supported_goals"),
+    ("event.supporting_goal_uids", EVENTS_CONFIG, "celebrated_goals"),
+    ("event.reinforcing_habit_uids", EVENTS_CONFIG, "reinforced_habits"),
+    ("event.reinforcing_habit_uids", EVENTS_CONFIG, "practiced_habits"),
+    ("event.practicing_knowledge_uids", EVENTS_CONFIG, "applied_knowledge"),
+    # TaskCrossContext.from_dict — prerequisite tasks are DEPENDS_ON; contributing goals
+    # span CONTRIBUTES_TO_GOAL and the single FULFILLS_GOAL; principles are
+    # ALIGNED_WITH_PRINCIPLE; knowledge spans REQUIRES_KNOWLEDGE and APPLIES_KNOWLEDGE.
+    # (dependent_task_uids was dropped — its only bucket, incoming BLOCKED_BY, is dead;
+    # real dependents are incoming DEPENDS_ON with no TASKS_CONFIG bucket.)
+    ("task.prerequisite_task_uids", TASKS_CONFIG, "dependencies"),
+    ("task.required_knowledge_uids", TASKS_CONFIG, "required_knowledge"),
+    ("task.applied_knowledge_uids", TASKS_CONFIG, "applied_knowledge"),
+    ("task.contributing_goal_uids", TASKS_CONFIG, "contributing_goals"),
+    ("task.contributing_goal_uids", TASKS_CONFIG, "goal_context"),
+    ("task.aligned_principle_uids", TASKS_CONFIG, "aligned_principles"),
+    # KnowledgeCrossContext.from_dict — a Ku's only cross-domain reach is the PathSteps
+    # composing (USES_KU) or training (TRAINS_KU) it; activity/goal/prerequisite fields
+    # had no KU_CONFIG bucket and were dropped (see cross_domain_contexts.py).
+    ("knowledge.path_step_uids", KU_CONFIG, "used_by_steps"),
+    ("knowledge.path_step_uids", KU_CONFIG, "trained_by_steps"),
 ]
 
 
