@@ -246,7 +246,7 @@ class ActivityReportGeneratorBackend:
             MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
             WHERE ar.entity_type = 'activity_report'
               AND (ar.user_annotation IS NOT NULL OR ar.user_revision IS NOT NULL)
-              AND ar.period_end < datetime($period_start)
+              AND datetime(ar.period_end) < datetime($period_start)
             RETURN COALESCE(ar.user_annotation, ar.user_revision) AS annotation
             ORDER BY ar.period_end DESC
             LIMIT 1

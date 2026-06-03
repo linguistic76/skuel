@@ -81,7 +81,11 @@ class _TemporalMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            # Builders RETURN n; result.data() wraps each node under "n" — unwrap to
+            # flat property dicts so _to_domain_models can deserialize (matches the
+            # record["e"] idiom in get_events_in_range). Without this, every field is
+            # None and user-owned conversion raises "user_uid is None".
+            return Result.ok([row["n"] for row in await result.data()])
 
     @safe_backend_operation("upcoming_raw")
     async def upcoming_raw(
@@ -122,7 +126,11 @@ class _TemporalMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            # Builders RETURN n; result.data() wraps each node under "n" — unwrap to
+            # flat property dicts so _to_domain_models can deserialize (matches the
+            # record["e"] idiom in get_events_in_range). Without this, every field is
+            # None and user-owned conversion raises "user_uid is None".
+            return Result.ok([row["n"] for row in await result.data()])
 
     @safe_backend_operation("active_raw")
     async def active_raw(
@@ -154,7 +162,11 @@ class _TemporalMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            # Builders RETURN n; result.data() wraps each node under "n" — unwrap to
+            # flat property dicts so _to_domain_models can deserialize (matches the
+            # record["e"] idiom in get_events_in_range). Without this, every field is
+            # None and user-owned conversion raises "user_uid is None".
+            return Result.ok([row["n"] for row in await result.data()])
 
     @safe_backend_operation("overdue_raw")
     async def overdue_raw(
@@ -192,4 +204,8 @@ class _TemporalMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            # Builders RETURN n; result.data() wraps each node under "n" — unwrap to
+            # flat property dicts so _to_domain_models can deserialize (matches the
+            # record["e"] idiom in get_events_in_range). Without this, every field is
+            # None and user-owned conversion raises "user_uid is None".
+            return Result.ok([row["n"] for row in await result.data()])
