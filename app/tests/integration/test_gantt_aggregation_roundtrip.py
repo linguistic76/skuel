@@ -101,9 +101,20 @@ class TestGanttAggregationRoundTrip:
             )
         ).value
 
+        # A DIFFERENT user's task linked to the same goal UID must NOT leak into the
+        # response — get_tasks_for_goal is not user-scoped, so the service must filter.
+        other = await self._user(neo4j_driver, "user_gantt_intruder")
+        foreign = (
+            await services.tasks.create_task(
+                TaskCreateRequest(title="Foreign task", due_date=soon, fulfills_goal_uid=goal.uid),
+                other,
+            )
+        ).value
+
         result = await self._vis(services).get_goal_gantt_data(user_uid=user, goal_uid=goal.uid)
         assert result.is_ok, f"get_goal_gantt_data failed: {result}"
 
         ids = {t["id"] for t in result.value["tasks"]}
         assert goal.uid in ids  # the goal bar itself
         assert task.uid in ids  # its fulfilling task — absent under the old phantom call
+        assert foreign.uid not in ids  # cross-user leak guard (Codex P1)

@@ -300,10 +300,13 @@ class VisualizationAggregationService:
 
         # Tasks fulfilling the goal traverse (Task)-[:FULFILLS_GOAL]->(Goal);
         # get_tasks_for_goal returns full Task models, which format_goal_gantt needs.
+        # get_tasks_for_goal is NOT user-scoped (find_by on fulfills_goal_uid only), so
+        # filter to the authenticated owner — a foreign task linked to this goal UID must
+        # not leak its title/dates/status into the response (user-owned read invariant).
         tasks: list[Any] = []
         tasks_result = await self.tasks_service.get_tasks_for_goal(goal_uid)
         if tasks_result.is_ok:
-            tasks = tasks_result.value or []
+            tasks = [t for t in (tasks_result.value or []) if t.user_uid == user_uid]
 
         return self.vis.format_goal_gantt(goal_result.value, tasks)
 
