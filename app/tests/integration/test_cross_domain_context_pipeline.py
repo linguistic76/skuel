@@ -30,16 +30,21 @@ from neo4j import AsyncSession
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_registry import (
+    CHOICES_CONFIG,
     GOAPS_CONFIG,
     HABITS_CONFIG,
     PRINCIPLES_CONFIG,
 )
 from core.services.intelligence.cross_domain_contexts import (
+    ChoiceCrossContext,
     GoalCrossContext,
     HabitCrossContext,
     PrincipleCrossContext,
 )
-from core.services.intelligence.metrics_calculators import calculate_goal_metrics
+from core.services.intelligence.metrics_calculators import (
+    calculate_choice_metrics,
+    calculate_goal_metrics,
+)
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 P = "xdctx_"  # uid prefix for this module's fixture graph
@@ -394,3 +399,102 @@ async def test_depth_surfaces_transitive_node_correctly_attributed(
     by_uid = {e["uid"]: e["distance"] for e in d2.value["supported_goals"]}
     assert by_uid[T_NEAR_GOAL] == 1
     assert by_uid[T_FAR_GOAL] == 2
+
+
+# uid prefix for the Choice cross-context graph (PR A1 — key realignment).
+C = "xdctx_choice_"
+C_CHOICE = C + "choice"
+C_CHOICE_BARE = C + "choice_bare"  # negative control: no cross-domain edges
+C_PRIN_OUT = C + "principle_out"  # choice -[INFORMED_BY_PRINCIPLE]-> (aligned_principles)
+C_PRIN_IN = C + "principle_in"  # (principle) -[GUIDES_CHOICE]-> choice (guiding_principles)
+C_GOAL = C + "goal"
+C_KU = C + "ku"
+
+
+@pytest.mark.asyncio
+async def test_choice_cross_domain_context_round_trip(neo4j_driver, rel_backend, clean_neo4j):
+    """Seeded choice edges surface through the realigned ChoiceCrossContext.from_dict.
+
+    Pre-fix, ``from_dict`` read generic keys (``principles``/``supporting_goals``/
+    ``conflicting_goals``/``knowledge``) that CHOICES_CONFIG never emits, so the typed
+    context was empty regardless of the graph. The realignment reads the real
+    ``context_field_name`` buckets: informing principles span BOTH the outgoing
+    INFORMED_BY_PRINCIPLE (``aligned_principles``) and incoming GUIDES_CHOICE
+    (``guiding_principles``) edges; goals come from the single AFFECTS_GOAL
+    (``affected_goals``); knowledge from INFORMED_BY_KNOWLEDGE
+    (``informed_by_knowledge``). There is no conflicting-goal edge, so that field
+    was dropped rather than wired to a bucket nothing emits.
+    """
+    async with neo4j_driver.session() as s:
+        for uid, label, etype in [
+            (C_CHOICE, "Choice", "choice"),
+            (C_PRIN_OUT, "Principle", "principle"),
+            (C_PRIN_IN, "Principle", "principle"),
+            (C_GOAL, "Goal", "goal"),
+        ]:
+            await s.run(
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+        await s.run(
+            "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=C_KU
+        )
+        for a, rel, b in [
+            (C_CHOICE, "INFORMED_BY_PRINCIPLE", C_PRIN_OUT),  # outgoing -> aligned_principles
+            (C_PRIN_IN, "GUIDES_CHOICE", C_CHOICE),  # incoming -> guiding_principles
+            (C_CHOICE, "AFFECTS_GOAL", C_GOAL),  # -> affected_goals
+            (C_CHOICE, "INFORMED_BY_KNOWLEDGE", C_KU),  # -> informed_by_knowledge
+        ]:
+            await s.run(
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
+                a=a,
+                b=b,
+            )
+
+    choice_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=CHOICES_CONFIG, graph_intel=None
+    )
+    res = await choice_rel.get_cross_domain_context(C_CHOICE, depth=1, min_confidence=0.7)
+    assert res.is_ok, res
+    ctx = ChoiceCrossContext.from_dict(res.value)
+
+    # Informing principles UNION both directions (outgoing INFORMED_BY_PRINCIPLE +
+    # incoming GUIDES_CHOICE) — the bug that left this empty is exactly the dead
+    # incoming bucket now activated by the always-bidirectional traversal.
+    assert set(ctx.informing_principle_uids) == {C_PRIN_OUT, C_PRIN_IN}
+    assert ctx.affected_goal_uids == [C_GOAL]
+    assert ctx.required_knowledge_uids == [C_KU]
+
+    metrics = calculate_choice_metrics(None, ctx)
+    assert metrics["principle_guidance_count"] == 2
+    assert metrics["affected_goal_count"] == 1
+    assert metrics["knowledge_grounding_count"] == 1
+    assert metrics["is_principled"] is True
+    assert metrics["affects_goals"] is True
+    assert metrics["decision_clarity_score"] == 1.0  # principled AND knowledge-grounded
+
+
+@pytest.mark.asyncio
+async def test_choice_cross_domain_context_empty_when_no_edges(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """Negative control: a choice with no cross-domain edges yields an empty context."""
+    async with neo4j_driver.session() as s:
+        await s.run(
+            "CREATE (:Entity:Choice {uid:$u, entity_type:'choice', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=C_CHOICE_BARE,
+        )
+
+    choice_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=CHOICES_CONFIG, graph_intel=None
+    )
+    res = await choice_rel.get_cross_domain_context(C_CHOICE_BARE, depth=1, min_confidence=0.7)
+    assert res.is_ok, res
+    ctx = ChoiceCrossContext.from_dict(res.value)
+    assert ctx.informing_principle_uids == []
+    assert ctx.affected_goal_uids == []
+    assert ctx.required_knowledge_uids == []
+    assert calculate_choice_metrics(None, ctx)["affected_goal_count"] == 0
