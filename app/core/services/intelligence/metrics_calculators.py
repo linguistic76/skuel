@@ -41,7 +41,6 @@ def calculate_task_metrics(task: Any, context: TaskCrossContext) -> dict[str, An
 
     Metrics produced:
     - prerequisite_count: Number of prerequisite tasks
-    - dependent_count: Number of dependent tasks
     - knowledge_coverage: Total knowledge connections
     - goal_support_count: Number of goals this task supports
     - principle_alignment_count: Number of aligned principles
@@ -71,7 +70,6 @@ def calculate_task_metrics(task: Any, context: TaskCrossContext) -> dict[str, An
 
     return {
         "prerequisite_count": len(context.prerequisite_task_uids),
-        "dependent_count": len(context.dependent_task_uids),
         "knowledge_coverage": context.total_knowledge_count(),
         "required_knowledge_count": len(context.required_knowledge_uids),
         "applied_knowledge_count": len(context.applied_knowledge_uids),

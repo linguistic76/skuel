@@ -612,7 +612,6 @@ TK = "xdctx_task_"
 TK_TASK = TK + "task"
 TK_TASK_BARE = TK + "task_bare"  # negative control: no cross-domain edges
 TK_PREREQ = TK + "prereq_task"  # task -[DEPENDS_ON]-> (dependencies)
-TK_DEPENDENT = TK + "dependent_task"  # (other) -[BLOCKED_BY]-> task (dependents)
 TK_KU_REQ = TK + "ku_required"  # task -[REQUIRES_KNOWLEDGE]-> (required_knowledge)
 TK_KU_APP = TK + "ku_applied"  # task -[APPLIES_KNOWLEDGE]-> (applied_knowledge)
 TK_GOAL_CONTRIB = TK + "goal_contrib"  # task -[CONTRIBUTES_TO_GOAL]-> (contributing_goals)
@@ -624,20 +623,21 @@ TK_PRINCIPLE = TK + "principle"  # task -[ALIGNED_WITH_PRINCIPLE]-> (aligned_pri
 async def test_task_cross_domain_context_round_trip(neo4j_driver, rel_backend, clean_neo4j):
     """Seeded task edges surface through the realigned TaskCrossContext.from_dict.
 
-    Pre-fix, ``from_dict`` read generic keys (``prerequisite_tasks``/``dependent_tasks``/
-    ``goals``/``principles``) that TASKS_CONFIG never emits, so those fields were empty.
-    The realignment reads the real ``context_field_name`` buckets: prerequisite tasks are
-    DEPENDS_ON (``dependencies``); dependent tasks are the incoming BLOCKED_BY
-    (``dependents``); contributing goals span CONTRIBUTES_TO_GOAL (``contributing_goals``)
-    and the single FULFILLS_GOAL (``goal_context``); aligned principles are
-    ALIGNED_WITH_PRINCIPLE (``aligned_principles``); knowledge spans REQUIRES_KNOWLEDGE
-    (``required_knowledge``) and APPLIES_KNOWLEDGE (``applied_knowledge``).
+    Pre-fix, ``from_dict`` read generic keys (``prerequisite_tasks``/``goals``/
+    ``principles``) that TASKS_CONFIG never emits, so those fields were empty. The
+    realignment reads the real ``context_field_name`` buckets: prerequisite tasks are
+    DEPENDS_ON (``dependencies``); contributing goals span CONTRIBUTES_TO_GOAL
+    (``contributing_goals``) and the single FULFILLS_GOAL (``goal_context``); aligned
+    principles are ALIGNED_WITH_PRINCIPLE (``aligned_principles``); knowledge spans
+    REQUIRES_KNOWLEDGE (``required_knowledge``) and APPLIES_KNOWLEDGE
+    (``applied_knowledge``). ``dependent_task_uids`` was dropped — its only bucket
+    (incoming BLOCKED_BY) is dead; real dependents are incoming DEPENDS_ON, which no
+    TASKS_CONFIG bucket surfaces (see test_dependents_bucket_is_dead_for_canonical_depends_on).
     """
     async with neo4j_driver.session() as s:
         for uid, label, etype in [
             (TK_TASK, "Task", "task"),
             (TK_PREREQ, "Task", "task"),
-            (TK_DEPENDENT, "Task", "task"),
             (TK_GOAL_CONTRIB, "Goal", "goal"),
             (TK_GOAL_FULFILL, "Goal", "goal"),
             (TK_PRINCIPLE, "Principle", "principle"),
@@ -655,7 +655,6 @@ async def test_task_cross_domain_context_round_trip(neo4j_driver, rel_backend, c
             )
         for a, rel, b in [
             (TK_TASK, "DEPENDS_ON", TK_PREREQ),  # -> dependencies
-            (TK_DEPENDENT, "BLOCKED_BY", TK_TASK),  # incoming -> dependents
             (TK_TASK, "REQUIRES_KNOWLEDGE", TK_KU_REQ),  # -> required_knowledge
             (TK_TASK, "APPLIES_KNOWLEDGE", TK_KU_APP),  # -> applied_knowledge
             (TK_TASK, "CONTRIBUTES_TO_GOAL", TK_GOAL_CONTRIB),  # -> contributing_goals
@@ -676,7 +675,6 @@ async def test_task_cross_domain_context_round_trip(neo4j_driver, rel_backend, c
     ctx = TaskCrossContext.from_dict(res.value)
 
     assert ctx.prerequisite_task_uids == [TK_PREREQ]
-    assert ctx.dependent_task_uids == [TK_DEPENDENT]
     assert ctx.required_knowledge_uids == [TK_KU_REQ]
     assert ctx.applied_knowledge_uids == [TK_KU_APP]
     # contributing goals UNION CONTRIBUTES_TO_GOAL + the single FULFILLS_GOAL.
@@ -685,7 +683,6 @@ async def test_task_cross_domain_context_round_trip(neo4j_driver, rel_backend, c
 
     metrics = calculate_task_metrics(None, ctx)
     assert metrics["prerequisite_count"] == 1
-    assert metrics["dependent_count"] == 1
     assert metrics["required_knowledge_count"] == 1
     assert metrics["applied_knowledge_count"] == 1
     assert metrics["goal_support_count"] == 2
@@ -712,10 +709,61 @@ async def test_task_cross_domain_context_empty_when_no_edges(
     assert res.is_ok, res
     ctx = TaskCrossContext.from_dict(res.value)
     assert ctx.prerequisite_task_uids == []
-    assert ctx.dependent_task_uids == []
     assert ctx.contributing_goal_uids == []
     assert ctx.aligned_principle_uids == []
     assert calculate_task_metrics(None, ctx)["prerequisite_count"] == 0
+
+
+# uid prefix for the dependents-bucket-is-dead guard.
+TD = "xdctx_taskdep_"
+TD_TASK = TD + "task"  # the depended-on task
+TD_DEPENDENT = TD + "dependent"  # task that DEPENDS_ON TD_TASK
+
+
+@pytest.mark.asyncio
+async def test_dependents_bucket_is_dead_for_canonical_depends_on(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """Why ``dependent_task_uids`` was dropped: the canonical DEPENDS_ON dependent is not
+    captured by any TASKS_CONFIG bucket.
+
+    ``create_task_dependency`` writes ``(dependent)-[:DEPENDS_ON]->(blocks)``, so a task's
+    dependents are its INCOMING DEPENDS_ON edges. TASKS_CONFIG's ``dependents`` bucket,
+    however, reads incoming BLOCKED_BY — an edge the canonical path never writes — so the
+    real dependent never lands in ``dependents``. This test seeds the canonical edge and
+    asserts the bucket stays empty: reading it (as the pre-drop realignment did) would
+    silently report zero dependents. Restore the field only with an incoming-DEPENDS_ON
+    TASKS_CONFIG mapping that actually surfaces these edges.
+    """
+    async with neo4j_driver.session() as s:
+        for uid in (TD_TASK, TD_DEPENDENT):
+            await s.run(
+                "CREATE (n:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+                "status:'active', created_at:datetime()})",
+                u=uid,
+            )
+        # Canonical dependency edge: (dependent)-[:DEPENDS_ON]->(blocks).
+        await s.run(
+            "MATCH (d {uid:$d}),(b {uid:$b}) CREATE (d)-[:DEPENDS_ON {confidence:0.95}]->(b)",
+            d=TD_DEPENDENT,
+            b=TD_TASK,
+        )
+
+    task_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=TASKS_CONFIG, graph_intel=None
+    )
+    # From TD_TASK's perspective, TD_DEPENDENT is a dependent (incoming DEPENDS_ON).
+    res = await task_rel.get_cross_domain_context(TD_TASK, depth=1, min_confidence=0.7)
+    assert res.is_ok, res
+    raw = res.value
+
+    # The BLOCKED_BY-incoming ``dependents`` bucket does NOT capture the DEPENDS_ON
+    # dependent — confirming the dropped field would have been silently empty.
+    dependents_bucket = [e["uid"] for e in raw.get("dependents") or []]
+    assert TD_DEPENDENT not in dependents_bucket, (
+        "dependents bucket unexpectedly captured a DEPENDS_ON dependent — TASKS_CONFIG "
+        "may have gained an incoming-DEPENDS_ON mapping; restore dependent_task_uids."
+    )
 
 
 # uid prefix for the Knowledge (Ku) cross-context graph (key realignment, Option A).

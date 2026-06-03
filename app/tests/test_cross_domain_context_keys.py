@@ -134,12 +134,12 @@ FROM_DICT_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
     ("event.reinforcing_habit_uids", EVENTS_CONFIG, "reinforced_habits"),
     ("event.reinforcing_habit_uids", EVENTS_CONFIG, "practiced_habits"),
     ("event.practicing_knowledge_uids", EVENTS_CONFIG, "applied_knowledge"),
-    # TaskCrossContext.from_dict — prerequisite tasks are DEPENDS_ON; dependent tasks are
-    # incoming BLOCKED_BY; contributing goals span CONTRIBUTES_TO_GOAL and the single
-    # FULFILLS_GOAL; principles are ALIGNED_WITH_PRINCIPLE; knowledge spans
-    # REQUIRES_KNOWLEDGE and APPLIES_KNOWLEDGE.
+    # TaskCrossContext.from_dict — prerequisite tasks are DEPENDS_ON; contributing goals
+    # span CONTRIBUTES_TO_GOAL and the single FULFILLS_GOAL; principles are
+    # ALIGNED_WITH_PRINCIPLE; knowledge spans REQUIRES_KNOWLEDGE and APPLIES_KNOWLEDGE.
+    # (dependent_task_uids was dropped — its only bucket, incoming BLOCKED_BY, is dead;
+    # real dependents are incoming DEPENDS_ON with no TASKS_CONFIG bucket.)
     ("task.prerequisite_task_uids", TASKS_CONFIG, "dependencies"),
-    ("task.dependent_task_uids", TASKS_CONFIG, "dependents"),
     ("task.required_knowledge_uids", TASKS_CONFIG, "required_knowledge"),
     ("task.applied_knowledge_uids", TASKS_CONFIG, "applied_knowledge"),
     ("task.contributing_goal_uids", TASKS_CONFIG, "contributing_goals"),

@@ -53,11 +53,19 @@ class TaskCrossContext:
 
     Contains UIDs of related entities across domains:
     - prerequisite_task_uids: Tasks that must be completed first
-    - dependent_task_uids: Tasks that depend on this task
     - required_knowledge_uids: Knowledge needed to complete task
     - applied_knowledge_uids: Knowledge this task applies/practices
     - contributing_goal_uids: Goals this task fulfills
     - aligned_principle_uids: Principles this task aligns with
+
+    Note: there is no ``dependent_task_uids`` (the reverse "tasks that depend on this").
+    The canonical dependency writer (``create_task_dependency``) writes
+    ``(dependent)-[:DEPENDS_ON]->(blocks)``, so a task's dependents are its INCOMING
+    DEPENDS_ON edges — but TASKS_CONFIG exposes no incoming-DEPENDS_ON bucket (its
+    ``dependents`` bucket reads incoming BLOCKED_BY, which the canonical path never
+    writes). Rather than read a structurally dead bucket, the field was dropped. Restore
+    it only alongside an incoming-DEPENDS_ON mapping on TASKS_CONFIG that actually
+    surfaces those edges.
 
     Usage:
         context_dict = await relationships.get_task_cross_domain_context(uid)
@@ -67,7 +75,6 @@ class TaskCrossContext:
     """
 
     prerequisite_task_uids: list[str] = field(default_factory=list)
-    dependent_task_uids: list[str] = field(default_factory=list)
     required_knowledge_uids: list[str] = field(default_factory=list)
     applied_knowledge_uids: list[str] = field(default_factory=list)
     contributing_goal_uids: list[str] = field(default_factory=list)
@@ -78,16 +85,14 @@ class TaskCrossContext:
         """Extract typed context from a get_cross_domain_context() response.
 
         Keys are the TASKS_CONFIG ``context_field_name`` buckets, NOT generic domain
-        names. Prerequisite tasks are DEPENDS_ON (``dependencies``); dependent tasks are
-        the incoming BLOCKED_BY (``dependents``); contributing goals span
-        CONTRIBUTES_TO_GOAL (``contributing_goals``) and the single FULFILLS_GOAL
+        names. Prerequisite tasks are DEPENDS_ON (``dependencies``); contributing goals
+        span CONTRIBUTES_TO_GOAL (``contributing_goals``) and the single FULFILLS_GOAL
         (``goal_context``); aligned principles are ALIGNED_WITH_PRINCIPLE
         (``aligned_principles``); knowledge spans REQUIRES_KNOWLEDGE
         (``required_knowledge``) and APPLIES_KNOWLEDGE (``applied_knowledge``).
         """
         return cls(
             prerequisite_task_uids=_uids(context_dict, "dependencies"),
-            dependent_task_uids=_uids(context_dict, "dependents"),
             required_knowledge_uids=_uids(context_dict, "required_knowledge"),
             applied_knowledge_uids=_uids(context_dict, "applied_knowledge"),
             contributing_goal_uids=_uids(context_dict, "contributing_goals", "goal_context"),
