@@ -46,9 +46,12 @@ comes from*.
   (`graph_intelligence_service.py:504`) applies `QueryIntent.RELATIONSHIP` (its docstring: "uses
   RELATIONSHIP intent"). `RELATIONSHIP` is *also* an else-branch intent (no edge filter), so the
   practical result matches A — an unfiltered neighborhood — but the intent value and code path differ.
-  **Caveat:** the only caller wired to mechanism C is the Events facade, and that call is **currently
-  broken** — see the table note below. `get_entity_context` itself works when called with its real
-  signature (`entity_uid`, `depth`).
+  **Caveat:** `get_entity_context` has several live, correct consumers —
+  `ActivityKnowledgeIntelligenceService.discover_learning_opportunities`
+  (`activity_knowledge_intelligence_service.py:292`) and the `core/utils/intelligence_queries.py`
+  helpers (lines 76, 284) all call it with the real signature (`entity_uid`, `depth`) and work. Among
+  the per-domain context *facades*, only Events is wired to mechanism C, and **that one call is broken**
+  — see the table note below.
 
 ### Which facade reaches which mechanism (verified 2026-06-04)
 
