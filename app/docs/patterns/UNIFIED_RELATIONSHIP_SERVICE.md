@@ -515,6 +515,22 @@ edge **incident to it** (its last hop), not by any earlier edge in the path:
   `Entity` bucket is the catch-all), so e.g. a Task reinforcing a habit lands in
   `reinforcing_tasks`, not the catch-all `reinforcing_habits`.
 
+> ⚠️ **Buckets are NOT de-duped by uid — a node can recur once per path.** The producer
+> Cypher does `collect(DISTINCT {uid, distance, path_strength, via_relationships, …})` —
+> DISTINCT over the **whole path-metadata map**, not the uid. So at `depth ≥ 2` a node
+> reachable by several distinct paths appears **once per path** in its bucket, each entry
+> carrying that path's own `distance`/`path_strength`. Consumers MUST de-dup by uid:
+> - **uid-only consumers** (the `*CrossContext.from_dict` family-A types) use the
+>   `_uids()` helper in `cross_domain_contexts.py` — it drops all metadata, so duplicates
+>   collapse for free.
+> - **path-metadata consumers** (e.g. the path-aware `ChoiceCrossContext` family built in
+>   `choices/_core_intelligence_mixin.py`) must de-dup AND pick the **strongest** entry
+>   per uid (lowest `distance`, then highest `path_strength`) — the query has **no
+>   `ORDER BY`**, so first-seen is not the direct/closest path. Keeping the wrong entry
+>   misreports `distance`, `path_strength`, direct-connection counts, max path depth, and
+>   the direct-vs-indirect cascade split (counts also inflate if you skip de-dup entirely).
+>   See `_union_buckets` / `_path_rank` in `choices/_core_intelligence_mixin.py` (PR #218).
+
 See: `core/services/relationships/_intelligence_mixin.py` (`get_cross_domain_context`,
 `_incident_matches`, `_generic_label_last`) and `build_domain_context_with_paths` in
 `adapters/persistence/neo4j/query/cypher/semantic_queries.py`.
