@@ -862,7 +862,8 @@ total_knowledge = rels.total_knowledge_count()   # Knowledge + required
 
 Uses typed context retrieval with:
 - `ChoiceCrossContext` - Type-safe field access
-- `supporting_goals`, `conflicting_goals` - Separated goal relationships
+- `affected_goals` - the single polarity-free `AFFECTS_GOAL` relationship (there is no
+  supporting-vs-conflicting goal split; no conflicting-goal edge exists)
 - Cascade impact calculation
 - Path-aware recommendation generation
 
