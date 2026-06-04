@@ -46,6 +46,9 @@ comes from*.
   (`graph_intelligence_service.py:504`) applies `QueryIntent.RELATIONSHIP` (its docstring: "uses
   RELATIONSHIP intent"). `RELATIONSHIP` is *also* an else-branch intent (no edge filter), so the
   practical result matches A — an unfiltered neighborhood — but the intent value and code path differ.
+  **Caveat:** the only caller wired to mechanism C is the Events facade, and that call is **currently
+  broken** — see the table note below. `get_entity_context` itself works when called with its real
+  signature (`entity_uid`, `depth`).
 
 ### Which facade reaches which mechanism (verified 2026-06-04)
 
@@ -58,7 +61,13 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 | `HabitsService.get_habit_with_context` | `self.intelligence` → loader | **A** | `EXPLORATORY` |
 | `ChoicesService.get_choice_with_context` | `self.intelligence` → loader | **A** | `EXPLORATORY` |
 | `PrinciplesService.get_principle_with_context` | `self.intelligence` → loader | **A** | `EXPLORATORY` |
-| `EventsService.get_event_with_context` | `self.intelligence` → `get_entity_context` | **C** | `RELATIONSHIP` |
+| `EventsService.get_event_with_context` | `self.intelligence` → `get_entity_context` | **C** (intended) | **errors today** ⚠️ |
+
+> ⚠️ **The Events facade context path is broken today.** `events/_core_intelligence_mixin.py:78` calls
+> `get_entity_context(entity_uid=uid, entity_type="Entity", depth=depth)`, but `get_entity_context`
+> accepts only `(entity_uid, depth)` (no `entity_type`, no `**kwargs`) — so the call raises `TypeError`
+> before any traversal runs. Mechanism C *would* apply `RELATIONSHIP` if the call matched the
+> signature. This is a latent bug to fix separately (out of scope for this doc PR).
 
 > The `/api/<domain>/context` routes (`IntelligenceRouteFactory`) call the **intelligence service's**
 > `get_with_context`, which can resolve to a *different* method than the same domain's facade — e.g.
@@ -81,8 +90,8 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 > ⚠️ **Live defects the convergence roadmap targets.**
 > 1. **The intent wiring is inconsistent and mostly bypasses the config.** Of the six facade
 >    convenience methods, only Tasks (mechanism B) applies its config intent; four run unfiltered
->    `EXPLORATORY` and Events runs unfiltered `RELATIONSHIP`. So the "specialized" per-domain intents
->    reach almost no caller.
+>    `EXPLORATORY`; and the Events facade path **errors** (bad `get_entity_context` kwarg, above). So
+>    the "specialized" per-domain intents reach almost no caller.
 > 2. **Even on mechanism B, Choice/Principle surface ~nothing.** They resolve to `HIERARCHICAL`
 >    (`HAS_CHILD/PARENT_OF/CHILD_OF`) — tree edges those domains almost never write — so the traversal
 >    misses their real neighbors (`AFFECTS_GOAL`, `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE`,
@@ -180,8 +189,9 @@ class UnifiedRelationshipService[Ops, Model, DtoType](...):
 
 Most intelligence-service `get_with_context` paths (and the Goals/Habits/Choices/Principles facades)
 load context through this. With no explicit `intent`, it uses `entity.get_suggested_query_intent()` —
-which for every Activity Domain is the inherited `EXPLORATORY` (no edge filter). (`EventsService` uses
-mechanism C — `get_entity_context` → `RELATIONSHIP` — instead.)
+which for every Activity Domain is the inherited `EXPLORATORY` (no edge filter). (`EventsService` is
+wired to mechanism C — `get_entity_context` → `RELATIONSHIP` — instead, but that call is broken today;
+see the facade table note.)
 
 ```python
 async def get_with_context(self, uid, depth=2, intent: QueryIntent | None = None):
@@ -205,7 +215,8 @@ self.relationships = UnifiedRelationshipService(            # Mechanism B (confi
     backend=backend, config=DOMAIN_CONFIG, graph_intel=graph_intel
 )
 # get_<domain>_with_context(): Tasks → self.relationships (B); Goals/Habits/Choices/Principles →
-#   self.intelligence → GraphContextLoader (A, EXPLORATORY); Events → get_entity_context (C, RELATIONSHIP).
+#   self.intelligence → GraphContextLoader (A, EXPLORATORY); Events → get_entity_context (C, intended) —
+#   the Events call is broken today (passes an unsupported entity_type= kwarg → TypeError).
 ```
 
 ## Intent clause vocabularies
@@ -259,9 +270,10 @@ behavior. They are listed here only so the gap is visible.
 
 Each facade exposes a thin `get_<domain>_with_context()` convenience method, but they route to
 different mechanisms (see the verified table above): **Tasks → B** (`PREREQUISITE`),
-**Goals/Habits/Choices/Principles → A** (`GraphContextLoader` → `EXPLORATORY`), **Events → C**
-(`get_entity_context` → `RELATIONSHIP`). There is **no** bespoke per-domain "analysis method"
-(`get_goal_achievement_analysis`, `get_principle_embodiment_analysis`, etc. do not exist).
+**Goals/Habits/Choices/Principles → A** (`GraphContextLoader` → `EXPLORATORY`), **Events → C intended**
+but **broken today** (`get_entity_context` called with an unsupported `entity_type=` kwarg → `TypeError`).
+There is **no** bespoke per-domain "analysis method" (`get_goal_achievement_analysis`,
+`get_principle_embodiment_analysis`, etc. do not exist).
 
 ## Usage
 
