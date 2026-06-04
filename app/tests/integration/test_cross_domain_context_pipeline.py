@@ -28,6 +28,7 @@ import pytest
 from neo4j import AsyncSession
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.choice.choice import Choice
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
@@ -37,6 +38,9 @@ from core.models.relationship_registry import (
     KU_CONFIG,
     PRINCIPLES_CONFIG,
     TASKS_CONFIG,
+)
+from core.services.choices._core_intelligence_mixin import (
+    _CoreIntelligenceMixin as ChoiceCoreIntelMixin,
 )
 from core.services.intelligence.cross_domain_contexts import (
     ChoiceCrossContext,
@@ -54,9 +58,12 @@ from core.services.intelligence.metrics_calculators import (
     calculate_knowledge_metrics,
     calculate_task_metrics,
 )
+from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from core.utils.result_simplified import Result
 
 P = "xdctx_"  # uid prefix for this module's fixture graph
+
 GOAL = P + "goal"
 GOAL_BARE = P + "goal_bare"  # negative control: no cross-domain edges
 HABIT = P + "habit"
@@ -507,6 +514,145 @@ async def test_choice_cross_domain_context_empty_when_no_edges(
     assert ctx.affected_goal_uids == []
     assert ctx.required_knowledge_uids == []
     assert calculate_choice_metrics(None, ctx)["affected_goal_count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Family-B: the genuinely-LIVE pipeline behind /api/choices/insights.
+#
+# choices/_core_intelligence_mixin.py builds ChoiceImpactAnalysis / DecisionIntelligence
+# directly from get_cross_domain_context via path_helper.parse_*. Pre-fix it read the
+# same generic keys the family-A ChoiceCrossContext did (supporting_goals/conflicting_goals/
+# principles/knowledge) — buckets CHOICES_CONFIG never emits — so every parsed list was
+# empty and the insights endpoint returned a hollow analysis regardless of the graph.
+# These tests exercise the REAL mixin methods against a seeded graph.
+# ---------------------------------------------------------------------------
+
+FB = "xdctx_fb_"  # family-B uid prefix
+FB_CHOICE = FB + "choice"
+FB_CHOICE_BARE = FB + "choice_bare"
+FB_PRIN_OUT = FB + "principle_out"  # choice -[INFORMED_BY_PRINCIPLE]-> (aligned_principles)
+FB_PRIN_IN = FB + "principle_in"  # (principle) -[GUIDES_CHOICE]-> choice (guiding_principles)
+FB_GOAL = FB + "goal"
+FB_KU = FB + "ku"
+
+
+class _FakeChoiceBackend:
+    """Minimal backend exposing the single ``.get`` the mixin calls — returns a real Choice."""
+
+    def __init__(self, choice: Choice) -> None:
+        self._choice = choice
+
+    async def get(self, _uid: str) -> Result[Choice]:
+        return Result.ok(self._choice)
+
+
+class _ChoiceIntelHarness(ChoiceCoreIntelMixin):
+    """Wires the three attributes the mixin reads. ``graph_intel`` only needs to be truthy
+    (the ``@requires_graph_intelligence`` guard is its sole reader in these two methods)."""
+
+    def __init__(self, backend: _FakeChoiceBackend, relationships: Any) -> None:
+        self.backend = backend
+        self.relationships = relationships
+        self.path_helper = PathAwareAnalyzer()
+        self.graph_intel = object()
+
+
+async def _seed_choice_graph(neo4j_driver) -> None:
+    async with neo4j_driver.session() as s:
+        for uid, label, etype in [
+            (FB_CHOICE, "Choice", "choice"),
+            (FB_PRIN_OUT, "Principle", "principle"),
+            (FB_PRIN_IN, "Principle", "principle"),
+            (FB_GOAL, "Goal", "goal"),
+        ]:
+            await s.run(
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+        await s.run(
+            "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=FB_KU
+        )
+        for a, rel, b in [
+            (FB_CHOICE, "INFORMED_BY_PRINCIPLE", FB_PRIN_OUT),
+            (FB_PRIN_IN, "GUIDES_CHOICE", FB_CHOICE),
+            (FB_CHOICE, "AFFECTS_GOAL", FB_GOAL),
+            (FB_CHOICE, "INFORMED_BY_KNOWLEDGE", FB_KU),
+        ]:
+            await s.run(
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
+                a=a,
+                b=b,
+            )
+
+
+def _harness(neo4j_driver, rel_backend, choice_uid: str) -> _ChoiceIntelHarness:
+    choice = Choice(uid=choice_uid, title="Decide", user_uid="xdctx_user")
+    rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=CHOICES_CONFIG, graph_intel=None
+    )
+    return _ChoiceIntelHarness(_FakeChoiceBackend(choice), rels)
+
+
+@pytest.mark.asyncio
+async def test_analyze_choice_impact_populates_from_graph(neo4j_driver, rel_backend, clean_neo4j):
+    """analyze_choice_impact surfaces seeded goals + principles (the /api/choices/insights path)."""
+    await _seed_choice_graph(neo4j_driver)
+    svc = _harness(neo4j_driver, rel_backend, FB_CHOICE)
+
+    res = await svc.analyze_choice_impact(FB_CHOICE, depth=1, min_confidence=0.7)
+    assert res.is_ok, res
+    analysis = res.value
+
+    # AFFECTS_GOAL is polarity-free → the single goal lands in the affected set.
+    assert analysis.domain_impact.goals.count == 1
+    # Principles union both directions (INFORMED_BY_PRINCIPLE out + GUIDES_CHOICE in).
+    assert analysis.domain_impact.principles.count == 2
+    assert "goals" in analysis.impact_summary.domains_affected
+    assert "principles" in analysis.impact_summary.domains_affected
+    assert analysis.impact_summary.total_entities_affected == 3  # 1 goal + 2 principles
+
+
+@pytest.mark.asyncio
+async def test_get_decision_intelligence_populates_from_graph(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """get_decision_intelligence surfaces seeded goals, principles AND knowledge."""
+    await _seed_choice_graph(neo4j_driver)
+    svc = _harness(neo4j_driver, rel_backend, FB_CHOICE)
+
+    res = await svc.get_decision_intelligence(FB_CHOICE, min_confidence=0.7, depth=1)
+    assert res.is_ok, res
+    intel = res.value
+
+    assert [g.uid for g in intel.context.goals] == [FB_GOAL]
+    assert {p.uid for p in intel.context.principles} == {FB_PRIN_OUT, FB_PRIN_IN}
+    assert [k.uid for k in intel.context.knowledge] == [FB_KU]
+
+
+@pytest.mark.asyncio
+async def test_choice_intelligence_empty_when_no_edges(neo4j_driver, rel_backend, clean_neo4j):
+    """Negative control: a choice with no cross-domain edges yields empty impact/context."""
+    async with neo4j_driver.session() as s:
+        await s.run(
+            "CREATE (:Entity:Choice {uid:$u, entity_type:'choice', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=FB_CHOICE_BARE,
+        )
+    svc = _harness(neo4j_driver, rel_backend, FB_CHOICE_BARE)
+
+    impact = await svc.analyze_choice_impact(FB_CHOICE_BARE, depth=1, min_confidence=0.7)
+    assert impact.is_ok, impact
+    assert impact.value.domain_impact.goals.count == 0
+    assert impact.value.domain_impact.principles.count == 0
+    assert impact.value.impact_summary.total_entities_affected == 0
+
+    intel = await svc.get_decision_intelligence(FB_CHOICE_BARE, min_confidence=0.7, depth=1)
+    assert intel.is_ok, intel
+    assert intel.value.context.goals == []
+    assert intel.value.context.principles == []
+    assert intel.value.context.knowledge == []
 
 
 # uid prefix for the Event cross-context graph (key realignment).

@@ -29,6 +29,28 @@ if TYPE_CHECKING:
     )
 
 
+def _union_buckets(context_dict: dict[str, Any], *keys: str) -> list[dict[str, Any]]:
+    """Collect cross-domain-context bucket dicts across keys, de-duped by uid.
+
+    ``UnifiedRelationshipService.get_cross_domain_context()`` emits one bucket per
+    CHOICES_CONFIG ``context_field_name``, each a list of
+    ``{"uid", "title", "distance", "path_strength", "via_relationships"}`` dicts —
+    exactly the shape ``PathAwareAnalyzer.parse_*`` consume. A single typed field may
+    aggregate several buckets: a choice's informing principles span both
+    INFORMED_BY_PRINCIPLE (outgoing, ``aligned_principles``) and GUIDES_CHOICE
+    (incoming, ``guiding_principles``). Order-preserving, de-duped by uid.
+    """
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for key in keys:
+        for entity in context_dict.get(key) or []:
+            uid = entity.get("uid") if isinstance(entity, dict) else None
+            if uid and uid not in seen:
+                seen.add(uid)
+                out.append(entity)
+    return out
+
+
 class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
     Core + decision intelligence for ChoicesIntelligenceService.
@@ -155,18 +177,25 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         # Parse path-aware context
         from core.models.graph.path_aware_types import ChoiceCrossContext
 
-        # Extract path-aware entities from dict (using shared helper)
+        # Extract path-aware entities from the real CHOICES_CONFIG buckets (the
+        # config-driven get_cross_domain_context emits context_field_name buckets, NOT
+        # generic domain names). Goals come from the single polarity-free AFFECTS_GOAL
+        # edge (`affected_goals`); informing principles span both INFORMED_BY_PRINCIPLE
+        # (outgoing, `aligned_principles`) and GUIDES_CHOICE (incoming,
+        # `guiding_principles`); knowledge from INFORMED_BY_KNOWLEDGE.
         supporting_goals = [
-            self.path_helper.parse_goal(g) for g in context_dict.get("supporting_goals", [])
+            self.path_helper.parse_goal(g) for g in context_dict.get("affected_goals", [])
         ]
-        conflicting_goals = [
-            self.path_helper.parse_goal(g) for g in context_dict.get("conflicting_goals", [])
-        ]
+        # No conflicting-goal edge exists — AFFECTS_GOAL is polarity-free (#214). Stays
+        # empty rather than reading a bucket nothing emits.
+        conflicting_goals: list[Any] = []
         guiding_principles = [
-            self.path_helper.parse_principle(p) for p in context_dict.get("principles", [])
+            self.path_helper.parse_principle(p)
+            for p in _union_buckets(context_dict, "aligned_principles", "guiding_principles")
         ]
         required_knowledge = [
-            self.path_helper.parse_knowledge(k) for k in context_dict.get("knowledge", [])
+            self.path_helper.parse_knowledge(k)
+            for k in context_dict.get("informed_by_knowledge", [])
         ]
 
         # Create strongly-typed context
@@ -382,16 +411,22 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
 
         context_dict = context_result.value
 
+        # Read the real CHOICES_CONFIG buckets (see get_decision_intelligence): goals
+        # from the polarity-free AFFECTS_GOAL edge, informing principles from
+        # INFORMED_BY_PRINCIPLE ∪ GUIDES_CHOICE, knowledge from INFORMED_BY_KNOWLEDGE.
         supporting_goals = [
-            self.path_helper.parse_goal(g) for g in context_dict.get("supporting_goals", [])
+            self.path_helper.parse_goal(g) for g in context_dict.get("affected_goals", [])
         ]
-        conflicting_goals = [
-            self.path_helper.parse_goal(g) for g in context_dict.get("conflicting_goals", [])
-        ]
+        # No conflicting-goal edge exists — AFFECTS_GOAL is polarity-free (#214).
+        conflicting_goals: list[Any] = []
         affected_principles = [
-            self.path_helper.parse_principle(p) for p in context_dict.get("principles", [])
+            self.path_helper.parse_principle(p)
+            for p in _union_buckets(context_dict, "aligned_principles", "guiding_principles")
         ]
-        knowledge = [self.path_helper.parse_knowledge(k) for k in context_dict.get("knowledge", [])]
+        knowledge = [
+            self.path_helper.parse_knowledge(k)
+            for k in context_dict.get("informed_by_knowledge", [])
+        ]
 
         # Create path-aware context for cascade analysis
         path_context = ChoiceCrossContext(

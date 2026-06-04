@@ -178,10 +178,14 @@ class ChoiceCrossContext:
     Choice decision-making context with path-aware intelligence.
 
     Groups related entities by relationship semantic meaning:
-    - principles: What informs this choice (INFORMED_BY_PRINCIPLE)
-    - supporting_goals: What this choice supports (SUPPORTS_GOAL)
-    - conflicting_goals: What this choice conflicts with (CONFLICTS_WITH_GOAL)
-    - knowledge: What knowledge this choice requires (REQUIRES_KNOWLEDGE)
+    - principles: What informs/guides this choice (INFORMED_BY_PRINCIPLE outgoing +
+      GUIDES_CHOICE incoming)
+    - supporting_goals: Goals this choice affects (AFFECTS_GOAL — polarity-free)
+    - conflicting_goals: Always empty. There is NO conflicting-goal edge; the choice↔goal
+      link is the single polarity-free AFFECTS_GOAL. Kept as a field (not dropped) to
+      avoid cascading a model change; populate only alongside a real edge nobody writes
+      yet.
+    - knowledge: Knowledge informing the decision (INFORMED_BY_KNOWLEDGE)
 
     Each entity includes path metadata (distance, strength, path composition).
     """
