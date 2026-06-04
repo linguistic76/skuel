@@ -1,296 +1,244 @@
 ---
 title: Intent-Based Graph Traversal
-updated: 2025-12-03
+updated: 2026-06-04
 category: patterns
 related_skills: []
-related_docs: []
+related_docs:
+  - /docs/roadmap/intent-traversal-registry-convergence.md
 ---
 
 # Intent-Based Graph Traversal Pattern
 
+> **Read this first.** This doc describes what is *actually wired today*. Per-domain intent
+> *specialization* — bespoke per-domain lenses and analysis methods — is **aspirational**, not built.
+> The direction (source the edge vocabulary from the registry, collapse the two graph readers into one)
+> lives in [`docs/roadmap/intent-traversal-registry-convergence.md`](../roadmap/intent-traversal-registry-convergence.md).
+> Where this doc previously asserted six per-domain analysis methods and a per-model intent, those were
+> fiction; this rewrite removes them.
+
 ## Overview
 
-All 6 Activity Domains in SKUEL use intent-based graph traversal via `GraphIntelligenceService.query_with_intent()`. Each domain has a domain-specific `QueryIntent` that optimizes Cypher queries for that domain's semantics.
+A single generic entry point, `GraphIntelligenceService.query_with_intent()`, traverses the graph
+around an entity. A `QueryIntent` selects which edge types the traversal filters on. **The intent is
+sourced from the domain's registry config, not from the entity model.**
 
-**Core Principle:** "Domain-specific semantic understanding of graph queries"
+**Core Principle:** "One generic traversal; the registry decides the edges."
 
-## The 6-Domain Intent Architecture
+## How the intent is actually chosen (config-sourced, not model-sourced)
 
-| Domain | Intent | Focus | Analysis Method |
-|--------|--------|-------|-----------------|
-| Tasks | PRACTICE | Task execution and dependencies | `get_task_with_context()` |
-| Goals | GOAL_ACHIEVEMENT | Achievement path analysis | `get_goal_achievement_analysis()` |
-| Principles | PRINCIPLE_EMBODIMENT | How principle is LIVED | `get_principle_embodiment_analysis()` |
-| Habits | PRACTICE | Practice patterns and streaks | `get_habit_practice_analysis()` |
-| Choices | PRINCIPLE_ALIGNMENT | Principle-guided decisions | `get_choice_principle_alignment_analysis()` |
-| Events | SCHEDULED_ACTION | Task→Event execution | `get_event_scheduled_action_analysis()` |
+Every **Activity Domain** model (Task, Goal, Habit, Event, Choice, Principle) inherits
+`Entity.get_suggested_query_intent()` (`core/models/entity.py:233`), which returns
+`QueryIntent.EXPLORATORY` and is **not overridden** by any of them. (Only `Curriculum` and `Askesis`
+override it — `core/models/curriculum.py`, `core/models/askesis/askesis.py`.) So the model is *not*
+where an Activity Domain's intent comes from.
+
+The real intent is the domain's **registry config**
+(`DomainRelationshipConfig` in `core/models/relationship_registry.py`):
+
+- `default_context_intent` — the domain's default lens.
+- `intent_mappings` + `get_intent_for_operation(operation)` — per-operation overrides
+  (falls back to `default_context_intent`).
+
+### Per-domain default intent (registry truth)
+
+| Domain | `default_context_intent` | Config | Clause it hits today |
+|--------|--------------------------|--------|----------------------|
+| Tasks | `PREREQUISITE` | `TASKS_CONFIG` | `REQUIRES_KNOWLEDGE / PREREQUISITE_FOR / ENABLES` |
+| Goals | `GOAL_ACHIEVEMENT` | `GOAPS_CONFIG` | goal-tailored (`FULFILLS_GOAL / SUPPORTS_GOAL / …`) |
+| Habits | `PRACTICE` | `HABITS_CONFIG` | `PRACTICES / REINFORCES / APPLIES_KNOWLEDGE` |
+| Events | `PRACTICE` | `EVENTS_CONFIG` | `PRACTICES / REINFORCES / APPLIES_KNOWLEDGE` |
+| Choices | `HIERARCHICAL` | `CHOICES_CONFIG` | `HAS_CHILD / PARENT_OF / CHILD_OF` |
+| Principles | `HIERARCHICAL` | `PRINCIPLES_CONFIG` | `HAS_CHILD / PARENT_OF / CHILD_OF` |
+
+> ⚠️ **Live defect (the motivation for the convergence roadmap).** Choices and Principles resolve to
+> `HIERARCHICAL`, which filters on tree edges (`HAS_CHILD/PARENT_OF/CHILD_OF`) that those domains
+> almost never write. So an intent traversal of a Choice today surfaces ~nothing — it does **not** see
+> the choice's real neighbors (`AFFECTS_GOAL`, `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE`,
+> `INFORMED_BY_KNOWLEDGE`, …). Phase 1 of the convergence roadmap fixes this by sourcing the edge
+> vocabulary from `config.cross_domain_relationship_types` instead of the hard-coded per-intent list.
 
 ## QueryIntent Enum
 
-**Location:** `/core/models/query_types.py`
+**Location:** `core/models/query_types.py`
 
-### Generic Intents (Cross-Domain)
+### Generic intents (reachable)
 
 ```python
 class QueryIntent(str, Enum):
-    EXPLORATORY = "exploratory"      # Broad search/discovery
-    SPECIFIC = "specific"            # Looking for specific concept
-    HIERARCHICAL = "hierarchical"    # Parent/child context
-    PREREQUISITE = "prerequisite"    # Prerequisite chains
-    PRACTICE = "practice"            # Exercises/examples
-    AGGREGATION = "aggregation"      # Statistical queries
-    RELATIONSHIP = "relationship"    # Graph traversal focused
+    EXPLORATORY = "exploratory"      # Broad search/discovery (default; else-branch, no edge filter)
+    SPECIFIC = "specific"            # Specific concept (else-branch)
+    HIERARCHICAL = "hierarchical"    # Parent/child context — HAS_CHILD/PARENT_OF/CHILD_OF
+    PREREQUISITE = "prerequisite"    # Prerequisite chains — REQUIRES_KNOWLEDGE/PREREQUISITE_FOR/ENABLES
+    PRACTICE = "practice"            # PRACTICES/REINFORCES/APPLIES_KNOWLEDGE
+    AGGREGATION = "aggregation"      # Statistical (else-branch)
+    RELATIONSHIP = "relationship"    # Graph-traversal focused (else-branch)
 ```
 
-### Domain-Specific Intents (December 2025)
+### Domain-specific intents
 
 ```python
-    # Domain-specific intents
-    GOAL_ACHIEVEMENT = "goal_achievement"        # Goal achievement path analysis
-    PRINCIPLE_EMBODIMENT = "principle_embodiment"  # How principle is LIVED
-    PRINCIPLE_ALIGNMENT = "principle_alignment"    # Choice alignment with principles
-    SCHEDULED_ACTION = "scheduled_action"        # Event as scheduled task execution
+    GOAL_ACHIEVEMENT = "goal_achievement"          # LIVE — Goals' default_context_intent
+    PRINCIPLE_EMBODIMENT = "principle_embodiment"  # DEAD — selected by no config (unreachable clause)
+    PRINCIPLE_ALIGNMENT = "principle_alignment"    # DEAD — selected by no config (unreachable clause)
+    SCHEDULED_ACTION = "scheduled_action"          # DEAD — selected by no config (unreachable clause)
 ```
+
+> **Only `GOAL_ACHIEVEMENT` is reachable** among the domain-specific intents (it is `GOAPS_CONFIG`'s
+> default). `PRINCIPLE_EMBODIMENT`, `PRINCIPLE_ALIGNMENT`, and `SCHEDULED_ACTION` are referenced
+> **nowhere** outside the enum and their own builder clauses — no `default_context_intent` and no
+> `intent_mappings` value selects them, so those clauses are dead code. (Note: `PRINCIPLE_ALIGNMENT`
+> also appears as an `InsightType` value — a *different* enum, unrelated to this routing.)
 
 ## Architecture Components
 
 ### 1. GraphIntelligenceService
 
-**Location:** `/core/services/infrastructure/graph_intelligence_service.py`
-
-The central service that executes intent-based Cypher queries:
+**Location:** `core/services/infrastructure/graph_intelligence_service.py`
 
 ```python
 async def query_with_intent(
     self,
-    uid: str,
-    intent: QueryIntent,
+    domain: Any,        # Domain enum — currently used only for logging
+    node_uid: str,
+    intent: Any,        # QueryIntent
     depth: int = 2,
 ) -> Result[GraphContext]:
-    """Execute intent-based graph traversal."""
-    cypher = self._build_context_query_for_intent(intent, depth)
-    # Execute and return GraphContext with entities and relationships
+    ...
+    # NOTE: `domain` is dropped before the backend call today — the backend receives only intent/depth/uid.
+    result = await self.backend.query_with_intent(intent=intent, depth=depth, uid=node_uid)
 ```
 
-Each intent has a dedicated Cypher handler in `_build_context_query_for_intent()`.
+The Cypher is built by the module-level function
+`build_context_query_for_intent(intent, depth)` in
+`adapters/persistence/neo4j/query/graph_context_query_builder.py`. It is a single function with one
+clause per intent; **every clause differs only in its `type(r) IN [...]` edge list** — identical
+depth (`[*0..{depth}]`), direction (bidirectional), and return shape.
 
-### 2. UnifiedRelationshipService Pattern
+### 2. UnifiedRelationshipService
 
-All domains use `UnifiedRelationshipService` for relationship operations:
+**Location:** `core/services/relationships/unified_relationship_service.py`
+
+One generic, configuration-driven service handles relationship operations for all domains. The intent
+traversal is exposed through the generic `get_with_context()` (in `_intelligence_mixin.py`), which
+resolves the intent from `self.config` (`default_context_intent` / `get_intent_for_operation`) and
+calls `query_with_intent`.
 
 ```python
-# UnifiedRelationshipService handles all domain relationship queries
-class UnifiedRelationshipService:
+class UnifiedRelationshipService[Ops, Model, DtoType](...):
     def __init__(
         self,
-        backend: BackendOperations,
-        graph_intel: Any | None = None,
+        backend: Ops,
+        config: DomainRelationshipConfig,   # REQUIRED — registry config (the single source of truth)
+        graph_intel: Any | None = None,     # GraphIntelligenceService (optional)
     ) -> None:
-        self.backend = backend
-        self.graph_intel = graph_intel
+        ...
 
-    @requires_graph_intelligence("get_entity_with_context")
-    async def get_entity_with_context(
+    async def get_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Entity, GraphContext]]:
-        """Get entity with full graph context using intent-based traversal."""
-        entity = await self._get_entity(uid)
-        intent = entity.get_suggested_query_intent()
-        context = await self.graph_intel.query_with_intent(uid, intent, depth)
-        return Result.ok((entity, context.value))
+        """Generic intent traversal; intent comes from self.config, not the entity model."""
 ```
 
-### 3. Domain Model Integration
+### 3. Domain model integration
 
-Each domain model implements `get_suggested_query_intent()`:
+Activity Domain models do **not** override `get_suggested_query_intent()` — they inherit
+`QueryIntent.EXPLORATORY`. The intent comes from the registry config (above). The override mechanism
+exists on the base `Entity` and is used by non-Activity types (`Curriculum`, `Askesis`).
 
-```python
-def get_suggested_query_intent(self) -> QueryIntent:
-    """Get suggested QueryIntent based on entity characteristics."""
-    return QueryIntent.{DOMAIN_INTENT}
-```
+### 4. Service wiring
 
-### 4. Service Wiring
-
-Each facade service wires `graph_intel` to the unified relationship service:
+Each facade wires the registry config + `graph_intel` into its relationship service:
 
 ```python
 # In {Domain}Service.__init__():
 self.relationships = UnifiedRelationshipService(
-    backend=backend, graph_intel=graph_intel
+    backend=backend, config=DOMAIN_CONFIG, graph_intel=graph_intel
 )
 ```
 
-## Intent Relationship Patterns
+## Intent clause vocabularies
 
-### GOAL_ACHIEVEMENT
+These are the `type(r) IN [...]` edge lists in `build_context_query_for_intent`, as wired today.
 
-Traces the complete achievement path for a goal:
+### Reachable clauses
 
-- `FULFILLS_GOAL` (incoming) - Tasks that contribute
-- `SUPPORTS_GOAL` (incoming) - Habits that reinforce
-- `REQUIRES_KNOWLEDGE` (outgoing) - Knowledge prerequisites
-- `SUBGOAL_OF` (bidirectional) - Goal hierarchy
-- `GUIDED_BY_PRINCIPLE` (outgoing) - Guiding principles
+- **HIERARCHICAL** — `HAS_CHILD`, `PARENT_OF`, `CHILD_OF`
+- **PREREQUISITE** — `REQUIRES_KNOWLEDGE`, `PREREQUISITE_FOR`, `ENABLES`
+- **PRACTICE** — `PRACTICES`, `REINFORCES`, `APPLIES_KNOWLEDGE`
+- **GOAL_ACHIEVEMENT** — `FULFILLS_GOAL`, `SUPPORTS_GOAL`, `REQUIRES_KNOWLEDGE`, `SUBGOAL_OF`,
+  `GUIDED_BY_PRINCIPLE`, `CONTRIBUTES_TO_GOAL`
+- **else** (EXPLORATORY / SPECIFIC / AGGREGATION / RELATIONSHIP) — generic traversal, no edge filter
 
-### PRINCIPLE_EMBODIMENT
+### Dead clauses (defined but selected by nothing — do not treat as live)
 
-Traces how a principle is LIVED across domains:
+These are *hypotheses* the convergence roadmap may revive against real registry edges — not current
+behavior. They are listed here only so the gap is visible.
 
-- `GUIDED_BY_PRINCIPLE` (incoming) - Goals guided by this
-- `ALIGNED_WITH_PRINCIPLE` (incoming) - Choices/Habits aligned
-- `INSPIRES_HABIT` (outgoing) - Habits this inspires
-- `GROUNDED_IN_KNOWLEDGE` (outgoing) - Knowledge foundation
-- `GUIDES_GOAL` (outgoing) - Goals this guides
-- `GUIDES_CHOICE` (outgoing) - Choices this guides
+- **PRINCIPLE_EMBODIMENT** — `GUIDED_BY_PRINCIPLE`, `ALIGNED_WITH_PRINCIPLE`, `INSPIRES_HABIT`,
+  `GROUNDED_IN_KNOWLEDGE`, `GUIDES_GOAL`, `GUIDES_CHOICE`
+- **PRINCIPLE_ALIGNMENT** — `ALIGNED_WITH_PRINCIPLE`, `INFORMED_BY_KNOWLEDGE`, `SUPPORTS_GOAL`,
+  `CONFLICTS_WITH_GOAL`, `REQUIRES_KNOWLEDGE_FOR_DECISION`, `OPENS_LEARNING_PATH`, `GUIDED_BY_PRINCIPLE`
+- **SCHEDULED_ACTION** — `EXECUTES_TASK`, `PRACTICES_KNOWLEDGE`, `REINFORCES_HABIT`,
+  `MILESTONE_FOR_GOAL`, `CONFLICTS_WITH`, `SUPPORTS_GOAL`, `SCHEDULED_FOR`, `DERIVED_FROM_TASK`
 
-### PRINCIPLE_ALIGNMENT
-
-Traces choice alignment with principles and knowledge:
-
-- `ALIGNED_WITH_PRINCIPLE` (outgoing) - Guiding principles
-- `INFORMED_BY_KNOWLEDGE` (outgoing) - Knowledge informing decision
-- `SUPPORTS_GOAL` (outgoing) - Goals supported
-- `CONFLICTS_WITH_GOAL` (outgoing) - Potential conflicts
-- `REQUIRES_KNOWLEDGE_FOR_DECISION` (outgoing) - Required knowledge
-- `OPENS_LEARNING_PATH` (outgoing) - Learning paths opened
-
-### SCHEDULED_ACTION
-
-Traces what an Event executes, practices, and reinforces:
-
-- `EXECUTES_TASK` (outgoing) - Tasks being executed
-- `PRACTICES_KNOWLEDGE` (outgoing) - Knowledge being practiced
-- `REINFORCES_HABIT` (outgoing) - Habits being reinforced
-- `MILESTONE_FOR_GOAL` (outgoing) - Goals being advanced
-- `CONFLICTS_WITH` (bidirectional) - Scheduling conflicts
-- `SUPPORTS_GOAL` (outgoing) - Goals supported
-
-## Analysis Output Patterns
-
-Each domain's analysis method returns a consistent structure:
-
-```python
-{
-    "{entity}_uid": str,
-    "{domain}_score": float,        # 0.0-1.0
-    "{domain}_level": str,          # Domain-specific levels
-    "related_{type}": [             # Lists of related entities
-        {"uid": str, "title": str}
-    ],
-    "{domain}_patterns": {          # Domain-specific metrics
-        ...
-    },
-    "recommendations": [str]        # Improvement suggestions
-}
-```
-
-### Example: Goal Achievement Analysis
-
-```python
-{
-    "goal_uid": "goal:123",
-    "achievement_score": 0.75,
-    "achievement_level": "on_track",  # or "blocked", "at_risk", "achieved"
-    "fulfilling_tasks": [...],
-    "supporting_habits": [...],
-    "required_knowledge": [...],
-    "blocking_factors": [...],
-    "recommendations": [
-        "Complete 2 more tasks to reach milestone",
-        "Link additional knowledge requirements"
-    ]
-}
-```
-
-### Example: Scheduled Action Analysis
-
-```python
-{
-    "event_uid": "event:456",
-    "action_score": 0.65,
-    "action_level": "productive",  # or "empty", "light", "packed"
-    "tasks_executed": [...],
-    "knowledge_practiced": [...],
-    "habits_reinforced": [...],
-    "conflicts": [...],
-    "recommendations": [
-        "Link this event to tasks it will execute",
-        "Consider splitting into multiple focused events"
-    ]
-}
-```
+> ⚠️ `CONFLICTS_WITH_GOAL` (and several others above) are written **nowhere** by any writer in the
+> codebase — they exist only in this dead clause and the enum. Do not resurrect them; a real lens needs
+> an edge a writer actually produces. See the convergence roadmap's guardrails.
 
 ## Key Files
 
 | Component | File |
 |-----------|------|
-| QueryIntent enum | `/core/models/query_types.py` |
-| GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
-| @requires_graph_intelligence | `/core/utils/decorators.py` |
-| **Relationships** | |
-| UnifiedRelationshipService | `/core/services/infrastructure/unified_relationship_service.py` |
-| **Tasks** | |
-| Task model | `/core/models/task/task.py` |
-| TasksService | `/core/services/tasks_service.py` |
-| **Goals** | |
-| Goal model | `/core/models/goal/goal.py` |
-| GoalsService | `/core/services/goaps_service.py` |
-| **Principles** | |
-| Principle model | `/core/models/principle/principle.py` |
-| PrinciplesService | `/core/services/principles_service.py` |
-| **Habits** | |
-| Habit model | `/core/models/habit/habit.py` |
-| HabitsService | `/core/services/habits_service.py` |
-| **Choices** | |
-| Choice model | `/core/models/choice/choice.py` |
-| ChoicesService | `/core/services/choices_service.py` |
-| **Events** | |
-| Event model | `/core/models/event/event.py` |
-| EventsService | `/core/services/events_service.py` |
+| QueryIntent enum | `core/models/query_types.py` |
+| GraphIntelligenceService | `core/services/infrastructure/graph_intelligence_service.py` |
+| `build_context_query_for_intent` | `adapters/persistence/neo4j/query/graph_context_query_builder.py` |
+| Registry config (intent + edges) | `core/models/relationship_registry.py` (`DomainRelationshipConfig`, `default_context_intent`, `intent_mappings`, `cross_domain_relationship_types`) |
+| UnifiedRelationshipService | `core/services/relationships/unified_relationship_service.py` |
+| `@requires_graph_intelligence` | `core/utils/decorators.py` |
+| **Facades** | |
+| TasksService | `core/services/tasks_service.py` |
+| GoalsService | `core/services/goals_service.py` |
+| PrinciplesService | `core/services/principles_service.py` |
+| HabitsService | `core/services/habits_service.py` |
+| ChoicesService | `core/services/choices_service.py` |
+| EventsService | `core/services/events_service.py` |
 
-## Usage Examples
+Each facade exposes a thin `get_<domain>_with_context()` convenience method (e.g.
+`GoalsService.get_goal_with_context` at `core/services/goals_service.py:403`) that delegates to the
+domain intelligence service over the same generic intent traversal — there is **no** bespoke
+per-domain "analysis method" (`get_goal_achievement_analysis`, `get_principle_embodiment_analysis`,
+etc. do not exist).
 
-### Getting Entity with Context
+## Usage
+
+### Getting an entity with its graph context
 
 ```python
-# In a route or service
-result = await goals_service.relationships.get_goal_with_context(
-    uid="goal:123",
-    depth=2
-)
+# Facade convenience method — delegates to the generic intent traversal.
+result = await goals_service.get_goal_with_context(uid="goal:123", depth=2)
 if result.is_error:
     return handle_error(result)
 
 goal, context = result.value
-# context.entities contains related nodes
-# context.relationships contains edge data
+# context.entities      — related nodes surfaced by the intent's edge filter
+# context.relationships — edge data
 ```
 
-### Getting Domain Analysis
+The intent applied is `GOAPS_CONFIG.default_context_intent` (`GOAL_ACHIEVEMENT`). For Choices and
+Principles, the same call runs `HIERARCHICAL` and currently surfaces little — see the live-defect note
+above and the convergence roadmap.
 
-```python
-# Get principle embodiment analysis
-result = await principles_service.relationships.get_principle_embodiment_analysis(
-    uid="principle:456"
-)
+## Benefits (of the generic traversal as wired)
 
-analysis = result.value
-print(f"Embodiment Score: {analysis['embodiment_score']}")
-print(f"Level: {analysis['embodiment_level']}")
-for rec in analysis['recommendations']:
-    print(f"- {rec}")
-```
+1. **One traversal path** — a single `query_with_intent` + one query-builder function, not six.
+2. **Config-driven** — intent and (after convergence Phase 1) edge vocabulary come from the registry.
+3. **Type-safe intent** — `QueryIntent` enum prevents typos.
 
-## Benefits
-
-1. **Semantic Understanding** - Each domain gets optimized Cypher for its semantics
-2. **Consistent Pattern** - All 6 domains follow the same architecture
-3. **Rich Context** - Returns complete graph neighborhood with analysis
-4. **Actionable Insights** - Generates domain-specific recommendations
-5. **Type Safety** - QueryIntent enum prevents typos and enables tooling
+For the per-domain semantic lenses, uniform analysis shape, and "intents as life-questions" that this
+pattern *aspires* to, see
+[`docs/roadmap/intent-traversal-registry-convergence.md`](../roadmap/intent-traversal-registry-convergence.md).
 
 ---
 
-**Last Updated:** December 3, 2025
-**Status:** Active - Core pattern for all Activity Domain graph traversal
+**Last Updated:** June 4, 2026
+**Status:** Partially wired — generic intent traversal is live; per-domain specialization is aspirational (see convergence roadmap).
