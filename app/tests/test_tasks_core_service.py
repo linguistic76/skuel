@@ -24,7 +24,7 @@ from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_inference_result import TaskInferenceResult
 from core.models.task.task_request import TaskCreateRequest
-from core.ports.query_types import TaskUpdatePayload
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
 
@@ -384,7 +384,7 @@ async def test_list_tasks_with_filters(core_service, mock_backend, sample_task_d
 async def test_update_task_success(core_service, mock_backend, sample_task_dto):
     """Test successful task update."""
     # Setup
-    updates: TaskUpdatePayload = {"title": "Updated Title", "priority": Priority.LOW.value}
+    intent = TaskUpdateIntent(title="Updated Title", priority=Priority.LOW.value)
     updated_dto = TaskDTO.from_dict(sample_task_dto.to_dict())
     updated_dto.title = "Updated Title"
     updated_dto.priority = Priority.LOW.value
@@ -394,14 +394,17 @@ async def test_update_task_success(core_service, mock_backend, sample_task_dto):
     mock_backend.update.return_value = Result.ok(updated_dto.to_dict())
 
     # Execute
-    result = await core_service.update_task("task:123", updates)
+    result = await core_service.update_task("task:123", intent)
 
     # Verify
     assert result.is_ok
     task = result.value
     assert task.title == "Updated Title"
     assert task.priority == Priority.LOW
-    mock_backend.update.assert_called_once_with("task:123", updates)
+    # The intent is materialized to a partial patch at the single backend.update seam.
+    mock_backend.update.assert_called_once_with(
+        "task:123", {"title": "Updated Title", "priority": Priority.LOW.value}
+    )
 
 
 @pytest.mark.asyncio
@@ -411,7 +414,7 @@ async def test_update_task_not_found(core_service, mock_backend):
     mock_backend.update.return_value = Result.fail(Errors.not_found("Task", "task:999"))
 
     # Execute
-    result = await core_service.update_task("task:999", {"title": "New Title"})
+    result = await core_service.update_task("task:999", TaskUpdateIntent(title="New Title"))
 
     # Verify
     assert result.is_error
@@ -471,7 +474,9 @@ async def test_create_update_delete_workflow(
     updated_dto = TaskDTO.from_dict(sample_task_dto.to_dict())
     updated_dto.title = "Modified Title"
     mock_backend.update.return_value = Result.ok(updated_dto.to_dict())
-    update_result = await core_service.update_task(task_uid, {"title": "Modified Title"})
+    update_result = await core_service.update_task(
+        task_uid, TaskUpdateIntent(title="Modified Title")
+    )
     assert update_result.is_ok
     assert update_result.value.title == "Modified Title"
 

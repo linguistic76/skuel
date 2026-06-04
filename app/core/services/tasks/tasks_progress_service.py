@@ -37,7 +37,6 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.tasks.task_relationships import TaskRelationships
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Result
 
 # Type alias for rich task data from UserContext
@@ -406,14 +405,15 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
                 f"Context-first: Task {task_uid} completion used rich context (saved queries)"
             )
 
-        # Update task to completed
+        # Update task to completed via the service contract (ADR-066 #2→#1): partial
+        # updates go through self.update, not a raw self.backend.update.
         updates: Neo4jProperties = {
             "status": EntityStatus.COMPLETED.value,
             "completion_date": date.today().isoformat(),
             "actual_minutes": actual_minutes,
         }
 
-        update_result = await self.backend.update(task_uid, updates)
+        update_result = await self.update(task_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -627,10 +627,8 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             return Result.fail(prereq_result)
 
         if prereq_result.value["can_start"]:
-            # Unblock the task
-            update_result = await self.backend.update(
-                task_uid, {"status": EntityStatus.SCHEDULED.value}
-            )
+            # Unblock the task via the service contract (ADR-066 #2→#1)
+            update_result = await self.update(task_uid, {"status": EntityStatus.SCHEDULED.value})
             if update_result.is_error:
                 return Result.fail(update_result)
 
@@ -715,12 +713,13 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
     async def _trigger_task(self, task_uid: str) -> None:
         """Trigger a dependent task."""
-        # Unblock the triggered task
-        try:
-            await self.backend.update(task_uid, {"status": EntityStatus.SCHEDULED.value})
+        # Unblock the triggered task via the service contract (ADR-066 #2→#1). self.update
+        # returns a Result (backend errors are captured, not raised), so branch on it.
+        result = await self.update(task_uid, {"status": EntityStatus.SCHEDULED.value})
+        if result.is_error:
+            self.logger.warning(f"Failed to trigger task {task_uid}: {result.expect_error()}")
+        else:
             self.logger.debug(f"Triggered task {task_uid}")
-        except (*NEO4J_EXCEPTIONS,) as e:
-            self.logger.warning(f"Failed to trigger task {task_uid}: {e}")
 
     async def _unlock_knowledge(self, knowledge_uid: str, user_uid: UserUID) -> None:
         """Unlock knowledge for a user."""

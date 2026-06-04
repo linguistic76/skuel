@@ -700,6 +700,7 @@ async def test_choice_impact_dedupes_multipath_goals_at_depth2(
     svc = _harness(neo4j_driver, rel_backend, FB_DUP_CHOICE)
 
     # Sanity: the raw bucket DOES carry the duplicate (proves dedup is load-bearing).
+    assert svc.relationships is not None  # harness always wires the relationship service
     raw = await svc.relationships.get_cross_domain_context(
         FB_DUP_CHOICE, depth=2, min_confidence=0.7
     )

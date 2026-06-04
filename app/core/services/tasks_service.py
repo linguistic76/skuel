@@ -15,6 +15,7 @@ Sub-Services:
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -38,8 +39,10 @@ if TYPE_CHECKING:
 from core.events import TaskUpdated, publish_event
 from core.models.enums import EntityStatus
 from core.models.relationship_names import RelationshipName
+from core.models.sentinels import UNSET
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.type_hints import Neo4jProperties
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 
@@ -417,24 +420,46 @@ class TasksService(
             include_completed=include_completed,
         )
 
-    # Relationship-typed update keys are graph edges, not node properties. They must
-    # be popped from the property update and synced as edges regardless of which entry
-    # point a caller uses — update_task (UI route), or the inherited update /
-    # update_for_user (generated CRUD JSON route). The backend update does an
-    # unfiltered `SET n += $updates`, so a relationship-typed key left in `updates`
-    # would write a junk denormalized property onto the node AND skip the edge (the
-    # very split the ADR-035/ADR-065 graph-native migration removed).
+    # Relationship-typed fields are graph edges, not node properties. They must be
+    # split off the update and synced as edges regardless of which entry point a caller
+    # uses — update_task (UI route), or the inherited update / update_for_user (generated
+    # CRUD JSON route). The backend update does an unfiltered `SET n += $changes`, so a
+    # relationship-typed field left in the property patch would write a junk denormalized
+    # property onto the node AND skip the edge (the very split the ADR-035/ADR-065
+    # graph-native migration removed).
     @staticmethod
-    def _split_relationship_updates(
-        updates: Mapping[str, Any],
-    ) -> tuple[str | None, list[str] | None, dict[str, Any]]:
-        """Split a partial-update mapping into its edge-typed values and the remaining
-        node properties. Does not mutate the caller's mapping — returns a fresh
-        properties dict so callers can pass a read-only `TaskUpdatePayload`."""
-        properties = dict(updates)
-        habit_uid = properties.pop("reinforces_habit_uid", None)
-        applies_knowledge_uids = properties.pop("applies_knowledge_uids", None)
-        return habit_uid, applies_knowledge_uids, properties
+    def _split_relationship_intent(
+        intent: TaskUpdateIntent,
+    ) -> tuple[str | None, list[str] | None, TaskUpdateIntent]:
+        """Split the edge-typed fields off a ``TaskUpdateIntent``.
+
+        Returns ``(habit_uid, applies_knowledge_uids, prop_intent)`` where ``prop_intent``
+        is the same intent with both edge fields reset to ``UNSET`` (so its ``to_changes()``
+        carries only node properties). ``UNSET`` edge fields map to ``None`` ("not in this
+        update") — preserving the prior ``dict.pop(key, None)`` semantics that
+        ``_sync_relationship_edges`` consumes (``None`` = untouched, ``""`` / ``[]`` =
+        clear, value = set).
+        """
+        habit = intent.reinforces_habit_uid
+        applies = intent.applies_knowledge_uids
+        habit_uid = None if habit is UNSET else habit
+        applies_knowledge_uids = None if applies is UNSET else applies
+        prop_intent = dataclasses.replace(
+            intent, reinforces_habit_uid=UNSET, applies_knowledge_uids=UNSET
+        )
+        return habit_uid, applies_knowledge_uids, prop_intent
+
+    @staticmethod
+    def _intent_from_mapping(updates: Mapping[str, Any]) -> TaskUpdateIntent:
+        """Transitional bridge (ADR-066 Phase 1): build a ``TaskUpdateIntent`` from the
+        ``Mapping`` the generic CRUD JSON route and ``calendar_service`` still pass.
+
+        Only keys that are intent fields are carried; values are already storage-shaped
+        (the route stringifies enums via ``get_enum_value``). Removed in Phase 7, when the
+        generic update path is parameterized over the intent and callers pass it directly.
+        """
+        names = {f.name for f in dataclasses.fields(TaskUpdateIntent)}
+        return TaskUpdateIntent(**{k: v for k, v in updates.items() if k in names})
 
     async def _sync_relationship_edges(
         self, task_uid: str, habit_uid: str | None, applies_knowledge_uids: list[str] | None
@@ -521,20 +546,21 @@ class TasksService(
         )
         await publish_event(self.event_bus, event, self.logger)
 
-    async def update_task(self, task_uid: str, updates: Mapping[str, Any]) -> Result[Task]:
-        """Facade update (UI route). Writes node properties via core (events fire) and
-        syncs habit/knowledge edges. See `_sync_relationship_edges`."""
-        habit_uid, applies_knowledge_uids, properties = self._split_relationship_updates(updates)
+    async def update_task(self, task_uid: str, intent: TaskUpdateIntent) -> Result[Task]:
+        """THE Tasks update path (ADR-066). Splits edge-typed fields off the intent,
+        writes node properties via core (events fire), and syncs habit/knowledge edges.
+        See `_sync_relationship_edges`."""
+        habit_uid, applies_knowledge_uids, prop_intent = self._split_relationship_intent(intent)
 
         # A relationship-only update (e.g. only applies_knowledge_uids, which
         # TaskUpdateRequest permits) leaves no node properties to write. The backend
         # rejects an empty update dict, so fetch the task to confirm it exists and to
         # have a Task to return. A genuinely empty call keeps the validation error.
-        wrote_properties = bool(properties) or (
+        wrote_properties = bool(prop_intent.to_changes()) or (
             habit_uid is None and applies_knowledge_uids is None
         )
         if wrote_properties:
-            result = await self.core.update_task(task_uid, properties)
+            result = await self.core.update_task(task_uid, prop_intent)
         else:
             result = await self.core.get_task(task_uid)
         if result.is_error:
@@ -548,27 +574,13 @@ class TasksService(
         return result
 
     async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Task]:
-        """Override the inherited CRUD update (generated JSON route, no ownership check)
-        so the API path syncs habit/knowledge edges instead of writing them as junk
-        node properties. See `_sync_relationship_edges`."""
-        habit_uid, applies_knowledge_uids, properties = self._split_relationship_updates(updates)
+        """Override the inherited CRUD update (generated JSON route, no ownership check).
 
-        wrote_properties = bool(properties) or (
-            habit_uid is None and applies_knowledge_uids is None
-        )
-        if wrote_properties:
-            result = await super().update(uid, properties)
-        else:
-            result = await self.core.get_task(uid)
-        if result.is_error:
-            return result
-
-        sync = await self._sync_relationship_edges(uid, habit_uid, applies_knowledge_uids)
-        if sync.is_error:
-            return Result.fail(sync)
-        if not wrote_properties:
-            await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
-        return result
+        Transitional ADR-066 Phase 1 funnel: the generic factory still hands a `Mapping`,
+        so bridge it to a `TaskUpdateIntent` and route through the one update path
+        (`update_task`), which fires events and syncs edges. Collapses to a direct
+        intent parameter in Phase 7."""
+        return await self.update_task(uid, self._intent_from_mapping(updates))
 
     async def update_for_user(
         self,
@@ -576,29 +588,15 @@ class TasksService(
         updates: Mapping[str, Any],
         user_uid: UserUID,
     ) -> Result[Task]:
-        """Override the inherited ownership-verified CRUD update (generated JSON route)
-        so the API path syncs habit/knowledge edges. Ownership is verified before any
-        edge mutation, including on the relationship-only path. See
-        `_sync_relationship_edges`."""
-        habit_uid, applies_knowledge_uids, properties = self._split_relationship_updates(updates)
+        """Override the inherited ownership-verified CRUD update (generated JSON route).
 
-        wrote_properties = bool(properties) or (
-            habit_uid is None and applies_knowledge_uids is None
-        )
-        if wrote_properties:
-            result = await super().update_for_user(uid, properties, user_uid)
-        else:
-            # Relationship-only update: still verify ownership before touching edges.
-            result = await self.verify_ownership(uid, user_uid)
-        if result.is_error:
-            return result
-
-        sync = await self._sync_relationship_edges(uid, habit_uid, applies_knowledge_uids)
-        if sync.is_error:
-            return Result.fail(sync)
-        if not wrote_properties:
-            await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
-        return result
+        Verifies ownership BEFORE any mutation, then funnels through the one update path
+        (`update_task`). Transitional ADR-066 Phase 1 `Mapping`→intent bridge; collapses
+        to a direct intent parameter in Phase 7."""
+        ownership = await self.verify_ownership(uid, user_uid)
+        if ownership.is_error:
+            return ownership
+        return await self.update_task(uid, self._intent_from_mapping(updates))
 
     async def get_reinforced_habit(self, task_uid: str) -> Result[str | None]:
         """Return the habit uid this task reinforces via (Task)-[:REINFORCES_HABIT]->(Habit).
@@ -841,7 +839,7 @@ class TasksService(
         Reverts task status to IN_PROGRESS.
         """
 
-        return await self.core.update_task(uid, {"status": EntityStatus.ACTIVE})
+        return await self.core.update_task(uid, TaskUpdateIntent(status=EntityStatus.ACTIVE.value))
 
     # ========================================================================
     # RELATIONSHIPS AND DEPENDENCIES — provided by _RelationshipMixin

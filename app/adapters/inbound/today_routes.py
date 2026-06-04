@@ -25,6 +25,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 
@@ -143,7 +144,7 @@ def create_today_routes(
         base_due = task.due_date if task.due_date is not None else date.today()
         new_due = base_due + delta
 
-        update = await tasks.update_task(uid, {"due_date": new_due})
+        update = await tasks.update_task(uid, TaskUpdateIntent(due_date=new_due))
         if update.is_error:
             logger.warning(
                 "today.defer failed for task=%s user=%s: %s",

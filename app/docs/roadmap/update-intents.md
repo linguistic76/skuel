@@ -8,7 +8,7 @@ tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
 
 # Roadmap: Typed Update Intents migration
 
-**Status:** Not started — ADR + plan written 2026-06-04; implementation pending.
+**Status:** Phase 1 (Tasks reference) complete — 2026-06-04. Phases 2–7 pending.
 **Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
 
@@ -39,14 +39,27 @@ with a green tree throughout.
 
 | Domain | `*UpdateIntent` | `*UpdateRequest.to_intent()` | Service contract on intent | #2 backend-direct partials resolved | `*UpdatePayload` deleted |
 |--------|:---:|:---:|:---:|:---:|:---:|
-| Tasks (reference) | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
+| Tasks (reference) | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Goals | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Habits | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Events | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Choices | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Principles | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 
-Shared `UNSET` sentinel: ☐ (Phase 1) · Docs/skills One-Path cleanup: ☐ (Phase 7)
+Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skills One-Path cleanup: ☐ (Phase 7)
+
+> **Sequencing decision (2026-06-04): funnel now, parameterize the base at Phase 7.**
+> The "service contract on intent" column is satisfied per-domain by typing the
+> domain method (`update_<domain>`) on the intent and **funnelling** the inherited
+> generic `update` / `update_for_user` (still `Mapping`, called by the shared
+> `CRUDRouteFactory` + `calendar_service`) through it via a small, greppable
+> `_intent_from_mapping` bridge. The shared `CrudOperationsMixin` / `CrudOperations`
+> protocol — including `_validate_update` / `_post_update` — stays `Mapping`-typed
+> until **Phase 7**, when, with all six domains on intents, it is parameterized over
+> `U: SupportsToChanges` (PEP 695 *bound*, no default — valid on Python 3.12) and the
+> generic methods + bridges collapse to a direct intent parameter. This is the ADR-066
+> destination ("the service contract `update` / `update_for_user` accepts the domain
+> `*UpdateIntent`"); the funnel is the 3.12-clean, low-blast-radius path to it.
 
 ## The pattern per domain (what each phase does)
 
@@ -69,17 +82,35 @@ Shared `UNSET` sentinel: ☐ (Phase 1) · Docs/skills One-Path cleanup: ☐ (Pha
 
 ## Phases (each = one context / one PR)
 
-- **Phase 1 — Foundation + Tasks reference.** First grep for an existing sentinel; else add
-  `core/models/sentinels.py` (`UNSET`). Implement the full per-domain pattern for Tasks. This commit is
-  the template every later phase reads. Note in `complete_tasks_bulk`: its `backend.update` is a direct
-  call — keep a plain `dict` literal (it is a backend-boundary write), do not route a TypedDict through
-  it.
+- **Phase 1 — Foundation + Tasks reference. ✅ DONE (2026-06-04).** Added
+  `core/models/sentinels.py` (`UNSET` / `Unset`, PEP 661 single-member enum — narrowable, unlike the
+  pre-existing `_UNSET = object()` in `core/services/exercises/`). Implemented the full pattern for
+  Tasks: `TaskUpdateIntent` (`core/models/task/task_update_intent.py`, includes the two edge-typed
+  fields the facade splits off), `TaskUpdateRequest.to_intent()` (from `model_fields_set`, enums lowered
+  to `.value`), `update_task` (core + facade) typed on the intent with `to_changes()` materialized at
+  the single `backend.update` seam. The inherited generic `update` / `update_for_user` keep their
+  `Mapping` signature (shared `CRUDRouteFactory` + `calendar_service`) and **funnel** through
+  `update_task` via `_intent_from_mapping` (one runtime path; generic JSON property updates now also
+  fire `TaskUpdated`). #2 stragglers: the three `tasks_progress_service` partial writes route through
+  `self.update`; `complete_tasks_bulk` stays a plain `dict` literal annotated `# raw-write:`.
+  **Deliberately deferred to Phase 7** (LSP/3.12-bound to the un-parameterized base): typing
+  `_validate_update` / `_post_update` on the intent. Verified live: `tests/integration/
+  test_task_update_intent_pipeline.py` (partial-no-clobber, `TaskUpdated` fires, status transition,
+  `to_intent()` semantics).
 - **Phases 2–6 — Goals, Habits, Events, Choices, Principles** (independent; any order, parallel contexts
   fine). Each reads ADR-066 + this roadmap + the Tasks reference commit and replicates steps 1–6.
   Watch the activity mixins typed `core: Any` (e.g. `events/_orchestration_mixin.py`,
   `habits/_completion_mixin.py`) — passing an intent through an `Any` attribute is unchecked; tighten
   the attribute type to the core service (or its protocol) so the intent is actually verified.
-- **Phase 7 — Teardown + One-Path cleanup.**
+- **Phase 7 — Teardown + One-Path cleanup + base parameterization.**
+  - **Parameterize the base over the update type (the ADR-066 destination).** With all six domains on
+    intents, add `U: SupportsToChanges` (a `to_changes() -> dict[str, Any]` protocol) as a third type
+    param to `CrudOperationsMixin` / `BaseService` / `CrudOperations` — a PEP 695 *bound* (no default),
+    valid on Python 3.12. `update` / `update_for_user` / `_validate_update` / `_post_update` then read
+    the intent directly; materialization is uniform `updates.to_changes()` (no `isinstance`). Each
+    domain declares its intent (`BaseService[TasksOperations, Task, TaskUpdateIntent]`), the generic
+    `CRUDRouteFactory` builds the intent via `UpdateRequestBase.to_intent()`, and the per-domain
+    `_intent_from_mapping` funnel bridges are deleted.
   - Delete all `*UpdatePayload` from `core/ports/query_types.py` (and `__init__` re-exports) and the
     advertising docstring in `core/services/mixins/crud_operations_mixin.py`. Remove the now-dead
     `Mapping[str, Any]` bridge signatures where every caller passes an intent.

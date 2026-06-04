@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from starlette.exceptions import HTTPException
 
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Errors, Result
 
 
@@ -264,7 +265,7 @@ class TestTaskDefer:
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[0] == "task_001"
-        assert call.args[1] == {"due_date": today + timedelta(days=1)}
+        assert call.args[1] == TaskUpdateIntent(due_date=today + timedelta(days=1))
 
     async def test_span_1w_shifts_by_seven_days(
         self, handlers: dict[str, Any], mock_services: Any
@@ -277,7 +278,7 @@ class TestTaskDefer:
 
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
-        assert call.args[1] == {"due_date": today + timedelta(days=7)}
+        assert call.args[1] == TaskUpdateIntent(due_date=today + timedelta(days=7))
 
     async def test_invalid_span_returns_400(self, handlers: dict[str, Any]) -> None:
         request = _make_request(form={"span": "forever"})
