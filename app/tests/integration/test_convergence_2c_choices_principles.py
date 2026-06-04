@@ -31,11 +31,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from adapters.persistence.neo4j.backends.activity_backends import (
+    ChoicesBackend,
+    PrinciplesBackend,
+)
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.choice.choice_dto import ChoiceDTO
-from core.models.principle.principle_dto import PrincipleDTO
+from core.models.choice.choice import Choice
+from core.models.enums.neo_labels import NeoLabel
+from core.models.principle.principle import Principle
 from core.models.relationship_registry import CHOICES_CONFIG, PRINCIPLES_CONFIG
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -110,9 +114,15 @@ async def test_delegation_fails_cleanly_without_relationship_service():
 
 @pytest.fixture
 def choices_rel(neo4j_driver):
-    """Choices UnifiedRelationshipService wired to a real graph_intel — mechanism B."""
+    """Choices UnifiedRelationshipService wired to a real graph_intel — mechanism B.
+
+    Uses the REAL ChoicesBackend(entity_class=Choice) the app wires (see
+    services_bootstrap/_backends.py), NOT a DTO-typed UniversalNeo4jBackend — so
+    backend.get() returns a full Choice domain model. This faithfulness is load-bearing
+    for the focal-entity-type assertion below (Codex P2 refutation).
+    """
     graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = UniversalNeo4jBackend[ChoiceDTO](neo4j_driver, "Entity", ChoiceDTO)
+    backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
     return UnifiedRelationshipService(
         backend=backend, config=CHOICES_CONFIG, graph_intel=graph_intel
     )
@@ -120,9 +130,15 @@ def choices_rel(neo4j_driver):
 
 @pytest.fixture
 def principles_rel(neo4j_driver):
-    """Principles UnifiedRelationshipService wired to a real graph_intel — mechanism B."""
+    """Principles UnifiedRelationshipService wired to a real graph_intel — mechanism B.
+
+    Uses the REAL PrinciplesBackend(entity_class=Principle) (see _backends.py), so
+    backend.get() returns a full Principle domain model — faithful to production.
+    """
     graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
-    backend = UniversalNeo4jBackend[PrincipleDTO](neo4j_driver, "Entity", PrincipleDTO)
+    backend = PrinciplesBackend(
+        neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
+    )
     return UnifiedRelationshipService(
         backend=backend, config=PRINCIPLES_CONFIG, graph_intel=graph_intel
     )
@@ -166,6 +182,14 @@ async def test_choices_registry_sourced_through_get_with_context(
     reg = await choices_rel.get_with_context(CHOICE, depth=1)
     assert reg.is_ok, reg
     _choice, reg_ctx = reg.value
+    # Focal-entity shape (refutes Codex P2 on PR #227): CHOICES_CONFIG.model_class is
+    # Entity, but the real ChoicesBackend returns a full Choice and
+    # _context_to_domain_model's `isinstance(data, model_class)` early-return passes it
+    # through unchanged — so no choice-specific fields are dropped. A base Entity would
+    # fail this isinstance (Entity is NOT a Choice).
+    assert isinstance(_choice, Choice), (
+        f"mechanism B must preserve the full Choice domain model, got {type(_choice).__name__}"
+    )
     reg_uids = _uids(reg_ctx)
     assert CHOICE_GOAL in reg_uids, "AFFECTS_GOAL neighbour should surface registry-sourced"
     assert CHOICE_NOISE not in reg_uids, "edge outside the registry must be filtered out"
@@ -220,6 +244,12 @@ async def test_principles_registry_sourced_through_get_with_context(
     reg = await principles_rel.get_with_context(PRINCIPLE, depth=1)
     assert reg.is_ok, reg
     _principle, reg_ctx = reg.value
+    # Focal-entity shape (refutes Codex P2): PRINCIPLES_CONFIG.model_class is Entity, but
+    # the real PrinciplesBackend returns a full Principle, preserved by the isinstance
+    # early-return in _context_to_domain_model — no principle-specific fields dropped.
+    assert isinstance(_principle, Principle), (
+        f"mechanism B must preserve the full Principle domain model, got {type(_principle).__name__}"
+    )
     reg_uids = _uids(reg_ctx)
     assert PRINCIPLE_GOAL in reg_uids, "GUIDES_GOAL neighbour should surface registry-sourced"
     assert PRINCIPLE_NOISE not in reg_uids, "edge outside the registry must be filtered out"
