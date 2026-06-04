@@ -373,6 +373,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-040](/docs/decisions/ADR-040-teacher-exercise-workflow.md) → @learning-loop
 - [ADR-041](/docs/decisions/ADR-041-unified-ku-model.md) → @learning-loop, @neo4j-cypher-patterns
 - [ADR-042](/docs/decisions/ADR-042-privacy-as-first-class-citizen.md) → @learning-loop, @pytest
+- [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) → @python, @pydantic, @activity-domains
 
 ---
 
@@ -382,7 +383,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Architecture docs:** 9 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 45 docs linked to skills
-- **ADRs:** 15 ADRs linked to skills
+- **ADRs:** 16 ADRs linked to skills
 
 ---
 
