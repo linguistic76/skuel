@@ -250,6 +250,17 @@ def _generate_progress_recommendations(
 > (matched against each node's incident-edge properties), so edge-property-discriminated
 > tiers — e.g. GOALS' `essential`/`critical`/`optional` habits on SUPPORTS_GOAL — land in
 > their own buckets instead of all collapsing into the no-filter catch-all.
+>
+> ⚠️ **Buckets are NOT de-duped by uid.** The producer does `collect(DISTINCT {uid,
+> distance, …})` — DISTINCT over the whole path map — so at `depth ≥ 2` a node reachable
+> by multiple paths recurs once per path. The `*CrossContext.from_dict` family-A types are
+> safe because their `_uids()` helper drops metadata and collapses dupes. But if you build
+> **path-aware objects with metadata** off a raw bucket (the family-B
+> `ChoiceCrossContext` path), de-dup by uid keeping the **strongest** path (lowest
+> `distance`, then highest `path_strength`) — first-seen is not the closest path (no
+> `ORDER BY`), and skipping de-dup inflates counts. See `_union_buckets`/`_path_rank` in
+> `choices/_core_intelligence_mixin.py` and the gotcha box in
+> `docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`.
 
 ### `_dual_track_assessment()` (Template Method)
 

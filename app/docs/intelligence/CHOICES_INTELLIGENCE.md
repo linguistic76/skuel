@@ -118,7 +118,7 @@ DecisionIntelligence(
     ),
     impact=DecisionImpact(
         tasks=[...],         # List (empty for choices)
-        goals=[...],         # Supporting + conflicting goals
+        goals=[...],         # Affected goals (AFFECTS_GOAL — polarity-free, no conflict split)
         habits=[...]         # List (empty for choices)
     ),
     decision_analysis=DecisionAnalysis(
@@ -866,6 +866,17 @@ Uses typed context retrieval with:
   supporting-vs-conflicting goal split; no conflicting-goal edge exists)
 - Cascade impact calculation
 - Path-aware recommendation generation
+
+> **Reads the real `CHOICES_CONFIG` buckets, de-duped by strongest path (PR #218).**
+> `analyze_choice_impact` (the `/api/choices/insights` path) and `get_decision_intelligence`
+> build their `PathAwareGoal`/`PathAwarePrinciple`/`PathAwareKnowledge` lists from
+> `get_cross_domain_context`'s `context_field_name` buckets — `affected_goals`,
+> `aligned_principles` ∪ `guiding_principles` (INFORMED_BY_PRINCIPLE out + GUIDES_CHOICE
+> in), `informed_by_knowledge` — NOT generic domain keys (which the config never emits and
+> left these methods silently empty pre-#218). Because the producer query returns one
+> entry per *path* (not per uid), the `_union_buckets`/`_path_rank` helpers de-dup by uid
+> keeping the lowest-`distance`/highest-`path_strength` entry. See the gotcha box in
+> `docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`.
 
 ---
 
