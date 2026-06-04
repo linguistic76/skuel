@@ -43,54 +43,39 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     backend: Any
     logger: Any
 
-    @requires_graph_intelligence("get_event_with_context")
-    @with_error_handling("get_event_with_context", error_type="system", uid_param="uid")
-    async def get_event_with_context(
+    @requires_graph_intelligence("get_with_context")
+    @with_error_handling("get_with_context", error_type="system", uid_param="uid")
+    async def get_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Event, GraphContext]]:
         """
-        Get event with full graph context using pure Cypher graph intelligence.
+        Get event with full graph context via mechanism B (registry-sourced).
 
-        Single query retrieves:
-        - Event entity
-        - Supporting goals
-        - Reinforcing habits
-        - Related knowledge units
-        - Learning path connections
-        - Semantic relationships
+        One Path Forward (Convergence Phase 1): route through
+        ``self.relationships.get_with_context`` — which sources its edge vocabulary
+        from ``EVENTS_CONFIG.cross_domain_relationship_types`` (the registry, the single
+        source of truth) — instead of the inherited ``GraphContextLoader`` EXPLORATORY
+        path. This also replaces the previously-broken ``get_entity_context`` call that
+        passed an unsupported ``entity_type=`` kwarg (a ``TypeError`` — deleted, not
+        patched).
 
-        8-10x faster than sequential queries.
-
-        Args:
-            uid: UID of the event
-            depth: Graph traversal depth
-
-        Returns:
-            Result containing tuple of (Event, GraphContext)
+        See: /docs/roadmap/intent-traversal-registry-convergence.md
         """
-        if not self.graph_intel:
+        if self.relationships is None:
             return Result.fail(
                 Errors.system(
-                    message="GraphIntelligenceService is required for event context retrieval"
+                    message="relationship_service required for get_with_context",
+                    operation="get_with_context",
                 )
             )
+        return await self.relationships.get_with_context(uid, depth)
 
-        context_result = await self.graph_intel.get_entity_context(
-            entity_uid=uid, entity_type="Entity", depth=depth
-        )
-
-        if context_result.is_error:
-            return context_result
-
-        context = context_result.value
-        event = context.primary_entity
-
-        self.logger.info(
-            f"Retrieved event {uid} with context: "
-            f"{len(context.relationships)} relationships, depth={depth}"
-        )
-
-        return Result.ok((event, context))
+    @requires_graph_intelligence("get_event_with_context")
+    async def get_event_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Event, GraphContext]]:
+        """Domain-named alias for get_with_context() (mechanism B)."""
+        return await self.get_with_context(uid, depth)
 
     async def analyze_event_performance(self, uid: str) -> Result[dict[str, Any]]:
         """
