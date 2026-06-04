@@ -34,7 +34,6 @@ from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.graph_context import GraphContext
     from core.ports.domain_protocols import ChoicesOperations
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
@@ -104,25 +103,13 @@ class ChoicesIntelligenceService(
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
+    #
+    # get_with_context is provided by _CoreIntelligenceMixin (mechanism B,
+    # registry-sourced via self.relationships) — NOT redefined here. A local
+    # override that delegated back to get_choice_with_context recursed infinitely
+    # (get_with_context → get_choice_with_context → get_with_context); the mixin
+    # now owns the real implementation. (Convergence Phase 1, 2C.)
     # ========================================================================
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Choice, GraphContext]]:
-        """
-        Get choice with full graph context.
-
-        Protocol method: Maps to get_choice_with_context.
-        Used by IntelligenceRouteFactory for GET /api/choices/context route.
-
-        Args:
-            uid: Choice UID
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (Choice, GraphContext) tuple
-        """
-        return await self.get_choice_with_context(uid, depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30
