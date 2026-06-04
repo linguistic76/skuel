@@ -3,8 +3,15 @@ Core Intelligence Mixin — PrinciplesIntelligenceService
 
 Protocol bridge methods + graph context orchestration.
 
+Graph context retrieval routes through mechanism B (registry-sourced):
+``self.relationships.get_with_context`` sources its edge vocabulary from
+``PRINCIPLES_CONFIG.cross_domain_relationship_types`` (the registry single source of
+truth) rather than the inherited ``GraphContextLoader`` EXPLORATORY path.
+
 Part of principles_intelligence_service.py decomposition (April 2026).
-See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
+Converged onto mechanism B in Convergence Phase 1 (2C), copying the Tasks reference.
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md,
+     /docs/roadmap/intent-traversal-registry-convergence.md
 """
 
 from __future__ import annotations
@@ -17,11 +24,12 @@ from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
 from core.utils.decorators import requires_graph_intelligence
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.principle.principle import Principle
+    from core.services.relationships import UnifiedRelationshipService
 
 
 class _CoreIntelligenceMixin(_SharedCoreMixin):
@@ -32,9 +40,9 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     resolves them without runtime cost.
     """
 
-    # Populated by PrinciplesIntelligenceService.__init__
+    # Populated by PrinciplesIntelligenceService.__init__ (stores relationship_service)
     backend: Any
-    relationships: Any
+    relationships: UnifiedRelationshipService[Any, Any, Any] | None
     logger: Any
 
     # ========================================================================
@@ -122,9 +130,33 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     # GRAPH INTELLIGENCE METHODS
     # ========================================================================
 
+    @requires_graph_intelligence("get_with_context")
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Principle, GraphContext]]:
+        """
+        Get principle with full graph context via mechanism B (registry-sourced).
+
+        One Path Forward (Convergence Phase 1): route through
+        ``self.relationships.get_with_context`` — which sources its edge vocabulary
+        from ``PRINCIPLES_CONFIG.cross_domain_relationship_types`` (the registry, the
+        single source of truth) — instead of the inherited ``GraphContextLoader``
+        EXPLORATORY path. Copies the Tasks reference (PR #225, 2A).
+
+        See: /docs/roadmap/intent-traversal-registry-convergence.md
+        """
+        if self.relationships is None:
+            return Result.fail(
+                Errors.system(
+                    message="relationship_service required for get_with_context",
+                    operation="get_with_context",
+                )
+            )
+        return await self.relationships.get_with_context(uid, depth)
+
     @requires_graph_intelligence("get_principle_with_context")
     async def get_principle_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Principle, GraphContext]]:
-        """Domain-named alias for get_with_context(). See shared base."""
+        """Domain-named alias for get_with_context() (mechanism B)."""
         return await self.get_with_context(uid, depth)
