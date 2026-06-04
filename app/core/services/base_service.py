@@ -124,6 +124,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Mapping
 
 
 # Type variables for backward compatibility
@@ -556,7 +557,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         """
         return Result.ok(None)
 
-    def _validate_update(self, current: T, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: T, updates: Mapping[str, Any]) -> Result[None]:
         """
         Optional hook for domain-specific update validation.
 

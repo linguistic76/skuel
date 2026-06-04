@@ -27,7 +27,7 @@ Usage:
             task = self.set_entity_metadata(task, user_uid=user_uid, source="api")
             return await self.backend.create(task)
 
-    async def update(self, uid: str, updates: dict) -> Result[Task]:
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Task]:
         # Use mixin for update timestamp
         return await self.backend.update(uid, self.update_properties())
 

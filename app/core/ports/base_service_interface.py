@@ -100,6 +100,7 @@ from core.ports.base_protocols import Direction
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from datetime import date
 
 # Type variables for generics
@@ -278,13 +279,13 @@ class CrudOperations(Protocol[T]):
         """
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[T]:
         """
         Update entity (no ownership check).
 
         Args:
             uid: Entity UID
-            updates: Dictionary of fields to update
+            updates: Mapping of fields to update (e.g. a `*UpdatePayload` TypedDict)
 
         Returns:
             Result[T]: Updated entity
@@ -361,7 +362,7 @@ class CrudOperations(Protocol[T]):
         ...
 
     async def update_for_user(
-        self, uid: str, updates: dict[str, Any], user_uid: UserUID
+        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
     ) -> Result[T]:
         """
         Update entity, but only if owned by the specified user.

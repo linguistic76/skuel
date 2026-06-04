@@ -12,6 +12,7 @@ Responsibilities:
 - Publishes domain events (HabitCreated, HabitCompleted, HabitStreakBroken)
 """
 
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
@@ -111,7 +112,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Habit, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Habit, updates: Mapping[str, Any]) -> Result[None]:
         """
         Validate habit updates with business rules.
 
@@ -333,7 +334,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return Result.ok(habit)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Habit]:
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Habit]:
         """
         Update a habit.
 

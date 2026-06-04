@@ -13,6 +13,7 @@ Responsibilities:
 Part of the PrinciplesService decomposition.
 """
 
+from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
 
@@ -117,7 +118,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Principle, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Principle, updates: Mapping[str, Any]) -> Result[None]:
         """
         Validate principle updates with business rules.
 
