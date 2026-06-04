@@ -23,6 +23,8 @@ from core.models.request_base import (
     ResponseBase,
     UpdateRequestBase,
 )
+from core.models.sentinels import UNSET
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.validation_rules import (
     validate_future_date,
     validate_recurrence_end_after_start,
@@ -133,6 +135,49 @@ class TaskUpdateRequest(UpdateRequestBase):
     habit_streak_maintainer: bool | None = None
     prerequisite_knowledge_uids: list[str] | None = None
     prerequisite_task_uids: list[str] | None = None
+
+    def to_intent(self) -> TaskUpdateIntent:
+        """Build the typed ``TaskUpdateIntent`` (ADR-066) from explicitly-set fields.
+
+        Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
+        so the intent carries a true partial patch: an absent field is left untouched, a
+        field explicitly set to ``None`` is an explicit clear. Enum fields (priority,
+        status) are lowered to their string value to match the persistence boundary.
+        """
+        set_fields = self.model_fields_set
+
+        def field(name: str) -> Any:
+            return getattr(self, name) if name in set_fields else UNSET
+
+        def enum_field(name: str) -> Any:
+            if name not in set_fields:
+                return UNSET
+            value = getattr(self, name)
+            return value.value if value is not None else None
+
+        return TaskUpdateIntent(
+            title=field("title"),
+            description=field("description"),
+            due_date=field("due_date"),
+            scheduled_date=field("scheduled_date"),
+            duration_minutes=field("duration_minutes"),
+            priority=enum_field("priority"),
+            status=enum_field("status"),
+            project=field("project"),
+            assignee=field("assignee"),
+            tags=field("tags"),
+            actual_minutes=field("actual_minutes"),
+            completion_date=field("completion_date"),
+            fulfills_goal_uid=field("fulfills_goal_uid"),
+            aligned_principle_uids=field("aligned_principle_uids"),
+            goal_progress_contribution=field("goal_progress_contribution"),
+            knowledge_mastery_check=field("knowledge_mastery_check"),
+            habit_streak_maintainer=field("habit_streak_maintainer"),
+            prerequisite_knowledge_uids=field("prerequisite_knowledge_uids"),
+            prerequisite_task_uids=field("prerequisite_task_uids"),
+            reinforces_habit_uid=field("reinforces_habit_uid"),
+            applies_knowledge_uids=field("applies_knowledge_uids"),
+        )
 
 
 class TaskResponse(ResponseBase):

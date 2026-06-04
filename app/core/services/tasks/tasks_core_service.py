@@ -37,6 +37,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_inference_result import TaskInferenceResult
 from core.models.task.task_request import TaskCreateRequest
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -428,25 +429,35 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
     # ========================================================================
 
     @with_error_handling("update_task", error_type="database", uid_param="task_uid")
-    async def update_task(self, task_uid: str, updates: Mapping[str, Any]) -> Result[Task]:
+    async def update_task(self, task_uid: str, intent: TaskUpdateIntent) -> Result[Task]:
         """
-        Update a task.
+        Update a task's node properties (ADR-066 typed update contract).
+
+        The intent is materialized to a partial patch exactly once, at the single
+        ``backend.update`` seam. Relationship-typed fields (habit / knowledge edges)
+        are split off by the facade and never reach this method as properties.
 
         Args:
             task_uid: Task UID,
-            updates: Mapping of field updates (e.g. a TaskUpdatePayload)
+            intent: Typed ``TaskUpdateIntent`` — only its set fields are written
 
         Returns:
             Result containing updated Task
         """
+        changes = intent.to_changes()
+        # Capture the intended fields now: the backend mutates its argument in place
+        # (stamps updated_at), so reading changes.keys() after the call would leak that
+        # bump into the event. The event reports what the update meant to change.
+        updated_fields = list(changes.keys())
+
         # Get old task for priority change detection
         old_task = None
-        if "priority" in updates:
+        if "priority" in changes:
             old_result = await self.backend.get(task_uid)
             if old_result.is_ok:
                 old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
 
-        update_result = await self.backend.update(task_uid, dict(updates))
+        update_result = await self.backend.update(task_uid, changes)
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -457,12 +468,12 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         event = TaskUpdated(
             task_uid=task.uid,
             user_uid=task.user_uid,
-            updated_fields=list(updates.keys()),
+            updated_fields=updated_fields,
         )
         await publish_event(self.event_bus, event, self.logger)
 
         # Publish TaskPriorityChanged event if priority changed
-        if "priority" in updates and old_task and old_task.priority != task.priority:
+        if "priority" in changes and old_task and old_task.priority != task.priority:
             from core.events import TaskPriorityChanged
 
             priority_event = TaskPriorityChanged(
@@ -490,9 +501,10 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing count of tasks completed
         """
-        # Mark all tasks as completed. Constructed in-place and handed straight to the
-        # backend, so a concrete dict is the honest type here (the *UpdatePayload
-        # TypedDicts are for service-contract call sites, not backend boundary calls).
+        # raw-write: deliberate backend-boundary bulk status flip. This bypasses the
+        # validated/event-firing service contract (TaskUpdateIntent → update_task) on
+        # purpose — it is a system batch write, and TasksBulkCompleted is published once
+        # below rather than per-row. A plain dict literal is the honest type here.
         updates: dict[str, Any] = {"status": EntityStatus.COMPLETED.value}
         completed_count = 0
 

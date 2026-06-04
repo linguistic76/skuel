@@ -11,6 +11,7 @@ from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
     create_activity_status_api_routes,
 )
+from core.models.task.task_update_intent import TaskUpdateIntent
 from ui.activities.tasks_views import TaskCard
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ def create_tasks_api_routes(
     """Register Tasks API routes."""
 
     async def update(uid: str, new_status: str) -> Result[Task]:
-        return await tasks_service.update_task(uid, {"status": new_status})
+        return await tasks_service.update_task(uid, TaskUpdateIntent(status=new_status))
 
     return create_activity_status_api_routes(
         rt,
