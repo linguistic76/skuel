@@ -21,10 +21,9 @@ See: /docs/roadmap/intent-traversal-registry-convergence.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -36,9 +35,6 @@ from core.services.goals.goals_intelligence_service import GoalsIntelligenceServ
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
-
-if TYPE_CHECKING:
-    pass
 
 P = "conv2b_"  # uid prefix for this module's fixture graph
 

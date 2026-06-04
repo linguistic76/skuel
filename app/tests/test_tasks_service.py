@@ -14,6 +14,7 @@ import pytest
 from core.models.enums import EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task_request import TaskCreateRequest
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Errors, Result
 
@@ -317,7 +318,7 @@ class TestUncompleteTask:
         await service.uncomplete_task("task_abc")
 
         service.core.update_task.assert_called_once_with(
-            "task_abc", {"status": EntityStatus.ACTIVE}
+            "task_abc", TaskUpdateIntent(status=EntityStatus.ACTIVE.value)
         )
 
 
@@ -349,7 +350,9 @@ class TestUpdateTaskKnowledgeEdges:
         service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
         service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
 
-        result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(applies_knowledge_uids=["ku_new"])
+        )
 
         assert result.is_ok
         # No node properties remained → property-write path skipped, entity fetched.
@@ -375,12 +378,12 @@ class TestUpdateTaskKnowledgeEdges:
         service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
 
         result = await service.update_task(
-            "task_abc", {"title": "New", "applies_knowledge_uids": ["ku_x"]}
+            "task_abc", TaskUpdateIntent(title="New", applies_knowledge_uids=["ku_x"])
         )
 
         assert result.is_ok
         # Knowledge key is popped — only the real property reaches core.update_task.
-        service.core.update_task.assert_awaited_once_with("task_abc", {"title": "New"})
+        service.core.update_task.assert_awaited_once_with("task_abc", TaskUpdateIntent(title="New"))
         service.core.get_task.assert_not_called()
         service.backend.create_relationships_batch.assert_awaited_once_with(
             [self._knowledge_edge("task_abc", "ku_x")]
@@ -399,7 +402,7 @@ class TestUpdateTaskKnowledgeEdges:
         service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
         service.backend.create_relationships_batch = AsyncMock()
 
-        result = await service.update_task("task_abc", {"applies_knowledge_uids": []})
+        result = await service.update_task("task_abc", TaskUpdateIntent(applies_knowledge_uids=[]))
 
         assert result.is_ok
         assert service.relationships.delete_relationship.await_count == 2
@@ -433,6 +436,8 @@ class TestUpdateTaskKnowledgeEdges:
         """The ownership-verified API route must verify ownership BEFORE editing edges."""
         service = tasks_service_with_mocked_subservices
         service.verify_ownership = AsyncMock(return_value=Result.ok(Mock()))
+        # Edge-only update funnels through update_task, which fetches the task to return.
+        service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
         service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["ku_old"]))
         service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
         service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
@@ -466,7 +471,9 @@ class TestUpdateTaskKnowledgeEdges:
         )
         service.backend.create_relationships_batch = AsyncMock()
 
-        result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(applies_knowledge_uids=["ku_new"])
+        )
 
         assert result.is_error
         # New edge must NOT be created when stale-edge removal failed.
@@ -484,7 +491,9 @@ class TestUpdateTaskKnowledgeEdges:
         service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
         service._publish_edge_only_update = AsyncMock()
 
-        result = await service.update_task("task_abc", {"applies_knowledge_uids": ["ku_new"]})
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(applies_knowledge_uids=["ku_new"])
+        )
 
         assert result.is_ok
         service._publish_edge_only_update.assert_awaited_once()
@@ -502,7 +511,7 @@ class TestUpdateTaskKnowledgeEdges:
         service._publish_edge_only_update = AsyncMock()
 
         result = await service.update_task(
-            "task_abc", {"title": "New", "applies_knowledge_uids": ["ku_x"]}
+            "task_abc", TaskUpdateIntent(title="New", applies_knowledge_uids=["ku_x"])
         )
 
         assert result.is_ok

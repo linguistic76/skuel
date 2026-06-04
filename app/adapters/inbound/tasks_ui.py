@@ -221,12 +221,10 @@ def create_tasks_ui_routes(
             )
             return await render_activity_sidebar_page(content, active="tasks", request=request)
 
-        # Drop None values: TaskUpdateRequest fields are all optional, and the
-        # backend update applies whatever keys are present. Sending None for
-        # fields the user left blank would clobber valid existing values.
-        updates = {k: v for k, v in parsed.value.model_dump().items() if v is not None}
-
-        result = await tasks_service.update_task(uid, updates)
+        # ADR-066: build the typed update intent from explicitly-set fields. Only fields
+        # the form actually submitted become non-UNSET, so untouched fields are left alone
+        # (an explicitly-cleared field clears; absent fields are not written).
+        result = await tasks_service.update_task(uid, parsed.value.to_intent())
         if result.is_error:
             err = result.expect_error()
             goal_display, habit_display = await _resolve_picker_titles(

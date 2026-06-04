@@ -23,6 +23,8 @@ from core.models.request_base import (
     ResponseBase,
     UpdateRequestBase,
 )
+from core.models.sentinels import UNSET, Unset
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.validation_rules import (
     validate_future_date,
     validate_recurrence_end_after_start,
@@ -133,6 +135,52 @@ class TaskUpdateRequest(UpdateRequestBase):
     habit_streak_maintainer: bool | None = None
     prerequisite_knowledge_uids: list[str] | None = None
     prerequisite_task_uids: list[str] | None = None
+
+    def to_intent(self) -> TaskUpdateIntent:
+        """Build the typed ``TaskUpdateIntent`` (ADR-066) from explicitly-set fields.
+
+        Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
+        so the intent carries a true partial patch: an absent field is left untouched, a
+        field explicitly set to ``None`` is an explicit clear. Enum fields (priority,
+        status) are lowered to their string value to match the persistence boundary.
+        """
+        set_fields = self.model_fields_set
+
+        def when_set[T](name: str, value: T) -> T | Unset:
+            """Carry ``value`` only if the caller set this field; else ``UNSET``.
+
+            Generic so the intent fields stay fully typed (no ``Any``): the return is
+            ``<declared field type> | Unset``, exactly what each intent field expects.
+            """
+            return value if name in set_fields else UNSET
+
+        return TaskUpdateIntent(
+            title=when_set("title", self.title),
+            description=when_set("description", self.description),
+            due_date=when_set("due_date", self.due_date),
+            scheduled_date=when_set("scheduled_date", self.scheduled_date),
+            duration_minutes=when_set("duration_minutes", self.duration_minutes),
+            priority=when_set("priority", self.priority.value if self.priority is not None else None),
+            status=when_set("status", self.status.value if self.status is not None else None),
+            project=when_set("project", self.project),
+            assignee=when_set("assignee", self.assignee),
+            tags=when_set("tags", self.tags),
+            actual_minutes=when_set("actual_minutes", self.actual_minutes),
+            completion_date=when_set("completion_date", self.completion_date),
+            fulfills_goal_uid=when_set("fulfills_goal_uid", self.fulfills_goal_uid),
+            aligned_principle_uids=when_set("aligned_principle_uids", self.aligned_principle_uids),
+            goal_progress_contribution=when_set(
+                "goal_progress_contribution", self.goal_progress_contribution
+            ),
+            knowledge_mastery_check=when_set("knowledge_mastery_check", self.knowledge_mastery_check),
+            habit_streak_maintainer=when_set("habit_streak_maintainer", self.habit_streak_maintainer),
+            prerequisite_knowledge_uids=when_set(
+                "prerequisite_knowledge_uids", self.prerequisite_knowledge_uids
+            ),
+            prerequisite_task_uids=when_set("prerequisite_task_uids", self.prerequisite_task_uids),
+            reinforces_habit_uid=when_set("reinforces_habit_uid", self.reinforces_habit_uid),
+            applies_knowledge_uids=when_set("applies_knowledge_uids", self.applies_knowledge_uids),
+        )
 
 
 class TaskResponse(ResponseBase):
