@@ -2,7 +2,6 @@
 - **Preferred document format: Markdown (`.md`).** Downloadable content (exercises, worksheets, reports) is served as `.md` so users can open, edit, and respond in any text editor or Obsidian. PDF is reserved for finance (invoices). Never introduce a new binary document format when `.md` will do.
 
 ## Code Responsibility Philosophy
-*Last updated: 2026-03-03*
 
 **If you see a problem, fix it.** Don't look the other way. Take responsibility to make the code better.
 
@@ -13,7 +12,6 @@ When working in a file or area of the codebase, address problems you encounter �
 ---
 
 ## One Path Forward - Core Development Philosophy
-*Last updated: 2026-02-23*
 
 **SKUEL does NOT maintain backward compatibility.** When a better pattern emerges, the old pattern is removed entirely. No legacy wrappers, no deprecation periods, no alternative paths. Update all call sites immediately. Dead code is deleted, not archived.
 
@@ -291,7 +289,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 - Use `require_found(result, resource, uid)` for the fetch + not-found guard pattern in routes
 - Use `Errors` factory for creating errors
 - Six error types: Validation, NotFound, Database, Integration, Business, System
-- **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). ✅ Zero violations — persistence layer uses `NEO4J_EXCEPTIONS`, API/UI boundaries use `# safety-net:` annotations.
+- **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). Convention: persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
 - **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL024.
 
 **See:** `/docs/patterns/ERROR_HANDLING.md`
@@ -420,7 +418,7 @@ All three load CSS through `build_head()` (local MonsterUI vendor files). Never 
 
 ## Lateral Relationships & Vis.js Graph Visualization
 
-All 9 domains deployed (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP).
+Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP).
 
 **Three Components:** BlockingChainView (vertical flow), AlternativesComparisonGrid (side-by-side), RelationshipGraphView (Vis.js force-directed graph).
 
@@ -481,7 +479,7 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Design principle — harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`) — no domain opts out. That shared shape is the contract enabling unified search, context aggregation, cross-domain queries, and ZPD. Domain-specific sub-services (Habits `completions`, Events `habit_integration`, Principles `alignment`) preserve uniqueness inside it. See: `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization".
 
-**Decomposition rule:** Intelligence services >350 lines → extract mixins. Facade services >700 lines + 4+ coherent methods → extract facade mixins. All 6 Activity Domain intelligence services and the EventsService facade now follow this pattern.
+**Decomposition rule:** Intelligence services >350 lines → extract mixins. Facade services >700 lines + 4+ coherent methods → extract facade mixins.
 
 **Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
 
@@ -542,7 +540,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 - SKUEL022: No `adapters/` imports in `core/` [ERROR] — the hexagonal dependency direction is core → adapter (ADR-044), never the reverse. AST rule; flags module-level AND function-local `import adapters`/`from adapters import` in any `core/` file. `TYPE_CHECKING`-only imports are exempt (they never execute, so they can't create a runtime dependency). Depend on a `core/ports` protocol and inject the concrete adapter at the composition root (`services_bootstrap/` or a factory below the boundary).
 - SKUEL024: No `cls=` + `**kwargs` collision in FT helpers [ERROR] — a helper that hardcodes `cls="..."` AND splats `**kwargs` into the same call without an explicit `cls` param raises `TypeError: got multiple values for keyword argument 'cls'` the moment a caller passes `cls=` (this 500'd `/insights`). AST rule (non-test files); no `kwargs.pop("cls")` exemption (a conditional/post-splat pop is unsound to prove), so pop-based helpers are flagged too. Fix: add `cls: str = ""` and merge — `cls=f"...base... {cls}".strip()`; suppress only for a genuinely-sound pop form. Contract guarded by `tests/unit/ui/test_cls_merge_contract.py`.
 
-**MyPy:** `./dev quality` enforces **0 MyPy errors**. Per-module strictness overrides in `pyproject.toml`. No error codes are globally disabled. `arg-type` is enforced on **all first-party trees** (`core/`, `services_bootstrap/`, `adapters/`, `ui/`) — the global disable was deleted 2026-05-31 after each was swept to 0 (PRs #104–149); it enforces frozen-model / enum-NewType / typed-payload boundaries per the functional-direction roadmap, and at the composition root catches service↔protocol conformance gaps. Only `tests`/`scripts` scope-disable `arg-type` (alongside `type-var`/`misc`/`method-assign` — framework-mock noise). `assignment` is **enabled** — catches trailing-comma tuple bugs and real type mismatches. `core.services.*`, `core.ports.*` enforce `disallow_untyped_defs`. Domain backends suppress `misc` (MRO mixin conflicts). Narrow Neo4j property types with `int()`/`float()`/`str()` casts before arithmetic. Every new `Any` needs a `# boundary:` comment or should use a specific type.
+**MyPy:** `./dev quality` enforces **0 MyPy errors**. Per-module strictness overrides in `pyproject.toml`. No error codes are globally disabled. `arg-type` is enforced on **all first-party trees** (`core/`, `services_bootstrap/`, `adapters/`, `ui/`) — it enforces frozen-model / enum-NewType / typed-payload boundaries per the functional-direction roadmap, and at the composition root catches service↔protocol conformance gaps. Only `tests`/`scripts` scope-disable `arg-type` (alongside `type-var`/`misc`/`method-assign` — framework-mock noise). `assignment` is **enabled** — catches trailing-comma tuple bugs and real type mismatches. `core.services.*`, `core.ports.*` enforce `disallow_untyped_defs`. Domain backends suppress `misc` (MRO mixin conflicts). Narrow Neo4j property types with `int()`/`float()`/`str()` casts before arithmetic. Every new `Any` needs a `# boundary:` comment or should use a specific type.
 
 **See:** `/docs/patterns/linter_rules.md`, `docs/patterns/mypy_pragmatic_strategy.md`
 
