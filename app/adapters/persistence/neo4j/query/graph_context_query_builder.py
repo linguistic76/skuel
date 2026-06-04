@@ -196,9 +196,22 @@ def _build_filtered_context_query(depth: int, relationship_types: list[str]) -> 
     """Build a registry-sourced filtered traversal query (mechanism B).
 
     The edge filter is the supplied relationship-type list (the domain's registry
-    vocabulary). Shape mirrors the per-intent filtered clauses, plus the ``LIMIT`` cap
-    ported from the generic EXPLORATORY branch — guarding against unbounded results now
-    that the edge set is the domain's full cross-domain vocabulary, not a narrow literal.
+    vocabulary), plus the ``LIMIT`` cap ported from the generic EXPLORATORY branch —
+    guarding against unbounded results now that the edge set is the domain's full
+    cross-domain vocabulary, not a narrow literal.
+
+    The predicate uses ``all`` (not ``any``): a related node is collected only when it
+    is reachable by a path whose **every** edge is registry-sourced. ``any`` would leak
+    non-registry tails at ``depth > 1`` — a path ``origin-[:REGISTRY]->x-[:NOISE]->y``
+    satisfies "some edge is registry" and would wrongly collect ``y`` and ``NOISE``,
+    breaking the registry-sourced guarantee. A node still surfaces whenever *some*
+    all-registry path reaches it, so transitive registry context (e.g.
+    ``origin-[:DEPENDS_ON]->x-[:CONTRIBUTES_TO_GOAL]->goal``) is preserved.
+
+    ``related <> origin`` excludes the origin's own 0-length self-path: ``all`` over its
+    empty relationship list is vacuously true, so without this guard the origin would
+    leak into its own context (``any`` excluded it implicitly). Mirrors the
+    ``related <> center`` self-exclusion in ``get_cross_domain_context``.
 
     Relationship types are ``RelationshipName`` enum values from the registry (trusted,
     not user input), interpolated the same way ``depth`` is throughout this builder.
@@ -207,7 +220,8 @@ def _build_filtered_context_query(depth: int, relationship_types: list[str]) -> 
     return f"""
     MATCH (origin {{uid: $uid}})
     OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-    WHERE any(r in relationships(path) WHERE type(r) IN [{rel_list}])
+    WHERE related <> origin
+      AND all(r in relationships(path) WHERE type(r) IN [{rel_list}])
     WITH origin, collect(DISTINCT related) as nodes,
          collect(DISTINCT [r in relationships(path) | {{
              type: type(r),

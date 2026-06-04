@@ -41,6 +41,12 @@ EVENT = P + "event"
 EVT_GOAL = P + "evt_goal"  # via CONTRIBUTES_TO_GOAL (registry edge, NOT in PRACTICE clause)
 EVT_HABIT = P + "evt_habit"  # via REINFORCES_HABIT (registry edge, NOT in PRACTICE clause)
 
+# --- depth-2 fixture graph (registry-sourced ALL-edges guarantee) ---
+D2_TASK = P + "d2_task"
+D2_DEP = P + "d2_dep"  # task -[:DEPENDS_ON]-> dep   (all-registry 1-hop)
+D2_GOAL = P + "d2_goal"  # dep  -[:CONTRIBUTES_TO_GOAL]-> goal (all-registry 2-hop, must surface)
+D2_NOISE = P + "d2_noise"  # dep  -[:NOISE_LINK]-> noise  (non-registry tail, must NOT surface)
+
 
 def _uids(graph_context) -> set[str]:
     return {node.uid for node in graph_context.all_nodes}
@@ -103,6 +109,7 @@ async def test_tasks_registry_sourced_traversal(neo4j_driver, graph_intel, clean
     assert GOAL in reg_uids, "CONTRIBUTES_TO_GOAL neighbour should surface registry-sourced"
     assert KU in reg_uids, "APPLIES_KNOWLEDGE neighbour should surface registry-sourced"
     assert NOISE not in reg_uids, "edge outside the registry must be filtered out"
+    assert TASK not in reg_uids, "origin must not leak into its own context (self-exclusion)"
 
     # --- Negative control: bare default-intent clause misses the DEPENDS_ON neighbour ---
     bare = await graph_intel.query_with_intent(
@@ -174,3 +181,61 @@ async def test_events_registry_sourced_traversal(neo4j_driver, graph_intel, clea
         "CONTRIBUTES_TO_GOAL is absent from the hard-coded PRACTICE clause — the bare path "
         "must miss it"
     )
+
+
+@pytest.mark.asyncio
+async def test_registry_sourced_excludes_non_registry_tail_at_depth_2(
+    neo4j_driver, graph_intel, clean_neo4j
+):
+    """At depth>1 a non-registry tail edge must NOT leak its node (the `all` guarantee).
+
+    Path shapes from D2_TASK at depth 2:
+      D2_TASK -[:DEPENDS_ON]->        D2_DEP                (all registry → D2_DEP surfaces)
+      D2_TASK -[:DEPENDS_ON]->D2_DEP -[:CONTRIBUTES_TO_GOAL]-> D2_GOAL (all registry → surfaces)
+      D2_TASK -[:DEPENDS_ON]->D2_DEP -[:NOISE_LINK]->        D2_NOISE  (mixed → must NOT surface)
+
+    An `any`-based predicate would wrongly collect D2_NOISE here (the path contains the
+    registry DEPENDS_ON edge); `all` rejects the mixed path. This is the regression Codex
+    flagged — the original tests only covered depth 1.
+    """
+    async with neo4j_driver.session() as s:
+        for uid, label, etype in [
+            (D2_TASK, "Task", "task"),
+            (D2_DEP, "Task", "task"),
+            (D2_GOAL, "Goal", "goal"),
+            (D2_NOISE, "Task", "task"),
+        ]:
+            await s.run(
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+        await s.run(
+            "MATCH (t{uid:$t}),(d{uid:$d}) CREATE (t)-[:DEPENDS_ON]->(d)", t=D2_TASK, d=D2_DEP
+        )
+        await s.run(
+            "MATCH (d{uid:$d}),(g{uid:$g}) CREATE (d)-[:CONTRIBUTES_TO_GOAL]->(g)",
+            d=D2_DEP,
+            g=D2_GOAL,
+        )
+        await s.run(
+            "MATCH (d{uid:$d}),(n{uid:$n}) CREATE (d)-[:NOISE_LINK]->(n)", d=D2_DEP, n=D2_NOISE
+        )
+
+    res = await graph_intel.query_with_intent(
+        domain=None,
+        node_uid=D2_TASK,
+        intent=TASKS_CONFIG.default_context_intent,
+        depth=2,
+        relationship_types=TASKS_CONFIG.cross_domain_relationship_types,
+    )
+    assert res.is_ok, res
+    uids = _uids(res.value)
+    assert D2_DEP in uids, "1-hop all-registry neighbour should surface"
+    assert D2_GOAL in uids, "2-hop all-registry transitive neighbour should surface"
+    assert D2_NOISE not in uids, (
+        "node reachable only via a non-registry tail edge must NOT surface at depth 2 "
+        "(the `all` guarantee — `any` would have leaked it)"
+    )
+    assert D2_TASK not in uids, "origin must not leak into its own context (self-exclusion)"
