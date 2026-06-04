@@ -19,7 +19,7 @@ and asserts the cooldown count sees both recent ones. Pre-fix it would see only 
 datetime one (count 1), so `== 2` is a built-in negative control.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -34,7 +34,7 @@ class TestCreatedAtWindowCoercion:
     async def test_check_cooldown_matches_string_and_datetime_created_at(
         self, neo4j_driver, clean_neo4j
     ):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent_iso = (now - timedelta(minutes=5)).isoformat()  # string, in window
         old_iso = (now - timedelta(hours=5)).isoformat()  # string, out of window
 

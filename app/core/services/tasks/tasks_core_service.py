@@ -20,11 +20,13 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from core.ports.domain_protocols import TasksOperations
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
@@ -35,7 +37,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_inference_result import TaskInferenceResult
 from core.models.task.task_request import TaskCreateRequest
-from core.ports.query_types import ParentProgressResult, TaskStats, TaskUpdatePayload
+from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
@@ -115,7 +117,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Task, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Task, updates: Mapping[str, Any]) -> Result[None]:
         """
         Validate task updates with business rules.
 
@@ -426,13 +428,13 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
     # ========================================================================
 
     @with_error_handling("update_task", error_type="database", uid_param="task_uid")
-    async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
+    async def update_task(self, task_uid: str, updates: Mapping[str, Any]) -> Result[Task]:
         """
         Update a task.
 
         Args:
             task_uid: Task UID,
-            updates: Dictionary of field updates
+            updates: Mapping of field updates (e.g. a TaskUpdatePayload)
 
         Returns:
             Result containing updated Task
@@ -444,7 +446,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             if old_result.is_ok:
                 old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
 
-        update_result = await self.backend.update(task_uid, updates)
+        update_result = await self.backend.update(task_uid, dict(updates))
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -488,12 +490,14 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing count of tasks completed
         """
-        # Mark all tasks as completed
-        updates: TaskUpdatePayload = {"status": EntityStatus.COMPLETED.value}
+        # Mark all tasks as completed. Constructed in-place and handed straight to the
+        # backend, so a concrete dict is the honest type here (the *UpdatePayload
+        # TypedDicts are for service-contract call sites, not backend boundary calls).
+        updates: dict[str, Any] = {"status": EntityStatus.COMPLETED.value}
         completed_count = 0
 
         for task_uid in task_uids:
-            result = await self.backend.update(task_uid, cast("Neo4jProperties", updates))
+            result = await self.backend.update(task_uid, updates)
             if result.is_ok:
                 completed_count += 1
 

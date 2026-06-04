@@ -42,6 +42,8 @@ from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from core.ports.domain_protocols import EventsOperations
 
 
@@ -137,7 +139,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Event, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Event, updates: Mapping[str, Any]) -> Result[None]:
         """
         Validate event updates with business rules.
 
@@ -345,7 +347,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
 
         return result
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Event]:
         """
         Update a calendar event and publish appropriate events.
 
@@ -413,7 +415,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                 domain_event = CalendarEventUpdated(
                     event_uid=event.uid,
                     user_uid=event.user_uid,
-                    updated_fields=updates,
+                    updated_fields=dict(updates),
                 )
                 await publish_event(self.event_bus, domain_event, self.logger)
 

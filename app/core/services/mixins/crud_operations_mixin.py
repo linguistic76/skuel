@@ -32,13 +32,17 @@ PROVIDES (Methods for All Service Layers):
 
 Type Safety (January 2026)
 --------------------------
-Update methods accept BaseUpdatePayload or domain-specific TypedDicts for type safety.
-TypedDicts are structural subtypes of dict[str, Any], so this is backward compatible.
+Update methods accept ``Mapping[str, Any]`` so callers can pass a domain-specific
+``*UpdatePayload`` TypedDict and get key/value checking + IDE autocomplete. A
+TypedDict is assignable to ``Mapping[str, Any]`` (read-only, covariant) but NOT to
+``dict[str, Any]`` (invariant, mutable) — the update path only reads ``updates``, so
+``Mapping`` is the honest contract. The persistence boundary materializes a concrete
+``dict`` via ``self.backend.update(uid, dict(updates))``.
 
     from core.ports import TaskUpdatePayload
 
     updates: TaskUpdatePayload = {"status": "completed", "progress": 1.0}
-    await service.update(uid, updates)  # IDE autocomplete works!
+    await service.update(uid, updates)  # type-checked + IDE autocomplete
 """
 
 from __future__ import annotations
@@ -52,6 +56,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Mapping
 
 
 class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
@@ -77,12 +82,13 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         """Validation hook - override in subclass."""
         return Result.ok(None)
 
-    def _validate_update(self, current: T, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: T, updates: Mapping[str, Any]) -> Result[None]:
         """
         Validation hook - override in subclass.
 
-        Note: Uses dict[str, Any] because domain-specific validation needs
-        to access domain-specific keys (priority, amount, label, etc.)
+        Note: Uses Mapping[str, Any] (read-only) because domain-specific validation
+        reads domain-specific keys (priority, amount, label, etc.) without mutating;
+        Mapping lets callers pass a `*UpdatePayload` TypedDict directly.
         """
         return Result.ok(None)
 
@@ -100,7 +106,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         """Hook called after create. Override to publish events, etc."""
 
     async def _post_update(
-        self, uid: str, old_entity: T, updates: dict[str, Any], result: Result[T]
+        self, uid: str, old_entity: T, updates: Mapping[str, Any], result: Result[T]
     ) -> None:
         """Hook called after update. Override to publish events, etc."""
 
@@ -141,16 +147,17 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # At this point, result is either an error or has a non-None value
         return cast("Result[T]", result)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[T]:
         """
         Update entity.
 
-        Callers can use TypedDicts (e.g., TaskUpdatePayload) for IDE autocomplete -
-        they're structural subtypes of dict[str, Any].
+        Accepts a read-only Mapping so callers can pass a domain `*UpdatePayload`
+        TypedDict directly (type-checked + IDE autocomplete). The persistence
+        boundary materializes a concrete dict.
 
         Args:
             uid: Entity UID to update
-            updates: Dictionary of fields to update
+            updates: Mapping of fields to update (e.g. a TaskUpdatePayload)
 
         Returns:
             Result[T]: Updated entity or error
@@ -158,7 +165,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Type Hint Example:
             from core.ports import TaskUpdatePayload
             updates: TaskUpdatePayload = {"status": "completed", "progress": 1.0}
-            await service.update(uid, updates)  # IDE autocomplete works!
+            await service.update(uid, updates)  # type-checked + IDE autocomplete
         """
         if not uid:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
@@ -175,7 +182,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if validation.is_error:
             return Result.fail(validation)
 
-        result = await self.backend.update(uid, updates)
+        result = await self.backend.update(uid, dict(updates))
         await self._post_update(uid, old_entity, updates, result)
         return result
 
@@ -276,7 +283,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         return await self.verify_ownership(uid, user_uid)
 
     async def update_for_user(
-        self, uid: str, updates: dict[str, Any], user_uid: UserUID
+        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
     ) -> Result[T]:
         """
         Update entity, but only if owned by the specified user.
@@ -309,7 +316,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(validation)
 
         # Perform the update
-        return await self.backend.update(uid, updates)
+        return await self.backend.update(uid, dict(updates))
 
     async def delete_for_user(
         self, uid: str, user_uid: UserUID, cascade: bool = False

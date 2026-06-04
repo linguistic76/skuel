@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from core.ports.domain_protocols import TasksOperations
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
@@ -423,11 +425,16 @@ class TasksService(
     # would write a junk denormalized property onto the node AND skip the edge (the
     # very split the ADR-035/ADR-065 graph-native migration removed).
     @staticmethod
-    def _pop_relationship_updates(updates: dict) -> tuple[str | None, list[str] | None]:
-        """Remove edge-typed keys from a property-update dict, returning their values."""
-        habit_uid = updates.pop("reinforces_habit_uid", None)
-        applies_knowledge_uids = updates.pop("applies_knowledge_uids", None)
-        return habit_uid, applies_knowledge_uids
+    def _split_relationship_updates(
+        updates: Mapping[str, Any],
+    ) -> tuple[str | None, list[str] | None, dict[str, Any]]:
+        """Split a partial-update mapping into its edge-typed values and the remaining
+        node properties. Does not mutate the caller's mapping — returns a fresh
+        properties dict so callers can pass a read-only `TaskUpdatePayload`."""
+        properties = dict(updates)
+        habit_uid = properties.pop("reinforces_habit_uid", None)
+        applies_knowledge_uids = properties.pop("applies_knowledge_uids", None)
+        return habit_uid, applies_knowledge_uids, properties
 
     async def _sync_relationship_edges(
         self, task_uid: str, habit_uid: str | None, applies_knowledge_uids: list[str] | None
@@ -514,18 +521,20 @@ class TasksService(
         )
         await publish_event(self.event_bus, event, self.logger)
 
-    async def update_task(self, task_uid: str, updates: dict) -> Result[Task]:
+    async def update_task(self, task_uid: str, updates: Mapping[str, Any]) -> Result[Task]:
         """Facade update (UI route). Writes node properties via core (events fire) and
         syncs habit/knowledge edges. See `_sync_relationship_edges`."""
-        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+        habit_uid, applies_knowledge_uids, properties = self._split_relationship_updates(updates)
 
         # A relationship-only update (e.g. only applies_knowledge_uids, which
         # TaskUpdateRequest permits) leaves no node properties to write. The backend
         # rejects an empty update dict, so fetch the task to confirm it exists and to
         # have a Task to return. A genuinely empty call keeps the validation error.
-        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        wrote_properties = bool(properties) or (
+            habit_uid is None and applies_knowledge_uids is None
+        )
         if wrote_properties:
-            result = await self.core.update_task(task_uid, updates)
+            result = await self.core.update_task(task_uid, properties)
         else:
             result = await self.core.get_task(task_uid)
         if result.is_error:
@@ -538,18 +547,17 @@ class TasksService(
             await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
         return result
 
-    # boundary: `updates` is a heterogeneous partial-update payload and must keep the
-    # inherited CrudOperationsMixin `dict[str, Any]` signature (LSP — narrowing to a
-    # TypedDict would break override variance and the route's model_dump() callers).
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Task]:
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Task]:
         """Override the inherited CRUD update (generated JSON route, no ownership check)
         so the API path syncs habit/knowledge edges instead of writing them as junk
         node properties. See `_sync_relationship_edges`."""
-        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+        habit_uid, applies_knowledge_uids, properties = self._split_relationship_updates(updates)
 
-        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        wrote_properties = bool(properties) or (
+            habit_uid is None and applies_knowledge_uids is None
+        )
         if wrote_properties:
-            result = await super().update(uid, updates)
+            result = await super().update(uid, properties)
         else:
             result = await self.core.get_task(uid)
         if result.is_error:
@@ -565,19 +573,20 @@ class TasksService(
     async def update_for_user(
         self,
         uid: str,
-        # boundary: heterogeneous partial-update payload — see `update` above.
-        updates: dict[str, Any],
+        updates: Mapping[str, Any],
         user_uid: UserUID,
     ) -> Result[Task]:
         """Override the inherited ownership-verified CRUD update (generated JSON route)
         so the API path syncs habit/knowledge edges. Ownership is verified before any
         edge mutation, including on the relationship-only path. See
         `_sync_relationship_edges`."""
-        habit_uid, applies_knowledge_uids = self._pop_relationship_updates(updates)
+        habit_uid, applies_knowledge_uids, properties = self._split_relationship_updates(updates)
 
-        wrote_properties = bool(updates) or (habit_uid is None and applies_knowledge_uids is None)
+        wrote_properties = bool(properties) or (
+            habit_uid is None and applies_knowledge_uids is None
+        )
         if wrote_properties:
-            result = await super().update_for_user(uid, updates, user_uid)
+            result = await super().update_for_user(uid, properties, user_uid)
         else:
             # Relationship-only update: still verify ownership before touching edges.
             result = await self.verify_ownership(uid, user_uid)
