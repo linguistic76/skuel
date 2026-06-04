@@ -167,10 +167,11 @@ async def get_entity_context(self, uid: str) -> Result[dict]:
 ### `_require_relationship_service(operation)`
 
 ```python
-async def get_related_goals(self, uid: str) -> Result[list[str]]:
-    self._require_relationship_service("get_related_goals")
-    # Safe: relationships is guaranteed available
-    return await self.relationships.get_related_uids(uid, RelationshipName.FULFILLS_GOAL)
+async def get_fulfilling_tasks(self, uid: str) -> Result[list[str]]:
+    self._require_relationship_service("get_fulfilling_tasks")
+    # get_related_uids takes a config METHOD-KEY (str) + uid — direction/rel-type and any
+    # edge filter come from the registry spec. NOT (uid, RelationshipName, direction=...).
+    return await self.relationships.get_related_uids("fulfilling_tasks", uid)
 ```
 
 ### Guard Behavior
@@ -245,6 +246,10 @@ def _generate_progress_recommendations(
 > the edge **incident to each one**, so `*CrossContext` (and the metrics built from it)
 > count correctly-attributed transitive context, each entry tagged with its `distance`.
 > Pass `depth=1` if a dashboard should count **direct** cross-domain relationships only.
+> Since PR #216 the categorization also honors a mapping's `filter_property`/`filter_value`
+> (matched against each node's incident-edge properties), so edge-property-discriminated
+> tiers — e.g. GOALS' `essential`/`critical`/`optional` habits on SUPPORTS_GOAL — land in
+> their own buckets instead of all collapsing into the no-filter catch-all.
 
 ### `_dual_track_assessment()` (Template Method)
 
@@ -314,13 +319,10 @@ async def get_knowledge_application_opportunities(
     """Find tasks and habits that could apply this knowledge."""
     self._require_relationship_service("get_knowledge_application_opportunities")
 
-    # Find related entities across domains
-    tasks = await self.relationships.get_related_uids(
-        ku_uid, RelationshipName.APPLIES_KNOWLEDGE, direction="incoming"
-    )
-    habits = await self.relationships.get_related_uids(
-        ku_uid, RelationshipName.REINFORCES_KNOWLEDGE, direction="incoming"
-    )
+    # Find related entities across domains. get_related_uids takes a config METHOD-KEY
+    # (str) + uid; the rel-type, direction, and any edge filter come from the spec.
+    tasks = await self.relationships.get_related_uids("applied_in_tasks", ku_uid)
+    habits = await self.relationships.get_related_uids("reinforced_by_habits", ku_uid)
 
     return Result.ok({
         "applicable_tasks": tasks.value if tasks.is_ok else [],

@@ -257,7 +257,24 @@ counts = await service.batch_count_related("knowledge", ["task:1", "task:2"])
 
 # Get all relationships of a type
 entities = await service.get_related_entities("knowledge", "task:123")
+
+# Edge-property-FILTERED keys (e.g. essentiality tiers on SUPPORTS_GOAL).
+essential = await service.get_related_uids("essential_habits", "goal:123")    # r.essentiality = "essential"
+all_habits = await service.get_related_uids("supporting_habits", "goal:123")  # no filter → every tier
 ```
+
+> **Filtered method-keys (`filter_property`/`filter_value`).** A
+> `UnifiedRelationshipDefinition` may scope a relationship by an edge property — GOAPS_CONFIG
+> splits SUPPORTS_GOAL into `essential_habits`/`critical_habits`/`optional_habits` (filtered)
+> plus the no-filter `supporting_habits`/`contributing_habits` catch-all. The filter applies
+> on **every** read path: `get_related_uids`/`count_related`/`has_relationship` (backend
+> `WHERE r.<prop> = $value`), `get_cross_domain_context` categorization (filtered mappings
+> sort before the catch-all, matched on each node's `incident_rel_properties`), and
+> `get_with_context`/`build_entity_with_context` (per-clause `WHERE`). **Catch-all semantics
+> differ by path:** the no-filter key returns ALL on `get_related_uids` / `get_with_context`
+> (independent queries) but the RESIDUAL on `get_cross_domain_context` (first-match `break`);
+> the union is identical. **Writing through a filtered key stamps the property** (see
+> create_relationship below) so create→read round-trips. Reconciled end-to-end PR #216.
 
 ### Relationship Creation (6 methods)
 
@@ -287,6 +304,14 @@ await service.create_relationship("knowledge", "task:123", "ku:py", {"confidence
 > It previously dispatched to a dynamic `link_{domain}_to_{key}` backend method that
 > existed for only two habit cases and failed at runtime everywhere else — that whole
 > dispatch is gone.
+>
+> **A filtered key stamps its property on write.** Creating through a `filter_property`
+> key (e.g. `create_relationship("essential_habits", goal, habit)`) merges
+> `{filter_property: filter_value}` onto the edge via `setdefault` (an explicit caller
+> value wins), so the edge is readable back through the same filtered key — without the
+> stamp the read filter would make the just-created edge invisible. No-op for unfiltered
+> keys. The canonical `link_goal_to_habit` writes via the catch-all `supporting_habits`
+> key with an explicit `essentiality`. (PR #216.)
 >
 > **For an edge whose type is NOT a config method-key** (e.g. an explicit
 > `DEPENDS_ON` with edge properties), call the backend batch path directly:
