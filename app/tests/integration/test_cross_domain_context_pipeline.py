@@ -22,10 +22,9 @@ guard must run against real Cypher.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
-from neo4j import AsyncSession
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
@@ -61,6 +60,9 @@ from core.services.intelligence.metrics_calculators import (
 from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from neo4j import AsyncSession
 
 P = "xdctx_"  # uid prefix for this module's fixture graph
 
@@ -286,7 +288,7 @@ async def test_habit_incoming_buckets_populate(neo4j_driver, rel_backend, clean_
     assert R_PRINCIPLE in inspiring, f"incoming bucket still dead: {inspiring}"
 
     ctx = HabitCrossContext.from_dict(res.value)
-    # aligned_principle_uids = embodied (outgoing) ∪ inspiring (incoming) — here both
+    # aligned_principle_uids = embodied (outgoing) union inspiring (incoming) — here both
     # resolve to the same principle, so de-dup leaves exactly one entry, no self-include.
     assert ctx.aligned_principle_uids == [R_PRINCIPLE]
     assert R_HABIT not in ctx.aligned_principle_uids
@@ -1006,8 +1008,8 @@ async def test_knowledge_cross_domain_context_round_trip(neo4j_driver, rel_backe
         )
         for uid in (KW_PS_USES, KW_PS_TRAINS):
             await s.run(
-                f"CREATE (:Entity:PathStep {{uid:$u, entity_type:'path_step', title:$u, "
-                f"status:'active', created_at:datetime()}})",
+                "CREATE (:Entity:PathStep {uid:$u, entity_type:'path_step', title:$u, "
+                "status:'active', created_at:datetime()})",
                 u=uid,
             )
         for ps, rel in [(KW_PS_USES, "USES_KU"), (KW_PS_TRAINS, "TRAINS_KU")]:

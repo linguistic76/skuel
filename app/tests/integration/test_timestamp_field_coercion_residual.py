@@ -16,7 +16,7 @@ Fields written via Cypher `datetime()` (updated_at, sessions, achieved_at, maste
 are already native and intentionally left uncoerced.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
@@ -37,7 +37,7 @@ class TestTimestampFieldCoercionResidual:
 
     async def test_get_due_schedules_matches_string_next_due_at(self, neo4j_driver, clean_neo4j):
         """A schedule whose string next_due_at is in the past is returned as due."""
-        past = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        past = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -57,7 +57,7 @@ class TestTimestampFieldCoercionResidual:
         self, neo4j_driver, clean_neo4j
     ):
         """An insight with a future string expires_at is active, not filtered out."""
-        future = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
+        future = (datetime.now(UTC) + timedelta(days=3)).isoformat()
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -68,7 +68,7 @@ class TestTimestampFieldCoercionResidual:
                     impact: 'high', confidence: 0.9,
                     created_at: $now, expires_at: $future})
                 """,
-                now=datetime.now(timezone.utc).isoformat(),
+                now=datetime.now(UTC).isoformat(),
                 future=future,
             )
         backend = InsightBackend(Neo4jQueryExecutor(neo4j_driver))
@@ -85,8 +85,8 @@ class TestTimestampFieldCoercionResidual:
         ordering falls back to current_streak DESC and the lower-streak at-risk habit
         sorts LAST. Post-fix it sorts first.
         """
-        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-        today = datetime.now(timezone.utc).isoformat()
+        yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        today = datetime.now(UTC).isoformat()
         async with neo4j_driver.session() as session:
             await session.run(
                 """

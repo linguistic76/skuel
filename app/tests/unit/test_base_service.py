@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from unittest.mock import AsyncMock, Mock
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from datetime import datetime
 
     from core.ports.base_protocols import BackendOperations  # noqa: F401
@@ -620,7 +621,7 @@ class _FailingValidationService(BaseService["BackendOperations[MockModel]", Mock
     def _validate_create(self, entity: MockModel) -> Result[None]:
         return Result.fail(Errors.validation(message="nope", field="title"))
 
-    def _validate_update(self, current: MockModel, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: MockModel, updates: Mapping[str, Any]) -> Result[None]:
         return Result.fail(Errors.validation(message="nope", field="title"))
 
 

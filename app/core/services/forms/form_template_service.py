@@ -10,6 +10,7 @@ Uses _post_create/_post_update hooks for event publishing.
 Overrides delete for pre-delete submission guard.
 """
 
+from collections.abc import Mapping
 from typing import Any
 
 from core.events import publish_event
@@ -88,7 +89,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         self,
         uid: str,
         old_entity: FormTemplate,
-        updates: dict[str, Any],
+        updates: Mapping[str, Any],
         result: Result[FormTemplate],
     ) -> None:
         """Publish FormTemplateUpdated event after successful update."""

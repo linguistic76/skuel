@@ -16,6 +16,7 @@ Responsibilities:
 - v2.0.0 (2025-11-05): Initial facade pattern implementation
 """
 
+from collections.abc import Mapping
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -125,7 +126,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Goal, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Goal, updates: Mapping[str, Any]) -> Result[None]:
         """
         Validate goal updates with business rules.
 
@@ -352,7 +353,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return Result.ok(goal)
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Goal]:
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Goal]:
         """
         Update a goal and publish appropriate events.
 

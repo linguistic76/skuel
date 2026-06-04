@@ -34,6 +34,8 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from core.models.choice.choice_request import (
         ChoiceCreateRequest,
         ChoiceEvaluationRequest,
@@ -139,7 +141,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Choice, updates: dict[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Choice, updates: Mapping[str, Any]) -> Result[None]:
         """
         Validate choice updates with business rules.
 

@@ -446,7 +446,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
 
         # Read the real CHOICES_CONFIG buckets (see get_decision_intelligence): goals
         # from the polarity-free AFFECTS_GOAL edge, informing principles from
-        # INFORMED_BY_PRINCIPLE ∪ GUIDES_CHOICE, knowledge from INFORMED_BY_KNOWLEDGE.
+        # INFORMED_BY_PRINCIPLE union GUIDES_CHOICE, knowledge from INFORMED_BY_KNOWLEDGE.
         supporting_goals = [
             self.path_helper.parse_goal(g) for g in _union_buckets(context_dict, "affected_goals")
         ]
