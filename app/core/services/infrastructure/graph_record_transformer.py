@@ -89,8 +89,12 @@ def transform_records_to_graph_context(
     all_relationships: list[GraphRelationship] = []
 
     for record in records:
-        nodes_data = record.get("nodes", []) or record.get("related_nodes", [])
-        rels_data = record.get("relationships", [])
+        # `rels[0]` is null when the traversal filter matched no edges (the registry-sourced
+        # path commonly yields this for an entity with no cross-domain edges), and `nodes`
+        # is an empty list in the same case — coalesce both to [] so an empty context is
+        # returned rather than raising on `for ... in None`.
+        nodes_data = record.get("nodes") or record.get("related_nodes") or []
+        rels_data = record.get("relationships") or []
 
         for i, node_dict in enumerate(nodes_data):
             if not node_dict:

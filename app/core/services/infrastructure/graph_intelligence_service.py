@@ -442,6 +442,7 @@ class GraphIntelligenceService:
         node_uid: str,
         intent: Any,  # QueryIntent enum
         depth: int = 2,
+        relationship_types: list[str] | None = None,
     ) -> Result[GraphContext]:
         """
         Execute graph context query with specific intent.
@@ -455,6 +456,11 @@ class GraphIntelligenceService:
             node_uid: UID of node to get context for
             intent: QueryIntent determining traversal strategy
             depth: Maximum traversal depth (default: 2)
+            relationship_types: Optional registry-sourced edge vocabulary (mechanism B /
+                Convergence Phase 1). When supplied, the traversal filters on these edge
+                types — the domain's ``cross_domain_relationship_types`` — instead of the
+                hard-coded per-intent literal. ``intent`` still shapes the result.
+                See: /docs/roadmap/intent-traversal-registry-convergence.md
 
         Returns:
             Result containing GraphContext with:
@@ -481,7 +487,9 @@ class GraphIntelligenceService:
             f"intent={intent}, depth={depth}"
         )
 
-        result = await self.backend.query_with_intent(intent=intent, depth=depth, uid=node_uid)
+        result = await self.backend.query_with_intent(
+            intent=intent, depth=depth, uid=node_uid, relationship_types=relationship_types
+        )
         if result.is_error:
             return Result.fail(result)
 

@@ -120,7 +120,11 @@ class CrossDomainBackendOperations(Protocol):
     async def calculate_knowledge_importance(self, uid: str) -> Result[list[dict[str, Any]]]: ...
 
     async def query_with_intent(
-        self, intent: QueryIntent, depth: int, uid: str
+        self,
+        intent: QueryIntent,
+        depth: int,
+        uid: str,
+        relationship_types: list[str] | None = None,
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_entity_labels(self, uid: str) -> Result[list[dict[str, Any]]]: ...

@@ -584,10 +584,19 @@ class CrossDomainBackend:
         )
 
     async def query_with_intent(
-        self, intent: QueryIntent, depth: int, uid: str
+        self,
+        intent: QueryIntent,
+        depth: int,
+        uid: str,
+        relationship_types: list[str] | None = None,
     ) -> Result[list[dict[str, Any]]]:
-        """Build an intent-specific graph-context traversal and execute it for ``uid``."""
-        query = build_context_query_for_intent(intent, depth)
+        """Build an intent-specific graph-context traversal and execute it for ``uid``.
+
+        When ``relationship_types`` is supplied (mechanism B / Convergence Phase 1), the
+        edge filter is the registry-sourced vocabulary rather than the hard-coded
+        per-intent literal. See: /docs/roadmap/intent-traversal-registry-convergence.md
+        """
+        query = build_context_query_for_intent(intent, depth, relationship_types)
         return await self.executor.execute_query(query, {"uid": uid})
 
     async def get_entity_labels(self, uid: str) -> Result[list[dict[str, Any]]]:

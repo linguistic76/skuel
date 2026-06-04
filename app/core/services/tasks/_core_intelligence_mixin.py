@@ -23,6 +23,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.task.task import Task
+    from core.services.relationships import UnifiedRelationshipService
 
 
 class _CoreIntelligenceMixin(_SharedCoreMixin):
@@ -33,28 +34,39 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     resolves them without runtime cost.
     """
 
-    # Populated by TasksIntelligenceService.__init__
+    # Populated by TasksIntelligenceService.__init__ / BaseAnalyticsService
     context_loader: Any
+    relationships: UnifiedRelationshipService[Any, Any, Any] | None
     logger: Any
+
+    @requires_graph_intelligence("get_with_context")
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Task, GraphContext]]:
+        """
+        Get task with full graph context via mechanism B (registry-sourced).
+
+        One Path Forward (Convergence Phase 1): route through
+        ``self.relationships.get_with_context`` — which sources its edge vocabulary
+        from ``TASKS_CONFIG.cross_domain_relationship_types`` (the registry, the single
+        source of truth) — instead of the inherited ``GraphContextLoader`` EXPLORATORY
+        path. This is the reference the other activity domains copy.
+
+        See: /docs/roadmap/intent-traversal-registry-convergence.md
+        """
+        if self.relationships is None:
+            return Result.fail(
+                Errors.system(
+                    message="relationship_service required for get_with_context",
+                    operation="get_with_context",
+                )
+            )
+        return await self.relationships.get_with_context(uid, depth)
 
     @requires_graph_intelligence("get_task_with_context")
     async def get_task_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Task, GraphContext]]:
-        """
-        Domain-named alias for get_with_context().
-
-        Calls the context loader directly to avoid recursive MRO resolution
-        with the protocol-level get_with_context() method.
-        """
-        if not self.context_loader:
-            return Result.fail(
-                Errors.system(
-                    message="GraphContextLoader not initialized",
-                    operation="get_task_with_context",
-                )
-            )
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
+        """Domain-named alias for get_with_context() (mechanism B)."""
+        return await self.get_with_context(uid, depth)
 
     @with_error_handling(
         "categorize_cross_domain_context", error_type="system", uid_param="task_uid"
