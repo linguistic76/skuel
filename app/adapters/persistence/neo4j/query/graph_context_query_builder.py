@@ -221,6 +221,11 @@ def _build_filtered_context_query(depth: int, relationship_types: list[str]) -> 
     leak into its own context (``any`` excluded it implicitly). Mirrors the
     ``related <> center`` self-exclusion in ``get_cross_domain_context``.
 
+    Relationships are flattened across **all** matched paths (the trailing ``reduce``
+    over the per-path lists, deduping by map value) rather than returning a single path's
+    edges — so ``total_relationships`` / ``relationship_patterns`` count every matched
+    edge, not just the first path's.
+
     Relationship types are ``RelationshipName`` enum values from the registry (trusted,
     not user input), interpolated the same way ``depth`` is throughout this builder.
     """
@@ -232,12 +237,14 @@ def _build_filtered_context_query(depth: int, relationship_types: list[str]) -> 
       AND all(r in relationships(path) WHERE type(r) IN [{rel_list}])
     WITH origin, related, relationships(path) as path_rels
     LIMIT 100
-    WITH origin, collect(DISTINCT related) as nodes,
+    WITH collect(DISTINCT related) as nodes,
          collect(DISTINCT [r in path_rels | {{
              type: type(r),
              start_uid: startNode(r).uid,
              end_uid: endNode(r).uid,
              properties: properties(r)
-         }}]) as rels
-    RETURN nodes, rels[0] as relationships
+         }}]) as rel_lists
+    RETURN nodes,
+           reduce(acc = [], rl in rel_lists | acc + [x in rl WHERE NOT x IN acc])
+               as relationships
     """

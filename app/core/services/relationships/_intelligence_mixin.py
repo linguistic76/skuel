@@ -322,20 +322,25 @@ class IntelligenceMixin:
             else self.config.default_context_intent
         )
 
-        # Execute through graph intelligence service.
+        # Registry-source the edge vocabulary ONLY for the default-context traversal
+        # (Convergence Phase 1, One Path Forward). With no explicit intent, the traversal
+        # filters on this domain's `cross_domain_relationship_types` — the registry single
+        # source of truth — instead of `query_with_intent`'s hard-coded `default` clause
+        # that drifts (this is the route / `get_<domain>_with_context` path 2A converges).
         #
-        # Registry-source the edge vocabulary (Convergence Phase 1, One Path Forward):
-        # the traversal filters on this domain's `cross_domain_relationship_types` — the
-        # single source of truth in the registry — instead of `query_with_intent`'s
-        # hard-coded per-intent edge literal that drifts. `query_intent` still selects
-        # the downstream shaping. See:
-        # /docs/roadmap/intent-traversal-registry-convergence.md
+        # An EXPLICIT intent (e.g. "dependencies"/"practice") still selects its specific
+        # hard-coded edge slice: collapsing those onto the full registry vocabulary would
+        # surface unrelated nodes. Intent-as-shape over the registry set is a later phase.
+        # See: /docs/roadmap/intent-traversal-registry-convergence.md
+        relationship_types = self.config.cross_domain_relationship_types if intent is None else None
+
+        # Execute through graph intelligence service.
         graph_context_result = await self.graph_intel.query_with_intent(
             domain=self._domain,
             node_uid=uid,
             intent=query_intent,
             depth=depth,
-            relationship_types=self.config.cross_domain_relationship_types,
+            relationship_types=relationship_types,
         )
 
         if graph_context_result.is_error:

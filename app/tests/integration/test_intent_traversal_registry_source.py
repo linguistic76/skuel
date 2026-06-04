@@ -110,6 +110,11 @@ async def test_tasks_registry_sourced_traversal(neo4j_driver, graph_intel, clean
     assert KU in reg_uids, "APPLIES_KNOWLEDGE neighbour should surface registry-sourced"
     assert NOISE not in reg_uids, "edge outside the registry must be filtered out"
     assert TASK not in reg_uids, "origin must not leak into its own context (self-exclusion)"
+    # All three registry edges are counted — not just the first matched path's (the rels
+    # are flattened across every matched path, deduped). NOISE_LINK is excluded.
+    assert reg.value.total_relationships == 3, (
+        "every matched registry edge must be counted, not only the first path's"
+    )
 
     # --- Negative control: bare default-intent clause misses the DEPENDS_ON neighbour ---
     bare = await graph_intel.query_with_intent(
