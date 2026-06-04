@@ -20,7 +20,9 @@ from typing import Any
 from core.ports import get_enum_value
 
 
-def build_context_query_for_intent(intent: Any, depth: int) -> str:
+def build_context_query_for_intent(
+    intent: Any, depth: int, relationship_types: list[str] | None = None
+) -> str:
     """
     Build Pure Cypher query for graph context retrieval based on intent.
 
@@ -29,11 +31,28 @@ def build_context_query_for_intent(intent: Any, depth: int) -> str:
     Args:
         intent: QueryIntent determining traversal strategy
         depth: Maximum traversal depth
+        relationship_types: Optional registry-sourced edge vocabulary. When supplied
+            (mechanism B / Convergence Phase 1), the ``type(r) IN [...]`` filter comes
+            from this list — the domain's
+            ``DomainRelationshipConfig.cross_domain_relationship_types`` (the single
+            source of truth) — instead of the hard-coded per-intent literal. ``intent``
+            still selects the downstream shaping; only the edge vocabulary is registry-
+            sourced. When ``None`` (any non-supplying caller), the existing intent-based
+            hard-coded clauses are used unchanged.
 
     Returns:
         Pure Cypher query string
+
+    See: /docs/roadmap/intent-traversal-registry-convergence.md
     """
     from core.models.query_types import QueryIntent
+
+    # Registry-sourced vocabulary (Convergence Phase 1, One Path Forward): the edge
+    # filter is the registry's relationship set, not a hand-maintained per-intent list
+    # that drifts. A ``LIMIT`` cap is ported from the generic EXPLORATORY branch so a
+    # domain that surfaces many neighbours cannot regress into an unbounded result.
+    if relationship_types:
+        return _build_filtered_context_query(depth, relationship_types)
 
     intent_value = get_enum_value(intent)
 
@@ -171,3 +190,61 @@ def build_context_query_for_intent(intent: Any, depth: int) -> str:
         RETURN nodes, rels[0] as relationships
         LIMIT 100
         """
+
+
+def _build_filtered_context_query(depth: int, relationship_types: list[str]) -> str:
+    """Build a registry-sourced filtered traversal query (mechanism B).
+
+    The edge filter is the supplied relationship-type list (the domain's registry
+    vocabulary), plus a ``LIMIT`` cap guarding against unbounded results now that the
+    edge set is the domain's full cross-domain vocabulary, not a narrow literal.
+
+    The cap is applied to matched ``(related, path)`` rows **before** the ``collect``
+    aggregation. The generic EXPLORATORY branch's trailing ``LIMIT`` is a no-op (it caps
+    the single post-aggregation row, not the collected nodes); for a dense graph over the
+    full registry vocabulary that would let the context grow without bound. Limiting the
+    path rows first genuinely bounds the materialized node/relationship set. The
+    ``OPTIONAL MATCH ... WHERE`` predicate keeps the origin row alive when nothing matches
+    (related = null), so a no-edge entity still yields an empty context rather than a
+    not-found error.
+
+    The predicate uses ``all`` (not ``any``): a related node is collected only when it
+    is reachable by a path whose **every** edge is registry-sourced. ``any`` would leak
+    non-registry tails at ``depth > 1`` — a path ``origin-[:REGISTRY]->x-[:NOISE]->y``
+    satisfies "some edge is registry" and would wrongly collect ``y`` and ``NOISE``,
+    breaking the registry-sourced guarantee. A node still surfaces whenever *some*
+    all-registry path reaches it, so transitive registry context (e.g.
+    ``origin-[:DEPENDS_ON]->x-[:CONTRIBUTES_TO_GOAL]->goal``) is preserved.
+
+    ``related <> origin`` excludes the origin's own 0-length self-path: ``all`` over its
+    empty relationship list is vacuously true, so without this guard the origin would
+    leak into its own context (``any`` excluded it implicitly). Mirrors the
+    ``related <> center`` self-exclusion in ``get_cross_domain_context``.
+
+    Relationships are flattened across **all** matched paths (the trailing ``reduce``
+    over the per-path lists, deduping by map value) rather than returning a single path's
+    edges — so ``total_relationships`` / ``relationship_patterns`` count every matched
+    edge, not just the first path's.
+
+    Relationship types are ``RelationshipName`` enum values from the registry (trusted,
+    not user input), interpolated the same way ``depth`` is throughout this builder.
+    """
+    rel_list = ", ".join(f"'{rel_type}'" for rel_type in relationship_types)
+    return f"""
+    MATCH (origin {{uid: $uid}})
+    OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
+    WHERE related <> origin
+      AND all(r in relationships(path) WHERE type(r) IN [{rel_list}])
+    WITH origin, related, relationships(path) as path_rels
+    LIMIT 100
+    WITH collect(DISTINCT related) as nodes,
+         collect(DISTINCT [r in path_rels | {{
+             type: type(r),
+             start_uid: startNode(r).uid,
+             end_uid: endNode(r).uid,
+             properties: properties(r)
+         }}]) as rel_lists
+    RETURN nodes,
+           reduce(acc = [], rl in rel_lists | acc + [x in rl WHERE NOT x IN acc])
+               as relationships
+    """
