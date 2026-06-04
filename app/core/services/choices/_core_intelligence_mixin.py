@@ -35,10 +35,19 @@ def _union_buckets(context_dict: dict[str, Any], *keys: str) -> list[dict[str, A
     ``UnifiedRelationshipService.get_cross_domain_context()`` emits one bucket per
     CHOICES_CONFIG ``context_field_name``, each a list of
     ``{"uid", "title", "distance", "path_strength", "via_relationships"}`` dicts —
-    exactly the shape ``PathAwareAnalyzer.parse_*`` consume. A single typed field may
-    aggregate several buckets: a choice's informing principles span both
-    INFORMED_BY_PRINCIPLE (outgoing, ``aligned_principles``) and GUIDES_CHOICE
-    (incoming, ``guiding_principles``). Order-preserving, de-duped by uid.
+    exactly the shape ``PathAwareAnalyzer.parse_*`` consume.
+
+    De-dup by uid serves two purposes:
+    1. A single typed field may aggregate several buckets: a choice's informing
+       principles span both INFORMED_BY_PRINCIPLE (outgoing, ``aligned_principles``) and
+       GUIDES_CHOICE (incoming, ``guiding_principles``).
+    2. Even within ONE bucket the same node can recur: the underlying Cypher does
+       ``collect(DISTINCT {uid, distance, path_strength, ...})`` — DISTINCT over the whole
+       path-metadata map, not the uid — so at ``depth>=2`` a node reachable via multiple
+       distinct paths appears once per path. Without this de-dup, goal/knowledge counts,
+       stake level, impact score and cascade impact would all inflate.
+
+    Order-preserving; keeps the first occurrence of each uid.
     """
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -184,7 +193,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         # (outgoing, `aligned_principles`) and GUIDES_CHOICE (incoming,
         # `guiding_principles`); knowledge from INFORMED_BY_KNOWLEDGE.
         supporting_goals = [
-            self.path_helper.parse_goal(g) for g in context_dict.get("affected_goals", [])
+            self.path_helper.parse_goal(g) for g in _union_buckets(context_dict, "affected_goals")
         ]
         # No conflicting-goal edge exists — AFFECTS_GOAL is polarity-free (#214). Stays
         # empty rather than reading a bucket nothing emits.
@@ -195,7 +204,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         ]
         required_knowledge = [
             self.path_helper.parse_knowledge(k)
-            for k in context_dict.get("informed_by_knowledge", [])
+            for k in _union_buckets(context_dict, "informed_by_knowledge")
         ]
 
         # Create strongly-typed context
@@ -415,7 +424,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         # from the polarity-free AFFECTS_GOAL edge, informing principles from
         # INFORMED_BY_PRINCIPLE ∪ GUIDES_CHOICE, knowledge from INFORMED_BY_KNOWLEDGE.
         supporting_goals = [
-            self.path_helper.parse_goal(g) for g in context_dict.get("affected_goals", [])
+            self.path_helper.parse_goal(g) for g in _union_buckets(context_dict, "affected_goals")
         ]
         # No conflicting-goal edge exists — AFFECTS_GOAL is polarity-free (#214).
         conflicting_goals: list[Any] = []
@@ -425,7 +434,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         ]
         knowledge = [
             self.path_helper.parse_knowledge(k)
-            for k in context_dict.get("informed_by_knowledge", [])
+            for k in _union_buckets(context_dict, "informed_by_knowledge")
         ]
 
         # Create path-aware context for cascade analysis

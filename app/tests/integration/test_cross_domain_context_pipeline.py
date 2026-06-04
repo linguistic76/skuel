@@ -655,6 +655,66 @@ async def test_choice_intelligence_empty_when_no_edges(neo4j_driver, rel_backend
     assert intel.value.context.knowledge == []
 
 
+# Multi-path graph: the choice reaches FB_DUP_GOAL by TWO distinct AFFECTS_GOAL paths.
+FB_DUP_CHOICE = FB + "dup_choice"
+FB_DUP_MID = FB + "dup_mid"  # choice -[AFFECTS_GOAL]-> mid -[AFFECTS_GOAL]-> goal (2-hop)
+FB_DUP_GOAL = FB + "dup_goal"  # also choice -[AFFECTS_GOAL]-> goal (1-hop) → reached twice
+
+
+@pytest.mark.asyncio
+async def test_choice_impact_dedupes_multipath_goals_at_depth2(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """A goal reachable via two distinct paths must count once (Codex #218 P2).
+
+    The Cypher behind get_cross_domain_context does ``collect(DISTINCT {uid, distance,
+    path_strength, ...})`` — DISTINCT over the whole path map, not the uid — so at
+    depth=2 FB_DUP_GOAL surfaces twice (direct AFFECTS_GOAL, distance 1; and via
+    FB_DUP_MID, distance 2). Both entries are incident-AFFECTS_GOAL → both land in the
+    ``affected_goals`` bucket. _union_buckets de-dupes by uid, so the affected set is the
+    two DISTINCT goals (FB_DUP_GOAL once + FB_DUP_MID), not three — otherwise goal count,
+    stake level, impact score and cascade impact all inflate.
+    """
+    async with neo4j_driver.session() as s:
+        for uid in (FB_DUP_CHOICE, FB_DUP_MID, FB_DUP_GOAL):
+            label = "Choice" if uid == FB_DUP_CHOICE else "Goal"
+            etype = "choice" if uid == FB_DUP_CHOICE else "goal"
+            await s.run(
+                f"CREATE (:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+        for a, b in [
+            (FB_DUP_CHOICE, FB_DUP_GOAL),  # 1-hop
+            (FB_DUP_CHOICE, FB_DUP_MID),  # 1-hop (FB_DUP_MID also affected)
+            (FB_DUP_MID, FB_DUP_GOAL),  # 2-hop path to FB_DUP_GOAL
+        ]:
+            await s.run(
+                "MATCH (a {uid:$a}),(b {uid:$b}) CREATE (a)-[:AFFECTS_GOAL {confidence:0.95}]->(b)",
+                a=a,
+                b=b,
+            )
+    svc = _harness(neo4j_driver, rel_backend, FB_DUP_CHOICE)
+
+    # Sanity: the raw bucket DOES carry the duplicate (proves dedup is load-bearing).
+    raw = await svc.relationships.get_cross_domain_context(
+        FB_DUP_CHOICE, depth=2, min_confidence=0.7
+    )
+    assert raw.is_ok, raw
+    dup_count = sum(1 for g in raw.value["affected_goals"] if g["uid"] == FB_DUP_GOAL)
+    assert dup_count >= 2, f"expected multipath duplicate, got {dup_count}"
+
+    res = await svc.analyze_choice_impact(FB_DUP_CHOICE, depth=2, min_confidence=0.7)
+    assert res.is_ok, res
+    intel = await svc.get_decision_intelligence(FB_DUP_CHOICE, min_confidence=0.7, depth=2)
+    assert intel.is_ok, intel
+
+    goal_uids = [g.uid for g in intel.value.context.goals]
+    assert sorted(goal_uids) == [FB_DUP_GOAL, FB_DUP_MID]  # each once, no inflation
+    assert res.value.domain_impact.goals.count == 2
+
+
 # uid prefix for the Event cross-context graph (key realignment).
 EV = "xdctx_event_"
 EV_EVENT = EV + "event"
