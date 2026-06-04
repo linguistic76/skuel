@@ -189,10 +189,20 @@ Audit evidence (live Docker Neo4j, full-graph scan; full table in memory
 | `support_type` | — | none (TypedDict-only) | n/a | reject — dead |
 | `strength` | edges | continuous confidence proxy only | n/a | reject — numeric threshold, not categorical |
 
-A direct probe (`WHERE r.essentiality / r.dependency_type / r.contribution_type / r.support_type
-IS NOT NULL`) returned **zero edges** across the whole graph. Even GOALS essentiality — the sole
-consumer — has no live data yet (the 8 live `SUPPORTS_GOAL` edges are property-less; the ingestion
-path doesn't stamp `essentiality`, only the `link_goal_to_habit` create path does).
+A direct probe returned **zero edges** across the whole graph:
+
+```cypher
+MATCH ()-[r]->()
+WHERE r.essentiality IS NOT NULL
+   OR r.dependency_type IS NOT NULL
+   OR r.contribution_type IS NOT NULL
+   OR r.support_type IS NOT NULL
+RETURN type(r), r.essentiality, r.dependency_type, r.contribution_type, r.support_type, count(*)
+```
+
+Even GOALS essentiality — the sole consumer — has no live data yet (the 8 live `SUPPORTS_GOAL`
+edges are property-less; the ingestion path doesn't stamp `essentiality`, only the
+`link_goal_to_habit` create path does).
 
 **The problem**: The missing ingredient is never the mechanism — it is a consumer with a reason to
 distinguish tiers. Until a product question needs, say, *blocking* vs *informational* task
