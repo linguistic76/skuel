@@ -710,9 +710,16 @@ async def test_choice_impact_dedupes_multipath_goals_at_depth2(
     intel = await svc.get_decision_intelligence(FB_DUP_CHOICE, min_confidence=0.7, depth=2)
     assert intel.is_ok, intel
 
-    goal_uids = [g.uid for g in intel.value.context.goals]
+    goals = intel.value.context.goals
+    goal_uids = [g.uid for g in goals]
     assert sorted(goal_uids) == [FB_DUP_GOAL, FB_DUP_MID]  # each once, no inflation
     assert res.value.domain_impact.goals.count == 2
+
+    # The STRONGEST path is kept, not the first raw occurrence: FB_DUP_GOAL is directly
+    # reachable (distance 1) AND via FB_DUP_MID (distance 2), so its retained entry must
+    # be the direct one — otherwise distance / direct-connection counts misreport.
+    dup_goal = next(g for g in goals if g.uid == FB_DUP_GOAL)
+    assert dup_goal.distance == 1
 
 
 # uid prefix for the Event cross-context graph (key realignment).

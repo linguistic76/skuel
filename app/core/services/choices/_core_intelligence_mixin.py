@@ -29,8 +29,21 @@ if TYPE_CHECKING:
     )
 
 
+def _path_rank(entity: dict[str, Any]) -> tuple[float, float]:
+    """Sort key for picking the strongest path to a node: lowest distance wins, then
+    highest path_strength. Missing/None metadata sorts worst (a real measured path always
+    beats an unmeasured one)."""
+    distance = entity.get("distance")
+    strength = entity.get("path_strength")
+    return (
+        float(distance) if distance is not None else float("inf"),
+        -(float(strength) if strength is not None else 0.0),
+    )
+
+
 def _union_buckets(context_dict: dict[str, Any], *keys: str) -> list[dict[str, Any]]:
-    """Collect cross-domain-context bucket dicts across keys, de-duped by uid.
+    """Collect cross-domain-context bucket dicts across keys, one entry per uid (the
+    strongest path).
 
     ``UnifiedRelationshipService.get_cross_domain_context()`` emits one bucket per
     CHOICES_CONFIG ``context_field_name``, each a list of
@@ -47,17 +60,28 @@ def _union_buckets(context_dict: dict[str, Any], *keys: str) -> list[dict[str, A
        distinct paths appears once per path. Without this de-dup, goal/knowledge counts,
        stake level, impact score and cascade impact would all inflate.
 
-    Order-preserving; keeps the first occurrence of each uid.
+    When a uid recurs, the **strongest** path is kept (lowest distance, then highest
+    path_strength via ``_path_rank``), NOT the first raw occurrence — the producer query
+    has no ``ORDER BY``, so first-seen could be the weaker/indirect path and would then
+    misreport ``distance``/``path_strength``, the direct-connection count, max path depth,
+    and the direct-vs-indirect cascade split. Order-preserving by first-seen uid.
     """
-    out: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    best: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
     for key in keys:
         for entity in context_dict.get(key) or []:
-            uid = entity.get("uid") if isinstance(entity, dict) else None
-            if uid and uid not in seen:
-                seen.add(uid)
-                out.append(entity)
-    return out
+            if not isinstance(entity, dict):
+                continue
+            uid = entity.get("uid")
+            if not uid:
+                continue
+            incumbent = best.get(uid)
+            if incumbent is None:
+                best[uid] = entity
+                order.append(uid)
+            elif _path_rank(entity) < _path_rank(incumbent):
+                best[uid] = entity
+    return [best[uid] for uid in order]
 
 
 class _CoreIntelligenceMixin(_SharedCoreMixin):
