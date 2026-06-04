@@ -1,6 +1,8 @@
 # Intent-Traversal ↔ Registry Convergence
 
-**Status:** Direction captured, not started (2026-06-04). This is a bias-setting roadmap born from an audit of `docs/patterns/INTENT_BASED_TRAVERSAL.md`, not an approved campaign. No code or doc has been changed yet.
+**Status:** Phase 0 ✅ done (PR #224, 2026-06-04) — `INTENT_BASED_TRAVERSAL.md` rewritten to reality. Phases 1–4 not started. This roadmap is a bias-setting direction born from an audit of that doc, not yet a fully-approved campaign; Phase 1 (registry-sourced vocabulary) is the next executable unit.
+
+> **Phase 0 surfaced facts Phase 1 must account for** (verified, in the rewritten doc): intent sourcing is split across **three mechanisms** that facades reach inconsistently — A `GraphContextLoader`→`EXPLORATORY` (Goals/Habits/Choices/Principles facades), B `UnifiedRelationshipService`→config intent (Tasks facade), C `get_entity_context`→`RELATIONSHIP` (Events facade, **currently broken** — passes an unsupported `entity_type=` kwarg → `TypeError`). So Phase 1 must target the specific mechanism each route/facade actually uses, and the broken Events `get_entity_context` call is a latent bug to fix separately.
 
 **Core Principle:** *"One registry, two readers — collapse the duplication, keep the lens."*
 
@@ -30,7 +32,7 @@ The audit found the intent side is **mostly aspirational**: every activity-domai
 
 ## Phased sketch (each phase independently shippable + verifiable)
 
-**Phase 0 — Honest doc (small, do first regardless).** Rewrite `INTENT_BASED_TRAVERSAL.md` to describe *what is actually wired* (generic `query_with_intent`; intent sourced from `DomainConfig.default_context_intent` / `get_intent_for_operation`, not the model; Goals→GOAL_ACHIEVEMENT and Habits→PRACTICE the only specialized lenses live today). Remove the fictional analysis-method table and stale Key-Files paths. Mark the per-domain intent specialization explicitly as *aspirational → this roadmap*. This stops the doc from asserting false behavior while the deeper work waits.
+**Phase 0 — Honest doc (small, do first regardless). ✅ DONE (PR #224).** Rewrote `INTENT_BASED_TRAVERSAL.md` to *what is actually wired*. Key correction vs. the original belief: intent is **config-sourced, not model-sourced**, but it is reached through **three inconsistent mechanisms** and the config intents barely reach any live caller — so "Goals→GOAL_ACHIEVEMENT / Habits→PRACTICE are the live specialized lenses" was **wrong**. Verified: A `GraphContextLoader`→inherited `EXPLORATORY` (Goals/Habits/Choices/Principles facades); B `UnifiedRelationshipService`→config `default_context_intent` (**only** the Tasks facade reaches this, via `tasks/_relationship_mixin.py`); C `get_entity_context`→`RELATIONSHIP` (Events facade, **currently broken** — passes an unsupported `entity_type=` kwarg → `TypeError`). Removed the fictional analysis-method table and stale Key-Files paths; marked per-domain specialization *aspirational → this roadmap*.
 
 **Phase 1 — Registry-sourced vocabulary (the proof).** Give `build_context_query_for_intent` the domain's relationship set (thread `relationship_types: list[str]` from `cross_domain_backend.query_with_intent`, sourced from `config.cross_domain_relationship_types`). When supplied, the `type(r) IN [...]` filter uses it instead of the hard-coded literal. Start with the choice/principle lenses where #214/#218 nailed the edges. Verify on live Neo4j that a choice's intent traversal now surfaces its real principle/goal/knowledge neighbors. Delete the now-unused hard-coded lists as each lens migrates (One Path Forward).
 
