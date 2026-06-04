@@ -29,7 +29,7 @@ call applies depends on the entry path — there are two, and they source the in
 Both paths end at `GraphIntelligenceService.query_with_intent(...)` and the same query builder. They
 differ only in *where the intent comes from*:
 
-### Path A — model-suggested (what the facades and `/api/<domain>/context` routes use today)
+### Path A — model-suggested (5 of 6 facades + the `/api/<domain>/context` routes)
 
 `Service.get_<domain>_with_context()` → the domain intelligence service → shared
 `_CoreIntelligenceMixin.get_with_context` (`core/services/intelligence/_core_intelligence_mixin.py`) →
@@ -38,10 +38,18 @@ loader passes **no explicit intent**, so it falls back to `entity.get_suggested_
 
 Every **Activity Domain** model (Task, Goal, Habit, Event, Choice, Principle) inherits
 `Entity.get_suggested_query_intent()` (`core/models/entity.py:233`) → `QueryIntent.EXPLORATORY`, and
-**none override it** (only `Curriculum` and `Askesis` do). So on Path A every Activity Domain runs the
+**none override it** (only `Curriculum` and `Askesis` do). So on Path A the traversal runs the
 **EXPLORATORY else-branch — no edge filter at all** (every node within `depth`, `LIMIT 100`). The
-per-domain config intents below are **not** applied here. The `IntelligenceRouteFactory`-wired
-`/api/<domain>/context` routes go through this path.
+per-domain config intents below are **not** applied here. This path is taken by the `Tasks`, `Goals`,
+`Habits`, `Choices`, and `Principles` facades, and by all six `IntelligenceRouteFactory`-wired
+`/api/<domain>/context` routes.
+
+> **Events is the exception (a third variant).** `EventsService.get_event_with_context()` does *not*
+> use the loader — its mixin (`core/services/events/_core_intelligence_mixin.py`) calls
+> `graph_intel.get_entity_context(...)`, which applies `QueryIntent.RELATIONSHIP` (its docstring:
+> "uses RELATIONSHIP intent"). `RELATIONSHIP` is *also* an else-branch intent (no edge filter), so the
+> practical result matches EXPLORATORY — an unfiltered neighborhood — but the intent value and code
+> path differ. This per-facade inconsistency is itself something the convergence work reconciles.
 
 ### Path B — config-sourced (`UnifiedRelationshipService.get_with_context`)
 
@@ -68,8 +76,8 @@ This is the **only** path on which the per-domain intents below actually take ef
 
 > ⚠️ **Two live defects the convergence roadmap targets.**
 > 1. **The user-facing path ignores the config intent.** The facades and `/api/<domain>/context` routes
->    take Path A → `EXPLORATORY` → an unfiltered neighborhood (`LIMIT 100`), so the "specialized" intents
->    never reach those callers at all.
+>    take Path A → `EXPLORATORY` (or, for the Events facade, `RELATIONSHIP`) → an unfiltered neighborhood
+>    (`LIMIT 100`), so the "specialized" intents never reach those callers at all.
 > 2. **Even on Path B, Choice/Principle surface ~nothing.** They resolve to `HIERARCHICAL`
 >    (`HAS_CHILD/PARENT_OF/CHILD_OF`) — tree edges those domains almost never write — so the traversal
 >    misses their real neighbors (`AFFECTS_GOAL`, `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE`,
@@ -189,7 +197,8 @@ Each facade wires the registry config + `graph_intel` into its relationship serv
 self.relationships = UnifiedRelationshipService(            # Path B (config intent)
     backend=backend, config=DOMAIN_CONFIG, graph_intel=graph_intel
 )
-# self.get_<domain>_with_context() delegates via self.intelligence → GraphContextLoader  (Path A: EXPLORATORY)
+# self.get_<domain>_with_context() delegates via self.intelligence → GraphContextLoader (Path A: EXPLORATORY)
+#   — except Events, whose mixin calls graph_intel.get_entity_context() (RELATIONSHIP; also unfiltered).
 ```
 
 ## Intent clause vocabularies
@@ -242,8 +251,9 @@ behavior. They are listed here only so the gap is visible.
 
 Each facade exposes a thin `get_<domain>_with_context()` convenience method (e.g.
 `GoalsService.get_goal_with_context` at `core/services/goals_service.py:403`) that delegates through
-the domain intelligence service to **Path A** (`GraphContextLoader` → `EXPLORATORY`). There is **no**
-bespoke per-domain "analysis method" (`get_goal_achievement_analysis`,
+the domain intelligence service to **Path A** (`GraphContextLoader` → `EXPLORATORY`) — **except
+Events**, whose `get_event_with_context` calls `graph_intel.get_entity_context()` (`RELATIONSHIP`).
+There is **no** bespoke per-domain "analysis method" (`get_goal_achievement_analysis`,
 `get_principle_embodiment_analysis`, etc. do not exist).
 
 ## Usage
