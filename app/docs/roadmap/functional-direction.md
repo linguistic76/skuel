@@ -1,6 +1,6 @@
 # Functional Direction Roadmap
 
-**Status:** Doctrine established (ADR-035 + ADR-065); **enforcement infrastructure complete (2026-05-31)** — mypy `arg-type` is the toolchain default on all first-party trees, the global disable deleted. Of the three targeted *extensions* below: **#3 (the `Result[None] | None` collapse) is done (2026-05-31)**; #1 inference parity is 1/6 (Task only) and **blocked** on the 5 remaining domains growing an inference service; #2 typed update intents is not started (deliberately opportunistic). See the [implementation status snapshot](#implementation-status-snapshot-2026-05-31).
+**Status:** Doctrine established (ADR-035 + ADR-065); **enforcement infrastructure complete (2026-05-31)** — mypy `arg-type` is the toolchain default on all first-party trees, the global disable deleted. Of the three targeted *extensions* below: **#3 (the `Result[None] | None` collapse) is done (2026-05-31)**; #1 inference parity is 1/6 (Task only) and **blocked** on the 5 remaining domains growing an inference service; #2 typed update intents is in progress — now owned by ADR-066 with Step 1 (the Mapping bridge) merged (PR #222) and the frozen-`*UpdateIntent` migration phased in [docs/roadmap/update-intents.md](update-intents.md). See the [implementation status snapshot](#implementation-status-snapshot-2026-05-31).
 **Doctrine owners:** [ADR-035 — Tier Selection Guidelines](../decisions/ADR-035-tier-selection-guidelines.md) (frozen domain models), [ADR-065 — Functional Inference Contract](../decisions/ADR-065-functional-inference-contract.md) (typed return values, no input mutation).
 **Pattern pointer:** [Three-Tier Type System § Intelligence is the Exception](../patterns/three_tier_type_system.md).
 
@@ -45,7 +45,7 @@ The question "is the functional direction implemented?" has two halves — the *
 | Extension | Target | Status (2026-05-31) | Evidence |
 |-----------|--------|---------------------|----------|
 | #1 Inference parity | `{Domain}InferenceResult` for all 6 Activity Domains | **PARTIAL — 1/6** | Only `TaskInferenceResult` exists (`core/models/task/task_inference_result.py`). Goals/Habits/Events/Choices/Principles have none. |
-| #2 Typed update intents | `update_X(uid, intent: {Domain}UpdateIntent)` | **NOT STARTED** | No `*UpdateIntent` dataclass exists; all 6 `update_X` still take `dict` / `dict[str, Any]`. |
+| #2 Typed update intents | `update_X(uid, intent: {Domain}UpdateIntent)` | **IN PROGRESS — Step 1 shipped** | ADR-066 + [docs/roadmap/update-intents.md](update-intents.md) written; Step 1 "Mapping bridge" merged (PR #222) — the service update contract is now `Mapping[str, Any]` (a TypedDict is assignable to it) so the migration can land one domain at a time. No `*UpdateIntent` dataclass exists yet; Step 2 (frozen intents + `to_intent()`, Tasks-first) is pending. |
 | #3 Collapse `Result[None] \| None` | hooks return `Result[None]` | **✅ DONE (2026-05-31)** | All 5 validation hooks (`_validate_create`, `_validate_update`, `_validate_content`, `_validate_prerequisites`, `_validate_required_user_uid`) now return `Result[None]`; success is `Result.ok(None)`. Call sites use `.is_error`, not truthiness. |
 
 The enforcement layer being live is precisely what makes the remaining extensions *mechanical* when they land — a stray `dict` sneaking back into an `update_X` signature (#2) or a `TaskDTO` passed where a frozen `Task` is expected is now an arg-type error at the call site, not a silent regression.
@@ -68,9 +68,15 @@ This is a direct, mechanical extension of ADR-065. The pattern is specified; the
 
 **Already a separate roadmap doc:** [`activity-domain-inference-migration.md`](activity-domain-inference-migration.md). Listed here only so the broader functional direction picture is complete.
 
-### 2. Typed update intents — replace `dict[str, Any]` update payloads with frozen `*UpdateIntent` dataclasses — *not started*
+### 2. Typed update intents — replace `dict[str, Any]` update payloads with frozen `*UpdateIntent` dataclasses — *in progress (Step 1 shipped)*
 
-**Current shape:** every `*CoreService` exposes `update_X(uid: str, updates: dict[str, Any]) -> Result[X]`. The `dict[str, Any]` is the same opaque "any field, any value" contract that ADR-065 closed for inference — implicit at the boundary, drift-prone over time.
+> **Now owned by [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)** with a phased,
+> context-reset-friendly migration plan in [docs/roadmap/update-intents.md](update-intents.md). Step 1 (the "Mapping bridge")
+> merged in PR #222: the service `update` / `update_for_user` contract is now `Mapping[str, Any]` (a TypedDict *is* assignable
+> to it, a `dict` was not), which lets each domain adopt its frozen `*UpdateIntent` one PR at a time with a green tree throughout.
+> The remainder of this section is the original framing that ADR-066 formalizes.
+
+**Current shape:** every `*CoreService` exposes `update_X(uid: str, updates: Mapping[str, Any]) -> Result[X]` (widened from `dict[str, Any]` by the Step 1 bridge). The map is the same opaque "any field, any value" contract that ADR-065 closed for inference — implicit at the boundary, drift-prone over time.
 
 **Functional shape:** `update_X(uid: str, intent: TaskUpdateIntent) -> Result[Task]` where `TaskUpdateIntent` is a frozen dataclass of `field: T | None` (only specified fields apply). The Pydantic `*UpdateRequest` models already exist and become the natural source — convert at the route boundary.
 
