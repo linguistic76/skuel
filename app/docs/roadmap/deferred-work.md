@@ -151,6 +151,80 @@ does not catch this.
 
 ---
 
+## Mechanisms Awaiting a Consumer
+
+These are complete, generic mechanisms that are correctly used in exactly one place today. They
+are NOT to be extended speculatively — SKUEL's defer-until-consumer rule means infrastructure does
+not get built ahead of a reader. The trigger is a product need, not a data threshold.
+
+---
+
+### 6. `filter_property` edge-filtering beyond GOALS essentiality
+
+**Why deferred**: PR #216 made the `filter_property`/`filter_value` mechanism on a
+`UnifiedRelationshipDefinition` work end-to-end — WRITE auto-stamps the edge property
+(`_orient_edge`), and all three read paths auto-filter (`get_related_uids`/`count_related`,
+`get_cross_domain_context` categorization, `get_with_context`). It lets one relationship type fan
+out into separate typed tier buckets (e.g. a goal's `essential_habits` / `critical_habits` /
+`optional_habits` off `(:Habit)-[:SUPPORTS_GOAL {essentiality}]->(:Goal)`). An audit (2026-06-04)
+asked whether any *other* domain should use it. **Conclusion: none currently qualifies, so nothing
+was shipped — a generic mechanism does not mean it must be used.**
+
+A relationship qualifies only when **all four** links are live at once:
+
+1. **Categorical edge property** — mutually-exclusive exact-match tier values, not a continuous
+   number (`strength`, `confidence`) and not a single constant.
+2. **Writer stamps varied values** — and is actually *called* with more than the default.
+3. **Live data carries it** — real edges have the property set to differing values.
+4. **A consumer partitions on it** — some service/UI/intelligence reads the *separate* buckets
+   (not just their union) and does something different per tier.
+
+Audit evidence (live Docker Neo4j, full-graph scan; full table in memory
+`project_filter_property_extension_audit.md`):
+
+| Candidate prop | Relationship | Writer | Consumer | Verdict |
+|---|---|---|---|---|
+| `dependency_type` | `DEPENDS_ON` | `create_task_dependency` stamps single default `"blocks"` | none | reject — single value, uncalled in prod, no live edge carries it |
+| `contribution_type` | — | none (renamed → `essentiality` in #216) | n/a | reject — dead |
+| `support_type` | — | none (TypedDict-only) | n/a | reject — dead |
+| `strength` | edges | continuous confidence proxy only | n/a | reject — numeric threshold, not categorical |
+
+A direct probe returned **zero edges** across the whole graph:
+
+```cypher
+MATCH ()-[r]->()
+WHERE r.essentiality IS NOT NULL
+   OR r.dependency_type IS NOT NULL
+   OR r.contribution_type IS NOT NULL
+   OR r.support_type IS NOT NULL
+RETURN type(r), r.essentiality, r.dependency_type, r.contribution_type, r.support_type, count(*)
+```
+
+Even GOALS essentiality — the sole consumer — has no live data yet (the 8 live `SUPPORTS_GOAL`
+edges are property-less; the ingestion path doesn't stamp `essentiality`, only the
+`link_goal_to_habit` create path does).
+
+**The problem**: The missing ingredient is never the mechanism — it is a consumer with a reason to
+distinguish tiers. Until a product question needs, say, *blocking* vs *informational* task
+dependencies shown separately, or *critical* supporting habits weighted higher in ZPD, the buckets
+are infrastructure no one reads.
+
+**What to do** (when a consumer emerges — `DEPENDS_ON` is the nearest miss, already 1.5 links in):
+
+1. Pin down the product need that wants the tiers treated *differently* (link 4's reason to exist).
+2. Make the edge property categorical and teach the writer's callers to stamp the varied values
+   (`create_task_dependency` today only ever passes `"blocks"`); backfill existing edges so live
+   data carries it.
+3. Add catch-all + per-value filtered `UnifiedRelationshipDefinition` mappings (mirror
+   GOALS `essential_habits` etc.). The three read paths then auto-filter — no read-side code change.
+4. Add a real-Neo4j round-trip test across all three read paths + write-stamp + catch-all control
+   (mirror `tests/integration/test_goal_habit_essentiality.py`).
+
+**Enable when**: A consumer needs a non-GOALS relationship's edges partitioned into separate typed
+tier buckets (and does something different per tier).
+
+---
+
 ## Review Schedule
 
 Review this document at the **June 2026 quarterly review**. Checklist:
@@ -162,6 +236,7 @@ Review this document at the **June 2026 quarterly review**. Checklist:
 | Real-time Intelligence | DAU ≥ 10 for 2+ weeks | Grafana `skuel_daily_active_users` |
 | Per-user intelligence tier | Billing model defined | Business decision |
 | KnowledgeConfig validation | Config fields added | `grep embedding_model core/config/unified_config.py` |
+| `filter_property` extension | A consumer wants non-GOALS edge tier buckets | Product need (not a data threshold) |
 
 Items that hit their trigger condition before June should be unblocked immediately — don't wait
 for the review.
