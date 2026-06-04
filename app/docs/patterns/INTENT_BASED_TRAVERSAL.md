@@ -19,30 +19,46 @@ related_docs:
 ## Overview
 
 A single generic entry point, `GraphIntelligenceService.query_with_intent()`, traverses the graph
-around an entity. A `QueryIntent` selects which edge types the traversal filters on. **The intent is
-sourced from the domain's registry config, not from the entity model.**
+around an entity. A `QueryIntent` selects which edge types the traversal filters on. **Which intent a
+call applies depends on the entry path — there are two, and they source the intent differently.**
 
-**Core Principle:** "One generic traversal; the registry decides the edges."
+**Core Principle:** "One generic traversal engine; two entry paths choose the intent differently."
 
-## How the intent is actually chosen (config-sourced, not model-sourced)
+## How the intent is actually chosen — two entry paths
+
+Both paths end at `GraphIntelligenceService.query_with_intent(...)` and the same query builder. They
+differ only in *where the intent comes from*:
+
+### Path A — model-suggested (what the facades and `/api/<domain>/context` routes use today)
+
+`Service.get_<domain>_with_context()` → the domain intelligence service → shared
+`_CoreIntelligenceMixin.get_with_context` (`core/services/intelligence/_core_intelligence_mixin.py`) →
+`GraphContextLoader.get_with_context` (`core/services/intelligence/graph_context_loader.py`). The
+loader passes **no explicit intent**, so it falls back to `entity.get_suggested_query_intent()`.
 
 Every **Activity Domain** model (Task, Goal, Habit, Event, Choice, Principle) inherits
-`Entity.get_suggested_query_intent()` (`core/models/entity.py:233`), which returns
-`QueryIntent.EXPLORATORY` and is **not overridden** by any of them. (Only `Curriculum` and `Askesis`
-override it — `core/models/curriculum.py`, `core/models/askesis/askesis.py`.) So the model is *not*
-where an Activity Domain's intent comes from.
+`Entity.get_suggested_query_intent()` (`core/models/entity.py:233`) → `QueryIntent.EXPLORATORY`, and
+**none override it** (only `Curriculum` and `Askesis` do). So on Path A every Activity Domain runs the
+**EXPLORATORY else-branch — no edge filter at all** (every node within `depth`, `LIMIT 100`). The
+per-domain config intents below are **not** applied here. The `IntelligenceRouteFactory`-wired
+`/api/<domain>/context` routes go through this path.
 
-The real intent is the domain's **registry config**
+### Path B — config-sourced (`UnifiedRelationshipService.get_with_context`)
+
+`Service.relationships.get_with_context()` (`core/services/relationships/_intelligence_mixin.py`)
+resolves the intent from the domain's **registry config**
 (`DomainRelationshipConfig` in `core/models/relationship_registry.py`):
 
 - `default_context_intent` — the domain's default lens.
 - `intent_mappings` + `get_intent_for_operation(operation)` — per-operation overrides
   (falls back to `default_context_intent`).
 
-### Per-domain default intent (registry truth)
+This is the **only** path on which the per-domain intents below actually take effect.
 
-| Domain | `default_context_intent` | Config | Clause it hits today |
-|--------|--------------------------|--------|----------------------|
+### Per-domain default intent — applies on Path B only (registry truth)
+
+| Domain | `default_context_intent` | Config | Clause it hits on Path B |
+|--------|--------------------------|--------|--------------------------|
 | Tasks | `PREREQUISITE` | `TASKS_CONFIG` | `REQUIRES_KNOWLEDGE / PREREQUISITE_FOR / ENABLES` |
 | Goals | `GOAL_ACHIEVEMENT` | `GOAPS_CONFIG` | goal-tailored (`FULFILLS_GOAL / SUPPORTS_GOAL / …`) |
 | Habits | `PRACTICE` | `HABITS_CONFIG` | `PRACTICES / REINFORCES / APPLIES_KNOWLEDGE` |
@@ -50,12 +66,18 @@ The real intent is the domain's **registry config**
 | Choices | `HIERARCHICAL` | `CHOICES_CONFIG` | `HAS_CHILD / PARENT_OF / CHILD_OF` |
 | Principles | `HIERARCHICAL` | `PRINCIPLES_CONFIG` | `HAS_CHILD / PARENT_OF / CHILD_OF` |
 
-> ⚠️ **Live defect (the motivation for the convergence roadmap).** Choices and Principles resolve to
-> `HIERARCHICAL`, which filters on tree edges (`HAS_CHILD/PARENT_OF/CHILD_OF`) that those domains
-> almost never write. So an intent traversal of a Choice today surfaces ~nothing — it does **not** see
-> the choice's real neighbors (`AFFECTS_GOAL`, `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE`,
-> `INFORMED_BY_KNOWLEDGE`, …). Phase 1 of the convergence roadmap fixes this by sourcing the edge
-> vocabulary from `config.cross_domain_relationship_types` instead of the hard-coded per-intent list.
+> ⚠️ **Two live defects the convergence roadmap targets.**
+> 1. **The user-facing path ignores the config intent.** The facades and `/api/<domain>/context` routes
+>    take Path A → `EXPLORATORY` → an unfiltered neighborhood (`LIMIT 100`), so the "specialized" intents
+>    never reach those callers at all.
+> 2. **Even on Path B, Choice/Principle surface ~nothing.** They resolve to `HIERARCHICAL`
+>    (`HAS_CHILD/PARENT_OF/CHILD_OF`) — tree edges those domains almost never write — so the traversal
+>    misses their real neighbors (`AFFECTS_GOAL`, `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE`,
+>    `INFORMED_BY_KNOWLEDGE`, …).
+>
+> Phase 1 of the convergence roadmap sources the edge vocabulary from
+> `config.cross_domain_relationship_types` (the registry single-source-of-truth) instead of the
+> hard-coded per-intent list — and must target whichever path the routes actually use.
 
 ## QueryIntent Enum
 
@@ -114,14 +136,14 @@ The Cypher is built by the module-level function
 clause per intent; **every clause differs only in its `type(r) IN [...]` edge list** — identical
 depth (`[*0..{depth}]`), direction (bidirectional), and return shape.
 
-### 2. UnifiedRelationshipService
+### 2. UnifiedRelationshipService — Path B (config-sourced)
 
 **Location:** `core/services/relationships/unified_relationship_service.py`
 
-One generic, configuration-driven service handles relationship operations for all domains. The intent
-traversal is exposed through the generic `get_with_context()` (in `_intelligence_mixin.py`), which
-resolves the intent from `self.config` (`default_context_intent` / `get_intent_for_operation`) and
-calls `query_with_intent`.
+One generic, configuration-driven service handles relationship operations for all domains. Its generic
+`get_with_context()` (in `relationships/_intelligence_mixin.py`) resolves the intent from `self.config`
+(`default_context_intent`, or `intent_mappings` via the optional `intent` arg) and calls
+`query_with_intent`. This is the config-sourced path.
 
 ```python
 class UnifiedRelationshipService[Ops, Model, DtoType](...):
@@ -134,26 +156,40 @@ class UnifiedRelationshipService[Ops, Model, DtoType](...):
         ...
 
     async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Entity, GraphContext]]:
-        """Generic intent traversal; intent comes from self.config, not the entity model."""
+        self, uid: str, depth: int = 2, intent: str | None = None
+    ) -> Result[tuple[Any, GraphContext]]:
+        """Path B: intent = self.config.default_context_intent (or intent_mappings)."""
 ```
 
-### 3. Domain model integration
+### 3. GraphContextLoader — Path A (model-suggested)
 
-Activity Domain models do **not** override `get_suggested_query_intent()` — they inherit
-`QueryIntent.EXPLORATORY`. The intent comes from the registry config (above). The override mechanism
-exists on the base `Entity` and is used by non-Activity types (`Curriculum`, `Askesis`).
+**Location:** `core/services/intelligence/graph_context_loader.py`
+
+The intelligence services and facade `get_<domain>_with_context()` methods load context through this.
+With no explicit `intent`, it uses `entity.get_suggested_query_intent()` — which for every Activity
+Domain is the inherited `EXPLORATORY` (no edge filter).
+
+```python
+async def get_with_context(self, uid, depth=2, intent: QueryIntent | None = None):
+    ...
+    chosen_intent = intent if intent is not None else entity.get_suggested_query_intent()
+    return await self.graph_intel.query_with_intent(domain=..., node_uid=uid, intent=chosen_intent, depth=depth)
+```
+
+The `get_suggested_query_intent()` override exists on the base `Entity` (default `EXPLORATORY`) and is
+used only by non-Activity types (`Curriculum`, `Askesis`).
 
 ### 4. Service wiring
 
-Each facade wires the registry config + `graph_intel` into its relationship service:
+Each facade wires the registry config + `graph_intel` into its relationship service, and exposes
+**both** paths:
 
 ```python
 # In {Domain}Service.__init__():
-self.relationships = UnifiedRelationshipService(
+self.relationships = UnifiedRelationshipService(            # Path B (config intent)
     backend=backend, config=DOMAIN_CONFIG, graph_intel=graph_intel
 )
+# self.get_<domain>_with_context() delegates via self.intelligence → GraphContextLoader  (Path A: EXPLORATORY)
 ```
 
 ## Intent clause vocabularies
@@ -193,7 +229,8 @@ behavior. They are listed here only so the gap is visible.
 | GraphIntelligenceService | `core/services/infrastructure/graph_intelligence_service.py` |
 | `build_context_query_for_intent` | `adapters/persistence/neo4j/query/graph_context_query_builder.py` |
 | Registry config (intent + edges) | `core/models/relationship_registry.py` (`DomainRelationshipConfig`, `default_context_intent`, `intent_mappings`, `cross_domain_relationship_types`) |
-| UnifiedRelationshipService | `core/services/relationships/unified_relationship_service.py` |
+| UnifiedRelationshipService (Path B) | `core/services/relationships/unified_relationship_service.py` (+ `relationships/_intelligence_mixin.py`) |
+| GraphContextLoader (Path A) | `core/services/intelligence/graph_context_loader.py` (+ `intelligence/_core_intelligence_mixin.py`) |
 | `@requires_graph_intelligence` | `core/utils/decorators.py` |
 | **Facades** | |
 | TasksService | `core/services/tasks_service.py` |
@@ -204,34 +241,40 @@ behavior. They are listed here only so the gap is visible.
 | EventsService | `core/services/events_service.py` |
 
 Each facade exposes a thin `get_<domain>_with_context()` convenience method (e.g.
-`GoalsService.get_goal_with_context` at `core/services/goals_service.py:403`) that delegates to the
-domain intelligence service over the same generic intent traversal — there is **no** bespoke
-per-domain "analysis method" (`get_goal_achievement_analysis`, `get_principle_embodiment_analysis`,
-etc. do not exist).
+`GoalsService.get_goal_with_context` at `core/services/goals_service.py:403`) that delegates through
+the domain intelligence service to **Path A** (`GraphContextLoader` → `EXPLORATORY`). There is **no**
+bespoke per-domain "analysis method" (`get_goal_achievement_analysis`,
+`get_principle_embodiment_analysis`, etc. do not exist).
 
 ## Usage
 
 ### Getting an entity with its graph context
 
 ```python
-# Facade convenience method — delegates to the generic intent traversal.
+# Path A — facade convenience method. Goes through GraphContextLoader, which applies
+# entity.get_suggested_query_intent() == EXPLORATORY → an unfiltered neighbourhood (LIMIT 100).
 result = await goals_service.get_goal_with_context(uid="goal:123", depth=2)
+
+# Path B — config-sourced intent. Applies GOAPS_CONFIG.default_context_intent (GOAL_ACHIEVEMENT),
+# so the GOAL_ACHIEVEMENT edge filter is used. Pass intent=... to use an intent_mappings override.
+result = await goals_service.relationships.get_with_context(uid="goal:123", depth=2)
+
 if result.is_error:
     return handle_error(result)
-
 goal, context = result.value
-# context.entities      — related nodes surfaced by the intent's edge filter
+# context.entities      — related nodes (filtered by the applied intent, or all within depth on Path A)
 # context.relationships — edge data
 ```
 
-The intent applied is `GOAPS_CONFIG.default_context_intent` (`GOAL_ACHIEVEMENT`). For Choices and
-Principles, the same call runs `HIERARCHICAL` and currently surfaces little — see the live-defect note
-above and the convergence roadmap.
+> The two calls return **different** neighbourhoods today. For Choices/Principles, Path A returns an
+> unfiltered set and Path B returns the (near-empty) `HIERARCHICAL` set — neither surfaces their real
+> edges. See the two-defect note above and the convergence roadmap.
 
-## Benefits (of the generic traversal as wired)
+## Benefits (of the generic traversal engine as wired)
 
-1. **One traversal path** — a single `query_with_intent` + one query-builder function, not six.
-2. **Config-driven** — intent and (after convergence Phase 1) edge vocabulary come from the registry.
+1. **One traversal engine** — a single `query_with_intent` + one query-builder function, not six.
+2. **Config-driven (Path B)** — on the `UnifiedRelationshipService` path the intent comes from the
+   registry; convergence Phase 1 extends this to the edge vocabulary and reconciles the two paths.
 3. **Type-safe intent** — `QueryIntent` enum prevents typos.
 
 For the per-domain semantic lenses, uniform analysis shape, and "intents as life-questions" that this
