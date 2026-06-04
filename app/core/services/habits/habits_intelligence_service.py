@@ -34,7 +34,6 @@ from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.graph_context import GraphContext
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
     from core.services.relationships import UnifiedRelationshipService
@@ -108,25 +107,13 @@ class HabitsIntelligenceService(
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
+    #
+    # get_with_context is provided by _CoreIntelligenceMixin (mechanism B,
+    # registry-sourced via self.relationships) — NOT redefined here. A local
+    # override that delegated back to get_habit_with_context recursed infinitely
+    # (get_with_context → get_habit_with_context → get_with_context); the mixin
+    # now owns the real implementation. (Convergence Phase 1, 2B.)
     # ========================================================================
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> "Result[tuple[Habit, GraphContext]]":
-        """
-        Get habit with full graph context.
-
-        Protocol method: Maps to get_habit_with_context.
-        Used by IntelligenceRouteFactory for GET /api/habits/context route.
-
-        Args:
-            uid: Habit UID
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (Habit, GraphContext) tuple
-        """
-        return await self.get_habit_with_context(uid, depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30
