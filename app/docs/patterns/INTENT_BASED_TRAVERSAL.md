@@ -157,9 +157,14 @@ async def query_with_intent(
 
 The Cypher is built by the module-level function
 `build_context_query_for_intent(intent, depth)` in
-`adapters/persistence/neo4j/query/graph_context_query_builder.py`. It is a single function with one
-clause per intent; **every clause differs only in its `type(r) IN [...]` edge list** — identical
-depth (`[*0..{depth}]`), direction (bidirectional), and return shape.
+`adapters/persistence/neo4j/query/graph_context_query_builder.py`. The **seven filtered intent
+clauses** (HIERARCHICAL, PREREQUISITE, PRACTICE, GOAL_ACHIEVEMENT, and the three dead ones) differ from
+each other **only** in their `type(r) IN [...]` edge list — identical depth (`[*0..{depth}]`),
+direction (bidirectional), return shape, and **no `LIMIT`**. The **generic `else` branch**
+(EXPLORATORY / SPECIFIC / AGGREGATION / RELATIONSHIP) is the one different shape: it applies **no edge
+filter** *and* adds `LIMIT 100`. So a Phase 1 override that supplies an edge list to the filtered
+clauses is thin, but anything routing the else-branch through the same override must preserve (or
+deliberately reconcile) that `LIMIT 100`.
 
 ### 2. UnifiedRelationshipService — Mechanism B (config-sourced)
 
