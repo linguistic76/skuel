@@ -23,6 +23,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.task.task import Task
+    from core.services.relationships import UnifiedRelationshipService
 
 
 class _CoreIntelligenceMixin(_SharedCoreMixin):
@@ -35,7 +36,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
 
     # Populated by TasksIntelligenceService.__init__ / BaseAnalyticsService
     context_loader: Any
-    relationships: Any
+    relationships: UnifiedRelationshipService[Any, Any, Any] | None
     logger: Any
 
     @requires_graph_intelligence("get_with_context")
