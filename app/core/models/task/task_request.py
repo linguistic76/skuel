@@ -23,7 +23,7 @@ from core.models.request_base import (
     ResponseBase,
     UpdateRequestBase,
 )
-from core.models.sentinels import UNSET
+from core.models.sentinels import UNSET, Unset
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.validation_rules import (
     validate_future_date,
@@ -146,37 +146,40 @@ class TaskUpdateRequest(UpdateRequestBase):
         """
         set_fields = self.model_fields_set
 
-        def field(name: str) -> Any:
-            return getattr(self, name) if name in set_fields else UNSET
+        def when_set[T](name: str, value: T) -> T | Unset:
+            """Carry ``value`` only if the caller set this field; else ``UNSET``.
 
-        def enum_field(name: str) -> Any:
-            if name not in set_fields:
-                return UNSET
-            value = getattr(self, name)
-            return value.value if value is not None else None
+            Generic so the intent fields stay fully typed (no ``Any``): the return is
+            ``<declared field type> | Unset``, exactly what each intent field expects.
+            """
+            return value if name in set_fields else UNSET
 
         return TaskUpdateIntent(
-            title=field("title"),
-            description=field("description"),
-            due_date=field("due_date"),
-            scheduled_date=field("scheduled_date"),
-            duration_minutes=field("duration_minutes"),
-            priority=enum_field("priority"),
-            status=enum_field("status"),
-            project=field("project"),
-            assignee=field("assignee"),
-            tags=field("tags"),
-            actual_minutes=field("actual_minutes"),
-            completion_date=field("completion_date"),
-            fulfills_goal_uid=field("fulfills_goal_uid"),
-            aligned_principle_uids=field("aligned_principle_uids"),
-            goal_progress_contribution=field("goal_progress_contribution"),
-            knowledge_mastery_check=field("knowledge_mastery_check"),
-            habit_streak_maintainer=field("habit_streak_maintainer"),
-            prerequisite_knowledge_uids=field("prerequisite_knowledge_uids"),
-            prerequisite_task_uids=field("prerequisite_task_uids"),
-            reinforces_habit_uid=field("reinforces_habit_uid"),
-            applies_knowledge_uids=field("applies_knowledge_uids"),
+            title=when_set("title", self.title),
+            description=when_set("description", self.description),
+            due_date=when_set("due_date", self.due_date),
+            scheduled_date=when_set("scheduled_date", self.scheduled_date),
+            duration_minutes=when_set("duration_minutes", self.duration_minutes),
+            priority=when_set("priority", self.priority.value if self.priority is not None else None),
+            status=when_set("status", self.status.value if self.status is not None else None),
+            project=when_set("project", self.project),
+            assignee=when_set("assignee", self.assignee),
+            tags=when_set("tags", self.tags),
+            actual_minutes=when_set("actual_minutes", self.actual_minutes),
+            completion_date=when_set("completion_date", self.completion_date),
+            fulfills_goal_uid=when_set("fulfills_goal_uid", self.fulfills_goal_uid),
+            aligned_principle_uids=when_set("aligned_principle_uids", self.aligned_principle_uids),
+            goal_progress_contribution=when_set(
+                "goal_progress_contribution", self.goal_progress_contribution
+            ),
+            knowledge_mastery_check=when_set("knowledge_mastery_check", self.knowledge_mastery_check),
+            habit_streak_maintainer=when_set("habit_streak_maintainer", self.habit_streak_maintainer),
+            prerequisite_knowledge_uids=when_set(
+                "prerequisite_knowledge_uids", self.prerequisite_knowledge_uids
+            ),
+            prerequisite_task_uids=when_set("prerequisite_task_uids", self.prerequisite_task_uids),
+            reinforces_habit_uid=when_set("reinforces_habit_uid", self.reinforces_habit_uid),
+            applies_knowledge_uids=when_set("applies_knowledge_uids", self.applies_knowledge_uids),
         )
 
 
