@@ -239,3 +239,33 @@ async def test_registry_sourced_excludes_non_registry_tail_at_depth_2(
         "(the `all` guarantee — `any` would have leaked it)"
     )
     assert D2_TASK not in uids, "origin must not leak into its own context (self-exclusion)"
+
+
+@pytest.mark.asyncio
+async def test_registry_sourced_no_edges_yields_empty_context(
+    neo4j_driver, graph_intel, clean_neo4j
+):
+    """An entity with no registry edges yields an is_ok EMPTY context, not a not-found.
+
+    The `LIMIT` cap is applied before the `collect` aggregation; the
+    `OPTIONAL MATCH ... WHERE related <> origin` predicate must still keep the origin row
+    alive (related = null) so the aggregation emits one record with empty nodes rather
+    than zero records (which `query_with_intent` would turn into a not-found error).
+    """
+    bare = P + "isolated_task"
+    async with neo4j_driver.session() as s:
+        await s.run(
+            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=bare,
+        )
+
+    res = await graph_intel.query_with_intent(
+        domain=None,
+        node_uid=bare,
+        intent=TASKS_CONFIG.default_context_intent,
+        depth=2,
+        relationship_types=TASKS_CONFIG.cross_domain_relationship_types,
+    )
+    assert res.is_ok, res
+    assert res.value.total_nodes == 0, "isolated entity should yield an empty context"

@@ -196,9 +196,17 @@ def _build_filtered_context_query(depth: int, relationship_types: list[str]) -> 
     """Build a registry-sourced filtered traversal query (mechanism B).
 
     The edge filter is the supplied relationship-type list (the domain's registry
-    vocabulary), plus the ``LIMIT`` cap ported from the generic EXPLORATORY branch —
-    guarding against unbounded results now that the edge set is the domain's full
-    cross-domain vocabulary, not a narrow literal.
+    vocabulary), plus a ``LIMIT`` cap guarding against unbounded results now that the
+    edge set is the domain's full cross-domain vocabulary, not a narrow literal.
+
+    The cap is applied to matched ``(related, path)`` rows **before** the ``collect``
+    aggregation. The generic EXPLORATORY branch's trailing ``LIMIT`` is a no-op (it caps
+    the single post-aggregation row, not the collected nodes); for a dense graph over the
+    full registry vocabulary that would let the context grow without bound. Limiting the
+    path rows first genuinely bounds the materialized node/relationship set. The
+    ``OPTIONAL MATCH ... WHERE`` predicate keeps the origin row alive when nothing matches
+    (related = null), so a no-edge entity still yields an empty context rather than a
+    not-found error.
 
     The predicate uses ``all`` (not ``any``): a related node is collected only when it
     is reachable by a path whose **every** edge is registry-sourced. ``any`` would leak
@@ -222,13 +230,14 @@ def _build_filtered_context_query(depth: int, relationship_types: list[str]) -> 
     OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
     WHERE related <> origin
       AND all(r in relationships(path) WHERE type(r) IN [{rel_list}])
+    WITH origin, related, relationships(path) as path_rels
+    LIMIT 100
     WITH origin, collect(DISTINCT related) as nodes,
-         collect(DISTINCT [r in relationships(path) | {{
+         collect(DISTINCT [r in path_rels | {{
              type: type(r),
              start_uid: startNode(r).uid,
              end_uid: endNode(r).uid,
              properties: properties(r)
          }}]) as rels
     RETURN nodes, rels[0] as relationships
-    LIMIT 100
     """
