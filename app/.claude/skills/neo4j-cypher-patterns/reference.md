@@ -67,7 +67,6 @@ Goal hierarchy, dependencies, and guidance.
 | `DEPENDS_ON_GOAL` | Goal | Goal | Goal depends on another |
 | `GUIDED_BY_PRINCIPLE` | Goal | Principle | Goal guided by principle |
 | `SUPPORTS_GOAL` | Habit | Goal | Habit supports goal |
-| `CONFLICTS_WITH_GOAL` | Goal | Goal | Goals conflict |
 | `INSPIRES_GOAL` | * | Goal | Something inspires this goal |
 | `CELEBRATED_BY_EVENT` | Goal | Event | Goal celebrated by event |
 | `ALIGNED_WITH_PATH` | Goal | LifePath | Goal aligned with life path |

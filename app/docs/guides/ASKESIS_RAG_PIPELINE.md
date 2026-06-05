@@ -232,10 +232,8 @@ intent = await intent_classifier.classify_intent(question)
 | `PRACTICE` | "Give me exercises for Python" |
 | `AGGREGATION` | "How many tasks do I have?" |
 | `RELATIONSHIP` | "How are these topics connected?" |
-| `GOAL_ACHIEVEMENT` | Goal-specific queries |
-| `SCHEDULED_ACTION` | Schedule-related queries |
 
-Each intent has 8 exemplar sentences. Exemplar embeddings are lazily computed on first classification and cached.
+The six exemplar intents above (`SPECIFIC` is the default fallback when no match clears the threshold) each have 8 exemplar sentences. Exemplar embeddings are lazily computed on first classification and cached.
 
 **Error tolerance:** If the embeddings API is unavailable, intent classification defaults to `SPECIFIC` rather than crashing. Individual exemplar embedding failures are skipped — classification works with fewer exemplars per intent.
 

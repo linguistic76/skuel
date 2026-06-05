@@ -92,12 +92,9 @@ QueryIntent.AGGREGATION      # Statistical queries
 QueryIntent.RELATIONSHIP     # Graph traversal
 ```
 
-**Domain-Specific Intents (December 2025):**
+**Domain-Specific Intents:**
 ```python
-QueryIntent.GOAL_ACHIEVEMENT      # Goal achievement path analysis
-QueryIntent.PRINCIPLE_EMBODIMENT  # How principle is LIVED across domains
-QueryIntent.PRINCIPLE_ALIGNMENT   # Choice alignment with principles
-QueryIntent.SCHEDULED_ACTION      # Event as scheduled task execution
+QueryIntent.GOAL_ACHIEVEMENT      # Goal achievement path analysis (Goals' default_context_intent)
 ```
 
 See [Intent-Based Traversal Pattern](#intent-based-traversal-pattern-december-2025) below for complete architecture.
@@ -670,6 +667,22 @@ for processor in config.post_processors:
 See [Service Consolidation Patterns](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md#4-post-query-processors) for detailed usage guide.
 
 ## Intent-Based Traversal Pattern (December 2025)
+
+> **SUPERSEDED below this banner — historical (pre-Phase-1, 2026-06-04).** The
+> intent-traversal/registry convergence retired this design. As of the curriculum-convergence
+> teardown, **all 6 Activity Domains and all 3 curriculum domains (Ku/Ps/Lp) read graph context
+> through mechanism B** — the shared `_CoreIntelligenceMixin.get_with_context` →
+> `UnifiedRelationshipService.get_with_context`, with the edge vocabulary **registry-sourced** from
+> `DomainConfig.cross_domain_relationship_types`, not per-domain `{Domain}RelationshipService`
+> subclasses. The model-suggested `Entity.get_suggested_query_intent()` method and the dead
+> `QueryIntent` values (`PRINCIPLE_EMBODIMENT`/`PRINCIPLE_ALIGNMENT`/`SCHEDULED_ACTION`) + the
+> never-written `CONFLICTS_WITH_GOAL` edge are **deleted**. `QueryIntent`/`default_context_intent`
+> still selects the query *shape* in `build_context_query_for_intent` for non-registry callers
+> (surviving live clauses: `HIERARCHICAL`/`PREREQUISITE`/`PRACTICE`/`GOAL_ACHIEVEMENT` + generic
+> fallback). The content below is retained as historical context; a full rewrite is pending. The
+> authoritative current state is
+> [`docs/roadmap/intent-traversal-registry-convergence.md`](../roadmap/intent-traversal-registry-convergence.md)
+> and [`INTENT_BASED_TRAVERSAL.md`](INTENT_BASED_TRAVERSAL.md).
 
 ### Core Principle: "Domain-specific semantic understanding of graph queries"
 
