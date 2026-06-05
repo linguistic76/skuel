@@ -59,12 +59,14 @@ from core.utils.sort_functions import get_created_at_attr, get_title_or_name_low
 from core.utils.type_converters import normalize_enum_str
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from datetime import date
 
     from core.models.context_types import ContextualPrinciple, PracticeOpportunity
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.models.principle.principle_types import PrincipleDecision
+    from core.models.principle.principle_update_intent import PrincipleUpdateIntent
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.query_types import ListContext
@@ -496,11 +498,38 @@ class PrinciplesService(
         """Create a principle from a validated request."""
         return await self.core.create_principle(request, user_uid)
 
+    # Update path (ADR-066 typed update contract) ----------------------------
     async def update_principle(
-        self, principle_uid: str, updates: dict[str, Any]
+        self, principle_uid: str, intent: PrincipleUpdateIntent
     ) -> Result[Principle]:
-        """Update a principle by uid with a dict of fields to change."""
-        return await self.core.update_principle(principle_uid, updates)
+        """THE Principles update path (ADR-066): route the typed intent through the core
+        service, which writes only the set fields at the single ``backend.update`` seam and
+        fires ``PrincipleUpdated`` (and ``PrincipleStrengthChanged`` on a strength change).
+        Principles carry no edge fields, so there is nothing to split off."""
+        return await self.core.update_principle(principle_uid, intent)
+
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Principle]:
+        """Override the inherited CRUD update (generated JSON route, no ownership check).
+
+        Transitional ADR-066 funnel: the generic factory still hands a ``Mapping``, so
+        route it through the core funnel (``PrinciplesCoreService.update`` →
+        ``update_principle``), which fires ``PrincipleUpdated``. Collapses to a direct intent
+        parameter in Phase 7."""
+        return await self.core.update(uid, updates)
+
+    async def update_for_user(
+        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
+    ) -> Result[Principle]:
+        """Override the inherited ownership-verified CRUD update (generated JSON route).
+
+        Verifies ownership BEFORE any mutation, then funnels through the one event-firing
+        update path (``PrinciplesCoreService.update`` → ``update_principle``). Transitional
+        ADR-066 ``Mapping``→intent bridge; collapses to a direct intent parameter in
+        Phase 7."""
+        ownership = await self.verify_ownership(uid, user_uid)
+        if ownership.is_error:
+            return ownership
+        return await self.core.update(uid, updates)
 
     # ========================================================================
     # QUERY LAYER
