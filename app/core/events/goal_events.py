@@ -55,6 +55,30 @@ class GoalCreated(BaseEvent):
 
 
 @dataclass(frozen=True)
+class GoalUpdated(BaseEvent):
+    """
+    Published when goal node properties change (ADR-066 typed update path).
+
+    Fired on every ``update_goal`` so user-context caches invalidate even for plain
+    property edits (title, description, target_date) that have no more specific event.
+    Progress-percentage and achievement changes additionally fire ``GoalProgressUpdated``
+    / ``GoalAchieved``.
+
+    Subscribers:
+    - UserService (invalidate context)
+    - Analytics (track update patterns)
+    """
+
+    goal_uid: str
+    user_uid: UserUID
+    updated_fields: list[str]
+
+    @property
+    def event_type(self) -> str:
+        return "goal.updated"
+
+
+@dataclass(frozen=True)
 class GoalAchieved(BaseEvent):
     """
     Published when a goal is marked as achieved.

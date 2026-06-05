@@ -7,7 +7,8 @@ Handles basic CRUD operations for goals.
 Responsibilities:
 - Basic goal retrieval (get_user_goals)
 - Delegates create/update/DETACH DELETE to backend via BaseService
-- Publishes domain events (GoalCreated, GoalAchieved, GoalProgressUpdated, GoalAbandoned)
+- Publishes domain events (GoalCreated, GoalUpdated, GoalAchieved, GoalAbandoned).
+  GoalProgressUpdated is owned by GoalsProgressService (progress-propagation provenance).
 
   RelationshipRegistry (GOAPS_CONFIG). Shared-neighbor pattern for
   related_goals is now defined in the registry.
@@ -16,6 +17,7 @@ Responsibilities:
 - v2.0.0 (2025-11-05): Initial facade pattern implementation
 """
 
+import dataclasses
 from collections.abc import Mapping
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
@@ -30,12 +32,13 @@ from core.events.goal_events import (
     GoalAbandoned,
     GoalAchieved,
     GoalCreated,
-    GoalProgressUpdated,
+    GoalUpdated,
 )
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.ports import get_enum_value
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalStats, GoalUpdatePayload
@@ -59,8 +62,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
     Event-Driven Architecture:
     - Publishes GoalCreated on creation
+    - Publishes GoalUpdated on every property update (cache invalidation)
     - Publishes GoalAchieved when goal completed
-    - Publishes GoalProgressUpdated on progress changes
     - Publishes GoalAbandoned when goal cancelled
     """
 
@@ -353,72 +356,101 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return Result.ok(goal)
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Goal]:
-        """
-        Update a goal and publish appropriate events.
+    @staticmethod
+    def _intent_from_mapping(updates: Mapping[str, Any]) -> GoalUpdateIntent:
+        """Transitional bridge (ADR-066): build a ``GoalUpdateIntent`` from the ``Mapping``
+        the generic CRUD route, ``calendar_service``, and the in-service status methods
+        (activate / pause / complete / archive) still pass.
 
-        Publishes GoalProgressUpdated if progress field changed.
-        Publishes GoalAchieved if status changed to COMPLETED.
+        Only keys that are intent fields are carried; values are already storage-shaped
+        (the route stringifies enums via ``get_enum_value``). The three cross-domain edge
+        UIDs are not intent fields, so they are naturally dropped (never written as junk
+        node properties). Removed in Phase 7, when the generic update path is
+        parameterized over the intent and callers pass it directly.
+        """
+        names = {f.name for f in dataclasses.fields(GoalUpdateIntent)}
+        return GoalUpdateIntent(**{k: v for k, v in updates.items() if k in names})
+
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Goal]:
+        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to a
+        ``GoalUpdateIntent`` and route through the one event-firing update path
+        (``update_goal``).
+
+        Callers still on the ``Mapping`` shape: the shared ``CRUDRouteFactory`` /
+        ``calendar_service`` (via the facade) and the in-service status methods
+        (``activate_goal`` / ``pause_goal`` / ``complete_goal`` / ``archive_goal``).
+        Collapses to a direct intent parameter in Phase 7.
+        """
+        return await self.update_goal(uid, self._intent_from_mapping(updates))
+
+    @with_error_handling("update_goal", error_type="database", uid_param="uid")
+    async def update_goal(self, uid: str, intent: GoalUpdateIntent) -> Result[Goal]:
+        """Update a goal's node properties (ADR-066 typed update contract).
+
+        Materializes the intent to a partial patch once, validated and written through the
+        inherited CRUD ``update`` (BaseService → ``_validate_update`` → ``backend.update``),
+        then publishes domain events. Goals carry no edge fields on the update path, so the
+        intent's ``to_changes()`` is written wholesale — there is nothing to split off.
 
         Args:
             uid: Goal UID
-            updates: Dictionary of field updates
+            intent: Typed ``GoalUpdateIntent`` — only its set fields are written
 
         Returns:
             Result containing updated Goal
 
         Events Published:
-            - GoalProgressUpdated: If progress field updated
-            - GoalAchieved: If status changed to COMPLETED
+            - GoalUpdated: always, so user-context caches invalidate even for plain
+              property edits (title / description / target_date) with no more specific event
+            - GoalAchieved: if status transitions into COMPLETED
+
+        (Manual / system progress changes fire ``GoalProgressUpdated`` from
+        ``GoalsProgressService``, which owns the progress-propagation provenance.)
         """
-        # Get current goal to track changes (always fetch if updating progress or status)
-        old_goal = None
-        old_progress = None
-        if "progress" in updates or "status" in updates:
+        changes = intent.to_changes()
+        # Capture the intended fields now: the backend stamps updated_at in place, so
+        # reading changes.keys() after the write would leak that bump into the event.
+        updated_fields = list(changes.keys())
+
+        # Fetch the prior goal only when a status transition needs old-vs-new comparison.
+        old_goal: Goal | None = None
+        if "status" in changes:
             current_result = await self.get(uid)
-            if current_result.is_ok and current_result.value:
+            if current_result.is_ok:
                 old_goal = current_result.value
-                old_progress = getattr(old_goal, "progress", 0.0) or 0.0
 
-        # Call parent update
-        result: Result[Goal] = await super().update(uid, updates)
+        result: Result[Goal] = await super().update(uid, changes)
+        if result.is_error:
+            return result
 
-        if result.is_ok:
-            goal: Goal = result.value  # Type hint to help MyPy
+        goal: Goal = result.value
 
-            # Publish GoalProgressUpdated event if progress changed
-            if "progress" in updates and old_progress is not None:
-                new_progress = updates.get("progress", 0.0)
+        # GoalUpdated: always fired (cache invalidation contract).
+        await publish_event(
+            self.event_bus,
+            GoalUpdated(goal_uid=goal.uid, user_uid=goal.user_uid, updated_fields=updated_fields),
+            self.logger,
+        )
 
-                event = GoalProgressUpdated(
-                    goal_uid=goal.uid,
-                    user_uid=goal.user_uid,
-                    old_progress=old_progress,
-                    new_progress=new_progress,
-                    triggered_by_manual_update=True,
+        # GoalAchieved: status transitioned into COMPLETED.
+        if "status" in changes and old_goal is not None:
+            old_status = get_enum_value(old_goal.status)  # Handle both enum and string
+            if (
+                changes["status"] == EntityStatus.COMPLETED.value
+                and old_status != EntityStatus.COMPLETED.value
+            ):
+                actual_duration_days = (
+                    (datetime.now() - goal.created_at).days if goal.created_at else None
                 )
-                await publish_event(self.event_bus, event, self.logger)
-
-            # Publish GoalAchieved event if status changed to ACHIEVED
-            if "status" in updates and old_goal:
-                new_status = updates.get("status")
-                old_status = get_enum_value(old_goal.status)  # Handle both enum and string
-
-                if (
-                    new_status == EntityStatus.COMPLETED.value
-                    and old_status != EntityStatus.COMPLETED.value
-                ):
-                    # Calculate duration if created_at exists
-                    actual_duration_days = None
-                    if goal.created_at:
-                        actual_duration_days = (datetime.now() - goal.created_at).days
-
-                    achieved_event = GoalAchieved(
+                await publish_event(
+                    self.event_bus,
+                    GoalAchieved(
                         goal_uid=goal.uid,
                         user_uid=goal.user_uid,
                         actual_duration_days=actual_duration_days,
-                    )
-                    await publish_event(self.event_bus, achieved_event, self.logger)
+                    ),
+                    self.logger,
+                )
 
         return result
 

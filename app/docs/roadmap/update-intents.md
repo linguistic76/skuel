@@ -8,7 +8,7 @@ tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
 
 # Roadmap: Typed Update Intents migration
 
-**Status:** Phase 1 (Tasks reference) complete — 2026-06-04. Phases 2–7 pending.
+**Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) complete — 2026-06-04. Phases 3–7 pending.
 **Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
 
@@ -40,7 +40,7 @@ with a green tree throughout.
 | Domain | `*UpdateIntent` | `*UpdateRequest.to_intent()` | Service contract on intent | #2 backend-direct partials resolved | `*UpdatePayload` deleted |
 |--------|:---:|:---:|:---:|:---:|:---:|
 | Tasks (reference) | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Goals | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
+| Goals | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Habits | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Events | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Choices | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
@@ -97,7 +97,22 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
   `_validate_update` / `_post_update` on the intent. Verified live: `tests/integration/
   test_task_update_intent_pipeline.py` (partial-no-clobber, `TaskUpdated` fires, status transition,
   `to_intent()` semantics).
-- **Phases 2–6 — Goals, Habits, Events, Choices, Principles** (independent; any order, parallel contexts
+- **Phase 2 — Goals. ✅ DONE (2026-06-04).** Shape B (core overrode the generic `update(Mapping)` with
+  event logic). `GoalUpdateIntent` (node-property fields only — the three cross-domain edge UIDs on
+  `GoalUpdateRequest` are graph edges, synced on the create-with-context path, so `to_intent()` does not
+  carry them), `GoalUpdateRequest.to_intent()`, and `GoalsCoreService.update_goal(intent)` typed on the
+  intent. Unlike Tasks (whose `update_task` always wrote `backend.update` directly), `update_goal` keeps
+  the `super().update` call so `_validate_update` (achieved-goal immutability, target>start) still runs.
+  Added a `GoalUpdated` event (mirroring `TaskUpdated`) — wired to context invalidation — so plain
+  property edits now invalidate caches; `GoalAchieved` still fires on the COMPLETED transition. The dead
+  `"progress"`-keyed `GoalProgressUpdated` branch (Goal has no `progress` column — only
+  `progress_percentage`) was removed; progress events stay owned by `GoalsProgressService`. The single
+  `_intent_from_mapping` funnel lives on the core (in-service status methods + the facade-routed CRUD
+  route both flow through it); facade `update` / `update_for_user` / `update_goal` route through it. #2
+  stragglers: the two `goals_progress_service` partial writes stay `# raw-write:` (they publish their own
+  provenance-bearing `GoalProgressUpdated`). Verified live:
+  `tests/integration/test_goal_update_intent_pipeline.py`.
+- **Phases 3–6 — Habits, Events, Choices, Principles** (independent; any order, parallel contexts
   fine). Each reads ADR-066 + this roadmap + the Tasks reference commit and replicates steps 1–6.
   Watch the activity mixins typed `core: Any` (e.g. `events/_orchestration_mixin.py`,
   `habits/_completion_mixin.py`) — passing an intent through an `Any` attribute is unchecked; tighten
