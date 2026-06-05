@@ -93,6 +93,15 @@ crud_factory.register_routes(app, rt)
 | `require_role` | UserRole | None | Required role (overrides scope when set) |
 | `base_path` | str | `/api/{domain}` | Custom base path |
 
+**Update body → typed update value (ADR-066).** The update route validates the body with
+`update_schema`, then builds the service's update value generically: if the validated
+schema is `SupportsToIntent` (every Activity Domain `*UpdateRequest` is — Tasks, Goals,
+Habits, Events, Choices, Principles), the factory calls `schema.to_intent()` to produce the
+frozen `*UpdateIntent`; otherwise (curriculum, forms, groups, templates) it falls back to a
+`RawChanges` patch from `model_dump()`. Either way the value satisfies `SupportsToChanges`,
+so the shared base materializes it once at `backend.update(uid, updates.to_changes())`. No
+domain wiring is needed beyond pointing `update_schema` at the request model.
+
 ## StatusRouteFactory
 
 Generates status change routes with automatic ownership verification.

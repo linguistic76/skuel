@@ -147,6 +147,15 @@ await service.link_{domain}_to_goal(entity_uid, goal_uid)
 await service.link_{domain}_to_principle(entity_uid, principle_uid)
 ```
 
+### Update an entity (ADR-066 — typed intent, never a dict)
+```python
+from core.models.task import TaskUpdateIntent
+
+await service.update_{domain}(uid, TaskUpdateIntent(status="in_progress"))
+# from an HTTP body: service.update_for_user(uid, request.to_intent(), user_uid)
+```
+See [COMMON_PATTERNS.md § How to update an entity](COMMON_PATTERNS.md#how-to-update-an-entity-the-one-path--adr-066) for the full write-path contract.
+
 ## Deep Dive Resources
 
 **Architecture:**

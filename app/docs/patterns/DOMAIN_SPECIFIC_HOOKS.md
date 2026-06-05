@@ -118,9 +118,15 @@ Return result
 
 **Example**: Tasks service prevents modification of completed/archived tasks
 
+The hook receives the typed update value `U` (ADR-066) — an Activity Domain `*UpdateIntent`
+for the six activity domains, `RawChanges` otherwise. Read its materialized patch via
+`updates.to_changes()` (a `dict` of only the set fields), then inspect keys:
+
 ```python
-def _validate_update(self, current: Task, updates: dict) -> Result[None] | None:
+def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[None]:
     """Validate task updates with business rules."""
+    changes = updates.to_changes()  # only the explicitly-set fields
+
     # Business Rule 1: Terminal state protection
     # Prevent modification of tasks in terminal states (preserves historical accuracy)
     if current.status.is_terminal():
@@ -134,8 +140,8 @@ def _validate_update(self, current: Task, updates: dict) -> Result[None] | None:
 
     # Business Rule 2: Overdue task protection
     # Cannot decrease priority of overdue tasks
-    if "priority" in updates and current.is_overdue():
-        new_priority = updates["priority"]
+    if "priority" in changes and current.is_overdue():
+        new_priority = changes["priority"]
         if new_priority.to_numeric() < current.priority.to_numeric():
             return Result.fail(
                 Errors.validation(
@@ -145,8 +151,12 @@ def _validate_update(self, current: Task, updates: dict) -> Result[None] | None:
                 )
             )
 
-    return None
+    return Result.ok(None)
 ```
+
+> The live reference for this shape is `EventsCoreService._validate_update(current, updates: EventUpdateIntent)`.
+> Tasks itself routes updates through `update_task` (backend-direct), so its `_validate_update`
+> is illustrative — see `docs/roadmap/update-intents.md` for which domains run the hook live.
 
 ### 4. **Clean Separation of Concerns**
 
@@ -198,16 +208,17 @@ async def create(self, entity: T) -> Result[T]:
 - Business rule enforcement (e.g., "expense category must be active")
 - Cross-field validations (e.g., "end date must be after start date")
 
-### `_validate_update(current: T, updates: dict) -> Result[None] | None`
+### `_validate_update(current: T, updates: U) -> Result[None]`
 
 **Purpose**: Validate updates before applying them
 
 **Parameters**:
 - `current`: Current entity state (type `T`)
-- `updates`: Dictionary of fields being updated
+- `updates`: The typed update value `U` (an Activity Domain `*UpdateIntent`, or `RawChanges`).
+  Call `updates.to_changes()` to get the `dict` of set fields.
 
 **Returns**:
-- `None`: Validation passed, proceed with update
+- `Result.ok(None)`: Validation passed, proceed with update
 - `Result.fail(error)`: Validation failed, return error to caller
 
 **When Called**: Before `backend.update()` in `BaseService.update()`
@@ -232,14 +243,15 @@ Post-lifecycle hooks run **after** the backend operation. They receive the opera
 
 **When Called**: After `backend.create()` in `CrudOperationsMixin.create()`
 
-### `_post_update(uid: str, old_entity: T, updates: dict, result: Result[T]) -> None`
+### `_post_update(uid: str, old_entity: T, updates: U, result: Result[T]) -> None`
 
 **Purpose**: Post-update behavior (event publishing with old/new state comparison)
 
 **Parameters**:
 - `uid`: Entity UID that was updated
 - `old_entity`: Entity state BEFORE the update
-- `updates`: Dictionary of fields that were updated
+- `updates`: The typed update value `U` (`*UpdateIntent` or `RawChanges`); use
+  `updates.to_changes()` for the set-field `dict`
 - `result`: The Result from `backend.update()`
 
 **When Called**: After `backend.update()` in `CrudOperationsMixin.update()`
@@ -431,8 +443,10 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 
         return None  # All validations passed
 
-    def _validate_update(self, current: Task, updates: dict) -> Result[None] | None:
+    def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[None]:
         """Validate task updates."""
+        changes = updates.to_changes()  # only the explicitly-set fields
+
         # Business rule: Cannot modify completed tasks
         if current.status == EntityStatus.COMPLETED:
             return Result.fail(
@@ -443,8 +457,8 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
             )
 
         # Business rule: Cannot decrease priority of overdue tasks
-        if "priority" in updates and current.is_overdue():
-            new_priority = updates["priority"]
+        if "priority" in changes and current.is_overdue():
+            new_priority = changes["priority"]
             if new_priority.to_numeric() < current.priority.to_numeric():
                 return Result.fail(
                     Errors.validation(
@@ -453,7 +467,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
                     )
                 )
 
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 ```
 
 ## Comparison with Other Validation Layers

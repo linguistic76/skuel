@@ -57,13 +57,20 @@ class MyService(EntityTimestampMixin):
 
 ### Pattern 2: Entity Updates
 
+`backend.update(uid, dict)` is the **persistence seam** — it always takes a `dict`. That is
+distinct from the ADR-066 *service contract* `update(uid, U)`, which takes a typed update
+value (an Activity Domain `*UpdateIntent` or `RawChanges`) and materializes it via
+`updates.to_changes()` before reaching this seam. The mixin's timestamp helpers produce
+backend-ready dicts, so they sit on the `backend.update` side of that boundary — a
+timestamp/system bump is a `# raw-write:`, not a partial user update routed through the
+service contract.
+
 ```python
 class MyService(EntityTimestampMixin):
 
-    async def update(self, uid: str, updates: dict) -> Result[Entity]:
-        # Use mixin for update timestamp
-        update_result = await self.backend.update(uid, self.update_properties())
-        return update_result
+    async def touch_timestamp(self, uid: str) -> Result[Entity]:
+        # System bump — writes timestamp props straight at the persistence seam.
+        return await self.backend.update(uid, self.update_properties())  # raw-write: timestamp bump
 ```
 
 ### Pattern 3: Setting Metadata on Frozen Dataclasses

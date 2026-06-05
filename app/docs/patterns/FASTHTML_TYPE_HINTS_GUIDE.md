@@ -280,18 +280,21 @@ async def get(uid: str) -> Result[Task]:
 @rt("/tasks/update")
 @boundary_handler()
 async def update(
+    request: Request,
     uid: str,
     title: str | None = None,
     priority: str | None = None,
     status: str | None = None
 ) -> Result[Task]:
-    updates = {k: v for k, v in {
+    # Only the fields the client actually sent become "set"; to_intent() carries
+    # exactly those through as the typed intent (ADR-066), leaving the rest UNSET.
+    provided = {k: v for k, v in {
         "title": title,
         "priority": priority,
-        "status": status
+        "status": status,
     }.items() if v is not None}
-
-    return await tasks_service.update(uid, updates)
+    intent = TaskUpdateRequest.model_validate(provided).to_intent()
+    return await tasks_service.update(uid, intent)
 ```
 
 ### Delete Route

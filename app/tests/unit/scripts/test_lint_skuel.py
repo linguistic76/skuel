@@ -71,6 +71,8 @@ def lint_content(
         linter._check_request_annotation(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL024") and not is_test:
         linter._check_cls_kwargs_collision(fp, rel, content, lines)
+    if linter._should_run_rule("SKUEL025") and not is_test:
+        linter._check_deleted_activity_update_payloads(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -2752,4 +2754,110 @@ class TestSKUEL024:
             '    return Span(text, cls="text-sm", **kwargs)\n'
         )
         violations = lint_content(linter, content, file_path="tests/unit/ui/test_x.py")
+        assert violations == []
+
+
+class TestSKUEL025:
+    """No reference to a deleted Activity Domain *UpdatePayload (ADR-066 Phase 7a)."""
+
+    def test_detects_import_of_deleted_payload(self) -> None:
+        linter = make_linter(["SKUEL025"])
+        content = "from core.ports.query_types import TaskUpdatePayload\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL025"
+        assert violations[0].severity == Severity.ERROR
+        assert "TaskUpdatePayload" in violations[0].message
+        assert "TaskUpdateIntent" in violations[0].message  # points at the replacement
+
+    def test_detects_annotation_name(self) -> None:
+        linter = make_linter(["SKUEL025"])
+        content = 'updates: GoalUpdatePayload = {"status": "active"}\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL025"
+
+    def test_detects_attribute_access(self) -> None:
+        linter = make_linter(["SKUEL025"])
+        content = "x = query_types.PrincipleUpdatePayload\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL025"
+
+    def test_all_six_activity_names_flagged(self) -> None:
+        linter = make_linter(["SKUEL025"])
+        names = [
+            "TaskUpdatePayload",
+            "GoalUpdatePayload",
+            "HabitUpdatePayload",
+            "EventUpdatePayload",
+            "ChoiceUpdatePayload",
+            "PrincipleUpdatePayload",
+        ]
+        content = "".join(f"v{i}: {n} = {{}}\n" for i, n in enumerate(names))
+        violations = lint_content(linter, content)
+        assert len(violations) == len(names)
+
+    def test_curriculum_finance_report_payloads_not_flagged(self) -> None:
+        """Ku/Ps/Lp/Finance/Report payloads survive for non-activity domains — never flagged."""
+        linter = make_linter(["SKUEL025"])
+        content = (
+            "from core.ports.query_types import (\n"
+            "    KuUpdatePayload, PsUpdatePayload, LpUpdatePayload,\n"
+            "    FinanceUpdatePayload, ReportUpdatePayload, BaseUpdatePayload,\n"
+            ")\n"
+            "a: KuUpdatePayload = {}\n"
+        )
+        violations = lint_content(linter, content)
+        assert violations == []
+
+    def test_string_literal_not_flagged(self) -> None:
+        """A string naming a deleted type (e.g. a removal-assertion) is not a Name node."""
+        linter = make_linter(["SKUEL025"])
+        content = 'banned = "TaskUpdatePayload"  # asserting it stays gone\n'
+        violations = lint_content(linter, content)
+        assert violations == []
+
+    def test_intent_path_not_flagged(self) -> None:
+        linter = make_linter(["SKUEL025"])
+        content = (
+            "from core.models.task import TaskUpdateIntent\n"
+            'intent = TaskUpdateIntent(status="in_progress")\n'
+        )
+        violations = lint_content(linter, content)
+        assert violations == []
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL025"])
+        content = "from core.ports.query_types import TaskUpdatePayload  # skuel-lint: disable=SKUEL025 -- legacy\n"
+        violations = lint_content(linter, content)
+        assert violations == []
+
+    def test_parenthesized_import_reports_alias_line(self) -> None:
+        """In a multi-line import the violation lands on the alias line, not `import (`."""
+        linter = make_linter(["SKUEL025"])
+        content = (
+            "from core.ports.query_types import (\n    CypherParams,\n    TaskUpdatePayload,\n)\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 3  # the alias line, not line 1
+
+    def test_parenthesized_import_alias_suppression(self) -> None:
+        """An inline suppression on the alias line works (alias-location lookup)."""
+        linter = make_linter(["SKUEL025"])
+        content = (
+            "from core.ports.query_types import (\n"
+            "    CypherParams,\n"
+            "    TaskUpdatePayload,  # skuel-lint: disable=SKUEL025 -- legacy\n"
+            ")\n"
+        )
+        violations = lint_content(linter, content)
+        assert violations == []
+
+    def test_not_run_on_tests(self) -> None:
+        """SKUEL025 is skipped on test files (mirrors the _lint_file gate)."""
+        linter = make_linter(["SKUEL025"])
+        content = "updates: TaskUpdatePayload = {}\n"
+        violations = lint_content(linter, content, file_path="tests/unit/test_x.py")
         assert violations == []

@@ -18,6 +18,7 @@ ERROR (blocks CI):
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
   SKUEL023: core/ thin services must type self.backend against a core/ports protocol
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
+  SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
 
 WARNING (reported, doesn't block):
   SKUEL004: Confidence thresholds on semantic queries
@@ -653,6 +654,36 @@ def SmallText(text: str, cls: str = "", **kwargs: Any) -> Span:
 def SmallText(text: str, **kwargs: Any) -> Span:
     return Span(text, cls="text-sm", **kwargs)  # SmallText("x", cls="y") -> crash""",
     },
+    "SKUEL025": {
+        "title": "No Deleted Activity *UpdatePayload (ADR-066)",
+        "severity": "ERROR",
+        "description": """ADR-066 (Phase 7a) replaced the six Activity Domain ``*UpdatePayload``
+TypedDicts with frozen ``*UpdateIntent`` dataclasses and a CRUD base parameterized over the
+update type ``U``. The old names — ``TaskUpdatePayload``, ``GoalUpdatePayload``,
+``HabitUpdatePayload``, ``EventUpdatePayload``, ``ChoiceUpdatePayload``,
+``PrincipleUpdatePayload`` — are deleted. Referencing one rebuilds the abandoned dict
+write-path (One Path Forward).
+
+The curriculum (``KuUpdatePayload``/``PsUpdatePayload``/``LpUpdatePayload``), finance, and
+report payloads are intentionally NOT forbidden — they remain valid for the non-activity
+domains, which flow as ``RawChanges`` through the same base ``U``.
+
+Trivially sound + AST-structural: flags an import alias, a bare ``Name``, or an ``Attribute``
+whose identifier is one of the six fixed forbidden names. No flow analysis — a string literal
+naming a type is not a ``Name``/``Attribute`` node, so it is never flagged.
+
+Fix: use the domain ``*UpdateIntent`` (``core/models/<domain>/<domain>_update_intent.py``) or
+build it from the request via ``*UpdateRequest.to_intent()``.
+
+Suppress: # skuel-lint: disable=SKUEL025 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL025 -- <reason>""",
+        "good": """# Activity update uses the frozen intent
+from core.models.task import TaskUpdateIntent
+await tasks_service.update_task(uid, TaskUpdateIntent(status="in_progress"))""",
+        "bad": """# Resurrects the deleted TypedDict write-path
+from core.ports.query_types import TaskUpdatePayload  # SKUEL025
+updates: TaskUpdatePayload = {"status": "in_progress"}""",
+    },
 }
 
 
@@ -1016,6 +1047,8 @@ class SkuelLinter:
                 self._check_request_annotation(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL024") and not is_test:
                 self._check_cls_kwargs_collision(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL025") and not is_test:
+                self._check_deleted_activity_update_payloads(file_path, rel_path, content, lines)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -2729,6 +2762,116 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    # The six Activity Domain update payloads deleted by ADR-066 Phase 7a. The
+    # curriculum (Ku/Ps/Lp), finance, and report ``*UpdatePayload`` TypedDicts are
+    # intentionally OUT of this set — they survive for non-activity domains.
+    _DELETED_ACTIVITY_UPDATE_PAYLOADS: frozenset[str] = frozenset(
+        {
+            "TaskUpdatePayload",
+            "GoalUpdatePayload",
+            "HabitUpdatePayload",
+            "EventUpdatePayload",
+            "ChoiceUpdatePayload",
+            "PrincipleUpdatePayload",
+        }
+    )
+
+    def _check_deleted_activity_update_payloads(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL025 [ERROR]: no reference to a deleted Activity Domain ``*UpdatePayload``.
+
+        ADR-066 replaced the six activity ``*UpdatePayload`` TypedDicts with frozen
+        ``*UpdateIntent`` dataclasses and the parameterized CRUD base (Phase 7a). The
+        old names are gone; reintroducing one rebuilds the abandoned dict write-path
+        (One Path Forward). The curriculum (Ku/Ps/Lp), finance, and report payloads are
+        NOT in the forbidden set — they remain valid for non-activity domains.
+
+        Trivially sound + AST-structural: flags an import alias, a bare ``Name``, or an
+        ``Attribute`` access whose identifier is one of the six fixed forbidden names.
+        No flow analysis — a string literal naming the type (e.g. in a test asserting
+        its removal, or in this rule's own metadata) is never a ``Name``/``Attribute``
+        node, so it is not flagged.
+
+        Fix: use the domain ``*UpdateIntent`` (`core/models/<domain>/<domain>_update_intent.py`)
+        or build it from the request via ``*UpdateRequest.to_intent()``.
+
+        Suppress: # skuel-lint: disable=SKUEL025 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL025 -- <reason>
+        """
+        if self._is_file_suppressed(content, "SKUEL025"):
+            return
+        # Cheap pre-filter: the substring must appear at all.
+        if "UpdatePayload" not in content:
+            return
+
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return
+
+        forbidden = self._DELETED_ACTIVITY_UPDATE_PAYLOADS
+        seen: set[tuple[int, str]] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    if alias.name in forbidden:
+                        # Use the alias's own location, not the `from ... import (` line —
+                        # in a parenthesized multi-line import they differ, and an inline
+                        # suppression sits on the alias line (Python 3.10+ gives aliases a
+                        # lineno; fall back to the statement line if absent).
+                        a_line = getattr(alias, "lineno", None) or node.lineno
+                        a_col = getattr(alias, "col_offset", None)
+                        if a_col is None:
+                            a_col = node.col_offset
+                        self._flag_deleted_payload(rel_path, lines, a_line, a_col, alias.name, seen)
+                continue
+            if isinstance(node, ast.Name):
+                name: str = node.id
+            elif isinstance(node, ast.Attribute):
+                name = node.attr
+            else:
+                continue
+            if name not in forbidden:
+                continue
+            self._flag_deleted_payload(rel_path, lines, node.lineno, node.col_offset, name, seen)
+
+    def _flag_deleted_payload(
+        self,
+        rel_path: Path,
+        lines: list[str],
+        lineno: int,
+        col: int,
+        name: str,
+        seen: set[tuple[int, str]],
+    ) -> None:
+        """Record one SKUEL025 violation, deduped per (line, name), honoring suppression."""
+        if (lineno, name) in seen:
+            return
+        seen.add((lineno, name))
+        line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+        if self._is_line_suppressed(line, "SKUEL025"):
+            return
+        self.result.violations.append(
+            Violation(
+                file_path=rel_path,
+                line_number=lineno,
+                column=col,
+                severity=Severity.ERROR,
+                rule_id="SKUEL025",
+                message=(
+                    f"'{name}' was deleted by ADR-066 (Phase 7a) — Activity Domain updates "
+                    f"use the frozen '{name.replace('UpdatePayload', 'UpdateIntent')}', not a TypedDict"
+                ),
+                suggestion=(
+                    "Use the domain *UpdateIntent (core/models/<domain>/<domain>_update_intent.py) "
+                    "or build it from the request via *UpdateRequest.to_intent()"
+                ),
+                line_content=line.strip(),
+            )
+        )
 
     # -------------------------------------------------------------------------
     # SKUEL023 helpers: collect adapter imports, extract bare type names from

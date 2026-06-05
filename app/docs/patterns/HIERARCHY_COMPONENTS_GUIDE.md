@@ -398,8 +398,8 @@ async def update_goal(request: Request, uid: str):
     if ownership_result.is_error:
         return {"success": False, "error": "Not found"}, 404
 
-    # Update
-    result = await goals_service.update(uid, {"title": title})
+    # Update — build the typed intent (ADR-066), not a raw dict
+    result = await goals_service.update(uid, GoalUpdateIntent(title=title))
 
     if result.is_error:
         return {"success": False, "error": str(result.error)}, 400
