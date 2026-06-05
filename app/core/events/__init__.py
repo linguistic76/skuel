@@ -149,6 +149,7 @@ from core.events.habit_events import (
     HabitMissed,
     HabitStreakBroken,
     HabitStreakMilestone,
+    HabitUpdated,
 )
 from core.events.knowledge_substance_events import (
     KnowledgeAppliedInTask,
@@ -289,6 +290,7 @@ __all__ = [
     "HabitMissed",
     "HabitStreakBroken",
     "HabitStreakMilestone",
+    "HabitUpdated",
     # Knowledge substance events
     "KnowledgeAppliedInTask",
     "KnowledgeBulkAppliedInTask",
@@ -393,6 +395,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "goal.milestone_reached": GoalMilestoneReached,
     # Habits
     "habit.created": HabitCreated,
+    "habit.updated": HabitUpdated,
     "habit.completed": HabitCompleted,
     "habits.bulk_completed": HabitCompletionBulk,
     "habit.streak_broken": HabitStreakBroken,
@@ -572,6 +575,7 @@ GOAL_EVENTS = [
 
 HABIT_EVENTS = [
     HabitCreated,
+    HabitUpdated,
     HabitCompleted,
     HabitCompletionBulk,
     HabitStreakBroken,

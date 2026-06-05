@@ -22,7 +22,6 @@ from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
-from core.ports.query_types import HabitUpdatePayload
 from core.services.habits.habit_relationships import HabitRelationships
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
@@ -288,7 +287,12 @@ class HabitsProgressService:
         # UPDATE HABIT (Always goes to Neo4j - mutation)
         # ====================================================================
 
-        updates: HabitUpdatePayload = {
+        # raw-write: system streak/stat propagation from a habit completion. Bypasses the
+        # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
+        # purpose — this completion path publishes its own provenance-bearing HabitCompleted /
+        # HabitStreakBroken / HabitStreakMilestone events (with streak context) that the
+        # generic update_habit cannot express. A plain dict literal is the honest type here.
+        updates: dict[str, Any] = {
             "current_streak": new_streak,
             "best_streak": max(new_streak, habit.best_streak),
             "last_completed": datetime.combine(completion_date, datetime.min.time()),

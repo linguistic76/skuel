@@ -254,8 +254,11 @@ class HabitsCompletionService:
         if new_streak in milestone_values and habit.current_streak < new_streak:
             milestone = (habit_uid, new_streak)
 
-        # Update habit statistics
-        updates = {
+        # raw-write: system streak/stat propagation from a habit completion. Bypasses the
+        # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
+        # purpose — this completion path owns streak/milestone provenance events. A plain
+        # dict literal is the honest type here.
+        updates: dict[str, Any] = {
             "current_streak": new_streak,
             "best_streak": max(new_streak, habit.best_streak),
             "total_completions": habit.total_completions + 1,
@@ -288,8 +291,11 @@ class HabitsCompletionService:
         # Check for streak milestones and publish events
         await self._check_streak_milestones(habit, new_streak, habit.user_uid)
 
-        # Update habit
-        updates = {
+        # raw-write: system streak/stat propagation from a habit completion. Bypasses the
+        # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
+        # purpose — _check_streak_milestones above owns the streak/milestone provenance
+        # events. A plain dict literal is the honest type here.
+        updates: dict[str, Any] = {
             "current_streak": new_streak,
             "best_streak": max(new_streak, habit.best_streak),
             "total_completions": habit.total_completions + 1,

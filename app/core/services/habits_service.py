@@ -37,7 +37,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from datetime import date
+
+    from core.models.habit.habit_update_intent import HabitUpdateIntent
 
 from core.models.enums import Domain, EntityStatus, RecurrencePattern
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
@@ -216,8 +219,37 @@ class HabitsService(
     ) -> Result[Habit]:
         return await self.core.create_habit(habit_request, user_uid)
 
-    async def update_habit(self, habit_uid: str, updates: dict[str, Any]) -> Result[Habit]:
-        return await self.core.update(habit_uid, updates)
+    # Update path (ADR-066 typed update contract) ----------------------------
+    async def update_habit(
+        self, habit_uid: str, intent: HabitUpdateIntent, *, force_archive: bool = False
+    ) -> Result[Habit]:
+        """THE Habits update path (ADR-066): route the typed intent through the core
+        service, which validates (streak preservation, DAILY-frequency consistency), writes
+        only the set fields, and fires HabitUpdated. Habits carry no edge fields, so there is
+        nothing to split off. ``force_archive`` bypasses the streak-preservation rule without
+        being persisted as a column."""
+        return await self.core.update_habit(habit_uid, intent, force_archive=force_archive)
+
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Habit]:
+        """Override the inherited CRUD update (generated JSON route, no ownership check).
+
+        Transitional ADR-066 funnel: the generic factory still hands a ``Mapping``, so route
+        it through the core funnel (``HabitsCoreService.update`` → ``update_habit``), which
+        validates and fires HabitUpdated. Collapses to a direct intent parameter in Phase 7."""
+        return await self.core.update(uid, updates)
+
+    async def update_for_user(
+        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
+    ) -> Result[Habit]:
+        """Override the inherited ownership-verified CRUD update (generated JSON route).
+
+        Verifies ownership BEFORE any mutation, then funnels through the one event-firing
+        update path (``HabitsCoreService.update`` → ``update_habit``). Transitional ADR-066
+        ``Mapping``→intent bridge; collapses to a direct intent parameter in Phase 7."""
+        ownership = await self.verify_ownership(uid, user_uid)
+        if ownership.is_error:
+            return ownership
+        return await self.core.update(uid, updates)
 
     async def get_habit(self, uid: str) -> Result[Habit]:
         return await self.core.get_habit(uid)
