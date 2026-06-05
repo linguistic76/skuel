@@ -54,6 +54,20 @@ class TestHabitUpdateIntentPipeline:
     async def core_service(self, habits_backend, event_bus):
         return HabitsCoreService(backend=habits_backend, event_bus=event_bus)
 
+    @staticmethod
+    async def _persisted_node_keys(neo4j_driver, uid: str) -> set[str]:
+        """Return the raw Neo4j property keys on the node — the honest persistence check.
+
+        ``hasattr(habit, "force_archive")`` is vacuous (Habit is a fixed frozen dataclass
+        with no such field, so it is always False regardless of what Neo4j stored, and it
+        trips SKUEL011); reading the node's actual keys verifies the transient directive was
+        never written as a column.
+        """
+        async with neo4j_driver.session() as session:
+            result = await session.run("MATCH (n {uid: $uid}) RETURN keys(n) AS keys", uid=uid)
+            record = await result.single()
+        return set(record["keys"]) if record else set()
+
     @pytest_asyncio.fixture
     async def seeded_habit(self, core_service):
         # current_streak=10 so the streak-preservation rule (>= 7) is exercisable.
@@ -132,7 +146,7 @@ class TestHabitUpdateIntentPipeline:
         assert fetched.value.status == EntityStatus.ACTIVE
 
     async def test_archive_with_streak_succeeds_with_force(
-        self, core_service, seeded_habit
+        self, core_service, seeded_habit, neo4j_driver
     ) -> None:
         """force_archive bypasses the streak rule and is never persisted as a column."""
         intent = HabitUpdateIntent(status=EntityStatus.ARCHIVED.value)
@@ -145,10 +159,11 @@ class TestHabitUpdateIntentPipeline:
         assert fetched.is_ok
         assert fetched.value.status == EntityStatus.ARCHIVED
         # force_archive is a transient validation directive — never written to the node.
-        assert not hasattr(fetched.value, "force_archive")
+        keys = await self._persisted_node_keys(neo4j_driver, seeded_habit.uid)
+        assert "force_archive" not in keys
 
     async def test_mapping_funnel_routes_through_intent(
-        self, core_service, seeded_habit, event_bus
+        self, core_service, seeded_habit, event_bus, neo4j_driver
     ) -> None:
         """The Mapping ``update`` funnel routes a plain dict through update_habit.
 
@@ -170,7 +185,8 @@ class TestHabitUpdateIntentPipeline:
         )
         assert forced.is_ok
         assert forced.value.status == EntityStatus.ARCHIVED
-        assert not hasattr(forced.value, "force_archive")
+        keys = await self._persisted_node_keys(neo4j_driver, seeded_habit.uid)
+        assert "force_archive" not in keys
 
     async def test_to_intent_carries_only_explicit_fields(self) -> None:
         """to_intent() reflects model_fields_set: provided → set, absent → UNSET."""
