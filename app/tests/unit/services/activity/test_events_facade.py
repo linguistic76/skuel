@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums import EntityStatus
+from core.models.event.event_update_intent import EventUpdateIntent
 from core.services.events_service import EventsService
 from core.utils.result_simplified import Errors, Result
 
@@ -105,6 +106,79 @@ class TestEventsServiceRelationships:
         result = await events_service.link_event_to_knowledge("event_abc", ["ku_abc"])
 
         assert result.is_error
+
+
+# ---------------------------------------------------------------------------
+# TestUpdateEventEdges — milestone_celebration_for_goal / reinforces_habit_uid
+# are single graph edges (CELEBRATES_GOAL / REINFORCES_HABIT). ADR-066 sentinel
+# contract: UNSET = untouched, None = explicit clear (the picker's clear button
+# → "" → None), value = set. Regression guard for the edge-clear UX gap.
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateEventEdges:
+    @pytest.mark.asyncio
+    async def test_clearing_goal_edge_deletes_without_creating(
+        self, events_service: EventsService
+    ) -> None:
+        """milestone_celebration_for_goal=None (picker-clear) must delete the existing
+        CELEBRATES_GOAL edge and create no replacement — the edge-clear gap fix."""
+        events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
+        events_service.relationships.get_related_uids = AsyncMock(
+            return_value=Result.ok(["goal_old"])
+        )
+        events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        events_service.relationships.create_relationship = AsyncMock()
+
+        result = await events_service.update_event(
+            "event_abc", EventUpdateIntent(milestone_celebration_for_goal=None)
+        )
+
+        assert result.is_ok
+        events_service.relationships.delete_relationship.assert_awaited_once_with(
+            "celebrated_goals", "event_abc", "goal_old"
+        )
+        events_service.relationships.create_relationship.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_setting_goal_edge_replaces_existing(self, events_service: EventsService) -> None:
+        """A new milestone_celebration_for_goal deletes the old edge and creates the new."""
+        events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
+        events_service.relationships.get_related_uids = AsyncMock(
+            return_value=Result.ok(["goal_old"])
+        )
+        events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        events_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
+
+        result = await events_service.update_event(
+            "event_abc", EventUpdateIntent(milestone_celebration_for_goal="goal_new")
+        )
+
+        assert result.is_ok
+        events_service.relationships.delete_relationship.assert_awaited_once_with(
+            "celebrated_goals", "event_abc", "goal_old"
+        )
+        events_service.relationships.create_relationship.assert_awaited_once_with(
+            "celebrated_goals", "event_abc", "goal_new"
+        )
+
+    @pytest.mark.asyncio
+    async def test_unset_edges_leave_them_untouched(self, events_service: EventsService) -> None:
+        """An update that omits both edge fields (UNSET) must not touch either edge —
+        no fetch, no delete, no create — even while writing node properties."""
+        events_service.core.update_event = AsyncMock(return_value=Result.ok(Mock()))
+        events_service.relationships.get_related_uids = AsyncMock(
+            return_value=Result.ok(["goal_old"])
+        )
+        events_service.relationships.delete_relationship = AsyncMock()
+        events_service.relationships.create_relationship = AsyncMock()
+
+        result = await events_service.update_event("event_abc", EventUpdateIntent(title="New"))
+
+        assert result.is_ok
+        events_service.relationships.get_related_uids.assert_not_called()
+        events_service.relationships.delete_relationship.assert_not_called()
+        events_service.relationships.create_relationship.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

@@ -294,3 +294,66 @@ class TestEventUpdateIntentPipeline:
             "milestone_celebration_for_goal": "goal:edge_new",
             "reinforces_habit_uid": "habit:edge_new",
         }
+
+    @pytest.mark.asyncio
+    async def test_clearing_goal_edge_removes_it_in_neo4j(
+        self, facade, core_service, seeded_event, event_bus, neo4j_driver
+    ) -> None:
+        """Clearing the picker (milestone_celebration_for_goal=None) deletes the
+        CELEBRATES_GOAL edge in the graph — the edge-clear UX gap fix, proven end-to-end.
+
+        A habit edge left UNSET in the same intent must stay attached, confirming the
+        UNSET=untouched / None=clear contract at the persistence boundary.
+        """
+        event_uid = seeded_event.uid
+
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                MERGE (g:Entity:Goal {uid: 'goal:to_clear'})
+                  ON CREATE SET g.entity_type = 'goal', g.title = 'Goal to clear'
+                MERGE (h:Entity:Habit {uid: 'habit:keep'})
+                  ON CREATE SET h.entity_type = 'habit', h.title = 'Habit to keep'
+                """
+            )
+
+        # Seed both edges; only the goal edge will be cleared.
+        assert (
+            await facade.relationships.create_relationship(
+                "celebrated_goals", event_uid, "goal:to_clear"
+            )
+        ).is_ok
+        assert (
+            await facade.relationships.create_relationship("habits", event_uid, "habit:keep")
+        ).is_ok
+
+        event_bus.clear_event_history()
+
+        # Clear ONLY the goal edge; the habit field is absent (UNSET → untouched).
+        result = await facade.update_event(
+            event_uid, EventUpdateIntent(milestone_celebration_for_goal=None)
+        )
+        assert result.is_ok
+
+        async with neo4j_driver.session() as session:
+            goals = await (
+                await session.run(
+                    "MATCH (e:Entity {uid: $uid})-[:CELEBRATES_GOAL]->(g) RETURN collect(g.uid) AS uids",
+                    uid=event_uid,
+                )
+            ).single()
+            habits = await (
+                await session.run(
+                    "MATCH (e:Entity {uid: $uid})-[:REINFORCES_HABIT]->(h) RETURN collect(h.uid) AS uids",
+                    uid=event_uid,
+                )
+            ).single()
+
+        # Goal edge gone; the UNSET habit edge untouched.
+        assert goals["uids"] == []
+        assert habits["uids"] == ["habit:keep"]
+
+        # CalendarEventUpdated reports the cleared field (None), not the untouched habit.
+        updated = [e for e in event_bus.get_event_history() if isinstance(e, CalendarEventUpdated)]
+        assert updated, "edge clear must fire CalendarEventUpdated"
+        assert updated[-1].updated_fields == {"milestone_celebration_for_goal": None}
