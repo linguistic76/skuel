@@ -519,6 +519,14 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 
 **See:** `/docs/patterns/entity_timestamp_mixin.md`
 
+## Dependency & Python Versioning
+
+**Core Principle:** "Latest stable by default — pins are deliberate and documented"
+
+Target the latest stable CPython (currently **3.14**, pinned in `.python-version`); `>=` floors in `pyproject.toml` track the locked latest, not a historical minimum. `./dev deps` lists outdated direct deps + the intentional pins. **Two intentional caps — never bump in a routine upgrade:** `neo4j==5.26.0` (driver/server/APOC compat, ADR-044) and `deepgram-sdk<5.0.0` (5.x is a breaking rewrite). Renovate opens update PRs only (no auto-merge — CI runs no pytest, so verify locally: `./dev quality` + `./dev test-integration`). Ruff/black lint `target-version` intentionally lags the runtime at `py312` (py314 surfaces a ~1024-line annotation-modernization sweep with runtime-risky `TC` rules — deferred).
+
+**See:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`
+
 ## Code Quality & Formatting
 
 **Formatting:** Ruff. Run `./dev format` to format, `./dev quality` for full checks.

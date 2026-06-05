@@ -28,7 +28,7 @@ Usage:
 - January 2026 (Prometheus-first migration)
 """
 
-import asyncio
+import inspect
 import time
 from collections.abc import Callable
 from functools import wraps
@@ -145,7 +145,7 @@ def track_query_metrics(operation_name: str | None = None):
                     _query_metrics_cache.record_timing_sync(op_name, duration_ms, had_error)
 
         # Return appropriate wrapper based on function type
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             return async_wrapper
         else:
             return sync_wrapper
