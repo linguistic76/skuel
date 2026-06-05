@@ -5,7 +5,7 @@
 #
 # For production, use Dockerfile.production (multi-stage, non-root user).
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Install build tools needed by some Python packages
 RUN apt-get update && apt-get install -y \

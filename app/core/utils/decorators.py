@@ -21,7 +21,6 @@ DRY Impact: These decorators eliminate ~500+ repetitive try/except patterns.
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 from collections.abc import Callable
 from functools import wraps
@@ -233,7 +232,7 @@ def with_error_handling(
 
         # Return appropriate wrapper based on function type
         # Cast needed because we return a wrapper with same signature
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             return async_wrapper  # type: ignore[return-value]
         else:
             return sync_wrapper  # type: ignore[return-value]

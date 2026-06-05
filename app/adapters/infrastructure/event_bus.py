@@ -25,6 +25,7 @@ Migration Status:
 """
 
 import asyncio
+import inspect
 import time
 from collections.abc import Callable
 from typing import Any
@@ -251,7 +252,7 @@ class InMemoryEventBus:
 
             event_bus.subscribe(TaskCompleted, handle_task_completed)
         """
-        if asyncio.iscoroutinefunction(handler):
+        if inspect.iscoroutinefunction(handler):
             if event_type not in self._async_handlers:
                 self._async_handlers[event_type] = []
             self._async_handlers[event_type].append(handler)
@@ -278,7 +279,7 @@ class InMemoryEventBus:
             event_type: Event class to unsubscribe from
             handler: Handler function to remove
         """
-        if asyncio.iscoroutinefunction(handler):
+        if inspect.iscoroutinefunction(handler):
             if event_type in self._async_handlers:
                 try:
                     self._async_handlers[event_type].remove(handler)

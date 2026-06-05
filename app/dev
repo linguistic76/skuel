@@ -57,6 +57,18 @@ case "$1" in
     uv run pyright
     ;;
 
+  deps|outdated)
+    echo -e "${YELLOW}Checking for outdated direct dependencies...${NC}"
+    echo ""
+    uv tree --outdated --depth 1
+    echo ""
+    echo -e "${YELLOW}Intentional pins — DO NOT bump in a routine upgrade:${NC}"
+    echo "  neo4j==5.26.0       driver/server/APOC compatibility (ADR-067 § Pins)"
+    echo "  deepgram-sdk<5.0.0  5.x+ is a breaking SDK rewrite (ADR-067 § Pins)"
+    echo ""
+    echo -e "Upgrade workflow: see ${GREEN}docs/decisions/ADR-067-dependency-upgrade-policy.md${NC}"
+    ;;
+
   audit-routes)
     echo -e "${YELLOW}Auditing route security (CSRF + auth on mutation handlers)...${NC}"
     uv run python scripts/audit_route_security.py "${@:2}"
@@ -238,6 +250,9 @@ case "$1" in
     echo "  ./dev test-service      - Run service tests (~600 tests, ~92% pass)"
     echo "  ./dev test-unit         - Run unit tests (only - many need Phase 2 migration updates)"
     echo "  ./dev test-quick        - Run quick smoke test (~350 tests, ~99% pass) [FASTEST]"
+    echo ""
+    echo "Dependencies:"
+    echo "  ./dev deps           - List outdated direct deps + intentional pins (alias: outdated)"
     echo ""
     echo "Documentation:"
     echo "  ./dev docs-check      - Check if docs need updating (runs post-commit hook)"
