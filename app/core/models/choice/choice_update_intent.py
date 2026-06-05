@@ -1,0 +1,82 @@
+"""
+ChoiceUpdateIntent — Typed contract for partial choice updates.
+==============================================================
+
+Frozen dataclass carrying exactly the node-property fields a choice update is
+allowed to change — nothing else. The contract becomes visible in the type: a
+reader sees precisely what an update may touch, and it cannot be silently widened
+to ``dict`` and back.
+
+Update is *partial* and ``None`` is a meaningful value (clear a field), so every
+field defaults to the shared ``UNSET`` sentinel. ``to_changes()`` returns only the
+set fields — the patch to apply at the backend seam.
+
+Choices have **no edge fields on the update path** (like Goals, unlike Tasks). The
+``informed_by_knowledge_uids`` field exists only on ``ChoiceCreateRequest`` — it is a
+graph edge (``(Choice)-[:INFORMED_BY_KNOWLEDGE]->(Ku)``) synced on the create path,
+never written as a node column. ``ChoiceUpdateRequest`` carries no edge fields at all,
+so there is nothing to split off here.
+
+Beyond the request-settable columns, this intent also models ``status`` (which the
+in-service status route funnels through ``_intent_from_mapping``) and ``metadata`` so
+the funnel can carry them end to end. Decision-finalization and outcome columns
+(``selected_option_uid`` / ``decided_at`` / ``satisfaction_score`` / ``actual_outcome`` /
+``lessons_learned``) are deliberately absent — they flow through the ``make_decision`` /
+``evaluate_choice_outcome`` raw-write paths (each with its own provenance event), not
+this generic property-update path.
+
+See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
+``*InferenceResult``; ``docs/roadmap/update-intents.md`` for the phased migration.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, fields
+from typing import TYPE_CHECKING, Any
+
+from core.models.sentinels import UNSET, Unset
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+
+@dataclass(frozen=True)
+class ChoiceUpdateIntent:
+    """The node-property fields a choice update may change (ADR-066). ``UNSET`` = not
+    in this update.
+
+    Enum fields (choice_type, domain, priority, status) carry their lowered string
+    value, matching what the persistence boundary stores.
+    """
+
+    # --- Identity / classification -------------------------------------------
+    title: str | None | Unset = UNSET
+    description: str | None | Unset = UNSET
+    choice_type: str | None | Unset = UNSET
+    domain: str | None | Unset = UNSET
+
+    # --- Decision context ----------------------------------------------------
+    decision_deadline: datetime | None | Unset = UNSET
+    decision_criteria: list[str] | None | Unset = UNSET
+    constraints: list[str] | None | Unset = UNSET
+    stakeholders: list[str] | None | Unset = UNSET
+
+    # --- Status / priority / tags / metadata ---------------------------------
+    status: str | None | Unset = UNSET
+    priority: str | None | Unset = UNSET
+    tags: list[str] | None | Unset = UNSET
+    metadata: dict[str, Any] | None | Unset = UNSET
+
+    def to_changes(self) -> dict[str, Any]:
+        """Return only the explicitly-set fields as a backend-ready patch.
+
+        Fields left ``UNSET`` are omitted (untouched); a field set to ``None`` is
+        included (an explicit clear). This is the dict materialized at the single
+        ``backend.update`` seam.
+        """
+        return {
+            f.name: value for f in fields(self) if (value := getattr(self, f.name)) is not UNSET
+        }
+
+
+__all__ = ["ChoiceUpdateIntent"]

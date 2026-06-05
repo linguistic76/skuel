@@ -8,8 +8,8 @@ tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
 
 # Roadmap: Typed Update Intents migration
 
-**Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) + Phase 3 (Events) complete — 2026-06-04.
-Phases 4–7 pending.
+**Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) + Phase 3 (Events) + Phase 4 (Choices)
+complete — 2026-06-04. Phases 5–7 pending.
 **Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
 
@@ -44,7 +44,7 @@ with a green tree throughout.
 | Goals | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Habits | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Events | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Choices | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
+| Choices | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Principles | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 
 Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skills One-Path cleanup: ☐ (Phase 7)
@@ -130,7 +130,29 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
   #2 stragglers: `events_progress_service` (complete-with-cascade) + `events_habit_integration_service`
   (complete-with-quality, miss-habit) stay `# raw-write:` (each publishes its own provenance-bearing
   CalendarEvent*). Verified live: `tests/integration/test_event_update_intent_pipeline.py`.
-- **Phases 4–6 — Choices, Principles, Habits** (independent; any order, parallel contexts
+- **Phase 4 — Choices. ✅ DONE (2026-06-04).** Shape A in structure (a separately-named
+  `update_choice` that wrote `backend.update` directly, no generic `update(Mapping)` override) but —
+  unlike Tasks — with a **live `_validate_update`** (decision immutability for DECIDED/EVALUATED
+  choices, option-count floor) reached via `core.update` (the `choices_api` status route) and the
+  CRUD factory. `ChoiceUpdateIntent` (node-property columns only; `ChoiceUpdateRequest` carries no
+  edge fields, so nothing to drop — the create-only `informed_by_knowledge_uids` edge lives on
+  `ChoiceCreateRequest`), `ChoiceUpdateRequest.to_intent()` (generic `when_set[T]`, enums lowered),
+  and `ChoicesCoreService.update_choice(intent)` typed on the intent. **Like Goals (not Tasks),
+  `update_choice` now keeps `super().update()`** so `_validate_update` runs on every property
+  update — this *adds* validation to the UI edit path (previously backend-direct, unvalidated), the
+  intended One-Path convergence. **Reused the existing `ChoiceUpdated`** event (already wired to
+  context invalidation; `updated_fields: dict`) — no new event. The status route (`core.update`,
+  `{"status": ...}`) now fires `ChoiceUpdated` too (previously the base no-op `_post_update` fired
+  nothing). One `_intent_from_mapping` funnel on the core; facade `update` / `update_for_user` /
+  `update_choice` route through it; the UI edit route passes `to_intent()` (dropped the ad-hoc "drop
+  None"). #2/#3 stragglers annotated `# raw-write:`: `make_decision` (partial, fires its own
+  `ChoiceMade`) + `evaluate_choice_outcome` / `add_option` / `update_option` / `remove_option`
+  (full-DTO `dto.to_dict()` replaces, each with option/outcome provenance). The backend-level
+  `ChoicesOperations.update_choice` protocol method (`Result[bool]`) is vestigial/uncalled — left for
+  Phase 7. The choices facade mixins' `core: Any` were left untouched (the intent flows only through
+  the facade's own methods, where `core: ChoicesCoreService` is concretely typed). Verified live:
+  `tests/integration/test_choice_update_intent_pipeline.py`.
+- **Phases 5–6 — Principles, Habits** (independent; any order, parallel contexts
   fine). Each reads ADR-066 + this roadmap + the Tasks reference commit and replicates steps 1–6.
   Watch the activity mixins typed `core: Any` (e.g. `habits/_completion_mixin.py`) — passing an intent
   through an `Any` attribute is unchecked; tighten the attribute type to the core service (or its
