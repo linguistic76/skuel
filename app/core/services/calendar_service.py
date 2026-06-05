@@ -59,6 +59,7 @@ from core.models.habit.habit import Habit
 # Facade import for habit occurrence recording (needs track_habit method)
 from core.models.habit.habit_request import TrackHabitRequest
 from core.models.task.task import Task
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports import get_enum_value
 
 # Import protocol interfaces for dependency injection
@@ -323,10 +324,10 @@ class CalendarService:
                 if task.user_uid != user_uid:
                     # Not the requester's task — 'not found', no UID oracle.
                     return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
-                # Reschedule mutates only the scheduled date (ADR-065 update contract:
-                # uid + field dict, not a rebuilt DTO).
-                task_update = await self.tasks_service.update(
-                    source_uid, {"scheduled_date": new_start.date()}
+                # Reschedule mutates only the scheduled date (ADR-066 typed update
+                # contract: a TaskUpdateIntent, not a rebuilt DTO or field dict).
+                task_update = await self.tasks_service.update_task(
+                    EntityUID(source_uid), TaskUpdateIntent(scheduled_date=new_start.date())
                 )
                 if task_update.is_ok:
                     return Result.ok(self._task_to_calendar_item(task_update.value))

@@ -6,6 +6,7 @@ import pytest
 
 from core.models.enums.entity_enums import EntityType
 from core.models.forms.form_template import FormTemplate
+from core.models.update_contracts import RawChanges
 from core.services.forms.form_template_service import FormTemplateService
 from core.utils.result_simplified import Errors, Result
 
@@ -110,7 +111,9 @@ class TestUpdate:
         event_bus.publish_async = AsyncMock()
         service = _make_service(backend=backend, event_bus=event_bus)
 
-        result = await service.update(uid="ft_test_123", updates={"title": "Updated Title"})
+        result = await service.update(
+            uid="ft_test_123", updates=RawChanges({"title": "Updated Title"})
+        )
 
         assert result.is_ok
         backend.update.assert_awaited_once()
@@ -125,7 +128,7 @@ class TestUpdate:
         backend.update = AsyncMock(return_value=Result.ok(template))
         service = _make_service(backend=backend)
 
-        result = await service.update(uid="ft_test_123", updates={})
+        result = await service.update(uid="ft_test_123", updates=RawChanges({}))
 
         assert result.is_ok
 

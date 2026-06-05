@@ -103,12 +103,13 @@ See Also:
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 # Import protocols for type constraints and runtime validation
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID
+from core.models.update_contracts import RawChanges, SupportsToChanges
 from core.ports import BackendOperations
 from core.services.mixins import (
     ContextOperationsMixin,
@@ -124,22 +125,26 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     import builtins
-    from collections.abc import Mapping
 
 
-# Type variables for backward compatibility
-# BaseService uses Python 3.12+ type parameter syntax
+# Old-style TypeVars (not PEP 695 inline params) so the update type ``U`` can carry a
+# PEP 696 *default* while the Ruff lint target stays at py312 (inline ``[U: B = D]`` is
+# py313+ syntax the py312 parser rejects). The default (``RawChanges``) keeps the ~53
+# non-activity ``BaseService[Op, T]`` instantiations untouched; only the six Activity
+# Domains override ``U`` with their frozen ``*UpdateIntent``.
 B = TypeVar("B", bound=BackendOperations)
 T = TypeVar("T", bound=DomainModelProtocol)
+U = TypeVar("U", bound=SupportsToChanges, default=RawChanges)
 
 
-class BaseService[B: BackendOperations, T: DomainModelProtocol](
+class BaseService(
     ConversionHelpersMixin[B, T],
-    CrudOperationsMixin[B, T],
+    CrudOperationsMixin[B, T, U],
     SearchOperationsMixin[B, T],
     RelationshipOperationsMixin[B, T],
     TimeQueryMixin[B, T],
     ContextOperationsMixin[B, T],
+    Generic[B, T, U],
 ):
     """
     Unified base service class for all SKUEL entities.
@@ -557,18 +562,17 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         """
         return Result.ok(None)
 
-    def _validate_update(self, current: T, updates: Mapping[str, Any]) -> Result[None]:
+    def _validate_update(self, current: T, updates: U) -> Result[None]:
         """
         Optional hook for domain-specific update validation.
 
-        Override in subclasses to add entity-specific business rules.
-
-        Note: Uses dict[str, Any] because domain-specific validation needs
-        to access domain-specific keys (priority, amount, label, etc.)
+        Override in subclasses to add entity-specific business rules. Receives the typed
+        update value ``U`` (a ``*UpdateIntent`` for Activity Domains, ``RawChanges``
+        otherwise); read ``updates.to_changes()`` to inspect the proposed fields.
 
         Args:
             current: The current entity state
-            updates: Dictionary of fields being updated
+            updates: Typed update value being applied
 
         Returns:
             Result.ok(None) if valid, Result.fail() if validation fails
@@ -634,7 +638,10 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
                 )
             )
 
-        return await self.update(uid, {"progress": progress})
+        # raw-write: generic system field bump. The validated/event-firing service contract
+        # is the domain `update_<x>(intent)` path; this universal helper writes a single
+        # column directly (U is the subclass's narrowed intent type — not constructible here).
+        return await self.backend.update(uid, {"progress": progress})
 
     async def update_status(
         self,
@@ -664,7 +671,8 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
                         )
                     )
 
-        return await self.update(uid, {"status": new_status})
+        # raw-write: generic system field bump (see update_progress).
+        return await self.backend.update(uid, {"status": new_status})
 
     # ========================================================================
     # CONTENT HANDLING
@@ -688,7 +696,8 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
                 Errors.validation(message="Content cannot be empty", field="content")
             )
 
-        return await self.update(uid, {"content": content})
+        # raw-write: generic system field bump (see update_progress).
+        return await self.backend.update(uid, {"content": content})
 
     # ========================================================================
     # INFRASTRUCTURE

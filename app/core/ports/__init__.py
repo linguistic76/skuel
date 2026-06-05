@@ -194,27 +194,21 @@ from .query_types import (
     # Filter Specifications
     ActivityFilterSpec,
     BaseFilterSpec,
-    # Update Payloads
+    # Update Payloads (curriculum only — Activity Domains use frozen *UpdateIntent, ADR-066)
     BaseUpdatePayload,
-    ChoiceUpdatePayload,
     CurriculumFilterSpec,
     # Cypher Parameters
     CypherParams,
-    EventUpdatePayload,
-    GoalUpdatePayload,
     # Response/Context Types
     GraphContextResult,
-    HabitUpdatePayload,
     IntelligenceResult,
     KuUpdatePayload,
     LpUpdatePayload,
     # Query Building Types
     OrderBySpec,
     PaginationSpec,
-    PrincipleUpdatePayload,
     ProgressResult,
     PsUpdatePayload,
-    TaskUpdatePayload,
     WhereClauseSpec,
 )
 from .relationship_backend_protocols import (
@@ -291,17 +285,11 @@ __all__ = [
     "ActivityFilterSpec",
     "BaseFilterSpec",
     "CurriculumFilterSpec",
-    # Update Payloads
+    # Update Payloads (curriculum only — Activity Domains use frozen *UpdateIntent, ADR-066)
     "BaseUpdatePayload",
-    "ChoiceUpdatePayload",
-    "EventUpdatePayload",
-    "GoalUpdatePayload",
-    "HabitUpdatePayload",
     "KuUpdatePayload",
     "LpUpdatePayload",
     "PsUpdatePayload",
-    "PrincipleUpdatePayload",
-    "TaskUpdatePayload",
     # Query Building Types
     "OrderBySpec",
     "PaginationSpec",

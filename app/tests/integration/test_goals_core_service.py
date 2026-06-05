@@ -32,6 +32,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.goal.goal import Goal
+from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_search_service import GoalsSearchService
 
@@ -125,7 +126,9 @@ class TestGoalsCoreOperations:
         goal = self._goal("goal_upd_001", user_uid, title="Original title")
         await goals_core.create(goal)
 
-        result = await goals_core.update("goal_upd_001", {"title": "Updated title"})
+        result = await goals_core.update_goal(
+            "goal_upd_001", GoalUpdateIntent(title="Updated title")
+        )
 
         assert result.is_ok
         # Confirm the change persisted
@@ -191,7 +194,9 @@ class TestGoalsCoreOperations:
         goal = self._goal("goal_status_pause", user_uid)
         await goals_core.create(goal)
 
-        upd = await goals_core.update("goal_status_pause", {"status": EntityStatus.PAUSED.value})
+        upd = await goals_core.update_goal(
+            "goal_status_pause", GoalUpdateIntent(status=EntityStatus.PAUSED.value)
+        )
         assert upd.is_ok
 
         fetch = await goals_core.get("goal_status_pause")

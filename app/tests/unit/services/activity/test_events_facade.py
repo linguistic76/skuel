@@ -117,9 +117,9 @@ class TestEventsServiceStatusManagement:
     async def test_update_event_status_no_notes_calls_core_update_directly(
         self, events_service: EventsService
     ) -> None:
-        """update_event_status with no notes/reason calls core.update without fetching event."""
+        """update_event_status with no notes/reason calls update_event without fetching event."""
         mock_event = Mock()
-        events_service.core.update = AsyncMock(return_value=Result.ok(mock_event))
+        events_service.core.update_event = AsyncMock(return_value=Result.ok(mock_event))
 
         request = Mock()
         request.event_uid = "event_abc"
@@ -132,7 +132,7 @@ class TestEventsServiceStatusManagement:
         assert result.is_ok
         # core.get should NOT be called (no metadata to merge)
         events_service.core.get.assert_not_called()
-        events_service.core.update.assert_called_once()
+        events_service.core.update_event.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_update_event_status_with_notes_fetches_event_for_metadata_merge(
@@ -144,7 +144,7 @@ class TestEventsServiceStatusManagement:
         events_service.core.get = AsyncMock(return_value=Result.ok(mock_current_event))
 
         mock_updated_event = Mock()
-        events_service.core.update = AsyncMock(return_value=Result.ok(mock_updated_event))
+        events_service.core.update_event = AsyncMock(return_value=Result.ok(mock_updated_event))
 
         request = Mock()
         request.event_uid = "event_abc"
@@ -157,9 +157,8 @@ class TestEventsServiceStatusManagement:
         assert result.is_ok
         # core.get IS called to fetch current metadata
         events_service.core.get.assert_called_once_with(request.event_uid)
-        # core.update is called with merged metadata
-        update_call = events_service.core.update.call_args
-        updates = update_call[0][1]  # second positional arg
-        assert "metadata" in updates
-        assert updates["metadata"]["existing_key"] == "existing_val"
-        assert updates["metadata"]["status_change_notes"] == "Cancelled due to conflict"
+        # update_event is called with a typed intent carrying the merged metadata
+        update_call = events_service.core.update_event.call_args
+        intent = update_call[0][1]  # second positional arg (EventUpdateIntent)
+        assert intent.metadata["existing_key"] == "existing_val"
+        assert intent.metadata["status_change_notes"] == "Cancelled due to conflict"

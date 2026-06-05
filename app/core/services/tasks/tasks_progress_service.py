@@ -32,6 +32,7 @@ from core.models.enums import Domain, EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.update_contracts import RawChanges
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.tasks.task_relationships import TaskRelationships
@@ -413,7 +414,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             "actual_minutes": actual_minutes,
         }
 
-        update_result = await self.update(task_uid, updates)
+        update_result = await self.update(task_uid, RawChanges(updates))
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -628,7 +629,9 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
         if prereq_result.value["can_start"]:
             # Unblock the task via the service contract (ADR-066 #2→#1)
-            update_result = await self.update(task_uid, {"status": EntityStatus.SCHEDULED.value})
+            update_result = await self.update(
+                task_uid, RawChanges({"status": EntityStatus.SCHEDULED.value})
+            )
             if update_result.is_error:
                 return Result.fail(update_result)
 
@@ -715,7 +718,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         """Trigger a dependent task."""
         # Unblock the triggered task via the service contract (ADR-066 #2→#1). self.update
         # returns a Result (backend errors are captured, not raised), so branch on it.
-        result = await self.update(task_uid, {"status": EntityStatus.SCHEDULED.value})
+        result = await self.update(task_uid, RawChanges({"status": EntityStatus.SCHEDULED.value}))
         if result.is_error:
             self.logger.warning(f"Failed to trigger task {task_uid}: {result.expect_error()}")
         else:

@@ -25,8 +25,6 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from core.ports.domain_protocols import TasksOperations
 
 from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
@@ -46,7 +44,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 
-class TasksCoreService(BaseService["TasksOperations", Task]):
+class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
     """
     Core CRUD operations for tasks.
     """
@@ -118,7 +116,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Task, updates: Mapping[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[None]:
         """
         Validate task updates with business rules.
 
@@ -128,11 +126,12 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         Args:
             current: Current task state
-            updates: Dictionary of proposed changes
+            updates: Typed ``TaskUpdateIntent`` of proposed changes
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
+        changes = updates.to_changes()
         # Business Rule 1: Terminal state protection
         # Prevent modification of tasks in terminal states (preserves historical accuracy)
         if current.status.is_terminal():
@@ -146,8 +145,8 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         # Business Rule 2: Overdue task priority protection
         # Cannot decrease priority of overdue tasks (prevents "sweeping under rug")
-        if "priority" in updates and current.due_date and current.due_date < date.today():
-            new_priority = Priority(updates["priority"])
+        if "priority" in changes and current.due_date and current.due_date < date.today():
+            new_priority = Priority(changes["priority"])
             current_numeric = Priority(current.priority).to_numeric() if current.priority else 2
             if new_priority.to_numeric() < current_numeric:
                 return Result.fail(

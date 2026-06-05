@@ -11,9 +11,7 @@ Verifies the typed ``HabitUpdateIntent`` update path end to end against live Neo
 4. Habits' live ``_validate_update`` runs on the typed path: archiving a habit with a
    ``current_streak >= 7`` is BLOCKED without ``force_archive`` and SUCCEEDS with it — and
    ``force_archive`` is never persisted as a node column.
-5. The ``Mapping`` funnel (``update`` → ``_intent_from_mapping`` → ``update_habit``) routes a
-   plain dict through the typed path and extracts ``force_archive`` as a keyword.
-6. ``HabitUpdateRequest.to_intent()`` carries exactly the explicitly-set fields
+5. ``HabitUpdateRequest.to_intent()`` carries exactly the explicitly-set fields
    (``model_fields_set``), lowers enums, and drops the four cross-domain edge UIDs.
 
 Mirrors ``test_goal_update_intent_pipeline.py`` (Phase 2) for the Habits domain — the
@@ -159,32 +157,6 @@ class TestHabitUpdateIntentPipeline:
         assert fetched.is_ok
         assert fetched.value.status == EntityStatus.ARCHIVED
         # force_archive is a transient validation directive — never written to the node.
-        keys = await self._persisted_node_keys(neo4j_driver, seeded_habit.uid)
-        assert "force_archive" not in keys
-
-    async def test_mapping_funnel_routes_through_intent(
-        self, core_service, seeded_habit, event_bus, neo4j_driver
-    ) -> None:
-        """The Mapping ``update`` funnel routes a plain dict through update_habit.
-
-        A plain property edit fires HabitUpdated, and ``force_archive`` carried in the
-        mapping is extracted as a keyword (bypassing the streak rule) without persisting.
-        """
-        event_bus.clear_event_history()
-
-        # Plain Mapping update routes through the intent path and fires HabitUpdated.
-        result = await core_service.update(seeded_habit.uid, {"description": "Via mapping"})
-        assert result.is_ok
-        assert result.value.description == "Via mapping"
-        updated_events = [e for e in event_bus.get_event_history() if isinstance(e, HabitUpdated)]
-        assert updated_events, "the Mapping funnel must fire HabitUpdated"
-
-        # force_archive carried in the mapping is honoured but not written as a column.
-        forced = await core_service.update(
-            seeded_habit.uid, {"status": EntityStatus.ARCHIVED.value, "force_archive": True}
-        )
-        assert forced.is_ok
-        assert forced.value.status == EntityStatus.ARCHIVED
         keys = await self._persisted_node_keys(neo4j_driver, seeded_habit.uid)
         assert "force_archive" not in keys
 

@@ -109,6 +109,7 @@ if TYPE_CHECKING:
     from core.models.principle.principle import Principle
     from core.models.relationship_names import RelationshipName
     from core.models.task.task import Task
+    from core.models.task.task_update_intent import TaskUpdateIntent
     from core.models.type_hints import EntityUID, FilterParams, Metadata, Neo4jProperties
     from core.utils.result_simplified import Result
 
@@ -156,8 +157,10 @@ class TasksOperations(
         """Create task from request data. Use create() if you have a domain model."""
         ...
 
-    async def update_task(self, task_id: EntityUID, data: Metadata) -> Result[bool]:
-        """Update task from request data. Use update() if you have a domain model."""
+    async def update_task(self, task_id: EntityUID, intent: TaskUpdateIntent) -> Result[Task]:
+        """Update a task (ADR-066 typed update contract). Returns Result[Task] (the updated
+        task). The intent's edge fields are split off and applied as graph-edge mutations;
+        its remaining set fields are written as node properties."""
         ...
 
     async def delete_task(self, task_id: EntityUID) -> Result[bool]:

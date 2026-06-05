@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
 from core.models.habit.completion import HabitCompletion
+from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -295,17 +296,11 @@ class _CompletionMixin:
         Returns:
             Result with the updated habit
         """
-        updates: dict[str, Any] = {
-            "status": EntityStatus.PAUSED.value,
-            "notes": request.reason,
-        }
-        if request.until_date:
-            if isinstance(request.until_date, str):
-                updates["paused_until"] = request.until_date
-            else:
-                updates["paused_until"] = request.until_date.isoformat()
-
-        return await self.core.update(request.habit_uid, updates)
+        # ``reason`` / ``paused_until`` are not Habit columns (the prior funnel dropped
+        # them); only the status transition is persisted.
+        return await self.core.update_habit(
+            request.habit_uid, HabitUpdateIntent(status=EntityStatus.PAUSED.value)
+        )
 
     async def resume_habit(self, request: ResumeHabitRequest) -> Result[Any]:
         """
@@ -317,11 +312,11 @@ class _CompletionMixin:
         Returns:
             Result with the updated habit
         """
-        updates = {
-            "status": EntityStatus.ACTIVE.value,
-            "paused_until": None,
-        }
-        return await self.core.update(request.habit_uid, updates)
+        # ``paused_until`` is not a Habit column (the prior funnel dropped it); only the
+        # status transition is persisted.
+        return await self.core.update_habit(
+            request.habit_uid, HabitUpdateIntent(status=EntityStatus.ACTIVE.value)
+        )
 
     async def archive_habit(self, request: ArchiveHabitRequest) -> Result[Any]:
         """
@@ -333,11 +328,11 @@ class _CompletionMixin:
         Returns:
             Result with the updated habit
         """
-        updates = {
-            "status": EntityStatus.ARCHIVED.value,
-            "notes": request.reason,
-        }
-        return await self.core.update(request.habit_uid, updates)
+        # ``reason`` is not a Habit column (the prior funnel dropped it); only the status
+        # transition is persisted.
+        return await self.core.update_habit(
+            request.habit_uid, HabitUpdateIntent(status=EntityStatus.ARCHIVED.value)
+        )
 
     # ========================================================================
     # REMINDERS
@@ -365,12 +360,14 @@ class _CompletionMixin:
             return Result.fail(habit_result)
 
         # Update habit with reminder config
-        updates = {
-            "reminder_time": request.reminder_time,
-            "reminder_days": request.days,
-            "reminder_enabled": request.enabled,
-        }
-        update_result = await self.core.update(request.habit_uid, updates)
+        update_result = await self.core.update_habit(
+            request.habit_uid,
+            HabitUpdateIntent(
+                reminder_time=request.reminder_time,
+                reminder_days=request.days,
+                reminder_enabled=request.enabled,
+            ),
+        )
         if update_result.is_error:
             return Result.fail(update_result)
 
@@ -437,12 +434,10 @@ class _CompletionMixin:
             return Result.fail(habit_result)
 
         # Clear reminder config
-        updates: dict[str, Any] = {
-            "reminder_time": None,
-            "reminder_days": [],
-            "reminder_enabled": False,
-        }
-        update_result = await self.core.update(request.habit_uid, updates)
+        update_result = await self.core.update_habit(
+            request.habit_uid,
+            HabitUpdateIntent(reminder_time=None, reminder_days=[], reminder_enabled=False),
+        )
         if update_result.is_error:
             return Result.fail(update_result)
 

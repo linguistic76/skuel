@@ -120,20 +120,6 @@ class TestChoiceUpdateIntentPipeline:
         assert updated_events, "status transition must fire ChoiceUpdated"
         assert "status" in updated_events[-1].updated_fields
 
-    async def test_mapping_funnel_routes_through_intent(
-        self, core_service, seeded_choice, event_bus
-    ) -> None:
-        """The Mapping funnel (core.update — the choices_api status route) fires ChoiceUpdated."""
-        event_bus.clear_event_history()
-
-        result = await core_service.update(seeded_choice.uid, {"status": EntityStatus.ACTIVE.value})
-        assert result.is_ok
-        assert result.value.status == EntityStatus.ACTIVE
-
-        updated_events = [e for e in event_bus.get_event_history() if isinstance(e, ChoiceUpdated)]
-        assert updated_events, "the Mapping funnel must fire ChoiceUpdated"
-        assert "status" in updated_events[-1].updated_fields
-
     async def test_to_intent_carries_only_explicit_fields(self) -> None:
         """to_intent() reflects model_fields_set: provided → set, absent → UNSET."""
         request = ChoiceUpdateRequest(title="Just the title")

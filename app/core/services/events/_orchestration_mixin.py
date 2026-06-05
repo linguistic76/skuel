@@ -11,6 +11,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -18,9 +19,9 @@ from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeR
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
-from core.ports.query_types import EventUpdatePayload
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -72,7 +73,7 @@ class _OrchestrationMixin:
         Returns:
             Result with the updated event
         """
-        updates: dict[str, Any] = {"status": get_enum_value(request.status)}
+        intent = EventUpdateIntent(status=get_enum_value(request.status))
 
         metadata_updates = {}
         if request.notes:
@@ -87,26 +88,31 @@ class _OrchestrationMixin:
             if event_result.value is None:
                 return Result.fail(Errors.not_found(resource="Event", identifier=request.event_uid))
             current_metadata = event_result.value.metadata or {}
-            updates["metadata"] = {**current_metadata, **metadata_updates}
+            intent = dataclasses.replace(intent, metadata={**current_metadata, **metadata_updates})
 
-        return await self.core.update(request.event_uid, updates)
+        return await self.core.update_event(request.event_uid, intent)
 
     async def start_event(self, event_uid: str) -> Result[Event]:
         """Mark an event as started/in progress."""
-        updates: EventUpdatePayload = {"status": EntityStatus.ACTIVE.value}
-        return await self.core.update(event_uid, updates)
+        return await self.core.update_event(
+            event_uid, EventUpdateIntent(status=EntityStatus.ACTIVE.value)
+        )
 
     async def complete_event(self, event_uid: str) -> Result[Event]:
         """Mark an event as completed."""
-        updates: EventUpdatePayload = {"status": EntityStatus.COMPLETED.value}
-        return await self.core.update(event_uid, updates)
+        return await self.core.update_event(
+            event_uid, EventUpdateIntent(status=EntityStatus.COMPLETED.value)
+        )
 
-    async def cancel_event(self, event_uid: str, reason: str = "") -> Result[Event]:
-        """Cancel an event."""
-        updates: EventUpdatePayload = {"status": EntityStatus.CANCELLED.value}
-        if reason:
-            updates["notes"] = reason
-        return await self.core.update(event_uid, updates)
+    async def cancel_event(self, event_uid: str) -> Result[Event]:
+        """Cancel an event.
+
+        Cancellation *reasons* are not a node column (Event has no ``notes`` field); route
+        them through ``update_event_status``'s ``metadata`` when a reason must be recorded.
+        """
+        return await self.core.update_event(
+            event_uid, EventUpdateIntent(status=EntityStatus.CANCELLED.value)
+        )
 
     # ========================================================================
     # GRAPH RELATIONSHIPS — Cross-domain linking

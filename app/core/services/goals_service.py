@@ -32,6 +32,7 @@ from core.models.enums import EntityStatus, Priority
 from core.models.enums.goal_enums import GoalTimeframe, GoalType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -67,12 +68,9 @@ from core.utils.sort_functions import (
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.enums import Domain
     from core.models.goal.goal_request import GoalCreateRequest
-    from core.models.goal.goal_update_intent import GoalUpdateIntent
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -181,7 +179,7 @@ class GoalsService(
     _OrchestrationMixin,
     _RelationshipMixin,
     KnowledgeIntelligenceDelegationMixin,
-    BaseService[GoalsOperations, Goal],
+    BaseService[GoalsOperations, Goal, GoalUpdateIntent],
 ):
     """
     Goals service facade with specialized sub-services.
@@ -317,7 +315,7 @@ class GoalsService(
                     value=EntityStatus.CANCELLED.value,
                 )
             )
-        result = await self.core.update(uid, {"status": EntityStatus.CANCELLED.value})
+        result = await self.update_goal(uid, GoalUpdateIntent(status=EntityStatus.CANCELLED.value))
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def create_goal(self, goal_request: GoalCreateRequest, user_uid: UserUID) -> Result[Goal]:
@@ -330,26 +328,25 @@ class GoalsService(
         GoalAchieved. Goals carry no edge fields, so there is nothing to split off."""
         return await self.core.update_goal(uid, intent)
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Goal]:
+    async def update(self, uid: str, updates: GoalUpdateIntent) -> Result[Goal]:
         """Override the inherited CRUD update (generated JSON route, no ownership check).
 
-        Transitional ADR-066 funnel: the generic factory still hands a ``Mapping``, so
-        route it through the core funnel (``GoalsCoreService.update`` → ``update_goal``),
-        which fires events. Collapses to a direct intent parameter in Phase 7."""
-        return await self.core.update(uid, updates)
+        Routes the typed intent through the one event-firing update path
+        (``GoalsCoreService.update_goal``) — the inherited base ``update`` on the facade
+        would skip the core's validation and events."""
+        return await self.core.update_goal(uid, updates)
 
     async def update_for_user(
-        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
+        self, uid: str, updates: GoalUpdateIntent, user_uid: UserUID
     ) -> Result[Goal]:
         """Override the inherited ownership-verified CRUD update (generated JSON route).
 
-        Verifies ownership BEFORE any mutation, then funnels through the one event-firing
-        update path (``GoalsCoreService.update`` → ``update_goal``). Transitional ADR-066
-        ``Mapping``→intent bridge; collapses to a direct intent parameter in Phase 7."""
+        Verifies ownership BEFORE any mutation, then routes through the one event-firing
+        update path (``GoalsCoreService.update_goal``)."""
         ownership = await self.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
-        return await self.core.update(uid, updates)
+        return await self.core.update_goal(uid, updates)
 
     # Progress delegations
     async def calculate_goal_progress_with_context(
