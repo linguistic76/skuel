@@ -20,6 +20,8 @@ from core.models.enums.goal_enums import (
     HabitEssentiality,
     MeasurementType,
 )
+from core.models.goal.goal_update_intent import GoalUpdateIntent
+from core.models.sentinels import UNSET, Unset
 from core.models.validation_rules import (
     validate_date_after,
     validate_future_date,
@@ -178,6 +180,60 @@ class GoalUpdateRequest(BaseModel):
     tags: list[str] | None = Field(default=None, max_length=20)
 
     model_config = ConfigDict(use_enum_values=False)
+
+    def to_intent(self) -> GoalUpdateIntent:
+        """Build the typed ``GoalUpdateIntent`` (ADR-066) from explicitly-set fields.
+
+        Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
+        so the intent carries a true partial patch: an absent field is left untouched, a
+        field explicitly set to ``None`` is an explicit clear. Enum fields (goal_type,
+        domain, timeframe, measurement_type, status, priority) are lowered to their string
+        value to match the persistence boundary.
+
+        The three cross-domain UID fields (``required_knowledge_uids`` /
+        ``supporting_habit_uids`` / ``guiding_principle_uids``) are graph edges, not node
+        columns, so they are intentionally not carried — writing them as properties would
+        leak junk denormalized fields onto the node (the edges are synced on the
+        create-with-context path, not this property-update path).
+        """
+        set_fields = self.model_fields_set
+
+        def when_set[T](name: str, value: T) -> T | Unset:
+            """Carry ``value`` only if the caller set this field; else ``UNSET``.
+
+            Generic so the intent fields stay fully typed (no ``Any``): the return is
+            ``<declared field type> | Unset``, exactly what each intent field expects.
+            """
+            return value if name in set_fields else UNSET
+
+        return GoalUpdateIntent(
+            title=when_set("title", self.title),
+            description=when_set("description", self.description),
+            vision_statement=when_set("vision_statement", self.vision_statement),
+            goal_type=when_set(
+                "goal_type", self.goal_type.value if self.goal_type is not None else None
+            ),
+            domain=when_set("domain", self.domain.value if self.domain is not None else None),
+            timeframe=when_set(
+                "timeframe", self.timeframe.value if self.timeframe is not None else None
+            ),
+            measurement_type=when_set(
+                "measurement_type",
+                self.measurement_type.value if self.measurement_type is not None else None,
+            ),
+            target_value=when_set("target_value", self.target_value),
+            unit_of_measurement=when_set("unit_of_measurement", self.unit_of_measurement),
+            target_date=when_set("target_date", self.target_date),
+            why_important=when_set("why_important", self.why_important),
+            success_criteria=when_set("success_criteria", self.success_criteria),
+            potential_obstacles=when_set("potential_obstacles", self.potential_obstacles),
+            strategies=when_set("strategies", self.strategies),
+            status=when_set("status", self.status.value if self.status is not None else None),
+            priority=when_set(
+                "priority", self.priority.value if self.priority is not None else None
+            ),
+            tags=when_set("tags", self.tags),
+        )
 
 
 class GoalProgressUpdateRequest(BaseModel):

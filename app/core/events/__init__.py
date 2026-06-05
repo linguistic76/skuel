@@ -138,6 +138,7 @@ from core.events.goal_events import (
     GoalCreated,
     GoalMilestoneReached,
     GoalProgressUpdated,
+    GoalUpdated,
 )
 
 # Habit events
@@ -280,6 +281,7 @@ __all__ = [
     "GoalCreated",
     "GoalMilestoneReached",
     "GoalProgressUpdated",
+    "GoalUpdated",
     "HabitCompleted",
     "HabitCompletionBulk",
     # Habits
@@ -384,6 +386,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "tasks.bulk_completed": TasksBulkCompleted,
     # Goals
     "goal.created": GoalCreated,
+    "goal.updated": GoalUpdated,
     "goal.achieved": GoalAchieved,
     "goal.progress_updated": GoalProgressUpdated,
     "goal.abandoned": GoalAbandoned,
@@ -560,6 +563,7 @@ TASK_EVENTS = [
 
 GOAL_EVENTS = [
     GoalCreated,
+    GoalUpdated,
     GoalAchieved,
     GoalProgressUpdated,
     GoalAbandoned,

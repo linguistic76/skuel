@@ -178,12 +178,10 @@ def create_goals_ui_routes(
             )
             return await render_activity_sidebar_page(content, active="goals", request=request)
 
-        # Drop None values: GoalUpdateRequest fields are all optional, and the
-        # backend update applies whatever keys are present. Sending None for
-        # fields the user left blank would clobber valid existing values.
-        updates = {k: v for k, v in parsed.value.model_dump().items() if v is not None}
-
-        result = await goals_service.core.update(uid, updates)
+        # ADR-066: build the typed GoalUpdateIntent from explicitly-set fields only
+        # (model_fields_set). Fields the user left blank stay UNSET and are not written,
+        # so untouched columns are never clobbered — no ad-hoc "drop None" convention.
+        result = await goals_service.update_goal(uid, parsed.value.to_intent())
         if result.is_error:
             err = result.expect_error()
             content = Div(

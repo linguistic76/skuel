@@ -160,7 +160,9 @@ class TaskUpdateRequest(UpdateRequestBase):
             due_date=when_set("due_date", self.due_date),
             scheduled_date=when_set("scheduled_date", self.scheduled_date),
             duration_minutes=when_set("duration_minutes", self.duration_minutes),
-            priority=when_set("priority", self.priority.value if self.priority is not None else None),
+            priority=when_set(
+                "priority", self.priority.value if self.priority is not None else None
+            ),
             status=when_set("status", self.status.value if self.status is not None else None),
             project=when_set("project", self.project),
             assignee=when_set("assignee", self.assignee),
@@ -172,8 +174,12 @@ class TaskUpdateRequest(UpdateRequestBase):
             goal_progress_contribution=when_set(
                 "goal_progress_contribution", self.goal_progress_contribution
             ),
-            knowledge_mastery_check=when_set("knowledge_mastery_check", self.knowledge_mastery_check),
-            habit_streak_maintainer=when_set("habit_streak_maintainer", self.habit_streak_maintainer),
+            knowledge_mastery_check=when_set(
+                "knowledge_mastery_check", self.knowledge_mastery_check
+            ),
+            habit_streak_maintainer=when_set(
+                "habit_streak_maintainer", self.habit_streak_maintainer
+            ),
             prerequisite_knowledge_uids=when_set(
                 "prerequisite_knowledge_uids", self.prerequisite_knowledge_uids
             ),

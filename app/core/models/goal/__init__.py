@@ -15,12 +15,14 @@ from .goal_request import (
     MilestoneCreateRequest,
     SystemHealthCheckRequest,
 )
+from .goal_update_intent import GoalUpdateIntent
 
 __all__ = [
     "GoalAnalyticsRequest",
     "GoalCreateRequest",
     "GoalFilterRequest",
     "GoalProgressUpdateRequest",
+    "GoalUpdateIntent",
     "GoalUpdateRequest",
     "HabitEssentialityChangeRequest",
     "HabitSystemUpdateRequest",
