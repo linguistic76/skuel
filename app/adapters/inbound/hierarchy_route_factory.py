@@ -23,10 +23,12 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 from typing import Any, Protocol
 
 from fasthtml.common import Div, Request, Span
+from pydantic import BaseModel
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from core.models.type_hints import UserUID
+from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
 from core.utils.result_simplified import Errors, Result
 
 
@@ -37,8 +39,8 @@ class HierarchicalService(Protocol):
         """Get entity by UID."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
-        """Update entity."""
+    async def update(self, uid: str, updates: SupportsToChanges) -> Result[Any]:
+        """Update entity with a typed update value (a ``*UpdateIntent`` or ``RawChanges``)."""
         ...
 
     async def delete(self, uid: str) -> Result[bool]:
@@ -60,6 +62,7 @@ class HierarchyRouteFactory:
         domain: str,  # "goals", "habits", etc.
         service: HierarchicalService,
         entity_name: str,  # "Goal", "Habit", etc.
+        update_schema: type[BaseModel] | None = None,  # domain *UpdateRequest (ADR-066)
         get_children_method: str | None = None,  # e.g., "get_subgoals"
         create_relationship_method: str | None = None,  # e.g., "create_subgoal_relationship"
         remove_relationship_method: str | None = None,  # e.g., "remove_subgoal_relationship"
@@ -74,6 +77,9 @@ class HierarchyRouteFactory:
             domain: Domain name (plural, e.g., "goals")
             service: Domain service instance
             entity_name: Entity display name (singular, e.g., "Goal")
+            update_schema: Domain ``*UpdateRequest`` (Pydantic) used to build the typed
+                ``*UpdateIntent`` for inline title edits. None for curriculum services
+                (LP), whose ``update`` still accepts a plain mapping.
             get_children_method: Method name for fetching children (auto-detected if None)
             create_relationship_method: Method name for creating parent-child relationship
             remove_relationship_method: Method name for removing parent-child relationship
@@ -84,6 +90,9 @@ class HierarchyRouteFactory:
         self.domain = domain
         self.service = service
         self.entity_name = entity_name
+        # Domain *UpdateRequest so inline title edits build the typed *UpdateIntent
+        # (ADR-066). None for curriculum services (LP) whose update still takes a dict.
+        self.update_schema = update_schema
 
         # Auto-detect method names if not provided
         singular = domain.rstrip("s")  # "goals" -> "goal"
@@ -267,8 +276,21 @@ class HierarchyRouteFactory:
             if ownership_result.is_error:
                 return {"success": False, "error": "Not found or access denied"}, 404
 
+            # Build the typed update value (ADR-066): activity domains carry a
+            # *UpdateRequest → *UpdateIntent; curriculum (LP) has no schema → RawChanges.
+            updates: SupportsToChanges
+            if self.update_schema is not None:
+                schema = self.update_schema(title=title)
+                updates = (
+                    schema.to_intent()
+                    if isinstance(schema, SupportsToIntent)
+                    else RawChanges({"title": title})
+                )
+            else:
+                updates = RawChanges({"title": title})
+
             # Update
-            result = await self.service.update(uid, {"title": title})
+            result = await self.service.update(uid, updates)
 
             if result.is_error:
                 return {

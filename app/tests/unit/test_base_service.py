@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 import pytest
 
 from core.models.relationship_names import RelationshipName
+from core.models.update_contracts import RawChanges
 from core.services.base_service import BaseService
 from core.utils.result_simplified import Errors, Result
 
@@ -293,7 +294,7 @@ class TestCRUDOperations:
         """Update modifies entity and returns success."""
         mock_backend.update.return_value = Result.ok({"uid": "test_001"})
 
-        result = await service.update("test_001", {"title": "Updated"})
+        result = await service.update("test_001", RawChanges({"title": "Updated"}))
 
         assert result.is_ok
         mock_backend.update.assert_called_once()

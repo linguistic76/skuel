@@ -96,17 +96,20 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 from core.models.enums import EntityStatus
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
+from core.models.update_contracts import RawChanges, SupportsToChanges
 from core.ports.base_protocols import Direction
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from datetime import date
 
 # Type variables for generics
 T = TypeVar("T")  # Domain model type (invariant - used in both input and output positions)
 B = TypeVar("B")  # Backend operations type
 DTO = TypeVar("DTO")  # DTO type
+# Update value type (ADR-066): a *UpdateIntent for Activity Domains, RawChanges otherwise.
+# Contravariant — appears only in input (update parameter) positions on CrudOperations.
+U = TypeVar("U", bound=SupportsToChanges, default=RawChanges, contravariant=True)
 
 
 @runtime_checkable
@@ -244,13 +247,15 @@ class ConversionOperations(Protocol[T]):
 
 
 @runtime_checkable
-class CrudOperations(Protocol[T]):
+class CrudOperations(Protocol[T, U]):
     """
     Methods provided by CrudOperationsMixin.
 
     Purpose: CRUD operations with ownership verification.
 
-    Updated: 2026-01-29 - Signatures now match actual mixin implementation.
+    ADR-066 Phase 7: parameterized over the update value ``U`` (a ``*UpdateIntent`` for
+    Activity Domains, ``RawChanges`` by default). ``CrudOperations[T]`` resolves
+    ``U = RawChanges`` via the type-parameter default.
     """
 
     async def create(self, entity: T) -> Result[T]:
@@ -279,13 +284,13 @@ class CrudOperations(Protocol[T]):
         """
         ...
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[T]:
+    async def update(self, uid: str, updates: U) -> Result[T]:
         """
         Update entity (no ownership check).
 
         Args:
             uid: Entity UID
-            updates: Mapping of fields to update (e.g. a `*UpdatePayload` TypedDict)
+            updates: Typed update value (a ``*UpdateIntent`` or ``RawChanges``)
 
         Returns:
             Result[T]: Updated entity
@@ -361,15 +366,13 @@ class CrudOperations(Protocol[T]):
         """
         ...
 
-    async def update_for_user(
-        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
-    ) -> Result[T]:
+    async def update_for_user(self, uid: str, updates: U, user_uid: UserUID) -> Result[T]:
         """
         Update entity, but only if owned by the specified user.
 
         Args:
             uid: Entity UID to update
-            updates: Dictionary of fields to update
+            updates: Typed update value (a ``*UpdateIntent`` or ``RawChanges``)
             user_uid: User UID who should own the entity
 
         Returns:

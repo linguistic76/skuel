@@ -8,9 +8,11 @@ tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
 
 # Roadmap: Typed Update Intents migration
 
-**Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) + Phase 3 (Events) + Phase 4 (Choices) +
-Phase 5 (Principles) + Phase 6 (Habits) complete — 2026-06-05. All six Activity Domains migrated;
-**only Phase 7 (teardown + base parameterization + docs/skills One-Path cleanup) remains.**
+**Status:** Phases 1–6 (all six Activity Domains) + **Phase 7a (base parameterization + teardown)**
+complete — 2026-06-05. The shared CRUD base is now parameterized over the update type `U`
+(`SupportsToChanges`, default `RawChanges`); the six `_intent_from_mapping` funnels, the facade
+`Mapping` overrides, and the six activity `*UpdatePayload` TypedDicts are deleted. **Only Phase 7b
+(docs/skills One-Path cleanup) remains.**
 **Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
 
@@ -41,14 +43,14 @@ with a green tree throughout.
 
 | Domain | `*UpdateIntent` | `*UpdateRequest.to_intent()` | Service contract on intent | #2 backend-direct partials resolved | `*UpdatePayload` deleted |
 |--------|:---:|:---:|:---:|:---:|:---:|
-| Tasks (reference) | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Goals | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Habits | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Events | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Choices | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Principles | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
+| Tasks (reference) | ☑ | ☑ | ☑ | ☑ | ☑ (Phase 7a) |
+| Goals | ☑ | ☑ | ☑ | ☑ | ☑ (Phase 7a) |
+| Habits | ☑ | ☑ | ☑ | ☑ | ☑ (Phase 7a) |
+| Events | ☑ | ☑ | ☑ | ☑ | ☑ (Phase 7a) |
+| Choices | ☑ | ☑ | ☑ | ☑ | ☑ (Phase 7a) |
+| Principles | ☑ | ☑ | ☑ | ☑ | ☑ (Phase 7a) |
 
-Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skills One-Path cleanup: ☐ (Phase 7)
+Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base parameterized over `U`: ☑ (Phase 7a) · Docs/skills One-Path cleanup: ☐ (Phase 7b)
 
 > **Sequencing decision (2026-06-04): funnel now, parameterize the base at Phase 7.**
 > The "service contract on intent" column is satisfied per-domain by typing the
@@ -235,16 +237,21 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
   `project_update_intents_phase7_plan` for the full traced plan). The edge-clear UX gap (Tasks/Events
   picker `""`→None) is **out of Phase 7** — a deferred UX bug, not One-Path teardown; track separately.
 
-  **Phase 7a — base parameterization (atomic code, one PR).** This is *forced-atomic*: parameterizing
-  the base over the update type mechanically forces the funnel/factory/hook changes together — once
-  `update` takes `U`, the facade `update(uid, Mapping)` funnel overrides become **incompatible
-  overrides** (the intent dataclass is not a `Mapping`) → red MyPy. So in one change:
-  - Add `SupportsToChanges` (`to_changes() -> dict[str, Any]`) and `SupportsToIntent`
-    (`to_intent() -> SupportsToChanges`) protocols. Add `U` as a third type param to
-    `CrudOperationsMixin` / `BaseService` / `CrudOperations` with a **PEP 696 bounded *default*** (the
-    repo is on Python 3.14) so only the six activity domains override `U`; the ~53 non-activity
-    `BaseService[Op, T]` sites stay untouched. (See the Correction note above for why a no-default
-    bound is wrong here.)
+  **Phase 7a — base parameterization (atomic code, one PR). ✅ DONE (2026-06-05).** *Forced-atomic*:
+  parameterizing the base over the update type mechanically forced the funnel/factory/hook changes
+  together — once `update` takes `U`, the facade `update(uid, Mapping)` funnel overrides became
+  **incompatible overrides** (the intent dataclass is not a `Mapping`) → red MyPy. Landed in one change:
+  - Added `SupportsToChanges` (`to_changes() -> dict[str, Any]`) + `SupportsToIntent`
+    (`to_intent() -> SupportsToChanges`) protocols and the `RawChanges` default wrapper in
+    `core/models/update_contracts.py`. Added `U` as a third type param to `CrudOperationsMixin` /
+    `BaseService` / `CrudOperations` with a **PEP 696 bounded *default* (`RawChanges`)** so only the six
+    activity domains override `U`; the ~53 non-activity `BaseService[Op, T]` sites stay untouched.
+    🔑 **Implementation note:** the default is declared via old-style `TypeVar(..., default=RawChanges)`
+    + `Generic[B, T, U]`, *not* PEP 695 inline `[U: Bound = Default]` — the latter is py313+ syntax the
+    Ruff lint target (py312, ADR-067) rejects as invalid. `RawChanges(dict)` subclasses `dict` so
+    dict-shaped callers (curriculum `ps_service`, the base `update_progress`/`update_status`/
+    `update_content` helpers, `tasks_progress`) wrap once; the three curriculum route-facing protocols
+    (`FormTemplateOperations`/`GroupOperations`/`RevisedExerciseOperations`) take `RawChanges`.
   - `update` / `update_for_user` take `U`, materialize uniformly via `updates.to_changes()` at the
     single backend seam (no `isinstance`, no `dict()`-wrap). Retype `_validate_update` / `_post_update`
     from `Mapping` to `U` across the base + the six domain overrides + forms (MyPy is the teacher —

@@ -7,7 +7,6 @@ Handles basic CRUD operations for choices.
 
 from __future__ import annotations
 
-import dataclasses
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -36,8 +35,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from core.models.choice.choice_request import (
         ChoiceCreateRequest,
         ChoiceEvaluationRequest,
@@ -45,7 +42,7 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import ChoicesOperations
 
 
-class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
+class ChoicesCoreService(BaseService["ChoicesOperations", Choice, ChoiceUpdateIntent]):
     """
     Core CRUD operations for choices.
 
@@ -143,7 +140,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Choice, updates: Mapping[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Choice, updates: ChoiceUpdateIntent) -> Result[None]:
         """
         Validate choice updates with business rules.
 
@@ -154,20 +151,21 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
 
         Args:
             current: Current choice state
-            updates: Dictionary of proposed changes
+            updates: Typed ``ChoiceUpdateIntent`` of proposed changes
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
         from core.utils.result_simplified import Errors
 
+        changes = updates.to_changes()
         # Business Rule 1: Decision immutability for critical fields
         # Once a choice is decided/evaluated, it's a historical decision point
         # Allow updates to notes/metadata, but not to the decision itself
         if current.status in [EntityStatus.ACTIVE, EntityStatus.COMPLETED]:
             # Critical fields that cannot be changed after decision
             critical_fields = {"options", "choice_type", "status", "selected_option"}
-            changed_critical = set(updates.keys()) & critical_fields
+            changed_critical = set(changes.keys()) & critical_fields
 
             if changed_critical:
                 return Result.fail(
@@ -180,12 +178,12 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
                 )
 
         # Business Rule 2: Option count validation
-        if "options" in updates and (not updates["options"] or len(updates["options"]) < 2):
+        if "options" in changes and (not changes["options"] or len(changes["options"]) < 2):
             return Result.fail(
                 Errors.validation(
                     message="Choice must maintain at least 2 options to be meaningful",
                     field="options",
-                    value=len(updates["options"]) if updates["options"] else 0,
+                    value=len(changes["options"]) if changes["options"] else 0,
                 )
             )
 
@@ -367,30 +365,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
         return Result.ok(choices)
 
-    @staticmethod
-    def _intent_from_mapping(updates: Mapping[str, Any]) -> ChoiceUpdateIntent:
-        """Transitional bridge (ADR-066): build a ``ChoiceUpdateIntent`` from the
-        ``Mapping`` the generic CRUD route and the in-service status route
-        (``choices_api`` → ``{"status": ...}``) still pass.
-
-        Only keys that are intent fields are carried; values are already storage-shaped
-        (the route stringifies enums). Removed in Phase 7, when the generic update path is
-        parameterized over the intent and callers pass it directly.
-        """
-        names = {f.name for f in dataclasses.fields(ChoiceUpdateIntent)}
-        return ChoiceUpdateIntent(**{k: v for k, v in updates.items() if k in names})
-
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Choice]:
-        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to a
-        ``ChoiceUpdateIntent`` and route through the one validated, event-firing update
-        path (``update_choice``).
-
-        Callers still on the ``Mapping`` shape: the shared ``CRUDRouteFactory`` (via the
-        facade) and the ``choices_api`` status route (``core.update(uid, {"status": ...})``).
-        Collapses to a direct intent parameter in Phase 7.
-        """
-        return await self.update_choice(uid, self._intent_from_mapping(updates))
-
     @with_error_handling("update_choice", error_type="database", uid_param="choice_uid")
     async def update_choice(self, choice_uid: str, intent: ChoiceUpdateIntent) -> Result[Choice]:
         """Update a choice's node properties (ADR-066 typed update contract).
@@ -421,7 +395,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # reading the dict after the write would leak that bump into the event payload.
         updated_fields = dict(changes)
 
-        result: Result[Choice] = await super().update(choice_uid, changes)
+        result: Result[Choice] = await super().update(choice_uid, intent)
         if result.is_error:
             return result
 

@@ -19,13 +19,12 @@ are deliberately absent here and ``HabitUpdateRequest.to_intent()`` does not car
 
 Beyond the request-settable columns, this intent also models the reminder columns that
 the service-internal reminder methods (``set_habit_reminder`` / ``delete_habit_reminder``
-in ``_CompletionMixin``) write through ``core.update`` so the ``_intent_from_mapping``
-funnel can carry them end to end without leaking junk or dropping real columns.
+in ``_CompletionMixin``) write by constructing this intent directly — carrying real columns
+without leaking junk.
 
 ``force_archive`` is **not** a field here: it is a transient validation directive (bypass
-the streak-preservation rule), not a persisted column. It travels as a keyword argument on
-``update_habit`` and is extracted from the ``Mapping`` by the funnel — never written to the
-node.
+the streak-preservation rule), not a persisted column. It travels as a dedicated keyword
+argument on ``update_habit`` — never written to the node.
 
 See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
 ``*InferenceResult``; ``docs/roadmap/update-intents.md`` for the phased migration.

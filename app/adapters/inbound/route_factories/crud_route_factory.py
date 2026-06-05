@@ -64,6 +64,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import check_required_role
 from core.models.enums import ContentScope, UserRole
 from core.models.type_hints import UserUID
+from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -95,8 +96,8 @@ class CRUDOperations(Protocol[T]):
         """Get entity by UID"""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
-        """Update entity with partial data"""
+    async def update(self, uid: str, updates: SupportsToChanges) -> Result[T]:
+        """Update entity with a typed update value (a ``*UpdateIntent`` or ``RawChanges``)"""
         ...
 
     async def delete(self, uid: str) -> Result[bool]:
@@ -132,7 +133,7 @@ class CRUDOperations(Protocol[T]):
         ...
 
     async def update_for_user(
-        self, uid: str, updates: dict[str, Any], user_uid: UserUID
+        self, uid: str, updates: SupportsToChanges, user_uid: UserUID
     ) -> Result[T]:
         """Update entity, only if owned by user"""
         ...
@@ -495,15 +496,17 @@ class CRUDRouteFactory[T]:
             # Pydantic validation
             schema = update_schema.model_validate(body)
 
-            # Use Pydantic's model_dump directly (100% dynamic pattern)
-            # Only include fields that were actually set
-            updates = schema.model_dump(exclude_unset=True)
+            # Build the typed update value (ADR-066). Activity Domains' `*UpdateRequest`
+            # carry `.to_intent()` → a frozen `*UpdateIntent`; other domains (curriculum,
+            # forms, groups, templates) fall back to a `RawChanges` patch from `model_dump`.
+            updates: SupportsToChanges
+            if isinstance(schema, SupportsToIntent):
+                updates = schema.to_intent()
+            else:
+                from core.ports import get_enum_value
 
-            # Convert enum values to strings for storage
-            from core.ports import get_enum_value
-
-            for key, value in updates.items():
-                updates[key] = get_enum_value(value)
+                raw = schema.model_dump(exclude_unset=True)
+                updates = RawChanges({k: get_enum_value(v) for k, v in raw.items()})
 
             # Call service with or without ownership verification
             if verify_ownership:

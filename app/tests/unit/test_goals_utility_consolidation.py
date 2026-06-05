@@ -234,7 +234,7 @@ class TestGoalsServiceAbandonmentGuard:
 
     @pytest.mark.asyncio
     async def test_proceeds_when_zero_active_tasks(self):
-        """count == 0 → guard passes, core.update() is called."""
+        """count == 0 → guard passes, the typed update_goal() path is called."""
         from unittest.mock import patch
 
         from core.services.cross_domain import ActiveTaskCount
@@ -249,7 +249,7 @@ class TestGoalsServiceAbandonmentGuard:
 
         sentinel_goal = MagicMock(uid="goal_1", user_uid="u", status="cancelled", created_at=None)
         with patch.object(
-            service.core, "update", new=AsyncMock(return_value=Result.ok(sentinel_goal))
+            service.core, "update_goal", new=AsyncMock(return_value=Result.ok(sentinel_goal))
         ):
             result = await service.cancel_goal("goal_1")
 
@@ -272,7 +272,7 @@ class TestGoalsServiceAbandonmentGuard:
 
         sentinel_goal = MagicMock(uid="goal_1", user_uid="u", status="cancelled", created_at=None)
         with patch.object(
-            service.core, "update", new=AsyncMock(return_value=Result.ok(sentinel_goal))
+            service.core, "update_goal", new=AsyncMock(return_value=Result.ok(sentinel_goal))
         ):
             result = await service.cancel_goal("goal_1")
 

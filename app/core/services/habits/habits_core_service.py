@@ -12,7 +12,6 @@ Responsibilities:
 - Publishes domain events (HabitCreated, HabitCompleted, HabitStreakBroken)
 """
 
-import dataclasses
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -36,7 +35,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class HabitsCoreService(BaseService[HabitsOperations, Habit]):
+class HabitsCoreService(BaseService[HabitsOperations, Habit, HabitUpdateIntent]):
     """
     Core CRUD service for habits.
 
@@ -114,7 +113,27 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Habit, updates: Mapping[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Habit, updates: HabitUpdateIntent) -> Result[None]:
+        """
+        Validate habit updates (base contract hook).
+
+        Delegates to :meth:`_validate_habit_update` with ``force_archive=False``. The
+        bespoke ``update_habit`` path calls ``_validate_habit_update`` directly so it can
+        surface the transient ``force_archive`` directive (which cannot ride the intent —
+        it would persist as a junk column).
+
+        Args:
+            current: Current habit state
+            updates: Typed ``HabitUpdateIntent`` of proposed changes
+
+        Returns:
+            None if valid, Result.fail() with validation error if invalid
+        """
+        return self._validate_habit_update(current, updates.to_changes(), force_archive=False)
+
+    def _validate_habit_update(
+        self, current: Habit, changes: Mapping[str, Any], *, force_archive: bool
+    ) -> Result[None]:
         """
         Validate habit updates with business rules.
 
@@ -124,7 +143,9 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         Args:
             current: Current habit state
-            updates: Dictionary of proposed changes
+            changes: Proposed field changes (the intent's ``to_changes()``)
+            force_archive: Transient directive bypassing the streak-preservation rule only —
+                never a persisted column
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
@@ -136,30 +157,28 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         # Users invest effort building streaks - prevent accidental destruction.
         # The transient ``force_archive`` directive (never a persisted column; passed via
         # the keyword on update_habit) bypasses THIS rule only — gating the condition on it
-        # is what makes the bypass the error message advertises actually work. (The legacy
-        # trailing ``if updates.get("force_archive")`` was dead code: both rules below
-        # early-returned before it could ever run.)
+        # is what makes the bypass the error message advertises actually work.
         if (
-            "status" in updates
-            and updates["status"] == EntityStatus.ARCHIVED.value
+            "status" in changes
+            and changes["status"] == EntityStatus.ARCHIVED.value
             and current.current_streak
             and current.current_streak >= 7
-            and not updates.get("force_archive")
+            and not force_archive
         ):
             return Result.fail(
                 Errors.validation(
                     message=f"This habit has an active {current.current_streak}-day streak. "
                     f"Archiving will end it. Set force_archive=true to proceed.",
                     field="status",
-                    value=updates["status"],
+                    value=changes["status"],
                 )
             )
 
         # Business Rule 2: Frequency consistency on update
         # Check if updating recurrence_pattern to DAILY or updating target_days_per_week.
         # This is a data-integrity rule — NOT bypassable by force_archive.
-        new_pattern = updates.get("recurrence_pattern", current.recurrence_pattern)
-        new_target = updates.get("target_days_per_week", current.target_days_per_week)
+        new_pattern = changes.get("recurrence_pattern", current.recurrence_pattern)
+        new_target = changes.get("target_days_per_week", current.target_days_per_week)
 
         # Handle both enum and string values for recurrence_pattern
         if isinstance(new_pattern, str):
@@ -339,41 +358,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return Result.ok(habit)
 
-    @staticmethod
-    def _intent_from_mapping(updates: Mapping[str, Any]) -> HabitUpdateIntent:
-        """Transitional bridge (ADR-066): build a ``HabitUpdateIntent`` from the ``Mapping``
-        the generic CRUD route and the in-service status/reminder methods
-        (``pause`` / ``resume`` / ``archive`` / ``set_habit_reminder`` /
-        ``delete_habit_reminder`` in ``_CompletionMixin``) still pass.
-
-        Only keys that are intent fields are carried; values are already storage-shaped
-        (the route stringifies enums via ``get_enum_value``). Non-column keys are naturally
-        dropped — both the four cross-domain edge UIDs (never written as junk node
-        properties) and the legacy junk writes ``notes`` / ``paused_until`` (not Habit
-        columns; nothing reads them off a habit). The transient ``force_archive`` validation
-        directive is likewise not an intent field — it is extracted separately by ``update``.
-        Removed in Phase 7, when the generic update path is parameterized over the intent and
-        callers pass it directly.
-        """
-        names = {f.name for f in dataclasses.fields(HabitUpdateIntent)}
-        return HabitUpdateIntent(**{k: v for k, v in updates.items() if k in names})
-
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Habit]:
-        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to a
-        ``HabitUpdateIntent`` and route through the one event-firing update path
-        (``update_habit``).
-
-        Callers still on the ``Mapping`` shape: the shared ``CRUDRouteFactory`` (via the
-        facade) and the in-service status/reminder methods. ``force_archive`` is a transient
-        validation directive (bypass the streak-preservation rule), not a column, so it is
-        extracted from the mapping and passed as a keyword — never persisted. Collapses to a
-        direct intent parameter in Phase 7.
-        """
-        force_archive = bool(updates.get("force_archive"))
-        return await self.update_habit(
-            uid, self._intent_from_mapping(updates), force_archive=force_archive
-        )
-
     @with_error_handling("update_habit", error_type="database", uid_param="uid")
     async def update_habit(
         self, uid: str, intent: HabitUpdateIntent, *, force_archive: bool = False
@@ -421,12 +405,9 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             return current_result
         current = current_result.value
 
-        # Validate with the transient force_archive flag visible to validation only —
-        # it is never added to `changes`, so it can never reach backend.update.
-        validation_view: dict[str, Any] = dict(changes)
-        if force_archive:
-            validation_view["force_archive"] = True
-        validation = self._validate_update(current, validation_view)
+        # Validate with the transient force_archive flag visible to validation only — it is
+        # never added to `changes`, so it can never reach backend.update.
+        validation = self._validate_habit_update(current, changes, force_archive=force_archive)
         if validation.is_error:
             return Result.fail(validation)
 

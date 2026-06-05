@@ -18,6 +18,7 @@ import builtins
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import UserUID
+from core.models.update_contracts import RawChanges
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -49,7 +50,7 @@ class GroupOperations(Protocol):
         """Verify user owns the group (owner_uid match). Returns Result[Group]."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> "Result[Group]":
+    async def update(self, uid: str, updates: RawChanges) -> "Result[Group]":
         """Update a group. Returns Result[Group]."""
         ...
 

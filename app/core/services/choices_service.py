@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
+from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums import EntityStatus
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import ChoicesOperations
@@ -55,12 +56,10 @@ from core.utils.sort_functions import (
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from datetime import date
 
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.choice.choice_request import ChoiceCreateRequest
-    from core.models.choice.choice_update_intent import ChoiceUpdateIntent
     from core.models.enums import Domain, Priority
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
@@ -148,7 +147,7 @@ class ChoicesService(
     _RelationshipMixin,
     _EnrichmentMixin,
     KnowledgeIntelligenceDelegationMixin,
-    BaseService["ChoicesOperations", Choice],
+    BaseService["ChoicesOperations", Choice, ChoiceUpdateIntent],
 ):
     """
     Choices service facade with specialized sub-services.
@@ -471,28 +470,25 @@ class ChoicesService(
         nothing to split off."""
         return await self.core.update_choice(choice_uid, intent)
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Choice]:
+    async def update(self, uid: str, updates: ChoiceUpdateIntent) -> Result[Choice]:
         """Override the inherited CRUD update (generated JSON route, no ownership check).
 
-        Transitional ADR-066 funnel: the generic factory still hands a ``Mapping``, so
-        route it through the core funnel (``ChoicesCoreService.update`` → ``update_choice``),
-        which validates and fires ChoiceUpdated. Collapses to a direct intent parameter in
-        Phase 7."""
-        return await self.core.update(uid, updates)
+        Routes the typed intent through the one validated, event-firing update path
+        (``ChoicesCoreService.update_choice``) — the inherited base ``update`` on the facade
+        would skip the core's validation and events."""
+        return await self.core.update_choice(uid, updates)
 
     async def update_for_user(
-        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
+        self, uid: str, updates: ChoiceUpdateIntent, user_uid: UserUID
     ) -> Result[Choice]:
         """Override the inherited ownership-verified CRUD update (generated JSON route).
 
-        Verifies ownership BEFORE any mutation, then funnels through the one validated,
-        event-firing update path (``ChoicesCoreService.update`` → ``update_choice``).
-        Transitional ADR-066 ``Mapping``→intent bridge; collapses to a direct intent
-        parameter in Phase 7."""
+        Verifies ownership BEFORE any mutation, then routes through the one validated,
+        event-firing update path (``ChoicesCoreService.update_choice``)."""
         ownership = await self.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
-        return await self.core.update(uid, updates)
+        return await self.core.update_choice(uid, updates)
 
     async def delete_choice(self, choice_uid: str) -> Result[bool]:
         """Delete a choice."""
