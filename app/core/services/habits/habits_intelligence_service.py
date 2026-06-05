@@ -20,7 +20,6 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
-from core.models.enums import Domain
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -94,14 +93,6 @@ class HabitsIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
-
-        self._init_context_loader(
-            get_entity=self.backend.get_habit,
-            dto_class=HabitDTO,
-            model_class=Habit,
-            domain=Domain.HABITS,
-            model_name="Habit",
-        )
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

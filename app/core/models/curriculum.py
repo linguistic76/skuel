@@ -47,7 +47,6 @@ if TYPE_CHECKING:
 
 from core.models.entity import Entity
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
-from core.models.query_types import QueryIntent
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -175,23 +174,6 @@ class Curriculum(Entity):
         """1 for basic, 2 for medium, 3 for advanced."""
         mapping = {KuComplexity.BASIC: 1, KuComplexity.MEDIUM: 2, KuComplexity.ADVANCED: 3}
         return mapping.get(self.complexity, 2)
-
-    # =========================================================================
-    # GRAPH INTELLIGENCE (Intent Suggestion)
-    # =========================================================================
-
-    def get_suggested_query_intent(self) -> QueryIntent:
-        """Get suggested QueryIntent based on knowledge characteristics."""
-        if self.is_foundational():
-            return QueryIntent.HIERARCHICAL
-        elif self.is_terminal():
-            return QueryIntent.PREREQUISITE
-        elif self.is_connected():
-            return QueryIntent.RELATIONSHIP
-        elif self.is_basic():
-            return QueryIntent.PRACTICE
-        else:
-            return QueryIntent.EXPLORATORY
 
     # =========================================================================
     # SEL FRAMEWORK INTEGRATION

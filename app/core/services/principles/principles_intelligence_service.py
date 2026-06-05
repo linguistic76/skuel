@@ -21,9 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain
 from core.models.principle.principle import Principle
-from core.models.principle.principle_dto import PrincipleDTO
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.principles._alignment_intelligence_mixin import _AlignmentIntelligenceMixin
@@ -85,12 +83,4 @@ class PrinciplesIntelligenceService(
             graph_intel=graph_intel,
             relationship_service=relationship_service,
             insight_store=insight_store,
-        )
-
-        self._init_context_loader(
-            get_entity=self.backend.get,
-            dto_class=PrincipleDTO,
-            model_class=Principle,
-            domain=Domain.PRINCIPLES,
-            model_name="Principle",
         )

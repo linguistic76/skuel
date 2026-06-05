@@ -27,7 +27,6 @@ from core.models.askesis.askesis_dto import AskesisDTO
 from core.models.entity_dto import EntityDTO as KnowledgeUnitDTO
 from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
 from core.models.enums.askesis_enums import QueryComplexity
-from core.models.query_types import QueryIntent
 from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.models.search_models import SearchQueryRequest as SearchQuerySchema
 from core.models.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
@@ -282,44 +281,6 @@ class AskesisRequest:
     def should_search(self) -> bool:
         """Determine if search should be performed"""
         return self.include_search and len(self.message.strip()) > 0
-
-    # ==========================================================================
-    # GRAPH INTELLIGENCE (Intent Suggestion)
-    # ==========================================================================
-
-    def get_suggested_query_intent(self) -> QueryIntent:
-        """
-        Get suggested QueryIntent based on request characteristics.
-
-        Business rules:
-        - Question about "how" → EXPLORATORY (discover)
-        - Question about "what is" → SPECIFIC (definition)
-        - Question about "why" → RELATIONSHIP (understand connections)
-        - Request for practice → PRACTICE (find opportunities)
-        - Request for prerequisites → PREREQUISITE (understand foundation)
-        - Default → EXPLORATORY (learning mode)
-
-        Returns:
-            Recommended QueryIntent for this request
-        """
-        message_lower = self.message.lower()
-
-        if "how to" in message_lower or "how do" in message_lower:
-            return QueryIntent.EXPLORATORY
-
-        if "what is" in message_lower or "define" in message_lower:
-            return QueryIntent.SPECIFIC
-
-        if "why" in message_lower:
-            return QueryIntent.RELATIONSHIP
-
-        if "practice" in message_lower or "exercise" in message_lower:
-            return QueryIntent.PRACTICE
-
-        if "prerequisite" in message_lower or "need to know" in message_lower:
-            return QueryIntent.PREREQUISITE
-
-        return QueryIntent.EXPLORATORY
 
 
 # ============================================================================

@@ -31,9 +31,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.type_hints import UserUID
 from core.ports.content_protocols import ContentAdapter
 from core.ports.query_types import (
@@ -115,7 +113,7 @@ class LpIntelligenceService(
 
         Args:
             backend: Primary backend for BaseAnalyticsService and LP operations
-            graph_intel: GraphIntelligenceService - for GraphContextLoader
+            graph_intel: GraphIntelligenceService - gates graph-context retrieval (mechanism B)
             relationship_service: UnifiedRelationshipService (optional)
             progress_backend: Progress backend (LP-specific)
             event_bus: Event bus for publishing events
@@ -154,14 +152,6 @@ class LpIntelligenceService(
 
         self.quality_assessor = ContentQualityAssessor(
             content_analyzer=self.content_analyzer,
-        )
-
-        self._init_context_loader(
-            get_entity=self.backend.get,
-            dto_class=LearningPathDTO,
-            model_class=LearningPath,
-            domain=Domain.LEARNING,
-            model_name="LearningPath",
         )
 
         self.logger.info(
@@ -897,33 +887,3 @@ class LpIntelligenceService(
             f"Path context for {path_uid}: {progress:.1f}% complete, {len(blocking)} blockers"
         )
         return Result.ok(enhanced_context)
-
-
-# ============================================================================
-# FACTORY FUNCTION (Bootstrap Compatibility)
-# ============================================================================
-
-
-def create_lp_intelligence_service(
-    progress_backend: Any | None = None,
-    backend: Any | None = None,
-    graph_intel: Any = None,
-) -> LpIntelligenceService:
-    """
-    Factory function to create LpIntelligenceService instance.
-
-    NOTE: No embeddings_service parameter (ADR-030).
-
-    Args:
-        progress_backend: Progress backend (Universal Backend pattern)
-        backend: Learning backend (Universal Backend pattern)
-        graph_intel: GraphIntelligenceService - for GraphContextLoader
-
-    Returns:
-        LpIntelligenceService: Configured service instance (facade pattern)
-    """
-    return LpIntelligenceService(
-        progress_backend=progress_backend,
-        backend=backend,
-        graph_intel=graph_intel,
-    )

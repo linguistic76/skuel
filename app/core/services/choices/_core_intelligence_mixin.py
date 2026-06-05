@@ -5,13 +5,15 @@ Core Intelligence Mixin — ChoicesIntelligenceService
 Graph-context methods: get_with_context, get_choice_with_context,
 get_decision_intelligence, analyze_choice_impact.
 
-Graph context retrieval routes through mechanism B (registry-sourced):
-``self.relationships.get_with_context`` sources its edge vocabulary from
-``CHOICES_CONFIG.cross_domain_relationship_types`` (the registry single source of
-truth) rather than the inherited ``GraphContextLoader`` EXPLORATORY path.
+Graph context retrieval (mechanism B, registry-sourced) is inherited from the
+shared ``_CoreIntelligenceMixin``: ``self.relationships.get_with_context`` sources
+its edge vocabulary from ``CHOICES_CONFIG.cross_domain_relationship_types`` (the
+registry single source of truth). This mixin adds the choice-named alias plus
+decision intelligence.
 
 Part of choices_intelligence_service.py decomposition (March 2026).
-Converged onto mechanism B in Convergence Phase 1 (2C), copying the Tasks reference.
+Converged onto mechanism B in Convergence Phase 1 (2C); the per-domain override
+was collapsed into the shared base in the curriculum-convergence teardown.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md,
      /docs/roadmap/intent-traversal-registry-convergence.md
 """
@@ -26,7 +28,7 @@ from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
 from core.utils.decorators import requires_graph_intelligence
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
@@ -105,30 +107,6 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     backend: Any
     relationships: UnifiedRelationshipService[Any, Any, Any] | None
     path_helper: Any
-
-    @requires_graph_intelligence("get_with_context")
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Choice, GraphContext]]:
-        """
-        Get choice with full graph context via mechanism B (registry-sourced).
-
-        One Path Forward (Convergence Phase 1): route through
-        ``self.relationships.get_with_context`` — which sources its edge vocabulary
-        from ``CHOICES_CONFIG.cross_domain_relationship_types`` (the registry, the
-        single source of truth) — instead of the inherited ``GraphContextLoader``
-        EXPLORATORY path. Copies the Tasks reference (PR #225, 2A).
-
-        See: /docs/roadmap/intent-traversal-registry-convergence.md
-        """
-        if self.relationships is None:
-            return Result.fail(
-                Errors.system(
-                    message="relationship_service required for get_with_context",
-                    operation="get_with_context",
-                )
-            )
-        return await self.relationships.get_with_context(uid, depth)
 
     @requires_graph_intelligence("get_choice_with_context")
     async def get_choice_with_context(

@@ -30,7 +30,12 @@ def _make_backend():
 
 
 class TestKuIntelligenceGetWithContext:
-    """Test get_with_context protocol method."""
+    """Test get_with_context protocol method (mechanism B, registry-sourced).
+
+    Ku inherits the shared ``_CoreIntelligenceMixin.get_with_context``, which routes
+    through ``self.relationships.get_with_context`` (edge vocabulary sourced from
+    ``KU_CONFIG.cross_domain_relationship_types``) — no model-suggested loader path.
+    """
 
     @pytest.mark.asyncio
     async def test_returns_error_without_graph_intel(self):
@@ -42,23 +47,33 @@ class TestKuIntelligenceGetWithContext:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_delegates_to_context_loader(self):
+    async def test_returns_error_without_relationships(self):
         backend = _make_backend()
         graph_intel = MagicMock()
-        service = KuIntelligenceService(backend=backend, graph_intel=graph_intel)
+        service = KuIntelligenceService(
+            backend=backend, graph_intel=graph_intel, relationship_service=None
+        )
 
+        result = await service.get_with_context("ku_test_abc123")
+
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_delegates_to_relationships(self):
+        backend = _make_backend()
+        graph_intel = MagicMock()
+        relationships = MagicMock()
         mock_context = MagicMock()
         ku = _make_ku()
-        service.context_loader.get_with_context = AsyncMock(
-            return_value=Result.ok((ku, mock_context))
+        relationships.get_with_context = AsyncMock(return_value=Result.ok((ku, mock_context)))
+        service = KuIntelligenceService(
+            backend=backend, graph_intel=graph_intel, relationship_service=relationships
         )
 
         result = await service.get_with_context("ku_test_abc123", depth=3)
 
         assert result.is_ok
-        service.context_loader.get_with_context.assert_awaited_once_with(
-            uid="ku_test_abc123", depth=3
-        )
+        relationships.get_with_context.assert_awaited_once_with("ku_test_abc123", 3)
 
 
 class TestKuIntelligencePerformanceAnalytics:
