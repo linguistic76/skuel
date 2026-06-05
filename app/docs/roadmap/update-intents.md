@@ -163,6 +163,13 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
   Watch the activity mixins typed `core: Any` (e.g. `habits/_completion_mixin.py`) — passing an intent
   through an `Any` attribute is unchecked; tighten the attribute type to the core service (or its
   protocol) so the intent is actually verified.
+  **Caller-convergence (step 4) — both still carry the legacy form:** `principles_api.py:32` and
+  `habits_api.py:32` each call `service.core.update(uid, {"status": new_status})`, drilling past the
+  facade with a raw dict (the same debt Choices' Phase 4 removed). Converge each to the facade +
+  typed-intent form — `service.update_<domain>(uid, <Domain>UpdateIntent(status=new_status))`
+  (Tasks/Events/Choices) or a typed `set_status` dispatch facade method (Goals). After Phases 5–6,
+  Tasks/Events/Choices/Principles/Habits use the typed-intent status route and Goals uses
+  `set_status`; **no activity `*_api.py` should call `.core.update(dict)`.**
 - **Phase 7 — Teardown + One-Path cleanup + base parameterization.**
   - **Parameterize the base over the update type (the ADR-066 destination).** With all six domains on
     intents, add `U: SupportsToChanges` (a `to_changes() -> dict[str, Any]` protocol) as a third type
