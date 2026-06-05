@@ -13,11 +13,19 @@ Usage:
 See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.hierarchy_route_factory import HierarchyRouteFactory
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from core.models.choice.choice_request import ChoiceUpdateRequest
+from core.models.event.event_request import EventUpdateRequest
+from core.models.goal.goal_request import GoalUpdateRequest
+from core.models.habit.habit_request import HabitUpdateRequest
+from core.models.principle.principle_request import PrincipleUpdateRequest
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 
 def create_hierarchy_api_routes(
@@ -37,16 +45,17 @@ def create_hierarchy_api_routes(
     """
     routes: list[Any] = []
 
-    # Activity domains (5)
-    domain_configs = [
-        ("goals", kwargs.get("goals"), "Goal"),
-        ("habits", kwargs.get("habits"), "Habit"),
-        ("events", kwargs.get("events"), "Event"),
-        ("choices", kwargs.get("choices"), "Choice"),
-        ("principles", kwargs.get("principles"), "Principle"),
+    # Activity domains (5) — each carries its *UpdateRequest so inline title edits build
+    # the typed *UpdateIntent (ADR-066), not a plain dict the facade can no longer accept.
+    domain_configs: list[tuple[str, Any, str, type[BaseModel]]] = [
+        ("goals", kwargs.get("goals"), "Goal", GoalUpdateRequest),
+        ("habits", kwargs.get("habits"), "Habit", HabitUpdateRequest),
+        ("events", kwargs.get("events"), "Event", EventUpdateRequest),
+        ("choices", kwargs.get("choices"), "Choice", ChoiceUpdateRequest),
+        ("principles", kwargs.get("principles"), "Principle", PrincipleUpdateRequest),
     ]
 
-    for domain, service, entity_name in domain_configs:
+    for domain, service, entity_name, update_schema in domain_configs:
         if not service:
             continue
         factory = HierarchyRouteFactory(
@@ -55,6 +64,7 @@ def create_hierarchy_api_routes(
             domain=domain,
             service=service,
             entity_name=entity_name,
+            update_schema=update_schema,
         )
         routes.extend(factory.create_routes())
 
