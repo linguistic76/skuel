@@ -57,11 +57,22 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
 > `CRUDRouteFactory` + `calendar_service`) through it via a small, greppable
 > `_intent_from_mapping` bridge. The shared `CrudOperationsMixin` / `CrudOperations`
 > protocol — including `_validate_update` / `_post_update` — stays `Mapping`-typed
-> until **Phase 7**, when, with all six domains on intents, it is parameterized over
-> `U: SupportsToChanges` (PEP 695 *bound*, no default — valid on Python 3.12) and the
-> generic methods + bridges collapse to a direct intent parameter. This is the ADR-066
-> destination ("the service contract `update` / `update_for_user` accepts the domain
-> `*UpdateIntent`"); the funnel is the 3.12-clean, low-blast-radius path to it.
+> until **Phase 7**, when, with all six domains on intents, it is parameterized over a third
+> type param `U: SupportsToChanges` and the generic methods + bridges collapse to a direct
+> intent parameter. This is the ADR-066 destination ("the service contract `update` /
+> `update_for_user` accepts the domain `*UpdateIntent`"); the funnel is the low-blast-radius
+> path to it.
+>
+> **Correction (2026-06-05, traced for Phase 7):** the original note said "PEP 695 *bound*,
+> no default — valid on Python 3.12." That assumed only the six activity domains touch the
+> base. They don't: `BaseService` / `CrudOperationsMixin` is the **universal** base — ~59
+> `BaseService[Op, T]` instantiations, ~53 of them non-activity (Ku/Ps/Lp/UserEntry/forms/
+> templates/…) with **no** intent. A no-default `U` would force all 59 to declare one. So
+> `U` needs a **PEP 696 type-param *default*** (available now — the repo is on **Python
+> 3.14**, ADR-067) so only the six activity domains override `U` and the rest are untouched.
+> The default must itself satisfy `SupportsToChanges` (a plain `Mapping` does **not** — has no
+> `to_changes()`); resolve in Phase 7 (likely a tiny `RawChanges` wrapper as the default, or a
+> looser bound). Full traced rationale: memory `project_update_intents_phase7_plan`.
 
 ## The pattern per domain (what each phase does)
 
@@ -220,18 +231,46 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
   `service.core.update(uid, {"status": ...})` to `habits_service.update_habit(uid, HabitUpdateIntent(status=new_status))`.
   **End-state invariant achieved: no activity `*_api.py` calls `.core.update(dict)`** — Tasks/Events/Choices/Principles/Habits
   use the typed-intent status route and Goals uses `set_status`.
-- **Phase 7 — Teardown + One-Path cleanup + base parameterization.**
-  - **Parameterize the base over the update type (the ADR-066 destination).** With all six domains on
-    intents, add `U: SupportsToChanges` (a `to_changes() -> dict[str, Any]` protocol) as a third type
-    param to `CrudOperationsMixin` / `BaseService` / `CrudOperations` — a PEP 695 *bound* (no default),
-    valid on Python 3.12. `update` / `update_for_user` / `_validate_update` / `_post_update` then read
-    the intent directly; materialization is uniform `updates.to_changes()` (no `isinstance`). Each
-    domain declares its intent (`BaseService[TasksOperations, Task, TaskUpdateIntent]`), the generic
-    `CRUDRouteFactory` builds the intent via `UpdateRequestBase.to_intent()`, and the per-domain
-    `_intent_from_mapping` funnel bridges are deleted.
-  - Delete all `*UpdatePayload` from `core/ports/query_types.py` (and `__init__` re-exports) and the
-    advertising docstring in `core/services/mixins/crud_operations_mixin.py`. Remove the now-dead
-    `Mapping[str, Any]` bridge signatures where every caller passes an intent.
+- **Phase 7 — Teardown + One-Path cleanup + base parameterization.** Split into two PRs (see memory
+  `project_update_intents_phase7_plan` for the full traced plan). The edge-clear UX gap (Tasks/Events
+  picker `""`→None) is **out of Phase 7** — a deferred UX bug, not One-Path teardown; track separately.
+
+  **Phase 7a — base parameterization (atomic code, one PR).** This is *forced-atomic*: parameterizing
+  the base over the update type mechanically forces the funnel/factory/hook changes together — once
+  `update` takes `U`, the facade `update(uid, Mapping)` funnel overrides become **incompatible
+  overrides** (the intent dataclass is not a `Mapping`) → red MyPy. So in one change:
+  - Add `SupportsToChanges` (`to_changes() -> dict[str, Any]`) and `SupportsToIntent`
+    (`to_intent() -> SupportsToChanges`) protocols. Add `U` as a third type param to
+    `CrudOperationsMixin` / `BaseService` / `CrudOperations` with a **PEP 696 bounded *default*** (the
+    repo is on Python 3.14) so only the six activity domains override `U`; the ~53 non-activity
+    `BaseService[Op, T]` sites stay untouched. (See the Correction note above for why a no-default
+    bound is wrong here.)
+  - `update` / `update_for_user` take `U`, materialize uniformly via `updates.to_changes()` at the
+    single backend seam (no `isinstance`, no `dict()`-wrap). Retype `_validate_update` / `_post_update`
+    from `Mapping` to `U` across the base + the six domain overrides + forms (MyPy is the teacher —
+    move them together).
+  - Each activity domain declares its intent (`BaseService[TasksOperations, Task, TaskUpdateIntent]`).
+    The generic `CRUDRouteFactory` builds the intent via the request's `to_intent()` — type it against
+    `SupportsToIntent` (the six `*UpdateRequest` bases are inconsistent: Tasks + Choices extend
+    `UpdateRequestBase`, the rest `BaseModel`; all six have `to_intent()`). Migrate `calendar_service`
+    (the other `Mapping` caller) to build the intent. Delete the six `_intent_from_mapping` funnels +
+    facade `update`/`update_for_user` `Mapping` overrides.
+  - Delete the **six activity** `*UpdatePayload` (Task/Goal/Habit/Event/Choice/Principle) from
+    `core/ports/query_types.py` (+ `__init__` re-exports), the advertising docstring in
+    `core/services/mixins/crud_operations_mixin.py`, and the `query_types` usage-example blocks. **Leave
+    the three curriculum payloads (Ku/Ps/Lp)** — out of scope; verify usages, leave if load-bearing;
+    delete `BaseUpdatePayload` only if unused after.
+  - **`force_archive` reconciliation:** keep Habits' `update_habit(uid, intent, *, force_archive)` as
+    the documented bespoke explicit-validate path — `force_archive` cannot ride the intent (backend
+    does `SET n += $updates`, no key filter → it would persist as a junk column). Do **not** silently
+    wire on Tasks'/Principles' dead/stale `_validate_update` hooks (Principles' Rule 4 is unsatisfiable).
+  - Verify: `./dev quality` (MyPy 0, Pyright 0) + the **six live pipeline tests** on Docker Neo4j
+    (behavior must not change; Habits' force_archive cases are the canary). Tick col 5 for the six
+    activity rows.
+
+  **Phase 7b — docs/skills One-Path cleanup (gated prose, one PR — only after 7a merges).** Docs must
+  describe the *final* code, so this follows 7a. Verify every behavioral claim vs code (mechanical
+  rename is unsound).
   - **Docs** (rewrite to the intent pattern, delete TypedDict references):
     `docs/patterns/three_tier_type_system.md` (§ TypedDicts, lines ~622–719),
     `docs/patterns/query_architecture.md` (§ TypedDicts, lines ~508–559),
