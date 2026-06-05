@@ -30,6 +30,7 @@ from core.constants import GraphDepth, QueryLimit
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.type_hints import EntityUID, UserUID
+from core.models.update_contracts import RawChanges
 from core.ports.base_protocols import HasUID
 from core.ports.query_types import (
     ListContext,
@@ -302,7 +303,7 @@ class PsService:
 
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[PathStep]:
         """Update a path step."""
-        return await self.core.update(uid, updates)
+        return await self.core.update(uid, RawChanges(updates))
 
     async def delete(self, uid: str) -> Result[bool]:
         return await self.core.delete(uid)
@@ -808,7 +809,7 @@ class PsService:
         updates: dict[str, Any] = {"content": content}
         if title:
             updates["title"] = title
-        return await self.core.update(uid, updates)
+        return await self.core.update(uid, RawChanges(updates))
 
     async def add_step_tags(self, uid: str, tags: list[str]) -> Result[PathStep]:
         """Add tags to a path step."""
@@ -820,7 +821,7 @@ class PsService:
             return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
         current_tags = list(entity.tags or [])
         updated_tags = list(set(current_tags + tags))
-        return await self.core.update(uid, {"tags": updated_tags})
+        return await self.core.update(uid, RawChanges({"tags": updated_tags}))
 
     async def remove_step_tags(self, uid: str, tags: list[str]) -> Result[PathStep]:
         """Remove tags from a path step."""
@@ -832,7 +833,7 @@ class PsService:
             return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
         current_tags = list(entity.tags or [])
         updated_tags = [t for t in current_tags if t not in tags]
-        return await self.core.update(uid, {"tags": updated_tags})
+        return await self.core.update(uid, RawChanges({"tags": updated_tags}))
 
     # ============================================================================
     # SUBSTANCE TRACKING EVENT LISTENERS

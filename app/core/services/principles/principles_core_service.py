@@ -13,8 +13,6 @@ Responsibilities:
 Part of the PrinciplesService decomposition.
 """
 
-import dataclasses
-from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
 
@@ -40,7 +38,7 @@ from core.utils.sort_functions import get_principle_priority
 logger = get_logger(__name__)
 
 
-class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
+class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, PrincipleUpdateIntent]):
     """
     Core service for principle CRUD operations.
 
@@ -120,7 +118,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Principle, updates: Mapping[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Principle, updates: PrincipleUpdateIntent) -> Result[None]:
         """
         Validate principle updates with business rules.
 
@@ -130,17 +128,24 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         3. Adoption level: Cannot reduce adoption level (principles should grow with practice)
         4. Well-established principles: Require modification reason for principles with adoption >= 80%
 
+        Note: ``update_principle`` is backend-direct and does not invoke this hook (the
+        rules are stale — Rule 1 keys on ``label`` not ``title``; Rule 3's ``strength_order``
+        casing never matches; Rule 4's ``modification_reason`` field exists nowhere). Reforming
+        these rules onto the intent is tracked separately; the hook is retained for the base
+        ``update`` contract and reads ``updates.to_changes()`` to stay type-consistent.
+
         Args:
             current: Current principle state
-            updates: Dictionary of proposed changes
+            updates: Typed ``PrincipleUpdateIntent`` of proposed changes
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
         assert isinstance(current, Principle)
+        changes = updates.to_changes()
         # Business Rule 1: Label validation on update
-        if "label" in updates:
-            label = updates["label"]
+        if "label" in changes:
+            label = changes["label"]
             if not label or len(str(label).strip()) < 10:
                 return Result.fail(
                     Errors.validation(
@@ -151,8 +156,8 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
                 )
 
         # Business Rule 2: Description validation on update
-        if "description" in updates:
-            description = updates["description"]
+        if "description" in changes:
+            description = changes["description"]
             if not description or len(str(description).strip()) < 20:
                 return Result.fail(
                     Errors.validation(
@@ -166,19 +171,19 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         # Principles grow with practice - decreasing strength suggests abandonment
         # GRAPH-NATIVE: Uses strength enum, not numeric adoption_level
         strength_order = {"EXPLORING": 1, "DEVELOPING": 2, "MODERATE": 3, "STRONG": 4, "CORE": 5}
-        if "strength" in updates:
+        if "strength" in changes:
             current_strength = strength_order.get(
                 current.strength.value if current.strength else "MODERATE", 3
             )
-            new_strength = strength_order.get(updates["strength"], 3)
+            new_strength = strength_order.get(changes["strength"], 3)
             if new_strength < current_strength:
                 return Result.fail(
                     Errors.validation(
                         message="Cannot reduce principle strength. Principles should grow with practice. "
-                        f"Current: {current.strength.value if current.strength else 'unknown'}, Proposed: {updates['strength']}. "
+                        f"Current: {current.strength.value if current.strength else 'unknown'}, Proposed: {changes['strength']}. "
                         "Archive the principle instead if no longer relevant.",
                         field="strength",
-                        value=updates["strength"],
+                        value=changes["strength"],
                     )
                 )
 
@@ -187,8 +192,8 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         # GRAPH-NATIVE: Uses strength enum (CORE/STRONG = well-established)
         if current.strength in (PrincipleStrength.CORE, PrincipleStrength.STRONG):
             modifying_core_fields = {"label", "description", "category"}
-            if set(updates.keys()) & modifying_core_fields and (
-                "modification_reason" not in updates or not updates["modification_reason"]
+            if set(changes.keys()) & modifying_core_fields and (
+                "modification_reason" not in changes or not changes["modification_reason"]
             ):
                 strength_label = current.strength.value if current.strength else "unknown"
                 return Result.fail(
@@ -299,30 +304,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         logger.info(f"Created principle: {request.title}")
         return result
-
-    @staticmethod
-    def _intent_from_mapping(updates: Mapping[str, Any]) -> PrincipleUpdateIntent:
-        """Transitional bridge (ADR-066): build a ``PrincipleUpdateIntent`` from the
-        ``Mapping`` the generic CRUD route and the in-service status route
-        (``principles_api`` → ``{"status": ...}``) still pass.
-
-        Only keys that are intent fields are carried; values are already storage-shaped
-        (the route stringifies enums). Removed in Phase 7, when the generic update path is
-        parameterized over the intent and callers pass it directly.
-        """
-        names = {f.name for f in dataclasses.fields(PrincipleUpdateIntent)}
-        return PrincipleUpdateIntent(**{k: v for k, v in updates.items() if k in names})
-
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Principle]:
-        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to a
-        ``PrincipleUpdateIntent`` and route through the one event-firing update path
-        (``update_principle``).
-
-        Callers still on the ``Mapping`` shape: the shared ``CRUDRouteFactory`` (via the
-        facade) and the ``principles_api`` status route (``core.update(uid, {"status": ...})``).
-        Collapses to a direct intent parameter in Phase 7.
-        """
-        return await self.update_principle(uid, self._intent_from_mapping(updates))
 
     @with_error_handling("update_principle", error_type="database", uid_param="principle_uid")
     async def update_principle(

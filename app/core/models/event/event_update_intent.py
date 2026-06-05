@@ -21,8 +21,8 @@ write them as junk node properties if they ever reached the backend, which is ex
 split the ADR-035/ADR-065 graph-native migration enforces.
 
 Beyond the request-settable columns, this intent also models ``metadata`` (written by
-``update_event_status`` for status-change notes / cancellation reasons) so the
-``_intent_from_mapping`` funnel can carry it end to end.
+``update_event_status`` for status-change notes / cancellation reasons), which constructs
+this intent directly.
 
 Deliberately **absent**: ``practices_knowledge_uids`` / ``executes_tasks`` (on
 ``EventUpdateRequest`` but neither node columns nor handled edges on the update path — the

@@ -142,23 +142,6 @@ class TestPrincipleUpdateIntentPipeline:
         assert changed[-1].old_strength == PrincipleStrength.MODERATE.value
         assert changed[-1].new_strength == PrincipleStrength.STRONG.value
 
-    async def test_mapping_funnel_routes_through_intent(
-        self, core_service, seeded_principle, event_bus
-    ) -> None:
-        """The Mapping funnel (core.update — the principles_api status route) fires
-        PrincipleUpdated."""
-        event_bus.clear_event_history()
-
-        result = await core_service.update(
-            seeded_principle.uid, {"status": EntityStatus.ARCHIVED.value}
-        )
-        assert result.is_ok
-        assert result.value.status == EntityStatus.ARCHIVED
-
-        updated = [e for e in event_bus.get_event_history() if isinstance(e, PrincipleUpdated)]
-        assert updated, "the Mapping funnel must fire PrincipleUpdated"
-        assert "status" in updated[-1].updated_fields
-
     async def test_to_intent_carries_only_explicit_fields(self) -> None:
         """to_intent() reflects model_fields_set: provided → set, absent → UNSET."""
         request = PrincipleUpdateRequest(title="Just the title")

@@ -30,6 +30,7 @@ from core.models.enums.principle_enums import PrincipleCategory, PrincipleStreng
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
+from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -59,14 +60,12 @@ from core.utils.sort_functions import get_created_at_attr, get_title_or_name_low
 from core.utils.type_converters import normalize_enum_str
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from datetime import date
 
     from core.models.context_types import ContextualPrinciple, PracticeOpportunity
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.models.principle.principle_types import PrincipleDecision
-    from core.models.principle.principle_update_intent import PrincipleUpdateIntent
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.query_types import ListContext
@@ -189,7 +188,7 @@ class PrinciplesService(
     _GravityMixin,
     _EnrichmentMixin,
     KnowledgeIntelligenceDelegationMixin,
-    BaseService[PrinciplesOperations, Principle],
+    BaseService[PrinciplesOperations, Principle, PrincipleUpdateIntent],
 ):
     """
     Principles service facade with specialized sub-services.
@@ -508,28 +507,25 @@ class PrinciplesService(
         Principles carry no edge fields, so there is nothing to split off."""
         return await self.core.update_principle(principle_uid, intent)
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Principle]:
+    async def update(self, uid: str, updates: PrincipleUpdateIntent) -> Result[Principle]:
         """Override the inherited CRUD update (generated JSON route, no ownership check).
 
-        Transitional ADR-066 funnel: the generic factory still hands a ``Mapping``, so
-        route it through the core funnel (``PrinciplesCoreService.update`` →
-        ``update_principle``), which fires ``PrincipleUpdated``. Collapses to a direct intent
-        parameter in Phase 7."""
-        return await self.core.update(uid, updates)
+        Routes the typed intent through the one event-firing update path
+        (``PrinciplesCoreService.update_principle``) — the inherited base ``update`` on the
+        facade would skip the core's events."""
+        return await self.core.update_principle(uid, updates)
 
     async def update_for_user(
-        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
+        self, uid: str, updates: PrincipleUpdateIntent, user_uid: UserUID
     ) -> Result[Principle]:
         """Override the inherited ownership-verified CRUD update (generated JSON route).
 
-        Verifies ownership BEFORE any mutation, then funnels through the one event-firing
-        update path (``PrinciplesCoreService.update`` → ``update_principle``). Transitional
-        ADR-066 ``Mapping``→intent bridge; collapses to a direct intent parameter in
-        Phase 7."""
+        Verifies ownership BEFORE any mutation, then routes through the one event-firing
+        update path (``PrinciplesCoreService.update_principle``)."""
         ownership = await self.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
-        return await self.core.update(uid, updates)
+        return await self.core.update_principle(uid, updates)
 
     # ========================================================================
     # QUERY LAYER

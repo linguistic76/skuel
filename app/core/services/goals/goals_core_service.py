@@ -18,7 +18,6 @@ Responsibilities:
 """
 
 import dataclasses
-from collections.abc import Mapping
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -41,7 +40,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.ports import get_enum_value
 from core.ports.domain_protocols import GoalsOperations
-from core.ports.query_types import GoalStats, GoalUpdatePayload
+from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
@@ -51,7 +50,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class GoalsCoreService(BaseService[GoalsOperations, Goal]):
+class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
     """
     Core CRUD operations for goals.
 
@@ -129,7 +128,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Goal, updates: Mapping[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Goal, updates: GoalUpdateIntent) -> Result[None]:
         """
         Validate goal updates with business rules.
 
@@ -142,11 +141,12 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         Args:
             current: Current goal state
-            updates: Dictionary of proposed changes
+            updates: Typed ``GoalUpdateIntent`` of proposed changes
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
+        changes = updates.to_changes()
 
         # Business Rule 1: Achievement state immutability
         # Achieved goals are historical records - modifying them corrupts progress tracking
@@ -161,10 +161,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         # Business Rule 2: Target date validation (if both dates present)
         # Check if we're updating either date field
-        if "target_date" in updates or "start_date" in updates:
+        if "target_date" in changes or "start_date" in changes:
             # Determine new values (use updated value if present, else current)
-            new_target = updates.get("target_date", current.target_date)
-            new_start = updates.get("start_date", current.start_date)
+            new_target = changes.get("target_date", current.target_date)
+            new_start = changes.get("start_date", current.start_date)
 
             # Both must be present and target must be after start
             if new_target and new_start:
@@ -356,33 +356,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return Result.ok(goal)
 
-    @staticmethod
-    def _intent_from_mapping(updates: Mapping[str, Any]) -> GoalUpdateIntent:
-        """Transitional bridge (ADR-066): build a ``GoalUpdateIntent`` from the ``Mapping``
-        the generic CRUD route, ``calendar_service``, and the in-service status methods
-        (activate / pause / complete / archive) still pass.
-
-        Only keys that are intent fields are carried; values are already storage-shaped
-        (the route stringifies enums via ``get_enum_value``). The three cross-domain edge
-        UIDs are not intent fields, so they are naturally dropped (never written as junk
-        node properties). Removed in Phase 7, when the generic update path is
-        parameterized over the intent and callers pass it directly.
-        """
-        names = {f.name for f in dataclasses.fields(GoalUpdateIntent)}
-        return GoalUpdateIntent(**{k: v for k, v in updates.items() if k in names})
-
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Goal]:
-        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to a
-        ``GoalUpdateIntent`` and route through the one event-firing update path
-        (``update_goal``).
-
-        Callers still on the ``Mapping`` shape: the shared ``CRUDRouteFactory`` /
-        ``calendar_service`` (via the facade) and the in-service status methods
-        (``activate_goal`` / ``pause_goal`` / ``complete_goal`` / ``archive_goal``).
-        Collapses to a direct intent parameter in Phase 7.
-        """
-        return await self.update_goal(uid, self._intent_from_mapping(updates))
-
     @with_error_handling("update_goal", error_type="database", uid_param="uid")
     async def update_goal(self, uid: str, intent: GoalUpdateIntent) -> Result[Goal]:
         """Update a goal's node properties (ADR-066 typed update contract).
@@ -419,7 +392,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             if current_result.is_ok:
                 old_goal = current_result.value
 
-        result: Result[Goal] = await super().update(uid, changes)
+        result: Result[Goal] = await super().update(uid, intent)
         if result.is_error:
             return result
 
@@ -511,8 +484,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing True if goal was activated
         """
-        updates: GoalUpdatePayload = {"status": EntityStatus.ACTIVE.value}
-        result = await self.update(uid, dict(updates))
+        result = await self.update_goal(uid, GoalUpdateIntent(status=EntityStatus.ACTIVE.value))
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def pause_goal(
@@ -529,19 +501,17 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing True if goal was paused
         """
-        updates: GoalUpdatePayload = {"status": EntityStatus.PAUSED.value}
-
         # Store pause metadata
         metadata_updates = {"pause_reason": reason}
         if until_date:
             metadata_updates["paused_until"] = until_date
 
-        result = await self.update(uid, dict(updates))
+        result = await self.update_goal(uid, GoalUpdateIntent(status=EntityStatus.PAUSED.value))
         if result.is_ok and metadata_updates:
             # Update metadata separately
             goal = result.value
             goal.metadata.update(metadata_updates)
-            await self.update(uid, {"metadata": goal.metadata})
+            await self.update_goal(uid, GoalUpdateIntent(metadata=goal.metadata))
 
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
@@ -559,13 +529,13 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing True if goal was completed
         """
-        updates: GoalUpdatePayload = {
-            "status": EntityStatus.COMPLETED.value,
-            "progress_percentage": 100.0,
-            "completion_date": (
+        intent = GoalUpdateIntent(
+            status=EntityStatus.COMPLETED.value,
+            progress_percentage=100.0,
+            completion_date=(
                 date.fromisoformat(completion_date) if completion_date else date.today()
             ),
-        }
+        )
 
         if completion_notes:
             # Get current goal to update metadata
@@ -573,9 +543,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             if goal_result.is_ok and goal_result.value:
                 goal = goal_result.value
                 goal.metadata["completion_notes"] = completion_notes
-                updates["metadata"] = goal.metadata
+                intent = dataclasses.replace(intent, metadata=goal.metadata)
 
-        result = await self.update(uid, dict(updates))
+        result = await self.update_goal(uid, intent)
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
@@ -589,7 +559,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing True if goal was archived
         """
-        updates: GoalUpdatePayload = {"status": EntityStatus.ARCHIVED.value}
+        intent = GoalUpdateIntent(status=EntityStatus.ARCHIVED.value)
 
         # Get current goal to update metadata
         goal_result = await self.get(uid)
@@ -597,9 +567,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             goal = goal_result.value
             goal.metadata["archive_reason"] = reason
             goal.metadata["archived_at"] = datetime.now().isoformat()
-            updates["metadata"] = goal.metadata
+            intent = dataclasses.replace(intent, metadata=goal.metadata)
 
-        result = await self.update(uid, dict(updates))
+        result = await self.update_goal(uid, intent)
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     # ========================================================================
@@ -636,9 +606,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         current_goal = goal_result.value
 
-        # Update status to completed
-        updates = {"status": EntityStatus.COMPLETED.value}
-        result = await super().update(uid, updates)
+        # Update status to completed (super().update so this method owns the GoalAchieved
+        # event below — update_goal would publish a second one).
+        result = await super().update(uid, GoalUpdateIntent(status=EntityStatus.COMPLETED.value))
 
         # Publish GoalAchieved event
         if result.is_ok:

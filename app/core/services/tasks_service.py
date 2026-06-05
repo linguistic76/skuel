@@ -22,8 +22,6 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from core.ports.domain_protocols import TasksOperations
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
@@ -234,7 +232,7 @@ class TasksService(
     _OrchestrationMixin,
     _RelationshipMixin,
     KnowledgeIntelligenceDelegationMixin,
-    BaseService["TasksOperations", Task],
+    BaseService["TasksOperations", Task, TaskUpdateIntent],
 ):
     """
     Tasks service facade with specialized sub-services.
@@ -449,18 +447,6 @@ class TasksService(
         )
         return habit_uid, applies_knowledge_uids, prop_intent
 
-    @staticmethod
-    def _intent_from_mapping(updates: Mapping[str, Any]) -> TaskUpdateIntent:
-        """Transitional bridge (ADR-066 Phase 1): build a ``TaskUpdateIntent`` from the
-        ``Mapping`` the generic CRUD JSON route and ``calendar_service`` still pass.
-
-        Only keys that are intent fields are carried; values are already storage-shaped
-        (the route stringifies enums via ``get_enum_value``). Removed in Phase 7, when the
-        generic update path is parameterized over the intent and callers pass it directly.
-        """
-        names = {f.name for f in dataclasses.fields(TaskUpdateIntent)}
-        return TaskUpdateIntent(**{k: v for k, v in updates.items() if k in names})
-
     async def _sync_relationship_edges(
         self, task_uid: str, habit_uid: str | None, applies_knowledge_uids: list[str] | None
     ) -> Result[None]:
@@ -573,30 +559,28 @@ class TasksService(
             await self._publish_edge_only_update(result.value, habit_uid, applies_knowledge_uids)
         return result
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Task]:
+    async def update(self, uid: str, updates: TaskUpdateIntent) -> Result[Task]:
         """Override the inherited CRUD update (generated JSON route, no ownership check).
 
-        Transitional ADR-066 Phase 1 funnel: the generic factory still hands a `Mapping`,
-        so bridge it to a `TaskUpdateIntent` and route through the one update path
-        (`update_task`), which fires events and syncs edges. Collapses to a direct
-        intent parameter in Phase 7."""
-        return await self.update_task(uid, self._intent_from_mapping(updates))
+        Routes the typed intent through the one update path (`update_task`), which fires
+        events and syncs edges — the inherited base `update` would write edge fields as
+        junk node properties and skip the edge sync."""
+        return await self.update_task(uid, updates)
 
     async def update_for_user(
         self,
         uid: str,
-        updates: Mapping[str, Any],
+        updates: TaskUpdateIntent,
         user_uid: UserUID,
     ) -> Result[Task]:
         """Override the inherited ownership-verified CRUD update (generated JSON route).
 
-        Verifies ownership BEFORE any mutation, then funnels through the one update path
-        (`update_task`). Transitional ADR-066 Phase 1 `Mapping`→intent bridge; collapses
-        to a direct intent parameter in Phase 7."""
+        Verifies ownership BEFORE any mutation, then routes through the one update path
+        (`update_task`)."""
         ownership = await self.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
-        return await self.update_task(uid, self._intent_from_mapping(updates))
+        return await self.update_task(uid, updates)
 
     async def get_reinforced_habit(self, task_uid: str) -> Result[str | None]:
         """Return the habit uid this task reinforces via (Task)-[:REINFORCES_HABIT]->(Habit).

@@ -25,7 +25,6 @@ import dataclasses
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     from datetime import date, time
 
 from core.events import publish_event
@@ -146,7 +145,7 @@ class EventsService(
     _OrchestrationMixin,
     _SchedulingMixin,
     KnowledgeIntelligenceDelegationMixin,
-    BaseService["EventsOperations", Event],
+    BaseService["EventsOperations", Event, EventUpdateIntent],
 ):
     """
     Events service facade with specialized sub-services.
@@ -307,18 +306,6 @@ class EventsService(
         )
         return goal_uid, habit_uid, prop_intent
 
-    @staticmethod
-    def _intent_from_mapping(updates: Mapping[str, Any]) -> EventUpdateIntent:
-        """Transitional bridge (ADR-066): build an ``EventUpdateIntent`` from the ``Mapping``
-        the generic CRUD JSON route and ``calendar_service`` still pass.
-
-        Only keys that are intent fields are carried; values are already storage-shaped (the
-        route stringifies enums via ``get_enum_value``). Removed in Phase 7, when the
-        generic update path is parameterized over the intent and callers pass it directly.
-        """
-        names = {f.name for f in dataclasses.fields(EventUpdateIntent)}
-        return EventUpdateIntent(**{k: v for k, v in updates.items() if k in names})
-
     async def _publish_edge_only_update(
         self, event: Event, goal_uid: str | None, habit_uid: str | None
     ) -> None:
@@ -377,27 +364,25 @@ class EventsService(
             await self._publish_edge_only_update(result.value, goal_uid, habit_uid)
         return result
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Event]:
+    async def update(self, uid: str, updates: EventUpdateIntent) -> Result[Event]:
         """Override the inherited CRUD update (generated JSON route, no ownership check).
 
-        Transitional ADR-066 funnel: the generic factory still hands a ``Mapping``, so
-        bridge it to an ``EventUpdateIntent`` and route through the one update path
-        (``update_event``), which fires events and splits edges. Collapses to a direct
-        intent parameter in Phase 7."""
-        return await self.update_event(uid, self._intent_from_mapping(updates))
+        Routes the typed intent through the one update path (``update_event``), which fires
+        events and splits edges — the inherited base ``update`` would write edge fields as
+        junk node properties and skip the edge replacement."""
+        return await self.update_event(uid, updates)
 
     async def update_for_user(
-        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
+        self, uid: str, updates: EventUpdateIntent, user_uid: UserUID
     ) -> Result[Event]:
         """Override the inherited ownership-verified CRUD update (generated JSON route).
 
-        Verifies ownership BEFORE any mutation, then funnels through the one update path
-        (``update_event``). Transitional ADR-066 ``Mapping``→intent bridge; collapses to a
-        direct intent parameter in Phase 7."""
+        Verifies ownership BEFORE any mutation, then routes through the one update path
+        (``update_event``)."""
         ownership = await self.verify_ownership(uid, user_uid)
         if ownership.is_error:
             return ownership
-        return await self.update_event(uid, self._intent_from_mapping(updates))
+        return await self.update_event(uid, updates)
 
     async def _replace_edge(
         self, relationship_key: str, event_uid: str, target_uid: str

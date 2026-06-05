@@ -21,7 +21,7 @@ Coverage Areas
 Usage
 -----
     from core.ports.query_types import (
-        CypherParams, ActivityFilterSpec, TaskUpdatePayload
+        CypherParams, ActivityFilterSpec, KuUpdatePayload
     )
 
     # Type-safe filter construction
@@ -266,189 +266,6 @@ class BaseUpdatePayload(TypedDict, total=False):
     description: str
     status: str
     updated_at: str
-
-
-class TaskUpdatePayload(BaseUpdatePayload, total=False):
-    """
-    Update payload for Task entities.
-
-    Task-Specific Fields:
-        priority: Task priority (high, medium, low, urgent)
-        due_date: ISO date string
-        completed_at: ISO timestamp when completed
-        progress: Completion progress 0.0-1.0
-
-    Relationship Hints:
-        goal_uid: Associated goal (for UI hints, actual link via relationships)
-
-    Usage:
-        updates: TaskUpdatePayload = {
-            "status": "completed",
-            "completed_at": "2026-01-21T10:30:00Z",
-            "progress": 1.0,
-        }
-        result = await tasks_service.update(uid, updates)
-    """
-
-    priority: str
-    due_date: str
-    completed_at: str
-    progress: float
-    goal_uid: str
-
-
-class GoalUpdatePayload(BaseUpdatePayload, total=False):
-    """
-    Update payload for Goal entities.
-
-    Goal-Specific Fields:
-        target_date: ISO date string for goal target
-        progress_percentage: Progress toward goal 0.0-100.0
-        completion_date: ISO date string when goal was completed
-        domain: Life domain (TECH, HEALTH, etc.)
-        current_value: Current value for measurable goals
-        metadata: Goal metadata dict
-
-    Usage:
-        updates: GoalUpdatePayload = {
-            "progress_percentage": 75.0,
-            "target_date": "2026-06-30",
-        }
-        result = await goals_service.update(uid, updates)
-    """
-
-    target_date: str | date
-    progress_percentage: float
-    completion_date: str | date
-    domain: str
-    current_value: float
-    metadata: dict[str, Any]
-    milestones: list[Any]
-
-
-class HabitUpdatePayload(BaseUpdatePayload, total=False):
-    """
-    Update payload for Habit entities.
-
-    Habit-Specific Fields:
-        frequency: Habit frequency (daily, weekly, etc.)
-        current_streak: Current consecutive completions
-        best_streak: Best streak ever achieved
-        last_completed: ISO timestamp of last completion
-
-    Tracking:
-        target_count: Target completions per period
-        actual_count: Actual completions this period
-
-    Usage:
-        updates: HabitUpdatePayload = {
-            "current_streak": 7,
-            "last_completed": "2026-01-21",
-        }
-        result = await habits_service.update(uid, updates)
-    """
-
-    frequency: str
-    current_streak: int
-    best_streak: int
-    last_completed: str | datetime
-    target_count: int
-    actual_count: int
-    total_completions: int
-    consistency_30d: float
-
-
-class EventUpdatePayload(BaseUpdatePayload, total=False):
-    """
-    Update payload for Event entities.
-
-    Event-Specific Fields:
-        event_date: ISO date string
-        start_time: ISO time or datetime string
-        end_time: ISO time or datetime string
-        location: Event location
-
-    Recurrence:
-        is_recurring: Whether event recurs
-        recurrence_pattern: Recurrence rule (e.g., "WEEKLY")
-
-    Usage (transitional ADR-066 Mapping funnel — the in-service status methods still pass
-    this dict to the inherited ``core.update``, which bridges it to an EventUpdateIntent;
-    ``update_event`` itself now takes a typed EventUpdateIntent, not this payload):
-        updates: EventUpdatePayload = {
-            "event_date": "2026-02-15",
-            "start_time": "14:00",
-            "end_time": "15:30",
-        }
-        result = await events_service.core.update(uid, updates)
-    """
-
-    event_date: str
-    start_time: str
-    end_time: str
-    location: str
-    is_recurring: bool
-    recurrence_pattern: str
-    notes: str
-
-
-class ChoiceUpdatePayload(BaseUpdatePayload, total=False):
-    """
-    Update payload for Choice entities.
-
-    Choice-Specific Fields:
-        urgency: Urgency level (critical, high, medium, low)
-        deadline: ISO date string for decision deadline
-        decision_made: Whether decision has been made
-        selected_option_uid: UID of selected option
-
-    Analysis:
-        confidence: Decision confidence 0.0-1.0
-        decision_rationale: Why this option was selected
-
-    Usage:
-        updates: ChoiceUpdatePayload = {
-            "decision_made": True,
-            "selected_option_uid": "option:123",
-            "confidence": 0.85,
-        }
-        result = await choices_service.update(uid, updates)
-    """
-
-    urgency: str
-    deadline: str
-    decision_made: bool
-    selected_option_uid: str
-    confidence: float
-    decision_rationale: str
-
-
-class PrincipleUpdatePayload(BaseUpdatePayload, total=False):
-    """
-    Update payload for Principle entities.
-
-    Principle-Specific Fields:
-        category: Principle category (CORE, GROWTH, etc.)
-        strength: How strongly held (core, strong, developing, aspirational)
-        why_matters: Explanation of importance
-
-    Review:
-        last_reviewed: ISO timestamp of last review
-        review_notes: Notes from review
-
-    Usage:
-        updates: PrincipleUpdatePayload = {
-            "strength": "core",
-            "last_reviewed": "2026-01-21",
-        }
-        result = await principles_service.update(uid, updates)
-    """
-
-    category: str
-    strength: str
-    why_matters: str
-    last_reviewed: str
-    review_notes: str
 
 
 class KuUpdatePayload(BaseUpdatePayload, total=False):
@@ -2933,14 +2750,8 @@ __all__ = [
     "PrinciplesFilterSpec",
     # Update Payloads - Base
     "BaseUpdatePayload",
-    # Update Payloads - Activity Domains
-    "TaskUpdatePayload",
-    "GoalUpdatePayload",
-    "HabitUpdatePayload",
-    "EventUpdatePayload",
-    "ChoiceUpdatePayload",
-    "PrincipleUpdatePayload",
     # Update Payloads - Curriculum Domains
+    # (Activity Domains use frozen `*UpdateIntent` dataclasses — ADR-066 Phase 7)
     "KuUpdatePayload",
     "PsUpdatePayload",
     "LpUpdatePayload",

@@ -15,7 +15,6 @@ Responsibilities:
 
 from __future__ import annotations
 
-import dataclasses
 from datetime import date, datetime
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
@@ -44,12 +43,10 @@ from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from core.ports.domain_protocols import EventsOperations
 
 
-class EventsCoreService(BaseService["EventsOperations", Event]):
+class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent]):
     """
     Core CRUD service for events.
 
@@ -141,7 +138,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
 
         return Result.ok(None)  # All validations passed
 
-    def _validate_update(self, current: Event, updates: Mapping[str, Any]) -> Result[None]:
+    def _validate_update(self, current: Event, updates: EventUpdateIntent) -> Result[None]:
         """
         Validate event updates with business rules.
 
@@ -157,11 +154,12 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             None if valid, Result.fail() with validation error if invalid
         """
 
+        changes = updates.to_changes()
         # Business Rule 1: Past event immutability (with notes exception)
         # Past events are historical records, but allow adding notes retrospectively
         if current.event_date and current.event_date < date.today():
             allowed_fields = {"notes", "tags", "quality_score"}  # Can update these
-            disallowed_updates = set(updates.keys()) - allowed_fields
+            disallowed_updates = set(changes.keys()) - allowed_fields
 
             if disallowed_updates:
                 return Result.fail(
@@ -174,8 +172,8 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                 )
 
         # Business Rule 2: Duration sanity check on update
-        if "duration_minutes" in updates:
-            duration = updates["duration_minutes"]
+        if "duration_minutes" in changes:
+            duration = changes["duration_minutes"]
             if duration < 5:
                 return Result.fail(
                     Errors.validation(
@@ -349,31 +347,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
 
         return result
 
-    @staticmethod
-    def _intent_from_mapping(updates: Mapping[str, Any]) -> EventUpdateIntent:
-        """Transitional bridge (ADR-066): build an ``EventUpdateIntent`` from the ``Mapping``
-        the in-service status methods (``update_event_status`` / ``start_event`` /
-        ``complete_event`` / ``cancel_event``) still pass.
-
-        Only keys that are intent fields are carried; values are already storage-shaped
-        (callers stringify enums via ``get_enum_value``). Non-column keys (e.g.
-        ``cancel_event``'s ``notes``) are naturally dropped — never written as junk node
-        properties. Removed in Phase 7, when the generic update path is parameterized over
-        the intent and callers pass it directly.
-        """
-        names = {f.name for f in dataclasses.fields(EventUpdateIntent)}
-        return EventUpdateIntent(**{k: v for k, v in updates.items() if k in names})
-
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Event]:
-        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to an
-        ``EventUpdateIntent`` and route through the one event-firing update path
-        (``update_event``).
-
-        Callers still on the ``Mapping`` shape: the in-service status methods in
-        ``_OrchestrationMixin``. Collapses to a direct intent parameter in Phase 7.
-        """
-        return await self.update_event(uid, self._intent_from_mapping(updates))
-
     @with_error_handling("update_event", error_type="database", uid_param="uid")
     async def update_event(self, uid: str, intent: EventUpdateIntent) -> Result[Event]:
         """Update a calendar event's node properties (ADR-066 typed update contract).
@@ -414,7 +387,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                 old_event_date = current_result.value.event_date
                 old_status = current_result.value.status
 
-        result = await super().update(uid, changes)
+        result = await super().update(uid, intent)
         if result.is_error:
             return result
 

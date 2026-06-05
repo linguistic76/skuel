@@ -422,7 +422,9 @@ class TestUpdateTaskKnowledgeEdges:
         service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
         service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
 
-        result = await service.update("task_abc", {"applies_knowledge_uids": ["ku_new"]})
+        result = await service.update(
+            "task_abc", TaskUpdateIntent(applies_knowledge_uids=["ku_new"])
+        )
 
         assert result.is_ok
         service.backend.create_relationships_batch.assert_awaited_once_with(
@@ -443,7 +445,7 @@ class TestUpdateTaskKnowledgeEdges:
         service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
 
         result = await service.update_for_user(
-            "task_abc", {"applies_knowledge_uids": ["ku_new"]}, "user_x"
+            "task_abc", TaskUpdateIntent(applies_knowledge_uids=["ku_new"]), "user_x"
         )
 
         assert result.is_ok

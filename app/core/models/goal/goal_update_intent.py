@@ -19,8 +19,8 @@ create path, never written as node columns — so they are deliberately absent h
 
 Beyond the request-settable columns, this intent also models the columns the
 service-internal status transitions write (``status`` / ``progress_percentage`` /
-``completion_date`` / ``metadata`` via ``complete_goal`` / ``pause_goal`` / ``archive_goal``)
-so the ``_intent_from_mapping`` funnel can carry them end to end.
+``completion_date`` / ``metadata`` via ``complete_goal`` / ``pause_goal`` / ``archive_goal``),
+which construct this intent directly.
 
 See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
 ``*InferenceResult``; ``docs/roadmap/update-intents.md`` for the phased migration.

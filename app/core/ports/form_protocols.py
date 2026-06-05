@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from core.models.enums import UserRole
 from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
+from core.models.update_contracts import RawChanges
 from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Result
 
@@ -90,7 +91,7 @@ class FormTemplateOperations(Protocol):
 
     async def get(self, uid: str) -> Result[FormTemplate]: ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[FormTemplate]: ...
+    async def update(self, uid: str, updates: RawChanges) -> Result[FormTemplate]: ...
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]: ...
 

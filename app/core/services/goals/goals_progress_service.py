@@ -24,7 +24,6 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.graph_context import GraphContext
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
-from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
@@ -415,7 +414,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         new_progress = (completed_count / len(updated_milestones)) * 100
 
         # Update goal
-        updates: GoalUpdatePayload = {
+        updates: dict[str, Any] = {
             "milestones": updated_milestones,
             "progress_percentage": new_progress,
             "current_value": completed_count,
@@ -516,7 +515,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if habit_result.habit_count > 0:
             new_progress = habit_result.contribution * 100
 
-            updates: GoalUpdatePayload = {
+            updates: dict[str, Any] = {
                 "progress_percentage": new_progress,
                 "current_value": new_progress,
             }
@@ -803,7 +802,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         old_progress = goal.progress_percentage or 0.0
 
         # Update progress
-        updates: GoalUpdatePayload = {
+        updates: dict[str, Any] = {
             "progress_percentage": progress_value,
             "current_value": progress_value,
         }
@@ -941,7 +940,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         milestones.append(new_milestone)
 
         # Update goal
-        updates: GoalUpdatePayload = {"milestones": milestones}
+        updates: dict[str, Any] = {"milestones": milestones}
         update_result = await self.backend.update_goal(uid, dict(updates))
 
         if update_result.is_error:

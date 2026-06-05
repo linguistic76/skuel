@@ -75,6 +75,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.update_contracts import RawChanges
 from core.ports.query_types import (
     CurriculumExerciseResult,
     LearningGapResult,
@@ -1572,7 +1573,7 @@ class RevisedExerciseOperations(Protocol):
         """Get revised exercise by UID."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[RevisedExercise]:
+    async def update(self, uid: str, updates: RawChanges) -> Result[RevisedExercise]:
         """Update a revised exercise."""
         ...
 
