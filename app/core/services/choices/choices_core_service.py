@@ -7,6 +7,7 @@ Handles basic CRUD operations for choices.
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -20,6 +21,7 @@ from core.events.choice_events import (
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_option import ChoiceOption
+from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
@@ -365,37 +367,71 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
         return Result.ok(choices)
 
-    async def update_choice(self, choice_uid: str, updates: dict[str, Any]) -> Result[Choice]:
+    @staticmethod
+    def _intent_from_mapping(updates: Mapping[str, Any]) -> ChoiceUpdateIntent:
+        """Transitional bridge (ADR-066): build a ``ChoiceUpdateIntent`` from the
+        ``Mapping`` the generic CRUD route and the in-service status route
+        (``choices_api`` → ``{"status": ...}``) still pass.
+
+        Only keys that are intent fields are carried; values are already storage-shaped
+        (the route stringifies enums). Removed in Phase 7, when the generic update path is
+        parameterized over the intent and callers pass it directly.
         """
-        Update a choice from a dict of fields to change.
+        names = {f.name for f in dataclasses.fields(ChoiceUpdateIntent)}
+        return ChoiceUpdateIntent(**{k: v for k, v in updates.items() if k in names})
+
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Choice]:
+        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to a
+        ``ChoiceUpdateIntent`` and route through the one validated, event-firing update
+        path (``update_choice``).
+
+        Callers still on the ``Mapping`` shape: the shared ``CRUDRouteFactory`` (via the
+        facade) and the ``choices_api`` status route (``core.update(uid, {"status": ...})``).
+        Collapses to a direct intent parameter in Phase 7.
+        """
+        return await self.update_choice(uid, self._intent_from_mapping(updates))
+
+    @with_error_handling("update_choice", error_type="database", uid_param="choice_uid")
+    async def update_choice(self, choice_uid: str, intent: ChoiceUpdateIntent) -> Result[Choice]:
+        """Update a choice's node properties (ADR-066 typed update contract).
+
+        Materializes the intent to a partial patch once, validated and written through the
+        inherited CRUD ``update`` (BaseService → ``_validate_update`` → ``backend.update``),
+        then publishes ``ChoiceUpdated``. Choices carry no edge fields on the update path,
+        so the intent's ``to_changes()`` is written wholesale — there is nothing to split off.
+
+        Unlike the prior implementation (which wrote ``backend.update`` directly and skipped
+        validation), this keeps ``super().update`` so ``_validate_update`` — decision
+        immutability for DECIDED/EVALUATED choices, option-count floor — runs on every
+        property update.
 
         Args:
             choice_uid: UID of the choice
-            updates: Dict of fields to update (caller drops None values)
+            intent: Typed ``ChoiceUpdateIntent`` — only its set fields are written
 
         Returns:
             Result containing updated Choice
+
+        Events Published:
+            - ChoiceUpdated: when any field changes, so user-context caches invalidate and
+              decision-quality recalculates even for plain property edits
         """
-        existing_result = await self.get_choice(choice_uid)
-        if existing_result.is_error:
-            return Result.fail(existing_result)
+        changes = intent.to_changes()
+        # Snapshot the intended fields now: the backend stamps updated_at in place, so
+        # reading the dict after the write would leak that bump into the event payload.
+        updated_fields = dict(changes)
 
-        existing = existing_result.value
-        if not existing:
-            return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
-        assert isinstance(existing, Choice)
+        result: Result[Choice] = await super().update(choice_uid, changes)
+        if result.is_error:
+            return result
 
-        update_result = await self.backend.update(choice_uid, updates)
-        if update_result.is_error:
-            return Result.fail(update_result)
+        choice = result.value
 
-        choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
-
-        if updates:
+        if updated_fields:
             event = ChoiceUpdated(
                 choice_uid=choice.uid,
                 user_uid=choice.user_uid,
-                updated_fields=updates,
+                updated_fields=updated_fields,
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -466,7 +502,10 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         dto.satisfaction_score = evaluation.satisfaction_score
         dto.lessons_learned = evaluation.lessons_learned
 
-        # Update in backend
+        # raw-write: full-DTO entity replace (not a partial patch), publishing its own
+        # ChoiceOutcomeRecorded provenance event. ADR-066's ChoiceUpdateIntent models
+        # partial property patches, not whole-entity persistence — dto.to_dict() is the
+        # honest shape here.
         update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result)
@@ -509,7 +548,11 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         Returns:
             Result containing updated Choice
         """
-        # Update choice with selected option directly via backend
+        # raw-write: decision finalization. Bypasses the validated/event-firing service
+        # contract (ChoiceUpdateIntent → update_choice) on purpose — this path publishes
+        # its own ChoiceMade below with the selected-option + confidence provenance that
+        # the generic update_choice cannot express. A plain dict literal is the honest
+        # type here.
         updates: Neo4jProperties = {
             "selected_option_uid": selected_option_uid,
             "decision_rationale": decision_rationale,
@@ -699,7 +742,10 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
         dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
-        # Update in backend
+        # raw-write: full-DTO entity replace after rebuilding the options tuple (not a
+        # partial property patch). ADR-066's ChoiceUpdateIntent does not model option
+        # mutation or whole-entity persistence; this path fires its own ChoiceUpdated
+        # below with the option-level provenance.
         update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result)
@@ -828,7 +874,10 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
         dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
-        # Update in backend
+        # raw-write: full-DTO entity replace after rebuilding the options tuple (not a
+        # partial property patch). ADR-066's ChoiceUpdateIntent does not model option
+        # mutation or whole-entity persistence; this path fires its own ChoiceUpdated
+        # below with the option-level provenance.
         update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result)
@@ -931,7 +980,10 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # ChoiceDTO stores ChoiceOption frozen dataclasses directly
         dto.options = cast("list[dict[str, Any]]", list(updated_options))
 
-        # Update in backend
+        # raw-write: full-DTO entity replace after rebuilding the options tuple (not a
+        # partial property patch). ADR-066's ChoiceUpdateIntent does not model option
+        # mutation or whole-entity persistence; this path fires its own ChoiceUpdated
+        # below with the option-level provenance.
         update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
             return Result.fail(update_result)

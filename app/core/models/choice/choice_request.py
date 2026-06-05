@@ -11,9 +11,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums import Domain, Priority
 from core.models.enums.choice_enums import ChoiceType
 from core.models.request_base import CreateRequestBase, UpdateRequestBase
+from core.models.sentinels import UNSET, Unset
 
 # =============================================================================
 # NESTED REQUEST MODELS (used by create requests)
@@ -85,6 +87,46 @@ class ChoiceUpdateRequest(UpdateRequestBase):
     stakeholders: list[str] | None = Field(default=None, description="Stakeholders")
     priority: Priority | None = Field(default=None, description="Choice priority")
     tags: list[str] | None = Field(default=None, description="Tags")
+
+    def to_intent(self) -> ChoiceUpdateIntent:
+        """Build the typed ``ChoiceUpdateIntent`` (ADR-066) from explicitly-set fields.
+
+        Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
+        so the intent carries a true partial patch: an absent field is left untouched, a
+        field explicitly set to ``None`` is an explicit clear. Enum fields (choice_type,
+        domain, priority) are lowered to their string value to match the persistence
+        boundary.
+
+        ``ChoiceUpdateRequest`` carries no cross-domain edge fields, so there is nothing to
+        drop — the create-only ``informed_by_knowledge_uids`` edge lives on
+        ``ChoiceCreateRequest``, not here.
+        """
+        set_fields = self.model_fields_set
+
+        def when_set[T](name: str, value: T) -> T | Unset:
+            """Carry ``value`` only if the caller set this field; else ``UNSET``.
+
+            Generic so the intent fields stay fully typed (no ``Any``): the return is
+            ``<declared field type> | Unset``, exactly what each intent field expects.
+            """
+            return value if name in set_fields else UNSET
+
+        return ChoiceUpdateIntent(
+            title=when_set("title", self.title),
+            description=when_set("description", self.description),
+            choice_type=when_set(
+                "choice_type", self.choice_type.value if self.choice_type is not None else None
+            ),
+            domain=when_set("domain", self.domain.value if self.domain is not None else None),
+            decision_deadline=when_set("decision_deadline", self.decision_deadline),
+            decision_criteria=when_set("decision_criteria", self.decision_criteria),
+            constraints=when_set("constraints", self.constraints),
+            stakeholders=when_set("stakeholders", self.stakeholders),
+            priority=when_set(
+                "priority", self.priority.value if self.priority is not None else None
+            ),
+            tags=when_set("tags", self.tags),
+        )
 
 
 class ChoiceEvaluationRequest(BaseModel):

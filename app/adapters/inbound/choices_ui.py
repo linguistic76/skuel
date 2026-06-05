@@ -165,9 +165,10 @@ def create_choices_ui_routes(
             )
             return await render_activity_sidebar_page(content, active="choices", request=request)
 
-        updates = {k: v for k, v in parsed.value.model_dump().items() if v is not None}
-
-        result = await choices_service.update_choice(uid, updates)
+        # ADR-066: build the typed ChoiceUpdateIntent from explicitly-set fields only
+        # (model_fields_set). Fields the user left blank stay UNSET and are not written,
+        # so untouched columns are never clobbered — no ad-hoc "drop None" convention.
+        result = await choices_service.update_choice(uid, parsed.value.to_intent())
         if result.is_error:
             err = result.expect_error()
             content = Div(
