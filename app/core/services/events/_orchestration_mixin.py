@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         RemoveAttendeeRequest,
     )
     from core.models.type_hints import UserUID
+    from core.services.events.events_core_service import EventsCoreService
     from core.services.user import UserContext
 
 
@@ -47,7 +48,7 @@ class _OrchestrationMixin:
 
     # Populated by EventsService.__init__ / BaseService
     backend: Any
-    core: Any
+    core: EventsCoreService
     relationships: Any
     event_bus: Any
     logger: Any

@@ -11,6 +11,7 @@ from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
     create_activity_status_api_routes,
 )
+from core.models.event.event_update_intent import EventUpdateIntent
 from ui.activities.events_views import EventCard
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ def create_events_api_routes(
     """Register Events API routes."""
 
     async def update(uid: str, new_status: str) -> Result[Event]:
-        return await events_service.update_event(uid, {"status": new_status})
+        return await events_service.update_event(uid, EventUpdateIntent(status=new_status))
 
     return create_activity_status_api_routes(
         rt,

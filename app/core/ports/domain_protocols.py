@@ -103,6 +103,7 @@ if TYPE_CHECKING:
 
     from core.models.choice.choice import Choice
     from core.models.event.event import Event
+    from core.models.event.event_update_intent import EventUpdateIntent
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
@@ -335,8 +336,10 @@ class EventsOperations(
         """Create a new event and return its ID. Returns Result[str]."""
         ...
 
-    async def update_event(self, event_id: EntityUID, data: Metadata) -> Result[Event]:
-        """Update an existing event. Returns Result[Event] (the updated event)."""
+    async def update_event(self, event_id: EntityUID, intent: EventUpdateIntent) -> Result[Event]:
+        """Update an existing event (ADR-066 typed update contract). Returns Result[Event]
+        (the updated event). The intent's two edge fields are split off and applied as
+        graph-edge mutations; its remaining set fields are written as node properties."""
         ...
 
     async def cancel_event(self, event_id: EntityUID) -> Result[bool]:

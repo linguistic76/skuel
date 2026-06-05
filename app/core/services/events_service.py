@@ -21,15 +21,21 @@ Facade Mixins (extracted April 2026):
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from datetime import date, time
 
+from core.events import publish_event
+from core.events.calendar_event_events import CalendarEventUpdated
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.event.event_request import EventCreateRequest
+from core.models.event.event_update_intent import EventUpdateIntent
+from core.models.sentinels import UNSET
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_attr_str
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -273,15 +279,88 @@ class EventsService(
                 return Result.fail(edge)
         return created
 
-    async def update_event(self, event_uid: str, updates: dict[str, Any]) -> Result[Event]:
-        # Cross-domain linkages are graph edges, not properties — pull them out of
-        # the property updates and apply as edge mutations (replace existing):
-        #   milestone_celebration_for_goal → (Event)-[:CELEBRATES_GOAL]->(Goal)
-        #   reinforces_habit_uid           → (Event)-[:REINFORCES_HABIT]->(Habit)
-        goal_uid = updates.pop("milestone_celebration_for_goal", None)
-        habit_uid = updates.pop("reinforces_habit_uid", None)
+    # ------------------------------------------------------------------------
+    # Update path (ADR-066 typed update contract)
+    # ------------------------------------------------------------------------
+    # Events, like Tasks, carry edge-typed fields on the update path. The backend update
+    # does an unfiltered `SET n += $changes`, so an edge field left in the property patch
+    # would write a junk denormalized property onto the node AND skip the edge — the very
+    # split the ADR-035/ADR-065 graph-native migration removed.
+    @staticmethod
+    def _split_relationship_intent(
+        intent: EventUpdateIntent,
+    ) -> tuple[str | None, str | None, EventUpdateIntent]:
+        """Split the two edge-typed fields off an ``EventUpdateIntent``.
 
-        result = await self.core.update(event_uid, updates)
+        Returns ``(goal_uid, habit_uid, prop_intent)`` where ``prop_intent`` is the same
+        intent with both edge fields reset to ``UNSET`` (so its ``to_changes()`` carries
+        only node properties). ``UNSET`` edge fields map to ``None`` ("not in this update")
+        — preserving the prior ``dict.pop(key, None)`` semantics that ``_replace_edge``
+        consumes (``None`` = untouched, ``""`` = clear, value = set).
+        """
+        goal = intent.milestone_celebration_for_goal
+        habit = intent.reinforces_habit_uid
+        goal_uid = None if goal is UNSET else goal
+        habit_uid = None if habit is UNSET else habit
+        prop_intent = dataclasses.replace(
+            intent, milestone_celebration_for_goal=UNSET, reinforces_habit_uid=UNSET
+        )
+        return goal_uid, habit_uid, prop_intent
+
+    @staticmethod
+    def _intent_from_mapping(updates: Mapping[str, Any]) -> EventUpdateIntent:
+        """Transitional bridge (ADR-066): build an ``EventUpdateIntent`` from the ``Mapping``
+        the generic CRUD JSON route and ``calendar_service`` still pass.
+
+        Only keys that are intent fields are carried; values are already storage-shaped (the
+        route stringifies enums via ``get_enum_value``). Removed in Phase 7, when the
+        generic update path is parameterized over the intent and callers pass it directly.
+        """
+        names = {f.name for f in dataclasses.fields(EventUpdateIntent)}
+        return EventUpdateIntent(**{k: v for k, v in updates.items() if k in names})
+
+    async def _publish_edge_only_update(
+        self, event: Event, goal_uid: str | None, habit_uid: str | None
+    ) -> None:
+        """Publish CalendarEventUpdated after an edge-only update so user-context caches
+        invalidate.
+
+        Property updates publish CalendarEventUpdated via EventsCoreService.update_event,
+        but the relationship-only path bypasses it (fetch-only) — without this, rich context
+        (entities_rich, celebrated-goal / reinforced-habit links) stays stale until the
+        cache TTL expires. CalendarEventUpdated is wired to context invalidation in
+        _event_wiring.py.
+        """
+        changed_fields = {
+            name: value
+            for name, value in (
+                ("milestone_celebration_for_goal", goal_uid),
+                ("reinforces_habit_uid", habit_uid),
+            )
+            if value is not None
+        }
+        event_obj = CalendarEventUpdated(
+            event_uid=event.uid, user_uid=event.user_uid, updated_fields=changed_fields
+        )
+        await publish_event(self.event_bus, event_obj, self.logger)
+
+    async def update_event(self, event_uid: str, intent: EventUpdateIntent) -> Result[Event]:
+        """THE Events update path (ADR-066). Splits the two edge-typed fields off the
+        intent, writes node properties via core (events fire), and replaces the
+        ``CELEBRATES_GOAL`` / ``REINFORCES_HABIT`` edges. See ``_replace_edge``."""
+        goal_uid, habit_uid, prop_intent = self._split_relationship_intent(intent)
+
+        # An edge-only update (e.g. only milestone_celebration_for_goal, which
+        # EventUpdateRequest permits) leaves no node properties to write. The backend
+        # rejects an empty update dict, so fetch the event to confirm it exists and to have
+        # an Event to return. A genuinely empty call keeps the validation error.
+        wrote_properties = bool(prop_intent.to_changes()) or (
+            goal_uid is None and habit_uid is None
+        )
+        if wrote_properties:
+            result = await self.core.update_event(event_uid, prop_intent)
+        else:
+            result = await self.core.get_event(event_uid)
         if result.is_error:
             return result
 
@@ -293,7 +372,32 @@ class EventsService(
             replaced = await self._replace_edge("habits", event_uid, habit_uid)
             if replaced.is_error:
                 return Result.fail(replaced)
+
+        if not wrote_properties:  # edge-only: core.update_event didn't fire CalendarEventUpdated
+            await self._publish_edge_only_update(result.value, goal_uid, habit_uid)
         return result
+
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Event]:
+        """Override the inherited CRUD update (generated JSON route, no ownership check).
+
+        Transitional ADR-066 funnel: the generic factory still hands a ``Mapping``, so
+        bridge it to an ``EventUpdateIntent`` and route through the one update path
+        (``update_event``), which fires events and splits edges. Collapses to a direct
+        intent parameter in Phase 7."""
+        return await self.update_event(uid, self._intent_from_mapping(updates))
+
+    async def update_for_user(
+        self, uid: str, updates: Mapping[str, Any], user_uid: UserUID
+    ) -> Result[Event]:
+        """Override the inherited ownership-verified CRUD update (generated JSON route).
+
+        Verifies ownership BEFORE any mutation, then funnels through the one update path
+        (``update_event``). Transitional ADR-066 ``Mapping``→intent bridge; collapses to a
+        direct intent parameter in Phase 7."""
+        ownership = await self.verify_ownership(uid, user_uid)
+        if ownership.is_error:
+            return ownership
+        return await self.update_event(uid, self._intent_from_mapping(updates))
 
     async def _replace_edge(
         self, relationship_key: str, event_uid: str, target_uid: str

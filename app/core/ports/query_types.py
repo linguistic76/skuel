@@ -372,13 +372,15 @@ class EventUpdatePayload(BaseUpdatePayload, total=False):
         is_recurring: Whether event recurs
         recurrence_pattern: Recurrence rule (e.g., "WEEKLY")
 
-    Usage:
+    Usage (transitional ADR-066 Mapping funnel — the in-service status methods still pass
+    this dict to the inherited ``core.update``, which bridges it to an EventUpdateIntent;
+    ``update_event`` itself now takes a typed EventUpdateIntent, not this payload):
         updates: EventUpdatePayload = {
             "event_date": "2026-02-15",
             "start_time": "14:00",
             "end_time": "15:30",
         }
-        result = await events_service.update_event(uid, updates)
+        result = await events_service.core.update(uid, updates)
     """
 
     event_date: str
