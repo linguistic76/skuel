@@ -518,3 +518,81 @@ class TestUpdateTaskKnowledgeEdges:
 
         assert result.is_ok
         service._publish_edge_only_update.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TestUpdateTaskHabitEdge — reinforces_habit_uid is a single graph edge
+# (Task)-[:REINFORCES_HABIT]->(Habit). The ADR-066 sentinel contract:
+# UNSET = untouched, None = explicit clear (the picker's clear button → "" → None),
+# value = set. Regression guard for the edge-clear UX gap where clearing the
+# picker left the edge attached.
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateTaskHabitEdge:
+    @staticmethod
+    def _habit_edge(task_uid: str, habit_uid: str) -> tuple[str, str, str, None]:
+        """The (from, to, rel_type, props) tuple the create-batch path expects."""
+        return (task_uid, habit_uid, RelationshipName.REINFORCES_HABIT.value, None)
+
+    @pytest.mark.asyncio
+    async def test_clearing_habit_edge_deletes_without_creating(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """reinforces_habit_uid=None (the picker-clear signal) must delete the existing
+        REINFORCES_HABIT edge and create no replacement — the edge-clear gap fix."""
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["habit_old"]))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.backend.create_relationships_batch = AsyncMock()
+
+        result = await service.update_task("task_abc", TaskUpdateIntent(reinforces_habit_uid=None))
+
+        assert result.is_ok
+        service.relationships.delete_relationship.assert_awaited_once_with(
+            "habits", "task_abc", "habit_old"
+        )
+        service.backend.create_relationships_batch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_setting_habit_edge_replaces_existing(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """A new reinforces_habit_uid deletes the old edge and creates the new one."""
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["habit_old"]))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(reinforces_habit_uid="habit_new")
+        )
+
+        assert result.is_ok
+        service.relationships.delete_relationship.assert_awaited_once_with(
+            "habits", "task_abc", "habit_old"
+        )
+        service.backend.create_relationships_batch.assert_awaited_once_with(
+            [self._habit_edge("task_abc", "habit_new")]
+        )
+
+    @pytest.mark.asyncio
+    async def test_unset_habit_edge_leaves_it_untouched(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """An update that omits reinforces_habit_uid (UNSET) must not touch the edge —
+        no fetch, no delete, no create — even while writing node properties."""
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(return_value=Result.ok(Mock()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["habit_old"]))
+        service.relationships.delete_relationship = AsyncMock()
+        service.backend.create_relationships_batch = AsyncMock()
+
+        result = await service.update_task("task_abc", TaskUpdateIntent(title="New"))
+
+        assert result.is_ok
+        service.relationships.get_related_uids.assert_not_called()
+        service.relationships.delete_relationship.assert_not_called()
+        service.backend.create_relationships_batch.assert_not_called()

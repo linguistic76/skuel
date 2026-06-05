@@ -34,7 +34,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.event.event_request import EventCreateRequest
 from core.models.event.event_update_intent import EventUpdateIntent
-from core.models.sentinels import UNSET
+from core.models.sentinels import UNSET, Unset
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_attr_str
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -288,26 +288,22 @@ class EventsService(
     @staticmethod
     def _split_relationship_intent(
         intent: EventUpdateIntent,
-    ) -> tuple[str | None, str | None, EventUpdateIntent]:
+    ) -> tuple[str | None | Unset, str | None | Unset, EventUpdateIntent]:
         """Split the two edge-typed fields off an ``EventUpdateIntent``.
 
         Returns ``(goal_uid, habit_uid, prop_intent)`` where ``prop_intent`` is the same
         intent with both edge fields reset to ``UNSET`` (so its ``to_changes()`` carries
-        only node properties). ``UNSET`` edge fields map to ``None`` ("not in this update")
-        — preserving the prior ``dict.pop(key, None)`` semantics that ``_replace_edge``
-        consumes (``None`` = untouched, ``""`` = clear, value = set).
+        only node properties). The edge values pass through with the canonical ADR-066
+        contract intact — ``UNSET`` = not in this update (untouched), ``None`` = explicit
+        clear, value = set — which ``update_event`` / ``_replace_edge`` consume.
         """
-        goal = intent.milestone_celebration_for_goal
-        habit = intent.reinforces_habit_uid
-        goal_uid = None if goal is UNSET else goal
-        habit_uid = None if habit is UNSET else habit
         prop_intent = dataclasses.replace(
             intent, milestone_celebration_for_goal=UNSET, reinforces_habit_uid=UNSET
         )
-        return goal_uid, habit_uid, prop_intent
+        return intent.milestone_celebration_for_goal, intent.reinforces_habit_uid, prop_intent
 
     async def _publish_edge_only_update(
-        self, event: Event, goal_uid: str | None, habit_uid: str | None
+        self, event: Event, goal_uid: str | None | Unset, habit_uid: str | None | Unset
     ) -> None:
         """Publish CalendarEventUpdated after an edge-only update so user-context caches
         invalidate.
@@ -324,7 +320,7 @@ class EventsService(
                 ("milestone_celebration_for_goal", goal_uid),
                 ("reinforces_habit_uid", habit_uid),
             )
-            if value is not None
+            if value is not UNSET
         }
         event_obj = CalendarEventUpdated(
             event_uid=event.uid, user_uid=event.user_uid, updated_fields=changed_fields
@@ -342,7 +338,7 @@ class EventsService(
         # rejects an empty update dict, so fetch the event to confirm it exists and to have
         # an Event to return. A genuinely empty call keeps the validation error.
         wrote_properties = bool(prop_intent.to_changes()) or (
-            goal_uid is None and habit_uid is None
+            goal_uid is UNSET and habit_uid is UNSET
         )
         if wrote_properties:
             result = await self.core.update_event(event_uid, prop_intent)
@@ -351,11 +347,11 @@ class EventsService(
         if result.is_error:
             return result
 
-        if goal_uid is not None:
+        if goal_uid is not UNSET:
             replaced = await self._replace_edge("celebrated_goals", event_uid, goal_uid)
             if replaced.is_error:
                 return Result.fail(replaced)
-        if habit_uid is not None:
+        if habit_uid is not UNSET:
             replaced = await self._replace_edge("habits", event_uid, habit_uid)
             if replaced.is_error:
                 return Result.fail(replaced)
@@ -385,18 +381,19 @@ class EventsService(
         return await self.update_event(uid, updates)
 
     async def _replace_edge(
-        self, relationship_key: str, event_uid: str, target_uid: str
+        self, relationship_key: str, event_uid: str, target_uid: str | None
     ) -> Result[bool]:
         """Replace the single outbound edge of ``relationship_key`` with ``target_uid``.
 
-        Empty ``target_uid`` clears the edge (delete only). Used by update_event to
-        route cross-domain field updates to graph-edge mutations.
+        A falsy ``target_uid`` (``None`` — the explicit-clear signal) clears the edge
+        (delete only). Used by update_event to route cross-domain field updates to
+        graph-edge mutations.
         """
         existing = await self.relationships.get_related_uids(relationship_key, EntityUID(event_uid))
         if existing.is_ok:
             for old_uid in existing.value or []:
                 await self.relationships.delete_relationship(relationship_key, event_uid, old_uid)
-        if target_uid:  # non-empty → create the new edge (empty string = cleared)
+        if target_uid:  # non-empty → create the new edge (None = cleared)
             return await self.relationships.create_relationship(
                 relationship_key, event_uid, target_uid
             )

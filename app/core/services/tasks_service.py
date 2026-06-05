@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 from core.events import TaskUpdated, publish_event
 from core.models.enums import EntityStatus
 from core.models.relationship_names import RelationshipName
-from core.models.sentinels import UNSET
+from core.models.sentinels import UNSET, Unset
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_update_intent import TaskUpdateIntent
@@ -428,33 +428,31 @@ class TasksService(
     @staticmethod
     def _split_relationship_intent(
         intent: TaskUpdateIntent,
-    ) -> tuple[str | None, list[str] | None, TaskUpdateIntent]:
+    ) -> tuple[str | None | Unset, list[str] | None | Unset, TaskUpdateIntent]:
         """Split the edge-typed fields off a ``TaskUpdateIntent``.
 
         Returns ``(habit_uid, applies_knowledge_uids, prop_intent)`` where ``prop_intent``
         is the same intent with both edge fields reset to ``UNSET`` (so its ``to_changes()``
-        carries only node properties). ``UNSET`` edge fields map to ``None`` ("not in this
-        update") — preserving the prior ``dict.pop(key, None)`` semantics that
-        ``_sync_relationship_edges`` consumes (``None`` = untouched, ``""`` / ``[]`` =
-        clear, value = set).
+        carries only node properties). The edge values pass through with the canonical
+        ADR-066 contract intact — ``UNSET`` = not in this update (untouched), ``None`` /
+        ``[]`` = explicit clear, value = set — which ``_sync_relationship_edges`` consumes.
         """
-        habit = intent.reinforces_habit_uid
-        applies = intent.applies_knowledge_uids
-        habit_uid = None if habit is UNSET else habit
-        applies_knowledge_uids = None if applies is UNSET else applies
         prop_intent = dataclasses.replace(
             intent, reinforces_habit_uid=UNSET, applies_knowledge_uids=UNSET
         )
-        return habit_uid, applies_knowledge_uids, prop_intent
+        return intent.reinforces_habit_uid, intent.applies_knowledge_uids, prop_intent
 
     async def _sync_relationship_edges(
-        self, task_uid: str, habit_uid: str | None, applies_knowledge_uids: list[str] | None
+        self,
+        task_uid: str,
+        habit_uid: str | None | Unset,
+        applies_knowledge_uids: list[str] | None | Unset,
     ) -> Result[None]:
-        """Replace the task's habit/knowledge edges from popped update values.
+        """Replace the task's habit/knowledge edges from the split intent values.
 
-        ``None`` means "not in this update" (leave edges untouched); a value (incl.
-        an empty list / empty string) means "replace" — clearing all edges of that
-        kind when empty.
+        ``UNSET`` means "not in this update" (leave edges untouched); a value means
+        "replace" — clearing all edges of that kind when the value is empty (``None``
+        for the single habit edge, ``[]`` for the knowledge set).
         """
         # Stale-edge removal must succeed before new edges are created. Treating a
         # failed fetch as "no old edges", or ignoring a failed delete, would leave
@@ -466,7 +464,7 @@ class TasksService(
         # the create flow uses) with explicit RelationshipName values — NOT
         # UnifiedRelationshipService.create_relationship, whose dynamic
         # `link_task_to_<key>` backend method does not exist for tasks.
-        if habit_uid is not None:
+        if habit_uid is not UNSET:
             # (Task)-[:REINFORCES_HABIT]->(Habit): replace any existing reinforced habit.
             existing = await self.relationships.get_related_uids("habits", EntityUID(task_uid))
             if existing.is_error:
@@ -477,7 +475,7 @@ class TasksService(
                 )
                 if deleted.is_error:
                     return Result.fail(deleted)
-            if habit_uid:  # non-empty → create the new edge (empty string = cleared)
+            if habit_uid:  # non-empty → create the new edge (None = cleared)
                 edges: list[tuple[str, str, str, Neo4jProperties | None]] = [
                     (task_uid, habit_uid, RelationshipName.REINFORCES_HABIT.value, None)
                 ]
@@ -485,7 +483,7 @@ class TasksService(
                 if batch.is_error:
                     return Result.fail(batch)
 
-        if applies_knowledge_uids is not None:
+        if applies_knowledge_uids is not UNSET:
             # (Task)-[:APPLIES_KNOWLEDGE]->(Ku): replace the full applied-knowledge set.
             # An empty list clears all knowledge edges (mirrors the habit-clear semantics).
             existing_ku = await self.relationships.get_related_uids(
@@ -510,7 +508,10 @@ class TasksService(
         return Result.ok(None)
 
     async def _publish_edge_only_update(
-        self, task: Task, habit_uid: str | None, applies_knowledge_uids: list[str] | None
+        self,
+        task: Task,
+        habit_uid: str | None | Unset,
+        applies_knowledge_uids: list[str] | None | Unset,
     ) -> None:
         """Publish TaskUpdated after an edge-only update so user-context caches invalidate.
 
@@ -525,7 +526,7 @@ class TasksService(
                 ("reinforces_habit_uid", habit_uid),
                 ("applies_knowledge_uids", applies_knowledge_uids),
             )
-            if value is not None
+            if value is not UNSET
         ]
         event = TaskUpdated(
             task_uid=task.uid, user_uid=task.user_uid, updated_fields=changed_fields
@@ -543,7 +544,7 @@ class TasksService(
         # rejects an empty update dict, so fetch the task to confirm it exists and to
         # have a Task to return. A genuinely empty call keeps the validation error.
         wrote_properties = bool(prop_intent.to_changes()) or (
-            habit_uid is None and applies_knowledge_uids is None
+            habit_uid is UNSET and applies_knowledge_uids is UNSET
         )
         if wrote_properties:
             result = await self.core.update_task(task_uid, prop_intent)
