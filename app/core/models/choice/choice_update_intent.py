@@ -17,13 +17,13 @@ graph edge (``(Choice)-[:INFORMED_BY_KNOWLEDGE]->(Ku)``) synced on the create pa
 never written as a node column. ``ChoiceUpdateRequest`` carries no edge fields at all,
 so there is nothing to split off here.
 
-Beyond the request-settable columns, this intent also models ``status`` (which the
-in-service status route funnels through ``_intent_from_mapping``) and ``metadata`` so
-the funnel can carry them end to end. Decision-finalization and outcome columns
+Beyond the request-settable columns, this intent also models ``status`` — set by the
+dedicated status route (``choices_api`` → ``update_choice(ChoiceUpdateIntent(status=...))``),
+mirroring ``tasks_api`` / ``events_api``. Decision-finalization and outcome columns
 (``selected_option_uid`` / ``decided_at`` / ``satisfaction_score`` / ``actual_outcome`` /
-``lessons_learned``) are deliberately absent — they flow through the ``make_decision`` /
-``evaluate_choice_outcome`` raw-write paths (each with its own provenance event), not
-this generic property-update path.
+``lessons_learned`` / ``metadata``) are deliberately absent — they flow through the
+``make_decision`` / ``evaluate_choice_outcome`` raw-write paths (each with its own
+provenance event), not this generic property-update path.
 
 See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
 ``*InferenceResult``; ``docs/roadmap/update-intents.md`` for the phased migration.
@@ -61,11 +61,10 @@ class ChoiceUpdateIntent:
     constraints: list[str] | None | Unset = UNSET
     stakeholders: list[str] | None | Unset = UNSET
 
-    # --- Status / priority / tags / metadata ---------------------------------
+    # --- Status / priority / tags --------------------------------------------
     status: str | None | Unset = UNSET
     priority: str | None | Unset = UNSET
     tags: list[str] | None | Unset = UNSET
-    metadata: dict[str, Any] | None | Unset = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.
