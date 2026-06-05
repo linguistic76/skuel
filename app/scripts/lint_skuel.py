@@ -2818,9 +2818,15 @@ class SkuelLinter:
             if isinstance(node, ast.ImportFrom):
                 for alias in node.names:
                     if alias.name in forbidden:
-                        self._flag_deleted_payload(
-                            rel_path, lines, node.lineno, node.col_offset, alias.name, seen
-                        )
+                        # Use the alias's own location, not the `from ... import (` line —
+                        # in a parenthesized multi-line import they differ, and an inline
+                        # suppression sits on the alias line (Python 3.10+ gives aliases a
+                        # lineno; fall back to the statement line if absent).
+                        a_line = getattr(alias, "lineno", None) or node.lineno
+                        a_col = getattr(alias, "col_offset", None)
+                        if a_col is None:
+                            a_col = node.col_offset
+                        self._flag_deleted_payload(rel_path, lines, a_line, a_col, alias.name, seen)
                 continue
             if isinstance(node, ast.Name):
                 name: str = node.id

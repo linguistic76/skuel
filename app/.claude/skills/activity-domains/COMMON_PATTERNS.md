@@ -57,8 +57,13 @@ async def complete_task(self, uid: str) -> Result[Task]:
 
 ## How to update an entity (the ONE path — ADR-066)
 
-An Activity Domain update is **always** a frozen `*UpdateIntent`, never a raw dict. There is
-exactly one canonical write path; every alternative was removed (One Path Forward).
+A **user-facing / facade** Activity Domain update is a frozen `*UpdateIntent`, never a raw
+dict — that is the one canonical path for public CRUD (the `update_<domain>` facades, the
+ownership-checked `update_for_user`, and the generic `CRUDRouteFactory`). What ADR-066 removed
+is the *opaque* alternatives: the six `*UpdatePayload` TypedDicts, the `_intent_from_mapping`
+funnels, and the facade `Mapping` overrides. It did **not** remove `RawChanges` — that is the
+documented `U` default, and internal sub-services still use it (see below), so don't read this
+as "no activity service may ever pass `RawChanges`".
 
 ```python
 from core.models.task import TaskUpdateIntent
@@ -83,9 +88,18 @@ How it flows:
 - `*UpdateRequest.to_intent()` builds the intent from `model_fields_set` (enums lowered to
   `.value`). The generic `CRUDRouteFactory` calls it automatically for any `SupportsToIntent`
   schema, so config-driven routes need no per-domain update code.
+- **Internal sub-service transitions may pass `RawChanges`, not an intent.** A domain
+  sub-service that is its own `BaseService[Op, T]` instantiation (e.g. `TasksProgressService`)
+  inherits `U = RawChanges`, so a system transition it owns calls
+  `self.update(uid, RawChanges({"status": ...}))` — still the *validated, event-firing* service
+  contract (same `_validate_update` / `_post_update`), just with a `RawChanges` value rather
+  than the domain intent. These are legitimate; don't rewrite or flag them. The typed
+  `*UpdateIntent` is the contract for the **public** facade/route update, not every call in the
+  domain.
 - **`backend.update(uid, dict)` directly** is the persistence seam (always a dict) and is
   allowed only for full-DTO replaces and timestamp/system bumps — each marked `# raw-write:`.
-  A partial field update that bypasses the intent is a defect.
+  A partial field update that bypasses *both* the intent and the `RawChanges` service contract
+  (i.e. straight to `backend.update`) is a defect.
 
 Per-domain deviations: **Habits** keeps `update_habit(uid, intent, *, force_archive=False)`
 (the transient `force_archive` directive can't ride the intent — it would persist as a junk

@@ -2833,6 +2833,28 @@ class TestSKUEL025:
         violations = lint_content(linter, content)
         assert violations == []
 
+    def test_parenthesized_import_reports_alias_line(self) -> None:
+        """In a multi-line import the violation lands on the alias line, not `import (`."""
+        linter = make_linter(["SKUEL025"])
+        content = (
+            "from core.ports.query_types import (\n    CypherParams,\n    TaskUpdatePayload,\n)\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 3  # the alias line, not line 1
+
+    def test_parenthesized_import_alias_suppression(self) -> None:
+        """An inline suppression on the alias line works (alias-location lookup)."""
+        linter = make_linter(["SKUEL025"])
+        content = (
+            "from core.ports.query_types import (\n"
+            "    CypherParams,\n"
+            "    TaskUpdatePayload,  # skuel-lint: disable=SKUEL025 -- legacy\n"
+            ")\n"
+        )
+        violations = lint_content(linter, content)
+        assert violations == []
+
     def test_not_run_on_tests(self) -> None:
         """SKUEL025 is skipped on test files (mirrors the _lint_file gate)."""
         linter = make_linter(["SKUEL025"])
