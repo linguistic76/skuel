@@ -887,33 +887,3 @@ class LpIntelligenceService(
             f"Path context for {path_uid}: {progress:.1f}% complete, {len(blocking)} blockers"
         )
         return Result.ok(enhanced_context)
-
-
-# ============================================================================
-# FACTORY FUNCTION (Bootstrap Compatibility)
-# ============================================================================
-
-
-def create_lp_intelligence_service(
-    progress_backend: Any | None = None,
-    backend: Any | None = None,
-    graph_intel: Any = None,
-) -> LpIntelligenceService:
-    """
-    Factory function to create LpIntelligenceService instance.
-
-    NOTE: No embeddings_service parameter (ADR-030).
-
-    Args:
-        progress_backend: Progress backend (Universal Backend pattern)
-        backend: Learning backend (Universal Backend pattern)
-        graph_intel: GraphIntelligenceService - gates graph-context retrieval (mechanism B)
-
-    Returns:
-        LpIntelligenceService: Configured service instance (facade pattern)
-    """
-    return LpIntelligenceService(
-        progress_backend=progress_backend,
-        backend=backend,
-        graph_intel=graph_intel,
-    )

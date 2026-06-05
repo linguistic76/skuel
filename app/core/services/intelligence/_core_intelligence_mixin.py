@@ -44,7 +44,10 @@ class _CoreIntelligenceMixin[T]:
     (e.g. `get_goal_with_context`) from their per-domain wrapper.
     """
 
-    # Populated by BaseAnalyticsService.__init__ (stores relationship_service)
+    # Populated by BaseAnalyticsService.__init__ (stores relationship_service).
+    # boundary: this shared base is domain-agnostic — the relationship service's
+    # (Ops, Model, DtoType) params are genuinely heterogeneous across the 9 domains
+    # that inherit this mixin, so they cannot be pinned here (Any Usage Policy, Category C).
     relationships: UnifiedRelationshipService[Any, Any, Any] | None
     logger: Any
 
