@@ -20,7 +20,9 @@ from core.models.enums.principle_enums import (
     PrincipleSource,
     PrincipleStrength,
 )
+from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.request_base import CreateRequestBase, UpdateRequestBase
+from core.models.sentinels import UNSET, Unset
 
 # =============================================================================
 # NESTED REQUEST MODELS (used by create requests)
@@ -124,6 +126,57 @@ class PrincipleUpdateRequest(UpdateRequestBase):
     decision_criteria: list[str] | None = Field(default=None, description="Decision criteria")
     priority: Priority | None = Field(default=None, description="Principle priority")
     tags: list[str] | None = Field(default=None, description="Tags")
+
+    def to_intent(self) -> PrincipleUpdateIntent:
+        """Build the typed ``PrincipleUpdateIntent`` (ADR-066) from explicitly-set fields.
+
+        Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
+        so the intent carries a true partial patch: an absent field is left untouched, a
+        field explicitly set to ``None`` is an explicit clear. Enum fields
+        (principle_category, principle_source, strength, priority) are lowered to their
+        string value to match the persistence boundary.
+
+        Two request fields are deliberately **not** carried — neither is a node column:
+        - ``why_important`` is folded into ``description`` (see ``merge_why_important``);
+          ``principles_ui`` re-folds it into the returned intent's ``description``.
+        - ``decision_criteria`` is absent from ``Principle`` / ``PrincipleDTO``, so writing
+          it would be a junk node property.
+        """
+        set_fields = self.model_fields_set
+
+        def when_set[T](name: str, value: T) -> T | Unset:
+            """Carry ``value`` only if the caller set this field; else ``UNSET``.
+
+            Generic so the intent fields stay fully typed (no ``Any``): the return is
+            ``<declared field type> | Unset``, exactly what each intent field expects.
+            """
+            return value if name in set_fields else UNSET
+
+        return PrincipleUpdateIntent(
+            title=when_set("title", self.title),
+            statement=when_set("statement", self.statement),
+            description=when_set("description", self.description),
+            principle_category=when_set(
+                "principle_category",
+                self.principle_category.value if self.principle_category is not None else None,
+            ),
+            principle_source=when_set(
+                "principle_source",
+                self.principle_source.value if self.principle_source is not None else None,
+            ),
+            strength=when_set(
+                "strength", self.strength.value if self.strength is not None else None
+            ),
+            tradition=when_set("tradition", self.tradition),
+            personal_interpretation=when_set(
+                "personal_interpretation", self.personal_interpretation
+            ),
+            key_behaviors=when_set("key_behaviors", self.key_behaviors),
+            priority=when_set(
+                "priority", self.priority.value if self.priority is not None else None
+            ),
+            tags=when_set("tags", self.tags),
+        )
 
 
 class AlignmentAssessmentRequest(BaseModel):

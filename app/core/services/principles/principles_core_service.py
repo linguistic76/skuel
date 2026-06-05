@@ -13,6 +13,7 @@ Responsibilities:
 Part of the PrinciplesService decomposition.
 """
 
+import dataclasses
 from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
@@ -24,6 +25,7 @@ from core.models.principle.principle import Principle, merge_why_important
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.principle.principle_types import PrincipleExpression
+from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.ports.query_types import PrincipleStats
@@ -298,23 +300,64 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         logger.info(f"Created principle: {request.title}")
         return result
 
+    @staticmethod
+    def _intent_from_mapping(updates: Mapping[str, Any]) -> PrincipleUpdateIntent:
+        """Transitional bridge (ADR-066): build a ``PrincipleUpdateIntent`` from the
+        ``Mapping`` the generic CRUD route and the in-service status route
+        (``principles_api`` → ``{"status": ...}``) still pass.
+
+        Only keys that are intent fields are carried; values are already storage-shaped
+        (the route stringifies enums). Removed in Phase 7, when the generic update path is
+        parameterized over the intent and callers pass it directly.
+        """
+        names = {f.name for f in dataclasses.fields(PrincipleUpdateIntent)}
+        return PrincipleUpdateIntent(**{k: v for k, v in updates.items() if k in names})
+
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Principle]:
+        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to a
+        ``PrincipleUpdateIntent`` and route through the one event-firing update path
+        (``update_principle``).
+
+        Callers still on the ``Mapping`` shape: the shared ``CRUDRouteFactory`` (via the
+        facade) and the ``principles_api`` status route (``core.update(uid, {"status": ...})``).
+        Collapses to a direct intent parameter in Phase 7.
+        """
+        return await self.update_principle(uid, self._intent_from_mapping(updates))
+
     @with_error_handling("update_principle", error_type="database", uid_param="principle_uid")
     async def update_principle(
-        self, principle_uid: str, updates: dict[str, Any]
+        self, principle_uid: str, intent: PrincipleUpdateIntent
     ) -> Result[Principle]:
-        """
-        Update a principle.
+        """Update a principle's node properties (ADR-066 typed update contract).
 
-        Publishes PrincipleUpdated event, and PrincipleStrengthChanged if strength changes.
+        Materializes the intent to a partial patch once, writes it at the single
+        ``backend.update`` seam, then publishes ``PrincipleUpdated`` (and
+        ``PrincipleStrengthChanged`` if strength changed).
+
+        Backend-direct (like ``TasksCoreService.update_task``), **not** ``super().update``:
+        Principles' inherited ``_validate_update`` is stale — its rules reference fields
+        that no longer match the schema (``label``/``category`` are not columns; the
+        ``strength`` rule compares uppercase keys against lowercase enum values so it never
+        fires; the well-established-principle rule demands a ``modification_reason`` field
+        that exists nowhere, making it unsatisfiable). The only caller that reaches it
+        (``principles_api`` via ``core.update``) sends ``{"status": ...}``, which triggers
+        no rule. Routing through ``super().update`` would activate the unsatisfiable
+        modification-reason gate and block CORE/STRONG description edits — a regression.
+        Reforming ``_validate_update`` onto the intent is Phase-7 work (see
+        ``docs/roadmap/update-intents.md``); until then this path preserves exact behavior.
 
         Args:
             principle_uid: UID of the principle
-            updates: Dictionary of fields to update
+            intent: Typed ``PrincipleUpdateIntent`` — only its set fields are written
 
         Returns:
             Result containing updated Principle
+
+        Events Published:
+            - PrincipleUpdated: when any field changes (so user-context caches invalidate)
+            - PrincipleStrengthChanged: when the strength field transitions
         """
-        # Get existing principle to detect changes
+        # Get existing principle (not-found guard + old strength for the change event)
         existing_result = await self.get_principle(principle_uid)
         if existing_result.is_error:
             return Result.fail(existing_result)
@@ -326,13 +369,20 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         old_strength = existing.strength
 
-        # Update in backend
-        result = await self.backend.update(principle_uid, updates)
+        changes = intent.to_changes()
+        # Snapshot the intended fields now: the backend stamps updated_at in place, so
+        # reading the dict after the write would leak that bump into the event payload.
+        updated_fields = dict(changes)
+
+        result = await self.backend.update(principle_uid, changes)
         if result.is_error:
             return result
 
         updated_principle = result.value
         assert isinstance(updated_principle, Principle)
+
+        if not updated_fields:
+            return Result.ok(updated_principle)
 
         # Publish PrincipleUpdated event (event-driven architecture)
         from core.events import PrincipleStrengthChanged, PrincipleUpdated
@@ -341,12 +391,12 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         event = PrincipleUpdated(
             principle_uid=principle_uid,
             user_uid=updated_principle.user_uid,
-            updated_fields=updates,
+            updated_fields=updated_fields,
         )
         await publish_event(self.event_bus, event, logger)
 
         # Strength-specific event if strength changed
-        if "strength" in updates and old_strength != updated_principle.strength:
+        if "strength" in changes and old_strength != updated_principle.strength:
             strength_event = PrincipleStrengthChanged(
                 principle_uid=principle_uid,
                 user_uid=updated_principle.user_uid,
