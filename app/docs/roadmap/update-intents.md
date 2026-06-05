@@ -1,18 +1,19 @@
 ---
 title: "Roadmap: Typed Update Intents migration"
-updated: 2026-06-04
-status: not-started
+updated: 2026-06-05
+status: complete
 category: roadmap
 tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
 ---
 
 # Roadmap: Typed Update Intents migration
 
-**Status:** Phases 1–6 (all six Activity Domains) + **Phase 7a (base parameterization + teardown)**
-complete — 2026-06-05. The shared CRUD base is now parameterized over the update type `U`
-(`SupportsToChanges`, default `RawChanges`); the six `_intent_from_mapping` funnels, the facade
-`Mapping` overrides, and the six activity `*UpdatePayload` TypedDicts are deleted. **Only Phase 7b
-(docs/skills One-Path cleanup) remains.**
+**Status:** ✅ **COMPLETE — 2026-06-05.** All phases shipped: Phases 1–6 (the six Activity
+Domains on frozen `*UpdateIntent`), Phase 7a (base parameterized over the update type `U` —
+`SupportsToChanges`, default `RawChanges`; the six `_intent_from_mapping` funnels, facade
+`Mapping` overrides, and six activity `*UpdatePayload` TypedDicts deleted), and Phase 7b
+(docs/skills One-Path cleanup — every doc/skill now describes the single typed-intent path).
+ADR-066 is fully implemented.
 **Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
 
@@ -50,7 +51,7 @@ with a green tree throughout.
 | Choices | ☑ | ☑ | ☑ | ☑ | ☑ (Phase 7a) |
 | Principles | ☑ | ☑ | ☑ | ☑ | ☑ (Phase 7a) |
 
-Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base parameterized over `U`: ☑ (Phase 7a) · Docs/skills One-Path cleanup: ☐ (Phase 7b)
+Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base parameterized over `U`: ☑ (Phase 7a) · Docs/skills One-Path cleanup: ☑ (Phase 7b)
 
 > **Sequencing decision (2026-06-04): funnel now, parameterize the base at Phase 7.**
 > The "service contract on intent" column is satisfied per-domain by typing the
@@ -275,10 +276,11 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
     (behavior must not change; Habits' force_archive cases are the canary). Tick col 5 for the six
     activity rows.
 
-  **Phase 7b — docs/skills One-Path cleanup (gated prose, one PR — only after 7a merges).** Docs must
-  describe the *final* code, so this follows 7a. Verify every behavioral claim vs code (mechanical
-  rename is unsound).
-  - **Docs** (rewrite to the intent pattern, delete TypedDict references):
+  **Phase 7b — docs/skills One-Path cleanup (gated prose, one PR). ✅ DONE (2026-06-05).** Rewrote
+  every doc/skill to describe the *final* code — the single typed-intent path — verifying each
+  behavioral claim against the code (mechanical rename is unsound). With this the **whole ADR-066
+  migration is COMPLETE.** The items below record what was swept:
+  - **Docs** (rewrote to the intent pattern, deleted TypedDict references):
     `docs/patterns/three_tier_type_system.md` (§ TypedDicts, lines ~622–719),
     `docs/patterns/query_architecture.md` (§ TypedDicts, lines ~508–559),
     `docs/guides/BASESERVICE_QUICK_START.md` (Update-an-entity example),

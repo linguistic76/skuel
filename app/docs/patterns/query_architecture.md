@@ -507,9 +507,10 @@ All query builders support consistent filter operators:
 
 ## TypedDicts for Type-Safe Queries (January 2026)
 
-**Core Principle:** "Replace `dict[str, Any]` with typed filter specs and update payloads"
+**Core Principle:** "Replace `dict[str, Any]` with typed filter specs, update intents, and update payloads"
 
-SKUEL provides TypedDicts in `/core/ports/query_types.py` for type-safe query construction:
+SKUEL provides TypedDicts in `/core/ports/query_types.py` for type-safe query/filter
+construction, and frozen `*UpdateIntent` dataclasses (ADR-066) for Activity Domain updates:
 
 ### Filter Specifications
 
@@ -531,32 +532,43 @@ property_filters: PropertyFilterSpec = {
 }
 ```
 
-### Update Payloads
+### Update values (ADR-066)
+
+Activity Domain updates are **frozen `*UpdateIntent` dataclasses**, not TypedDicts —
+the service `update` is parameterized over the update type `U` (`SupportsToChanges`):
 
 ```python
-from core.ports.query_types import TaskUpdatePayload, GoalUpdatePayload
+from core.models.task import TaskUpdateIntent
 
-# Task update with type-checked fields
-updates: TaskUpdatePayload = {
-    "status": EntityStatus.COMPLETED.value,
-    "priority": Priority.HIGH.value,
-}
-
-# Goal update with progress tracking
-updates: GoalUpdatePayload = {
-    "progress_percentage": 75.0,
-    "completion_date": date.today(),
-}
+# Task update — the contract is the type; only set fields are written.
+intent = TaskUpdateIntent(
+    status=EntityStatus.COMPLETED.value,
+    priority=Priority.HIGH.value,
+)
+await tasks_service.update_task(uid, intent)
 ```
 
-### Available TypedDicts
+Non-activity domains (curriculum, finance, reports) keep TypedDict patches, passed as a
+`RawChanges` value (a `dict` subclass that satisfies `SupportsToChanges`):
 
-| Category | TypedDicts |
+```python
+from core.models.update_contracts import RawChanges
+from core.ports.query_types import LpUpdatePayload
+
+updates: LpUpdatePayload = {"progress": 0.75, "is_completed": False}
+await lp_service.update(uid, RawChanges(updates))
+```
+
+### Available query/update types
+
+| Category | Types |
 |----------|------------|
 | **Filter Specs** | `BaseFilterSpec`, `ActivityFilterSpec`, `CurriculumFilterSpec`, `PrinciplesFilterSpec`, `PropertyFilterSpec` |
-| **Update Payloads** | `TaskUpdatePayload`, `GoalUpdatePayload`, `HabitUpdatePayload`, `EventUpdatePayload`, `ChoiceUpdatePayload`, `PrincipleUpdatePayload`, `FinanceUpdatePayload`, `AssignmentUpdatePayload`, `KuUpdatePayload`, `PsUpdatePayload`, `LpUpdatePayload` |
+| **Activity update intents** | `TaskUpdateIntent`, `GoalUpdateIntent`, `HabitUpdateIntent`, `EventUpdateIntent`, `ChoiceUpdateIntent`, `PrincipleUpdateIntent` (in `core/models/<domain>/`) |
+| **Non-activity update payloads** | `KuUpdatePayload`, `PsUpdatePayload`, `LpUpdatePayload`, `FinanceUpdatePayload`, `ReportUpdatePayload` (extend `BaseUpdatePayload`) |
+| **Update contracts** | `SupportsToChanges`, `SupportsToIntent`, `RawChanges` (in `core/models/update_contracts.py`) |
 
-See [Three-Tier Type System](/docs/patterns/three_tier_type_system.md#typeddicts-for-service-operations-january-2026) for complete documentation.
+See [Three-Tier Type System](/docs/patterns/three_tier_type_system.md#the-typed-write-boundary--update-intents--payloads-adr-066) and [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) for complete documentation.
 
 ## Migration from Deprecated Builders
 

@@ -331,7 +331,7 @@ def create_upload_routes(
 | Field | Type | Default | Purpose |
 |-------|------|---------|---------|
 | `create_schema` | `type` | required | Pydantic model for create validation |
-| `update_schema` | `type` | required | Pydantic model for update validation |
+| `update_schema` | `type` | required | Pydantic model for update validation. For Activity Domains this is the `*UpdateRequest`, which the generated update route turns into the typed `*UpdateIntent` via `to_intent()` (ADR-066); other domains fall back to a `RawChanges` patch. |
 | `uid_prefix` | `str` | required | UID prefix (e.g., `"ft"`, `"group"`) |
 | `scope` | `ContentScope` | `USER_OWNED` | Ownership model |
 | `require_role` | `UserRole \| None` | `None` | Role gate for mutations (and reads if `role_gates_reads=True`) |

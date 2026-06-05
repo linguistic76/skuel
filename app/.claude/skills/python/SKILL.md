@@ -321,18 +321,19 @@ async def compose_services(driver: Driver) -> Result[Services]:
 ### Ownership Verification
 
 ```python
-async def update(
+async def update_for_user(
     self,
     uid: str,
-    data: dict,
-    user_uid: UserUID
+    updates: TaskUpdateIntent,  # the typed update value U (ADR-066), not a dict
+    user_uid: UserUID,
 ) -> Result[Task]:
     # Verify ownership first
     ownership = await self.verify_ownership(uid, user_uid)
     if ownership.is_error:
         return ownership  # Returns NotFound, not Forbidden
 
-    return await self.backend.update(uid, data)
+    # Materialize the intent at the single persistence seam.
+    return await self.backend.update(uid, updates.to_changes())
 ```
 
 ### Logging

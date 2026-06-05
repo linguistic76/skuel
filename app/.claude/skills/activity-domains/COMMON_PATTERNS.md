@@ -4,12 +4,12 @@
 
 ## BaseService Inheritance
 
-All core and search services extend `BaseService[Backend, Model]` using `DomainConfig` — THE single source of truth for configuration (ONE PATH FORWARD since January 2026):
+All core and search services extend `BaseService[Backend, Model, UpdateIntent]` using `DomainConfig` — THE single source of truth for configuration (ONE PATH FORWARD since January 2026). The third type parameter is the domain's frozen `*UpdateIntent` (ADR-066); it defaults to `RawChanges`, so only the six Activity Domains pin it:
 
 ```python
 from core.services.domain_config import create_activity_domain_config
 
-class TasksCoreService(BaseService[TasksOperations, Task]):
+class TasksCoreService(BaseService[TasksOperations, Task, TaskUpdateIntent]):
     _config = create_activity_domain_config(
         dto_class=TaskDTO,
         model_class=Task,
@@ -54,6 +54,57 @@ async def complete_task(self, uid: str) -> Result[Task]:
 **Event naming**: `{Domain}{Action}` - e.g., `TaskCompleted`, `GoalAchieved`, `HabitStreakBroken`
 
 **Event files**: `/core/events/{domain}_events.py`
+
+## How to update an entity (the ONE path — ADR-066)
+
+A **user-facing / facade** Activity Domain update is a frozen `*UpdateIntent`, never a raw
+dict — that is the one canonical path for public CRUD (the `update_<domain>` facades, the
+ownership-checked `update_for_user`, and the generic `CRUDRouteFactory`). What ADR-066 removed
+is the *opaque* alternatives: the six `*UpdatePayload` TypedDicts, the `_intent_from_mapping`
+funnels, and the facade `Mapping` overrides. It did **not** remove `RawChanges` — that is the
+documented `U` default, and internal sub-services still use it (see below), so don't read this
+as "no activity service may ever pass `RawChanges`".
+
+```python
+from core.models.task import TaskUpdateIntent
+
+# 1. Service-authored transition — construct the intent directly.
+intent = TaskUpdateIntent(status="in_progress", priority="urgent")
+await tasks_service.update_task(uid, intent)
+
+# 2. From an HTTP body — build the intent from the validated request.
+intent = TaskUpdateRequest.model_validate(body).to_intent()
+await tasks_service.update_for_user(uid, intent, user_uid)  # ownership-checked
+```
+
+How it flows:
+
+- Every updatable column is a field on the intent, defaulted to the shared `UNSET` sentinel.
+  `to_changes()` emits **only** the fields you set — so omitting a field leaves it untouched,
+  while setting it to `None` is an explicit clear (a distinction a dict patch can't make).
+- The shared base (`CrudOperationsMixin[B, T, U]`) is parameterized over the update type `U`
+  (bound `SupportsToChanges`, default `RawChanges`). It runs `_validate_update` / `_post_update`
+  and materializes the patch once at `backend.update(uid, updates.to_changes())`.
+- `*UpdateRequest.to_intent()` builds the intent from `model_fields_set` (enums lowered to
+  `.value`). The generic `CRUDRouteFactory` calls it automatically for any `SupportsToIntent`
+  schema, so config-driven routes need no per-domain update code.
+- **Internal sub-service transitions may pass `RawChanges`, not an intent.** A domain
+  sub-service that is its own `BaseService[Op, T]` instantiation (e.g. `TasksProgressService`)
+  inherits `U = RawChanges`, so a system transition it owns calls
+  `self.update(uid, RawChanges({"status": ...}))` — still the *validated, event-firing* service
+  contract (same `_validate_update` / `_post_update`), just with a `RawChanges` value rather
+  than the domain intent. These are legitimate; don't rewrite or flag them. The typed
+  `*UpdateIntent` is the contract for the **public** facade/route update, not every call in the
+  domain.
+- **`backend.update(uid, dict)` directly** is the persistence seam (always a dict) and is
+  allowed only for full-DTO replaces and timestamp/system bumps — each marked `# raw-write:`.
+  A partial field update that bypasses *both* the intent and the `RawChanges` service contract
+  (i.e. straight to `backend.update`) is a defect.
+
+Per-domain deviations: **Habits** keeps `update_habit(uid, intent, *, force_archive=False)`
+(the transient `force_archive` directive can't ride the intent — it would persist as a junk
+column); **Tasks/Events** split edge-typed fields off the intent before the property write.
+See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) and `docs/roadmap/update-intents.md`.
 
 ## UI Pattern
 
@@ -164,7 +215,7 @@ if result.is_error:
 
 # BaseService provides these methods:
 await service.get_for_user(uid, user_uid)      # Get with ownership check
-await service.update_for_user(uid, updates, user_uid)
+await service.update_for_user(uid, intent, user_uid)   # intent = a *UpdateIntent (ADR-066)
 await service.delete_for_user(uid, user_uid)
 ```
 
@@ -226,9 +277,11 @@ ADR-035/ADR-065 graph-native migration; do not reintroduce it). The string list 
 service layer translates it to/from edges.
 
 - **Write:** both create AND update must route `applies_knowledge_uids` to edge mutation.
-  `TasksService.update_task` pops it out of the property `updates` dict and re-syncs edges
-  (symmetric to `reinforces_habit_uid`) — leaving it in `updates` writes a junk node
-  property and silently skips the edge, because the backend does `SET n += $updates`.
+  `TasksService.update_task` splits the edge-typed fields off the `TaskUpdateIntent`
+  (`_split_relationship_intent` resets them to `UNSET` on the property sub-intent) and
+  re-syncs edges (symmetric to `reinforces_habit_uid`) — leaving them on the property
+  intent would write junk node properties and silently skip the edge, because the backend
+  does `SET n += $changes`.
 - **Read:** `TaskRelationships.fetch(uid, service.relationships)` or
   `get_related_uids("knowledge", uid)` — never a node attribute.
 - **Consume:** `InsightGenerationService._analyze_knowledge_application_patterns` emits a

@@ -50,6 +50,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL022** | `adapters/` imports in `core/` | Depend on a `core/ports` protocol; inject the adapter (ADR-044) |
 | **SKUEL023** | `self.backend` typed against an adapter class in `core/` | Type against the `core/ports` protocol (AST rule, ADR-044) |
 | **SKUEL024** | Hardcoded `cls=` + `**kwargs` splat without a `cls` param | Add explicit `cls: str = ""` and merge (AST rule) |
+| **SKUEL025** | A deleted Activity `*UpdatePayload` name (ADR-066) | Use the domain `*UpdateIntent` / `*UpdateRequest.to_intent()` (AST rule) |
 
 ### WARNING (reported, doesn't block)
 | Rule | Pattern | Enforcement |
@@ -514,6 +515,30 @@ A local **reassignment of an owned `**kwargs`** is **not** treated as clearing t
 **Suppression:**
 - `# skuel-lint: disable=SKUEL024 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL024 -- <reason>` (file)
+
+## Rule: SKUEL025 - No Deleted Activity *UpdatePayload (ADR-066)
+
+**Pattern:** ADR-066 (Phase 7a) replaced the six Activity Domain `*UpdatePayload` TypedDicts with frozen `*UpdateIntent` dataclasses and a CRUD base parameterized over the update type `U`. The deleted names — `TaskUpdatePayload`, `GoalUpdatePayload`, `HabitUpdatePayload`, `EventUpdatePayload`, `ChoiceUpdatePayload`, `PrincipleUpdatePayload` — must not return; referencing one rebuilds the abandoned dict write-path (One Path Forward).
+
+```python
+# BAD — resurrects the deleted TypedDict write-path
+from core.ports.query_types import TaskUpdatePayload   # SKUEL025
+updates: TaskUpdatePayload = {"status": "in_progress"}
+
+# GOOD — the frozen intent is the one update path
+from core.models.task import TaskUpdateIntent
+await tasks_service.update_task(uid, TaskUpdateIntent(status="in_progress"))
+```
+
+**Why it matters:** the six TypedDicts were decorative — structurally just `dict`, so the type was advisory and never enforced at the write seam. ADR-066 made the contract real (frozen dataclass, `UNSET` vs `None`, single `to_changes()` materialization). The non-activity payloads (curriculum `Ku`/`Ps`/`Lp`, `Finance`, `Report`) are **intentionally not forbidden** — they remain valid, flowing as `RawChanges` through the same base `U`.
+
+**Detection (AST), trivially sound:** a fixed forbidden set of exactly the six deleted names. The rule flags an import alias, a bare `Name`, or an `Attribute` whose identifier is in the set — all structural facts, no flow analysis. A string literal naming a deleted type (a test asserting its removal, this rule's own metadata) is never a `Name`/`Attribute` node, so it is never flagged. Deduped per `(line, name)`.
+
+**Scope:** all non-test files.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL025 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL025 -- <reason>` (file)
 
 ## Authoring AST Rules
 

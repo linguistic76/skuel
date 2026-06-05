@@ -86,7 +86,12 @@ class CreateRequestBase(RequestBase):
 
 
 class UpdateRequestBase(RequestBase):
-    """Base for PATCH update requests - all fields optional"""
+    """Base for PATCH update requests - all fields optional.
+
+    Activity Domain *UpdateRequest models also expose `to_intent()`, which builds the
+    frozen `*UpdateIntent` the service contract consumes (ADR-066) — never pass the raw
+    request dict to `service.update`. See request-response-reference.md.
+    """
     pass
 
 
