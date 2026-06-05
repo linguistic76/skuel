@@ -1105,7 +1105,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             self.logger.debug(f"Goal {goal_uid} progress unchanged ({new_progress:.1f}%)")
             return
 
-        # Update goal progress
+        # raw-write: system progress propagation from task completion. Bypasses the
+        # validated/event-firing service contract (GoalUpdateIntent → update_goal) on
+        # purpose — this path publishes its own GoalProgressUpdated below with the
+        # task-completion provenance (triggered_by_task_completion) that the generic
+        # update_goal cannot express. A plain dict literal is the honest type here.
         updates: dict[str, Any] = {
             "progress_percentage": new_progress,
             "current_value": new_progress,
@@ -1270,7 +1274,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
             return
 
-        # Update goal progress
+        # raw-write: system progress propagation from habit completion. Bypasses the
+        # validated/event-firing service contract (GoalUpdateIntent → update_goal) on
+        # purpose — this path publishes its own GoalProgressUpdated below with the
+        # habit-completion provenance (triggered_by_habit_completion) that the generic
+        # update_goal cannot express. A plain dict literal is the honest type here.
         updates: dict[str, Any] = {
             "progress_percentage": new_progress,
             "current_value": new_progress,

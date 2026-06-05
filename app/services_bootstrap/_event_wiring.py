@@ -46,6 +46,7 @@ def _wire_event_subscribers(
         GoalCreated,
         GoalMilestoneReached,
         GoalProgressUpdated,
+        GoalUpdated,
         HabitCompleted,
         HabitCompletionBulk,
         HabitCreated,
@@ -136,6 +137,7 @@ def _wire_event_subscribers(
         TaskPriorityChanged,
         # Goals
         GoalCreated,
+        GoalUpdated,
         GoalAchieved,
         GoalAbandoned,
         GoalMilestoneReached,
