@@ -133,8 +133,14 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
 - **Phase 4 — Choices. ✅ DONE (2026-06-04).** Shape A in structure (a separately-named
   `update_choice` that wrote `backend.update` directly, no generic `update(Mapping)` override) but —
   unlike Tasks — with a **live `_validate_update`** (decision immutability for DECIDED/EVALUATED
-  choices, option-count floor) reached via `core.update` (the `choices_api` status route) and the
-  CRUD factory. `ChoiceUpdateIntent` (node-property columns only; `ChoiceUpdateRequest` carries no
+  choices, option-count floor). Pre-change, exactly one caller reached it: `choices_api` calls
+  `choices_service.core.update(...)`, drilling into the core so `self._validate_update` resolves to the
+  real implementation. (The pre-change UI-edit and generic-CRUD-factory paths went through the facade's
+  inherited *no-op* `_validate_update` — identical to Tasks, whose same-named `TasksCoreService.
+  _validate_update` is dead because every live caller hits the facade no-op or `update_task`'s direct
+  backend write.) Routing the facade's `update` / `update_for_user` through the core funnel now means
+  **all three paths validate** — a behavior gain, not just preservation.
+  `ChoiceUpdateIntent` (node-property columns only; `ChoiceUpdateRequest` carries no
   edge fields, so nothing to drop — the create-only `informed_by_knowledge_uids` edge lives on
   `ChoiceCreateRequest`), `ChoiceUpdateRequest.to_intent()` (generic `when_set[T]`, enums lowered),
   and `ChoicesCoreService.update_choice(intent)` typed on the intent. **Like Goals (not Tasks),
