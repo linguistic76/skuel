@@ -26,9 +26,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain
 from core.models.pathways.path_step import PathStep
-from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import UserUID
 from core.ports.query_types import PsDomainInsights, PsPerformanceAnalytics, PsPracticeSummaryResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -94,14 +92,6 @@ class PsIntelligenceService(
         # imports the adapter (SKUEL022).
         self.executor = executor
         self._backend = intelligence_backend
-
-        self._init_context_loader(
-            get_entity=self.backend.get,
-            dto_class=PathStepDTO,
-            model_class=PathStep,
-            domain=Domain.LEARNING,
-            model_name="PathStep",
-        )
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

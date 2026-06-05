@@ -18,9 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain
 from core.models.ku.ku import Ku
-from core.models.ku.ku_dto import KuDTO
 from core.models.type_hints import UserUID
 from core.ports.query_types import KuUserSubstanceResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -68,18 +66,10 @@ class KuIntelligenceService(
             event_bus=event_bus,
         )
 
-        self._init_context_loader(
-            get_entity=self.backend.get,
-            dto_class=KuDTO,
-            model_class=Ku,
-            domain=Domain.KNOWLEDGE,
-            model_name="Ku",
-        )
-
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS
     # `get_with_context()` is inherited from `_CoreIntelligenceMixin[Ku]` —
-    # typed return, one delegation.
+    # mechanism B (registry-sourced), typed return.
     # ========================================================================
 
     async def get_performance_analytics(

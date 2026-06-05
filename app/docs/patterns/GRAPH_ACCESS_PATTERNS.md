@@ -177,18 +177,22 @@ class Ku:
 
 ### What It Is
 
-Complex graph queries using **GraphIntelligenceService** and **GraphContextLoader**, where domain models express *intent* and infrastructure builds Cypher:
+Complex graph queries using **GraphIntelligenceService** and the shared
+`_CoreIntelligenceMixin.get_with_context`, where the **registry** (the domain config)
+supplies the edge vocabulary and infrastructure builds the Cypher (mechanism B):
 
 ```python
-# Model expresses intent (domain logic)
-intent = ku.get_suggested_query_intent()
+# Mechanism B (registry-sourced): the intelligence service delegates to its
+# UnifiedRelationshipService, which sources edges from the domain config's
+# cross_domain_relationship_types — no model-suggested intent, no per-service wiring.
+entity, context = (await self.relationships.get_with_context(uid, depth=2)).value
 
-# Infrastructure builds and executes query (persistence logic)
+# An explicit-intent traversal is still available for callers that want a specific lens:
 context = await graph_intelligence.query_with_intent(
     domain=Domain.TASKS,
-    node_uid=ku.uid,
-    intent=intent,
-    depth=2
+    node_uid=uid,
+    intent=QueryIntent.PREREQUISITE,
+    depth=2,
 )
 ```
 
@@ -216,14 +220,14 @@ context = await graph_intelligence.query_with_intent(
 
 ### Architectural Separation
 
-Domain models **express intent**, infrastructure **builds queries**:
+The **registry** supplies the edge vocabulary, infrastructure **builds queries**:
 
 | Responsibility | Location | Example |
 |---------------|----------|---------|
-| Suggest query intent | `Ku.get_suggested_query_intent()` | Returns `QueryIntent.PREREQUISITE` |
-| Build Cypher query | `graph_traversal.build_graph_context_query()` | Generates Cypher string |
+| Source edge vocabulary | `DomainConfig.cross_domain_relationship_types` | Registry single source of truth |
+| Build Cypher query | `graph_context_query_builder.build_context_query_for_intent()` | Generates Cypher string |
 | Execute query | `GraphIntelligenceService.query_with_intent()` | Runs against Neo4j |
-| Orchestrate flow | `GraphContextLoader.get_with_context()` | Combines all steps |
+| Orchestrate flow | `_CoreIntelligenceMixin.get_with_context()` → `UnifiedRelationshipService.get_with_context()` | Combines all steps (mechanism B) |
 
 This separation means domain models have zero Cypher dependencies — if the persistence layer changed from Neo4j to PostgreSQL, the domain models wouldn't need to change.
 

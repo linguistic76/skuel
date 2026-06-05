@@ -42,7 +42,7 @@ LpService coordinates 5 sub-services:
 
 **Initialization:** Manual (non-standard core signature requires `ps_service`)
 **Intelligence:** Created internally by LpService (January 2026 - unified pattern)
-**graph_intel:** REQUIRED for GraphContextLoader (fail-fast validation)
+**graph_intel:** REQUIRED — gates the inherited mechanism-B `get_with_context` (fail-fast validation)
 
 ```python
 from core.services.lp_service import LpService
@@ -202,7 +202,7 @@ LpIntelligenceService is created internally by LpService (January 2026 - unified
 - Matches the unified pattern used by all other domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, MOC)
 - All 7 intelligence Cypher queries delegated to `LpBackend` (April 2026)
 - Service-layer consumers extract records from `result.value` (a `list[dict]`) before accessing keys — never call `.get()` directly on the list
-- `graph_intel` retained only for `GraphContextLoader`
+- `graph_intel` retained to gate the inherited mechanism-B `get_with_context` (registry-sourced via `self.relationships`)
 
 ### Facade Aggregation Methods (March 2026)
 

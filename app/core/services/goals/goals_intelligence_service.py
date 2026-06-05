@@ -21,9 +21,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain
 from core.models.goal.goal import Goal
-from core.models.goal.goal_dto import GoalDTO
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -136,14 +134,6 @@ class GoalsIntelligenceService(
         )
         self.progress = progress_service  # Domain-specific: for velocity calculations
         self.habits_service: HabitsOperations | None = None  # Post-wired cross-domain dep
-
-        self._init_context_loader(
-            get_entity=self.backend.get_goal,
-            dto_class=GoalDTO,
-            model_class=Goal,
-            domain=Domain.GOALS,
-            model_name="Goal",
-        )
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

@@ -36,7 +36,6 @@ if TYPE_CHECKING:
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
-from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID
 
 
@@ -225,14 +224,6 @@ class Entity:
     def needs_review(self) -> bool:
         """Non-curriculum types never need spaced repetition review."""
         return False
-
-    # =========================================================================
-    # GRAPH INTELLIGENCE (Intent Suggestion)
-    # =========================================================================
-
-    def get_suggested_query_intent(self) -> QueryIntent:
-        """Default intent for graph-context queries. Override in subclass for specialized routing."""
-        return QueryIntent.EXPLORATORY
 
     # =========================================================================
     # CONVERSION — DISPATCHER + GENERIC EXTRACTION

@@ -74,7 +74,7 @@ if result.is_ok:
 
 **Dependencies:**
 - GraphIntelligenceService (REQUIRED - uses `@requires_graph_intelligence` decorator)
-- Uses GraphContextLoader (wired via `BaseAnalyticsService._init_context_loader`)
+- Graph context via mechanism B: inherits `get_with_context` from the shared `_CoreIntelligenceMixin` (routes to `self.relationships.get_with_context`, registry-sourced from the domain config)
 
 ---
 
@@ -682,7 +682,7 @@ POST /api/goals/assess-progress
 **Domain-Specific Attributes:**
 - `self.progress` - GoalsProgressService for velocity calculations
 - `self.context_service` - CrossDomainContextService for typed context retrieval (Phase 3)
-- `self.context_loader` - GraphContextLoader for get_with_context pattern (set via `self._init_context_loader(...)`)
+- `self.relationships` - UnifiedRelationshipService backing the inherited mechanism-B `get_with_context` (registry-sourced graph context)
 
 **Logging:**
 ```python

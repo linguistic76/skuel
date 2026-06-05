@@ -17,8 +17,8 @@ from core.models.enums import EntityStatus
 from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
-from core.utils.decorators import requires_graph_intelligence, with_error_handling
-from core.utils.result_simplified import Errors, Result
+from core.utils.decorators import requires_graph_intelligence
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.event.event import Event
@@ -29,8 +29,9 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
     Event context retrieval and performance analysis for EventsIntelligenceService.
 
-    Extends the shared _CoreIntelligenceMixin to add event-specific context
-    retrieval (get_event_with_context) and performance analysis methods.
+    ``get_with_context`` (mechanism B) is inherited from the shared
+    ``_CoreIntelligenceMixin``; this mixin adds event-specific context retrieval
+    (get_event_with_context) and performance analysis methods.
 
     Declares class-level attributes used by these methods so mypy
     resolves them without runtime cost.
@@ -42,33 +43,6 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     relationships: Any
     backend: Any
     logger: Any
-
-    @requires_graph_intelligence("get_with_context")
-    @with_error_handling("get_with_context", error_type="system", uid_param="uid")
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Event, GraphContext]]:
-        """
-        Get event with full graph context via mechanism B (registry-sourced).
-
-        One Path Forward (Convergence Phase 1): route through
-        ``self.relationships.get_with_context`` — which sources its edge vocabulary
-        from ``EVENTS_CONFIG.cross_domain_relationship_types`` (the registry, the single
-        source of truth) — instead of the inherited ``GraphContextLoader`` EXPLORATORY
-        path. This also replaces the previously-broken ``get_entity_context`` call that
-        passed an unsupported ``entity_type=`` kwarg (a ``TypeError`` — deleted, not
-        patched).
-
-        See: /docs/roadmap/intent-traversal-registry-convergence.md
-        """
-        if self.relationships is None:
-            return Result.fail(
-                Errors.system(
-                    message="relationship_service required for get_with_context",
-                    operation="get_with_context",
-                )
-            )
-        return await self.relationships.get_with_context(uid, depth)
 
     @requires_graph_intelligence("get_event_with_context")
     async def get_event_with_context(
