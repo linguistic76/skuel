@@ -9,7 +9,8 @@ tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
 # Roadmap: Typed Update Intents migration
 
 **Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) + Phase 3 (Events) + Phase 4 (Choices) +
-Phase 5 (Principles) complete — 2026-06-04. Phases 6–7 pending.
+Phase 5 (Principles) + Phase 6 (Habits) complete — 2026-06-05. All six Activity Domains migrated;
+**only Phase 7 (teardown + base parameterization + docs/skills One-Path cleanup) remains.**
 **Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
 
@@ -42,7 +43,7 @@ with a green tree throughout.
 |--------|:---:|:---:|:---:|:---:|:---:|
 | Tasks (reference) | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Goals | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Habits | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
+| Habits | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Events | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Choices | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Principles | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
@@ -184,17 +185,41 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
   (`Result[bool]`) is vestigial/uncalled — left for Phase 7. The Principles facade mixins' `core: Any` were
   left untouched (the intent flows only through the facade's own concretely-typed `core` methods). Verified
   live: `tests/integration/test_principle_update_intent_pipeline.py` (6 cases).
-- **Phase 6 — Habits** (last domain). Reads ADR-066 + this roadmap + the Tasks reference commit and
-  replicates steps 1–6. Watch the activity mixins typed `core: Any` (e.g. `habits/_completion_mixin.py`) —
-  passing an intent through an `Any` attribute is unchecked; tighten the attribute type to the core service
-  (or its protocol) so the intent is actually verified.
-  **Caller-convergence (step 4) — Habits still carries the legacy form:** `habits_api.py:32` calls
-  `service.core.update(uid, {"status": new_status})`, drilling past the facade with a raw dict (the same debt
-  Choices' Phase 4 and Principles' Phase 5 removed). Converge it to the facade + typed-intent form —
-  `habits_service.update_habit(uid, HabitUpdateIntent(status=new_status))`. After Phase 6,
-  Tasks/Events/Choices/Principles/Habits use the typed-intent status route and Goals uses `set_status`;
-  **no activity `*_api.py` should call `.core.update(dict)`.** (Tasks/Events/Choices/Principles already
-  converged; Habits is the last.)
+- **Phase 6 — Habits. ✅ DONE (2026-06-05).** Last Activity Domain. Shape B in structure (core overrode
+  the generic `update(Mapping)`) but — **unlike Goals/Choices, like Tasks/Principles** — `update_habit`
+  does **not** route through `super().update()`. Habits' `_validate_update` IS live and real (streak
+  preservation on archive; DAILY-frequency consistency) but reads a transient `force_archive` directive
+  that bypasses the streak rule. The shared base passes the *same* mapping to `_validate_update` AND
+  `backend.update` (`SET n += $updates`, no key filtering), so carrying `force_archive` through
+  `super().update()` would persist it as a junk node column. So `update_habit` validates **explicitly**
+  (force flag visible to validation only) then writes the clean patch backend-direct — validation still
+  runs on every path (all callers funnel through `update_habit`), force_archive works without leaking a
+  column. (Trace-and-deviate from the "keep super().update() when live" rule, mirroring Principles'
+  documented case — the stated-fact-vs-code exception.) **Also fixed a latent bug while here:** the
+  `force_archive` bypass its own error message advertises was **dead code** — Rule 1 returned `Result.fail`
+  *before* the trailing `if updates.get("force_archive")` check could ever run. Gated Rule 1 on
+  `not updates.get("force_archive")` and deleted the unreachable trailing block; Rule 2 (data-integrity,
+  DAILY target ≤ 7) stays non-bypassable. Landed: `HabitUpdateIntent` (15 request-settable columns +
+  `reminder_time`/`reminder_days`/`reminder_enabled` so the `set/delete_habit_reminder` funnel carries
+  real columns), `HabitUpdateRequest.to_intent()` (generic `when_set[T]`, 6 enums lowered, **drops the
+  four edge UIDs** `linked_knowledge_uids`/`linked_goal_uids`/`linked_principle_uids`/
+  `prerequisite_habit_uids` — graph edges, not columns, locked by a test), `HabitsCoreService.update_habit(intent, *, force_archive)`
+  + `_intent_from_mapping` funnel on the core (extracts `force_archive` from the Mapping; also naturally
+  drops the legacy junk writes `notes`/`paused_until` — non-columns nothing reads). **Added a new
+  `HabitUpdated` event** (Habits had none — the core docstring even said "Habit updates don't have
+  specific events"; mirrors `GoalUpdated`) wired to context invalidation in `services_bootstrap/_event_wiring.py`,
+  so plain property edits now invalidate caches. Facade `update_habit`/`update`/`update_for_user` route
+  through the funnel; the UI edit route passes `to_intent()` (dropped the ad-hoc "drop None").
+  #2 stragglers annotated `# raw-write:`: `habits_progress_service` (streak/stat propagation, converted
+  `HabitUpdatePayload` → plain `dict`) + the two `habits_completion_service` streak-stat writes — each owns
+  its provenance-bearing HabitCompleted/HabitStreakBroken/HabitStreakMilestone. The Habits facade mixins'
+  `core: Any` were left untouched (the intent flows only through the facade's own concretely-typed `core`;
+  `_completion_mixin` still passes a `Mapping` through `core.update`, not an intent). Verified live:
+  `tests/integration/test_habit_update_intent_pipeline.py` (7 cases).
+  **Caller-convergence (step 4) — COMPLETE for all six domains:** `habits_api.py:32` converged from
+  `service.core.update(uid, {"status": ...})` to `habits_service.update_habit(uid, HabitUpdateIntent(status=new_status))`.
+  **End-state invariant achieved: no activity `*_api.py` calls `.core.update(dict)`** — Tasks/Events/Choices/Principles/Habits
+  use the typed-intent status route and Goals uses `set_status`.
 - **Phase 7 — Teardown + One-Path cleanup + base parameterization.**
   - **Parameterize the base over the update type (the ADR-066 destination).** With all six domains on
     intents, add `U: SupportsToChanges` (a `to_changes() -> dict[str, Any]` protocol) as a third type

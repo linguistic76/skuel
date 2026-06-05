@@ -17,6 +17,7 @@ from .habit_request import (
     HabitStatsRequest,
     HabitUpdateRequest,
 )
+from .habit_update_intent import HabitUpdateIntent
 
 __all__ = [
     "HabitCompletion",
@@ -29,5 +30,6 @@ __all__ = [
     "HabitFilterRequest",
     "HabitSkipRequest",
     "HabitStatsRequest",
+    "HabitUpdateIntent",
     "HabitUpdateRequest",
 ]

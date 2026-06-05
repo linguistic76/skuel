@@ -12,16 +12,18 @@ Responsibilities:
 - Publishes domain events (HabitCreated, HabitCompleted, HabitStreakBroken)
 """
 
+import dataclasses
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
 from core.events import publish_event
-from core.events.habit_events import HabitCreated
+from core.events.habit_events import HabitCreated, HabitUpdated
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
+from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
@@ -131,24 +133,31 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         from core.models.enums.entity_enums import EntityStatus
 
         # Business Rule 1: Streak preservation on archive
-        # Users invest effort building streaks - prevent accidental destruction
+        # Users invest effort building streaks - prevent accidental destruction.
+        # The transient ``force_archive`` directive (never a persisted column; passed via
+        # the keyword on update_habit) bypasses THIS rule only — gating the condition on it
+        # is what makes the bypass the error message advertises actually work. (The legacy
+        # trailing ``if updates.get("force_archive")`` was dead code: both rules below
+        # early-returned before it could ever run.)
         if (
             "status" in updates
             and updates["status"] == EntityStatus.ARCHIVED.value
             and current.current_streak
             and current.current_streak >= 7
+            and not updates.get("force_archive")
         ):
             return Result.fail(
                 Errors.validation(
                     message=f"This habit has an active {current.current_streak}-day streak. "
-                    f"Archiving will end it. Set force_archive=true in updates to proceed.",
+                    f"Archiving will end it. Set force_archive=true to proceed.",
                     field="status",
                     value=updates["status"],
                 )
             )
 
         # Business Rule 2: Frequency consistency on update
-        # Check if updating recurrence_pattern to DAILY or updating target_days_per_week
+        # Check if updating recurrence_pattern to DAILY or updating target_days_per_week.
+        # This is a data-integrity rule — NOT bypassable by force_archive.
         new_pattern = updates.get("recurrence_pattern", current.recurrence_pattern)
         new_target = updates.get("target_days_per_week", current.target_days_per_week)
 
@@ -164,10 +173,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
                     value=new_target,
                 )
             )
-
-        # Allow archive if force_archive flag is present
-        if updates.get("force_archive"):
-            return Result.ok(None)  # Bypass streak protection
 
         return Result.ok(None)  # All validations passed
 
@@ -334,23 +339,110 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return Result.ok(habit)
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Habit]:
-        """
-        Update a habit.
+    @staticmethod
+    def _intent_from_mapping(updates: Mapping[str, Any]) -> HabitUpdateIntent:
+        """Transitional bridge (ADR-066): build a ``HabitUpdateIntent`` from the ``Mapping``
+        the generic CRUD route and the in-service status/reminder methods
+        (``pause`` / ``resume`` / ``archive`` / ``set_habit_reminder`` /
+        ``delete_habit_reminder`` in ``_CompletionMixin``) still pass.
 
-        Note: Habit updates don't have specific events beyond generic update.
-        Streak-related events (HabitStreakBroken, HabitStreakMilestone) are
-        published by HabitsProgressService when completions are logged.
+        Only keys that are intent fields are carried; values are already storage-shaped
+        (the route stringifies enums via ``get_enum_value``). Non-column keys are naturally
+        dropped — both the four cross-domain edge UIDs (never written as junk node
+        properties) and the legacy junk writes ``notes`` / ``paused_until`` (not Habit
+        columns; nothing reads them off a habit). The transient ``force_archive`` validation
+        directive is likewise not an intent field — it is extracted separately by ``update``.
+        Removed in Phase 7, when the generic update path is parameterized over the intent and
+        callers pass it directly.
+        """
+        names = {f.name for f in dataclasses.fields(HabitUpdateIntent)}
+        return HabitUpdateIntent(**{k: v for k, v in updates.items() if k in names})
+
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Habit]:
+        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to a
+        ``HabitUpdateIntent`` and route through the one event-firing update path
+        (``update_habit``).
+
+        Callers still on the ``Mapping`` shape: the shared ``CRUDRouteFactory`` (via the
+        facade) and the in-service status/reminder methods. ``force_archive`` is a transient
+        validation directive (bypass the streak-preservation rule), not a column, so it is
+        extracted from the mapping and passed as a keyword — never persisted. Collapses to a
+        direct intent parameter in Phase 7.
+        """
+        force_archive = bool(updates.get("force_archive"))
+        return await self.update_habit(
+            uid, self._intent_from_mapping(updates), force_archive=force_archive
+        )
+
+    @with_error_handling("update_habit", error_type="database", uid_param="uid")
+    async def update_habit(
+        self, uid: str, intent: HabitUpdateIntent, *, force_archive: bool = False
+    ) -> Result[Habit]:
+        """Update a habit's node properties (ADR-066 typed update contract).
+
+        Materializes the intent to a partial patch, runs ``_validate_update`` (Habits' live
+        rules: streak preservation on archive, DAILY-frequency consistency), writes the
+        patch, then publishes ``HabitUpdated``. Habits carry no edge fields on the update
+        path, so the intent's ``to_changes()`` is written wholesale.
+
+        Design note (ADR-066 trace-and-deviate, mirrors Principles' documented case):
+        unlike Goals/Choices, ``update_habit`` does **not** route through ``super().update()``.
+        Habits' ``_validate_update`` reads a transient ``force_archive`` directive that bypasses
+        the streak-preservation rule. The shared base passes the *same* mapping to
+        ``_validate_update`` and ``backend.update`` (``SET n += $updates``, no key filtering), so
+        carrying ``force_archive`` through ``super().update()`` would persist it as a junk node
+        column. Instead we validate explicitly here — with the flag visible to validation only —
+        then write the clean column patch backend-direct. Validation still runs on every path
+        (all callers funnel through here), and the previously-unwired ``force_archive`` escape
+        hatch its own error message advertises now works honestly.
 
         Args:
             uid: Habit UID
-            updates: Dictionary of field updates
+            intent: Typed ``HabitUpdateIntent`` — only its set fields are written
+            force_archive: Bypass the streak-preservation rule (transient; never persisted)
 
         Returns:
             Result containing updated Habit
+
+        Events Published:
+            - HabitUpdated: always, so user-context caches invalidate even for plain property
+              edits (title / schedule / cue) with no more specific event
+
+        (Streak / completion changes fire HabitCompleted / HabitStreakBroken /
+        HabitStreakMilestone from HabitsProgressService, which owns that provenance.)
         """
-        # Call parent update (no special event for habit updates)
-        return await super().update(uid, updates)
+        changes = intent.to_changes()
+        # Capture the intended fields now: the backend stamps updated_at in place, so
+        # reading changes.keys() after the write would leak that bump into the event.
+        updated_fields = list(changes.keys())
+
+        current_result = await self.get(uid)
+        if current_result.is_error:
+            return current_result
+        current = current_result.value
+
+        # Validate with the transient force_archive flag visible to validation only —
+        # it is never added to `changes`, so it can never reach backend.update.
+        validation_view: dict[str, Any] = dict(changes)
+        if force_archive:
+            validation_view["force_archive"] = True
+        validation = self._validate_update(current, validation_view)
+        if validation.is_error:
+            return Result.fail(validation)
+
+        result: Result[Habit] = await self.backend.update(uid, dict(changes))
+        if result.is_error:
+            return result
+
+        habit = result.value
+        await publish_event(
+            self.event_bus,
+            HabitUpdated(
+                habit_uid=habit.uid, user_uid=habit.user_uid, updated_fields=updated_fields
+            ),
+            self.logger,
+        )
+        return result
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """

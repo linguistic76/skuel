@@ -164,8 +164,10 @@ def create_habits_ui_routes(
             )
             return await render_activity_sidebar_page(content, active="habits", request=request)
 
-        updates = {k: v for k, v in parsed.value.model_dump().items() if v is not None}
-        result = await habits_service.update_habit(uid, updates)
+        # ADR-066: build the typed HabitUpdateIntent from explicitly-set fields only
+        # (model_fields_set). Fields the user left blank stay UNSET and are not written,
+        # so untouched columns are never clobbered — no ad-hoc "drop None" convention.
+        result = await habits_service.update_habit(uid, parsed.value.to_intent())
         if result.is_error:
             err = result.expect_error()
             content = Div(
