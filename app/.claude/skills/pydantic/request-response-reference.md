@@ -46,23 +46,38 @@ class TaskUpdateRequest(UpdateRequestBase):
     priority: Priority | None = None
     tags: list[str] | None = None
 
-    def get_updates(self) -> dict[str, Any]:
-        """Return only fields that were explicitly set"""
-        return self.model_dump(exclude_unset=True)
+    def to_intent(self) -> TaskUpdateIntent:
+        """Build the frozen *UpdateIntent from only the fields the client set.
+
+        Fields absent from `model_fields_set` stay `UNSET` (untouched); fields the
+        client sent — including an explicit `None` — are carried through. Enum values
+        are lowered to their `.value` to match the persistence boundary.
+        """
+        def when_set[V](name: str, value: V) -> V | Unset:
+            return value if name in self.model_fields_set else UNSET
+
+        return TaskUpdateIntent(
+            title=when_set("title", self.title),
+            priority=when_set("priority", self.priority.value if self.priority else None),
+            # ... one when_set(...) per updatable field
+        )
 ```
 
-**Usage:**
+**Usage (ADR-066 — the service contract takes the typed intent, never a dict):**
 
 ```python
-# Client sends partial update
+# Client sends a partial update
 request = TaskUpdateRequest(priority=Priority.HIGH)
 
-# Only update fields that were set
-updates = request.get_updates()
-# {'priority': Priority.HIGH}
+# Build the typed intent — only the set fields are non-UNSET
+intent = request.to_intent()  # TaskUpdateIntent(priority="high")
 
-await service.update(uid, updates)
+await tasks_service.update_task(uid, intent)
 ```
+
+> The generic `CRUDRouteFactory` calls `request.to_intent()` for you when the request is
+> `SupportsToIntent` (every Activity Domain `*UpdateRequest` is). See
+> [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md).
 
 ### FilterRequest - GET Query Params
 

@@ -146,25 +146,34 @@ result = await tasks_service.get_tasks_for_goal(goal_uid="goal.health-2024")
 
 **Question:** "How do I update a Task?"
 
-**Answer:** Use the facade's update method:
+**Answer:** Build a typed `TaskUpdateIntent` and pass it to the facade (ADR-066 — updates
+are never raw dicts):
 
 ```python
+from core.models.task import TaskUpdateIntent
+
 result = await tasks_service.update_task(
-    uid="task.learn-baseservice",
-    updates={"priority": "urgent", "status": "in_progress"},
+    "task.learn-baseservice",
+    TaskUpdateIntent(priority="urgent", status="in_progress"),
 )
 ```
+
+Only the fields you set are written; a field left at the default `UNSET` is untouched,
+while setting one to `None` is an explicit clear.
 
 **With ownership verification:**
 ```python
 # Ensures user owns the task before updating
 result = await tasks_service.update_for_user(
-    uid="task.learn-baseservice",
+    "task.learn-baseservice",
+    TaskUpdateIntent(priority="urgent"),
     user_uid="user.mike",
-    updates={"priority": "urgent"},
 )
 # Returns 404 if user doesn't own the task
 ```
+
+**From an HTTP handler**, build the intent from the validated request — `TaskUpdateRequest.to_intent()`
+carries only the fields the client actually sent (the generic `CRUDRouteFactory` does this for you).
 
 ---
 
@@ -486,7 +495,9 @@ async def test_task_lifecycle(tasks_core_service):
     task = create_result.value
 
     # Update
-    update_result = await tasks_core_service.update_task(task.uid, {"priority": "high"})
+    update_result = await tasks_core_service.update_task(
+        task.uid, TaskUpdateIntent(priority="high")
+    )
 
     # Delete
     delete_result = await tasks_core_service.delete_task(task.uid)

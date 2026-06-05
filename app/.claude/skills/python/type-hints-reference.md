@@ -247,8 +247,9 @@ data: TaskData = {"uid": "123", "title": "Test"}
 
 ```python
 from core.ports.query_types import (
-    # Input types (filters, payloads)
-    ActivityFilterSpec, TaskUpdatePayload, CypherParams,
+    # Input types (filters; non-activity update payloads — activity domains use
+    # frozen *UpdateIntent dataclasses instead, ADR-066)
+    ActivityFilterSpec, KuUpdatePayload, CypherParams,
     # Domain stats
     TaskStats, GoalStats, HabitStats, EventStats, ChoiceStats, PrincipleStats,
     # System health + finance

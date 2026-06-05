@@ -619,33 +619,55 @@ users_backend = UserBackend(driver)
 
 User is the identity anchor upon which all activity tracking depends. It has a fundamentally different lifecycle and purpose than activity domains, requiring specialized persistence that focuses on identity management rather than activity CRUD.
 
-## TypedDicts for Service Operations (January 2026)
+## The typed write boundary — update intents + payloads (ADR-066)
 
-**Core Principle:** "Type-safe dictionaries replace `dict[str, Any]` at call sites"
+**Core Principle:** "An update carries a type that names exactly what it may change"
 
-SKUEL uses TypedDicts to provide type safety for update payloads and filter specifications passed to service methods. This eliminates typos, provides IDE autocomplete, and catches wrong fields at dev time.
+A service `update` no longer takes an untyped `dict[str, Any]`. The shared CRUD base
+(`CrudOperationsMixin[B, T, U]`) is parameterized over a third type parameter `U` — the
+update value — bound by the `SupportsToChanges` protocol (`to_changes() -> dict[str, Any]`)
+with a default of `RawChanges`. The base materializes the patch exactly once, at the
+`backend.update(uid, updates.to_changes())` seam.
 
-### Location
+Two flavours of `U` exist, by domain:
 
-All TypedDicts are defined in `/core/ports/query_types.py`.
+### Activity Domains → frozen `*UpdateIntent` dataclasses (ADR-066)
 
-### Update Payload TypedDicts
+The six Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) each declare
+a frozen `*UpdateIntent` dataclass — **not** a TypedDict. Every updatable column is a field
+defaulted to the shared `UNSET` sentinel, so `None` stays a meaningful value (an explicit
+clear) and `to_changes()` emits only the fields that were actually set.
 
-Domain-specific TypedDicts for update operations:
+| `*UpdateIntent` | Domain | Location |
+|-----------------|--------|----------|
+| `TaskUpdateIntent` | Tasks | `core/models/task/task_update_intent.py` |
+| `GoalUpdateIntent` | Goals | `core/models/goal/goal_update_intent.py` |
+| `HabitUpdateIntent` | Habits | `core/models/habit/habit_update_intent.py` |
+| `EventUpdateIntent` | Events | `core/models/event/event_update_intent.py` |
+| `ChoiceUpdateIntent` | Choices | `core/models/choice/choice_update_intent.py` |
+| `PrincipleUpdateIntent` | Principles | `core/models/principle/principle_update_intent.py` |
+
+Each domain's `BaseService` instantiation pins `U` to its intent, e.g.
+`BaseService[TasksOperations, Task, TaskUpdateIntent]`. The matching `*UpdateRequest`
+(Pydantic edge model) carries a `to_intent()` that builds the intent from
+`model_fields_set` — see [ADR-066](../decisions/ADR-066-typed-update-intents.md) and
+`docs/roadmap/update-intents.md`.
+
+### Non-activity domains → update-payload TypedDicts
+
+Domains with no intent (curriculum, finance, reports) keep TypedDict patches, defined in
+`/core/ports/query_types.py`. They flow as `RawChanges` (a `dict` subclass that satisfies
+`SupportsToChanges`) through the same base `U`, so no per-domain intent type is required.
 
 | TypedDict | Domain | Key Fields |
 |-----------|--------|------------|
-| `TaskUpdatePayload` | Tasks | `status`, `priority`, `due_date`, `title`, `description` |
-| `GoalUpdatePayload` | Goals | `status`, `progress_percentage`, `completion_date`, `milestones` |
-| `HabitUpdatePayload` | Habits | `current_streak`, `best_streak`, `last_completed`, `total_completions` |
-| `EventUpdatePayload` | Events | `status`, `event_date`, `start_time`, `end_time`, `notes` |
-| `ChoiceUpdatePayload` | Choices | `status`, `outcome`, `decision_date`, `confidence` |
-| `PrincipleUpdatePayload` | Principles | `status`, `strength`, `is_active` |
-| `FinanceUpdatePayload` | Finance | `status`, `amount`, `paid_at`, `receipt_link`, `has_receipt` |
-| `SubmissionUpdatePayload` | Submissions | `status`, `processing_started_at`, `processing_completed_at` |
-| `KuUpdatePayload` | KU (cross-domain) | `status`, `difficulty`, `estimated_hours` |
-| `PsUpdatePayload` | PS | `status`, `sequence_number` |
-| `LpUpdatePayload` | LP | `progress`, `is_completed` |
+| `KuUpdatePayload` | KU (cross-domain) | `complexity`, `domain`, `source_path`, `tags`, `aliases` |
+| `PsUpdatePayload` | PS | `order_index`, `estimated_minutes`, `is_optional`, `is_completed` |
+| `LpUpdatePayload` | LP | `goal`, `domain`, `estimated_hours`, `progress`, `is_completed` |
+| `FinanceUpdatePayload` | Finance | `amount`, `paid_at`, `receipt_link`, `has_receipt`, `category` |
+| `ReportUpdatePayload` | Reports | `processing_started_at`, `processing_completed_at`, `file_type` |
+
+All five extend `BaseUpdatePayload` (`title`, `description`, `status`, `updated_at`).
 
 ### Filter Specification TypedDicts
 
@@ -661,60 +683,71 @@ TypedDicts for query filtering:
 
 ### Usage Pattern
 
+**Activity Domain — build the intent, never a dict:**
+
 ```python
-from core.ports.query_types import (
-    GoalUpdatePayload,
-    ActivityFilterSpec,
-)
+from core.models.goal import GoalUpdateIntent
 
-# Update operations - IDE autocomplete shows valid fields
+# A service-authored transition constructs the intent directly.
 async def complete_goal(self, uid: str) -> Result[Goal]:
-    updates: GoalUpdatePayload = {
-        "status": EntityStatus.COMPLETED.value,
-        "progress_percentage": 100.0,
-        "completion_date": date.today(),
-    }
-    return await self.backend.update(uid, updates)
+    intent = GoalUpdateIntent(
+        status=EntityStatus.COMPLETED.value,
+        completion_date=date.today(),
+    )
+    return await self.update_goal(uid, intent)  # base materializes intent.to_changes()
+```
 
-# Filter operations - type-safe filter construction
+At the HTTP edge, the `*UpdateRequest` builds the intent via `to_intent()` (only the
+fields the client actually sent become non-`UNSET`); the generic `CRUDRouteFactory` does
+this for every activity domain (`schema.to_intent()` when the schema is `SupportsToIntent`).
+
+**Non-activity domain — a `RawChanges` patch (or the TypedDict that types it):**
+
+```python
+from core.models.update_contracts import RawChanges
+from core.ports.query_types import PsUpdatePayload
+
+async def mark_step_complete(self, uid: str) -> Result[PathStep]:
+    updates: PsUpdatePayload = {"is_completed": True, "completed_at": "2026-06-05T10:00:00Z"}
+    return await self.update(uid, RawChanges(updates))
+```
+
+**Filter operations — type-safe filter construction:**
+
+```python
+from core.ports.query_types import ActivityFilterSpec
+
 def render_list_view(user_uid: UserUID) -> Any:
     filters: ActivityFilterSpec = {"status": "active", "sort_by": "created_at"}
     return ListViewComponent(filters=filters)
 ```
 
-### Type Flexibility
+### Why intents, not TypedDicts, for activity updates
 
-Update payloads accept both string and native Python types for dates/datetimes:
+A TypedDict patch could not distinguish "field omitted" from "field set to `None`", was
+structurally just a `dict` (so the type was advisory, never enforced at the seam), and
+left the update contract invisible in the method signature. The frozen `*UpdateIntent`
+fixes all three: `UNSET` vs `None` is explicit, the dataclass is the contract a reader
+sees, and `to_changes()` is the single materialization point. See
+[ADR-066](../decisions/ADR-066-typed-update-intents.md).
 
-```python
-# Both are valid for GoalUpdatePayload.completion_date
-updates: GoalUpdatePayload = {"completion_date": "2026-01-21"}  # str
-updates: GoalUpdatePayload = {"completion_date": date.today()}  # date object
-```
+### Inheritance Pattern (non-activity payloads)
 
-### Benefits
-
-1. **IDE Autocomplete** - Valid fields shown when typing
-2. **Typo Prevention** - Misspelled keys caught by type checker
-3. **Documentation** - TypedDict docstrings describe each field
-4. **Refactoring Safety** - Field renames caught across codebase
-
-### Inheritance Pattern
-
-All domain-specific payloads inherit from `BaseUpdatePayload`:
+The remaining update-payload TypedDicts inherit from `BaseUpdatePayload`:
 
 ```python
 class BaseUpdatePayload(TypedDict, total=False):
     """Base fields available on all update payloads."""
-    status: str
     title: str
     description: str
+    status: str
+    updated_at: str
 
-class GoalUpdatePayload(BaseUpdatePayload, total=False):
-    """Goal-specific fields in addition to base fields."""
-    progress_percentage: float
-    completion_date: str | date
-    milestones: list[Any]
+class LpUpdatePayload(BaseUpdatePayload, total=False):
+    """LearningPath-specific fields in addition to base fields."""
+    goal: str
+    progress: float
+    is_completed: bool
 ```
 
 The `total=False` makes all fields optional, matching the partial update semantics.
