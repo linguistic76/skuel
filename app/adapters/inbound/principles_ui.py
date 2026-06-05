@@ -13,6 +13,7 @@ picker, so no EntityPicker widgets are wired here.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
@@ -25,6 +26,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.principle.principle import merge_why_important
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
+from core.models.sentinels import UNSET
 from core.utils.connection_configs import PRINCIPLE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_principles
 from core.utils.logging import get_logger
@@ -171,17 +173,21 @@ def create_principles_ui_routes(
             )
             return await render_activity_sidebar_page(content, active="principles", request=request)
 
-        # ``why_important`` has no dedicated model column — merge it into
-        # description with the canonical marker (see merge_why_important).
-        updates: dict[str, Any] = {
-            k: v for k, v in parsed.value.model_dump().items() if v is not None
-        }
-        why_important = updates.pop("why_important", None)
-        if why_important:
-            base = updates.get("description", principle.description)
-            updates["description"] = merge_why_important(base, why_important)
+        # ADR-066: build the typed PrincipleUpdateIntent from explicitly-set fields only
+        # (model_fields_set). Fields the user left blank stay UNSET and are not written, so
+        # untouched columns are never clobbered — no ad-hoc "drop None" convention.
+        intent = parsed.value.to_intent()
+        # ``why_important`` has no dedicated model column — to_intent() drops it, so re-fold
+        # it into description with the canonical marker here (see merge_why_important), where
+        # the existing principle is available as the base when description isn't itself part
+        # of this update.
+        if parsed.value.why_important:
+            base = intent.description if intent.description is not UNSET else principle.description
+            intent = dataclasses.replace(
+                intent, description=merge_why_important(base, parsed.value.why_important)
+            )
 
-        result = await principles_service.update_principle(uid, updates)
+        result = await principles_service.update_principle(uid, intent)
         if result.is_error:
             err = result.expect_error()
             content = Div(

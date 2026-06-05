@@ -11,6 +11,7 @@ from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
     create_activity_status_api_routes,
 )
+from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from ui.activities.principles_views import PrincipleCard
 
 if TYPE_CHECKING:
@@ -29,7 +30,12 @@ def create_principles_api_routes(
     """Register Principles API routes."""
 
     async def update(uid: str, new_status: str) -> Result[Principle]:
-        return await principles_service.core.update(uid, {"status": new_status})
+        # Mirror tasks_api/choices_api: go through the facade contract with a typed intent
+        # (ADR-066), not past it into .core with a raw dict. The facade funnels through the
+        # core's PrincipleUpdated-firing update path.
+        return await principles_service.update_principle(
+            uid, PrincipleUpdateIntent(status=new_status)
+        )
 
     return create_activity_status_api_routes(
         rt,

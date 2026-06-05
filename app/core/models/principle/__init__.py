@@ -16,6 +16,7 @@ from .principle_types import (
     PrincipleDecision,
     PrincipleExpression,
 )
+from .principle_update_intent import PrincipleUpdateIntent
 from .reflection import PrincipleReflection
 from .reflection_dto import PrincipleReflectionDTO
 
@@ -27,4 +28,5 @@ __all__ = [
     "PrincipleExpression",
     "PrincipleReflection",
     "PrincipleReflectionDTO",
+    "PrincipleUpdateIntent",
 ]

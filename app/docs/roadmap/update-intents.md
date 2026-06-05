@@ -8,8 +8,8 @@ tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
 
 # Roadmap: Typed Update Intents migration
 
-**Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) + Phase 3 (Events) + Phase 4 (Choices)
-complete — 2026-06-04. Phases 5–7 pending.
+**Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) + Phase 3 (Events) + Phase 4 (Choices) +
+Phase 5 (Principles) complete — 2026-06-04. Phases 6–7 pending.
 **Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
 
@@ -45,7 +45,7 @@ with a green tree throughout.
 | Habits | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Events | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Choices | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
-| Principles | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
+| Principles | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 
 Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skills One-Path cleanup: ☐ (Phase 7)
 
@@ -158,18 +158,43 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
   Phase 7. The choices facade mixins' `core: Any` were left untouched (the intent flows only through
   the facade's own methods, where `core: ChoicesCoreService` is concretely typed). Verified live:
   `tests/integration/test_choice_update_intent_pipeline.py`.
-- **Phases 5–6 — Principles, Habits** (independent; any order, parallel contexts
-  fine). Each reads ADR-066 + this roadmap + the Tasks reference commit and replicates steps 1–6.
-  Watch the activity mixins typed `core: Any` (e.g. `habits/_completion_mixin.py`) — passing an intent
-  through an `Any` attribute is unchecked; tighten the attribute type to the core service (or its
-  protocol) so the intent is actually verified.
-  **Caller-convergence (step 4) — both still carry the legacy form:** `principles_api.py:32` and
-  `habits_api.py:32` each call `service.core.update(uid, {"status": new_status})`, drilling past the
-  facade with a raw dict (the same debt Choices' Phase 4 removed). Converge each to the facade +
-  typed-intent form — `service.update_<domain>(uid, <Domain>UpdateIntent(status=new_status))`
-  (Tasks/Events/Choices) or a typed `set_status` dispatch facade method (Goals). After Phases 5–6,
-  Tasks/Events/Choices/Principles/Habits use the typed-intent status route and Goals uses
-  `set_status`; **no activity `*_api.py` should call `.core.update(dict)`.**
+- **Phase 5 — Principles. ✅ DONE (2026-06-04).** Shape A in structure (a separately-named
+  `update_principle` that wrote `backend.update` directly, no generic `update(Mapping)` override) and —
+  **unlike Choices, like Tasks** — `update_principle` stays **backend-direct** (no `super().update()`).
+  Principles' `_validate_update` *is* reachable (via `principles_api` → `core.update({"status": ...})`)
+  but **stale/broken**: Rule 1 keys on `label` (not a column — field is `title`); Rule 3's `strength_order`
+  compares UPPERCASE keys against the lowercase enum `.value`, so both sides default to `3` and it never
+  fires; Rule 4 demands a `modification_reason` field that exists **nowhere** (unsatisfiable). The only
+  live caller sends `{"status": ...}`, which triggers no rule. Routing through `super().update()` would
+  *activate* the unsatisfiable Rule 4 and **block CORE/STRONG description edits** — a regression. Since
+  reforming `_validate_update` onto the intent is **Phase-7** work, the hook is left untouched and
+  documented; backend-direct preserves exact behavior (the "stated-fact-contradicts-code" exception to
+  "keep `super().update()` when live"). Landed: `PrincipleUpdateIntent` (node columns only + `status` for
+  the funnel/status route), `PrincipleUpdateRequest.to_intent()` (generic `when_set[T]`, enums lowered),
+  `PrinciplesCoreService.update_principle(intent)` (backend-direct; `updated_fields` snapshotted BEFORE
+  `backend.update` since the backend stamps `updated_at` in place), `_intent_from_mapping` funnel on the
+  core, facade `update`/`update_for_user`/`update_principle` route through it. **Reused the existing
+  `PrincipleUpdated`** event (+ `PrincipleStrengthChanged` on strength change) — no new event. `to_intent()`
+  **drops two non-column request fields** (honest junk-write fix, locked by a test): `why_important` (folded
+  into `description` via `merge_why_important` — `principles_ui` re-folds it into the intent's `description`
+  using the existing principle as the base) and `decision_criteria` (absent from `Principle`/`PrincipleDTO`).
+  #3 stragglers annotated `# raw-write:`: the three full-DTO `dto.to_dict()` replaces in
+  `_embodiment_mixin` (expression append) + `_alignment_intelligence_mixin` / `principles_alignment_service`
+  (alignment-history append). The backend-level `PrinciplesOperations.update_principle` protocol method
+  (`Result[bool]`) is vestigial/uncalled — left for Phase 7. The Principles facade mixins' `core: Any` were
+  left untouched (the intent flows only through the facade's own concretely-typed `core` methods). Verified
+  live: `tests/integration/test_principle_update_intent_pipeline.py` (6 cases).
+- **Phase 6 — Habits** (last domain). Reads ADR-066 + this roadmap + the Tasks reference commit and
+  replicates steps 1–6. Watch the activity mixins typed `core: Any` (e.g. `habits/_completion_mixin.py`) —
+  passing an intent through an `Any` attribute is unchecked; tighten the attribute type to the core service
+  (or its protocol) so the intent is actually verified.
+  **Caller-convergence (step 4) — Habits still carries the legacy form:** `habits_api.py:32` calls
+  `service.core.update(uid, {"status": new_status})`, drilling past the facade with a raw dict (the same debt
+  Choices' Phase 4 and Principles' Phase 5 removed). Converge it to the facade + typed-intent form —
+  `habits_service.update_habit(uid, HabitUpdateIntent(status=new_status))`. After Phase 6,
+  Tasks/Events/Choices/Principles/Habits use the typed-intent status route and Goals uses `set_status`;
+  **no activity `*_api.py` should call `.core.update(dict)`.** (Tasks/Events/Choices/Principles already
+  converged; Habits is the last.)
 - **Phase 7 — Teardown + One-Path cleanup + base parameterization.**
   - **Parameterize the base over the update type (the ADR-066 destination).** With all six domains on
     intents, add `U: SupportsToChanges` (a `to_changes() -> dict[str, Any]` protocol) as a third type

@@ -430,7 +430,10 @@ class PrinciplesAlignmentService:
         # convert here so the transfer-tier contract stays honest. See Principle._from_dto.
         dto.alignment_history.append(asdict(ku_assessment))
 
-        # Update in backend
+        # raw-write: full-DTO entity replace after appending to alignment_history (not a
+        # partial property patch). ADR-066's PrincipleUpdateIntent models partial column
+        # patches, not whole-entity persistence or history mutation — dto.to_dict() is the
+        # honest shape here.
         await self.backend.update(principle_uid, dto.to_dict())
 
     async def _calculate_system_alignment(

@@ -97,7 +97,10 @@ class _EmbodimentMixin:
         expression = PrincipleExpression(context=context, behavior=behavior, example=example)
         ku_dto.expressions.append(asdict(expression))
 
-        # Save
+        # raw-write: full-DTO entity replace after appending an expression to the DTO's
+        # expression list (not a partial property patch). ADR-066's PrincipleUpdateIntent
+        # models partial column patches, not whole-entity persistence or expression mutation —
+        # dto.to_dict() is the honest shape here.
         await self.core.backend.update(principle_uid, ku_dto.to_dict())
         self.logger.info("Created expression for principle %s", principle_uid)
 
