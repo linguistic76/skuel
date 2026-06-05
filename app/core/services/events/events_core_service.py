@@ -15,6 +15,7 @@ Responsibilities:
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import date, datetime
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
@@ -32,6 +33,7 @@ from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_value
 from core.ports.query_types import EventStats
@@ -347,77 +349,109 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
 
         return result
 
-    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Event]:
-        """
-        Update a calendar event and publish appropriate events.
+    @staticmethod
+    def _intent_from_mapping(updates: Mapping[str, Any]) -> EventUpdateIntent:
+        """Transitional bridge (ADR-066): build an ``EventUpdateIntent`` from the ``Mapping``
+        the in-service status methods (``update_event_status`` / ``start_event`` /
+        ``complete_event`` / ``cancel_event``) still pass.
 
-        Publishes CalendarEventUpdated, CalendarEventCompleted, or
-        CalendarEventRescheduled depending on what changed.
+        Only keys that are intent fields are carried; values are already storage-shaped
+        (callers stringify enums via ``get_enum_value``). Non-column keys (e.g.
+        ``cancel_event``'s ``notes``) are naturally dropped — never written as junk node
+        properties. Removed in Phase 7, when the generic update path is parameterized over
+        the intent and callers pass it directly.
+        """
+        names = {f.name for f in dataclasses.fields(EventUpdateIntent)}
+        return EventUpdateIntent(**{k: v for k, v in updates.items() if k in names})
+
+    async def update(self, uid: str, updates: Mapping[str, Any]) -> Result[Event]:
+        """Transitional ADR-066 funnel: bridge the inherited ``Mapping`` contract to an
+        ``EventUpdateIntent`` and route through the one event-firing update path
+        (``update_event``).
+
+        Callers still on the ``Mapping`` shape: the in-service status methods in
+        ``_OrchestrationMixin``. Collapses to a direct intent parameter in Phase 7.
+        """
+        return await self.update_event(uid, self._intent_from_mapping(updates))
+
+    @with_error_handling("update_event", error_type="database", uid_param="uid")
+    async def update_event(self, uid: str, intent: EventUpdateIntent) -> Result[Event]:
+        """Update a calendar event's node properties (ADR-066 typed update contract).
+
+        Materializes the intent to a partial patch once, validated and written through the
+        inherited CRUD ``update`` (BaseService → ``_validate_update`` → ``backend.update``),
+        then publishes the appropriate calendar event. This is Shape B: ``super().update``
+        is kept (not a direct ``backend.update``) so ``_validate_update`` (past-event
+        immutability, duration bounds) still runs.
+
+        The facade (``EventsService.update_event``) splits the two edge fields off the
+        intent before calling this, so ``intent.to_changes()`` here carries only node
+        properties.
 
         Args:
             uid: Event UID
-            updates: Dictionary of field updates
+            intent: Typed ``EventUpdateIntent`` (property sub-intent) — only set fields written
 
         Returns:
             Result containing updated Event
 
         Events Published:
-            - CalendarEventCompleted: If status changed to COMPLETED
-            - CalendarEventRescheduled: If event_date changed
-            - CalendarEventUpdated: For other updates
+            - CalendarEventCompleted: if status transitions into COMPLETED
+            - CalendarEventRescheduled: if event_date changed
+            - CalendarEventUpdated: otherwise (cache invalidation contract)
         """
-        # Get current event to track specific changes (always fetch for update events)
+        changes = intent.to_changes()
+        # Capture the intended fields now: the backend stamps updated_at in place, so
+        # reading changes.keys() after the write would leak that bump into the event.
+        updated_fields: dict[str, Any] = dict(changes)
+
+        # Fetch the prior event only when a status / date transition needs old-vs-new.
         old_event_date = None
         old_status = None
-        current_result = await self.get(uid)
-        if current_result.is_ok and current_result.value:
-            old_event_date = current_result.value.event_date
-            old_status = current_result.value.status
+        if "status" in changes or "event_date" in changes:
+            current_result = await self.get(uid)
+            if current_result.is_ok and current_result.value:
+                old_event_date = current_result.value.event_date
+                old_status = current_result.value.status
 
-        # Call parent update
-        result = await super().update(uid, updates)
+        result = await super().update(uid, changes)
+        if result.is_error:
+            return result
 
-        # Publish appropriate event based on what changed
-        if result.is_ok:
-            event = result.value
+        event = result.value
 
-            # Priority 1: Status changed to COMPLETED (state transition only)
-            domain_event: BaseEvent
-            if (
-                "status" in updates
-                and updates["status"] == EntityStatus.COMPLETED.value
-                and old_status != EntityStatus.COMPLETED
-            ):
-                domain_event = CalendarEventCompleted(
-                    event_uid=event.uid,
-                    user_uid=event.user_uid,
-                    completion_date=event.event_date or date.today(),
-                    quality_score=updates.get("quality_score"),
-                )
-                await publish_event(self.event_bus, domain_event, self.logger)
-
-            # Priority 2: Event date changed (rescheduled)
-            elif (
-                "event_date" in updates
-                and old_event_date
-                and updates["event_date"] != old_event_date
-            ):
-                domain_event = CalendarEventRescheduled(
-                    event_uid=event.uid,
-                    user_uid=event.user_uid,
-                    old_date=old_event_date,
-                    new_date=updates["event_date"],
-                )
-                await publish_event(self.event_bus, domain_event, self.logger)
-
-            # Default: Generic update
-            else:
-                domain_event = CalendarEventUpdated(
-                    event_uid=event.uid,
-                    user_uid=event.user_uid,
-                    updated_fields=dict(updates),
-                )
-                await publish_event(self.event_bus, domain_event, self.logger)
+        domain_event: BaseEvent
+        # Priority 1: Status changed to COMPLETED (state transition only).
+        if (
+            "status" in changes
+            and changes["status"] == EntityStatus.COMPLETED.value
+            and old_status != EntityStatus.COMPLETED
+        ):
+            domain_event = CalendarEventCompleted(
+                event_uid=event.uid,
+                user_uid=event.user_uid,
+                completion_date=event.event_date or date.today(),
+                # quality_score never flows through the generic update path — it is owned
+                # by the progress / habit-completion services, which fire their own
+                # CalendarEventCompleted with the score (honest None, not a dead key read).
+                quality_score=None,
+            )
+        # Priority 2: Event date changed (rescheduled).
+        elif "event_date" in changes and old_event_date and changes["event_date"] != old_event_date:
+            domain_event = CalendarEventRescheduled(
+                event_uid=event.uid,
+                user_uid=event.user_uid,
+                old_date=old_event_date,
+                new_date=changes["event_date"],
+            )
+        # Default: Generic update (cache invalidation contract).
+        else:
+            domain_event = CalendarEventUpdated(
+                event_uid=event.uid,
+                user_uid=event.user_uid,
+                updated_fields=updated_fields,
+            )
+        await publish_event(self.event_bus, domain_event, self.logger)
 
         return result
 

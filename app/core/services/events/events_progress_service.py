@@ -156,7 +156,11 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         if notes:
             updates["notes"] = notes
 
-        # Update event
+        # raw-write: habit-completion-with-cascade writes directly to the backend,
+        # bypassing the validated/event-firing contract (EventUpdateIntent → update_event)
+        # on purpose — this path publishes its OWN CalendarEventCompleted below carrying the
+        # quality_score, which the generic update_event deliberately omits (None). Routing
+        # through the contract would double-fire CalendarEventCompleted.
         update_result = await self.backend.update(event_uid, updates)
         if update_result.is_error:
             return Result.fail(update_result)
