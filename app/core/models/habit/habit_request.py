@@ -16,6 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
+from core.models.habit.habit_update_intent import HabitUpdateIntent
+from core.models.sentinels import UNSET, Unset
 from core.models.validation_rules import (
     validate_habit_duration_by_difficulty,
     validate_habit_target_days_by_pattern,
@@ -177,6 +179,62 @@ class HabitUpdateRequest(BaseModel):
             }
         },
     )
+
+    def to_intent(self) -> HabitUpdateIntent:
+        """Build the typed ``HabitUpdateIntent`` (ADR-066) from explicitly-set fields.
+
+        Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
+        so the intent carries a true partial patch: an absent field is left untouched, a
+        field explicitly set to ``None`` is an explicit clear. Enum fields (polarity,
+        habit_category, habit_difficulty, recurrence_pattern, status, priority) are lowered
+        to their string value to match the persistence boundary.
+
+        The four cross-domain UID fields (``linked_knowledge_uids`` / ``linked_goal_uids`` /
+        ``linked_principle_uids`` / ``prerequisite_habit_uids``) are graph edges, not node
+        columns, so they are intentionally not carried — writing them as properties would
+        leak junk denormalized fields onto the node (the edges are synced on the
+        create-with-context path, not this property-update path).
+        """
+        set_fields = self.model_fields_set
+
+        def when_set[T](name: str, value: T) -> T | Unset:
+            """Carry ``value`` only if the caller set this field; else ``UNSET``.
+
+            Generic so the intent fields stay fully typed (no ``Any``): the return is
+            ``<declared field type> | Unset``, exactly what each intent field expects.
+            """
+            return value if name in set_fields else UNSET
+
+        return HabitUpdateIntent(
+            title=when_set("title", self.title),
+            description=when_set("description", self.description),
+            polarity=when_set(
+                "polarity", self.polarity.value if self.polarity is not None else None
+            ),
+            habit_category=when_set(
+                "habit_category",
+                self.habit_category.value if self.habit_category is not None else None,
+            ),
+            habit_difficulty=when_set(
+                "habit_difficulty",
+                self.habit_difficulty.value if self.habit_difficulty is not None else None,
+            ),
+            recurrence_pattern=when_set(
+                "recurrence_pattern",
+                self.recurrence_pattern.value if self.recurrence_pattern is not None else None,
+            ),
+            target_days_per_week=when_set("target_days_per_week", self.target_days_per_week),
+            preferred_time=when_set("preferred_time", self.preferred_time),
+            duration_minutes=when_set("duration_minutes", self.duration_minutes),
+            cue=when_set("cue", self.cue),
+            routine=when_set("routine", self.routine),
+            reward=when_set("reward", self.reward),
+            status=when_set("status", self.status.value if self.status is not None else None),
+            priority=when_set(
+                "priority", self.priority.value if self.priority is not None else None
+            ),
+            tags=when_set("tags", self.tags),
+        )
 
 
 class HabitCompletionRequest(BaseModel):

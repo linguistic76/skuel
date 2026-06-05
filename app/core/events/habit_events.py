@@ -55,6 +55,30 @@ class HabitCreated(BaseEvent):
 
 
 @dataclass(frozen=True)
+class HabitUpdated(BaseEvent):
+    """
+    Published when habit node properties change (ADR-066 typed update path).
+
+    Fired on every ``update_habit`` so user-context caches invalidate even for plain
+    property edits (title, description, schedule, cue/routine/reward) that have no more
+    specific event. Streak / completion changes additionally fire ``HabitCompleted`` /
+    ``HabitStreakBroken`` / ``HabitStreakMilestone`` from ``HabitsProgressService``.
+
+    Subscribers:
+    - UserService (invalidate context)
+    - Analytics (track update patterns)
+    """
+
+    habit_uid: str
+    user_uid: UserUID
+    updated_fields: list[str]
+
+    @property
+    def event_type(self) -> str:
+        return "habit.updated"
+
+
+@dataclass(frozen=True)
 class HabitCompleted(BaseEvent):
     """
     Published when a habit completion is logged.

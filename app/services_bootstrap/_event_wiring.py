@@ -53,6 +53,7 @@ def _wire_event_subscribers(
         HabitMissed,
         HabitStreakBroken,
         HabitStreakMilestone,
+        HabitUpdated,
         KnowledgeCreated,
         KnowledgeMastered,
         LearningPathCompleted,
@@ -144,6 +145,7 @@ def _wire_event_subscribers(
         GoalProgressUpdated,
         # Habits
         HabitCreated,
+        HabitUpdated,
         HabitCompleted,
         HabitCompletionBulk,
         HabitMissed,
