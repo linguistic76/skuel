@@ -70,7 +70,7 @@ Infrastructure modules with no root-level facade.
 | `output/` | InstructionResolver (unified instruction resolution) |
 | `transcription/` | TranscriptionService + BatchTranscriptionService + BatchProcessingService |
 | `mixins/` | 7 BaseService mixin files |
-| `intelligence/` | GraphContextLoader + analytics helpers |
+| `intelligence/` | Shared `_CoreIntelligenceMixin` (mechanism-B `get_with_context`) + analytics helpers |
 | `infrastructure/` | Cross-cutting helpers (PrerequisiteChecker, etc.) |
 | `ingestion/` | UnifiedIngestionService |
 | `query/` | Query builders (CypherGenerator, etc.) |

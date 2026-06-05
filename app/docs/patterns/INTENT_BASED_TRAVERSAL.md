@@ -9,12 +9,17 @@ related_docs:
 
 # Intent-Based Graph Traversal Pattern
 
-> **Read this first.** This doc describes what is *actually wired today*. Per-domain intent
-> *specialization* — bespoke per-domain lenses and analysis methods — is **aspirational**, not built.
-> The direction (source the edge vocabulary from the registry, collapse the two graph readers into one)
-> lives in [`docs/roadmap/intent-traversal-registry-convergence.md`](../roadmap/intent-traversal-registry-convergence.md).
-> Where this doc previously asserted six per-domain analysis methods and a per-model intent, those were
-> fiction; this rewrite removes them.
+> **Read this first — SUPERSEDED below the line.** As of the curriculum-convergence teardown,
+> **mechanism A (`GraphContextLoader`) is deleted**, along with the model-suggested
+> `get_suggested_query_intent()` methods and the `_init_context_loader` wiring. **All 6 Activity
+> Domains and all 3 curriculum domains (Ku/Ps/Lp) now read graph context through mechanism B**
+> (registry-sourced `UnifiedRelationshipService.get_with_context`, inherited from the shared
+> `_CoreIntelligenceMixin`). The "three intent-sourcing mechanisms" inventory below is retained as
+> **historical context (pre-Phase-1, 2026-06-04)** and is no longer the wiring — a full rewrite is
+> pending. The authoritative current state is
+> [`docs/roadmap/intent-traversal-registry-convergence.md`](../roadmap/intent-traversal-registry-convergence.md)
+> (Phase 1 ✅ + the curriculum-convergence follow-up ✅). Per-domain intent *specialization* (bespoke
+> lenses / analysis methods) remains **aspirational**, not built.
 
 ## Overview
 

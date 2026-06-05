@@ -23,8 +23,6 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
 from core.models.choice.choice import Choice
-from core.models.choice.choice_dto import ChoiceDTO
-from core.models.enums import Domain
 from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._analytics_mixin import _AnalyticsMixin
@@ -87,14 +85,6 @@ class ChoicesIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
-
-        self._init_context_loader(
-            get_entity=self.backend.get,
-            dto_class=ChoiceDTO,
-            model_class=Choice,
-            domain=Domain.CHOICES,
-            model_name="Choice",
-        )
 
         # Initialize path-aware intelligence helper
         self.path_helper = PathAwareAnalyzer()

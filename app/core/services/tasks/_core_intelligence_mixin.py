@@ -18,48 +18,21 @@ from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.task.task import Task
-    from core.services.relationships import UnifiedRelationshipService
 
 
 class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
-    Graph context and cross-domain categorization for TasksIntelligenceService.
+    Cross-domain categorization for TasksIntelligenceService.
 
-    Declares class-level attributes used by these methods so mypy
-    resolves them without runtime cost.
+    ``get_with_context`` (mechanism B) is inherited from the shared
+    ``_CoreIntelligenceMixin``; this mixin adds the task-named alias plus
+    task-specific raw-context categorization.
     """
-
-    # Populated by TasksIntelligenceService.__init__ / BaseAnalyticsService
-    context_loader: Any
-    relationships: UnifiedRelationshipService[Any, Any, Any] | None
-    logger: Any
-
-    @requires_graph_intelligence("get_with_context")
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Task, GraphContext]]:
-        """
-        Get task with full graph context via mechanism B (registry-sourced).
-
-        One Path Forward (Convergence Phase 1): route through
-        ``self.relationships.get_with_context`` — which sources its edge vocabulary
-        from ``TASKS_CONFIG.cross_domain_relationship_types`` (the registry, the single
-        source of truth) — instead of the inherited ``GraphContextLoader`` EXPLORATORY
-        path. This is the reference the other activity domains copy.
-
-        See: /docs/roadmap/intent-traversal-registry-convergence.md
-        """
-        if self.relationships is None:
-            return Result.fail(
-                Errors.system(
-                    message="relationship_service required for get_with_context",
-                    operation="get_with_context",
-                )
-            )
-        return await self.relationships.get_with_context(uid, depth)
 
     @requires_graph_intelligence("get_task_with_context")
     async def get_task_with_context(

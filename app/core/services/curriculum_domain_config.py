@@ -395,10 +395,13 @@ def create_lp_sub_services(
     progress = LpProgressService(backend=backend, event_bus=event_bus)
 
     # Step 5: Create intelligence
-    # ADR-030: Analytics services have zero AI dependencies
+    # ADR-030: Analytics services have zero AI dependencies.
+    # relationship_service is REQUIRED for the inherited mechanism-B get_with_context
+    # (registry-sourced graph context); matches Ku/Ps wiring.
     intelligence = LpIntelligenceService(
         backend=backend,
         graph_intel=graph_intel,
+        relationship_service=relationships,
         progress_backend=progress_backend,
         event_bus=event_bus,
         user_service=user_service,

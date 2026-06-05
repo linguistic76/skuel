@@ -15,9 +15,7 @@ Uses pure Cypher for 8-10x performance improvement over sequential queries.
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain
 from core.models.event.event import Event
-from core.models.event.event_dto import EventDTO
 from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events._analytics_mixin import _AnalyticsMixin
@@ -78,13 +76,6 @@ class EventsIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
-        self._init_context_loader(
-            get_entity=self.backend.get,
-            dto_class=EventDTO,
-            model_class=Event,
-            domain=Domain.EVENTS,
-            model_name="Event",
-        )
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

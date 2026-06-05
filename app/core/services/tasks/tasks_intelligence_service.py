@@ -43,9 +43,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, LearningLoop
-from core.models.enums import Domain, EntityStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task
-from core.models.task.task_dto import TaskDTO
 from core.models.type_hints import EntityUID, UserUID
 from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -118,14 +117,6 @@ class TasksIntelligenceService(
         # AnalyticsEngine owned here — requires relationship_service to be wired
         # (BaseAnalyticsService stores relationship_service as self.relationships)
         self._analytics_engine = AnalyticsEngine(relationship_service=relationship_service)
-
-        self._init_context_loader(
-            get_entity=self.backend.get_task,
-            dto_class=TaskDTO,
-            model_class=Task,
-            domain=Domain.TASKS,
-            model_name="Task",
-        )
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

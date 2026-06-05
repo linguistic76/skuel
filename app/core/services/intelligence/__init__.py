@@ -6,7 +6,6 @@ Shared intelligence patterns for all domains.
 
 Provides:
 - QueryIntelligenceService: Query intelligence (intent detection, facet suggestion, ranking)
-- GraphContextLoader[T]: Loads (entity, GraphContext) tuples for intelligence services
 - Typed Context Dataclasses: Type-safe containers for cross-domain context data
 - Metrics Calculators: Domain-specific metrics calculation functions
 - RecommendationEngine: Fluent builder for recommendation generation (consolidation)
@@ -26,7 +25,6 @@ from core.services.intelligence.cross_domain_contexts import (
     PrincipleCrossContext,
     TaskCrossContext,
 )
-from core.services.intelligence.graph_context_loader import GraphContextLoader
 from core.services.intelligence.metrics_calculator import MetricsCalculator
 from core.services.intelligence.metrics_calculators import (
     calculate_choice_metrics,
@@ -67,8 +65,6 @@ __all__ = [
     "FacetDetector",
     "IntentScorer",
     "ResultRanker",
-    # Graph context loader
-    "GraphContextLoader",
     # Typed context dataclasses
     "ChoiceCrossContext",
     "CrossDomainContext",

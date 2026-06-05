@@ -31,16 +31,11 @@ Usage:
 
 from collections.abc import Awaitable, Callable
 from enum import Enum
-from functools import partial
 from typing import Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import EntityUID, UserUID
-from core.services.intelligence.graph_context_loader import (
-    GraphContextLoader,
-    SuggestsQueryIntent,
-)
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -79,7 +74,6 @@ class BaseAnalyticsService(Generic[B, T]):
     # This enforces "Analytics must never depend on AI" in executable form
     __slots__ = (
         "backend",
-        "context_loader",
         "event_bus",
         "graph_intel",
         "insight_store",
@@ -156,9 +150,6 @@ class BaseAnalyticsService(Generic[B, T]):
         self.relationships = relationship_service
         self.event_bus = event_bus
         self.insight_store = insight_store
-
-        # Context loader - initialized by child classes when graph_intel is available
-        self.context_loader: GraphContextLoader[Any] | None = None
 
         # Logger initialization
         service_name = self._service_name or self.__class__.__name__
@@ -258,29 +249,6 @@ class BaseAnalyticsService(Generic[B, T]):
             dto = dto_class(**dto_or_dict)
             return model_class.from_dto(dto)  # type: ignore[attr-defined]
         return dto_or_dict
-
-    def _init_context_loader[M: SuggestsQueryIntent](
-        self,
-        *,
-        get_entity: Callable[[str], Awaitable[Result[Any]]],
-        dto_class: type,
-        model_class: type[M],
-        domain: Any,
-        model_name: str,
-    ) -> None:
-        """Wire a GraphContextLoader into self.context_loader if graph_intel is available.
-
-        No-ops when graph_intel is None, so services can call this unconditionally.
-        """
-        if not self.graph_intel:
-            return
-        self.context_loader = GraphContextLoader(
-            get_entity=get_entity,
-            to_domain=partial(self._to_domain_model, dto_class=dto_class, model_class=model_class),
-            graph_intel=self.graph_intel,
-            domain=domain,
-            model_name=model_name,
-        )
 
     # ========================================================================
     # CONTEXT ANALYSIS TEMPLATE
