@@ -8,7 +8,8 @@ tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
 
 # Roadmap: Typed Update Intents migration
 
-**Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) complete — 2026-06-04. Phases 3–7 pending.
+**Status:** Phase 1 (Tasks reference) + Phase 2 (Goals) + Phase 3 (Events) complete — 2026-06-04.
+Phases 4–7 pending.
 **Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
 
@@ -42,7 +43,7 @@ with a green tree throughout.
 | Tasks (reference) | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Goals | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Habits | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
-| Events | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
+| Events | ☑ | ☑ | ☑ | ☑ | ☐ (Phase 7) |
 | Choices | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 | Principles | ☐ | ☐ | ☐ | ☐ | ☐ (Phase 7) |
 
@@ -112,11 +113,28 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Docs/skill
   stragglers: the two `goals_progress_service` partial writes stay `# raw-write:` (they publish their own
   provenance-bearing `GoalProgressUpdated`). Verified live:
   `tests/integration/test_goal_update_intent_pipeline.py`.
-- **Phases 3–6 — Habits, Events, Choices, Principles** (independent; any order, parallel contexts
+- **Phase 3 — Events. ✅ DONE (2026-06-04).** Shape B (core overrode the generic `update(Mapping)`)
+  AND edge-splitting (like Tasks). `EventUpdateIntent` carries node-property columns + the two
+  cross-domain edge UIDs (`milestone_celebration_for_goal` → `CELEBRATES_GOAL`, `reinforces_habit_uid`
+  → `REINFORCES_HABIT`); `EventsService.update_event(intent)` splits the edges off (resetting them to
+  `UNSET` on the property sub-intent), writes node props via `EventsCoreService.update_event(intent)`
+  (keeps `super().update()` → `_validate_update`: past-event immutability, duration 5–720), and replaces
+  the edges via the existing `_replace_edge`. No new event — Events already had `CalendarEventUpdated`
+  wired to context invalidation (fires on plain edits; `CalendarEventCompleted` on COMPLETED,
+  `CalendarEventRescheduled` on `event_date` change). `to_intent()` drops `practices_knowledge_uids` /
+  `executes_tasks` (neither columns nor handled edges — honest junk-write fix; the create path drops
+  them too); the dead `quality_score` read in the old override is replaced by an honest `None` (quality
+  flows through progress/habit services). `_intent_from_mapping` funnel lives on BOTH core (in-service
+  status methods) and facade (CRUD route + `calendar_service`). The mixin `core: Any` attributes
+  (`events/_orchestration_mixin.py`, `events/_scheduling_mixin.py`) were tightened to `EventsCoreService`.
+  #2 stragglers: `events_progress_service` (complete-with-cascade) + `events_habit_integration_service`
+  (complete-with-quality, miss-habit) stay `# raw-write:` (each publishes its own provenance-bearing
+  CalendarEvent*). Verified live: `tests/integration/test_event_update_intent_pipeline.py`.
+- **Phases 4–6 — Choices, Principles, Habits** (independent; any order, parallel contexts
   fine). Each reads ADR-066 + this roadmap + the Tasks reference commit and replicates steps 1–6.
-  Watch the activity mixins typed `core: Any` (e.g. `events/_orchestration_mixin.py`,
-  `habits/_completion_mixin.py`) — passing an intent through an `Any` attribute is unchecked; tighten
-  the attribute type to the core service (or its protocol) so the intent is actually verified.
+  Watch the activity mixins typed `core: Any` (e.g. `habits/_completion_mixin.py`) — passing an intent
+  through an `Any` attribute is unchecked; tighten the attribute type to the core service (or its
+  protocol) so the intent is actually verified.
 - **Phase 7 — Teardown + One-Path cleanup + base parameterization.**
   - **Parameterize the base over the update type (the ADR-066 destination).** With all six domains on
     intents, add `U: SupportsToChanges` (a `to_changes() -> dict[str, Any]` protocol) as a third type

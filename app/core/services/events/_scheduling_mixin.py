@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         GetRecurringEventsRequest,
         RecurringInstancesRequest,
     )
+    from core.services.events.events_core_service import EventsCoreService
 
 
 class _SchedulingMixin:
@@ -33,7 +34,7 @@ class _SchedulingMixin:
 
     # Populated by EventsService.__init__ / BaseService
     backend: Any
-    core: Any
+    core: EventsCoreService
     search: Any
     logger: Any
     get_event: Any  # delegation method on EventsService

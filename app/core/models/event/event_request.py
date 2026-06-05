@@ -13,6 +13,8 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern, Visibility
+from core.models.event.event_update_intent import EventUpdateIntent
+from core.models.sentinels import UNSET, Unset
 from core.models.type_hints import UserUID
 from core.models.validation_rules import (
     validate_email,
@@ -138,6 +140,65 @@ class EventUpdateRequest(BaseModel):
     model_config = ConfigDict(
         # Pydantic V2 serializes enums, dates, and times automatically
     )
+
+    def to_intent(self) -> EventUpdateIntent:
+        """Build the typed ``EventUpdateIntent`` (ADR-066) from explicitly-set fields.
+
+        Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
+        so the intent carries a true partial patch: an absent field is left untouched, a
+        field explicitly set to ``None`` is an explicit clear. Enum fields (visibility,
+        priority, status) are lowered to their string value to match the persistence
+        boundary.
+
+        The two cross-domain edge UIDs (``milestone_celebration_for_goal`` /
+        ``reinforces_habit_uid``) are carried so the facade can split them off into
+        graph-edge mutations (``CELEBRATES_GOAL`` / ``REINFORCES_HABIT``).
+
+        ``practices_knowledge_uids`` / ``executes_tasks`` are intentionally **not** carried:
+        they are neither node columns nor handled edges on the update path, so writing them
+        as properties would leak junk denormalized fields onto the node — exactly what the
+        create path (``create_event``) already drops.
+        """
+        set_fields = self.model_fields_set
+
+        def when_set[T](name: str, value: T) -> T | Unset:
+            """Carry ``value`` only if the caller set this field; else ``UNSET``.
+
+            Generic so the intent fields stay fully typed (no ``Any``): the return is
+            ``<declared field type> | Unset``, exactly what each intent field expects.
+            """
+            return value if name in set_fields else UNSET
+
+        return EventUpdateIntent(
+            title=when_set("title", self.title),
+            description=when_set("description", self.description),
+            event_type=when_set("event_type", self.event_type),
+            event_date=when_set("event_date", self.event_date),
+            start_time=when_set("start_time", self.start_time),
+            end_time=when_set("end_time", self.end_time),
+            location=when_set("location", self.location),
+            is_online=when_set("is_online", self.is_online),
+            meeting_url=when_set("meeting_url", self.meeting_url),
+            reminder_minutes=when_set("reminder_minutes", self.reminder_minutes),
+            habit_completion_quality=when_set(
+                "habit_completion_quality", self.habit_completion_quality
+            ),
+            knowledge_retention_check=when_set(
+                "knowledge_retention_check", self.knowledge_retention_check
+            ),
+            status=when_set("status", self.status.value if self.status is not None else None),
+            visibility=when_set(
+                "visibility", self.visibility.value if self.visibility is not None else None
+            ),
+            priority=when_set(
+                "priority", self.priority.value if self.priority is not None else None
+            ),
+            tags=when_set("tags", self.tags),
+            milestone_celebration_for_goal=when_set(
+                "milestone_celebration_for_goal", self.milestone_celebration_for_goal
+            ),
+            reinforces_habit_uid=when_set("reinforces_habit_uid", self.reinforces_habit_uid),
+        )
 
 
 class EventResponse(BaseModel):

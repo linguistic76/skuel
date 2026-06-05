@@ -52,6 +52,7 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.models.event.event import Event
+from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 
@@ -351,15 +352,15 @@ class CalendarService:
                     )
                 duration = end_dt - start_dt
                 new_end = new_start + duration
-                # Reschedule mutates only the date/time window (ADR-065 update
-                # contract: uid + field dict, not a rebuilt DTO).
+                # Reschedule mutates only the date/time window (ADR-066 typed update
+                # contract: an EventUpdateIntent, not a rebuilt DTO or field dict).
                 event_update = await self.events_service.update_event(
                     EntityUID(source_uid),
-                    {
-                        "event_date": new_start.date(),
-                        "start_time": new_start.time(),
-                        "end_time": new_end.time(),
-                    },
+                    EventUpdateIntent(
+                        event_date=new_start.date(),
+                        start_time=new_start.time(),
+                        end_time=new_end.time(),
+                    ),
                 )
                 if event_update.is_ok:
                     return Result.ok(self._event_to_calendar_item(event_update.value))
