@@ -13,6 +13,14 @@ set -e
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Git runs hooks with CWD at the worktree root, but pyproject.toml and the
+# detection script live in the app/ subdir. Resolve the app dir from this
+# hook's own location (it lives at <app>/scripts/hooks/post-merge, reached via
+# a symlink in .git/hooks) so `uv run` and the script path both resolve.
+HOOK_PATH="$(realpath "${BASH_SOURCE[0]:-$0}")"
+APP_DIR="$(cd "$(dirname "$HOOK_PATH")/../.." && pwd)"
+cd "$APP_DIR" || exit 0
+
 # Only run if uv.lock changed
 if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -q "uv.lock"; then
     echo ""
