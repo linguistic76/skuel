@@ -12,7 +12,7 @@ Provides both scoring (0.0-1.0) and validation (Result) interfaces.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, TypedDict
 
 from core.utils.result_simplified import Errors, Result
 
@@ -25,6 +25,42 @@ DEFAULT_MASTERY_THRESHOLD: float = 0.7
 
 # Default estimate of preparation effort per unmet knowledge requirement (hours).
 LEARNING_HOURS_PER_KNOWLEDGE_AREA: int = 2
+
+
+class KnowledgeRequirementsBlock(TypedDict):
+    """Required-vs-mastered knowledge breakdown for a learning-requirements payload."""
+
+    required_knowledge: list[dict[str, str]]
+    mastered_knowledge: list[dict[str, str]]
+    knowledge_gaps: list[dict[str, str]]
+    total_required: int
+    total_mastered: int
+    mastery_percentage: float
+
+
+class LearningPathsBlock(TypedDict):
+    """Available / recommended learning paths and an effort estimate."""
+
+    available_paths: list[dict[str, str]]
+    recommended_path: dict[str, str] | None
+    estimated_learning_time: int
+
+
+class LearningAnalysisBlock(TypedDict):
+    """Boolean readiness flags derived from the requirement/mastery split."""
+
+    ready_to_start: bool
+    has_prerequisites: bool
+    learning_in_progress: bool
+    knowledge_complete: bool
+
+
+class LearningRequirements(TypedDict):
+    """Stable shape returned by :func:`build_learning_requirements` (JSON-safe)."""
+
+    knowledge_requirements: KnowledgeRequirementsBlock
+    learning_paths: LearningPathsBlock
+    learning_analysis: LearningAnalysisBlock
 
 
 @dataclass(frozen=True)
@@ -261,7 +297,7 @@ def build_learning_requirements(
     learning_path_uids: list[str],
     context: UserContext | None = None,
     mastery_threshold: float = DEFAULT_MASTERY_THRESHOLD,
-) -> dict[str, Any]:
+) -> LearningRequirements:
     """Build a domain-agnostic learning-requirements / readiness payload.
 
     Shared by the activity domains that carry a ``REQUIRES_KNOWLEDGE`` edge (Tasks,

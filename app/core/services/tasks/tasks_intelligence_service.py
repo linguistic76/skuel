@@ -190,11 +190,22 @@ class TasksIntelligenceService(
                 prerequisites = prereq_result.value
 
         cross_domain = await self._build_cross_domain_block(uid, min_confidence)
-        # Reuse the required-knowledge UIDs the cross-domain block already resolved (no
-        # extra query) to build the mastery-aware learning-requirements block. Tasks have
-        # no learning-path edges in their cross-context, so available_paths is empty.
+        # Source required-knowledge UIDs from the typed cross-domain reader when it's
+        # available (no extra query — reuse what the block already resolved). If that fetch
+        # failed (unavailable block), fall back to the graph-intel prerequisites so the
+        # learning-requirements block stays consistent with the has_prerequisites readiness
+        # lens instead of falsely reporting "ready, no gaps". Tasks have no learning-path
+        # edges in their cross-context, so available_paths is empty.
+        if cross_domain.get("available", False):
+            required_knowledge_uids = cross_domain.get("context", {}).get("required_knowledge", [])
+        else:
+            required_knowledge_uids = [
+                item["uid"]
+                for item in prerequisites.get("required_knowledge", [])
+                if item.get("uid")
+            ]
         learning_requirements = build_learning_requirements(
-            required_knowledge_uids=cross_domain.get("context", {}).get("required_knowledge", []),
+            required_knowledge_uids=required_knowledge_uids,
             learning_path_uids=[],
             context=user_context,
         )
