@@ -444,9 +444,15 @@ class GoalsService(
         return await self.intelligence.get_goal_completion_forecast(uid, depth, min_confidence)
 
     async def get_goal_learning_requirements(
-        self, uid: str, depth: int = 2, min_confidence: float = 0.7
+        self,
+        uid: str,
+        depth: int = 2,
+        min_confidence: float = 0.7,
+        user_context: UserContext | None = None,
     ) -> Result[dict[str, Any]]:
-        return await self.intelligence.get_goal_learning_requirements(uid, depth, min_confidence)
+        return await self.intelligence.get_goal_learning_requirements(
+            uid, depth, min_confidence, user_context
+        )
 
     # Search delegations
     async def list_goal_categories(self, user_uid: UserUID) -> Result[list[str]]:
