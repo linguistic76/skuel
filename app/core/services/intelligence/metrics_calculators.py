@@ -294,6 +294,9 @@ def calculate_goal_progress_metrics(
     subgoals = context.subgoals
     principles = context.principles
     learning_paths = context.learning_paths
+    # Upward (parent) + downward (sub) goal links both count as goal connections —
+    # keep cascade aligned with the path-aware rollups, which include parent_goal.
+    related_goals = subgoals + ([context.parent_goal] if context.parent_goal else [])
 
     # support_coverage: three dimensions (tasks / habits / knowledge), matching the
     # UID-family GoalCrossContext.support_coverage().
@@ -305,7 +308,7 @@ def calculate_goal_progress_metrics(
     total_support_count = len(tasks) + len(habits)
 
     cascade = PathAwareAnalyzer.calculate_cascade_impact(
-        goals=subgoals,
+        goals=related_goals,
         tasks=tasks,
         habits=habits,
         knowledge=knowledge,
