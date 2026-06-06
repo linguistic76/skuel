@@ -140,30 +140,6 @@ class TestGraphTraversal:
         assert result.is_ok
         assert len(result.value) == 2
 
-    @pytest.mark.asyncio
-    async def test_get_knowledge_with_context_success(self, service):
-        """Test successful context retrieval."""
-        # Mock main unit
-        service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Main Unit")))
-
-        # Mock find_prerequisites and find_next_steps
-        service.find_prerequisites = AsyncMock(
-            return_value=Result.ok([make_ku_dto("ku.prereq.1", "Prereq")])
-        )
-        service.find_next_steps = AsyncMock(
-            return_value=Result.ok([make_ku_dto("ku.next.1", "Next")])
-        )
-
-        result = await service.get_step_with_context("ku.test.1", depth=2)
-
-        assert result.is_ok
-        context = result.value
-        assert "unit" in context
-        assert "prerequisites" in context
-        assert "next_steps" in context
-        assert context["total_prerequisites"] == 1
-        assert context["total_next_steps"] == 1
-
 
 class TestRelationshipManagement:
     """Test relationship creation and management."""

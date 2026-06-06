@@ -417,9 +417,6 @@ class PsService:
     async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[PathStep]]:
         return await self.graph.find_next_steps(uid, limit)
 
-    async def get_step_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
-        return await self.graph.get_step_with_context(uid, depth)
-
     async def link_prerequisite(
         self, unit_uid: str, prerequisite_uid: str, is_mandatory: bool = True
     ) -> Result[bool]:
