@@ -3,13 +3,13 @@
 ## Overview
 
 **Architecture:** Shell delegates to 3 focused mixins (April 2026):
-- `_core_intelligence_mixin.py` (~222 lines) — `get_task_with_context`, `categorize_cross_domain_context`
+- `_core_intelligence_mixin.py` — `get_task_with_context` (mechanism B alias)
 - `_analytics_mixin.py` (~255 lines) — `get_behavioral_insights`, completion patterns, success factors
 - `_productivity_mixin.py` (~187 lines) — `analyze_learning_patterns`, `calculate_knowledge_aware_priorities`, `generate_task_insights`, `track_knowledge_mastery_progression`
 
 ```python
 class TasksIntelligenceService(
-    _CoreIntelligenceMixin,    # get_task_with_context + cross-domain categorization
+    _CoreIntelligenceMixin,    # get_task_with_context (mechanism B alias)
     _AnalyticsMixin,           # behavioral + performance analytics
     _ProductivityMixin,        # analytics engine delegation
     BaseAnalyticsService["TasksOperations", Task],
@@ -178,99 +178,53 @@ if result.is_ok:
 
 ---
 
-### Method 3: categorize_cross_domain_context()
+### Method 3: cross-domain block in `get_domain_insights()`
 
-**Purpose:** Categorize raw graph context into task-specific relationship groups (prerequisites, dependents, required knowledge, applied knowledge, contributing goals).
+**Purpose:** `get_domain_insights` (GET `/api/tasks/insights`) composes TWO sources — Task's
+distinctive **readiness** lens (graph-intel `get_knowledge_prerequisites` →
+`knowledge_prerequisites` / `has_prerequisites`, plus task-field `insights`) AND an additive
+path-aware **cross-domain** block over the CANONICAL typed reader.
 
-**Signature:**
-```python
-async def categorize_cross_domain_context(
-    self,
-    task_uid: str,
-    raw_context: list[dict[str, Any]]
-) -> Result[dict[str, Any]]:
-```
+The cross-domain block is built by `_build_cross_domain_block`, which runs
+`BaseAnalyticsService._analyze_entity_with_typed_context` over
+`get_cross_domain_context_typed` → path-aware `TaskCrossContext`
+(`core/models/graph/path_aware_types.py`). Scope is **cross-domain only**: required/applied
+knowledge + contributing goals. Same-domain task→task dependencies (DEPENDS_ON) are owned by
+the lateral-relationships system (BlockingChainView) and ZPD — they are NOT in this context.
+The hand-rolled `categorize_cross_domain_context` (dead, zero callers) was deleted in the
+typed-reader convergence.
 
-**Parameters:**
-- `task_uid` (str) - Task UID
-- `raw_context` (list[dict]) - Raw graph context from backend (list of entities with metadata)
-
-**Returns:**
+**Additive shape (under the `cross_domain` key, every prior `/insights` key preserved):**
 ```python
 {
-    "task_uid": "task_001",
-    "prerequisites": [
-        {
-            "uid": "task_000",
-            "title": "Setup development environment",
-            "distance": 1,
-            "path_strength": 0.8,
-            "via_relationships": ["->DEPENDS_ON"]
-        }
-    ],
-    "dependents": [
-        {
-            "uid": "task_002",
-            "title": "Deploy to production",
-            "distance": 1,
-            "path_strength": 0.9,
-            "via_relationships": ["<-DEPENDS_ON"]
-        }
-    ],
-    "required_knowledge": [
-        {
-            "uid": "ku.python-basics",
-            "title": "Python Basics",
-            "distance": 1,
-            "path_strength": 0.7,
-            "via_relationships": ["REQUIRES_KNOWLEDGE"]
-        }
-    ],
-    "applied_knowledge": [
-        {
-            "uid": "ku.fasthtml-intro",
-            "title": "FastHTML Introduction",
-            "distance": 1,
-            "path_strength": 0.85,
-            "via_relationships": ["APPLIES_KNOWLEDGE"]
-        }
-    ],
-    "contributing_goals": [
-        {
-            "uid": "goal_001",
-            "title": "Launch MVP",
-            "distance": 1,
-            "path_strength": 0.9,
-            "via_relationships": ["FULFILLS_GOAL"]
-        }
-    ]
+    "available": True,            # False (empty block) on a real context-fetch error
+    "context": {
+        "total_connections": 4,
+        "required_knowledge": ["ku.python-basics"],      # REQUIRES_KNOWLEDGE
+        "applied_knowledge": ["ku.fasthtml-intro"],      # APPLIES_KNOWLEDGE
+        "contributing_goals": ["goal_001"],              # CONTRIBUTES_TO_GOAL ∪ FULFILLS_GOAL
+    },
+    "metrics": {
+        "required_knowledge_count": 1,
+        "applied_knowledge_count": 1,
+        "knowledge_coverage": 2,
+        "goal_support_count": 1,
+        "has_required_knowledge": True,
+        "has_applied_knowledge": True,
+        "has_goal_support": True,
+        "cascade_impact": {...},          # PathAwareAnalyzer.calculate_cascade_impact
+        "path_aware_context": {...},      # strong/direct counts, max depth, avg strength
+    },
+    "recommendations": [...],             # PathAwareAnalyzer.generate_recommendations
 }
 ```
 
-**Example:**
-```python
-# Backend provides raw context
-raw_context = await backend.get_domain_context_raw("task_001")
+**Degrades gracefully:** an edge-less task yields an OK empty block (`available: True`, zeroed
+counts) via the typed reader's ok-empty-context policy; a real fetch error logs and yields
+`available: False` rather than failing the whole route (the readiness lens still answers).
 
-# Intelligence service categorizes it
-result = await tasks_service.intelligence.categorize_cross_domain_context(
-    task_uid="task_001",
-    raw_context=raw_context
-)
-
-if result.is_ok:
-    context = result.value
-    print(f"Prerequisites: {len(context['prerequisites'])}")
-    print(f"Required Knowledge: {len(context['required_knowledge'])}")
-    print(f"Contributing Goals: {len(context['contributing_goals'])}")
-```
-
-**Dependencies:** None (pure categorization logic)
-
-**Architecture Note (Phase 2B):**
-- Backend provides raw graph data via `get_domain_context_raw()`
-- Intelligence service performs domain-specific categorization
-- Achieves true separation: Backend = primitives, Intelligence = domain logic
+**Backing functions:** `calculate_task_cross_domain_metrics` + `task_recommendations`
+(`core/services/intelligence/metrics_calculators.py`).
 
 ---
 

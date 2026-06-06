@@ -24,7 +24,7 @@ A functional-direction review (see [`functional-direction.md` § implementation 
 
 | Domain | Inference service today | `*InferenceResult` | `ku_inference_service` wired | `_core_intelligence_mixin` |
 |--------|-------------------------|--------------------|-----------------------------|----------------------------|
-| Tasks | ✅ `EntityInferenceService` + `AdvancedInferenceEngine` | ✅ `TaskInferenceResult` | ✅ injected | ✅ ~80 LOC with `categorize_cross_domain_context()` |
+| Tasks | ✅ `EntityInferenceService` + `AdvancedInferenceEngine` | ✅ `TaskInferenceResult` | ✅ injected | mech-B `get_task_with_context` alias; cross-domain context now via the CANONICAL typed reader (`get_cross_domain_context_typed`), not a bespoke categorizer |
 | Goals | ❌ | ❌ | ❌ | stub (~35 LOC, delegates to shared base) |
 | Habits | ❌ | ❌ | ❌ | stub |
 | Events | ❌ | ❌ | ❌ | stub |
@@ -39,7 +39,7 @@ For each non-Task Activity Domain `X` to reach inference parity:
 2. **Re-export from `core/models/x/__init__.py`** (mirror `task/__init__.py`).
 3. **Inject `ku_inference_service: EntityInferenceService` into `XCoreService.__init__`** and wire from `services_bootstrap/compose.py`. Cross-reference Tasks' wiring as the canonical example.
 4. **Call inference from `create_x` / `update_x`** and apply via `dataclasses.replace(x_draft, **result.value.as_kwargs())`. The canonical caller pattern is `core/services/tasks/tasks_core_service.py::create_task` (post-ADR-065).
-5. **Deepen `_core_intelligence_mixin`** from the current shared-stub call into domain-specific `categorize_cross_domain_context()` logic. Reference: `core/services/tasks/_core_intelligence_mixin.py`.
+5. **Surface domain-specific cross-domain context** via the CANONICAL typed reader (`get_cross_domain_context_typed` → a path-aware `*CrossContext` with a `from_categorized` seam in `core/models/graph/path_aware_types.py`), consumed through `BaseAnalyticsService._analyze_entity_with_typed_context`. Reference: any migrated domain's `_core_intelligence_mixin.py` / `get_domain_insights` (Tasks, Events, Goals, etc.). The former bespoke `categorize_cross_domain_context()` mixin pattern is retired.
 
 ## Cross-cutting prerequisite — generalize the engine
 
