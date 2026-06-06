@@ -46,6 +46,13 @@ OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWL
 WITH u,
      collect(DISTINCT applied_t) AS task_applied_nodes,
      collect(DISTINCT applied_h) AS habit_applied_nodes
+// GRAIN CAVEAT: engaged_uids below is atomic Ku grain — correct for current-zone
+// evidence (ZoneEvidence) and the Ku↔Ku PREREQUISITE_FOR readiness traversal.
+// The LP traversal (Step 2 path-next, Step 4 engaged_paths) matches engaged_uids
+// against (lp)-[:ORGANIZES]->(...), which is PathStep grain. That branch is DORMANT
+// today (0 learning_path nodes, 0 ORGANIZES edges live), so the grain mismatch is
+// inert. When LP/ORGANIZES data is added, carry the original activity→knowledge
+// target uids (incl. :PathStep) separately for the LP steps. (Codex P2, PR #247.)
 WITH u,
      [n IN task_applied_nodes WHERE n:Ku | n.uid] +
      reduce(acc = [], p IN task_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS task_engaged_raw,
@@ -101,6 +108,9 @@ WITH task_engaged_uids, habit_engaged_uids,
      }) AS prereq_data
 
 // ── Step 4: Engaged Learning Paths ───────────────────────────────────────
+// GRAIN CAVEAT (see Step 1): engaged_uids is Ku grain but LPs ORGANIZE PathSteps,
+// so this matches only direct-Ku engagements. DORMANT (0 ORGANIZES edges live);
+// when LP data lands, match against the original PathStep target uids instead.
 OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[:ORGANIZES]->(step:Entity)
 WHERE step.uid IN engaged_uids
 WITH task_engaged_uids, habit_engaged_uids,
