@@ -49,6 +49,7 @@ from core.models.type_hints import EntityUID, UserUID
 from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+from core.services.infrastructure.prerequisite_checker import build_learning_requirements
 from core.services.intelligence import (
     calculate_task_cross_domain_metrics,
     task_recommendations,
@@ -62,6 +63,7 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.ports.query_types import KnowledgePrerequisitesResult
     from core.services.relationships import UnifiedRelationshipService
+    from core.services.user.unified_user_context import UserContext
 
 
 class TasksIntelligenceService(
@@ -130,7 +132,7 @@ class TasksIntelligenceService(
     # ========================================================================
 
     async def get_domain_insights(
-        self, uid: str, min_confidence: float = 0.7
+        self, uid: str, min_confidence: float = 0.7, user_context: UserContext | None = None
     ) -> Result[dict[str, Any]]:
         """
         Get domain-specific insights for a task.
@@ -138,17 +140,21 @@ class TasksIntelligenceService(
         Protocol method: Provides task-specific intelligence.
         Used by IntelligenceRouteFactory for GET /api/tasks/insights route.
 
-        Composes TWO sources (the Task "unify + elevate" shape):
+        Composes THREE sources:
 
         1. Task's distinctive READINESS lens — graph-intel ``get_knowledge_prerequisites``
            (``knowledge_prerequisites`` / ``has_prerequisites``) plus task-field insights
-           (overdue / high-priority / has-description). This is Task-specific and is NOT
-           generalized to other domains.
+           (overdue / high-priority / has-description). This is Task-specific.
         2. A path-aware CROSS-DOMAIN block over the CANONICAL typed reader
            (``get_cross_domain_context_typed`` → path-aware ``TaskCrossContext``) via
            ``_analyze_entity_with_typed_context`` — knowledge it requires/applies + goals
            it contributes to, with cascade_impact / path_aware_context. Surfaced additively
            under the ``cross_domain`` key; every pre-existing key is preserved.
+        3. A mastery-aware ``learning_requirements`` block (shared with the Goal lens via
+           :func:`build_learning_requirements`) built from the task's REQUIRES_KNOWLEDGE
+           edges. When ``user_context`` is supplied, ``knowledge_gaps`` / ``ready_to_start``
+           reflect the user's actual ``knowledge_mastery``; context-free callers degrade to
+           treating every requirement as an open gap.
 
         Degrades gracefully: a real cross-domain-context FETCH error logs and yields an
         empty ``cross_domain`` block rather than failing the whole route (an edge-less task
@@ -157,10 +163,13 @@ class TasksIntelligenceService(
         Args:
             uid: Task UID
             min_confidence: Minimum confidence threshold (default: 0.7)
+            user_context: Optional user context — enables real mastery in the
+                ``learning_requirements`` block.
 
         Returns:
             Result containing insights data dict with knowledge prerequisites,
-            task-field insights, and an additive cross-domain block.
+            task-field insights, an additive cross-domain block, and a mastery-aware
+            learning-requirements block.
         """
         task_result = await self.backend.get(uid)
         if task_result.is_error:
@@ -180,6 +189,16 @@ class TasksIntelligenceService(
             if prereq_result.is_ok:
                 prerequisites = prereq_result.value
 
+        cross_domain = await self._build_cross_domain_block(uid, min_confidence)
+        # Reuse the required-knowledge UIDs the cross-domain block already resolved (no
+        # extra query) to build the mastery-aware learning-requirements block. Tasks have
+        # no learning-path edges in their cross-context, so available_paths is empty.
+        learning_requirements = build_learning_requirements(
+            required_knowledge_uids=cross_domain.get("context", {}).get("required_knowledge", []),
+            learning_path_uids=[],
+            context=user_context,
+        )
+
         insights = {
             "task_uid": uid,
             "task_title": task.title,
@@ -198,7 +217,9 @@ class TasksIntelligenceService(
             },
             "min_confidence": min_confidence,
             # Additive path-aware cross-domain block (see _build_cross_domain_block).
-            "cross_domain": await self._build_cross_domain_block(uid, min_confidence),
+            "cross_domain": cross_domain,
+            # Additive mastery-aware learning-requirements block (shared with Goal).
+            "learning_requirements": learning_requirements,
         }
 
         return Result.ok(insights)

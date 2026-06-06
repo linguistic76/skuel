@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -233,6 +234,39 @@ async def test_goal_learning_requirements_populates_from_graph(
     assert kr["total_required"] == 1
     assert res.value["learning_paths"]["available_paths"] == []  # none live
     assert res.value["metrics"]["knowledge_requirement_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_goal_learning_requirements_mastery_is_real_with_context(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """The depth fix: passing a user context with the required KU mastered closes the gap.
+
+    Same seeded REQUIRES_KNOWLEDGE edge as above; the only difference is whether the lens
+    is handed real mastery. Context-free → the KU is an open gap (the pre-fix behaviour);
+    with the KU mastered → no gap, ready_to_start flips true. Proves the lens reads actual
+    ``knowledge_mastery`` end-to-end over the real graph, not a stub.
+    """
+    await _seed_goal_graph(neo4j_driver)
+    svc = _harness(rel_backend, GL_GOAL)
+
+    # Context-free: the required KU is an open gap.
+    bare = await svc.get_goal_learning_requirements(GL_GOAL, depth=1, min_confidence=0.7)
+    assert bare.is_ok, bare
+    assert [g["uid"] for g in bare.value["knowledge_requirements"]["knowledge_gaps"]] == [GL_KU]
+    assert bare.value["learning_analysis"]["ready_to_start"] is False
+
+    # With the KU mastered in the user's context: gap closes, ready_to_start flips true.
+    ctx = SimpleNamespace(knowledge_mastery={GL_KU: 0.9}, completed_task_uids=set())
+    res = await svc.get_goal_learning_requirements(
+        GL_GOAL, depth=1, min_confidence=0.7, user_context=ctx
+    )
+    assert res.is_ok, res
+    kr = res.value["knowledge_requirements"]
+    assert kr["knowledge_gaps"] == []
+    assert [k["uid"] for k in kr["mastered_knowledge"]] == [GL_KU]
+    assert kr["mastery_percentage"] == 100.0
+    assert res.value["learning_analysis"]["ready_to_start"] is True
 
 
 @pytest.mark.asyncio
