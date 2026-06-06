@@ -252,7 +252,7 @@ TasksService (Facade)
     ├─ self.intelligence: TasksIntelligenceService
     │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
     │   ├─ Responsibility: Task-specific analytics (behavioral, performance, cross-domain context)
-    │   ├─ Methods: get_behavioral_insights(), get_performance_analytics(), categorize_cross_domain_context()
+    │   ├─ Methods: get_behavioral_insights(), get_performance_analytics(), get_domain_insights()
     │   └─ NOTE: Knowledge methods extracted to ActivityKnowledgeIntelligenceService (March 2026)
     │
     ├─ self.productivity: TasksProductivityService

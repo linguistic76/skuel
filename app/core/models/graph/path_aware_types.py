@@ -736,31 +736,101 @@ class TaskCrossContext:
     """
     Task execution context with path-aware intelligence.
 
-    Groups related entities by relationship semantic:
-    - prerequisites: Tasks that must be completed first (DEPENDS_ON)
-    - dependents: Tasks that depend on this one (DEPENDS_ON reversed)
-    - required_knowledge: Knowledge needed to complete task (REQUIRES_KNOWLEDGE)
-    - applied_knowledge: Knowledge this task applies (APPLIES_KNOWLEDGE)
-    - contributing_goals: Goals this task fulfills (FULFILLS_GOAL)
+    Groups CROSS-DOMAIN related entities by relationship semantic:
+    - required_knowledge: Knowledge needed to complete task (REQUIRES_KNOWLEDGE →
+      ``required_knowledge``)
+    - applied_knowledge: Knowledge this task applies (APPLIES_KNOWLEDGE →
+      ``applied_knowledge``)
+    - contributing_goals: Goals this task fulfills/contributes to — union of
+      CONTRIBUTES_TO_GOAL (``contributing_goals``) and the single FULFILLS_GOAL
+      (``goal_context``)
+
+    Same-domain task→task dependencies (DEPENDS_ON prerequisites / dependents) are NOT
+    part of cross-domain context — they are owned by the lateral-relationships system
+    (BlockingChainView) and ZPD. They were dropped from this type during the typed-reader
+    convergence; restore only alongside a real consumer that needs them here.
+
+    Each entity includes path metadata (distance, strength, path composition).
     """
 
     task_uid: str
-    prerequisites: list[PathAwareTask]
-    dependents: list[PathAwareTask]
     required_knowledge: list[PathAwareKnowledge]
     applied_knowledge: list[PathAwareKnowledge]
     contributing_goals: list[PathAwareGoal]
 
+    @classmethod
+    def from_categorized(
+        cls, source_uid: str, categorized_data: dict[str, Any]
+    ) -> "TaskCrossContext":
+        """Build the path-aware task context from a ``get_cross_domain_context_typed``
+        categorized payload (the TASKS_CONFIG ``context_field_name`` buckets).
+
+        This is the per-domain seam the generic factory delegates to: it SELECTs the
+        task-relevant cross-domain buckets, RENAMEs them to the dataclass fields, UNIONs the
+        two goal-link directions, and DEDUPs each field to its strongest path. One union call
+        per target field (per-field scoping is intentional). Mirrors the symmetric aggregation
+        on the UID-family ``TaskCrossContext.from_dict``.
+
+        - ``required_knowledge`` ← REQUIRES_KNOWLEDGE (``required_knowledge``).
+        - ``applied_knowledge`` ← APPLIES_KNOWLEDGE (``applied_knowledge``).
+        - ``contributing_goals`` ← the union of CONTRIBUTES_TO_GOAL (``contributing_goals``)
+          and the single FULFILLS_GOAL (``goal_context``).
+        """
+        return cls(
+            task_uid=source_uid,
+            required_knowledge=[
+                PathAwareKnowledge.from_dict(k)
+                for k in _union_path_buckets(categorized_data, "required_knowledge")
+            ],
+            applied_knowledge=[
+                PathAwareKnowledge.from_dict(k)
+                for k in _union_path_buckets(categorized_data, "applied_knowledge")
+            ],
+            contributing_goals=[
+                PathAwareGoal.from_dict(g)
+                for g in _union_path_buckets(categorized_data, "contributing_goals", "goal_context")
+            ],
+        )
+
+    def _all_entities(self) -> list[PathAwareKnowledge | PathAwareGoal]:
+        """All connected path-aware entities across every field."""
+        return [*self.required_knowledge, *self.applied_knowledge, *self.contributing_goals]
+
     @property
     def total_connections(self) -> int:
         """Total number of connected entities."""
-        return (
-            len(self.prerequisites)
-            + len(self.dependents)
-            + len(self.required_knowledge)
-            + len(self.applied_knowledge)
-            + len(self.contributing_goals)
-        )
+        return len(self._all_entities())
+
+    def strong_connections(self, threshold: float = 0.8) -> int:
+        """Count of high-confidence connections (path_strength >= threshold)."""
+        return sum(1 for e in self._all_entities() if e.path_strength >= threshold)
+
+    def avg_strength(self) -> float:
+        """Average path strength across all connections."""
+        all_entities = self._all_entities()
+        if not all_entities:
+            return 0.0
+        return sum(e.path_strength for e in all_entities) / len(all_entities)
+
+    @property
+    def direct_knowledge(self) -> list[PathAwareKnowledge]:
+        """Direct required-knowledge connections (distance=1)."""
+        return [k for k in self.required_knowledge if k.distance == 1]
+
+    @property
+    def direct_applied_knowledge(self) -> list[PathAwareKnowledge]:
+        """Direct applied-knowledge connections (distance=1)."""
+        return [k for k in self.applied_knowledge if k.distance == 1]
+
+    @property
+    def direct_goals(self) -> list[PathAwareGoal]:
+        """Direct goal connections (distance=1)."""
+        return [g for g in self.contributing_goals if g.distance == 1]
+
+    @property
+    def max_path_depth(self) -> int:
+        """Deepest hop across all connections (0 when there are none)."""
+        return max((e.distance for e in self._all_entities()), default=0)
 
 
 @dataclass(frozen=True)

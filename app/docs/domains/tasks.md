@@ -231,7 +231,7 @@ task, context = await tasks_rel.get_entity_with_context("task:123", depth=2)
 | `get_with_context(uid)` | Task with full graph neighborhood |
 | `get_behavioral_insights(user_uid)` | Task completion patterns analysis |
 | `get_performance_analytics(user_uid)` | Completion rates, trends, duration calibration |
-| `categorize_cross_domain_context(uid, raw)` | Task cross-domain relationship grouping |
+| `get_domain_insights(uid)` | Readiness (knowledge prerequisites) + path-aware cross-domain block |
 
 **Shared knowledge intelligence** (suggestions, prerequisites, learning opportunities) provided by `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — serves all 6 activity domains.
 

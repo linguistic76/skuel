@@ -5,7 +5,7 @@ Tasks Intelligence Service
 Task-specific intelligence features (NO AI dependencies).
 
 Architecture: Shell delegates to 3 focused mixins in this directory:
-  _core_intelligence_mixin.py    — get_task_with_context, categorize_cross_domain_context
+  _core_intelligence_mixin.py    — get_task_with_context (mechanism B alias)
   _analytics_mixin.py            — get_behavioral_insights, performance helpers
   _productivity_mixin.py         — analyze_learning_patterns, calculate_knowledge_aware_priorities,
                                    generate_task_insights, track_knowledge_mastery_progression,
@@ -21,7 +21,7 @@ Updated: April 2026 - Absorbed TasksLearningMetricsService (symmetry refactor):
 Provides:
 - Behavioral insights and patterns (task-specific)
 - Performance analytics and optimization (task-specific)
-- Cross-domain context categorization (task-specific)
+- Cross-domain context (path-aware, via the CANONICAL typed reader)
 - Task-level learning metrics (knowledge complexity, bridge detection, mastery)
 
 Domain-agnostic knowledge intelligence (knowledge suggestions, prerequisites,
@@ -49,6 +49,10 @@ from core.models.type_hints import EntityUID, UserUID
 from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+from core.services.intelligence import (
+    calculate_task_cross_domain_metrics,
+    task_recommendations,
+)
 from core.services.tasks._analytics_mixin import _AnalyticsMixin
 from core.services.tasks._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.tasks._productivity_mixin import _ProductivityMixin
@@ -72,7 +76,7 @@ class TasksIntelligenceService(
     Provides:
     - Behavioral insights and patterns (completion time, procrastination)
     - Performance analytics and optimization (rates, trends, duration calibration)
-    - Cross-domain context categorization (TaskCrossContext)
+    - Cross-domain context (path-aware TaskCrossContext via the typed reader)
 
     Domain-agnostic knowledge intelligence was extracted to
     ActivityKnowledgeIntelligenceService (March 2026).
@@ -134,13 +138,29 @@ class TasksIntelligenceService(
         Protocol method: Provides task-specific intelligence.
         Used by IntelligenceRouteFactory for GET /api/tasks/insights route.
 
+        Composes TWO sources (the Task "unify + elevate" shape):
+
+        1. Task's distinctive READINESS lens — graph-intel ``get_knowledge_prerequisites``
+           (``knowledge_prerequisites`` / ``has_prerequisites``) plus task-field insights
+           (overdue / high-priority / has-description). This is Task-specific and is NOT
+           generalized to other domains.
+        2. A path-aware CROSS-DOMAIN block over the CANONICAL typed reader
+           (``get_cross_domain_context_typed`` → path-aware ``TaskCrossContext``) via
+           ``_analyze_entity_with_typed_context`` — knowledge it requires/applies + goals
+           it contributes to, with cascade_impact / path_aware_context. Surfaced additively
+           under the ``cross_domain`` key; every pre-existing key is preserved.
+
+        Degrades gracefully: a real cross-domain-context FETCH error logs and yields an
+        empty ``cross_domain`` block rather than failing the whole route (an edge-less task
+        still yields an OK empty context via the typed reader's ok-empty-context policy).
+
         Args:
             uid: Task UID
             min_confidence: Minimum confidence threshold (default: 0.7)
 
         Returns:
-            Result containing insights data dict with knowledge prerequisites
-            and learning opportunities.
+            Result containing insights data dict with knowledge prerequisites,
+            task-field insights, and an additive cross-domain block.
         """
         task_result = await self.backend.get(uid)
         if task_result.is_error:
@@ -177,9 +197,66 @@ class TasksIntelligenceService(
                 "has_description": bool(task.description),
             },
             "min_confidence": min_confidence,
+            # Additive path-aware cross-domain block (see _build_cross_domain_block).
+            "cross_domain": await self._build_cross_domain_block(uid, min_confidence),
         }
 
         return Result.ok(insights)
+
+    async def _build_cross_domain_block(self, uid: str, min_confidence: float) -> dict[str, Any]:
+        """Build the additive path-aware cross-domain block for ``get_domain_insights``.
+
+        Runs ``_analyze_entity_with_typed_context`` over the CANONICAL typed reader and
+        flattens its ``context``/``metrics``/``recommendations`` into a single additive dict.
+        Degrades to an empty block (``{"available": False, ...}``) on a real fetch error —
+        the readiness lens still answers, the route does not 500. An edge-less task yields an
+        OK empty context (``available: True`` with zeroed counts), not a failure.
+        """
+        from core.models.graph.path_aware_types import TaskCrossContext
+
+        analysis_result = await self._analyze_entity_with_typed_context(
+            uid=uid,
+            metrics_fn=calculate_task_cross_domain_metrics,
+            recommendations_fn=task_recommendations,
+            min_confidence=min_confidence,
+        )
+        if analysis_result.is_error:
+            self.logger.warning(
+                f"Cross-domain context unavailable for task {uid}: "
+                f"{analysis_result.expect_error().message}"
+            )
+            return {
+                "available": False,
+                "context": {},
+                "metrics": {},
+                "recommendations": [],
+            }
+
+        analysis = analysis_result.value
+        context: TaskCrossContext = analysis["context"]
+        metrics = analysis["metrics"]
+
+        return {
+            "available": True,
+            "context": {
+                "total_connections": context.total_connections,
+                "required_knowledge": [k.uid for k in context.required_knowledge],
+                "applied_knowledge": [k.uid for k in context.applied_knowledge],
+                "contributing_goals": [g.uid for g in context.contributing_goals],
+            },
+            "metrics": {
+                "required_knowledge_count": metrics["required_knowledge_count"],
+                "applied_knowledge_count": metrics["applied_knowledge_count"],
+                "knowledge_coverage": metrics["knowledge_coverage"],
+                "goal_support_count": metrics["goal_support_count"],
+                "has_required_knowledge": metrics["has_required_knowledge"],
+                "has_applied_knowledge": metrics["has_applied_knowledge"],
+                "has_goal_support": metrics["has_goal_support"],
+                "cascade_impact": metrics["cascade_impact"],
+                "path_aware_context": metrics["path_aware_context"],
+            },
+            "recommendations": analysis["recommendations"],
+        }
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

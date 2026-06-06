@@ -39,6 +39,9 @@ if TYPE_CHECKING:
     from core.models.graph.path_aware_types import (
         PrincipleCrossContext as PathAwarePrincipleCrossContext,
     )
+    from core.models.graph.path_aware_types import (
+        TaskCrossContext as PathAwareTaskCrossContext,
+    )
     from core.services.intelligence.cross_domain_contexts import (
         ChoiceCrossContext,
         EventCrossContext,
@@ -95,6 +98,103 @@ def calculate_task_metrics(task: Any, context: TaskCrossContext) -> dict[str, An
         "has_principle_alignment": context.has_principle_alignment(),
         "complexity_score": round(complexity_score, 2),
     }
+
+
+# ---------------------------------------------------------------------------
+# Tasks — path-aware lens over the CANONICAL typed reader
+# (get_cross_domain_context_typed → path_aware_types.TaskCrossContext).
+# Powers the cross-domain block composed into get_domain_insights
+# (GET /api/tasks/insights) via BaseAnalyticsService._analyze_entity_with_typed_context,
+# ALONGSIDE Task's distinctive graph-intel readiness block (knowledge_prerequisites).
+# Scope is cross-domain ONLY: required/applied knowledge + contributing goals.
+# Same-domain task→task dependencies live in the lateral-relationships system, not here.
+# This is the "unify + elevate" lens — it does NOT replace the readiness capability,
+# it sits beside it. The UID-family ``calculate_task_metrics`` above is untouched
+# (different consumer; retired in a later cleanup PR).
+# ---------------------------------------------------------------------------
+
+
+def calculate_task_cross_domain_metrics(
+    task: Any, context: PathAwareTaskCrossContext
+) -> dict[str, Any]:
+    """Cross-domain lens over the path-aware task context: how the task connects to the
+    knowledge it requires/applies and the goals it contributes to, plus a cascade-impact
+    block and a path-aware rollup.
+
+    Scope is cross-domain only (knowledge + goals); same-domain task→task dependencies are
+    NOT part of this context. Surfaces the path-aware knowledge/goal lists so consumers can
+    read UIDs directly off path-aware entities, and ADDS ``cascade_impact`` (via
+    :meth:`PathAwareAnalyzer.calculate_cascade_impact`) and ``path_aware_context``
+    (distance/strength rollups).
+    """
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    required_knowledge = context.required_knowledge
+    applied_knowledge = context.applied_knowledge
+    contributing_goals = context.contributing_goals
+    all_knowledge = required_knowledge + applied_knowledge
+
+    has_required_knowledge = bool(required_knowledge)
+    has_applied_knowledge = bool(applied_knowledge)
+    has_goal_support = bool(contributing_goals)
+
+    # Cascade counts ALL cross-domain fields consistently: goals + all knowledge
+    # (required + applied), matching the rollups below.
+    cascade = PathAwareAnalyzer.calculate_cascade_impact(
+        goals=contributing_goals, knowledge=all_knowledge
+    )
+
+    return {
+        # Flat metric keys derived from path-aware entities.
+        "required_knowledge_count": len(required_knowledge),
+        "applied_knowledge_count": len(applied_knowledge),
+        "knowledge_coverage": len(all_knowledge),
+        "goal_support_count": len(contributing_goals),
+        "has_required_knowledge": has_required_knowledge,
+        "has_applied_knowledge": has_applied_knowledge,
+        "has_goal_support": has_goal_support,
+        # Path-aware entity lists so the consumer reads UIDs off path-aware entities.
+        "required_knowledge": required_knowledge,
+        "applied_knowledge": applied_knowledge,
+        "contributing_goals": contributing_goals,
+        # Rich path-aware additions.
+        "cascade_impact": cascade,
+        "path_aware_context": {
+            "total_strong_connections": context.strong_connections(),
+            "direct_connections_count": (
+                len(context.direct_knowledge)
+                + len(context.direct_applied_knowledge)
+                + len(context.direct_goals)
+            ),
+            "max_path_depth": context.max_path_depth,
+            "avg_path_strength": context.avg_strength(),
+        },
+    }
+
+
+def task_recommendations(
+    task: Any, context: PathAwareTaskCrossContext, metrics: dict[str, Any]
+) -> list[str]:
+    """Path-aware recommendations for the task cross-domain lens: inline connection nudges
+    plus the analyzer's path-strength recommendations (weak/missing-direct/deep-cascade)."""
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    required_knowledge = context.required_knowledge
+    applied_knowledge = context.applied_knowledge
+    contributing_goals = context.contributing_goals
+    all_knowledge = required_knowledge + applied_knowledge
+
+    recommendations: list[str] = []
+    if not contributing_goals:
+        recommendations.append("Connect this task to at least one goal it contributes to")
+    if not all_knowledge:
+        recommendations.append("Link this task to the knowledge it requires or applies")
+    recommendations.extend(
+        PathAwareAnalyzer.generate_recommendations(
+            goals=contributing_goals, knowledge=all_knowledge
+        )
+    )
+    return recommendations
 
 
 def calculate_goal_metrics(goal: Any, context: GoalCrossContext) -> dict[str, Any]:
