@@ -65,18 +65,41 @@ def determine_domain(node_dict: dict[str, Any], labels: list[str]) -> Domain:
     return Domain.KNOWLEDGE
 
 
-def transform_records_to_graph_context(
-    records: list[dict[str, Any]],
+def _is_stronger_path(candidate: dict[str, Any], incumbent: dict[str, Any]) -> bool:
+    """Strongest-path tiebreak between two path entries for the same node uid.
+
+    The producer collects one entry per DISTINCT path (no ``ORDER BY``), so a node
+    reachable by several paths recurs. Keep the strongest: fewest hops first, then highest
+    confidence cascade. Mirrors ``_path_rank`` in ``choices/_core_intelligence_mixin``.
+    """
+    cand_dist = candidate.get("distance", 1)
+    inc_dist = incumbent.get("distance", 1)
+    if cand_dist != inc_dist:
+        return cand_dist < inc_dist
+    return candidate.get("path_strength", 0.0) > incumbent.get("path_strength", 0.0)
+
+
+def build_graph_context_from_domain_context(
+    domain_context: list[dict[str, Any]],
     node_uid: str,
     domain: Any,
     intent: Any,
     depth: int,
 ) -> GraphContext:
     """
-    Transform Neo4j query records into a GraphContext object.
+    Build a GraphContext from ``build_domain_context_with_paths`` output.
+
+    THE single transform for the intent-traversal reader. Consumes the incident-edge-
+    attributed node maps the cross-domain-context producer emits (each carrying ``uid``,
+    ``labels``, full ``properties``, ``distance``, ``path_strength``, ``via_relationships``,
+    ``incident_rel_type``, ``incident_into_related``), de-dups multi-path recurrences to the
+    strongest entry per uid, and assembles the ``GraphContext`` shape that
+    ``query_with_intent`` callers already consume (``get_summary``, ``get_nodes_by_domain``,
+    ``all_nodes`` w/ ``node.properties``). Replaces the old flat-query transformer so both
+    graph readers share one incident-edge-attributed Cypher path (Convergence Phase 2).
 
     Args:
-        records: Raw records from Neo4j query execution
+        domain_context: ``domain_context`` list from build_domain_context_with_paths
         node_uid: UID of the origin node
         domain: Domain of the origin node
         intent: QueryIntent that was used
@@ -85,52 +108,63 @@ def transform_records_to_graph_context(
     Returns:
         Fully populated GraphContext
     """
+    # De-dup multi-path recurrences to the strongest entry per uid (the producer has no
+    # ORDER BY; keeping the wrong entry misreports distance/path_strength). The old flat
+    # query's `collect(DISTINCT related)` was already uid-unique, so dedup preserves that.
+    best_by_uid: dict[str, dict[str, Any]] = {}
+    for entry in domain_context:
+        if not entry:
+            continue
+        uid = entry.get("uid")
+        if not uid:
+            continue
+        incumbent = best_by_uid.get(uid)
+        if incumbent is None or _is_stronger_path(entry, incumbent):
+            best_by_uid[uid] = entry
+
     all_nodes: list[GraphNode] = []
     all_relationships: list[GraphRelationship] = []
 
-    for record in records:
-        # `rels[0]` is null when the traversal filter matched no edges (the registry-sourced
-        # path commonly yields this for an entity with no cross-domain edges), and `nodes`
-        # is an empty list in the same case — coalesce both to [] so an empty context is
-        # returned rather than raising on `for ... in None`.
-        nodes_data = record.get("nodes") or record.get("related_nodes") or []
-        rels_data = record.get("relationships") or []
+    for uid, entry in best_by_uid.items():
+        labels = entry.get("labels", ["Unknown"])
+        if isinstance(labels, str):
+            labels = [labels]
 
-        for i, node_dict in enumerate(nodes_data):
-            if not node_dict:
-                continue
+        # Full node properties live under "properties"; fall back to title-only for an
+        # entry from a producer that predates the properties column.
+        properties = entry.get("properties") or {"title": entry.get("title")}
+        node_domain = determine_domain(properties, labels)
+        incident_rel = entry.get("incident_rel_type")
 
-            uid = node_dict.get("uid", f"node_{i}")
-            labels = node_dict.get("labels", ["Unknown"])
-            if isinstance(labels, str):
-                labels = [labels]
-
-            node_domain = determine_domain(node_dict, labels)
-
-            graph_node = GraphNode(
+        all_nodes.append(
+            GraphNode(
                 uid=uid,
                 labels=labels,
                 domain=node_domain,
-                properties=node_dict,
-                distance_from_origin=node_dict.get("distance", 1),
+                properties=properties,
+                distance_from_origin=entry.get("distance", 1),
                 relevance=ContextRelevance.MEDIUM,
-                relationship_to_origin=node_dict.get("relationship_type"),
+                relationship_to_origin=incident_rel,
             )
-            all_nodes.append(graph_node)
+        )
 
-        for rel_dict in rels_data:
-            if not rel_dict:
-                continue
-
-            graph_rel = GraphRelationship(
-                type=rel_dict.get("type", "RELATED_TO"),
-                start_node_uid=rel_dict.get("start_uid", ""),
-                end_node_uid=rel_dict.get("end_uid", ""),
-                properties=rel_dict.get("properties", {}),
-                strength=RelationshipStrength.MODERATE,
-                bidirectional=rel_dict.get("bidirectional", False),
+        # One GraphRelationship per node from the edge INCIDENT to it. Orientation comes
+        # from incident_into_related; the other endpoint is the origin (exact at depth 1,
+        # an approximation at depth >= 2 — endpoints are not consumed critically, while the
+        # type powers relationship_patterns). No edge → skip.
+        if incident_rel:
+            into_related = entry.get("incident_into_related")
+            start_uid, end_uid = (node_uid, uid) if into_related else (uid, node_uid)
+            all_relationships.append(
+                GraphRelationship(
+                    type=incident_rel,
+                    start_node_uid=start_uid,
+                    end_node_uid=end_uid,
+                    properties=entry.get("incident_rel_properties", {}) or {},
+                    strength=RelationshipStrength.MODERATE,
+                    bidirectional=False,
+                )
             )
-            all_relationships.append(graph_rel)
 
     # Group nodes by domain
     domain_contexts_dict: dict[Any, dict[str, list[Any]]] = {}

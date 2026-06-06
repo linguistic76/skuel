@@ -17,9 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.query.graph_context_query_builder import (
-    build_context_query_for_intent,
-)
+from adapters.persistence.neo4j.query import build_domain_context_with_paths
 from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
@@ -30,6 +28,27 @@ if TYPE_CHECKING:
 
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.query_types import QueryIntent
+
+
+# Explicit-intent edge lenses, keyed by QueryIntent value. Lifted verbatim from the
+# retired per-intent hard-coded clauses in graph_context_query_builder (direction-aware
+# bucketing fold) so an explicit-intent caller (e.g. Tasks "dependencies"→PREREQUISITE,
+# "practice"→PRACTICE) keeps its exact edge slice over the shared producer. A generic
+# intent (RELATIONSHIP/EXPLORATORY/SPECIFIC/AGGREGATION) is absent here → empty set →
+# the producer traverses every edge type. Registry-sourced callers bypass this map.
+_INTENT_EDGE_SETS: dict[str, list[str]] = {
+    "hierarchical": ["HAS_CHILD", "PARENT_OF", "CHILD_OF"],
+    "prerequisite": ["REQUIRES_KNOWLEDGE", "PREREQUISITE_FOR", "ENABLES"],
+    "practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"],
+    "goal_achievement": [
+        "FULFILLS_GOAL",
+        "SUPPORTS_GOAL",
+        "REQUIRES_KNOWLEDGE",
+        "SUBGOAL_OF",
+        "GUIDED_BY_PRINCIPLE",
+        "CONTRIBUTES_TO_GOAL",
+    ],
+}
 
 
 # ============================================================================
@@ -590,14 +609,43 @@ class CrossDomainBackend:
         uid: str,
         relationship_types: list[str] | None = None,
     ) -> Result[list[dict[str, Any]]]:
-        """Build an intent-specific graph-context traversal and execute it for ``uid``.
+        """Build an intent graph-context traversal over the shared producer and run it.
 
-        When ``relationship_types`` is supplied (mechanism B / Convergence Phase 1), the
-        edge filter is the registry-sourced vocabulary rather than the hard-coded
-        per-intent literal. See: /docs/roadmap/intent-traversal-registry-convergence.md
+        Direction-aware bucketing (Convergence Phase 2): the intent path now runs the SAME
+        incident-edge-attributed producer (``build_domain_context_with_paths``) as the
+        bucketed cross-domain-context reader — no parallel flat Cypher. The edge vocabulary
+        is registry-sourced (``relationship_types``, mechanism B) when supplied; otherwise
+        the intent selects a slice from ``_INTENT_EDGE_SETS`` (the explicit-intent lenses
+        lifted verbatim from the retired hard-coded clauses), and a generic intent
+        (``RELATIONSHIP``/``EXPLORATORY``/…) → empty set → every edge type.
+
+        The pre-aggregation ``limit=100`` is applied **only on the registry-sourced path**
+        (``relationship_types`` supplied) — the sole branch the retired builder genuinely
+        capped (``_build_filtered_context_query``). The explicit-intent branches
+        (HIERARCHICAL/PREREQUISITE/PRACTICE/GOAL_ACHIEVEMENT) had NO cap, and the generic
+        branch's trailing LIMIT was a post-aggregation no-op (effectively unbounded), so
+        capping them here would silently drop nodes for callers like ``get_completion_impact``
+        / Tasks ``get_task_with_dependencies`` on dense graphs. Faithful = cap only what was
+        capped.
+
+        Returns one record ``{center_uid, domain_context}``; ``domain_context`` is the
+        attributed node list the service-layer transformer de-dups into a ``GraphContext``.
+        See: /docs/roadmap/intent-traversal-registry-convergence.md
         """
-        query = build_context_query_for_intent(intent, depth, relationship_types)
-        return await self.executor.execute_query(query, {"uid": uid})
+        from core.ports import get_enum_value
+
+        registry_sourced = bool(relationship_types)
+        edge_set = relationship_types or _INTENT_EDGE_SETS.get(get_enum_value(intent), [])
+        query, params = build_domain_context_with_paths(
+            node_uid=uid,
+            node_label=None,
+            relationship_types=edge_set,
+            depth=depth,
+            min_confidence=0.0,
+            bidirectional=True,
+            limit=100 if registry_sourced else None,
+        )
+        return await self.executor.execute_query(query, params)
 
     async def get_entity_labels(self, uid: str) -> Result[list[dict[str, Any]]]:
         """Get an entity node and its labels for domain determination."""
