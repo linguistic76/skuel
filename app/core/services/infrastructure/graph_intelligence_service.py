@@ -479,7 +479,7 @@ class GraphIntelligenceService:
             )
         """
         from core.services.infrastructure.graph_record_transformer import (
-            transform_records_to_graph_context,
+            build_graph_context_from_domain_context,
         )
 
         self.logger.info(
@@ -498,7 +498,12 @@ class GraphIntelligenceService:
         if not records:
             return Result.fail(Errors.not_found(resource="Node", identifier=node_uid))
 
-        graph_context = transform_records_to_graph_context(records, node_uid, domain, intent, depth)
+        # The shared producer returns one record {center_uid, domain_context}; the
+        # transformer de-dups the attributed node list into a GraphContext.
+        domain_context = records[0].get("domain_context", [])
+        graph_context = build_graph_context_from_domain_context(
+            domain_context, node_uid, domain, intent, depth
+        )
 
         self.logger.info(
             f"Graph context retrieved: {graph_context.total_nodes} nodes, "
