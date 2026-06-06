@@ -15,10 +15,11 @@ from typing import Any
 
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.graph.path_aware_types import GoalCrossContext
 from core.services.intelligence import (
-    GoalCrossContext,
-    RecommendationEngine,
-    calculate_goal_metrics,
+    calculate_goal_progress_metrics,
+    goal_learning_recommendations,
+    goal_recommendations,
 )
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
@@ -37,7 +38,8 @@ class _AnalyticsMixin:
     relationships: Any
     progress: Any
     logger: Any
-    _analyze_entity_with_context: Any
+    # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
+    _analyze_entity_with_typed_context: Any
     _to_domain_model: Any
 
     @requires_graph_intelligence("get_goal_progress_dashboard")
@@ -55,12 +57,11 @@ class _AnalyticsMixin:
         - Timeline tracking and insights
         - Actionable recommendations
         """
-        # Use base class template for standardized analysis
-        analysis_result = await self._analyze_entity_with_context(
-            uid=uid,
-            context_type=GoalCrossContext,
-            metrics_fn=calculate_goal_metrics,
-            recommendations_fn=self._generate_progress_recommendations,
+        # Use base class template over the CANONICAL typed (path-aware) reader.
+        analysis_result = await self._analyze_entity_with_typed_context(
+            uid,
+            metrics_fn=calculate_goal_progress_metrics,
+            recommendations_fn=goal_recommendations,
             min_confidence=min_confidence,
         )
 
@@ -77,10 +78,10 @@ class _AnalyticsMixin:
 
         rels = await GoalRelationships.fetch(uid, self.relationships)
 
-        # Extract supporting activities from context
-        supporting_tasks = [{"uid": uid} for uid in context.supporting_task_uids]
-        supporting_habits = [{"uid": uid} for uid in context.supporting_habit_uids]
-        learning_paths = [{"uid": uid} for uid in context.learning_path_uids]
+        # Extract supporting activities — read UIDs off the path-aware entities.
+        supporting_tasks = [{"uid": t.uid} for t in context.tasks]
+        supporting_habits = [{"uid": h.uid} for h in context.habits]
+        learning_paths = [{"uid": lp.uid} for lp in context.learning_paths]
 
         # Calculate timeline
         days_remaining = None
@@ -133,35 +134,6 @@ class _AnalyticsMixin:
             }
         )
 
-    def _generate_progress_recommendations(
-        self, _entity: Any, _context: GoalCrossContext, metrics: dict[str, Any]
-    ) -> list[str]:
-        """Generate recommendations for goal progress dashboard."""
-        return (
-            RecommendationEngine()
-            .with_metrics(metrics)
-            .add_threshold_check(
-                "task_support_count",
-                3,
-                "Consider breaking down this goal into more specific tasks",
-            )
-            .add_conditional(
-                not metrics.get("has_habit_system", False),
-                "Create habits to support consistent progress toward this goal",
-            )
-            .add_conditional(
-                not metrics.get("has_curriculum_alignment", False)
-                and metrics.get("knowledge_requirement_count", 0) > 0,
-                "Develop learning paths for required knowledge areas",
-            )
-            .add_threshold_check(
-                "support_coverage",
-                0.5,
-                "Focus on completing more supporting tasks to advance progress",
-            )
-            .build()
-        )
-
     @requires_graph_intelligence("get_goal_completion_forecast")
     async def get_goal_completion_forecast(
         self, uid: str, depth: int = 2, min_confidence: float = 0.7
@@ -175,11 +147,10 @@ class _AnalyticsMixin:
         - Habit consistency trends
         - Historical patterns
         """
-        # Use base class template for standardized analysis
-        analysis_result = await self._analyze_entity_with_context(
-            uid=uid,
-            context_type=GoalCrossContext,
-            metrics_fn=calculate_goal_metrics,
+        # Use base class template over the CANONICAL typed (path-aware) reader.
+        analysis_result = await self._analyze_entity_with_typed_context(
+            uid,
+            metrics_fn=calculate_goal_progress_metrics,
             depth=depth,
             min_confidence=min_confidence,
         )
@@ -245,8 +216,8 @@ class _AnalyticsMixin:
                 "acceleration_opportunities": acceleration_opportunities,
                 "metrics": metrics,  # Include standard metrics
                 "graph_context": {
-                    "task_support_count": len(context.supporting_task_uids),
-                    "habit_support_count": len(context.supporting_habit_uids),
+                    "task_support_count": len(context.tasks),
+                    "habit_support_count": len(context.habits),
                     "support_coverage": metrics["support_coverage"],
                 },
             }
@@ -265,12 +236,11 @@ class _AnalyticsMixin:
         - Learning paths available
         - Knowledge gaps to fill
         """
-        # Use base class template for standardized analysis
-        analysis_result = await self._analyze_entity_with_context(
-            uid=uid,
-            context_type=GoalCrossContext,
-            metrics_fn=calculate_goal_metrics,
-            recommendations_fn=self._generate_learning_recommendations,
+        # Use base class template over the CANONICAL typed (path-aware) reader.
+        analysis_result = await self._analyze_entity_with_typed_context(
+            uid,
+            metrics_fn=calculate_goal_progress_metrics,
+            recommendations_fn=goal_learning_recommendations,
             depth=depth,
             min_confidence=min_confidence,
         )
@@ -283,9 +253,9 @@ class _AnalyticsMixin:
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
-        # Convert UIDs to placeholder dicts for backward compatibility
-        required_knowledge = [{"uid": uid} for uid in context.required_knowledge_uids]
-        learning_paths = [{"uid": uid} for uid in context.learning_path_uids]
+        # Read UIDs off the path-aware entities.
+        required_knowledge = [{"uid": k.uid} for k in context.knowledge]
+        learning_paths = [{"uid": lp.uid} for lp in context.learning_paths]
 
         # Note: Without actual KU data, we can't determine mastery level
         mastered_knowledge: list[dict[str, Any]] = []
@@ -335,33 +305,4 @@ class _AnalyticsMixin:
                     "has_curriculum_alignment": metrics["has_curriculum_alignment"],
                 },
             }
-        )
-
-    def _generate_learning_recommendations(
-        self, _entity: Any, _context: GoalCrossContext, metrics: dict[str, Any]
-    ) -> list[str]:
-        """Generate recommendations for goal learning requirements."""
-        knowledge_gaps_count = metrics.get("knowledge_requirement_count", 0)
-        has_learning_paths = metrics.get("has_curriculum_alignment", False)
-
-        return (
-            RecommendationEngine()
-            .with_metrics(metrics)
-            .add_conditional(
-                knowledge_gaps_count > 0,
-                f"Master {knowledge_gaps_count} knowledge areas before starting this goal",
-            )
-            .add_conditional(
-                not has_learning_paths and knowledge_gaps_count > 0,
-                "Create a learning path to systematically acquire required knowledge",
-            )
-            .add_conditional(
-                knowledge_gaps_count == 0,
-                "You have sufficient knowledge to begin working on this goal",
-            )
-            .add_conditional(
-                knowledge_gaps_count == 0,
-                "Define required knowledge areas for better goal planning",
-            )
-            .build()
         )

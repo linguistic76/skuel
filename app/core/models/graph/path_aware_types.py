@@ -103,6 +103,17 @@ class PathAwareTask:
     priority: str | None = None
     due_date: date | None = None
 
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "PathAwareTask":
+        """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
+        return cls(
+            uid=d["uid"],
+            title=d.get("title", ""),
+            distance=d["distance"],
+            path_strength=d["path_strength"],
+            via_relationships=d.get("via_relationships", []),
+        )
+
 
 @dataclass(frozen=True)
 class PathAwareGoal:
@@ -187,6 +198,41 @@ class PathAwareKnowledge:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "PathAwareKnowledge":
+        """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
+        return cls(
+            uid=d["uid"],
+            title=d.get("title", ""),
+            distance=d["distance"],
+            path_strength=d["path_strength"],
+            via_relationships=d.get("via_relationships", []),
+        )
+
+
+@dataclass(frozen=True)
+class PathAwareLearningPath:
+    """
+    Learning path with path metadata showing HOW it aligns with the source entity.
+
+    Example:
+        Goal → LearningPath (direct ALIGNED_WITH_PATH, distance=1, strength=0.86)
+        Goal → LearningPath (REQUIRES_PATH_COMPLETION, distance=1, strength=0.90)
+
+    Mirrors :class:`PathAwareKnowledge` (an Entity-labelled curriculum node reached
+    via path-aware edges). NOTE: there are 0 LearningPath nodes live, so the
+    ``learning_paths`` bucket is empty in practice — the type exists for the consumer
+    contract's type-correctness.
+    """
+
+    uid: str
+    title: str
+    distance: int
+    path_strength: float
+    via_relationships: list[str]
+    # Core learning-path fields
+    status: str | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "PathAwareLearningPath":
         """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
         return cls(
             uid=d["uid"],
@@ -387,12 +433,23 @@ class GoalCrossContext:
     Goal achievement context with path-aware intelligence.
 
     Groups related entities by relationship semantic:
-    - tasks: Tasks fulfilling this goal (FULFILLS_GOAL)
-    - habits: Habits supporting this goal (SUPPORTS_GOAL)
-    - knowledge: Knowledge required for this goal (REQUIRES_KNOWLEDGE)
-    - subgoals: Child goals (SUBGOAL_OF)
-    - parent_goal: Parent goal if this is a subgoal (SUBGOAL_OF)
-    - principles: Principles guiding this goal (GUIDED_BY_PRINCIPLE)
+    - tasks: Tasks fulfilling this goal (FULFILLS_GOAL → ``contributing_tasks``)
+    - habits: Habits supporting this goal — union of the SUPPORTS_GOAL-incoming
+      essentiality tiers (``contributing_habits`` + ``essential_habits`` +
+      ``critical_habits`` + ``optional_habits``)
+    - knowledge: Knowledge required for this goal (REQUIRES_KNOWLEDGE →
+      ``required_knowledge``)
+    - subgoals: Child goals (SUBGOAL_OF incoming → ``sub_goals``)
+    - parent_goal: Parent goal if this is a subgoal (SUBGOAL_OF outgoing →
+      ``parent_goal``, single)
+    - principles: Principles guiding this goal — union of GUIDED_BY_PRINCIPLE
+      (outgoing, ``aligned_principles``) and GUIDES_GOAL (incoming,
+      ``guiding_principles_incoming``)
+    - learning_paths: Learning paths aligned with this goal — union of
+      ALIGNED_WITH_PATH (``aligned_paths``) and REQUIRES_PATH_COMPLETION
+      (``required_paths``)
+
+    Each entity includes path metadata (distance, strength, path composition).
     """
 
     goal_uid: str
@@ -402,18 +459,151 @@ class GoalCrossContext:
     subgoals: list[PathAwareGoal]
     parent_goal: PathAwareGoal | None
     principles: list[PathAwarePrinciple]
+    learning_paths: list[PathAwareLearningPath]
+
+    @classmethod
+    def from_categorized(
+        cls, source_uid: str, categorized_data: dict[str, Any]
+    ) -> "GoalCrossContext":
+        """Build the path-aware goal context from a ``get_cross_domain_context_typed``
+        categorized payload (the GOAPS_CONFIG ``context_field_name`` buckets).
+
+        This is the per-domain seam the generic factory delegates to: it SELECTs the
+        goal-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the multi-tier
+        / bidirectional buckets, and DEDUPs each field to its strongest path. One union
+        call per target field (per-field scoping is intentional). Mirrors the symmetric
+        aggregation on the UID-family ``GoalCrossContext.from_dict``.
+
+        - ``tasks`` ← FULFILLS_GOAL (``contributing_tasks``).
+        - ``habits`` ← the union of the four SUPPORTS_GOAL-incoming essentiality tiers
+          (``contributing_habits`` + ``essential_habits`` + ``critical_habits`` +
+          ``optional_habits``).
+        - ``knowledge`` ← REQUIRES_KNOWLEDGE (``required_knowledge``).
+        - ``subgoals`` ← SUBGOAL_OF incoming (``sub_goals``).
+        - ``parent_goal`` ← SUBGOAL_OF outgoing (``parent_goal``, single); the strongest
+          of the (typically one) entries, or ``None`` when absent.
+        - ``principles`` ← the union of GUIDED_BY_PRINCIPLE (outgoing,
+          ``aligned_principles``) and GUIDES_GOAL (incoming,
+          ``guiding_principles_incoming``).
+        - ``learning_paths`` ← the union of ALIGNED_WITH_PATH (``aligned_paths``) and
+          REQUIRES_PATH_COMPLETION (``required_paths``). Empty in practice (0 LearningPath
+          nodes live) but populated for the consumer contract.
+        """
+        parents = [
+            PathAwareGoal.from_dict(g) for g in _union_path_buckets(categorized_data, "parent_goal")
+        ]
+        return cls(
+            goal_uid=source_uid,
+            tasks=[
+                PathAwareTask.from_dict(t)
+                for t in _union_path_buckets(categorized_data, "contributing_tasks")
+            ],
+            habits=[
+                PathAwareHabit.from_dict(h)
+                for h in _union_path_buckets(
+                    categorized_data,
+                    "contributing_habits",
+                    "essential_habits",
+                    "critical_habits",
+                    "optional_habits",
+                )
+            ],
+            knowledge=[
+                PathAwareKnowledge.from_dict(k)
+                for k in _union_path_buckets(categorized_data, "required_knowledge")
+            ],
+            subgoals=[
+                PathAwareGoal.from_dict(g)
+                for g in _union_path_buckets(categorized_data, "sub_goals")
+            ],
+            parent_goal=parents[0] if parents else None,
+            principles=[
+                PathAwarePrinciple.from_dict(p)
+                for p in _union_path_buckets(
+                    categorized_data, "aligned_principles", "guiding_principles_incoming"
+                )
+            ],
+            learning_paths=[
+                PathAwareLearningPath.from_dict(lp)
+                for lp in _union_path_buckets(categorized_data, "aligned_paths", "required_paths")
+            ],
+        )
+
+    def _all_entities(
+        self,
+    ) -> list[
+        PathAwareTask
+        | PathAwareHabit
+        | PathAwareKnowledge
+        | PathAwareGoal
+        | PathAwarePrinciple
+        | PathAwareLearningPath
+    ]:
+        """All connected path-aware entities across every field (incl. parent_goal)."""
+        entities: list[
+            PathAwareTask
+            | PathAwareHabit
+            | PathAwareKnowledge
+            | PathAwareGoal
+            | PathAwarePrinciple
+            | PathAwareLearningPath
+        ] = [
+            *self.tasks,
+            *self.habits,
+            *self.knowledge,
+            *self.subgoals,
+            *self.principles,
+            *self.learning_paths,
+        ]
+        if self.parent_goal:
+            entities.append(self.parent_goal)
+        return entities
 
     @property
     def total_connections(self) -> int:
         """Total number of connected entities."""
-        return (
-            len(self.tasks)
-            + len(self.habits)
-            + len(self.knowledge)
-            + len(self.subgoals)
-            + (1 if self.parent_goal else 0)
-            + len(self.principles)
-        )
+        return len(self._all_entities())
+
+    def strong_connections(self, threshold: float = 0.8) -> int:
+        """Count of high-confidence connections (path_strength >= threshold)."""
+        return sum(1 for e in self._all_entities() if e.path_strength >= threshold)
+
+    def avg_strength(self) -> float:
+        """Average path strength across all connections."""
+        all_entities = self._all_entities()
+        if not all_entities:
+            return 0.0
+        return sum(e.path_strength for e in all_entities) / len(all_entities)
+
+    @property
+    def direct_tasks(self) -> list[PathAwareTask]:
+        """Direct task connections (distance=1)."""
+        return [t for t in self.tasks if t.distance == 1]
+
+    @property
+    def direct_habits(self) -> list[PathAwareHabit]:
+        """Direct habit connections (distance=1)."""
+        return [h for h in self.habits if h.distance == 1]
+
+    @property
+    def direct_knowledge(self) -> list[PathAwareKnowledge]:
+        """Direct knowledge connections (distance=1)."""
+        return [k for k in self.knowledge if k.distance == 1]
+
+    @property
+    def direct_principles(self) -> list[PathAwarePrinciple]:
+        """Direct principle connections (distance=1)."""
+        return [p for p in self.principles if p.distance == 1]
+
+    @property
+    def direct_learning_paths(self) -> list[PathAwareLearningPath]:
+        """Direct learning-path connections (distance=1)."""
+        return [lp for lp in self.learning_paths if lp.distance == 1]
+
+    @property
+    def max_path_depth(self) -> int:
+        """Deepest hop across all connections (0 when there are none)."""
+        return max((e.distance for e in self._all_entities()), default=0)
 
 
 @dataclass(frozen=True)
