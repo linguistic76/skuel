@@ -11,11 +11,12 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.graph.path_aware_types import GoalCrossContext
+from core.services.infrastructure.prerequisite_checker import build_learning_requirements
 from core.services.intelligence import (
     calculate_goal_progress_metrics,
     goal_learning_recommendations,
@@ -23,6 +24,9 @@ from core.services.intelligence import (
 )
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.user.unified_user_context import UserContext
 
 
 class _AnalyticsMixin:
@@ -225,7 +229,11 @@ class _AnalyticsMixin:
 
     @requires_graph_intelligence("get_goal_learning_requirements")
     async def get_goal_learning_requirements(
-        self, uid: str, depth: int = 2, min_confidence: float = 0.7
+        self,
+        uid: str,
+        depth: int = 2,
+        min_confidence: float = 0.7,
+        user_context: UserContext | None = None,
     ) -> Result[dict[str, Any]]:
         """
         Get goal's learning requirements.
@@ -235,6 +243,13 @@ class _AnalyticsMixin:
         - Current mastery status
         - Learning paths available
         - Knowledge gaps to fill
+
+        Mastery is real, not stubbed: when ``user_context`` is supplied the
+        ``knowledge_gaps`` / ``mastered_knowledge`` / ``ready_to_start`` fields reflect
+        the user's actual ``knowledge_mastery`` (via the shared
+        :func:`build_learning_requirements` helper, which reuses the same readiness
+        threshold as planning/scheduling). Context-free callers degrade to the prior
+        behaviour (every requirement treated as an open gap).
         """
         # Use base class template over the CANONICAL typed (path-aware) reader.
         analysis_result = await self._analyze_entity_with_typed_context(
@@ -253,54 +268,23 @@ class _AnalyticsMixin:
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
-        # Read UIDs off the path-aware entities.
-        required_knowledge = [{"uid": k.uid} for k in context.knowledge]
-        learning_paths = [{"uid": lp.uid} for lp in context.learning_paths]
-
-        # Note: Without actual KU data, we can't determine mastery level
-        mastered_knowledge: list[dict[str, Any]] = []
-        knowledge_gaps = required_knowledge  # Assume all are gaps without mastery data
-
-        # Calculate mastery percentage
-        total_required = metrics["knowledge_requirement_count"]
-        total_mastered = len(mastered_knowledge)
-        mastery_percentage = (total_mastered / total_required * 100) if total_required > 0 else 100
-
-        # Estimate learning time
-        estimated_learning_time = len(knowledge_gaps) * 2  # 2 hours per knowledge area
-
-        # Find recommended path (first available path, or None)
-        recommended_path = learning_paths[0] if learning_paths else None
-
-        # Learning analysis
-        learning_analysis = {
-            "ready_to_start": len(knowledge_gaps) == 0,
-            "has_prerequisites": total_required > 0,
-            "learning_in_progress": metrics["has_curriculum_alignment"],
-            "knowledge_complete": mastery_percentage >= 100,
-        }
+        # Mastery-aware learning-requirements payload (shared with the Task lens).
+        learning = build_learning_requirements(
+            required_knowledge_uids=[k.uid for k in context.knowledge],
+            learning_path_uids=[lp.uid for lp in context.learning_paths],
+            context=user_context,
+        )
 
         return Result.ok(
             {
                 "goal": goal,
-                "knowledge_requirements": {
-                    "required_knowledge": required_knowledge,
-                    "mastered_knowledge": mastered_knowledge,
-                    "knowledge_gaps": knowledge_gaps,
-                    "total_required": total_required,
-                    "total_mastered": total_mastered,
-                    "mastery_percentage": mastery_percentage,
-                },
-                "learning_paths": {
-                    "available_paths": learning_paths,
-                    "recommended_path": recommended_path,
-                    "estimated_learning_time": estimated_learning_time,
-                },
-                "learning_analysis": learning_analysis,
+                "knowledge_requirements": learning["knowledge_requirements"],
+                "learning_paths": learning["learning_paths"],
+                "learning_analysis": learning["learning_analysis"],
                 "recommendations": analysis["recommendations"],
                 "metrics": metrics,  # Include standard metrics
                 "graph_context": {
-                    "knowledge_requirement_count": total_required,
+                    "knowledge_requirement_count": metrics["knowledge_requirement_count"],
                     "learning_path_count": metrics["learning_path_count"],
                     "has_curriculum_alignment": metrics["has_curriculum_alignment"],
                 },
