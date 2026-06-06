@@ -28,6 +28,9 @@ if TYPE_CHECKING:
         ChoiceCrossContext as PathAwareChoiceCrossContext,
     )
     from core.models.graph.path_aware_types import (
+        EventCrossContext as PathAwareEventCrossContext,
+    )
+    from core.models.graph.path_aware_types import (
         GoalCrossContext as PathAwareGoalCrossContext,
     )
     from core.models.graph.path_aware_types import (
@@ -433,6 +436,80 @@ def calculate_event_metrics(event: Any, context: EventCrossContext) -> dict[str,
         "has_learning_component": context.has_learning_component(),
         "has_purpose": has_purpose,
         "is_learning_event": context.has_learning_component(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Events — path-aware lens over the CANONICAL typed reader
+# (get_cross_domain_context_typed → path_aware_types.EventCrossContext).
+# Powers analyze_event_performance / get_domain_insights via
+# BaseAnalyticsService._analyze_entity_with_typed_context. Preserves the flat
+# metric keys analyze_event_performance's payload is rebuilt from
+# (goal_support_count / habit_reinforcement_count / knowledge_practice_count /
+# has_goal_support / has_habit_reinforcement / has_learning_component) and ADDS
+# the rich cascade_impact / path_aware_context blocks. The event payload surfaces
+# NO recommendations list, so there is no event_recommendations callback.
+# ---------------------------------------------------------------------------
+
+
+def calculate_event_performance_metrics(
+    event: Any, context: PathAwareEventCrossContext
+) -> dict[str, Any]:
+    """Performance lens over the path-aware event context: how the event supports goals,
+    reinforces habits, and practices knowledge, plus a cascade-impact block and a
+    path-aware rollup.
+
+    Derives the flat keys that ``analyze_event_performance`` rebuilds its nested
+    ``goal_support`` / ``habit_reinforcement`` / ``knowledge_reinforcement`` payload from
+    (so the ``/api/events/insights`` contract holds), surfaces the path-aware goal/habit/
+    knowledge lists so the mixin can read UIDs directly, and ADDS ``cascade_impact`` (via
+    :meth:`PathAwareAnalyzer.calculate_cascade_impact`) and ``path_aware_context``.
+
+    NB: per the EVENTS_CONFIG, CONTRIBUTES_TO_GOAL exposes only ``uid``/``title`` (no
+    ``contribution_weight``), so the legacy goal-support term always weighed 1.0 — preserved
+    here as a flat 1.0 per supported goal.
+    """
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    goals = context.goals
+    habits = context.habits
+    knowledge = context.knowledge
+
+    has_goal_support = bool(goals)
+    has_habit_reinforcement = bool(habits)
+    has_learning_component = bool(knowledge)
+
+    cascade = PathAwareAnalyzer.calculate_cascade_impact(
+        goals=goals, habits=habits, knowledge=knowledge
+    )
+
+    return {
+        # Flat keys preserved for the analyze_event_performance payload contract.
+        "goal_support_count": len(goals),
+        "habit_reinforcement_count": len(habits),
+        "knowledge_practice_count": len(knowledge),
+        "total_connections": context.total_connections,
+        "has_goal_support": has_goal_support,
+        "has_habit_reinforcement": has_habit_reinforcement,
+        "has_learning_component": has_learning_component,
+        "has_purpose": has_goal_support or has_habit_reinforcement,
+        "is_learning_event": has_learning_component,
+        # Path-aware entity lists so the mixin reads UIDs off path-aware entities.
+        "goals": goals,
+        "habits": habits,
+        "knowledge": knowledge,
+        # Rich path-aware additions.
+        "cascade_impact": cascade,
+        "path_aware_context": {
+            "total_strong_connections": context.strong_connections(),
+            "direct_connections_count": (
+                len(context.direct_goals)
+                + len(context.direct_habits)
+                + len(context.direct_knowledge)
+            ),
+            "max_path_depth": context.max_path_depth,
+            "avg_path_strength": context.avg_strength(),
+        },
     }
 
 
