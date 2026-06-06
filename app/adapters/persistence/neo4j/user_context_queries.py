@@ -73,11 +73,19 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      task, task_subtasks,
      collect(DISTINCT {uid: dependency.uid, title: dependency.title, confidence: dep_rel.confidence}) as task_dependencies
 
-OPTIONAL MATCH (task)-[app_rel:APPLIES_KNOWLEDGE]->(ku:Entity)
+// Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance):
+// keep direct :Ku targets (1-hop) and bridge :PathStep targets to the Kus they
+// compose via curriculum-internal TRAINS_KU|USES_KU (2-hop). DISTINCT per task.
+OPTIONAL MATCH (task)-[app_rel:APPLIES_KNOWLEDGE]->(applied:Entity)
 WHERE task IS NOT NULL AND coalesce(app_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, task_subtasks, task_dependencies,
-     collect(DISTINCT {uid: ku.uid, title: ku.title, confidence: app_rel.confidence}) as task_knowledge
+     collect(DISTINCT applied) as applied_nodes
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     task, task_subtasks, task_dependencies,
+     [n IN applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
+     reduce(acc = [], p IN applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+     as task_knowledge
 
 OPTIONAL MATCH (task)-[:FULFILLS_GOAL]->(goal:Goal)
 WHERE task IS NOT NULL
@@ -237,7 +245,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata,
      habit, collect(DISTINCT {uid: linked_goal.uid, title: linked_goal.title, status: linked_goal.status}) as habit_linked_goals
 
-OPTIONAL MATCH (habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(habit_ku:Entity)
+// Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
+OPTIONAL MATCH (habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(habit_applied:Entity)
 WHERE habit IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -245,7 +254,16 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata,
      habit, habit_linked_goals,
-     collect(DISTINCT {uid: habit_ku.uid, title: habit_ku.title}) as habit_applied_knowledge
+     collect(DISTINCT habit_applied) as habit_applied_nodes
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata,
+     habit, habit_linked_goals,
+     [n IN habit_applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
+     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+     as habit_applied_knowledge
 
 OPTIONAL MATCH (prereq_habit:Habit)-[:ENABLES_HABIT|PREREQUISITE_FOR]->(habit)
 WHERE habit IS NOT NULL
@@ -287,7 +305,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter events for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_event_nodes) > 0 THEN all_event_nodes ELSE [null] END as event
-OPTIONAL MATCH (event)-[:APPLIES_KNOWLEDGE]->(event_ku:Entity)
+// Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
+OPTIONAL MATCH (event)-[:APPLIES_KNOWLEDGE]->(event_applied:Entity)
 WHERE event IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -295,7 +314,17 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
-     event, collect(DISTINCT {uid: event_ku.uid, title: event_ku.title})[0..10] as event_applied_knowledge
+     event, collect(DISTINCT event_applied) as event_applied_nodes
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids,
+     event, (
+       [n IN event_applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
+       reduce(acc = [], p IN event_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+     )[0..10] as event_applied_knowledge
 
 OPTIONAL MATCH (event)-[:CONTRIBUTES_TO_GOAL]->(event_goal:Goal)
 WHERE event IS NOT NULL
@@ -377,7 +406,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter principles for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_principle_nodes) > 0 THEN all_principle_nodes ELSE [null] END as principle
-OPTIONAL MATCH (principle)-[:GROUNDED_IN_KNOWLEDGE]->(principle_ku:Entity)
+// Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
+OPTIONAL MATCH (principle)-[:GROUNDED_IN_KNOWLEDGE]->(principle_grounded:Entity)
 WHERE principle IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -386,7 +416,18 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
-     principle, collect(DISTINCT {uid: principle_ku.uid, title: principle_ku.title})[0..10] as principle_grounded_knowledge
+     principle, collect(DISTINCT principle_grounded) as principle_grounded_nodes
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids,
+     principle, (
+       [n IN principle_grounded_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
+       reduce(acc = [], p IN principle_grounded_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+     )[0..10] as principle_grounded_knowledge
 
 OPTIONAL MATCH (principle)-[:GUIDES_GOAL]->(principle_goal:Goal)
 WHERE principle IS NOT NULL
@@ -472,7 +513,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter choices for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_choice_nodes) > 0 THEN all_choice_nodes ELSE [null] END as choice
-OPTIONAL MATCH (choice)-[:INFORMED_BY_KNOWLEDGE]->(choice_ku:Entity)
+// Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
+OPTIONAL MATCH (choice)-[:INFORMED_BY_KNOWLEDGE]->(choice_informing:Entity)
 WHERE choice IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -482,7 +524,19 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
      pending_choice_uids,
-     choice, collect(DISTINCT {uid: choice_ku.uid, title: choice_ku.title})[0..10] as choice_informing_knowledge
+     choice, collect(DISTINCT choice_informing) as choice_informing_nodes
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids,
+     choice, (
+       [n IN choice_informing_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
+       reduce(acc = [], p IN choice_informing_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+     )[0..10] as choice_informing_knowledge
 
 OPTIONAL MATCH (choice)-[:INFORMED_BY_PRINCIPLE]->(choice_principle:Principle)
 WHERE choice IS NOT NULL
