@@ -25,7 +25,6 @@ from core.ports.query_types import (
     PsKnowledgeItemResult,
     PsKnowledgeSummaryResult,
     PsStandaloneStepRow,
-    PsStepWithContextRow,
     PsStepWithKnowledgeRow,
 )
 from core.utils.result_simplified import Result
@@ -611,105 +610,6 @@ class PsBackend(
         """
         return cast(
             "Result[list[PsStepWithKnowledgeRow]]",
-            await self.execute_query(query, {"uid": uid}),
-        )
-
-    async def get_step_with_context(self, uid: str) -> Result[list[PsStepWithContextRow]]:
-        """Get step with comprehensive 11-part graph context in a single query."""
-        query = """
-        MATCH (ps:Entity {uid: $uid})
-
-        // 1. Knowledge references
-        OPTIONAL MATCH (ps)-[r_ku:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        WITH ps, collect({
-            uid: ku.uid,
-            title: ku.title,
-            confidence: coalesce(r_ku.confidence, 1.0)
-        }) as knowledge_rels
-
-        // 2. Prerequisite steps
-        OPTIONAL MATCH (ps)-[:REQUIRES_STEP]->(prereq_step:Entity {entity_type: 'path_step'})
-        WITH ps, knowledge_rels, collect({
-            uid: prereq_step.uid,
-            title: prereq_step.title,
-            completed: prereq_step.completed
-        }) as prereq_steps
-
-        // 3. Prerequisite knowledge
-        OPTIONAL MATCH (ps)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq_ku:Entity)
-        WITH ps, knowledge_rels, prereq_steps, collect({
-            uid: prereq_ku.uid,
-            title: prereq_ku.title
-        }) as prereq_knowledge
-
-        // 4. Guiding principles (direct on PathStep)
-        OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
-        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, collect(DISTINCT {
-            uid: principle.uid,
-            title: principle.title
-        }) as principles
-
-        // 5. Informed choices (direct on PathStep)
-        OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(choice:Choice)
-        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect(DISTINCT {
-            uid: choice.uid,
-            title: choice.title
-        }) as choices
-
-        // 6. Practice opportunities: Habits (direct on PathStep)
-        OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(habit:Habit)
-        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect(DISTINCT {
-            uid: habit.uid,
-            title: habit.title,
-            current_streak: habit.current_streak
-        }) as habits
-
-        // 7. Practice opportunities: Tasks (direct on PathStep)
-        OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(task:Task)
-        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect(DISTINCT {
-            uid: task.uid,
-            title: task.title,
-            status: task.status
-        }) as tasks
-
-        // 8. Practice opportunities: Events (direct on PathStep)
-        OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(event:Event)
-        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect(DISTINCT {
-            uid: event.uid,
-            title: event.title,
-            event_date: event.event_date
-        }) as events
-
-        // 9. Practice opportunities: Goals (direct on PathStep)
-        OPTIONAL MATCH (ps)-[:SUPPORTS_GOAL]->(goal:Goal)
-        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, collect(DISTINCT {
-            uid: goal.uid,
-            title: goal.title,
-            status: goal.status
-        }) as goals
-
-        // 10. Learning path context (if part of sequence)
-        OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ps)
-        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, {
-            uid: lp.uid,
-            name: lp.title,
-            goal: lp.goal,
-            sequence: coalesce(r_path.sequence, 0)
-        } as path_context
-
-        // 11. Dependent steps (steps that require this one)
-        OPTIONAL MATCH (dependent:Entity {entity_type: 'path_step'})-[:REQUIRES_STEP]->(ps)
-        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, path_context, collect({
-            uid: dependent.uid,
-            title: dependent.title,
-            completed: dependent.completed
-        }) as dependent_steps
-
-        RETURN ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices,
-               habits, tasks, events, goals, path_context, dependent_steps
-        """
-        return cast(
-            "Result[list[PsStepWithContextRow]]",
             await self.execute_query(query, {"uid": uid}),
         )
 

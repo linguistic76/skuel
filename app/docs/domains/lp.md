@@ -86,13 +86,12 @@ class LpSearchService(BaseService["LpOperations", Lp]):
 
 ## Backend Methods (LpBackend)
 
-All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3 focused mixins — `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`). LpCoreService and LpSearchService call typed backend methods — no inline Cypher in services.
+All Cypher queries are encapsulated in `LpBackend` (26 methods decomposed into 3 focused mixins — `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`). LpCoreService and LpSearchService call typed backend methods — no inline Cypher in services.
 
 | Method | Purpose |
 |--------|---------|
 | `get_path_with_steps(uid)` | Single LP + HAS_STEP steps |
 | `get_paths_batch_with_steps(uids)` | Batch LP fetch (GraphQL DataLoader) |
-| `get_path_with_graph_context(uid)` | LP + 7 graph neighborhoods (steps, prereqs, goals, principles, events, users, stats) |
 | `list_user_paths_with_steps(user_uid, limit)` | User's LPs with steps |
 | `list_all_paths_with_steps(limit, offset, order_by, order_desc)` | All LPs with `_ALLOWED_ORDER_BY` validation |
 | `update_path_properties(set_clauses, params)` | Dynamic SET update |
@@ -116,7 +115,6 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | `find_learning_sequence(start_uid, goal_uid)` | Shortest path graph traversal |
 | `get_next_adaptive_step(current_step_uid, user_uid)` | Adaptive next step |
 | `get_recommended_path_steps(user_uid, max_difficulty, limit)` | Recommended steps by progress |
-| `get_path_with_context(path_uid, user_uid, depth)` | Path + full graph context |
 
 ## Key Files
 
@@ -223,7 +221,6 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 | **Validation** | `validate_path_prerequisites(path_uid)` | `Result[LpPrerequisiteValidation]` | Check prerequisites met (→ LpBackend) |
 | **Validation** | `identify_path_blockers(path_uid, user_uid)` | `Result[LpBlockerAnalysis]` | Find blockers (→ LpBackend) |
 | **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[LpPathRecommendation]` | Best path for user (→ LpBackend) |
-| **Context** | `get_path_with_context(path_uid, user_uid, depth)` | `Result[dict]` | Path with graph context (→ LpBackend) |
 | **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | Knowledge coverage analysis |
 | **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — traverses PathStep practice relationships via `(LP)-[:HAS_STEP]->(PathStep)-[:activity_rel]->` |
 | **Adaptive** | `find_learning_sequence(start_uid, goal_uid)` | `Result[list[str]]` | Optimal step sequence (→ LpBackend) |

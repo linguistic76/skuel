@@ -196,7 +196,7 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 
 | Backend | Methods Added |
 |---------|-------------|
-| `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 6 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `get_step_with_context`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
+| `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
 | `LpBackend` | 5 HAS_STEP methods: `get_steps_raw`, `get_parent_path_raw`, `add_step_to_path`, `remove_step_from_path`, `reorder_steps` |
 | `GoalsBackend` | 4 progress-helper methods: `find_linked_goals_for_task`, `count_linked_tasks`, `find_linked_goals_for_habit`, `count_linked_habits_avg_streak` |
 | `KuBackend` | 2 substance methods: `batch_increment_substance`, `increment_substance` |

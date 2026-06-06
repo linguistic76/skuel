@@ -99,8 +99,7 @@ class LpService:
             get_learning_path, list_user_paths, list_all_paths, get_path_steps,
             get_current_step, update_path, delete_path
     - Intelligence: validate_path_prerequisites, identify_path_blockers,
-            get_optimal_path_recommendation, get_path_with_context,
-            analyze_path_knowledge_scope,
+            get_optimal_path_recommendation, analyze_path_knowledge_scope,
             find_learning_sequence, get_next_adaptive_step, get_recommended_path_steps
 
     Explicit Methods (custom logic):
@@ -283,12 +282,6 @@ class LpService:
     ) -> Result[LpPathRecommendation]:
         """Get optimal path recommendation."""
         return await self.intelligence.get_optimal_path_recommendation(user_uid, goal_domain)
-
-    async def get_path_with_context(
-        self, path_uid: str, user_uid: UserUID | None = None, depth: int = 2
-    ) -> Result[dict[str, Any]]:
-        """Get learning path with context."""
-        return await self.intelligence.get_path_with_context(path_uid, user_uid, depth)
 
     async def analyze_path_knowledge_scope(self, path_uid: str) -> Result[dict[str, Any]]:
         """Analyze knowledge scope of a learning path."""

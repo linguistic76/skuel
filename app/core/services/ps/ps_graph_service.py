@@ -20,7 +20,7 @@ Handles all graph operations for path steps.
 from dataclasses import asdict
 from typing import Any
 
-from core.constants import GraphDepth, QueryLimit
+from core.constants import GraphDepth
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
@@ -145,54 +145,6 @@ class PsGraphService:
 
         self.logger.debug(f"Found {len(next_steps)} next steps for {uid}")
         return Result.ok(next_steps)
-
-    @with_error_handling("get_step_with_context", error_type="database", uid_param="uid")
-    async def get_step_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
-        """
-        Get path step with full graph context.
-
-        Includes:
-        - Prerequisites
-        - Next steps
-        - Related units
-        - Parent/child hierarchy
-
-        Args:
-            uid: Path step UID,
-            depth: Context depth to retrieve
-
-        Returns:
-            Result containing enriched path step data with context
-        """
-        # Get the main unit
-        unit_result = await self.repo.get(uid)
-        if not unit_result.is_ok or not unit_result.value:
-            return Result.fail(Errors.not_found(f"Path step {uid} not found"))
-
-        unit_dto = unit_result.value
-
-        # Get context in parallel
-        prereq_result = await self.find_prerequisites(uid, depth=depth)
-        next_result = await self.find_next_steps(uid, QueryLimit.MEDIUM)
-
-        # Build enriched context
-        context = {
-            "unit": asdict(unit_dto),
-            "prerequisites": [asdict(p) for p in prereq_result.value]
-            if prereq_result.is_ok
-            else [],
-            "next_steps": [asdict(n) for n in next_result.value] if next_result.is_ok else [],
-            "depth": depth,
-            "total_prerequisites": len(prereq_result.value) if prereq_result.is_ok else 0,
-            "total_next_steps": len(next_result.value) if next_result.is_ok else 0,
-        }
-
-        self.logger.debug(
-            f"Retrieved context for {uid}: "
-            f"{context['total_prerequisites']} prereqs, "
-            f"{context['total_next_steps']} next steps"
-        )
-        return Result.ok(context)
 
     # ========================================================================
     # RELATIONSHIP MANAGEMENT
