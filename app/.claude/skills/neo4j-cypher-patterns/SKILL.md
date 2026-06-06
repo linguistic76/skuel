@@ -198,8 +198,11 @@ vocabulary is **registry-sourced** from `DomainConfig.cross_domain_relationship_
 source of truth) — there is no per-domain `get_suggested_query_intent()` (deleted) and no per-domain
 `{Domain}RelationshipService` subclass.
 
-`QueryIntent` / a domain's `default_context_intent` still selects the query *shape* in
-`build_context_query_for_intent` for non-registry callers. Surviving live clauses:
+Both graph readers (`query_with_intent` and `get_cross_domain_context`) now run ONE
+incident-edge-attributed producer (`build_domain_context_with_paths`); the old flat
+`build_context_query_for_intent` is deleted (PR #243). For a non-registry caller,
+`QueryIntent` / a domain's `default_context_intent` selects the edge slice from
+`_INTENT_EDGE_SETS` (in `cross_domain_backend`). Those slices:
 
 | Intent | Focus Relationships |
 |--------|---------------------|

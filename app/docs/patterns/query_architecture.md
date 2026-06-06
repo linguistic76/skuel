@@ -676,10 +676,13 @@ See [Service Consolidation Patterns](/docs/patterns/SERVICE_CONSOLIDATION_PATTER
 > `DomainConfig.cross_domain_relationship_types`, not per-domain `{Domain}RelationshipService`
 > subclasses. The model-suggested `Entity.get_suggested_query_intent()` method and the dead
 > `QueryIntent` values (`PRINCIPLE_EMBODIMENT`/`PRINCIPLE_ALIGNMENT`/`SCHEDULED_ACTION`) + the
-> never-written `CONFLICTS_WITH_GOAL` edge are **deleted**. `QueryIntent`/`default_context_intent`
-> still selects the query *shape* in `build_context_query_for_intent` for non-registry callers
-> (surviving live clauses: `HIERARCHICAL`/`PREREQUISITE`/`PRACTICE`/`GOAL_ACHIEVEMENT` + generic
-> fallback). The content below is retained as historical context; a full rewrite is pending. The
+> never-written `CONFLICTS_WITH_GOAL` edge are **deleted**. Direction-aware bucketing (PR #243)
+> then folded `query_with_intent` onto the shared incident-edge producer
+> `build_domain_context_with_paths` and **deleted** the flat `build_context_query_for_intent`;
+> for a non-registry caller `QueryIntent`/`default_context_intent` now selects the edge slice
+> from `_INTENT_EDGE_SETS` in `cross_domain_backend` (`HIERARCHICAL`/`PREREQUISITE`/`PRACTICE`/
+> `GOAL_ACHIEVEMENT` + generic all-edges fallback). The content below is retained as historical
+> context (it still references the deleted flat builder); a full rewrite is pending. The
 > authoritative current state is
 > [`docs/roadmap/intent-traversal-registry-convergence.md`](../roadmap/intent-traversal-registry-convergence.md)
 > and [`INTENT_BASED_TRAVERSAL.md`](INTENT_BASED_TRAVERSAL.md).
