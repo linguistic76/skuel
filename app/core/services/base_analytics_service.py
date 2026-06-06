@@ -295,16 +295,11 @@ class BaseAnalyticsService(Generic[B, T]):
                 "context": <typed cross-domain context>,
             }
         """
-        from core.utils.result_simplified import Errors
-
-        # 1. Fetch entity from backend
-        entity_result = await self.backend.get(uid)  # type: ignore[attr-defined]
+        # 1. Fetch entity (shared prefix with _analyze_entity_with_typed_context)
+        entity_result = await self._fetch_entity_or_fail(uid)
         if entity_result.is_error:
             return entity_result
-
         entity = entity_result.value
-        if not entity:
-            return Result.fail(Errors.not_found(f"Entity not found: {uid}"))
 
         # 2. Get cross-domain context via the generic, config-driven relationship method.
         #    The relationship service is domain-aware through its injected config, so a
@@ -359,6 +354,85 @@ class BaseAnalyticsService(Generic[B, T]):
                 self.logger.warning(f"Failed to generate recommendations for {uid}: {e}")
 
         # 5. Return structured result
+        return Result.ok(
+            {
+                "entity": entity,
+                "metrics": metrics,
+                "recommendations": recommendations,
+                "context": context,
+            }
+        )
+
+    async def _fetch_entity_or_fail(self, uid: str) -> Result[Any]:
+        """Fetch an entity and guard not-found — the shared prefix of the analysis
+        templates. Returns ``Result.ok(entity)`` or a failed Result to propagate."""
+        from core.utils.result_simplified import Errors
+
+        entity_result = await self.backend.get(uid)  # type: ignore[attr-defined]
+        if entity_result.is_error:
+            return entity_result
+        entity = entity_result.value
+        if not entity:
+            return Result.fail(Errors.not_found(f"Entity not found: {uid}"))
+        return Result.ok(entity)
+
+    async def _analyze_entity_with_typed_context(
+        self,
+        uid: str,
+        metrics_fn: Callable[[Any, Any], dict[str, Any]],
+        recommendations_fn: Callable[[Any, Any, dict[str, Any]], list[str]] | None = None,
+        **context_kwargs: Any,
+    ) -> Result[dict[str, Any]]:
+        """Template method for analysis over the CANONICAL typed cross-domain reader.
+
+        Identical pipeline to ``_analyze_entity_with_context`` (fetch → context →
+        metrics → recommendations → envelope) but sources the typed context from
+        ``UnifiedRelationshipService.get_cross_domain_context_typed`` — the factory-built
+        path-aware context — instead of the raw dict + per-type ``from_dict``. There is no
+        ``context_type`` param: the typed reader resolves the domain context type itself.
+
+        This is the convergence target. ``_analyze_entity_with_context`` (the legacy
+        UID-family / ``from_dict`` path) is retired once the remaining domains migrate onto
+        this method (see docs/roadmap/intent-traversal-registry-convergence.md, full phase).
+
+        Failure policy differs deliberately from the legacy method: a real context-fetch
+        error PROPAGATES as ``Result.fail`` rather than silently degrading to an empty
+        context (an edge-less entity still yields an ``ok`` empty context, not a failure).
+
+        Args:
+            uid: Entity UID to analyze
+            metrics_fn: Function (entity, typed_context) -> metrics dict
+            recommendations_fn: Optional (entity, typed_context, metrics) -> list[str]
+            **context_kwargs: Forwarded to get_cross_domain_context_typed (depth, min_confidence)
+
+        Returns:
+            Result[dict] with {entity, metrics, recommendations, context}
+        """
+        from core.utils.result_simplified import Errors
+
+        entity_result = await self._fetch_entity_or_fail(uid)
+        if entity_result.is_error:
+            return entity_result
+        entity = entity_result.value
+
+        if self.relationships is None:
+            return Result.fail(
+                Errors.system(
+                    message="Relationship service not available",
+                    operation="_analyze_entity_with_typed_context",
+                )
+            )
+
+        context_result = await self.relationships.get_cross_domain_context_typed(
+            EntityUID(uid), **context_kwargs
+        )
+        if context_result.is_error:
+            return Result.fail(context_result)
+        context = context_result.value
+
+        metrics = metrics_fn(entity, context)
+        recommendations = recommendations_fn(entity, context, metrics) if recommendations_fn else []
+
         return Result.ok(
             {
                 "entity": entity,
