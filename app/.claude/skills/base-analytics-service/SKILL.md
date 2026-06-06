@@ -210,41 +210,44 @@ async def complete_task(self, uid: str) -> Result[Task]:
     return result
 ```
 
-### `_analyze_entity_with_context()` (Template Method)
+### `_analyze_entity_with_typed_context()` (Template Method)
 
-Consolidates the common pattern: fetch entity -> get context -> calculate metrics -> generate recommendations:
+THE canonical template: fetch entity -> get path-aware typed cross-domain context ->
+calculate metrics -> generate recommendations. Sources its context from the single
+canonical reader `UnifiedRelationshipService.get_cross_domain_context_typed` (the
+factory-built **path-aware** context, `core/models/graph/path_aware_types.py`). There is
+no `context_type` param — the typed reader resolves the domain context type via the
+per-domain `*CrossContext.from_categorized` factory seam. All 6 activity domains run on it:
 
 ```python
 async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
-    return await self._analyze_entity_with_context(
+    return await self._analyze_entity_with_typed_context(
         uid=uid,
-        context_type=GoalCrossContext,
-        metrics_fn=self._calculate_goal_metrics,
-        recommendations_fn=self._generate_progress_recommendations,
-        min_confidence=0.7,  # forwarded to the generic get_cross_domain_context
+        metrics_fn=calculate_goal_progress_metrics,
+        recommendations_fn=goal_recommendations,
+        min_confidence=0.7,  # forwarded to get_cross_domain_context_typed
     )
 
-def _calculate_goal_metrics(self, goal: Goal, context: GoalCrossContext) -> dict:
+# Metrics/recommendations functions live in
+# core/services/intelligence/metrics_calculators.py and take the PATH-AWARE context
+# (path_aware_types.GoalCrossContext: typed entity lists with distance/strength), e.g.
+def calculate_goal_progress_metrics(goal: Any, context: PathAwareGoalCrossContext) -> dict:
     return {
-        "progress_percentage": goal.progress * 100,
-        "supporting_habits_count": len(context.supporting_habit_uids),
-        "supporting_tasks_count": len(context.supporting_task_uids),
+        "task_support_count": len(context.tasks),
+        "habit_support_count": len(context.habits),
+        # ... cascade_impact / path_aware_context rollups
     }
-
-def _generate_progress_recommendations(
-    self, goal: Goal, context: GoalCrossContext, metrics: dict
-) -> list[str]:
-    recommendations = []
-    if metrics["supporting_habits_count"] < 2:
-        recommendations.append("Add habits to support this goal")
-    return recommendations
 ```
 
-> **Context kwargs forward to `get_cross_domain_context`.** Extra kwargs
+> **Failure policy:** a real context-fetch error PROPAGATES as `Result.fail` rather than
+> silently degrading to an empty context (an edge-less entity still yields an `ok` empty
+> context, not a failure).
+>
+> **Context kwargs forward to `get_cross_domain_context_typed`.** Extra kwargs
 > (`min_confidence`, `depth`) pass straight through. Since PR #212, `depth` is a real
 > transitive knob (default `2`): related entities up to `depth` hops are bucketed by
-> the edge **incident to each one**, so `*CrossContext` (and the metrics built from it)
-> count correctly-attributed transitive context, each entry tagged with its `distance`.
+> the edge **incident to each one**, so the path-aware context (and the metrics built from
+> it) count correctly-attributed transitive context, each entry tagged with its `distance`.
 > Pass `depth=1` if a dashboard should count **direct** cross-domain relationships only.
 > Since PR #216 the categorization also honors a mapping's `filter_property`/`filter_value`
 > (matched against each node's incident-edge properties), so edge-property-discriminated
@@ -253,10 +256,8 @@ def _generate_progress_recommendations(
 >
 > ⚠️ **Buckets are NOT de-duped by uid.** The producer does `collect(DISTINCT {uid,
 > distance, …})` — DISTINCT over the whole path map — so at `depth ≥ 2` a node reachable
-> by multiple paths recurs once per path. The `*CrossContext.from_dict` family-A types are
-> safe because their `_uids()` helper drops metadata and collapses dupes. But if you build
-> **path-aware objects with metadata** off a raw bucket (the family-B
-> `ChoiceCrossContext` path), de-dup by uid keeping the **strongest** path (lowest
+> by multiple paths recurs once per path. The path-aware `*CrossContext` family
+> (built via `from_categorized`) de-dups by uid keeping the **strongest** path (lowest
 > `distance`, then highest `path_strength`) — first-seen is not the closest path (no
 > `ORDER BY`), and skipping de-dup inflates counts. See `_union_buckets`/`_path_rank` in
 > `choices/_core_intelligence_mixin.py` and the gotcha box in

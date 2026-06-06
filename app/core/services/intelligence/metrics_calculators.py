@@ -4,18 +4,22 @@ Domain-Specific Metrics Calculators
 
 Standard metrics calculators for cross-domain context analysis.
 
-Each calculator takes an entity and its typed context, returning a dictionary
-of metrics specific to that domain. These are plugged into
-BaseAnalyticsService._analyze_entity_with_context() via the metrics_fn parameter.
+Each calculator takes an entity and its path-aware typed context, returning a
+dictionary of metrics specific to that domain. These are plugged into
+``BaseAnalyticsService._analyze_entity_with_typed_context()`` via the ``metrics_fn``
+parameter, sourced from the canonical typed reader
+``UnifiedRelationshipService.get_cross_domain_context_typed`` (path_aware_types).
 
 Philosophy: "Metrics reveal the story of the entity in its context"
 
 Usage:
-    from core.services.intelligence.metrics_calculators import calculate_task_metrics
+    from core.services.intelligence.metrics_calculators import (
+        calculate_task_cross_domain_metrics,
+    )
 
-    result = await context_service.analyze_with_context(
-        ...,
-        metrics_fn=calculate_task_metrics,
+    result = await self._analyze_entity_with_typed_context(
+        uid,
+        metrics_fn=calculate_task_cross_domain_metrics,
     )
 """
 
@@ -42,62 +46,6 @@ if TYPE_CHECKING:
     from core.models.graph.path_aware_types import (
         TaskCrossContext as PathAwareTaskCrossContext,
     )
-    from core.services.intelligence.cross_domain_contexts import (
-        ChoiceCrossContext,
-        EventCrossContext,
-        GoalCrossContext,
-        HabitCrossContext,
-        KnowledgeCrossContext,
-        PrincipleCrossContext,
-        TaskCrossContext,
-    )
-
-
-def calculate_task_metrics(task: Any, context: TaskCrossContext) -> dict[str, Any]:
-    """
-    Calculate standard metrics for task analysis.
-
-    Metrics produced:
-    - prerequisite_count: Number of prerequisite tasks
-    - knowledge_coverage: Total knowledge connections
-    - goal_support_count: Number of goals this task supports
-    - principle_alignment_count: Number of aligned principles
-    - has_dependencies: Boolean indicating if task has blockers
-    - complexity_score: Estimated complexity (0.0-1.0)
-
-    Args:
-        task: TaskDTO or Task entity
-        context: TaskCrossContext with cross-domain relationships
-
-    Returns:
-        Dictionary of calculated metrics
-    """
-    # Calculate complexity based on dependencies and knowledge requirements
-    complexity_base = 0.3  # Base complexity
-
-    # Add complexity for prerequisites
-    prereq_factor = min(len(context.prerequisite_task_uids) * 0.1, 0.3)
-
-    # Add complexity for knowledge requirements
-    knowledge_factor = min(context.total_knowledge_count() * 0.05, 0.2)
-
-    # Add complexity for goal alignment (more goals = more considerations)
-    goal_factor = min(len(context.contributing_goal_uids) * 0.05, 0.2)
-
-    complexity_score = min(complexity_base + prereq_factor + knowledge_factor + goal_factor, 1.0)
-
-    return {
-        "prerequisite_count": len(context.prerequisite_task_uids),
-        "knowledge_coverage": context.total_knowledge_count(),
-        "required_knowledge_count": len(context.required_knowledge_uids),
-        "applied_knowledge_count": len(context.applied_knowledge_uids),
-        "goal_support_count": len(context.contributing_goal_uids),
-        "principle_alignment_count": len(context.aligned_principle_uids),
-        "has_dependencies": context.has_dependencies(),
-        "has_goal_support": context.has_goal_support(),
-        "has_principle_alignment": context.has_principle_alignment(),
-        "complexity_score": round(complexity_score, 2),
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -109,8 +57,7 @@ def calculate_task_metrics(task: Any, context: TaskCrossContext) -> dict[str, An
 # Scope is cross-domain ONLY: required/applied knowledge + contributing goals.
 # Same-domain task→task dependencies live in the lateral-relationships system, not here.
 # This is the "unify + elevate" lens — it does NOT replace the readiness capability,
-# it sits beside it. The UID-family ``calculate_task_metrics`` above is untouched
-# (different consumer; retired in a later cleanup PR).
+# it sits beside it.
 # ---------------------------------------------------------------------------
 
 
@@ -197,80 +144,6 @@ def task_recommendations(
     return recommendations
 
 
-def calculate_goal_metrics(goal: Any, context: GoalCrossContext) -> dict[str, Any]:
-    """
-    Calculate standard metrics for goal analysis.
-
-    Metrics produced:
-    - task_support_count: Number of tasks fulfilling this goal
-    - habit_support_count: Number of supporting habits
-    - knowledge_requirement_count: Knowledge units required
-    - learning_path_count: Aligned learning paths
-    - sub_goal_count: Number of sub-goals
-    - support_coverage: How well-supported (0.0-1.0)
-    - has_habit_system: Boolean for James Clear-style habit support
-
-    Args:
-        goal: GoalDTO or Goal entity
-        context: GoalCrossContext with cross-domain relationships
-
-    Returns:
-        Dictionary of calculated metrics
-    """
-    return {
-        "task_support_count": len(context.supporting_task_uids),
-        "habit_support_count": len(context.supporting_habit_uids),
-        "knowledge_requirement_count": len(context.required_knowledge_uids),
-        "learning_path_count": len(context.learning_path_uids),
-        "sub_goal_count": len(context.sub_goal_uids),
-        "principle_guidance_count": len(context.guiding_principle_uids),
-        "support_coverage": round(context.support_coverage(), 2),
-        "total_support_count": context.total_support_count(),
-        "has_habit_system": context.has_system_support(),
-        "has_curriculum_alignment": context.has_curriculum_alignment(),
-        "is_well_supported": context.support_coverage() >= 0.67,  # At least 2/3 dimensions
-    }
-
-
-def calculate_habit_metrics(habit: Any, context: HabitCrossContext) -> dict[str, Any]:
-    """
-    Calculate standard metrics for habit analysis.
-
-    Metrics produced:
-    - goal_support_count: Number of goals this habit supports
-    - knowledge_reinforcement_count: Knowledge units reinforced
-    - principle_alignment_count: Aligned principles
-    - has_goal_connection: Boolean for goal linkage
-    - is_knowledge_builder: Boolean for knowledge reinforcement
-
-    Args:
-        habit: HabitDTO or Habit entity
-        context: HabitCrossContext with cross-domain relationships
-
-    Returns:
-        Dictionary of calculated metrics
-    """
-    # Calculate integration score - how well integrated into life system
-    integration_factors = [
-        context.is_goal_connected(),
-        context.is_knowledge_builder(),
-        context.is_principle_aligned(),
-    ]
-    integration_score = sum(1 for f in integration_factors if f) / len(integration_factors)
-
-    return {
-        "goal_support_count": len(context.linked_goal_uids),
-        "knowledge_reinforcement_count": len(context.knowledge_reinforcement_uids),
-        "principle_alignment_count": len(context.aligned_principle_uids),
-        "prerequisite_habit_count": len(context.prerequisite_habit_uids),
-        "has_goal_connection": context.is_goal_connected(),
-        "is_knowledge_builder": context.is_knowledge_builder(),
-        "is_principle_aligned": context.is_principle_aligned(),
-        "has_prerequisites": context.has_prerequisites(),
-        "integration_score": round(integration_score, 2),
-    }
-
-
 # ---------------------------------------------------------------------------
 # Habits — path-aware lens over the CANONICAL typed reader
 # (get_cross_domain_context_typed → path_aware_types.HabitCrossContext).
@@ -289,8 +162,8 @@ def calculate_habit_integration_metrics(
     """Integration lens over the path-aware habit context: how well the habit is woven into
     goals/knowledge/principles, plus a cascade-impact block and a path-aware rollup.
 
-    Keeps the same flat keys ``calculate_habit_metrics`` emitted (so the behavioral-signals
-    mixin's existing payload contract holds) but derives them from path-aware entities, and
+    Emits the flat habit-integration keys the behavioral-signals mixin's payload contract
+    reads (so that contract holds), derived from path-aware entities, and
     ADDS ``cascade_impact`` (via :meth:`PathAwareAnalyzer.calculate_cascade_impact`) and
     ``path_aware_context`` (distance/strength rollups). Knowledge/goal/principle/prerequisite
     lists are also surfaced so consumers can read UIDs directly off path-aware entities.
@@ -387,8 +260,8 @@ def calculate_goal_progress_metrics(
     """Progress/support lens over the path-aware goal context: how well-supported the goal
     is across tasks/habits/knowledge, plus a cascade-impact block and a path-aware rollup.
 
-    Keeps the same flat keys ``calculate_goal_metrics`` emitted (so the analytics mixin's
-    existing payload contract holds) but derives them from path-aware entities, and ADDS
+    Emits the flat goal-support keys the analytics mixin's payload contract reads (so that
+    contract holds), derived from path-aware entities, and ADDS
     ``cascade_impact`` (via :meth:`PathAwareAnalyzer.calculate_cascade_impact`) and
     ``path_aware_context`` (distance/strength rollups).
     """
@@ -404,8 +277,7 @@ def calculate_goal_progress_metrics(
     # keep cascade aligned with the path-aware rollups, which include parent_goal.
     related_goals = subgoals + ([context.parent_goal] if context.parent_goal else [])
 
-    # support_coverage: three dimensions (tasks / habits / knowledge), matching the
-    # UID-family GoalCrossContext.support_coverage().
+    # support_coverage: three dimensions (tasks / habits / knowledge).
     support_dimensions = [bool(tasks), bool(habits), bool(knowledge)]
     support_coverage = sum(1 for d in support_dimensions if d) / 3.0
 
@@ -506,39 +378,6 @@ def goal_learning_recommendations(
     return recommendations
 
 
-def calculate_event_metrics(event: Any, context: EventCrossContext) -> dict[str, Any]:
-    """
-    Calculate standard metrics for event analysis.
-
-    Metrics produced:
-    - goal_support_count: Goals this event supports
-    - habit_reinforcement_count: Habits this event reinforces
-    - knowledge_practice_count: Knowledge practiced in event
-    - has_purpose: Boolean if event has clear purpose (goals or habits)
-    - is_learning_event: Boolean if event involves knowledge practice
-
-    Args:
-        event: EventDTO or Event entity
-        context: EventCrossContext with cross-domain relationships
-
-    Returns:
-        Dictionary of calculated metrics
-    """
-    has_purpose = context.has_goal_support() or context.has_habit_reinforcement()
-
-    return {
-        "goal_support_count": len(context.supporting_goal_uids),
-        "habit_reinforcement_count": len(context.reinforcing_habit_uids),
-        "knowledge_practice_count": len(context.practicing_knowledge_uids),
-        "total_connections": context.total_connections(),
-        "has_goal_support": context.has_goal_support(),
-        "has_habit_reinforcement": context.has_habit_reinforcement(),
-        "has_learning_component": context.has_learning_component(),
-        "has_purpose": has_purpose,
-        "is_learning_event": context.has_learning_component(),
-    }
-
-
 # ---------------------------------------------------------------------------
 # Events — path-aware lens over the CANONICAL typed reader
 # (get_cross_domain_context_typed → path_aware_types.EventCrossContext).
@@ -610,45 +449,6 @@ def calculate_event_performance_metrics(
             "max_path_depth": context.max_path_depth,
             "avg_path_strength": context.avg_strength(),
         },
-    }
-
-
-def calculate_choice_metrics(choice: Any, context: ChoiceCrossContext) -> dict[str, Any]:
-    """
-    Calculate standard metrics for choice/decision analysis.
-
-    Metrics produced:
-    - principle_guidance_count: Principles informing this choice
-    - affected_goal_count: Goals this choice affects
-    - knowledge_grounding_count: Knowledge informing decision
-    - affects_goals: Boolean indicating goal impact
-    - is_principled: Boolean if informed by principles
-    - decision_clarity_score: How clear the decision is (0.0-1.0)
-
-    Args:
-        choice: ChoiceDTO or Choice entity
-        context: ChoiceCrossContext with cross-domain relationships
-
-    Returns:
-        Dictionary of calculated metrics
-    """
-    # Decision clarity: high when grounded in principles AND knowledge. (The former
-    # "no goal conflicts" factor is gone — the graph has no conflicting-goal edge; the
-    # choice↔goal link is the polarity-free AFFECTS_GOAL.)
-    clarity_factors = [
-        context.is_principle_informed(),  # +0.5 if principled
-        context.has_knowledge_base(),  # +0.5 if knowledge-grounded
-    ]
-    decision_clarity = sum(1 for f in clarity_factors if f) / len(clarity_factors)
-
-    return {
-        "principle_guidance_count": len(context.informing_principle_uids),
-        "affected_goal_count": len(context.affected_goal_uids),
-        "knowledge_grounding_count": len(context.required_knowledge_uids),
-        "affects_goals": context.affects_goals(),
-        "is_principled": context.is_principle_informed(),
-        "has_knowledge_base": context.has_knowledge_base(),
-        "decision_clarity_score": round(decision_clarity, 2),
     }
 
 
@@ -885,54 +685,17 @@ def decision_improvement_opportunities(
     )
 
 
-def calculate_principle_metrics(principle: Any, context: PrincipleCrossContext) -> dict[str, Any]:
-    """
-    Calculate standard metrics for principle analysis.
-
-    Metrics produced:
-    - guided_goal_count: Goals guided by this principle
-    - informed_choice_count: Choices informed by this principle
-    - aligned_habit_count: Habits aligned with this principle
-    - knowledge_grounding_count: Knowledge grounding this principle
-    - influence_score: How broadly it influences (0.0-1.0)
-    - is_lived: Boolean if actively guiding behavior
-
-    Args:
-        principle: PrincipleDTO or Principle entity
-        context: PrincipleCrossContext with cross-domain relationships
-
-    Returns:
-        Dictionary of calculated metrics
-    """
-    # A principle is "lived" if it guides at least one goal or habit
-    is_lived = context.is_action_guiding()
-
-    return {
-        "guided_goal_count": len(context.guided_goal_uids),
-        "informed_choice_count": len(context.informed_choice_uids),
-        "aligned_habit_count": len(context.aligned_habit_uids),
-        "knowledge_grounding_count": len(context.grounding_knowledge_uids),
-        "total_influence_count": context.total_influence_count(),
-        "influence_score": round(context.influence_score(), 2),
-        "is_action_guiding": context.is_action_guiding(),
-        "is_knowledge_grounded": context.is_knowledge_grounded(),
-        "is_lived": is_lived,
-    }
-
-
 # ---------------------------------------------------------------------------
 # Principles — path-aware lens over the CANONICAL typed reader
 # (get_cross_domain_context_typed → path_aware_types.PrincipleCrossContext).
 # Powers assess_principle_alignment (GET /api/principles/insights) via
 # BaseAnalyticsService._analyze_entity_with_typed_context.
-# Preserves the flat metric keys calculate_principle_metrics emitted
-# (guided_goal_count / informed_choice_count / aligned_habit_count /
-# knowledge_grounding_count / total_influence_count / influence_score /
-# is_action_guiding / is_knowledge_grounded / is_lived) AND supplies the keys
-# the alignment consumer actually reads (adherence_score / goal_count /
-# choice_count / habit_count / knowledge_count / needs_attention /
-# strong_alignment / consistent_practice), then ADDS the rich cascade_impact /
-# path_aware_context blocks.
+# Emits the flat principle-influence keys (guided_goal_count / informed_choice_count /
+# aligned_habit_count / knowledge_grounding_count / total_influence_count /
+# influence_score / is_action_guiding / is_knowledge_grounded / is_lived) AND the keys
+# the alignment consumer reads (adherence_score / goal_count / choice_count /
+# habit_count / knowledge_count / needs_attention / strong_alignment /
+# consistent_practice), then ADDS the rich cascade_impact / path_aware_context blocks.
 # ---------------------------------------------------------------------------
 
 
@@ -943,8 +706,8 @@ def calculate_principle_alignment_metrics(
     influences goals/choices/habits/knowledge, plus a cascade-impact block and a
     path-aware rollup.
 
-    Derives every metric from path-aware entities. Keeps the flat keys the legacy
-    ``calculate_principle_metrics`` emitted (so any reader of those holds) AND emits the
+    Derives every metric from path-aware entities. Emits the flat principle-influence keys
+    (so any reader of those holds) AND the
     alignment keys ``assess_principle_alignment`` / ``_generate_alignment_recommendations``
     read (``adherence_score`` / ``goal_count`` / ``choice_count`` / ``habit_count`` /
     ``knowledge_count`` / ``needs_attention`` / ``strong_alignment`` /
@@ -964,13 +727,11 @@ def calculate_principle_alignment_metrics(
     habit_count = len(habits)
     knowledge_count = len(knowledge)
 
-    # influence breadth: four dimensions (goals / choices / habits / knowledge),
-    # matching the UID-family PrincipleCrossContext.influence_score().
+    # influence breadth: four dimensions (goals / choices / habits / knowledge).
     influence_dimensions = [bool(goals), bool(choices), bool(habits), bool(knowledge)]
     influence_score = sum(1 for d in influence_dimensions if d) / 4.0
 
-    # total influence = goals + habits + choices (matches the UID-family
-    # PrincipleCrossContext.total_influence_count()).
+    # total influence = goals + habits + choices.
     total_influence_count = goal_count + habit_count + choice_count
 
     is_action_guiding = bool(goals or habits)
@@ -989,7 +750,7 @@ def calculate_principle_alignment_metrics(
     )
 
     return {
-        # Flat keys preserved from the legacy calculate_principle_metrics contract.
+        # Flat principle-influence keys.
         "guided_goal_count": goal_count,
         "informed_choice_count": choice_count,
         "aligned_habit_count": habit_count,
@@ -1059,28 +820,3 @@ def principle_recommendations(
         )
     )
     return recommendations
-
-
-def calculate_knowledge_metrics(ku: Any, context: KnowledgeCrossContext) -> dict[str, Any]:
-    """
-    Calculate standard metrics for knowledge unit (Ku) analysis.
-
-    Metrics produced:
-    - path_step_count: Learning steps that compose/train this Ku
-    - is_curriculum_integrated: Boolean if taught by any learning step
-
-    A Ku's cross-domain reach is its composing PathSteps (KU_CONFIG traverses only
-    USES_KU/TRAINS_KU); application, goal-support, and prerequisite chains live at the
-    PathStep curriculum layer rather than on the atomic Ku, so they are not surfaced here.
-
-    Args:
-        ku: KuDTO or Ku entity
-        context: KnowledgeCrossContext with cross-domain relationships
-
-    Returns:
-        Dictionary of calculated metrics
-    """
-    return {
-        "path_step_count": len(context.path_step_uids),
-        "is_curriculum_integrated": context.is_curriculum_integrated(),
-    }
