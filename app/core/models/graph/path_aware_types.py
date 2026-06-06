@@ -578,6 +578,11 @@ class HabitCrossContext:
         return [k for k in self.knowledge if k.distance == 1]
 
     @property
+    def direct_prerequisites(self) -> list[PathAwareHabit]:
+        """Direct prerequisite-habit connections (distance=1)."""
+        return [h for h in self.prerequisites if h.distance == 1]
+
+    @property
     def max_path_depth(self) -> int:
         """Deepest hop across all connections (0 when there are none)."""
         return max((e.distance for e in self._all_entities()), default=0)

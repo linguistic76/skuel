@@ -223,6 +223,7 @@ def calculate_habit_integration_metrics(
                 len(context.direct_goals)
                 + len(context.direct_principles)
                 + len(context.direct_knowledge)
+                + len(context.direct_prerequisites)
             ),
             "max_path_depth": context.max_path_depth,
             "avg_path_strength": context.avg_strength(),
