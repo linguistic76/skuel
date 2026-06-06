@@ -28,6 +28,9 @@ if TYPE_CHECKING:
         ChoiceCrossContext as PathAwareChoiceCrossContext,
     )
     from core.models.graph.path_aware_types import (
+        GoalCrossContext as PathAwareGoalCrossContext,
+    )
+    from core.models.graph.path_aware_types import (
         HabitCrossContext as PathAwareHabitCrossContext,
     )
     from core.services.intelligence.cross_domain_contexts import (
@@ -252,6 +255,118 @@ def habit_recommendations(
     recommendations.extend(
         PathAwareAnalyzer.generate_recommendations(
             goals=goals, knowledge=knowledge, principles=principles
+        )
+    )
+    return recommendations
+
+
+# ---------------------------------------------------------------------------
+# Goals — path-aware lens over the CANONICAL typed reader
+# (get_cross_domain_context_typed → path_aware_types.GoalCrossContext).
+# Powers get_goal_progress_dashboard / get_goal_completion_forecast /
+# get_goal_learning_requirements via
+# BaseAnalyticsService._analyze_entity_with_typed_context.
+# Preserves the flat metric keys the goals analytics mixin reads
+# (task_support_count / habit_support_count / knowledge_requirement_count /
+# learning_path_count / sub_goal_count / principle_guidance_count /
+# support_coverage / total_support_count / has_habit_system /
+# has_curriculum_alignment / is_well_supported) and ADDS the rich
+# cascade_impact / path_aware_context blocks.
+# ---------------------------------------------------------------------------
+
+
+def calculate_goal_progress_metrics(
+    goal: Any, context: PathAwareGoalCrossContext
+) -> dict[str, Any]:
+    """Progress/support lens over the path-aware goal context: how well-supported the goal
+    is across tasks/habits/knowledge, plus a cascade-impact block and a path-aware rollup.
+
+    Keeps the same flat keys ``calculate_goal_metrics`` emitted (so the analytics mixin's
+    existing payload contract holds) but derives them from path-aware entities, and ADDS
+    ``cascade_impact`` (via :meth:`PathAwareAnalyzer.calculate_cascade_impact`) and
+    ``path_aware_context`` (distance/strength rollups).
+    """
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    tasks = context.tasks
+    habits = context.habits
+    knowledge = context.knowledge
+    subgoals = context.subgoals
+    principles = context.principles
+    learning_paths = context.learning_paths
+
+    # support_coverage: three dimensions (tasks / habits / knowledge), matching the
+    # UID-family GoalCrossContext.support_coverage().
+    support_dimensions = [bool(tasks), bool(habits), bool(knowledge)]
+    support_coverage = sum(1 for d in support_dimensions if d) / 3.0
+
+    has_habit_system = bool(habits)
+    has_curriculum_alignment = bool(learning_paths)
+    total_support_count = len(tasks) + len(habits)
+
+    cascade = PathAwareAnalyzer.calculate_cascade_impact(
+        goals=subgoals,
+        tasks=tasks,
+        habits=habits,
+        knowledge=knowledge,
+        principles=principles,
+    )
+
+    return {
+        # Flat keys preserved for the analytics-mixin payload contract.
+        "task_support_count": len(tasks),
+        "habit_support_count": len(habits),
+        "knowledge_requirement_count": len(knowledge),
+        "learning_path_count": len(learning_paths),
+        "sub_goal_count": len(subgoals),
+        "principle_guidance_count": len(principles),
+        "support_coverage": round(support_coverage, 2),
+        "total_support_count": total_support_count,
+        "has_habit_system": has_habit_system,
+        "has_curriculum_alignment": has_curriculum_alignment,
+        "is_well_supported": support_coverage >= 0.67,  # At least 2/3 dimensions
+        # Rich path-aware additions.
+        "cascade_impact": cascade,
+        "path_aware_context": {
+            "total_strong_connections": context.strong_connections(),
+            "direct_connections_count": (
+                len(context.direct_tasks)
+                + len(context.direct_habits)
+                + len(context.direct_knowledge)
+                + len(context.direct_principles)
+                + len(context.direct_learning_paths)
+                + len([g for g in context.subgoals if g.distance == 1])
+                + (1 if context.parent_goal and context.parent_goal.distance == 1 else 0)
+            ),
+            "max_path_depth": context.max_path_depth,
+            "avg_path_strength": context.avg_strength(),
+        },
+    }
+
+
+def goal_recommendations(
+    goal: Any, context: PathAwareGoalCrossContext, metrics: dict[str, Any]
+) -> list[str]:
+    """Path-aware recommendations for the goal lens: inline support nudges plus the
+    analyzer's path-strength recommendations (weak/missing-direct/deep-cascade)."""
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    tasks = context.tasks
+    habits = context.habits
+    knowledge = context.knowledge
+    subgoals = context.subgoals
+    principles = context.principles
+
+    recommendations: list[str] = []
+    if len(tasks) < 3:
+        recommendations.append("Consider breaking down this goal into more specific tasks")
+    if not habits:
+        recommendations.append("Create habits to support consistent progress toward this goal")
+    if not context.learning_paths and knowledge:
+        recommendations.append("Develop learning paths for required knowledge areas")
+    recommendations.extend(
+        PathAwareAnalyzer.generate_recommendations(
+            goals=subgoals, tasks=tasks, habits=habits, knowledge=knowledge, principles=principles
         )
     )
     return recommendations
