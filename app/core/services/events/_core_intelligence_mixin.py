@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.constants import GraphDepth
 from core.models.enums import EntityStatus
+from core.services.intelligence import calculate_event_performance_metrics
 from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
@@ -22,6 +22,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.event.event import Event
+    from core.models.graph.path_aware_types import EventCrossContext
     from core.models.graph_context import GraphContext
 
 
@@ -43,6 +44,8 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     relationships: Any
     backend: Any
     logger: Any
+    # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
+    _analyze_entity_with_typed_context: Any
 
     @requires_graph_intelligence("get_event_with_context")
     async def get_event_with_context(
@@ -59,125 +62,120 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         - Goal contribution metrics
         - Habit reinforcement impact
         - Knowledge practice tracking
-        - Learning path progression
+        - Overall impact score
 
         Args:
             uid: UID of the event
 
         Returns:
             Result containing performance analysis
+
+        Refactoring:
+        - Uses BaseAnalyticsService._analyze_entity_with_typed_context over the CANONICAL
+          path-aware reader (get_cross_domain_context_typed), replacing the previous direct
+          per-helper ``get_cross_domain_context`` / ``get_related_uids`` /
+          ``get_habit_links_for_events`` construction. The ``/api/events/insights`` payload
+          shape (nested goal_support / habit_reinforcement / knowledge_reinforcement +
+          overall_impact_score) is preserved; cascade_impact / path_aware_context are
+          additive. Event surfaces NO recommendations list, so no recommendations_fn.
         """
-        context_result = await self.get_event_with_context(uid, GraphDepth.NEIGHBORHOOD)
-        if context_result.is_error:
-            return Result.fail(context_result)
+        analysis_result = await self._analyze_entity_with_typed_context(
+            uid=uid,
+            metrics_fn=calculate_event_performance_metrics,
+        )
+        if analysis_result.is_error:
+            return analysis_result
 
-        event, context = context_result.value
+        analysis = analysis_result.value
+        event: Event = analysis["entity"]
+        context: EventCrossContext = analysis["context"]
+        metrics = analysis["metrics"]
 
-        goal_support = await self._analyze_goal_support(event, context)
-        habit_impact = await self._analyze_habit_impact(event, context)
-        knowledge_impact = await self._analyze_knowledge_impact(event, context)
+        completed = event.status == EntityStatus.COMPLETED
 
-        analysis = {
-            "event_uid": uid,
-            "event_title": event.title,
-            "status": event.status,
-            "goal_support": goal_support,
-            "habit_reinforcement": habit_impact,
-            "knowledge_reinforcement": knowledge_impact,
-            "overall_impact_score": self._calculate_overall_impact(
-                goal_support, habit_impact, knowledge_impact
-            ),
-            "graph_context_depth": len(context.all_relationships),
-        }
+        # Goal support — single-goal lens (mirrors the legacy ``goals[0]`` shape).
+        # CONTRIBUTES_TO_GOAL exposes only uid/title (no contribution_weight), so the legacy
+        # weight always defaulted to 1.0; preserved.
+        if context.goals:
+            goal_support = {
+                "supports_goals": True,
+                "goal_uid": context.goals[0].uid,
+                "contribution_weight": 1.0,
+                "status": event.status,
+                "completed": completed,
+            }
+        else:
+            goal_support = {
+                "supports_goals": False,
+                "goal_uid": None,
+                "contribution_weight": 0.0,
+            }
 
-        return Result.ok(analysis)
+        # Habit reinforcement — single-habit lens (mirrors the legacy single habit_uid shape).
+        if context.habits:
+            habit_reinforcement: dict[str, Any] = {
+                "reinforces_habit": True,
+                "habit_uid": context.habits[0].uid,
+                "quality_score": event.habit_completion_quality,
+                "status": event.status,
+                "completed": completed,
+            }
+        else:
+            habit_reinforcement = {
+                "reinforces_habit": False,
+                "habit_uid": None,
+                "quality_score": None,
+            }
 
-    async def _analyze_goal_support(self, event: Event, _context: GraphContext) -> dict[str, Any]:
-        """
-        Analyze how event supports goals.
+        # Knowledge reinforcement — full list lens.
+        knowledge_uids = [k.uid for k in context.knowledge]
+        if knowledge_uids:
+            knowledge_reinforcement: dict[str, Any] = {
+                "reinforces_knowledge": True,
+                "knowledge_units": knowledge_uids,
+                "knowledge_count": len(knowledge_uids),
+                "study_time_minutes": event.duration_minutes,
+                "status": event.status,
+            }
+        else:
+            knowledge_reinforcement = {
+                "reinforces_knowledge": False,
+                "knowledge_units": [],
+                "knowledge_count": 0,
+            }
 
-        GRAPH-NATIVE: Queries graph relationships instead of denormalized fields.
-        Graph pattern: (event)-[:SUPPORTS_GOAL {contribution_weight}]->(goal)
-        """
-        if self.relationships is None:
-            return {"supports_goals": False, "goal_uid": None, "contribution_weight": 0.0}
+        return Result.ok(
+            {
+                "event_uid": uid,
+                "event_title": event.title,
+                "status": event.status,
+                "goal_support": goal_support,
+                "habit_reinforcement": habit_reinforcement,
+                "knowledge_reinforcement": knowledge_reinforcement,
+                "overall_impact_score": self._calculate_overall_impact(
+                    goal_support, habit_reinforcement, knowledge_reinforcement
+                ),
+                # Connection breadth across cross-domain edges (typed-reader equivalent of
+                # the former mechanism-B ``len(context.all_relationships)`` depth metric).
+                "graph_context_depth": context.total_connections,
+                # Rich path-aware additions (additive — existing keys unchanged).
+                "cascade_impact": metrics["cascade_impact"],
+                "path_aware_context": metrics["path_aware_context"],
+            }
+        )
 
-        context_result = await self.relationships.get_cross_domain_context(event.uid)
-        if context_result.is_error:
-            return {"supports_goals": False, "goal_uid": None, "contribution_weight": 0.0}
-
-        context = context_result.value
-        goals = context.get("goals", [])
-
-        if not goals:
-            return {"supports_goals": False, "goal_uid": None, "contribution_weight": 0.0}
-
-        goal = goals[0]
-        contribution_weight = goal.get("contribution_weight", 1.0)
-
-        return {
-            "supports_goals": True,
-            "goal_uid": goal.get("uid"),
-            "contribution_weight": contribution_weight,
-            "status": event.status,
-            "completed": event.status == EntityStatus.COMPLETED,
-        }
-
-    async def _analyze_habit_impact(self, event: Event, _context: GraphContext) -> dict[str, Any]:
-        """
-        Analyze habit reinforcement impact.
-
-        GRAPH-NATIVE: the habit link is the (Event)-[:REINFORCES_HABIT]->(Habit) edge,
-        queried here rather than read from a property. Uses habit_completion_quality.
-        """
-        links = await self.backend.get_habit_links_for_events([event.uid])
-        habit_uid = links.value.get(event.uid) if links.is_ok else None
-        if not habit_uid:
-            return {"reinforces_habit": False, "habit_uid": None, "quality_score": None}
-
-        return {
-            "reinforces_habit": True,
-            "habit_uid": habit_uid,
-            "quality_score": event.habit_completion_quality,  # GRAPH-NATIVE: renamed from quality_score
-            "status": event.status,
-            "completed": event.status == EntityStatus.COMPLETED,
-        }
-
-    async def _analyze_knowledge_impact(
-        self, event: Event, _context: GraphContext
-    ) -> dict[str, Any]:
-        """
-        Analyze knowledge reinforcement.
-
-        GRAPH-NATIVE: Queries graph relationships instead of denormalized fields.
-        Graph pattern: (event)-[:PRACTICES_KNOWLEDGE]->(ku)
-        """
-        if self.relationships is None:
-            return {"reinforces_knowledge": False, "knowledge_units": [], "knowledge_count": 0}
-
-        knowledge_result = await self.relationships.get_related_uids("knowledge", event.uid)
-        if knowledge_result.is_error:
-            return {"reinforces_knowledge": False, "knowledge_units": [], "knowledge_count": 0}
-
-        knowledge_uids = knowledge_result.value
-        if not knowledge_uids:
-            return {"reinforces_knowledge": False, "knowledge_units": [], "knowledge_count": 0}
-
-        return {
-            "reinforces_knowledge": True,
-            "knowledge_units": knowledge_uids,
-            "knowledge_count": len(knowledge_uids),
-            "study_time_minutes": getattr(event, "duration_minutes", None),
-            "status": event.status,
-        }
-
+    @staticmethod
     def _calculate_overall_impact(
-        self,
         goal_support: dict[str, Any],
         habit_impact: dict[str, Any],
         knowledge_impact: dict[str, Any],
     ) -> float:
-        """Calculate overall impact score."""
+        """Calculate overall impact score.
+
+        Preserved unchanged from the pre-convergence direct-construction method: goal term
+        weighs the (always-1.0) contribution_weight, habit term adds 1.0 plus a
+        quality_score/5.0 bonus, knowledge term adds 0.5 per practiced unit.
+        """
         score = 0.0
 
         if goal_support.get("supports_goals"):

@@ -895,10 +895,87 @@ class EventCrossContext:
     habits: list[PathAwareHabit]
     knowledge: list[PathAwareKnowledge]
 
+    @classmethod
+    def from_categorized(
+        cls, source_uid: str, categorized_data: dict[str, Any]
+    ) -> "EventCrossContext":
+        """Build the path-aware event context from a ``get_cross_domain_context_typed``
+        categorized payload (the EVENTS_CONFIG ``context_field_name`` buckets).
+
+        This is the per-domain seam the generic factory delegates to: it SELECTs the
+        event-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the two
+        goal/habit directions, and DEDUPs each field to its strongest path. One union call
+        per target field (per-field scoping is intentional).
+
+        - ``goals`` ← union of CONTRIBUTES_TO_GOAL (``supported_goals``) and the milestone
+          CELEBRATES_GOAL (``celebrated_goals``), mirroring the symmetric aggregation on the
+          UID-family ``EventCrossContext.supporting_goal_uids``.
+        - ``habits`` ← union of the outgoing REINFORCES_HABIT (``reinforced_habits``) and the
+          incoming PRACTICED_AT_EVENT (``practiced_habits``), mirroring the UID-family
+          ``EventCrossContext.reinforcing_habit_uids``.
+        - ``knowledge`` ← APPLIES_KNOWLEDGE (``applied_knowledge``).
+        """
+        return cls(
+            event_uid=source_uid,
+            goals=[
+                PathAwareGoal.from_dict(g)
+                for g in _union_path_buckets(
+                    categorized_data, "supported_goals", "celebrated_goals"
+                )
+            ],
+            habits=[
+                PathAwareHabit.from_dict(h)
+                for h in _union_path_buckets(
+                    categorized_data, "reinforced_habits", "practiced_habits"
+                )
+            ],
+            knowledge=[
+                PathAwareKnowledge.from_dict(k)
+                for k in _union_path_buckets(categorized_data, "applied_knowledge")
+            ],
+        )
+
     @property
     def total_connections(self) -> int:
         """Total number of connected entities."""
         return len(self.goals) + len(self.habits) + len(self.knowledge)
+
+    def _all_entities(
+        self,
+    ) -> list[PathAwareGoal | PathAwareHabit | PathAwareKnowledge]:
+        """All connected path-aware entities across every field."""
+        return [*self.goals, *self.habits, *self.knowledge]
+
+    def strong_connections(self, threshold: float = 0.8) -> int:
+        """Count of high-confidence connections (path_strength >= threshold)."""
+        return sum(1 for e in self._all_entities() if e.path_strength >= threshold)
+
+    def avg_strength(self) -> float:
+        """Average path strength across all connections."""
+        all_entities = self._all_entities()
+        if not all_entities:
+            return 0.0
+        return sum(e.path_strength for e in all_entities) / len(all_entities)
+
+    @property
+    def direct_goals(self) -> list[PathAwareGoal]:
+        """Direct goal connections (distance=1)."""
+        return [g for g in self.goals if g.distance == 1]
+
+    @property
+    def direct_habits(self) -> list[PathAwareHabit]:
+        """Direct habit connections (distance=1)."""
+        return [h for h in self.habits if h.distance == 1]
+
+    @property
+    def direct_knowledge(self) -> list[PathAwareKnowledge]:
+        """Direct knowledge connections (distance=1)."""
+        return [k for k in self.knowledge if k.distance == 1]
+
+    @property
+    def max_path_depth(self) -> int:
+        """Deepest hop across all connections (0 when there are none)."""
+        return max((e.distance for e in self._all_entities()), default=0)
 
 
 # Helper Functions for Path Analysis
