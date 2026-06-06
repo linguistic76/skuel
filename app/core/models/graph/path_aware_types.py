@@ -13,7 +13,7 @@ Created: 2025-11-15
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 
 class PathAwareProtocol(Protocol):
@@ -26,6 +26,61 @@ class PathAwareProtocol(Protocol):
 
 
 P = TypeVar("P", bound=PathAwareProtocol)
+
+
+def _path_rank(entity: dict[str, Any]) -> tuple[float, float]:
+    """Sort key for picking the strongest path to a node: lowest distance wins, then
+    highest path_strength. Missing/None metadata sorts worst (a real measured path always
+    beats an unmeasured one)."""
+    distance = entity.get("distance")
+    strength = entity.get("path_strength")
+    return (
+        float(distance) if distance is not None else float("inf"),
+        -(float(strength) if strength is not None else 0.0),
+    )
+
+
+def _union_path_buckets(categorized: dict[str, Any], *keys: str) -> list[dict[str, Any]]:
+    """Collect cross-domain-context bucket dicts across keys, one entry per uid (the
+    strongest path).
+
+    The config-driven cross-domain-context reader emits one bucket per
+    ``context_field_name``, each a list of
+    ``{"uid", "title", "distance", "path_strength", "via_relationships"}`` dicts.
+
+    De-dup by uid serves two purposes:
+    1. A single typed field may aggregate several buckets (e.g. a choice's informing
+       principles span both INFORMED_BY_PRINCIPLE outgoing and GUIDES_CHOICE incoming).
+    2. Even within ONE bucket the same node can recur: the producer Cypher does
+       ``collect(DISTINCT {uid, distance, path_strength, ...})`` — DISTINCT over the whole
+       path-metadata map, not the uid — so at ``depth>=2`` a node reachable via multiple
+       distinct paths appears once per path. Without this de-dup, downstream counts,
+       impact score and cascade impact would all inflate.
+
+    When a uid recurs, the **strongest** path is kept (lowest distance, then highest
+    path_strength via ``_path_rank``), NOT the first raw occurrence — the producer query
+    has no ``ORDER BY``, so first-seen could be the weaker/indirect path. Order-preserving
+    by first-seen uid.
+
+    Pass one ``_union_path_buckets`` call per target field; per-field scoping is intentional
+    (a uid shared across two different target fields is NOT a duplicate).
+    """
+    best: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for key in keys:
+        for entity in categorized.get(key) or []:
+            if not isinstance(entity, dict):
+                continue
+            uid = entity.get("uid")
+            if not uid:
+                continue
+            incumbent = best.get(uid)
+            if incumbent is None:
+                best[uid] = entity
+                order.append(uid)
+            elif _path_rank(entity) < _path_rank(incumbent):
+                best[uid] = entity
+    return [best[uid] for uid in order]
 
 
 @dataclass(frozen=True)
@@ -69,6 +124,17 @@ class PathAwareGoal:
     target_date: date | None = None
     progress: float | None = None
 
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "PathAwareGoal":
+        """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
+        return cls(
+            uid=d["uid"],
+            title=d.get("title", ""),
+            distance=d["distance"],
+            path_strength=d["path_strength"],
+            via_relationships=d.get("via_relationships", []),
+        )
+
 
 @dataclass(frozen=True)
 class PathAwarePrinciple:
@@ -87,6 +153,17 @@ class PathAwarePrinciple:
     via_relationships: list[str]
     # Core principle fields
     description: str | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "PathAwarePrinciple":
+        """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
+        return cls(
+            uid=d["uid"],
+            title=d.get("title", ""),
+            distance=d["distance"],
+            path_strength=d["path_strength"],
+            via_relationships=d.get("via_relationships", []),
+        )
 
 
 @dataclass(frozen=True)
@@ -107,6 +184,17 @@ class PathAwareKnowledge:
     # Core knowledge fields
     domain: str | None = None
     mastery_level: float | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "PathAwareKnowledge":
+        """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
+        return cls(
+            uid=d["uid"],
+            title=d.get("title", ""),
+            distance=d["distance"],
+            path_strength=d["path_strength"],
+            via_relationships=d.get("via_relationships", []),
+        )
 
 
 @dataclass(frozen=True)
@@ -195,6 +283,44 @@ class ChoiceCrossContext:
     supporting_goals: list[PathAwareGoal]
     conflicting_goals: list[PathAwareGoal]
     knowledge: list[PathAwareKnowledge]
+
+    @classmethod
+    def from_categorized(
+        cls, source_uid: str, categorized_data: dict[str, Any]
+    ) -> "ChoiceCrossContext":
+        """Build the path-aware choice context from a ``get_cross_domain_context_typed``
+        categorized payload (the CHOICES_CONFIG ``context_field_name`` buckets).
+
+        This is the per-domain seam the generic factory delegates to: it SELECTs the
+        choice-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the two
+        principle directions, and DEDUPs each field to its strongest path. One union call
+        per target field (per-field scoping is intentional).
+
+        - ``supporting_goals`` ← AFFECTS_GOAL (``affected_goals``); the edge is
+          polarity-free (#214), so there is no conflicting-goal bucket — ``conflicting_goals``
+          stays empty rather than reading a bucket nothing emits.
+        - ``principles`` ← the union of INFORMED_BY_PRINCIPLE (outgoing,
+          ``aligned_principles``) and GUIDES_CHOICE (incoming, ``guiding_principles``).
+        - ``knowledge`` ← INFORMED_BY_KNOWLEDGE (``informed_by_knowledge``).
+        """
+        return cls(
+            choice_uid=source_uid,
+            principles=[
+                PathAwarePrinciple.from_dict(p)
+                for p in _union_path_buckets(
+                    categorized_data, "aligned_principles", "guiding_principles"
+                )
+            ],
+            supporting_goals=[
+                PathAwareGoal.from_dict(g)
+                for g in _union_path_buckets(categorized_data, "affected_goals")
+            ],
+            conflicting_goals=[],
+            knowledge=[
+                PathAwareKnowledge.from_dict(k)
+                for k in _union_path_buckets(categorized_data, "informed_by_knowledge")
+            ],
+        )
 
     @property
     def total_connections(self) -> int:

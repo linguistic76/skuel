@@ -188,6 +188,15 @@ def create_cross_context(
     if not cross_context_type:
         raise ValueError(f"No cross-context type defined for domain: {source_domain}")
 
+    # Per-domain seam: a context type that needs to SELECT/RENAME/UNION/dedup its buckets
+    # (rather than the generic 1:1 ``context_field_name`` → field mapping below) owns that
+    # logic in a ``from_categorized`` classmethod. Choices is the first mover; other domains
+    # fall through to the generic construction until they migrate.
+    from_categorized = getattr(cross_context_type, "from_categorized", None)
+    if from_categorized is not None:
+        result: CrossContext = from_categorized(source_uid, categorized_data)
+        return result
+
     # Build kwargs for cross-context type
     # Start with UID field
     uid_field = f"{source_domain.value.rstrip('s')}_uid"
