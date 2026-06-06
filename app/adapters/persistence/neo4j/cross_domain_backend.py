@@ -617,8 +617,16 @@ class CrossDomainBackend:
         is registry-sourced (``relationship_types``, mechanism B) when supplied; otherwise
         the intent selects a slice from ``_INTENT_EDGE_SETS`` (the explicit-intent lenses
         lifted verbatim from the retired hard-coded clauses), and a generic intent
-        (``RELATIONSHIP``/``EXPLORATORY``/…) → empty set → every edge type. ``limit=100``
-        preserves the old filtered-branch row cap.
+        (``RELATIONSHIP``/``EXPLORATORY``/…) → empty set → every edge type.
+
+        The pre-aggregation ``limit=100`` is applied **only on the registry-sourced path**
+        (``relationship_types`` supplied) — the sole branch the retired builder genuinely
+        capped (``_build_filtered_context_query``). The explicit-intent branches
+        (HIERARCHICAL/PREREQUISITE/PRACTICE/GOAL_ACHIEVEMENT) had NO cap, and the generic
+        branch's trailing LIMIT was a post-aggregation no-op (effectively unbounded), so
+        capping them here would silently drop nodes for callers like ``get_completion_impact``
+        / Tasks ``get_task_with_dependencies`` on dense graphs. Faithful = cap only what was
+        capped.
 
         Returns one record ``{center_uid, domain_context}``; ``domain_context`` is the
         attributed node list the service-layer transformer de-dups into a ``GraphContext``.
@@ -626,6 +634,7 @@ class CrossDomainBackend:
         """
         from core.ports import get_enum_value
 
+        registry_sourced = bool(relationship_types)
         edge_set = relationship_types or _INTENT_EDGE_SETS.get(get_enum_value(intent), [])
         query, params = build_domain_context_with_paths(
             node_uid=uid,
@@ -634,7 +643,7 @@ class CrossDomainBackend:
             depth=depth,
             min_confidence=0.0,
             bidirectional=True,
-            limit=100,
+            limit=100 if registry_sourced else None,
         )
         return await self.executor.execute_query(query, params)
 
