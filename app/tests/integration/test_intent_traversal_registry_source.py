@@ -1,18 +1,19 @@
-"""Real-Neo4j guard for Convergence Phase 1 (PR 2A): registry-sourced intent traversal.
+"""Real-Neo4j guard for Convergence: registry-sourced intent traversal.
 
-The intent-traversal engine (``query_with_intent`` → ``build_context_query_for_intent``)
-used to filter edges with a hard-coded per-intent literal that drifts from the registry.
-Phase 1 threads ``relationship_types`` from the service down to the builder, sourced from
-``DomainRelationshipConfig.cross_domain_relationship_types`` (the single source of truth).
+The intent-traversal engine (``query_with_intent`` over the shared
+``build_domain_context_with_paths`` producer) sources its edge vocabulary from the registry
+(``DomainRelationshipConfig.cross_domain_relationship_types``, the single source of truth)
+when ``relationship_types`` is supplied, rather than a narrow per-intent slice that drifts.
 
 Each test seeds a real graph and runs ``GraphIntelligenceService.query_with_intent`` twice:
 
 * **registry-sourced** (``relationship_types=<config>.cross_domain_relationship_types``):
   the domain's real cross-domain neighbours surface, and a noise edge outside the registry
   is excluded.
-* **negative control** (``relationship_types=None`` → the bare default-intent clause): a
-  neighbour reachable only via a registry edge that the hard-coded clause omits is *missed* —
-  proving the registry source genuinely changes behaviour, not a no-op.
+* **negative control** (``relationship_types=None`` → the intent's narrow edge slice from
+  ``_INTENT_EDGE_SETS``): a neighbour reachable only via a registry edge that the intent
+  slice omits is *missed* — proving the registry source genuinely changes behaviour, not a
+  no-op.
 
 Mocked unit tests cannot catch this (the filter lives in Cypher); the guard must run against
 real Neo4j. See: /docs/roadmap/intent-traversal-registry-convergence.md

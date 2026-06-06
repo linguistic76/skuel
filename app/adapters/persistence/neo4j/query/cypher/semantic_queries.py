@@ -119,11 +119,12 @@ def build_semantic_merge(
 
 def build_domain_context_with_paths(
     node_uid: str,
-    node_label: NeoLabel,
-    relationship_types: list[str],
+    node_label: NeoLabel | None = None,
+    relationship_types: list[str] | None = None,
     depth: int = 2,
     min_confidence: float = 0.0,
     bidirectional: bool = False,
+    limit: int | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for cross-domain context with path-aware intelligence.
@@ -131,10 +132,21 @@ def build_domain_context_with_paths(
     Accepts LITERAL relationship type strings instead of SemanticRelationshipType enum.
     Essential for domain-specific relationships like "INFORMED_BY_PRINCIPLE", "SUPPORTS_GOAL".
 
+    THE single producer for path-aware graph context. Feeds BOTH the bucketed
+    cross-domain-context reader (``get_cross_domain_context`` → incident-edge attribution)
+    AND the intent-traversal reader (``query_with_intent`` → ``GraphContext``), so both go
+    through one incident-edge-attributed + strongest-path-dedupable Cypher path rather than
+    parallel queries (Convergence Phase 2, direction-aware bucketing).
+    See: /docs/roadmap/intent-traversal-registry-convergence.md
+
     The source node is excluded from its own context (``related.uid <> center.uid``),
     so a cycle back to the center never lands the entity in its own result buckets.
 
     Returns path metadata for each related entity:
+    - properties: the related node's full property map — so intent-traversal consumers that
+      read ``node.properties`` (e.g. ``get_entity_context`` → ``intelligence_queries``,
+      ``activity_knowledge_intelligence_service``) keep their contract under the fold; the
+      bucketed reader ignores it.
     - distance: Number of hops from source
     - path_strength: Confidence cascade (product of relationship confidences)
     - via_relationships: Sequence of relationship types in path
@@ -152,37 +164,64 @@ def build_domain_context_with_paths(
 
     Args:
         node_uid: Starting node UID
-        node_label: Starting node label (e.g., "Choice", "Goal", "Task")
-        relationship_types: List of literal relationship type names
+        node_label: Starting node label (e.g., "Choice", "Goal", "Task"). ``None`` matches
+            on ``uid`` alone — the intent-traversal path has only the domain, not the label.
+        relationship_types: Literal relationship type names to traverse. Empty/``None``
+            traverses EVERY edge type (the generic ``RELATIONSHIP``/``EXPLORATORY`` lens).
         depth: Maximum traversal depth (default 2)
         min_confidence: Minimum confidence filter (default 0.0)
         bidirectional: Include both incoming and outgoing (default False)
+        limit: Optional cap on matched (center, related, path) rows BEFORE the ``collect``
+            aggregation — genuinely bounds the materialized node set on dense graphs (the
+            intent path passes 100, preserving the old filtered-branch ``LIMIT``; the
+            bucketed reader passes ``None`` to keep its depth/registry-bounded behavior).
 
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    # Build relationship pattern
-    rel_pattern = "|".join(relationship_types)
+    # Build relationship pattern. An empty type list means "any relationship type" —
+    # the generic intent lens — so omit the `:TYPE|TYPE` filter entirely (a bare
+    # `[r:*1..n]` is a Cypher syntax error).
+    rel_types = relationship_types or []
+    rel_segment = f"[r:{'|'.join(rel_types)}*1..{depth}]" if rel_types else f"[r*1..{depth}]"
 
     # Build direction pattern
     direction_pattern = "" if bidirectional else ">"
 
+    # Match on label when supplied (index-friendly); else on uid alone.
+    center_pattern = (
+        f"(center:{node_label} {{uid: $uid}})" if node_label else "(center {uid: $uid})"
+    )
+
+    # Optional pre-aggregation row cap (genuinely bounds the result on dense graphs).
+    limit_clause = ""
+    if limit is not None:
+        limit_clause = """
+    WITH center, related, rels, confidences, path_length, path_nodes
+    LIMIT $limit"""
+
+    # The center row is kept even when no edge matches (``related IS NULL``) — the null is
+    # excluded INSIDE the collect, not by a row-dropping WHERE — so an edge-less entity
+    # yields one record with an empty ``domain_context`` rather than zero records. That
+    # distinction matters: ``query_with_intent`` reads zero records as NOT-FOUND (node
+    # absent), so a present-but-unconnected node must still produce a record. (A null row
+    # exists ONLY when the OPTIONAL MATCH finds nothing, so it never coexists with real
+    # rows.)
     cypher = f"""
-    MATCH (center:{node_label} {{uid: $uid}})
-    OPTIONAL MATCH path = (center)-[r:{rel_pattern}*1..{depth}]-{direction_pattern}(related)
-    WITH center, related, path, relationships(path) as rels,
+    MATCH {center_pattern}
+    OPTIONAL MATCH path = (center)-{rel_segment}-{direction_pattern}(related)
+    WHERE related IS NULL OR related.uid <> center.uid
+    WITH center, related, relationships(path) as rels,
          [rel in relationships(path) | coalesce(rel.confidence, 0.8)] as confidences,
          length(path) as path_length,
          nodes(path) as path_nodes
-    WHERE related IS NOT NULL
-      AND related.uid <> center.uid
-      AND all(c in confidences WHERE c >= $min_confidence)
-    RETURN
-        center.uid as center_uid,
-        collect(DISTINCT {{
+    WHERE related IS NULL OR all(c in confidences WHERE c >= $min_confidence){limit_clause}
+    WITH center, collect(DISTINCT
+        CASE WHEN related IS NULL THEN null ELSE {{
             uid: related.uid,
             title: coalesce(related.title, related.name, related.uid),
             labels: labels(related),
+            properties: properties(related),
             distance: path_length,
             path_strength: reduce(product = 1.0, c in confidences | product * c),
             via_relationships: [
@@ -196,10 +235,15 @@ def build_domain_context_with_paths(
             incident_rel_type: type(last(rels)),
             incident_into_related: endNode(last(rels)) = related,
             incident_rel_properties: properties(last(rels))
-        }}) as domain_context
+        }} END
+    ) as ctx
+    RETURN center.uid as center_uid,
+           [x in ctx WHERE x IS NOT NULL] as domain_context
     """
 
     parameters: dict[str, Neo4jValue] = {"uid": node_uid, "min_confidence": min_confidence}
+    if limit is not None:
+        parameters["limit"] = limit
 
     return cypher, parameters
 
