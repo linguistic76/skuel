@@ -30,10 +30,12 @@ from core.services.intelligence.metrics_calculators import (
     calculate_choice_metrics,
     calculate_event_metrics,
     calculate_goal_metrics,
+    calculate_habit_integration_metrics,
     calculate_habit_metrics,
     calculate_knowledge_metrics,
     calculate_principle_metrics,
     calculate_task_metrics,
+    habit_recommendations,
 )
 from core.services.intelligence.pattern_analyzer import PatternAnalyzer
 from core.services.intelligence.query_intelligence_service import (
@@ -78,10 +80,12 @@ __all__ = [
     "calculate_choice_metrics",
     "calculate_event_metrics",
     "calculate_goal_metrics",
+    "calculate_habit_integration_metrics",
     "calculate_habit_metrics",
     "calculate_knowledge_metrics",
     "calculate_principle_metrics",
     "calculate_task_metrics",
+    "habit_recommendations",
     # consolidation: Shared helper utilities (January 2026)
     "MetricsCalculator",
     "PatternAnalyzer",

@@ -14,13 +14,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from core.models.graph.path_aware_types import HabitCrossContext
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.services.intelligence import (
-    HabitCrossContext,
     MetricsCalculator,
-    RecommendationEngine,
-    calculate_habit_metrics,
+    calculate_habit_integration_metrics,
+    habit_recommendations,
 )
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Result
@@ -42,6 +42,9 @@ class _BehavioralSignalsMixin:
     cross_domain_query: Any
     insight_store: Any
     logger: Any
+    # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
+    _analyze_entity_with_typed_context: Any
+    _to_domain_model: Any
 
     @requires_graph_intelligence("analyze_habit_performance")
     async def analyze_habit_performance(
@@ -105,14 +108,14 @@ class _BehavioralSignalsMixin:
             ```
 
         Refactoring:
-        - Uses BaseIntelligenceService._analyze_entity_with_context template
+        - Uses BaseAnalyticsService._analyze_entity_with_typed_context template
+          (path-aware HabitCrossContext via the canonical typed reader).
         """
-        # Use base class template for standardized analysis
-        analysis_result = await self._analyze_entity_with_context(  # type: ignore[attr-defined]
-            uid=uid,
-            context_type=HabitCrossContext,
-            metrics_fn=calculate_habit_metrics,
-            recommendations_fn=self._generate_performance_recommendations,
+        # Use base class template over the CANONICAL typed (path-aware) reader.
+        analysis_result = await self._analyze_entity_with_typed_context(
+            uid,
+            metrics_fn=calculate_habit_integration_metrics,
+            recommendations_fn=habit_recommendations,
             min_confidence=min_confidence,
         )
 
@@ -120,13 +123,13 @@ class _BehavioralSignalsMixin:
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)  # type: ignore[attr-defined]
+        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
-        # Return UIDs directly - no placeholder dicts
-        knowledge_reinforcement_uids = context.knowledge_reinforcement_uids
-        supporting_goal_uids = context.linked_goal_uids
+        # Read UIDs off the path-aware entities.
+        knowledge_reinforcement_uids = [k.uid for k in context.knowledge]
+        supporting_goal_uids = [g.uid for g in context.goals]
 
         # Calculate performance metrics
         streak_score = habit.current_streak / habit.best_streak if habit.best_streak > 0 else 0.0
@@ -212,13 +215,13 @@ class _BehavioralSignalsMixin:
             ```
 
         Refactoring:
-        - Uses BaseIntelligenceService._analyze_entity_with_context template
+        - Uses BaseAnalyticsService._analyze_entity_with_typed_context template
+          (path-aware HabitCrossContext via the canonical typed reader).
         """
-        # Use base class template for standardized analysis
-        analysis_result = await self._analyze_entity_with_context(  # type: ignore[attr-defined]
-            uid=uid,
-            context_type=HabitCrossContext,
-            metrics_fn=calculate_habit_metrics,
+        # Use base class template over the CANONICAL typed (path-aware) reader.
+        analysis_result = await self._analyze_entity_with_typed_context(
+            uid,
+            metrics_fn=calculate_habit_integration_metrics,
             depth=depth,
             min_confidence=min_confidence,
         )
@@ -227,12 +230,12 @@ class _BehavioralSignalsMixin:
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)  # type: ignore[attr-defined]
+        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
-        # Return UIDs directly - no placeholder dicts
-        knowledge_reinforcement_uids = context.knowledge_reinforcement_uids
+        # Read UIDs off the path-aware entities.
+        knowledge_reinforcement_uids = [k.uid for k in context.knowledge]
 
         # Calculate practice effectiveness
         practice_effectiveness = self._calculate_practice_effectiveness(
@@ -330,14 +333,14 @@ class _BehavioralSignalsMixin:
             ```
 
         Refactoring:
-        - Uses BaseIntelligenceService._analyze_entity_with_context template
+        - Uses BaseAnalyticsService._analyze_entity_with_typed_context template
+          (path-aware HabitCrossContext via the canonical typed reader).
         """
-        # Use base class template for standardized analysis
-        analysis_result = await self._analyze_entity_with_context(  # type: ignore[attr-defined]
-            uid=uid,
-            context_type=HabitCrossContext,
-            metrics_fn=calculate_habit_metrics,
-            recommendations_fn=self._generate_goal_support_recommendations,
+        # Use base class template over the CANONICAL typed (path-aware) reader.
+        analysis_result = await self._analyze_entity_with_typed_context(
+            uid,
+            metrics_fn=calculate_habit_integration_metrics,
+            recommendations_fn=habit_recommendations,
             depth=depth,
             min_confidence=min_confidence,
         )
@@ -346,12 +349,12 @@ class _BehavioralSignalsMixin:
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)  # type: ignore[attr-defined]
+        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
-        # Return UIDs directly - no placeholder dicts
-        supporting_goal_uids = context.linked_goal_uids
+        # Read UIDs off the path-aware entities.
+        supporting_goal_uids = [g.uid for g in context.goals]
 
         # Calculate goal contributions
         consistency_score = habit.calculate_consistency_score()
@@ -438,69 +441,3 @@ class _BehavioralSignalsMixin:
         streak_bonus = MetricsCalculator.clamp((streak / 30.0) * 2.0, max_val=2.0)
 
         return base_score + knowledge_bonus + streak_bonus
-
-    def _generate_performance_recommendations(
-        self, _entity: Any, _context: HabitCrossContext, metrics: dict[str, Any]
-    ) -> list[str]:
-        """Generate recommendations for habit performance analysis.
-
-        Uses RecommendationEngine for structured threshold-based recommendations.
-        """
-        return (
-            RecommendationEngine()
-            .with_metrics(metrics)
-            .add_threshold_check(
-                "integration_score",
-                threshold=0.5,
-                message="Integrate this habit with more life areas",
-                comparison="lt",
-            )
-            .add_conditional(
-                not metrics.get("has_goal_connection", False),
-                "Link this habit to supporting goals",
-            )
-            .add_conditional(
-                not metrics.get("is_knowledge_builder", False),
-                "Connect this habit to knowledge areas for learning reinforcement",
-            )
-            .add_threshold_check(
-                "goal_support_count",
-                threshold=2,
-                message="Consider aligning with more goals for greater impact",
-                comparison="lt",
-            )
-            .build()
-        )
-
-    def _generate_goal_support_recommendations(
-        self, _entity: Any, _context: HabitCrossContext, metrics: dict[str, Any]
-    ) -> list[str]:
-        """Generate recommendations for habit goal support analysis.
-
-        Uses RecommendationEngine for structured threshold-based recommendations.
-        """
-        goal_support_count = metrics.get("goal_support_count", 0)
-
-        return (
-            RecommendationEngine()
-            .with_metrics(metrics)
-            .add_conditional(
-                goal_support_count == 0,
-                "Link this habit to at least one goal",
-            )
-            .add_conditional(
-                0 < goal_support_count < 2,
-                "Consider supporting additional goals with this habit",
-            )
-            .add_conditional(
-                not metrics.get("is_principle_aligned", False),
-                "Align this habit with your core principles",
-            )
-            .add_threshold_check(
-                "integration_score",
-                threshold=0.67,
-                message="This habit is well-integrated - maintain consistency",
-                comparison="gte",
-            )
-            .build()
-        )
