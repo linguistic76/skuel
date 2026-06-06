@@ -34,11 +34,13 @@ from core.services.intelligence.metrics_calculators import (
     calculate_habit_integration_metrics,
     calculate_habit_metrics,
     calculate_knowledge_metrics,
+    calculate_principle_alignment_metrics,
     calculate_principle_metrics,
     calculate_task_metrics,
     goal_learning_recommendations,
     goal_recommendations,
     habit_recommendations,
+    principle_recommendations,
 )
 from core.services.intelligence.pattern_analyzer import PatternAnalyzer
 from core.services.intelligence.query_intelligence_service import (
@@ -87,11 +89,13 @@ __all__ = [
     "calculate_habit_integration_metrics",
     "calculate_habit_metrics",
     "calculate_knowledge_metrics",
+    "calculate_principle_alignment_metrics",
     "calculate_principle_metrics",
     "calculate_task_metrics",
     "goal_learning_recommendations",
     "goal_recommendations",
     "habit_recommendations",
+    "principle_recommendations",
     # consolidation: Shared helper utilities (January 2026)
     "MetricsCalculator",
     "PatternAnalyzer",

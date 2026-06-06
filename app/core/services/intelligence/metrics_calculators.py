@@ -33,6 +33,9 @@ if TYPE_CHECKING:
     from core.models.graph.path_aware_types import (
         HabitCrossContext as PathAwareHabitCrossContext,
     )
+    from core.models.graph.path_aware_types import (
+        PrincipleCrossContext as PathAwarePrincipleCrossContext,
+    )
     from core.services.intelligence.cross_domain_contexts import (
         ChoiceCrossContext,
         EventCrossContext,
@@ -738,6 +741,147 @@ def calculate_principle_metrics(principle: Any, context: PrincipleCrossContext) 
         "is_knowledge_grounded": context.is_knowledge_grounded(),
         "is_lived": is_lived,
     }
+
+
+# ---------------------------------------------------------------------------
+# Principles — path-aware lens over the CANONICAL typed reader
+# (get_cross_domain_context_typed → path_aware_types.PrincipleCrossContext).
+# Powers assess_principle_alignment (GET /api/principles/insights) via
+# BaseAnalyticsService._analyze_entity_with_typed_context.
+# Preserves the flat metric keys calculate_principle_metrics emitted
+# (guided_goal_count / informed_choice_count / aligned_habit_count /
+# knowledge_grounding_count / total_influence_count / influence_score /
+# is_action_guiding / is_knowledge_grounded / is_lived) AND supplies the keys
+# the alignment consumer actually reads (adherence_score / goal_count /
+# choice_count / habit_count / knowledge_count / needs_attention /
+# strong_alignment / consistent_practice), then ADDS the rich cascade_impact /
+# path_aware_context blocks.
+# ---------------------------------------------------------------------------
+
+
+def calculate_principle_alignment_metrics(
+    principle: Any, context: PathAwarePrincipleCrossContext
+) -> dict[str, Any]:
+    """Alignment lens over the path-aware principle context: how broadly the principle
+    influences goals/choices/habits/knowledge, plus a cascade-impact block and a
+    path-aware rollup.
+
+    Derives every metric from path-aware entities. Keeps the flat keys the legacy
+    ``calculate_principle_metrics`` emitted (so any reader of those holds) AND emits the
+    alignment keys ``assess_principle_alignment`` / ``_generate_alignment_recommendations``
+    read (``adherence_score`` / ``goal_count`` / ``choice_count`` / ``habit_count`` /
+    ``knowledge_count`` / ``needs_attention`` / ``strong_alignment`` /
+    ``consistent_practice``). ADDS ``cascade_impact`` (via
+    :meth:`PathAwareAnalyzer.calculate_cascade_impact`) and ``path_aware_context``
+    (distance/strength rollups).
+    """
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    goals = context.goals
+    choices = context.choices
+    knowledge = context.knowledge
+    habits = context.habits
+
+    goal_count = len(goals)
+    choice_count = len(choices)
+    habit_count = len(habits)
+    knowledge_count = len(knowledge)
+
+    # influence breadth: four dimensions (goals / choices / habits / knowledge),
+    # matching the UID-family PrincipleCrossContext.influence_score().
+    influence_dimensions = [bool(goals), bool(choices), bool(habits), bool(knowledge)]
+    influence_score = sum(1 for d in influence_dimensions if d) / 4.0
+
+    # total influence = goals + habits + choices (matches the UID-family
+    # PrincipleCrossContext.total_influence_count()).
+    total_influence_count = goal_count + habit_count + choice_count
+
+    is_action_guiding = bool(goals or habits)
+    is_knowledge_grounded = bool(knowledge)
+    is_lived = is_action_guiding
+
+    # Adherence reflects the principle's influence breadth (the Principle model carries
+    # no stored adherence_score). Bands mirror the alignment-recommendation thresholds.
+    adherence_score = influence_score
+    needs_attention = adherence_score < 0.5
+    strong_alignment = adherence_score >= 0.75
+    consistent_practice = habit_count > 0
+
+    cascade = PathAwareAnalyzer.calculate_cascade_impact(
+        goals=goals, knowledge=knowledge, principles=[], habits=habits
+    )
+
+    return {
+        # Flat keys preserved from the legacy calculate_principle_metrics contract.
+        "guided_goal_count": goal_count,
+        "informed_choice_count": choice_count,
+        "aligned_habit_count": habit_count,
+        "knowledge_grounding_count": knowledge_count,
+        "total_influence_count": total_influence_count,
+        "influence_score": round(influence_score, 2),
+        "is_action_guiding": is_action_guiding,
+        "is_knowledge_grounded": is_knowledge_grounded,
+        "is_lived": is_lived,
+        # Alignment keys the assess_principle_alignment consumer reads.
+        "adherence_score": round(adherence_score, 2),
+        "goal_count": goal_count,
+        "choice_count": choice_count,
+        "habit_count": habit_count,
+        "knowledge_count": knowledge_count,
+        "needs_attention": needs_attention,
+        "strong_alignment": strong_alignment,
+        "consistent_practice": consistent_practice,
+        # Rich path-aware additions.
+        "cascade_impact": cascade,
+        "path_aware_context": {
+            "total_strong_connections": context.strong_connections(),
+            "direct_connections_count": (
+                len(context.direct_goals)
+                + len(context.direct_choices)
+                + len(context.direct_knowledge)
+                + len(context.direct_habits)
+            ),
+            "max_path_depth": context.max_path_depth,
+            "avg_path_strength": context.avg_strength(),
+        },
+    }
+
+
+def principle_recommendations(
+    principle: Any, context: PathAwarePrincipleCrossContext, metrics: dict[str, Any]
+) -> list[str]:
+    """Path-aware recommendations for the principle alignment lens: inline alignment
+    nudges (mirroring the legacy ``_generate_alignment_recommendations`` thresholds) plus
+    the analyzer's path-strength recommendations (weak/missing-direct/deep-cascade)."""
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    goals = context.goals
+    knowledge = context.knowledge
+    habits = context.habits
+
+    adherence_score = metrics.get("adherence_score", 0.5)
+    recommendations: list[str] = []
+    if metrics.get("needs_attention", False):
+        recommendations.append(
+            f"Alignment score is low ({adherence_score:.0%}) - "
+            "consider creating goals or habits that embody this principle"
+        )
+    if not goals:
+        recommendations.append("Create at least one goal guided by this principle")
+    if not habits:
+        recommendations.append("Establish a daily or weekly habit that embodies this principle")
+    if metrics.get("total_influence_count", 0) < 5:
+        recommendations.append(
+            "Increase activities aligned with this principle - consistency builds adherence"
+        )
+    if metrics.get("strong_alignment", False):
+        recommendations.append("Excellent alignment! You're living this principle consistently")
+    recommendations.extend(
+        PathAwareAnalyzer.generate_recommendations(
+            goals=goals, knowledge=knowledge, principles=[], habits=habits
+        )
+    )
+    return recommendations
 
 
 def calculate_knowledge_metrics(ku: Any, context: KnowledgeCrossContext) -> dict[str, Any]:
