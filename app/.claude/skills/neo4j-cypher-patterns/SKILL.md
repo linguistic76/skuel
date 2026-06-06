@@ -192,16 +192,24 @@ All query builders support these operators:
 
 ## Intent-Based Traversal
 
-Each domain has a suggested `QueryIntent` that optimizes graph queries:
+All 9 domains (6 Activity + Ku/Ps/Lp) read graph context through **mechanism B**: the shared
+`_CoreIntelligenceMixin.get_with_context` → `UnifiedRelationshipService.get_with_context`. The edge
+vocabulary is **registry-sourced** from `DomainConfig.cross_domain_relationship_types` (the single
+source of truth) — there is no per-domain `get_suggested_query_intent()` (deleted) and no per-domain
+`{Domain}RelationshipService` subclass.
 
-| Domain | Intent | Focus Relationships |
-|--------|--------|---------------------|
-| Tasks | `PRACTICE` | EXECUTES_TASK, REQUIRES_KNOWLEDGE, DEPENDS_ON |
-| Goals | `GOAL_ACHIEVEMENT` | FULFILLS_GOAL, SUPPORTS_GOAL, SUBGOAL_OF |
-| Principles | `PRINCIPLE_EMBODIMENT` | GUIDED_BY_PRINCIPLE, INSPIRES_HABIT |
-| Habits | `PRACTICE` | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL |
-| Choices | `PRINCIPLE_ALIGNMENT` | ALIGNED_WITH_PRINCIPLE, INFORMED_BY_KNOWLEDGE |
-| Events | `SCHEDULED_ACTION` | EXECUTES_TASK, PRACTICES_KNOWLEDGE |
+`QueryIntent` / a domain's `default_context_intent` still selects the query *shape* in
+`build_context_query_for_intent` for non-registry callers. Surviving live clauses:
+
+| Intent | Focus Relationships |
+|--------|---------------------|
+| `HIERARCHICAL` | HAS_CHILD, PARENT_OF, CHILD_OF |
+| `PREREQUISITE` | REQUIRES_KNOWLEDGE, PREREQUISITE_FOR, ENABLES |
+| `PRACTICE` | PRACTICES, REINFORCES, APPLIES_KNOWLEDGE |
+| `GOAL_ACHIEVEMENT` | FULFILLS_GOAL, SUPPORTS_GOAL, SUBGOAL_OF, GUIDED_BY_PRINCIPLE, CONTRIBUTES_TO_GOAL |
+| else (`EXPLORATORY`/`SPECIFIC`/`AGGREGATION`/`RELATIONSHIP`) | generic traversal, no edge filter |
+
+**See:** `docs/roadmap/intent-traversal-registry-convergence.md` (authoritative).
 
 ## Index Architecture (Bootstrap)
 

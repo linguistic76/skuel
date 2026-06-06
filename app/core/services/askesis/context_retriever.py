@@ -78,8 +78,7 @@ _SENTINEL = object()
 # Unmapped on purpose:
 #   AGGREGATION       — pure graph/count query; chunk text doesn't help.
 #   SPECIFIC          — catch-all default; any chunk type may answer.
-#   GOAL_ACHIEVEMENT, PRINCIPLE_EMBODIMENT, PRINCIPLE_ALIGNMENT, SCHEDULED_ACTION
-#                     — domain queries served from user activity data, not curriculum.
+#   GOAL_ACHIEVEMENT  — domain query served from user activity data, not curriculum.
 _INTENT_CHUNK_TYPES: dict[QueryIntent, list[str]] = {
     QueryIntent.PREREQUISITE: ["DEFINITION", "EXPLANATION"],
     QueryIntent.PRACTICE: ["EXERCISE", "EXAMPLE"],

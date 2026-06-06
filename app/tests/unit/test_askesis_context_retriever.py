@@ -358,7 +358,7 @@ class TestIntentToChunkTypes:
 
     @pytest.mark.parametrize(
         "intent_name",
-        ["AGGREGATION", "SPECIFIC", "GOAL_ACHIEVEMENT", "SCHEDULED_ACTION"],
+        ["AGGREGATION", "SPECIFIC", "GOAL_ACHIEVEMENT"],
     )
     def test_unmapped_intents_return_none(self, intent_name: str) -> None:
         """Unmapped intents fall through to None (no chunk-type filter)."""

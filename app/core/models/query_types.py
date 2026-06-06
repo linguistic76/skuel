@@ -38,6 +38,3 @@ class QueryIntent(Enum):
 
     # Domain-specific intents (December 2025)
     GOAL_ACHIEVEMENT = "goal_achievement"
-    PRINCIPLE_EMBODIMENT = "principle_embodiment"
-    PRINCIPLE_ALIGNMENT = "principle_alignment"
-    SCHEDULED_ACTION = "scheduled_action"
