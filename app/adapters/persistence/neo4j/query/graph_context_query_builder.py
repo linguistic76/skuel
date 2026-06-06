@@ -120,62 +120,6 @@ def build_context_query_for_intent(
         RETURN nodes, rels[0] as relationships
         """
 
-    elif intent_value == QueryIntent.PRINCIPLE_EMBODIMENT.value:
-        return f"""
-        MATCH (origin {{uid: $uid}})
-        OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-        WHERE any(r in relationships(path) WHERE type(r) IN [
-            'GUIDED_BY_PRINCIPLE', 'ALIGNED_WITH_PRINCIPLE', 'INSPIRES_HABIT',
-            'GROUNDED_IN_KNOWLEDGE', 'GUIDES_GOAL', 'GUIDES_CHOICE'
-        ])
-        WITH origin, collect(DISTINCT related) as nodes,
-             collect(DISTINCT [r in relationships(path) | {{
-                 type: type(r),
-                 start_uid: startNode(r).uid,
-                 end_uid: endNode(r).uid,
-                 properties: properties(r)
-             }}]) as rels
-        RETURN nodes, rels[0] as relationships
-        """
-
-    elif intent_value == QueryIntent.PRINCIPLE_ALIGNMENT.value:
-        return f"""
-        MATCH (origin {{uid: $uid}})
-        OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-        WHERE any(r in relationships(path) WHERE type(r) IN [
-            'ALIGNED_WITH_PRINCIPLE', 'INFORMED_BY_KNOWLEDGE', 'SUPPORTS_GOAL',
-            'CONFLICTS_WITH_GOAL', 'REQUIRES_KNOWLEDGE_FOR_DECISION',
-            'OPENS_LEARNING_PATH', 'GUIDED_BY_PRINCIPLE'
-        ])
-        WITH origin, collect(DISTINCT related) as nodes,
-             collect(DISTINCT [r in relationships(path) | {{
-                 type: type(r),
-                 start_uid: startNode(r).uid,
-                 end_uid: endNode(r).uid,
-                 properties: properties(r)
-             }}]) as rels
-        RETURN nodes, rels[0] as relationships
-        """
-
-    elif intent_value == QueryIntent.SCHEDULED_ACTION.value:
-        return f"""
-        MATCH (origin {{uid: $uid}})
-        OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
-        WHERE any(r in relationships(path) WHERE type(r) IN [
-            'EXECUTES_TASK', 'PRACTICES_KNOWLEDGE', 'REINFORCES_HABIT',
-            'MILESTONE_FOR_GOAL', 'CONFLICTS_WITH', 'SUPPORTS_GOAL',
-            'SCHEDULED_FOR', 'DERIVED_FROM_TASK'
-        ])
-        WITH origin, collect(DISTINCT related) as nodes,
-             collect(DISTINCT [r in relationships(path) | {{
-                 type: type(r),
-                 start_uid: startNode(r).uid,
-                 end_uid: endNode(r).uid,
-                 properties: properties(r)
-             }}]) as rels
-        RETURN nodes, rels[0] as relationships
-        """
-
     else:  # RELATIONSHIP, EXPLORATORY, SPECIFIC, AGGREGATION - generic traversal
         return f"""
         MATCH (origin {{uid: $uid}})
