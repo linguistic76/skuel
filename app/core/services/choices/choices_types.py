@@ -12,8 +12,42 @@ Pattern:
 - Follows user_stats_types.py pattern
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
+from datetime import date, datetime
+from enum import Enum
 from typing import Any
+
+
+def _to_serializable(obj: Any) -> Any:
+    """Recursively convert a frozen-dataclass result tree into JSON-serializable data.
+
+    Handles the shapes these result types actually hold: nested frozen dataclasses
+    (ImpactSummary, CascadeImpact, PathAware* entities, …), enums, date/datetime, the
+    ``choice`` domain model (via its own ``to_dict``/``model_dump`` if present, else its
+    uid), and plain containers. Not a blind ``dataclasses.asdict`` — that chokes on the
+    domain model and non-JSON-native ``date`` values.
+    """
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _to_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_to_serializable(v) for v in obj]
+    if is_dataclass(obj) and not isinstance(obj, type):
+        return {f.name: _to_serializable(getattr(obj, f.name)) for f in fields(obj)}
+    # Domain model (e.g. Choice) — prefer its own serializer, else fall back to uid/str.
+    domain_to_dict = getattr(obj, "to_dict", None)
+    if callable(domain_to_dict):
+        return domain_to_dict()
+    model_dump = getattr(obj, "model_dump", None)
+    if callable(model_dump):
+        return model_dump(mode="json")
+    uid = getattr(obj, "uid", None)
+    return uid if uid is not None else str(obj)
 
 
 @dataclass(frozen=True)
@@ -126,12 +160,10 @@ class ChoiceGraphContext:
     Attributes:
         cascade_impact: Cascade impact analysis
         path_aware_context: Path-aware metrics
-        raw_context: Raw cross-domain context dictionary
     """
 
     cascade_impact: CascadeImpact
     path_aware_context: PathAwareContext
-    raw_context: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -157,6 +189,10 @@ class DecisionIntelligence:
     decision_analysis: DecisionAnalysis
     recommendations: DecisionRecommendations
     graph_context: ChoiceGraphContext
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-serializable view (protocol/route boundary)."""
+        return {f.name: _to_serializable(getattr(self, f.name)) for f in fields(self)}
 
 
 @dataclass(frozen=True)
@@ -248,3 +284,7 @@ class ChoiceImpactAnalysis:
     risk_assessment: RiskAssessment
     opportunities: list[str]
     graph_context: ChoiceGraphContext
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-serializable view (serves GET /api/choices/insights)."""
+        return {f.name: _to_serializable(getattr(self, f.name)) for f in fields(self)}

@@ -11,20 +11,9 @@ Provides reusable methods for:
 - Generating path-strength-based recommendations
 """
 
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from core.models.graph.path_aware_types import PathAwareProtocol
-
-if TYPE_CHECKING:
-    from core.models.graph.path_aware_types import (
-        PathAwareChoice,
-        PathAwareEvent,
-        PathAwareGoal,
-        PathAwareHabit,
-        PathAwareKnowledge,
-        PathAwarePrinciple,
-        PathAwareTask,
-    )
 
 P = TypeVar("P", bound=PathAwareProtocol)
 
@@ -34,123 +23,25 @@ class PathAwareAnalyzer:
     Reusable helper for path-aware intelligence analysis.
 
     All intelligence services can use this helper to:
-    1. Parse path-aware entities from backend dicts
-    2. Filter entities by path strength
-    3. Calculate cascade impact scores
-    4. Generate recommendations based on path metadata
+    1. Filter entities by path strength
+    2. Calculate cascade impact scores
+    3. Generate recommendations based on path metadata
+
+    Path-aware entities themselves are constructed by the models' ``from_dict`` /
+    ``ChoiceCrossContext.from_categorized`` via the typed cross-domain reader
+    (``get_cross_domain_context_typed``) — not here.
 
     Usage:
         ```python
-        class ChoicesIntelligenceService(BaseAnalyticsService):
-            def __init__(self, ...):
-                self.path_helper = PathAwareAnalyzer()
-
-            async def analyze_choice_impact(self, choice_uid: str):
-                # Parse path-aware context
-                goals = [self.path_helper.parse_goal(g) for g in context_dict["goals"]]
-
-                # Filter by strength
-                strong_goals = self.path_helper.filter_by_strength(goals, min_strength=0.8)
-
-                # Calculate cascade impact
-                impact = self.path_helper.calculate_cascade_impact(goals, knowledge, principles)
+        # ctx is a typed path-aware context (e.g. from get_cross_domain_context_typed):
+        strong_goals = PathAwareAnalyzer.filter_by_strength(ctx.supporting_goals, 0.8)
+        impact = PathAwareAnalyzer.calculate_cascade_impact(
+            goals=ctx.supporting_goals,
+            knowledge=ctx.knowledge,
+            principles=ctx.principles,
+        )
         ```
     """
-
-    # ========================================================================
-    # PATH-AWARE PARSING
-    # ========================================================================
-
-    @staticmethod
-    def parse_goal(goal_dict: dict) -> "PathAwareGoal":
-        """Parse path-aware goal from dict representation."""
-        from core.models.graph.path_aware_types import PathAwareGoal
-
-        return PathAwareGoal(
-            uid=goal_dict["uid"],
-            title=goal_dict["title"],
-            distance=goal_dict["distance"],
-            path_strength=goal_dict["path_strength"],
-            via_relationships=goal_dict["via_relationships"],
-        )
-
-    @staticmethod
-    def parse_task(task_dict: dict) -> "PathAwareTask":
-        """Parse path-aware task from dict representation."""
-        from core.models.graph.path_aware_types import PathAwareTask
-
-        return PathAwareTask(
-            uid=task_dict["uid"],
-            title=task_dict["title"],
-            distance=task_dict["distance"],
-            path_strength=task_dict["path_strength"],
-            via_relationships=task_dict["via_relationships"],
-        )
-
-    @staticmethod
-    def parse_habit(habit_dict: dict) -> "PathAwareHabit":
-        """Parse path-aware habit from dict representation."""
-        from core.models.graph.path_aware_types import PathAwareHabit
-
-        return PathAwareHabit(
-            uid=habit_dict["uid"],
-            title=habit_dict["title"],
-            distance=habit_dict["distance"],
-            path_strength=habit_dict["path_strength"],
-            via_relationships=habit_dict["via_relationships"],
-        )
-
-    @staticmethod
-    def parse_event(event_dict: dict) -> "PathAwareEvent":
-        """Parse path-aware event from dict representation."""
-        from core.models.graph.path_aware_types import PathAwareEvent
-
-        return PathAwareEvent(
-            uid=event_dict["uid"],
-            title=event_dict["title"],
-            distance=event_dict["distance"],
-            path_strength=event_dict["path_strength"],
-            via_relationships=event_dict["via_relationships"],
-        )
-
-    @staticmethod
-    def parse_principle(principle_dict: dict) -> "PathAwarePrinciple":
-        """Parse path-aware principle from dict representation."""
-        from core.models.graph.path_aware_types import PathAwarePrinciple
-
-        return PathAwarePrinciple(
-            uid=principle_dict["uid"],
-            title=principle_dict["title"],
-            distance=principle_dict["distance"],
-            path_strength=principle_dict["path_strength"],
-            via_relationships=principle_dict["via_relationships"],
-        )
-
-    @staticmethod
-    def parse_choice(choice_dict: dict) -> "PathAwareChoice":
-        """Parse path-aware choice from dict representation."""
-        from core.models.graph.path_aware_types import PathAwareChoice
-
-        return PathAwareChoice(
-            uid=choice_dict["uid"],
-            title=choice_dict["title"],
-            distance=choice_dict["distance"],
-            path_strength=choice_dict["path_strength"],
-            via_relationships=choice_dict["via_relationships"],
-        )
-
-    @staticmethod
-    def parse_knowledge(knowledge_dict: dict) -> "PathAwareKnowledge":
-        """Parse path-aware knowledge from dict representation."""
-        from core.models.graph.path_aware_types import PathAwareKnowledge
-
-        return PathAwareKnowledge(
-            uid=knowledge_dict["uid"],
-            title=knowledge_dict["title"],
-            distance=knowledge_dict["distance"],
-            path_strength=knowledge_dict["path_strength"],
-            via_relationships=knowledge_dict["via_relationships"],
-        )
 
     # ========================================================================
     # PATH-STRENGTH FILTERING

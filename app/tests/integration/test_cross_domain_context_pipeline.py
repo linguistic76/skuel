@@ -38,6 +38,7 @@ from core.models.relationship_registry import (
     PRINCIPLES_CONFIG,
     TASKS_CONFIG,
 )
+from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._core_intelligence_mixin import (
     _CoreIntelligenceMixin as ChoiceCoreIntelMixin,
 )
@@ -548,9 +549,11 @@ class _FakeChoiceBackend:
         return Result.ok(self._choice)
 
 
-class _ChoiceIntelHarness(ChoiceCoreIntelMixin):
-    """Wires the three attributes the mixin reads. ``graph_intel`` only needs to be truthy
-    (the ``@requires_graph_intelligence`` guard is its sole reader in these two methods)."""
+class _ChoiceIntelHarness(ChoiceCoreIntelMixin, BaseAnalyticsService):
+    """Mirrors the real service composition (mixin + BaseAnalyticsService) so the thin-lens
+    analyzers can reach ``_analyze_entity_with_typed_context``. Wires the attributes those
+    methods read; ``graph_intel`` only needs to be truthy (the
+    ``@requires_graph_intelligence`` guard is its sole reader)."""
 
     def __init__(self, backend: _FakeChoiceBackend, relationships: Any) -> None:
         self.backend = backend
