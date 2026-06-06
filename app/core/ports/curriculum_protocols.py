@@ -87,7 +87,6 @@ from core.ports.query_types import (
     PsKnowledgeSummaryResult,
     PsPracticeSummaryResult,
     PsStandaloneStepRow,
-    PsStepWithContextRow,
     PsStepWithKnowledgeRow,
     ReadyToLearnResult,
     ReinforcementCandidateResult,
@@ -988,10 +987,6 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Get step node with CONTAINS_KNOWLEDGE relationships."""
         ...
 
-    async def get_step_with_context(self, uid: str) -> Result[list[PsStepWithContextRow]]:
-        """Get step with comprehensive 11-part graph context in a single query."""
-        ...
-
     async def update_step_fields(
         self, uid: str, set_clauses: list[str], params: dict[str, Any]
     ) -> Result[list[dict[str, Any]]]:
@@ -1414,12 +1409,6 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
     ) -> Result[list[dict[str, Any]]]:
         """Get recommended path steps for a user based on their progress."""
-        ...
-
-    async def get_path_with_context(
-        self, path_uid: str, user_uid: UserUID | None = None, depth: int = 2
-    ) -> Result[list[dict[str, Any]]]:
-        """Get learning path with complete graph context."""
         ...
 
 

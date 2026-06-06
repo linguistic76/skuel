@@ -15,7 +15,6 @@ Pattern Benefits:
 Date: 2025-11-22
 """
 
-import asyncio
 from datetime import date
 
 import pytest
@@ -31,96 +30,6 @@ from core.utils.uid_generator import UIDGenerator
 @pytest.mark.integration
 class TestRichContextPattern:
     """Test rich context pattern across domain services."""
-
-    async def test_knowledge_get_with_context(self, services, test_user):
-        """
-        Test PsCoreService.get_with_context() fetches KU + graph neighborhood.
-
-        Validates that prerequisites, dependents, related KUs, and mastery
-        stats are all fetched in a single query.
-        """
-        # Create prerequisite knowledge
-        prereq_dto = CurriculumDTO(
-            uid=UIDGenerator.generate_random_uid("ku"),
-            title="Python Basics",
-            entity_type=EntityType.PATH_STEP,
-            domain=Domain.TECH,
-        )
-        prereq_result = await services.ps.core.backend.create(prereq_dto.to_dict())
-        assert prereq_result.is_ok, f"Failed to create prereq KU: {prereq_result.error}"
-        print(f"✅ Created prereq KU: {prereq_dto.uid}")
-
-        # Create main knowledge unit
-        ku_dto = CurriculumDTO(
-            uid=UIDGenerator.generate_random_uid("ku"),
-            title="Advanced Python",
-            entity_type=EntityType.PATH_STEP,
-            domain=Domain.TECH,
-        )
-        main_ku_result = await services.ps.core.backend.create(ku_dto.to_dict())
-        assert main_ku_result.is_ok, f"Failed to create main KU: {main_ku_result.error}"
-        print(f"✅ Created main KU: {ku_dto.uid}")
-
-        # Wait for transactions to fully persist (Neo4j async commit)
-        await asyncio.sleep(0.1)
-
-        # DEBUG: Verify nodes exist in database
-        verify_query = "MATCH (ku:Entity) RETURN count(ku) as count, collect(ku.uid) as uids"
-        verify_result = await services.ps.core.backend.driver.execute_query(verify_query, {})
-        verify_records = verify_result.records
-        if verify_records:
-            count = verify_records[0]["count"]
-            uids = verify_records[0]["uids"]
-            print(f"📊 Found {count} KnowledgeUnit nodes in DB: {uids}")
-        else:
-            print("❌ No KnowledgeUnit nodes found in DB!")
-
-        # Create prerequisite relationship
-        await services.ps.core.backend.driver.execute_query(
-            """
-            MATCH (ku:Entity {uid: $ku_uid})
-            MATCH (prereq:Entity {uid: $prereq_uid})
-            CREATE (ku)-[:REQUIRES_KNOWLEDGE {confidence: 0.9, type: 'prerequisite'}]->(prereq)
-            """,
-            {"ku_uid": ku_dto.uid, "prereq_uid": prereq_dto.uid},
-        )
-
-        # TEST: Get with context (single query)
-        print(f"🔍 Attempting to get KU with UID: {ku_dto.uid}")
-
-        # DEBUG: Try a simple direct query first
-        simple_query = "MATCH (ku:Entity {uid: $uid}) RETURN ku, ku.uid as uid, ku.title as title"
-        simple_result = await services.ps.core.backend.driver.execute_query(
-            simple_query, {"uid": ku_dto.uid}
-        )
-        simple_records = simple_result.records
-        if simple_records:
-            print(
-                f"✅ Simple query found node: {simple_records[0]['uid']}, title: {simple_records[0]['title']}"
-            )
-        else:
-            print(f"❌ Simple query found nothing for UID: {ku_dto.uid}")
-
-        result = await services.ps.core.get_with_context(ku_dto.uid)
-
-        assert result.is_ok, f"Failed to get KU with context: {result.error}"
-
-        dto = result.value
-        assert dto.uid == ku_dto.uid
-
-        # Validate graph context was populated
-        assert "graph_context" in dto.metadata
-        context = dto.metadata["graph_context"]
-
-        # Validate prerequisite knowledge (REQUIRES_KNOWLEDGE relationship)
-        assert "prerequisite_knowledge" in context
-        assert len(context["prerequisite_knowledge"]) == 1
-        assert context["prerequisite_knowledge"][0]["uid"] == prereq_dto.uid
-
-        # Validate aggregate metadata
-        assert "total_prerequisites" in context
-        assert "is_sequenced" in context
-        assert "has_dependents" in context
 
     async def test_task_get_with_context(self, services, test_user):
         """
@@ -238,69 +147,3 @@ class TestRichContextPattern:
         # so context keys reflect Goal-specific relationships.
         assert isinstance(context, dict)
         assert "query_timestamp" in context
-
-    async def test_performance_comparison(self, services, test_user):
-        """
-        Test that get_with_context() is faster than separate queries.
-
-        This demonstrates the 3-4x performance improvement from fetching
-        everything in one query vs multiple round-trips.
-        """
-        import time
-
-        # Create test data
-        ku_dto = CurriculumDTO(
-            uid=UIDGenerator.generate_random_uid("ku"),
-            title="Test Knowledge",
-            entity_type=EntityType.PATH_STEP,
-            domain=Domain.TECH,
-        )
-        await services.ps.core.backend.create(ku_dto.to_dict())
-
-        # Method 1: Multiple separate queries (OLD way)
-        start_time = time.time()
-
-        # Query 1: Get KU
-        ku_result = await services.ps.core.get(ku_dto.uid)
-
-        # Query 2: Get prerequisites (separate query)
-        prereq_query = """
-        MATCH (ku:Entity {uid: $uid})-[:REQUIRES_KNOWLEDGE]->(prereq)
-        RETURN prereq
-        """
-        await services.ps.core.backend.driver.execute_query(prereq_query, {"uid": ku_dto.uid})
-
-        # Query 3: Get dependents (separate query)
-        dep_query = """
-        MATCH (dependent)-[:REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $uid})
-        RETURN dependent
-        """
-        await services.ps.core.backend.driver.execute_query(dep_query, {"uid": ku_dto.uid})
-
-        # Query 4: Get related (separate query)
-        related_query = """
-        MATCH (ku:Entity {uid: $uid})-[:RELATED_TO]-(related)
-        RETURN related
-        """
-        await services.ps.core.backend.driver.execute_query(related_query, {"uid": ku_dto.uid})
-
-        old_time = time.time() - start_time
-
-        # Method 2: Single query with context (NEW way)
-        start_time = time.time()
-        context_result = await services.ps.core.get_with_context(ku_dto.uid)
-        new_time = time.time() - start_time
-
-        # Validate both methods work
-        assert ku_result.is_ok
-        assert context_result.is_ok
-
-        # Performance improvement (should be faster, but exact ratio varies)
-        # Just validate it completes successfully
-        assert new_time > 0  # Completed
-        assert old_time > 0  # Completed
-
-        print("\nPerformance comparison:")
-        print(f"  Multiple queries: {old_time * 1000:.2f}ms")
-        print(f"  Single query with context: {new_time * 1000:.2f}ms")
-        print(f"  Speedup: {old_time / new_time:.2f}x")
