@@ -48,9 +48,9 @@ WITH u,
      collect(DISTINCT applied_h) AS habit_applied_nodes
 WITH u,
      [n IN task_applied_nodes WHERE n:Ku | n.uid] +
-     [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE p IN task_applied_nodes | k.uid] AS task_engaged_raw,
+     reduce(acc = [], p IN task_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS task_engaged_raw,
      [n IN habit_applied_nodes WHERE n:Ku | n.uid] +
-     [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE p IN habit_applied_nodes | k.uid] AS habit_engaged_raw
+     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS habit_engaged_raw
 WITH u,
      [uid IN task_engaged_raw WHERE uid IS NOT NULL | uid] AS task_engaged_uids,
      [uid IN habit_engaged_raw WHERE uid IS NOT NULL | uid] AS habit_engaged_uids
@@ -154,7 +154,7 @@ OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE
 WITH u, collect(DISTINCT applied_t) AS task_applied_nodes
 WITH u,
      [n IN task_applied_nodes WHERE n:Ku AND n.uid IN $ku_uids | n.uid] +
-     [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE p IN task_applied_nodes AND k.uid IN $ku_uids | k.uid]
+     reduce(acc = [], p IN task_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE k.uid IN $ku_uids | k.uid])
      AS task_engaged_uids
 
 // Habit engagement
@@ -162,7 +162,7 @@ OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWL
 WITH u, task_engaged_uids, collect(DISTINCT applied_h) AS habit_applied_nodes
 WITH u, task_engaged_uids,
      [n IN habit_applied_nodes WHERE n:Ku AND n.uid IN $ku_uids | n.uid] +
-     [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE p IN habit_applied_nodes AND k.uid IN $ku_uids | k.uid]
+     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE k.uid IN $ku_uids | k.uid])
      AS habit_engaged_uids
 
 // Submission scores for target KUs
