@@ -33,8 +33,6 @@ from adapters.persistence.neo4j.query import generate_context_query
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_registry import GOAPS_CONFIG
-from core.services.intelligence.cross_domain_contexts import GoalCrossContext
-from core.services.intelligence.metrics_calculators import calculate_goal_metrics
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 P = "esstest_"
@@ -179,10 +177,15 @@ async def test_essentiality_tiers_partition_via_cross_domain_context(
     assert bucket("optional_habits") == {H_OPTIONAL}
     assert bucket("contributing_habits") == {H_SUPPORTING}
 
-    # GoalCrossContext unions all four tiers → every supporting habit, de-duplicated.
-    ctx = GoalCrossContext.from_dict(raw)
-    assert set(ctx.supporting_habit_uids) == set(habits)
-    assert calculate_goal_metrics(None, ctx)["habit_support_count"] == 4
+    # The four tier buckets union to every supporting habit, de-duplicated — the
+    # path-aware reader aggregates them the same way.
+    all_habit_uids = (
+        bucket("essential_habits")
+        | bucket("critical_habits")
+        | bucket("optional_habits")
+        | bucket("contributing_habits")
+    )
+    assert all_habit_uids == set(habits)
 
 
 @pytest.mark.asyncio
@@ -213,7 +216,6 @@ async def test_untiered_habit_falls_to_catch_all(neo4j_driver, goal_rel, clean_n
     raw = ctx_res.value
     assert {e["uid"] for e in raw.get("contributing_habits") or []} == {H_PLAIN}
     assert (raw.get("essential_habits") or []) == []
-    assert GoalCrossContext.from_dict(raw).supporting_habit_uids == [H_PLAIN]
 
 
 @pytest.mark.asyncio

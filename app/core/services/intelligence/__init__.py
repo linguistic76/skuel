@@ -6,8 +6,9 @@ Shared intelligence patterns for all domains.
 
 Provides:
 - QueryIntelligenceService: Query intelligence (intent detection, facet suggestion, ranking)
-- Typed Context Dataclasses: Type-safe containers for cross-domain context data
-- Metrics Calculators: Domain-specific metrics calculation functions
+- Metrics Calculators: Domain-specific path-aware metrics calculation functions
+  (over the canonical typed cross-domain reader; path-aware context types live in
+  ``core/models/graph/path_aware_types.py``)
 - RecommendationEngine: Fluent builder for recommendation generation (consolidation)
 - MetricsCalculator: Shared calculation utilities (consolidation)
 - PatternAnalyzer: Pattern detection utilities (consolidation)
@@ -15,30 +16,13 @@ Provides:
 """
 
 from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
-from core.services.intelligence.cross_domain_contexts import (
-    ChoiceCrossContext,
-    CrossDomainContext,
-    EventCrossContext,
-    GoalCrossContext,
-    HabitCrossContext,
-    KnowledgeCrossContext,
-    PrincipleCrossContext,
-    TaskCrossContext,
-)
 from core.services.intelligence.metrics_calculator import MetricsCalculator
 from core.services.intelligence.metrics_calculators import (
-    calculate_choice_metrics,
-    calculate_event_metrics,
     calculate_event_performance_metrics,
-    calculate_goal_metrics,
     calculate_goal_progress_metrics,
     calculate_habit_integration_metrics,
-    calculate_habit_metrics,
-    calculate_knowledge_metrics,
     calculate_principle_alignment_metrics,
-    calculate_principle_metrics,
     calculate_task_cross_domain_metrics,
-    calculate_task_metrics,
     goal_learning_recommendations,
     goal_recommendations,
     habit_recommendations,
@@ -75,28 +59,12 @@ __all__ = [
     "FacetDetector",
     "IntentScorer",
     "ResultRanker",
-    # Typed context dataclasses
-    "ChoiceCrossContext",
-    "CrossDomainContext",
-    "EventCrossContext",
-    "GoalCrossContext",
-    "HabitCrossContext",
-    "KnowledgeCrossContext",
-    "PrincipleCrossContext",
-    "TaskCrossContext",
-    # Metrics calculators
-    "calculate_choice_metrics",
-    "calculate_event_metrics",
+    # Path-aware metrics calculators (over the canonical typed reader)
     "calculate_event_performance_metrics",
-    "calculate_goal_metrics",
     "calculate_goal_progress_metrics",
     "calculate_habit_integration_metrics",
-    "calculate_habit_metrics",
-    "calculate_knowledge_metrics",
     "calculate_principle_alignment_metrics",
-    "calculate_principle_metrics",
     "calculate_task_cross_domain_metrics",
-    "calculate_task_metrics",
     "goal_learning_recommendations",
     "goal_recommendations",
     "habit_recommendations",

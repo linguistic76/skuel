@@ -157,8 +157,9 @@ if result.is_ok:
 **Dependencies:**
 - GoalsOperations backend (REQUIRED)
 - UnifiedRelationshipService (REQUIRED - uses `_require_relationships = True`)
-- Uses CrossDomainContextService for typed context retrieval (Phase 3)
-- Uses `calculate_goal_metrics()` for standard metrics
+- Uses the canonical typed reader `get_cross_domain_context_typed` via
+  `BaseAnalyticsService._analyze_entity_with_typed_context` (path-aware context)
+- Uses `calculate_goal_progress_metrics()` for goal-support metrics
 
 ---
 
@@ -753,12 +754,15 @@ Uses `GoalRelationships.fetch()` for typed relationship access:
 - `required_knowledge_uids` - Knowledge needed for goal
 - `learning_path_uids` - Learning paths aligned with goal
 
-### CrossDomainContextService (Phase 3)
+### Canonical Cross-Domain Reader
 
-Uses typed context retrieval with:
-- `GoalCrossContext` - Type-safe field access
-- `calculate_goal_metrics()` - Standard metrics calculation
-- Recommendation generation functions
+Uses the single path-aware typed reader
+(`UnifiedRelationshipService.get_cross_domain_context_typed` via
+`BaseAnalyticsService._analyze_entity_with_typed_context`) with:
+- Path-aware `GoalCrossContext` (`core/models/graph/path_aware_types.py`) — typed,
+  distance/strength-aware field access
+- `calculate_goal_progress_metrics()` - goal-support metrics
+- `goal_recommendations()` / `goal_learning_recommendations()` - recommendation generation
 
 ---
 
