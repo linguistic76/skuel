@@ -244,60 +244,42 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
 
 ## Pattern 2: Template Method Usage
 
-Using `_analyze_entity_with_context()` for consistent analysis:
+Using `_analyze_entity_with_typed_context()` for consistent analysis. The metrics and
+recommendations functions live in `core/services/intelligence/metrics_calculators.py` and
+take the **path-aware** cross-domain context (`core/models/graph/path_aware_types.py`):
 
 ```python
+from core.services.intelligence import (
+    calculate_goal_progress_metrics,
+    goal_recommendations,
+)
+
+
 class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
     _service_name = "goals.analytics"
 
     async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
         """Get comprehensive goal progress analysis."""
-        return await self._analyze_entity_with_context(
+        return await self._analyze_entity_with_typed_context(
             uid=uid,
-            context_type=GoalCrossContext,
-            metrics_fn=self._calculate_goal_metrics,
-            recommendations_fn=self._generate_goal_recommendations,
-            min_confidence=0.7,  # forwarded to the generic get_cross_domain_context
+            metrics_fn=calculate_goal_progress_metrics,
+            recommendations_fn=goal_recommendations,
+            min_confidence=0.7,  # forwarded to get_cross_domain_context_typed
         )
 
-    def _calculate_goal_metrics(
-        self, goal: Goal, context: GoalCrossContext
-    ) -> dict[str, Any]:
-        """Calculate metrics from goal and context."""
-        return {
-            "progress_percentage": goal.progress * 100,
-            "days_remaining": (goal.target_date - date.today()).days,
-            "supporting_habits_count": len(context.supporting_habit_uids),
-            "supporting_tasks_count": len(context.supporting_task_uids),
-            "is_on_track": goal.is_on_track(),
-            "momentum_score": self._calculate_momentum(goal, context),
-        }
 
-    def _generate_goal_recommendations(
-        self,
-        goal: Goal,
-        context: GoalCrossContext,
-        metrics: dict[str, Any]
-    ) -> list[str]:
-        """Generate actionable recommendations."""
-        recommendations = []
-
-        if metrics["supporting_tasks_count"] == 0:
-            recommendations.append(
-                "Break this goal into supporting tasks to drive concrete progress"
-            )
-
-        if metrics["supporting_habits_count"] < 2:
-            recommendations.append(
-                "Add more supporting habits to sustain progress"
-            )
-
-        if not metrics["is_on_track"]:
-            recommendations.append(
-                "Consider adjusting timeline or breaking goal into smaller milestones"
-            )
-
-        return recommendations
+# The metrics function (in metrics_calculators.py) reads PATH-AWARE entity lists,
+# not UID lists — each entry carries distance/strength metadata:
+def calculate_goal_progress_metrics(
+    goal: Any, context: PathAwareGoalCrossContext
+) -> dict[str, Any]:
+    """Calculate goal-support metrics from the path-aware context."""
+    return {
+        "task_support_count": len(context.tasks),
+        "habit_support_count": len(context.habits),
+        "knowledge_requirement_count": len(context.knowledge),
+        # ... plus cascade_impact / path_aware_context (distance/strength rollups)
+    }
 ```
 
 ---

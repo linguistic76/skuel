@@ -36,7 +36,6 @@ from typing import Any, ClassVar, Generic, TypeVar
 from core.events import publish_event
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import EntityUID, UserUID
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -254,115 +253,6 @@ class BaseAnalyticsService(Generic[B, T]):
     # CONTEXT ANALYSIS TEMPLATE
     # ========================================================================
 
-    async def _analyze_entity_with_context(
-        self,
-        uid: str,
-        context_type: type,
-        metrics_fn: Callable[[Any, Any], dict[str, Any]],
-        recommendations_fn: Callable[[Any, Any, dict[str, Any]], list[str]] | None = None,
-        **context_kwargs: Any,
-    ) -> Result[dict[str, Any]]:
-        """
-        Template method for context-based entity analysis.
-
-        Consolidates the common pattern:
-        1. Fetch entity from backend
-        2. Get cross-domain context via relationships service
-        3. Calculate metrics using provided function
-        4. Generate recommendations (optional)
-        5. Return structured result
-
-        Cross-domain context comes from the generic, config-driven
-        `UnifiedRelationshipService.get_cross_domain_context()` — the relationship
-        service is domain-aware through its injected config, so there is no
-        per-domain method-name dispatch (One Path Forward; the former
-        `get_{domain}_cross_domain_context` getattr-by-name resolved to None on the
-        injected `UnifiedRelationshipService` and silently degraded analytics).
-
-        Args:
-            uid: Entity UID to analyze
-            context_type: Expected context dataclass type
-            metrics_fn: Function (entity, context) -> metrics dict
-            recommendations_fn: Optional function (entity, context, metrics) -> list[str]
-            **context_kwargs: Additional args (depth, min_confidence) for context fetch
-
-        Returns:
-            Result[dict] with structure:
-            {
-                "entity": <domain model>,
-                "metrics": <calculated metrics>,
-                "recommendations": <list of recommendations>,
-                "context": <typed cross-domain context>,
-            }
-        """
-        # 1. Fetch entity (shared prefix with _analyze_entity_with_typed_context)
-        entity_result = await self._fetch_entity_or_fail(uid)
-        if entity_result.is_error:
-            return entity_result
-        entity = entity_result.value
-
-        # 2. Get cross-domain context via the generic, config-driven relationship method.
-        #    The relationship service is domain-aware through its injected config, so a
-        #    single fixed method serves every domain — no getattr-by-name dispatch.
-        context = None
-        if self.relationships:
-            try:
-                context_result = await self.relationships.get_cross_domain_context(
-                    uid, **context_kwargs
-                )
-
-                # Handle Result wrapper if present
-                if isinstance(context_result, Result):
-                    if context_result.is_ok:
-                        raw_context = context_result.value
-                    else:
-                        self.logger.warning(
-                            f"Context fetch failed for {uid}: {context_result.expect_error()}"
-                        )
-                        raw_context = None
-                else:
-                    raw_context = context_result
-
-                # Convert to typed context using from_dict if available
-                if raw_context is not None:
-                    from_dict_method = getattr(context_type, "from_dict", None)
-                    if from_dict_method is not None and isinstance(raw_context, dict):
-                        context = from_dict_method(raw_context)
-                    else:
-                        context = raw_context
-            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-                self.logger.warning(f"Failed to get context for {uid}: {e}")
-
-        # 3. Calculate metrics
-        metrics: dict[str, Any] = {}
-        if context:
-            try:
-                metrics = metrics_fn(entity, context)
-            except (
-                Exception
-            ) as e:  # safety-net: catch unexpected errors from caller-provided metrics_fn
-                self.logger.warning(f"Failed to calculate metrics for {uid}: {e}")
-
-        # 4. Generate recommendations (optional)
-        recommendations: list[str] = []
-        if recommendations_fn and context:
-            try:
-                recommendations = recommendations_fn(entity, context, metrics)
-            except (
-                Exception
-            ) as e:  # safety-net: catch unexpected errors from caller-provided recommendations_fn
-                self.logger.warning(f"Failed to generate recommendations for {uid}: {e}")
-
-        # 5. Return structured result
-        return Result.ok(
-            {
-                "entity": entity,
-                "metrics": metrics,
-                "recommendations": recommendations,
-                "context": context,
-            }
-        )
-
     async def _fetch_entity_or_fail(self, uid: str) -> Result[Any]:
         """Fetch an entity and guard not-found — the shared prefix of the analysis
         templates. Returns ``Result.ok(entity)`` or a failed Result to propagate."""
@@ -385,19 +275,17 @@ class BaseAnalyticsService(Generic[B, T]):
     ) -> Result[dict[str, Any]]:
         """Template method for analysis over the CANONICAL typed cross-domain reader.
 
-        Identical pipeline to ``_analyze_entity_with_context`` (fetch → context →
-        metrics → recommendations → envelope) but sources the typed context from
-        ``UnifiedRelationshipService.get_cross_domain_context_typed`` — the factory-built
-        path-aware context — instead of the raw dict + per-type ``from_dict``. There is no
-        ``context_type`` param: the typed reader resolves the domain context type itself.
+        Fetch → context → metrics → recommendations → envelope. Sources the typed
+        context from ``UnifiedRelationshipService.get_cross_domain_context_typed`` — the
+        factory-built path-aware context (``core/models/graph/path_aware_types.py``). The
+        typed reader resolves the domain context type itself (no ``context_type`` param).
 
-        This is the convergence target. ``_analyze_entity_with_context`` (the legacy
-        UID-family / ``from_dict`` path) is retired once the remaining domains migrate onto
-        this method (see docs/roadmap/intent-traversal-registry-convergence.md, full phase).
+        This is THE cross-domain analysis path — all 6 activity domains run on it
+        (see docs/roadmap/intent-traversal-registry-convergence.md, full phase complete).
 
-        Failure policy differs deliberately from the legacy method: a real context-fetch
-        error PROPAGATES as ``Result.fail`` rather than silently degrading to an empty
-        context (an edge-less entity still yields an ``ok`` empty context, not a failure).
+        Failure policy: a real context-fetch error PROPAGATES as ``Result.fail`` rather
+        than silently degrading to an empty context (an edge-less entity still yields an
+        ``ok`` empty context, not a failure).
 
         Args:
             uid: Entity UID to analyze

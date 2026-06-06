@@ -153,8 +153,9 @@ if result.is_ok:
 **Dependencies:**
 - HabitsOperations backend (REQUIRED)
 - UnifiedRelationshipService (REQUIRED - `_require_relationships = True`)
-- Uses CrossDomainContextService for typed context retrieval (Phase 3)
-- Uses `calculate_habit_metrics()` for standard metrics
+- Uses the canonical typed reader `get_cross_domain_context_typed` via
+  `BaseAnalyticsService._analyze_entity_with_typed_context` (path-aware context)
+- Uses `calculate_habit_integration_metrics()` for habit-integration metrics
 
 **Performance Metrics Calculation:**
 - `streak_score` = current_streak / best_streak (0.0-1.0)
@@ -579,26 +580,31 @@ link_more_goals: goal_count < 2
 maintain_consistency: consistency >= 0.7
 ```
 
-### Cross-Domain Context Integration (Phase 3)
+### Cross-Domain Context Integration
 
-Uses `HabitCrossContext` for type-safe relationship access:
+Uses the path-aware `HabitCrossContext`
+(`core/models/graph/path_aware_types.py`) for type-safe, distance/strength-aware
+relationship access — built by the canonical typed reader
+(`get_cross_domain_context_typed`) and consumed via
+`BaseAnalyticsService._analyze_entity_with_typed_context`:
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class HabitCrossContext:
-    knowledge_reinforcement_uids: list[str]
-    linked_goal_uids: list[str]
-    related_task_uids: list[str]
-    related_event_uids: list[str]
-    # ... additional fields
+    goals: list[PathAwareGoal]
+    knowledge: list[PathAwareKnowledge]
+    principles: list[PathAwarePrinciple]
+    prerequisites: list[PathAwareHabit]
+    # ... distance/strength rollups: max_path_depth, avg_strength(), ...
 ```
 
-**Standard Metrics (calculate_habit_metrics):**
+**Habit-integration Metrics (calculate_habit_integration_metrics):**
 - `knowledge_reinforcement_count` - Number of KUs reinforced
 - `goal_support_count` - Number of goals supported
 - `has_goal_connection` - Boolean flag
 - `is_knowledge_builder` - Boolean flag (reinforces knowledge)
 - `integration_score` - Overall integration level (0.0-1.0)
+- `cascade_impact` / `path_aware_context` - rich path-aware rollups
 
 ---
 

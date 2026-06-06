@@ -482,8 +482,7 @@ class GoalCrossContext:
         This is the per-domain seam the generic factory delegates to: it SELECTs the
         goal-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the multi-tier
         / bidirectional buckets, and DEDUPs each field to its strongest path. One union
-        call per target field (per-field scoping is intentional). Mirrors the symmetric
-        aggregation on the UID-family ``GoalCrossContext.from_dict``.
+        call per target field (per-field scoping is intentional).
 
         - ``tasks`` ← FULFILLS_GOAL (``contributing_tasks``).
         - ``habits`` ← the union of the four SUPPORTS_GOAL-incoming essentiality tiers
@@ -649,8 +648,7 @@ class PrincipleCrossContext:
         This is the per-domain seam the generic factory delegates to: it SELECTs the
         principle-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the two
         habit directions, and DEDUPs each field to its strongest path. One union call per
-        target field (per-field scoping is intentional). Mirrors the symmetric aggregation
-        on the UID-family ``PrincipleCrossContext.from_dict``.
+        target field (per-field scoping is intentional).
 
         - ``goals`` ← GUIDES_GOAL (``guided_goals``).
         - ``choices`` ← GUIDES_CHOICE (``guided_choices``).
@@ -768,8 +766,7 @@ class TaskCrossContext:
         This is the per-domain seam the generic factory delegates to: it SELECTs the
         task-relevant cross-domain buckets, RENAMEs them to the dataclass fields, UNIONs the
         two goal-link directions, and DEDUPs each field to its strongest path. One union call
-        per target field (per-field scoping is intentional). Mirrors the symmetric aggregation
-        on the UID-family ``TaskCrossContext.from_dict``.
+        per target field (per-field scoping is intentional).
 
         - ``required_knowledge`` ← REQUIRES_KNOWLEDGE (``required_knowledge``).
         - ``applied_knowledge`` ← APPLIES_KNOWLEDGE (``applied_knowledge``).
@@ -872,9 +869,8 @@ class HabitCrossContext:
         - ``goals`` ← SUPPORTS_GOAL (``supported_goals``).
         - ``knowledge`` ← REINFORCES_KNOWLEDGE (``reinforced_knowledge``).
         - ``principles`` ← the union of EMBODIES_PRINCIPLE (outgoing,
-          ``embodied_principles``) and INSPIRES_HABIT (incoming, ``inspiring_principles``),
-          mirroring the symmetric aggregation on the UID-family
-          ``HabitCrossContext.aligned_principle_uids``.
+          ``embodied_principles``) and INSPIRES_HABIT (incoming, ``inspiring_principles``) —
+          symmetric aggregation across both principle directions.
         - ``prerequisites`` ← REQUIRES_PREREQUISITE (``prerequisite_habits``).
         """
         return cls(
@@ -978,11 +974,9 @@ class EventCrossContext:
         per target field (per-field scoping is intentional).
 
         - ``goals`` ← union of CONTRIBUTES_TO_GOAL (``supported_goals``) and the milestone
-          CELEBRATES_GOAL (``celebrated_goals``), mirroring the symmetric aggregation on the
-          UID-family ``EventCrossContext.supporting_goal_uids``.
+          CELEBRATES_GOAL (``celebrated_goals``).
         - ``habits`` ← union of the outgoing REINFORCES_HABIT (``reinforced_habits``) and the
-          incoming PRACTICED_AT_EVENT (``practiced_habits``), mirroring the UID-family
-          ``EventCrossContext.reinforcing_habit_uids``.
+          incoming PRACTICED_AT_EVENT (``practiced_habits``).
         - ``knowledge`` ← APPLIES_KNOWLEDGE (``applied_knowledge``).
         """
         return cls(

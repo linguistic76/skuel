@@ -403,7 +403,7 @@ The 6 Activity Domain intelligence services share common patterns consolidated i
 | **MetricsCalculator** | `metrics_calculator.py` | Static utility methods for common calculations |
 | **PatternAnalyzer** | `pattern_analyzer.py` | Pattern detection in text and data structures |
 | **TrendAnalyzer** | `trend_analyzer.py` | Threshold-based trend classification |
-| **Template Method** | `BaseAnalyticsService._analyze_entity_with_context()` | Fetch entity → get context → calculate metrics → generate recommendations |
+| **Template Method** | `BaseAnalyticsService._analyze_entity_with_typed_context()` | Fetch entity → get path-aware typed context → calculate metrics → generate recommendations |
 
 **Consolidation Results:**
 - **51 helper methods** analyzed across 6 services

@@ -224,7 +224,7 @@ This led to:
 │   ├── __slots__ guard               # Prevent AI dependencies
 │   ├── _dual_track_assessment()      # Template: vision vs action gap
 │   ├── _event_handlers ClassVar      # Declarative event subscription
-│   └── _analyze_entity_with_context() # Template: fetch + analyze
+│   └── _analyze_entity_with_typed_context() # Template: fetch + typed analyze
 
 /core/services/intelligence/
 ├── __init__.py                       # Re-exports all shared utilities
@@ -458,63 +458,36 @@ trend = compare_progress_to_expected(
 
 ---
 
-## Phase 5: Context Analysis Template
+## Context Analysis Template (Canonical Typed Reader)
 
-**Location:** `/core/services/base_analytics_service.py` (`_analyze_entity_with_context`)
+**Location:** `/core/services/base_analytics_service.py` (`_analyze_entity_with_typed_context`)
 
-**Purpose:** Template method in BaseAnalyticsService that consolidates the common "fetch entity → get context → calculate metrics → generate recommendations → return" pattern.
+**Purpose:** THE template method in BaseAnalyticsService that consolidates the common
+"fetch entity → get typed cross-domain context → calculate metrics → generate
+recommendations → return" pattern. It sources its context from the single canonical
+reader `UnifiedRelationshipService.get_cross_domain_context_typed` — the factory-built
+**path-aware** context (`core/models/graph/path_aware_types.py`). All 6 activity domains
+run on this one path (the legacy UID-family / `from_dict` reader was deleted in the
+intent-traversal ↔ registry convergence cleanup).
 
-### The Pattern It Replaces
+### Usage
 
-Before (repeated in every service):
 ```python
 async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
-    # 1. Fetch entity
-    entity_result = await self.backend.get(uid)
-    if entity_result.is_error:
-        return Result.fail(entity_result)
-    entity = entity_result.value
-
-    # 2. Get context
-    context_result = await self.context_service.analyze_with_context(
-        entity_uid=uid,
-        backend=self.backend,
-        relationships=self.relationships,
-        context_type=GoalCrossContext,
-        metrics_fn=calculate_goal_metrics,
-        ...
-    )
-    if context_result.is_error:
-        return Result.fail(context_result)
-
-    # 3. Extract and calculate
-    analysis = context_result.value
-    goal = analysis.entity
-    context = analysis.context
-    metrics = analysis.metrics
-
-    # 4. Build response...
-```
-
-After (delegating to template):
-```python
-async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
-    # Phase 5: Use base class template
-    analysis_result = await self._analyze_entity_with_context(
+    analysis_result = await self._analyze_entity_with_typed_context(
         uid=uid,
-        context_type=GoalCrossContext,
-        metrics_fn=calculate_goal_metrics,
-        recommendations_fn=self._generate_progress_recommendations,
+        metrics_fn=calculate_goal_progress_metrics,
+        recommendations_fn=goal_recommendations,
         min_confidence=0.7,  # Optional kwargs (depth, min_confidence) supported
     )
 
     if analysis_result.is_error:
-        return analysis_result
+        return Result.fail(analysis_result)
 
     # Access via dict (template returns dict, not object)
     analysis = analysis_result.value
     goal = analysis["entity"]
-    context = analysis["context"]
+    context = analysis["context"]  # path-aware GoalCrossContext
     metrics = analysis["metrics"]
     recommendations = analysis["recommendations"]
 
@@ -524,23 +497,25 @@ async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
 ### Template Method Signature
 
 ```python
-async def _analyze_entity_with_context(
+async def _analyze_entity_with_typed_context(
     self,
     uid: str,
-    context_type: type,            # e.g., GoalCrossContext
-    metrics_fn: Callable,          # (entity, context) -> dict
+    metrics_fn: Callable,          # (entity, path_aware_context) -> dict
     recommendations_fn: Callable | None = None,  # (entity, context, metrics) -> list
-    **context_kwargs: Any,         # min_confidence, depth (forwarded to the generic
-                                   # config-driven get_cross_domain_context)
+    **context_kwargs: Any,         # min_confidence, depth (forwarded to
+                                   # get_cross_domain_context_typed)
 ) -> Result[dict[str, Any]]:
 ```
+
+There is no `context_type` parameter — the typed reader resolves the domain context type
+itself via the per-domain `*CrossContext.from_categorized` factory seam.
 
 ### Return Structure
 
 ```python
 {
     "entity": <domain model>,
-    "context": <typed cross-domain context>,
+    "context": <path-aware cross-domain context>,
     "metrics": <calculated metrics dict>,
     "recommendations": <list of recommendations>,
 }
@@ -548,20 +523,14 @@ async def _analyze_entity_with_context(
 
 ### Services Using the Template
 
-| Service | Methods Migrated |
-|---------|-----------------|
-| Goals | `get_goal_progress_dashboard`, `get_goal_completion_forecast`, `get_goal_learning_requirements` |
-| Habits | `analyze_habit_performance`, `get_habit_knowledge_reinforcement`, `get_habit_goal_support` |
-| Principles | `assess_principle_alignment` |
-
-### Events Exception
-
-**EventsIntelligenceService** uses a different pattern and was not migrated:
-- Uses `get_event_with_context()` returning `(Event, GraphContext)`
-- Helper methods are async and require `GraphContext`, not `EventCrossContext`
-- Migrating would require significant refactoring of the async helper methods
-
-This is a documented architectural difference, not a limitation.
+| Service | Path-aware metrics function |
+|---------|-----------------------------|
+| Tasks | `calculate_task_cross_domain_metrics` |
+| Goals | `calculate_goal_progress_metrics` |
+| Habits | `calculate_habit_integration_metrics` |
+| Events | `calculate_event_performance_metrics` |
+| Choices | `calculate_choice_impact_metrics` / `calculate_decision_metrics` |
+| Principles | `calculate_principle_alignment_metrics` |
 
 ---
 
@@ -582,15 +551,14 @@ from core.services.intelligence import (
 )
 ```
 
-For metrics calculators (domain-specific):
+For path-aware metrics calculators (domain-specific, over the canonical typed reader):
 ```python
 from core.services.intelligence import (
-    calculate_goal_metrics,
-    calculate_habit_metrics,
-    calculate_event_metrics,
-    calculate_choice_metrics,
-    calculate_principle_metrics,
-    calculate_task_metrics,
+    calculate_goal_progress_metrics,
+    calculate_habit_integration_metrics,
+    calculate_event_performance_metrics,
+    calculate_principle_alignment_metrics,
+    calculate_task_cross_domain_metrics,
 )
 ```
 

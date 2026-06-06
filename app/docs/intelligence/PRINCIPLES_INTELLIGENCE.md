@@ -163,9 +163,11 @@ if result.is_ok:
 **Dependencies:**
 - PrinciplesOperations backend (REQUIRED)
 - PrinciplesRelationshipOperations (REQUIRED - uses `_require_relationship_service()`)
-- Uses CrossDomainContextService for typed context retrieval (Phase 3)
-- Uses `calculate_principle_metrics()` for standard metrics
-- Uses `PrincipleCrossContext` for type-safe field access
+- Uses the canonical typed reader `get_cross_domain_context_typed` via
+  `BaseAnalyticsService._analyze_entity_with_typed_context` (path-aware context)
+- Uses `calculate_principle_alignment_metrics()` for alignment metrics
+- Uses the path-aware `PrincipleCrossContext`
+  (`core/models/graph/path_aware_types.py`) for type-safe field access
 
 **Alignment Assessment Logic:**
 ```python
@@ -760,12 +762,15 @@ Uses `PrincipleRelationships.fetch()` for typed relationship access:
 - `is_integrated()` - Checks if principle guides actions (goals or habits)
 - `total_influence_count()` - Sum of all guided activities
 
-### CrossDomainContextService (Phase 3)
+### Canonical Cross-Domain Reader
 
-Uses typed context retrieval with:
-- `PrincipleCrossContext` - Type-safe field access
-- `calculate_principle_metrics()` - Standard metrics calculation
-- Recommendation generation via `_generate_alignment_recommendations()`
+Uses the single path-aware typed reader
+(`UnifiedRelationshipService.get_cross_domain_context_typed` via
+`BaseAnalyticsService._analyze_entity_with_typed_context`) with:
+- Path-aware `PrincipleCrossContext`
+  (`core/models/graph/path_aware_types.py`) - typed, distance/strength-aware field access
+- `calculate_principle_alignment_metrics()` - alignment metrics
+- `principle_recommendations()` - recommendation generation
 
 **Standard Metrics:**
 ```python

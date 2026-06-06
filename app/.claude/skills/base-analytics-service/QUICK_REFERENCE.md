@@ -144,16 +144,18 @@ async def _publish_event(self, event: Any) -> None:
 ### Template Methods
 
 ```python
-async def _analyze_entity_with_context(
+async def _analyze_entity_with_typed_context(
     self,
     uid: str,
-    context_type: type,            # e.g., GoalCrossContext
     metrics_fn: Callable[[Any, Any], dict[str, Any]],
     recommendations_fn: Callable[[Any, Any, dict], list[str]] | None = None,
-    **context_kwargs: Any,         # depth, min_confidence — forwarded to the generic
-                                   # config-driven get_cross_domain_context
+    **context_kwargs: Any,         # depth, min_confidence — forwarded to
+                                   # get_cross_domain_context_typed (path-aware reader)
 ) -> Result[dict[str, Any]]:
-    """Template for entity + context analysis."""
+    """Template for entity + path-aware typed cross-domain analysis.
+
+    No context_type param — the typed reader resolves the domain context type itself.
+    """
 
 async def _dual_track_assessment(
     self,
