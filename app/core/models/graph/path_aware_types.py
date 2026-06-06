@@ -313,6 +313,17 @@ class PathAwareChoice:
     decision_date: date | None = None
     resolution: str | None = None
 
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "PathAwareChoice":
+        """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
+        return cls(
+            uid=d["uid"],
+            title=d.get("title", ""),
+            distance=d["distance"],
+            path_strength=d["path_strength"],
+            via_relationships=d.get("via_relationships", []),
+        )
+
 
 # Domain-Specific Context Types (Grouped by Relationship Semantic)
 
@@ -612,10 +623,14 @@ class PrincipleCrossContext:
     Principle influence context with path-aware intelligence.
 
     Groups related entities by relationship semantic:
-    - goals: Goals guided by this principle (GUIDED_BY_PRINCIPLE)
-    - choices: Choices informed by this principle (INFORMED_BY_PRINCIPLE)
-    - knowledge: Knowledge grounding this principle (GROUNDED_IN_KNOWLEDGE)
-    - habits: Habits aligned with this principle (ALIGNED_WITH_PRINCIPLE)
+    - goals: Goals guided by this principle (GUIDES_GOAL → ``guided_goals``)
+    - choices: Choices informed by this principle (GUIDES_CHOICE → ``guided_choices``)
+    - knowledge: Knowledge grounding this principle (GROUNDED_IN_KNOWLEDGE →
+      ``grounding_knowledge``)
+    - habits: Habits aligned with this principle — union of INSPIRES_HABIT (outgoing,
+      ``inspired_habits``) and EMBODIES_PRINCIPLE (incoming, ``embodying_habits``)
+
+    Each entity includes path metadata (distance, strength, path composition).
     """
 
     principle_uid: str
@@ -624,10 +639,96 @@ class PrincipleCrossContext:
     knowledge: list[PathAwareKnowledge]
     habits: list[PathAwareHabit]
 
+    @classmethod
+    def from_categorized(
+        cls, source_uid: str, categorized_data: dict[str, Any]
+    ) -> "PrincipleCrossContext":
+        """Build the path-aware principle context from a ``get_cross_domain_context_typed``
+        categorized payload (the PRINCIPLES_CONFIG ``context_field_name`` buckets).
+
+        This is the per-domain seam the generic factory delegates to: it SELECTs the
+        principle-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the two
+        habit directions, and DEDUPs each field to its strongest path. One union call per
+        target field (per-field scoping is intentional). Mirrors the symmetric aggregation
+        on the UID-family ``PrincipleCrossContext.from_dict``.
+
+        - ``goals`` ← GUIDES_GOAL (``guided_goals``).
+        - ``choices`` ← GUIDES_CHOICE (``guided_choices``).
+        - ``knowledge`` ← GROUNDED_IN_KNOWLEDGE (``grounding_knowledge``).
+        - ``habits`` ← the union of INSPIRES_HABIT (outgoing, ``inspired_habits``) and
+          EMBODIES_PRINCIPLE (incoming, ``embodying_habits``).
+
+        Every PRINCIPLES_CONFIG bucket mapped here is a list (no ``single=True`` field is
+        surfaced — ``life_path`` is single but is not part of this context).
+        """
+        return cls(
+            principle_uid=source_uid,
+            goals=[
+                PathAwareGoal.from_dict(g)
+                for g in _union_path_buckets(categorized_data, "guided_goals")
+            ],
+            choices=[
+                PathAwareChoice.from_dict(c)
+                for c in _union_path_buckets(categorized_data, "guided_choices")
+            ],
+            knowledge=[
+                PathAwareKnowledge.from_dict(k)
+                for k in _union_path_buckets(categorized_data, "grounding_knowledge")
+            ],
+            habits=[
+                PathAwareHabit.from_dict(h)
+                for h in _union_path_buckets(
+                    categorized_data, "inspired_habits", "embodying_habits"
+                )
+            ],
+        )
+
+    def _all_entities(
+        self,
+    ) -> list[PathAwareGoal | PathAwareChoice | PathAwareKnowledge | PathAwareHabit]:
+        """All connected path-aware entities across every field."""
+        return [*self.goals, *self.choices, *self.knowledge, *self.habits]
+
     @property
     def total_connections(self) -> int:
         """Total number of connected entities."""
-        return len(self.goals) + len(self.choices) + len(self.knowledge) + len(self.habits)
+        return len(self._all_entities())
+
+    def strong_connections(self, threshold: float = 0.8) -> int:
+        """Count of high-confidence connections (path_strength >= threshold)."""
+        return sum(1 for e in self._all_entities() if e.path_strength >= threshold)
+
+    def avg_strength(self) -> float:
+        """Average path strength across all connections."""
+        all_entities = self._all_entities()
+        if not all_entities:
+            return 0.0
+        return sum(e.path_strength for e in all_entities) / len(all_entities)
+
+    @property
+    def direct_goals(self) -> list[PathAwareGoal]:
+        """Direct goal connections (distance=1)."""
+        return [g for g in self.goals if g.distance == 1]
+
+    @property
+    def direct_choices(self) -> list[PathAwareChoice]:
+        """Direct choice connections (distance=1)."""
+        return [c for c in self.choices if c.distance == 1]
+
+    @property
+    def direct_knowledge(self) -> list[PathAwareKnowledge]:
+        """Direct knowledge connections (distance=1)."""
+        return [k for k in self.knowledge if k.distance == 1]
+
+    @property
+    def direct_habits(self) -> list[PathAwareHabit]:
+        """Direct habit connections (distance=1)."""
+        return [h for h in self.habits if h.distance == 1]
+
+    @property
+    def max_path_depth(self) -> int:
+        """Deepest hop across all connections (0 when there are none)."""
+        return max((e.distance for e in self._all_entities()), default=0)
 
 
 @dataclass(frozen=True)

@@ -15,16 +15,17 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel
+from core.models.graph.path_aware_types import PrincipleCrossContext
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.services.intelligence import (
     MetricsCalculator,
     PatternAnalyzer,
-    PrincipleCrossContext,
     RecommendationEngine,
     analyze_activity_trajectory,
-    calculate_principle_metrics,
+    calculate_principle_alignment_metrics,
     determine_trend_from_rate,
+    principle_recommendations,
 )
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
@@ -45,6 +46,8 @@ class _AlignmentIntelligenceMixin:
     backend: Any
     relationships: Any
     logger: Any
+    # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
+    _analyze_entity_with_typed_context: Any
 
     @requires_graph_intelligence("assess_principle_alignment")
     async def assess_principle_alignment(
@@ -67,14 +70,14 @@ class _AlignmentIntelligenceMixin:
             Result containing alignment assessment dictionary
 
         Refactoring:
-        - Uses BaseIntelligenceService._analyze_entity_with_context template
+        - Uses BaseAnalyticsService._analyze_entity_with_typed_context over the CANONICAL
+          path-aware reader (get_cross_domain_context_typed).
         """
-        # Use base class template for standardized analysis
-        analysis_result = await self._analyze_entity_with_context(  # type: ignore[attr-defined]
+        # Use base class template over the CANONICAL typed (path-aware) reader.
+        analysis_result = await self._analyze_entity_with_typed_context(
             uid=principle_uid,
-            context_type=PrincipleCrossContext,
-            metrics_fn=calculate_principle_metrics,
-            recommendations_fn=self._generate_alignment_recommendations,
+            metrics_fn=calculate_principle_alignment_metrics,
+            recommendations_fn=principle_recommendations,
             min_confidence=min_confidence,
         )
 
@@ -86,11 +89,11 @@ class _AlignmentIntelligenceMixin:
         context: PrincipleCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
-        # Extract activities from typed context
+        # Extract activities — read UIDs off the path-aware entities.
         recent_tasks: list[dict[str, Any]] = []  # Principles don't directly relate to tasks
-        recent_choices = [{"uid": uid} for uid in context.choice_uids]
-        recent_habits = [{"uid": uid} for uid in context.habit_uids]
-        guided_goals = [{"uid": uid} for uid in context.goal_uids]
+        recent_choices = [{"uid": c.uid} for c in context.choices]
+        recent_habits = [{"uid": h.uid} for h in context.habits]
+        guided_goals = [{"uid": g.uid} for g in context.goals]
 
         counts = {
             "tasks": 0,
@@ -129,45 +132,10 @@ class _AlignmentIntelligenceMixin:
                     "choice_count": metrics["choice_count"],
                     "knowledge_count": metrics["knowledge_count"],
                 },
+                # Rich path-aware additions (additive — existing keys unchanged).
+                "cascade_impact": metrics["cascade_impact"],
+                "path_aware_context": metrics["path_aware_context"],
             }
-        )
-
-    def _generate_alignment_recommendations(
-        self, _entity: Any, _context: PrincipleCrossContext, metrics: dict[str, Any]
-    ) -> list[str]:
-        """Generate recommendations for principle alignment assessment.
-
-        Uses RecommendationEngine for structured threshold-based recommendations.
-        """
-        adherence_score = metrics.get("adherence_score", 0.5)
-
-        return (
-            RecommendationEngine()
-            .with_metrics(metrics)
-            .add_conditional(
-                metrics.get("needs_attention", False),
-                f"Alignment score is low ({adherence_score:.0%}) - "
-                "consider creating goals or habits that embody this principle",
-            )
-            .add_conditional(
-                metrics.get("goal_count", 0) == 0,
-                "Create at least one goal guided by this principle",
-            )
-            .add_conditional(
-                metrics.get("habit_count", 0) == 0,
-                "Establish a daily or weekly habit that embodies this principle",
-            )
-            .add_threshold_check(
-                "total_influence_count",
-                threshold=5,
-                message="Increase activities aligned with this principle - consistency builds adherence",
-                comparison="lt",
-            )
-            .add_conditional(
-                metrics.get("strong_alignment", False),
-                "Excellent alignment! You're living this principle consistently",
-            )
-            .build()
         )
 
     # ========================================================================
