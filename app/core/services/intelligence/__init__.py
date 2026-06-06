@@ -36,6 +36,7 @@ from core.services.intelligence.metrics_calculators import (
     calculate_knowledge_metrics,
     calculate_principle_metrics,
     calculate_task_metrics,
+    goal_learning_recommendations,
     goal_recommendations,
     habit_recommendations,
 )
@@ -88,6 +89,7 @@ __all__ = [
     "calculate_knowledge_metrics",
     "calculate_principle_metrics",
     "calculate_task_metrics",
+    "goal_learning_recommendations",
     "goal_recommendations",
     "habit_recommendations",
     # consolidation: Shared helper utilities (January 2026)

@@ -372,6 +372,31 @@ def goal_recommendations(
     return recommendations
 
 
+def goal_learning_recommendations(
+    goal: Any, context: PathAwareGoalCrossContext, metrics: dict[str, Any]
+) -> list[str]:
+    """Learning-specific recommendations for the goal *learning-requirements* lens —
+    prerequisite-knowledge guidance, distinct from the progress lens's support nudges
+    (``goal_recommendations``). Mirrors the pre-convergence learning callback so the
+    ``get_goal_learning_requirements`` payload keeps its prerequisite semantics."""
+    knowledge_gap_count = metrics.get("knowledge_requirement_count", 0)
+    has_learning_paths = metrics.get("has_curriculum_alignment", False)
+
+    recommendations: list[str] = []
+    if knowledge_gap_count > 0:
+        recommendations.append(
+            f"Master {knowledge_gap_count} knowledge areas before starting this goal"
+        )
+        if not has_learning_paths:
+            recommendations.append(
+                "Create a learning path to systematically acquire required knowledge"
+            )
+    else:
+        recommendations.append("You have sufficient knowledge to begin working on this goal")
+        recommendations.append("Define required knowledge areas for better goal planning")
+    return recommendations
+
+
 def calculate_event_metrics(event: Any, context: EventCrossContext) -> dict[str, Any]:
     """
     Calculate standard metrics for event analysis.

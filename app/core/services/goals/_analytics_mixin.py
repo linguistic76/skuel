@@ -18,6 +18,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.graph.path_aware_types import GoalCrossContext
 from core.services.intelligence import (
     calculate_goal_progress_metrics,
+    goal_learning_recommendations,
     goal_recommendations,
 )
 from core.utils.decorators import requires_graph_intelligence
@@ -239,7 +240,7 @@ class _AnalyticsMixin:
         analysis_result = await self._analyze_entity_with_typed_context(
             uid,
             metrics_fn=calculate_goal_progress_metrics,
-            recommendations_fn=goal_recommendations,
+            recommendations_fn=goal_learning_recommendations,
             depth=depth,
             min_confidence=min_confidence,
         )
