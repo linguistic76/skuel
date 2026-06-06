@@ -37,12 +37,30 @@ logger = get_logger(__name__)
 _ZONE_QUERY = """
 // ── Step 1: Current zone — KUs the user has meaningfully engaged ──────────
 // Returns per-source lists for compound evidence tracking.
+// Activity→knowledge edges target :Entity nodes (ADR-046) — both atomic :Ku and
+// :PathStep. Roll up to atomic Ku grain: keep direct :Ku targets and bridge
+// :PathStep targets to the Kus they compose via TRAINS_KU|USES_KU.
 MATCH (u:User {uid: $user_uid})
-OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
-OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(applied_t:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(applied_h:Entity)
 WITH u,
-     [uid IN collect(DISTINCT ku_t.uid) WHERE uid IS NOT NULL] AS task_engaged_uids,
-     [uid IN collect(DISTINCT ku_h.uid) WHERE uid IS NOT NULL] AS habit_engaged_uids
+     collect(DISTINCT applied_t) AS task_applied_nodes,
+     collect(DISTINCT applied_h) AS habit_applied_nodes
+// GRAIN CAVEAT: engaged_uids below is atomic Ku grain — correct for current-zone
+// evidence (ZoneEvidence) and the Ku↔Ku PREREQUISITE_FOR readiness traversal.
+// The LP traversal (Step 2 path-next, Step 4 engaged_paths) matches engaged_uids
+// against (lp)-[:ORGANIZES]->(...), which is PathStep grain. That branch is DORMANT
+// today (0 learning_path nodes, 0 ORGANIZES edges live), so the grain mismatch is
+// inert. When LP/ORGANIZES data is added, carry the original activity→knowledge
+// target uids (incl. :PathStep) separately for the LP steps. (Codex P2, PR #247.)
+WITH u,
+     [n IN task_applied_nodes WHERE n:Ku | n.uid] +
+     reduce(acc = [], p IN task_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS task_engaged_raw,
+     [n IN habit_applied_nodes WHERE n:Ku | n.uid] +
+     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS habit_engaged_raw
+WITH u,
+     [uid IN task_engaged_raw WHERE uid IS NOT NULL | uid] AS task_engaged_uids,
+     [uid IN habit_engaged_raw WHERE uid IS NOT NULL | uid] AS habit_engaged_uids
 
 // Combine all engaged UIDs (deduplicated via UNWIND + DISTINCT, no APOC)
 CALL {
@@ -90,6 +108,9 @@ WITH task_engaged_uids, habit_engaged_uids,
      }) AS prereq_data
 
 // ── Step 4: Engaged Learning Paths ───────────────────────────────────────
+// GRAIN CAVEAT (see Step 1): engaged_uids is Ku grain but LPs ORGANIZE PathSteps,
+// so this matches only direct-Ku engagements. DORMANT (0 ORGANIZES edges live);
+// when LP data lands, match against the original PathStep target uids instead.
 OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[:ORGANIZES]->(step:Entity)
 WHERE step.uid IN engaged_uids
 WITH task_engaged_uids, habit_engaged_uids,
@@ -136,14 +157,23 @@ _TARGETED_KU_ENGAGEMENT_QUERY = """
 MATCH (u:User {uid: $user_uid})
 
 // Task engagement: which of the target KUs have tasks that APPLIES_KNOWLEDGE?
-OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
-WHERE ku_t.uid IN $ku_uids
-WITH u, collect(DISTINCT ku_t.uid) AS task_engaged_uids
+// Roll up to atomic Ku grain (ADR-046): direct :Ku targets + Kus composed by a
+// :PathStep target via TRAINS_KU|USES_KU. The $ku_uids filter applies to the
+// final atomic Ku uid, after the PathStep→Ku bridge.
+OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(applied_t:Entity)
+WITH u, collect(DISTINCT applied_t) AS task_applied_nodes
+WITH u,
+     [n IN task_applied_nodes WHERE n:Ku AND n.uid IN $ku_uids | n.uid] +
+     reduce(acc = [], p IN task_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE k.uid IN $ku_uids | k.uid])
+     AS task_engaged_uids
 
 // Habit engagement
-OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
-WHERE ku_h.uid IN $ku_uids
-WITH u, task_engaged_uids, collect(DISTINCT ku_h.uid) AS habit_engaged_uids
+OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(applied_h:Entity)
+WITH u, task_engaged_uids, collect(DISTINCT applied_h) AS habit_applied_nodes
+WITH u, task_engaged_uids,
+     [n IN habit_applied_nodes WHERE n:Ku AND n.uid IN $ku_uids | n.uid] +
+     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE k.uid IN $ku_uids | k.uid])
+     AS habit_engaged_uids
 
 // Submission scores for target KUs
 CALL {

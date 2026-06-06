@@ -25,9 +25,9 @@ Activity Domains remain separate dataclasses. Knowledge connections use graph ed
 | Tasks | `APPLIES_KNOWLEDGE`, `REQUIRES_KNOWLEDGE` | Applies knowledge to work; knowledge prerequisite | `tasks_service.link_task_to_knowledge()` | Implemented |
 | Goals | `REQUIRES_KNOWLEDGE` | Knowledge needed to achieve goal | `goals_service.link_goal_to_knowledge()` | Implemented |
 | Habits | `REINFORCES_KNOWLEDGE` | Strengthens knowledge through repetition | `habits_service.link_habit_to_knowledge()` | Implemented |
-| Events | `REINFORCES_KNOWLEDGE` | Practices knowledge in scheduled context | `events_service.link_event_to_knowledge()` | Implemented |
-| Choices | `INFORMS_CHOICE` | Knowledge informs decision-making | — | Not yet implemented |
-| Principles | `GROUNDED_IN_KNOWLEDGE` | Philosophical grounding in knowledge | — | Not yet implemented |
+| Events | `APPLIES_KNOWLEDGE` | Applies knowledge in scheduled context | `events_service.link_event_to_knowledge()` | Implemented |
+| Choices | `INFORMED_BY_KNOWLEDGE` | Knowledge informs decision-making | — | Implemented |
+| Principles | `GROUNDED_IN_KNOWLEDGE` | Philosophical grounding in knowledge | — | Implemented |
 
 All facade `link_*` methods delegate to `UnifiedRelationshipService` — no inline Cypher on domain backends.
 
@@ -37,14 +37,45 @@ Confidence scoring for these relationships is defined in `RelationshipStrength` 
 - `DEVELOPS_KNOWLEDGE: 0.9` (Habit develops knowledge)
 - `DEFAULT: 0.7` (generic fallback)
 
+> **Drift note:** `PRACTICES_KNOWLEDGE` / `DEVELOPS_KNOWLEDGE` are NOT the edge names the
+> registry actually writes (Events use `APPLIES_KNOWLEDGE`, Habits `REINFORCES_KNOWLEDGE` —
+> see `core/models/relationship_registry.py`). This confidence-scoring block is stale vs the
+> live registry; flagged here rather than rewritten — verify against the registry before relying
+> on these constant names.
+
 ### Relationship Targets
 
-Knowledge relationships target `:Entity` nodes — both Lessons (teaching compositions) and atomic Kus (knowledge atoms). A Task can `APPLIES_KNOWLEDGE` to a Lesson about meditation AND to an atomic Ku for "mindfulness." The graph handles this naturally.
+Knowledge relationships target `:Entity` nodes — both PathSteps (teaching compositions) and atomic Kus (knowledge atoms). A Task can `APPLIES_KNOWLEDGE` to a PathStep about meditation AND to an atomic Ku for "mindfulness." The graph handles this naturally.
+
+### Ku-grain substance derivation
+
+Substance scoring (`KuIntelligenceService.calculate_user_substance`, `PsIntelligenceService`) and ZPD
+evidence (`ZPDBackend` current-zone / engaged-uid) reason at **atomic Ku grain** — their contract is
+`activity_uid -> [ku_uid, ...]`. But an activity→knowledge edge may target a PathStep (a composition),
+not an atomic Ku. To honor the Ku-grain contract, the **read-time queries** (below the hexagonal boundary
+in `adapters/persistence/neo4j/`) roll the activity→{Ku|PathStep} relationship up to atomic Kus by
+COMPOSING it with the curriculum-internal `PathStep-[:TRAINS_KU|USES_KU]->Ku` composition:
+
+- target already `:Ku` → keep it (1-hop, still valid per *Relationship Targets* above)
+- target `:PathStep` → emit the UNION of the Kus it composes via `TRAINS_KU|USES_KU` (2-hop bridge)
+
+This does **not** contradict *Composition Relationships* below — `USES_KU`/`TRAINS_KU` remain
+curriculum-internal and unrelated to the activity-to-knowledge pattern. The reader is composing the two
+relationship **classes** at read time; neither edge changes meaning. Crediting is full credit per distinct
+composed Ku (bounded by the existing per-channel substance caps); the bridge edges carry no importance
+property, so no importance-weighting is applied. The reader services consume Ku uids unchanged — only the
+queries that feed them were corrected (they previously leaked PathStep uids into the Ku-keyed dicts, so the
+Ku-keyed `if ku_uid in ku_list` checks silently matched nothing).
+
+Sites: `user_context_queries.py` MEGA-QUERY (tasks `APPLIES_KNOWLEDGE`, habits
+`APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE`, events `APPLIES_KNOWLEDGE`, choices `INFORMED_BY_KNOWLEDGE`,
+principles `GROUNDED_IN_KNOWLEDGE`) and `zpd_backend.py` (`_ZONE_QUERY`, `_TARGETED_KU_ENGAGEMENT_QUERY`:
+task `APPLIES_KNOWLEDGE`, habit `REINFORCES_KNOWLEDGE`).
 
 ### Composition Relationships (Separate Concern)
 
-Lesson-to-Ku composition uses dedicated relationship types:
-- `(Lesson)-[:USES_KU]->(Ku)` — lesson composes atomic Kus into narrative
+PathStep-to-Ku composition uses dedicated relationship types:
+- `(PathStep)-[:USES_KU]->(Ku)` — path step composes atomic Kus into narrative
 - `(PathStep)-[:TRAINS_KU]->(Ku)` — path step trains specific Kus
 
 These are curriculum-internal and unrelated to the Activity-to-Knowledge pattern.
@@ -70,12 +101,12 @@ When modeling a new concept:
 - **Is it a stable, reusable knowledge atom?** (definable thing, no user ownership, admin-created) -> Model as `Ku`
 - **Is it a user action/plan/event that references knowledge?** (user-owned, domain-specific fields) -> Model as Activity Domain dataclass + knowledge relationship edges
 
-## Implementation: Remaining Work
+## Implementation Status
 
-1. Add `link_choice_to_knowledge()` to `ChoicesBackend` using `INFORMS_CHOICE`
-2. Add `link_principle_to_knowledge()` to `PrinciplesBackend` using `GROUNDED_IN_KNOWLEDGE`
-3. Add confidence scoring constants for Choices and Principles in `core/constants.py`
-4. Wire MEGA-QUERY Choice-to-Knowledge and Principle-to-Knowledge traversals in `user_context_queries.py`
+All six Activity Domains now link to knowledge: the MEGA-QUERY (`user_context_queries.py`) traverses
+the Choice (`INFORMED_BY_KNOWLEDGE`) and Principle (`GROUNDED_IN_KNOWLEDGE`) edges alongside Task/Habit/Event,
+and ingestion wires all six via `dsl_knowledge_connector` / the per-domain core services. The original
+"remaining work" (choice/principle backend link methods, confidence constants, MEGA-QUERY traversals) is done.
 
 ## Key Files
 
@@ -84,7 +115,8 @@ When modeling a new concept:
 - `core/models/relationship_names.py` — RelationshipName enum
 - `adapters/persistence/neo4j/backends/activity_backends.py` — Backend link methods
 - `core/constants.py` — RelationshipStrength confidence scoring
-- `core/services/user/user_context_queries.py` — MEGA-QUERY knowledge traversals
+- `adapters/persistence/neo4j/user_context_queries.py` — MEGA-QUERY knowledge traversals
+- `adapters/persistence/neo4j/zpd_backend.py` — ZPD zone / engagement Ku-grain traversals
 
 ## Related
 
