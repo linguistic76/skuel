@@ -29,6 +29,7 @@ from core.services.intelligence.metrics_calculator import MetricsCalculator
 from core.services.intelligence.metrics_calculators import (
     calculate_choice_metrics,
     calculate_event_metrics,
+    calculate_event_performance_metrics,
     calculate_goal_metrics,
     calculate_goal_progress_metrics,
     calculate_habit_integration_metrics,
@@ -84,6 +85,7 @@ __all__ = [
     # Metrics calculators
     "calculate_choice_metrics",
     "calculate_event_metrics",
+    "calculate_event_performance_metrics",
     "calculate_goal_metrics",
     "calculate_goal_progress_metrics",
     "calculate_habit_integration_metrics",
