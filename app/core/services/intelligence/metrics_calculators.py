@@ -27,6 +27,9 @@ if TYPE_CHECKING:
     from core.models.graph.path_aware_types import (
         ChoiceCrossContext as PathAwareChoiceCrossContext,
     )
+    from core.models.graph.path_aware_types import (
+        HabitCrossContext as PathAwareHabitCrossContext,
+    )
     from core.services.intelligence.cross_domain_contexts import (
         ChoiceCrossContext,
         EventCrossContext,
@@ -157,6 +160,101 @@ def calculate_habit_metrics(habit: Any, context: HabitCrossContext) -> dict[str,
         "has_prerequisites": context.has_prerequisites(),
         "integration_score": round(integration_score, 2),
     }
+
+
+# ---------------------------------------------------------------------------
+# Habits — path-aware lens over the CANONICAL typed reader
+# (get_cross_domain_context_typed → path_aware_types.HabitCrossContext).
+# Powers analyze_habit_performance / get_habit_knowledge_reinforcement /
+# get_habit_goal_support via BaseAnalyticsService._analyze_entity_with_typed_context.
+# Preserves the flat metric keys the habits behavioral-signals mixin reads
+# (has_goal_connection / is_knowledge_builder / is_principle_aligned /
+# goal_support_count / knowledge_reinforcement_count / prerequisite_habit_count /
+# integration_score) and ADDS the rich cascade_impact / path_aware_context blocks.
+# ---------------------------------------------------------------------------
+
+
+def calculate_habit_integration_metrics(
+    habit: Any, context: PathAwareHabitCrossContext
+) -> dict[str, Any]:
+    """Integration lens over the path-aware habit context: how well the habit is woven into
+    goals/knowledge/principles, plus a cascade-impact block and a path-aware rollup.
+
+    Keeps the same flat keys ``calculate_habit_metrics`` emitted (so the behavioral-signals
+    mixin's existing payload contract holds) but derives them from path-aware entities, and
+    ADDS ``cascade_impact`` (via :meth:`PathAwareAnalyzer.calculate_cascade_impact`) and
+    ``path_aware_context`` (distance/strength rollups). Knowledge/goal/principle/prerequisite
+    lists are also surfaced so consumers can read UIDs directly off path-aware entities.
+    """
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    goals = context.goals
+    knowledge = context.knowledge
+    principles = context.principles
+    prerequisites = context.prerequisites
+
+    has_goal_connection = bool(goals)
+    is_knowledge_builder = bool(knowledge)
+    is_principle_aligned = bool(principles)
+
+    integration_factors = [has_goal_connection, is_knowledge_builder, is_principle_aligned]
+    integration_score = sum(1 for f in integration_factors if f) / len(integration_factors)
+
+    cascade = PathAwareAnalyzer.calculate_cascade_impact(
+        goals=goals, knowledge=knowledge, principles=principles, habits=prerequisites
+    )
+
+    return {
+        # Flat keys preserved for the behavioral-signals payload contract.
+        "goal_support_count": len(goals),
+        "knowledge_reinforcement_count": len(knowledge),
+        "principle_alignment_count": len(principles),
+        "prerequisite_habit_count": len(prerequisites),
+        "has_goal_connection": has_goal_connection,
+        "is_knowledge_builder": is_knowledge_builder,
+        "is_principle_aligned": is_principle_aligned,
+        "has_prerequisites": bool(prerequisites),
+        "integration_score": round(integration_score, 2),
+        # Rich path-aware additions.
+        "cascade_impact": cascade,
+        "path_aware_context": {
+            "total_strong_connections": context.strong_connections(),
+            "direct_connections_count": (
+                len(context.direct_goals)
+                + len(context.direct_principles)
+                + len(context.direct_knowledge)
+                + len(context.direct_prerequisites)
+            ),
+            "max_path_depth": context.max_path_depth,
+            "avg_path_strength": context.avg_strength(),
+        },
+    }
+
+
+def habit_recommendations(
+    habit: Any, context: PathAwareHabitCrossContext, metrics: dict[str, Any]
+) -> list[str]:
+    """Path-aware recommendations for the habit lens: inline integration nudges plus the
+    analyzer's path-strength recommendations (weak/missing-direct/deep-cascade)."""
+    from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
+
+    goals = context.goals
+    knowledge = context.knowledge
+    principles = context.principles
+
+    recommendations: list[str] = []
+    if not goals:
+        recommendations.append("Link this habit to at least one supporting goal")
+    if not knowledge:
+        recommendations.append("Connect this habit to knowledge areas for learning reinforcement")
+    if not principles:
+        recommendations.append("Align this habit with your core principles")
+    recommendations.extend(
+        PathAwareAnalyzer.generate_recommendations(
+            goals=goals, knowledge=knowledge, principles=principles
+        )
+    )
+    return recommendations
 
 
 def calculate_event_metrics(event: Any, context: EventCrossContext) -> dict[str, Any]:
