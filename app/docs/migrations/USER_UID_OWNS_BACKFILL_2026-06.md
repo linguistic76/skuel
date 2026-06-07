@@ -48,10 +48,14 @@ docker exec skuel-neo4j cypher-shell -u neo4j -p "$PW" \
 ```
 
 `scripts/migrations/backfill_user_uid_to_owns_owner_2026_06.cypher` sets `e.user_uid = owner.uid` for
-every `(owner:User)-[:OWNS]->(e:Entity)` where they diverge. Idempotent (re-run is a no-op). Verify:
+every `(owner:User)-[:OWNS]->(e:Entity)` whose property diverges from — or is null for — its owner.
+The explicit `IS NULL` arm matters: `owner.uid <> null` evaluates to null and `WHERE` keeps only true
+rows, so a null property would otherwise be skipped (and the validation phase would falsely report 0).
+Idempotent (re-run is a no-op). Verify:
 
 ```cypher
-MATCH (o:User)-[:OWNS]->(e:Entity) WHERE o.uid <> e.user_uid RETURN count(e)   // expect 0
+MATCH (o:User)-[:OWNS]->(e:Entity)
+WHERE e.user_uid IS NULL OR o.uid <> e.user_uid RETURN count(e)   // expect 0
 ```
 
 Applied to the local dev DB on 2026-06-06: **11 nodes** backfilled, 0 mismatches remaining,

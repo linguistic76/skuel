@@ -10,11 +10,13 @@ property to match the :OWNS owner.
 Seeds a real Neo4j container with three node shapes and asserts:
 
 1. A diverging owned node (property ≠ owner) is rewritten so property == owner.
-2. An already-consistent owned node is left unchanged.
-3. An ownerless system catalog node (``user_system``, no :OWNS) is NOT touched —
+2. A null-property owned node is backfilled too — ``owner.uid <> null`` is null,
+   so the predicate must carry an explicit ``IS NULL`` arm or it would be skipped.
+3. An already-consistent owned node is left unchanged.
+4. An ownerless system catalog node (``user_system``, no :OWNS) is NOT touched —
    ownerless system content is legitimately system-owned.
-4. The property==:OWNS-owner invariant holds globally after the migration.
-5. Re-running the migration is a no-op (idempotent).
+5. The property==:OWNS-owner invariant holds globally after the migration.
+6. Re-running the migration is a no-op (idempotent).
 """
 
 from __future__ import annotations
@@ -64,6 +66,14 @@ async def _seed(neo4j_driver) -> None:
                 status: 'pending',
                 created_at: datetime()
             })
+            // Null property: owned by user_owns_mig but user_uid is missing
+            CREATE (n:Entity:Event {
+                uid: 'owns.mig.nullprop',
+                entity_type: 'event',
+                user_uid: null,
+                status: 'scheduled',
+                created_at: datetime()
+            })
             // Consistent: owned by user_owns_mig and property agrees
             CREATE (g:Entity:Goal {
                 uid: 'owns.mig.consistent',
@@ -81,6 +91,7 @@ async def _seed(neo4j_driver) -> None:
                 created_at: datetime()
             })
             CREATE (owner)-[:OWNS]->(t)
+            CREATE (owner)-[:OWNS]->(n)
             CREATE (owner)-[:OWNS]->(g)
             """
         )
@@ -111,28 +122,34 @@ async def test_backfill_aligns_property_to_owns_owner(
 
     # Sanity: divergence exists before migration
     assert await _prop(neo4j_driver, "owns.mig.diverging") == "user_system"
+    assert await _prop(neo4j_driver, "owns.mig.nullprop") is None
 
     await _run_migration(neo4j_driver)
 
     # 1. Diverging node rewritten to its :OWNS owner
     assert await _prop(neo4j_driver, "owns.mig.diverging") == "user_owns_mig"
 
-    # 2. Consistent node unchanged
+    # 2. Null-property owned node backfilled (explicit IS NULL arm)
+    assert await _prop(neo4j_driver, "owns.mig.nullprop") == "user_owns_mig"
+
+    # 3. Consistent node unchanged
     assert await _prop(neo4j_driver, "owns.mig.consistent") == "user_owns_mig"
 
-    # 3. Ownerless catalog node NOT touched
+    # 4. Ownerless catalog node NOT touched
     assert await _prop(neo4j_driver, "owns.mig.catalog") == "user_system"
 
-    # 4. Global invariant: no owned node's property disagrees with its owner
+    # 5. Global invariant: no owned node's property disagrees with (or is null for) its owner
     assert (
         await _count(
             neo4j_driver,
-            "MATCH (o:User)-[:OWNS]->(e:Entity) WHERE o.uid <> e.user_uid RETURN count(e)",
+            "MATCH (o:User)-[:OWNS]->(e:Entity) "
+            "WHERE e.user_uid IS NULL OR o.uid <> e.user_uid RETURN count(e)",
         )
         == 0
     )
 
-    # 5. Idempotence — re-running rewrites nothing
+    # 6. Idempotence — re-running rewrites nothing
     await _run_migration(neo4j_driver)
     assert await _prop(neo4j_driver, "owns.mig.diverging") == "user_owns_mig"
+    assert await _prop(neo4j_driver, "owns.mig.nullprop") == "user_owns_mig"
     assert await _prop(neo4j_driver, "owns.mig.catalog") == "user_system"

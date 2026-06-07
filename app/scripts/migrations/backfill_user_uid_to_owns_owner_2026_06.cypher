@@ -26,18 +26,21 @@
 
 // --------------------------------------------------------------------
 // Phase 1: Backfill — align the user_uid property to the :OWNS owner
-// for every entity whose property diverges from its owner.
+// for every entity whose property diverges from (or is missing for) its owner.
+// The explicit IS NULL case matters: `owner.uid <> null` evaluates to null, and
+// WHERE keeps only true rows — so a null property would otherwise be skipped.
 // --------------------------------------------------------------------
 MATCH (owner:User)-[:OWNS]->(e:Entity)
-WHERE owner.uid <> e.user_uid
+WHERE e.user_uid IS NULL OR owner.uid <> e.user_uid
 SET e.user_uid = owner.uid
 RETURN count(e) AS backfilled_entities;
 
 // --------------------------------------------------------------------
 // Phase 2: Validation — expected result: 0 mismatched_entities
 // Any non-zero result means an entity's :OWNS owner still disagrees with
-// its user_uid property (the invariant we enforce going forward).
+// its user_uid property (the invariant we enforce going forward). The
+// IS NULL case is counted as a mismatch for the same null-semantics reason.
 // --------------------------------------------------------------------
 MATCH (owner:User)-[:OWNS]->(e:Entity)
-WHERE owner.uid <> e.user_uid
+WHERE e.user_uid IS NULL OR owner.uid <> e.user_uid
 RETURN count(e) AS mismatched_entities;
