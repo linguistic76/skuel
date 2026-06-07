@@ -22,6 +22,7 @@ from ui.patterns.empty_state import EmptyState
 
 if TYPE_CHECKING:
     from core.models.context_types import (
+        ContextualGoal,
         CrossDomainSynergy,
         DailyWorkPlan,
         LifePathAlignment,
@@ -639,6 +640,61 @@ def _engaged_ps_section(plan: "DailyWorkPlan") -> "Div | None":
     )
 
 
+def _goal_learning_requirements_line(goal: "ContextualGoal") -> "Span | None":
+    """Render a goal's mastery-aware learning-requirements summary, or None.
+
+    Reads the ``learning_requirements`` payload that ``ContextualGoal`` now sources
+    from the single ``PrerequisiteChecker`` split (truthful against the user's
+    ``knowledge_mastery`` — see the consolidated lens). Returns None when the goal
+    requires no knowledge, so goals without prerequisites render no clutter.
+    """
+    reqs = goal.learning_requirements
+    if not reqs:
+        return None
+
+    knowledge = reqs["knowledge_requirements"]
+    if knowledge["total_required"] == 0:
+        return None
+
+    if reqs["learning_analysis"]["ready_to_start"]:
+        return Span("✓ ready to start", cls="text-xs text-success ml-2")
+
+    gaps = len(knowledge["knowledge_gaps"])
+    hours = reqs["learning_paths"]["estimated_learning_time"]
+    return Span(
+        f"{knowledge['total_mastered']}/{knowledge['total_required']} mastered "
+        f"({knowledge['mastery_percentage']:.0f}%) · "
+        f"{gaps} gap{'s' if gaps != 1 else ''} · ~{hours}h to learn",
+        cls="text-xs text-warning ml-2",
+    )
+
+
+def _goal_focus_section(plan: "DailyWorkPlan") -> "Div | None":
+    """Advancing goals with their mastery-aware learning requirements.
+
+    Surfaces what knowledge still blocks each goal the daily plan recommends
+    advancing — the production rendering of the consolidated learning-requirements
+    lens. Returns None when the plan has no contextual goals.
+    """
+    if not plan.contextual_goals:
+        return None
+
+    goal_items = [
+        Div(
+            Span("🎯", cls="mr-2"),
+            Span(getattr(g, "title", "Goal"), cls="text-sm"),
+            _goal_learning_requirements_line(g),
+            cls="flex items-center flex-wrap py-1",
+        )
+        for g in plan.contextual_goals[:3]
+    ]
+    return Div(
+        P("PRIORITY 4: Advancing goals", cls="text-xs font-bold text-muted-foreground mb-1"),
+        *goal_items,
+        cls="mb-3",
+    )
+
+
 def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
     """Daily work plan card showing today's optimal focus.
 
@@ -741,6 +797,11 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
                 cls="mb-3",
             )
         )
+
+    # Priority 4: Advancing goals + mastery-aware learning requirements
+    goal_section = _goal_focus_section(plan)
+    if goal_section is not None:
+        priority_sections.append(goal_section)
 
     # Fallback if no priorities
     if not priority_sections:
