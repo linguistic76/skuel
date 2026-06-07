@@ -86,6 +86,7 @@ class _BehavioralSignalsMixin:
             system_calculator=self._make_system_decision_quality_calculator(period_days),
             level_scorer=self._decision_quality_level_to_score,
             entity_type="user_choices",
+            require_entity=False,  # user-level: uid=user_uid, no :Entity row to fetch
             insight_generator=self._generate_choice_gap_insights,
             recommendation_generator=self._generate_choice_gap_recommendations,
         )

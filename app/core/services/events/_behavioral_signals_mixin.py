@@ -69,6 +69,7 @@ class _BehavioralSignalsMixin:
             system_calculator=self._make_system_engagement_calculator(period_days),
             level_scorer=self._engagement_level_to_score,
             entity_type="user_events",
+            require_entity=False,  # user-level: uid=user_uid, no :Entity row to fetch
             insight_generator=self._generate_event_gap_insights,
             recommendation_generator=self._generate_event_gap_recommendations,
         )
