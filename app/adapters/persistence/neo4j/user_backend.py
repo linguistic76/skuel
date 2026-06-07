@@ -249,6 +249,44 @@ class UserBackend:
             self.logger.error(f"Failed to update user: {e}")
             return Result.fail(Errors.database(operation="update_user", message=str(e)))
 
+    async def update_user_fields(self, user_uid: UserUID, fields: dict[str, Any]) -> Result[bool]:
+        """
+        Partial, field-only update of selected User properties.
+
+        Serializes only the given ``fields`` (via the shared Neo4j mapper, so a
+        ``dict`` field like ``dual_track_checkins`` becomes its JSON-string
+        property) and ``SET u += $updates``. Unlike ``update_user`` — which writes
+        the whole model and so can overwrite a concurrent profile / preferences /
+        session change with stale values — this touches nothing but the named
+        fields. Mirrors the per-entity ``backend.update(uid, {field: ...})``
+        partial-write used by the per-entity dual-track store callback.
+
+        Args:
+            user_uid: UID of the user to update.
+            fields: Domain field name -> value (serialized by the mapper).
+
+        Returns:
+            Result[bool]: True if the user existed and was updated.
+        """
+        try:
+            updates = to_neo4j_node(fields)  # dict input -> per-field serialization
+            query = f"""
+            MATCH (u:{self.label} {{uid: $uid}})
+            SET u += $updates
+            RETURN count(u) AS updated
+            """
+            async with self.driver.session() as session:
+                result = await session.run(query, {"uid": user_uid, "updates": updates})
+                record = await result.single()
+                updated = bool(record and record["updated"] > 0)
+                if not updated:
+                    return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+                return Result.ok(True)
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed to update user fields: {e}")
+            return Result.fail(Errors.database(operation="update_user_fields", message=str(e)))
+
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """
         Soft-delete the User node: mark status=DELETED, scrub PII, preserve graph.

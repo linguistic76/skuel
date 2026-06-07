@@ -98,6 +98,12 @@ class UserCrudOperations(Protocol):
         """Update user data."""
         ...
 
+    async def update_user_fields(self, user_uid: UserUID, fields: "dict[str, Any]") -> Result[bool]:
+        """Partial, field-only update — SET only the given fields, leaving every
+        other User property untouched (no whole-model write, so it cannot clobber
+        a concurrent profile/preferences/session change)."""
+        ...
+
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """Soft-delete a user: mark status=DELETED, scrub PII, preserve graph."""
         ...

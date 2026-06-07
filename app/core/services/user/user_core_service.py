@@ -323,8 +323,10 @@ class UserCoreService:
         dim_log.append(result.to_checkin_snapshot(date.today()))
         logs[dimension.value] = dim_log[-DualTrackCheckin.HISTORY_LIMIT :]
 
-        updated_user = dataclasses.replace(user, dual_track_checkins=logs)
-        update_result = await self.update_user(updated_user)
+        # Field-only write — SET only dual_track_checkins so a concurrent
+        # profile/preferences/session update isn't clobbered by a stale whole-model
+        # write. Mirrors the per-entity store callback's partial update.
+        update_result = await self.repo.update_user_fields(user_uid, {"dual_track_checkins": logs})
         if update_result.is_error:
             logger.warning(
                 "Failed to persist dual-track check-in for %s (%s): %s",
