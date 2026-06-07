@@ -619,34 +619,22 @@ class BaseAnalyticsService(Generic[B, T]):
 
         Appends the dual-track snapshot to the entity's ``dual_track_checkins``
         append-only log (Goals/Habits/Principles all share this field), capping
-        at ``DualTrackCheckin.HISTORY_LIMIT``. Writes back the single field via a
-        partial update (``SET n += {dual_track_checkins: ...}``) so no other
-        column is touched. The field is a ``tuple[dict]`` on the domain model and
-        round-trips as a JSON property (see core/utils/neo4j_mapper.py), so no
-        typed-record rehydration is required.
+        at ``DualTrackCheckin.HISTORY_LIMIT``. The append is **atomic** — the
+        read-modify-write of the JSON log runs under a Neo4j node write-lock
+        (Backend: ``UniversalNeo4jBackend.atomic_append_dual_track_checkin``), so
+        two near-simultaneous check-ins on the same entity can't lose a snapshot.
+        The field is a ``tuple[dict]`` on the domain model and round-trips as a JSON
+        property (see core/utils/neo4j_mapper.py), so no typed-record rehydration is
+        required.
 
         Replaces the per-domain ``_store_alignment_assessment`` (Principles) —
         one path forward for dual-track persistence across all three per-entity
-        domains. Safe-by-design: logs and returns on any read/write failure so a
-        persistence hiccup never fails the assessment itself.
+        domains. Safe-by-design: logs and returns on any failure so a persistence
+        hiccup never fails the assessment itself.
         """
-        entity_result = await self.backend.get(uid)  # type: ignore[attr-defined]
-        if entity_result.is_error or not entity_result.value:
-            self.logger.warning(f"Cannot store dual-track check-in: entity {uid} not found")
-            return
-
-        entity = entity_result.value
-        existing = list(getattr(entity, "dual_track_checkins", ()) or ())
-        existing.append(result.to_checkin_snapshot(date.today()))
-        capped = existing[-DualTrackCheckin.HISTORY_LIMIT :]
-        # KNOWN LIMITATION (accepted, ADR-030): Python read-modify-write of the whole
-        # check-in log — two near-simultaneous check-ins on the SAME entity can lose
-        # one snapshot (last writer wins). Bounded (one trend point), no corruption.
-        # The user-level path (UserService.append_dual_track_checkin) shares this
-        # shape; a true atomic append (native per-dimension list props covering BOTH
-        # paths) is a deferred One-Path follow-up. See ADR-030 § "Deferred — atomic
-        # check-in append".
-
-        update_result = await self.backend.update(uid, {"dual_track_checkins": capped})  # type: ignore[attr-defined]
-        if update_result.is_error:
-            self.logger.warning(f"Failed to persist dual-track check-in for {uid}: {update_result}")
+        snapshot = result.to_checkin_snapshot(date.today())
+        store_result = await self.backend.atomic_append_dual_track_checkin(  # type: ignore[attr-defined]
+            uid, snapshot, DualTrackCheckin.HISTORY_LIMIT
+        )
+        if store_result.is_error:
+            self.logger.warning(f"Failed to persist dual-track check-in for {uid}: {store_result}")

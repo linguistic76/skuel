@@ -135,20 +135,36 @@ and feed the aggregator, closing the v2 deferral:
   `UserContextBuilder` straight from the `:User` node — no second read) and merges them into the
   same `per_domain` rollup as the per-entity domains, so the synthesis spans all six.
 
-**Deferred — atomic check-in append (known concurrency limitation).** Both persistence paths —
-per-entity (`BaseAnalyticsService._store_dual_track_checkin`) and user-level
-(`UserService.append_dual_track_checkin`) — do a Python **read-modify-write** of the whole
-JSON-encoded `dual_track_checkins` log (read current → append → cap → write the field). Two
-near-simultaneous check-ins on the *same* subject (same entity, or same user for the user-level
-dims) can therefore lose one snapshot to last-writer-wins. The blast radius is small: one dropped
-trend point, no corruption, no cross-user effect, and it requires the same user/entity to be
-written twice within the same ~10ms window. A genuinely atomic append is **not** possible on the
-current single-JSON-string property (Cypher can't append inside a JSON string), so closing it means
-moving to **native per-dimension Neo4j list properties** with an atomic
-`SET u.<field> = (coalesce(u.<field>, []) + [$snapshot])[-limit..]`. To stay One-Path that refactor
-must migrate **both** the per-entity and user-level paths together — so it is deferred to a dedicated
-follow-up rather than diverging the two mechanisms here. The shipped behavior matches the per-entity
-pattern that has been live since v2 (#262).
+### Atomic check-in append (v3.1, June 2026) — concurrency race closed
+
+Both persistence paths append to a **single JSON-string property** (`dual_track_checkins`) — a flat
+`list[dict]` on per-entity subjects, a `dict[dimension -> list[dict]]` on the `:User` node. The
+append is a read-modify-write of that JSON, which two near-simultaneous appends on the *same subject*
+could otherwise race (last-writer-wins, one snapshot lost). Cypher can't append inside a JSON string,
+so the append/cap stays in Python — but the whole read-modify-write now runs **under a Neo4j node
+write-lock**, serializing concurrent same-subject appends so none is lost.
+
+- **Shared mechanism — `adapters/persistence/neo4j/_dual_track_checkin_store.py::atomic_append_checkin`.**
+  A managed write transaction whose first statement writes a sentinel property (`_dtc_lock`) to
+  acquire the node's write-lock *before* the read; a concurrent appender blocks on that lock until
+  this transaction commits, then reads the just-written value. The sentinel is removed in the same
+  transaction (never lingers). `dimension=None` → flat per-entity list; a dimension key → the
+  user-level dict-keyed log.
+
+- **Both paths route through it (One Path Forward).** Per-entity:
+  `UniversalNeo4jBackend.atomic_append_dual_track_checkin` (`_CrudMixin`), called by
+  `BaseAnalyticsService._store_dual_track_checkin`. User-level:
+  `UserBackend.atomic_append_dual_track_checkin` (dimension-keyed), called by
+  `UserService.append_dual_track_checkin`. The interim `update_user_fields` field-only writer (v3)
+  is removed — the atomic method supersedes it. The `_APPEND_ONLY_FIELDS` exclusion stays: whole-model
+  `User` writes still never touch the append-only log.
+
+- **Storage shape is unchanged** (still one JSON-string property), so the model fields, DTO/mapper
+  round-trip, trend rendering, and the cross-domain aggregator are all untouched.
+
+- **Verified on live Neo4j** with a real concurrency test: 12 overlapping appends on the same subject
+  retain all 12 (per-entity, user-level same-dimension, and user-level across 3 dimensions); a
+  no-lock negative control retains only 1/12, confirming the lock is what closes the race.
 
 **Deferred:** the Knowledge-domain dimension (below) remains future.
 

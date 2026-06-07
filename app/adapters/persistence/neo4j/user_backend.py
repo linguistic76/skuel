@@ -31,6 +31,7 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
+from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
 from core.models.enums.user_enums import UserStatus
 from core.models.type_hints import UserUID
 from core.models.user import User
@@ -41,13 +42,13 @@ from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
-# Append-only User properties that are managed EXCLUSIVELY via the field-only
-# `update_user_fields` path and must never be written by a whole-model write.
-# A full `update_user`/`create_user` serializes every field, so without this
-# guard a stale whole-model write (e.g. a preferences/session update that read
-# the user before a dual-track check-in but commits after it) would clobber the
+# Append-only User properties that are managed EXCLUSIVELY via the atomic
+# `atomic_append_dual_track_checkin` path and must never be written by a whole-model
+# write. A full `update_user`/`create_user` serializes every field, so without this
+# guard a stale whole-model write (e.g. a preferences/session update that read the
+# user before a dual-track check-in but commits after it) would clobber the
 # just-persisted log. Excluding them here makes the race impossible in BOTH
-# directions (ADR-030). See `update_user` / `update_user_fields` below.
+# directions (ADR-030). See `update_user` / `atomic_append_dual_track_checkin` below.
 _APPEND_ONLY_FIELDS: frozenset[str] = frozenset({"dual_track_checkins"})
 
 
@@ -93,8 +94,8 @@ class UserBackend:
             Result[User]: Created user or error
         """
         try:
-            # Convert User to Neo4j properties. Append-only fields are managed
-            # solely via update_user_fields, never seeded by a whole-model write.
+            # Convert User to Neo4j properties. Append-only fields are managed solely
+            # via atomic_append_dual_track_checkin, never seeded by a whole-model write.
             user_dict = {
                 k: v for k, v in to_neo4j_node(user).items() if k not in _APPEND_ONLY_FIELDS
             }
@@ -264,43 +265,51 @@ class UserBackend:
             self.logger.error(f"Failed to update user: {e}")
             return Result.fail(Errors.database(operation="update_user", message=str(e)))
 
-    async def update_user_fields(self, user_uid: UserUID, fields: dict[str, Any]) -> Result[bool]:
-        """
-        Partial, field-only update of selected User properties.
+    async def atomic_append_dual_track_checkin(
+        self,
+        user_uid: UserUID,
+        snapshot: dict[str, Any],
+        history_limit: int,
+        dimension: str,
+    ) -> Result[bool]:
+        """Atomically append a user-level dual-track check-in snapshot (ADR-030).
 
-        Serializes only the given ``fields`` (via the shared Neo4j mapper, so a
-        ``dict`` field like ``dual_track_checkins`` becomes its JSON-string
-        property) and ``SET u += $updates``. Unlike ``update_user`` — which writes
-        the whole model and so can overwrite a concurrent profile / preferences /
-        session change with stale values — this touches nothing but the named
-        fields. Mirrors the per-entity ``backend.update(uid, {field: ...})``
-        partial-write used by the per-entity dual-track store callback.
+        Node-lock-serialized so two near-simultaneous check-ins for the SAME user
+        can't lose a snapshot (the read-modify-write of the JSON ``dual_track_checkins``
+        log runs under a Neo4j node write-lock). User-level dims are keyed by
+        ``dimension`` (productivity/engagement/decision_quality) within the
+        ``dict[str, list[dict]]`` log on the ``:User`` node — concurrent appends to
+        different dimensions are still serialized on the same node, both retained.
+
+        Backend: ``_dual_track_checkin_store.atomic_append_checkin`` (dimension-keyed).
 
         Args:
-            user_uid: UID of the user to update.
-            fields: Domain field name -> value (serialized by the mapper).
+            user_uid: User UID.
+            snapshot: ``DualTrackResult.to_checkin_snapshot`` dict.
+            history_limit: Max snapshots retained per dimension (oldest dropped).
+            dimension: ``DualTrackDimension`` value the snapshot belongs to.
 
         Returns:
-            Result[bool]: True if the user existed and was updated.
+            Result[bool]: True if appended, NotFound if the user does not exist.
         """
         try:
-            updates = to_neo4j_node(fields)  # dict input -> per-field serialization
-            query = f"""
-            MATCH (u:{self.label} {{uid: $uid}})
-            SET u += $updates
-            RETURN count(u) AS updated
-            """
-            async with self.driver.session() as session:
-                result = await session.run(query, {"uid": user_uid, "updates": updates})
-                record = await result.single()
-                updated = bool(record and record["updated"] > 0)
-                if not updated:
-                    return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-                return Result.ok(True)
+            appended = await atomic_append_checkin(
+                self.driver,
+                label=self.label,
+                uid=user_uid,
+                snapshot=snapshot,
+                history_limit=history_limit,
+                dimension=dimension,
+            )
+            if not appended:
+                return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+            return Result.ok(True)
 
         except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to update user fields: {e}")
-            return Result.fail(Errors.database(operation="update_user_fields", message=str(e)))
+            self.logger.error(f"Failed to append dual-track check-in: {e}")
+            return Result.fail(
+                Errors.database(operation="atomic_append_dual_track_checkin", message=str(e))
+            )
 
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """

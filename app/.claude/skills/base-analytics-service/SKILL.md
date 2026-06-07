@@ -300,6 +300,14 @@ never fails the assessment. Two flavors, by who the assessment is about:
   (`UserContextIntelligence.get_cross_domain_perception_analysis`) reads per-entity logs via
   `find_by(user_uid=…)` and user-level logs off `context.dual_track_checkins`.
 
+**Atomic append (both paths).** The append is a read-modify-write of a single JSON-string property,
+so it runs **under a Neo4j node write-lock** to keep concurrent same-subject appends from losing a
+snapshot. Both callbacks route through one shared mechanism —
+`adapters/persistence/neo4j/_dual_track_checkin_store.py::atomic_append_checkin`, surfaced as
+`UniversalNeo4jBackend.atomic_append_dual_track_checkin` (per-entity, flat list) and
+`UserBackend.atomic_append_dual_track_checkin` (user-level, dimension-keyed). Don't reintroduce a
+plain `get()`+`update()` read-modify-write for check-ins — it reopens the lost-update race.
+
 ---
 
 ## Method Categories
