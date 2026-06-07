@@ -461,7 +461,7 @@ EventsIntelligenceService excels at **tracking how events contribute across doma
 ### Learning Practice Tracking
 
 Events serve as **practice opportunities** for knowledge application:
-- Links events to knowledge units via `PRACTICES_KNOWLEDGE` relationships
+- Links events to knowledge units via `APPLIES_KNOWLEDGE` relationships
 - Tracks `study_time_minutes` or `duration_minutes` for learning investment
 - Identifies which knowledge is being actively practiced vs. passively known
 - Supports knowledge substance philosophy (applied knowledge, not pure theory)
@@ -483,7 +483,7 @@ The batch analysis methods generate **scheduling recommendations**:
 ### Graph-Native Relationships
 
 Uses `EventRelationships.fetch()` for typed relationship access:
-- `practices_knowledge_uids` - Knowledge units practiced via `PRACTICES_KNOWLEDGE`
+- `practices_knowledge_uids` - Knowledge units practiced; written/read via `APPLIES_KNOWLEDGE` (the intent field name is retained; the shadow `PRACTICES_KNOWLEDGE` edge was collapsed in #259)
 - `executes_task_uids` - Tasks executed via event
 - `conflicts_with_uids` - Conflicting events
 - `attendee_uids` - Event attendees
