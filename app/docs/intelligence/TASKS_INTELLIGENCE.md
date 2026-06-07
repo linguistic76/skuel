@@ -2,16 +2,18 @@
 
 ## Overview
 
-**Architecture:** Shell delegates to 3 focused mixins (April 2026):
+**Architecture:** Shell delegates to 4 focused mixins (April–June 2026):
 - `_core_intelligence_mixin.py` — `get_task_with_context` (mechanism B alias)
 - `_analytics_mixin.py` (~255 lines) — `get_behavioral_insights`, completion patterns, success factors
 - `_productivity_mixin.py` (~187 lines) — `analyze_learning_patterns`, `calculate_knowledge_aware_priorities`, `generate_task_insights`, `track_knowledge_mastery_progression`
+- `_dual_track_mixin.py` — `assess_productivity_dual_track` (ADR-030 perception gap; the 6th dual-track engine, added #259)
 
 ```python
 class TasksIntelligenceService(
     _CoreIntelligenceMixin,    # get_task_with_context (mechanism B alias)
     _AnalyticsMixin,           # behavioral + performance analytics
     _ProductivityMixin,        # analytics engine delegation
+    _DualTrackMixin,           # assess_productivity_dual_track (ADR-030)
     BaseAnalyticsService["TasksOperations", Task],
 ):
     """Shell: __init__ + get_performance_analytics + get_domain_insights only."""
@@ -21,8 +23,12 @@ class TasksIntelligenceService(
 **Service Name:** `tasks.intelligence`
 **Lines:** ~265 (shell) — see mixin files above for the bulk of logic
 
-**Related sub-services (extracted March 2026):**
-- `TasksProductivityService` (`tasks_productivity_service.py`) — dual-track productivity assessment (ADR-030)
+**Dual-track productivity assessment (ADR-030):** lives in `_dual_track_mixin.py`
+(`assess_productivity_dual_track` + a real system calculator) — NOT a standalone service.
+The former `TasksProductivityService` (`tasks_productivity_service.py`) was shelved 2026-03-28
+and never existed as a live file; #259 wired the dual-track engine to `GET /self-checkin`.
+
+**Related sub-services:**
 - `ActivityKnowledgeIntelligenceService` (`/core/services/knowledge/`) — domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted from Tasks and wired into all 6 activity domain facades as `self.knowledge_intelligence`
 
 **April 2026 — symmetry refactor:** `TasksLearningMetricsService` was retired. Its two methods (`analyze_task_learning_metrics`, `generate_task_knowledge_insights`) were folded back into `TasksIntelligenceService` via `_productivity_mixin`, where they belong as task-level analytics alongside `analyze_learning_patterns` and `track_knowledge_mastery_progression`. The old name created false parity with peer domains' `*LearningService` (which handle learning-path integration, a different concern) — retiring it restores the sub-service taxonomy to a single shared meaning across all 6 Activity Domains.
@@ -241,8 +247,9 @@ Note: `ContextualTask` carries the same field, but the daily-plan UI renders it 
 
 ### Method 4: assess_productivity_dual_track() (ADR-030)
 
-> **Moved (March 2026):** This method now lives in `TasksProductivityService` (`tasks_productivity_service.py`).
-> Access via `tasks_service.productivity.assess_productivity_dual_track(...)`.
+> **Location:** `_dual_track_mixin.py` (`_DualTrackMixin`), mixed into `TasksIntelligenceService`.
+> Access via `tasks_service.intelligence.assess_productivity_dual_track(...)`. Wired to
+> `GET /self-checkin` in #259 (ADR-030 v1).
 
 **Purpose:** Compare user's self-assessed productivity level with system-measured productivity metrics, generating perception gap analysis and personalized insights.
 

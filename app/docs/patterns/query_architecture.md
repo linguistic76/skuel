@@ -700,7 +700,7 @@ All 6 Activity Domains now use intent-based graph traversal via `GraphIntelligen
 | Principles | PRINCIPLE_EMBODIMENT | How principle is LIVED | GUIDED_BY_PRINCIPLE, INSPIRES_HABIT, GUIDES_GOAL |
 | Habits | PRACTICE | Practice patterns and streaks | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, PREREQUISITE_HABIT |
 | Choices | PRINCIPLE_ALIGNMENT | Principle-guided decisions | ALIGNED_WITH_PRINCIPLE, INFORMED_BY_KNOWLEDGE, SUPPORTS_GOAL |
-| Events | SCHEDULED_ACTION | Task→Event execution context | EXECUTES_TASK, PRACTICES_KNOWLEDGE, REINFORCES_HABIT |
+| Events | SCHEDULED_ACTION | Task→Event execution context | EXECUTES_TASK, APPLIES_KNOWLEDGE, REINFORCES_HABIT |
 
 ### Architecture Pattern
 

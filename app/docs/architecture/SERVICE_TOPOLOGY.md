@@ -48,7 +48,6 @@ Services with **both** a root-level facade AND a subfolder of sub-services.
     tasks_scheduling_service.py
     tasks_planning_service.py
     tasks_ai_service.py
-    tasks_productivity_service.py
     task_relationships.py   # Relationship config (not a service)
 ```
 
@@ -250,15 +249,13 @@ TasksService (Facade)
     │   └─ Methods: create_relationship(key, …), get_related_uids(key, uid), get_with_context()
     │
     ├─ self.intelligence: TasksIntelligenceService
-    │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
-    │   ├─ Responsibility: Task-specific analytics (behavioral, performance, cross-domain context)
-    │   ├─ Methods: get_behavioral_insights(), get_performance_analytics(), get_domain_insights()
-    │   └─ NOTE: Knowledge methods extracted to ActivityKnowledgeIntelligenceService (March 2026)
-    │
-    ├─ self.productivity: TasksProductivityService
-    │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
-    │   ├─ Responsibility: Dual-track productivity assessment (ADR-030)
-    │   └─ Methods: assess_productivity_dual_track()
+    │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task] + 4 mixins
+    │   ├─ Responsibility: Task-specific analytics (behavioral, performance, cross-domain context,
+    │   │                  dual-track productivity via _DualTrackMixin)
+    │   ├─ Methods: get_behavioral_insights(), get_performance_analytics(), get_domain_insights(),
+    │   │           assess_productivity_dual_track() (ADR-030, #259)
+    │   └─ NOTE: Knowledge methods extracted to ActivityKnowledgeIntelligenceService (March 2026).
+    │           TasksProductivityService was shelved 2026-03-28 — dual-track lives in _dual_track_mixin.py
     │
     └─ self.event_handler: TaskEventHandlerService
         ├─ Extends: N/A (standalone service)
@@ -309,8 +306,10 @@ The shared `knowledge_intelligence` wiring is the first production realization o
 ActivityKnowledgeIntelligenceService (core/services/knowledge/)
 ├─ Extends: BaseAnalyticsService[Any, Entity]
 ├─ Backend: UniversalNeo4jBackend[Entity] with NeoLabel.ENTITY
-│   └─ find_by(user_uid=...) returns user-owned activity entities across all domains
-│      (shared entities lack user_uid and naturally filter out)
+│   └─ find_by(user_uid=...) matches the denormalized user_uid PROPERTY (not the :OWNS edge)
+│      across all domains (shared entities lack user_uid and naturally filter out). The
+│      property is kept aligned to the canonical (User)-[:OWNS]-> owner by the live write-paths
+│      + the 2026-06 backfill (USER_UID_OWNS_BACKFILL_2026-06.md); :OWNS is authoritative.
 ├─ Responsibility: Domain-agnostic knowledge suggestions, prerequisites, learning opportunities
 ├─ Methods: get_knowledge_suggestions(), generate_knowledge_from_entities(),
 │           get_knowledge_prerequisites(), get_learning_opportunities()

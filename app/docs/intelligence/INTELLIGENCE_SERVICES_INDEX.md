@@ -301,7 +301,7 @@ All 6 Activity Domain intelligence services implement dual-track assessment:
 | Service | Method | Level Enum | System Metrics |
 |---------|--------|------------|----------------|
 | **Principles** | `assess_alignment_dual_track()` | `AlignmentLevel` | Goal alignment, choice consistency, habit support, entity count |
-| **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | Completion rate, on-time %, overdue ratio, knowledge linking | *(`TasksProductivityService`)* |
+| **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | Completion rate, on-time %, overdue ratio, knowledge linking |
 | **Goals** | `assess_progress_dual_track()` | `ProgressLevel` | Milestone completion, habit support, on-track %, consistency |
 | **Habits** | `assess_consistency_dual_track()` | `ConsistencyLevel` | Completion rate, streak health, avg streak length, active ratio |
 | **Events** | `assess_engagement_dual_track()` | `EngagementLevel` | Attendance rate, goal support, habit reinforcement, recency |
@@ -444,7 +444,7 @@ from core.services.intelligence import (
 
 Extracted from TasksIntelligenceService (March 2026). These methods are domain-agnostic — they use `PatternAnalyzer` on entity titles and graph traversal via shared utilities. All 6 activity domains have knowledge relationships in Neo4j.
 
-**Backend:** Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries across ALL entity types. Since only user-owned activity entities have `user_uid`, shared entities (PathStep, Ku, etc.) naturally filter out from `find_by(user_uid=...)` calls. Uses `EntityStatus.COMPLETED` (not `CompletionStatus.DONE`) for completed entity queries.
+**Backend:** Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries across ALL entity types. `find_by(user_uid=...)` matches the denormalized `user_uid` PROPERTY (not the `(User)-[:OWNS]->` edge); shared entities (PathStep, Ku, etc.) lack `user_uid` and naturally filter out. The property is kept aligned to the canonical `:OWNS` owner by the live write-paths + the 2026-06 backfill (`USER_UID_OWNS_BACKFILL_2026-06.md`). Uses `EntityStatus.COMPLETED` (not `CompletionStatus.DONE`) for completed entity queries.
 
 **Pattern:** This service is the first production realization of the [Shared Signal pattern](../patterns/SHARED_SIGNAL_PATTERN.md) — cross-cutting infrastructure consulted by every Activity Domain facade via a narrow protocol + delegation mixin.
 

@@ -345,29 +345,17 @@ end_date = datetime.now()
 start_date = end_date - timedelta(days=days)
 ```
 
-### 10. Relationship Strength (`RelationshipStrength`)
+### 10. Relationship Strength — REMOVED (2026-06, #259)
 
-Default confidence for relationship types:
+The per-edge default-confidence constant class `core.constants.RelationshipStrength`
+(`APPLIES_KNOWLEDGE=0.85`, `DEVELOPS_KNOWLEDGE=0.9`, `DEFAULT=0.7`, …) was **deleted** — it
+was never imported and no writer set a `confidence` property from it. Knowledge edges are
+written without a default-confidence property.
 
-| Constant | Value | Relationship Type |
-|----------|-------|-------------------|
-| `APPLIES_KNOWLEDGE` | 0.85 | Task → Knowledge |
-| `PRACTICES_KNOWLEDGE` | 0.9 | Event → Knowledge |
-| `DEVELOPS_KNOWLEDGE` | 0.9 | Habit → Knowledge |
-| `DEFAULT` | 0.7 | Generic relationships |
-
-**Usage:**
-```python
-from core.constants import RelationshipStrength
-
-# Create relationship with default strength
-await relationship_service.create(
-    source_uid=task_uid,
-    target_uid=knowledge_uid,
-    relationship_type="APPLIES_KNOWLEDGE",
-    confidence=RelationshipStrength.APPLIES_KNOWLEDGE  # ✅ Standard strength
-)
-```
+The only live `RelationshipStrength` is the **categorical** `StrEnum` in
+`core/models/graph_context.py` (`WEAK` / `MODERATE` / `STRONG` / `CRITICAL`), used to describe
+graph-context relationships — not a float confidence. Do not import `RelationshipStrength`
+from `core.constants`.
 
 ## Migration
 

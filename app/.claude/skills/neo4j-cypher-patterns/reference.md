@@ -21,7 +21,6 @@ Relationships involving Knowledge Units (`Curriculum` nodes).
 | `REQUIRES_KNOWLEDGE` | Goal/Task | Curriculum | Entity requires this knowledge |
 | `APPLIES_KNOWLEDGE` | Task/Event | Curriculum | Entity applies this knowledge |
 | `REINFORCES_KNOWLEDGE` | Habit | Curriculum | Habit reinforces this knowledge |
-| `PRACTICES_KNOWLEDGE` | Event | Curriculum | Event practices this knowledge |
 | `GROUNDED_IN_KNOWLEDGE` | Principle | Curriculum | Principle grounded in knowledge |
 | `GROUNDS_PRINCIPLE` | Curriculum | Principle | Knowledge grounds this principle |
 | `ENABLES_KNOWLEDGE` | Curriculum | Curriculum | Enables learning this knowledge |
