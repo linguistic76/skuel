@@ -187,8 +187,10 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
         event = result.value
 
-        # GRAPH-NATIVE: Create PRACTICES_KNOWLEDGE relationships
-        # This pattern is consistent with Goals/Habits - caller handles relationships
+        # GRAPH-NATIVE: Create APPLIES_KNOWLEDGE relationships — the single
+        # event→knowledge edge (matches EVENTS_CONFIG, the MEGA-QUERY, and the
+        # link_event_to_knowledge facade). Consistent with Goals/Habits: caller
+        # handles relationships.
         if knowledge_uids and self.relationships:
             from core.models.relationship_names import RelationshipName
 
@@ -196,7 +198,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
                 await self.backend.add_relationship(
                     event.uid,
                     ku_uid,
-                    RelationshipName.PRACTICES_KNOWLEDGE,
+                    RelationshipName.APPLIES_KNOWLEDGE,
                 )
 
         # Publish CalendarEventCreated event (event-driven architecture)

@@ -424,31 +424,6 @@ class AnalysisPeriod:
 
 
 # ============================================================================
-# GRAPH RELATIONSHIP METADATA
-# ============================================================================
-
-
-class RelationshipStrength:
-    """
-    Default confidence values for different relationship types.
-
-    Used when creating semantic relationships with default metadata.
-    """
-
-    # Applied knowledge (task → knowledge)
-    APPLIES_KNOWLEDGE: Final = 0.85
-
-    # Practice/embodiment (event → knowledge)
-    PRACTICES_KNOWLEDGE: Final = 0.9
-
-    # Habit development (habit → knowledge)
-    DEVELOPS_KNOWLEDGE: Final = 0.9
-
-    # Default for generic relationships
-    DEFAULT: Final = 0.7
-
-
-# ============================================================================
 # FEEDBACK TIME PERIODS
 # ============================================================================
 
