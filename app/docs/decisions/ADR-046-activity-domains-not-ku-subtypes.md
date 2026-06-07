@@ -26,22 +26,26 @@ Activity Domains remain separate dataclasses. Knowledge connections use graph ed
 | Goals | `REQUIRES_KNOWLEDGE` | Knowledge needed to achieve goal | `goals_service.link_goal_to_knowledge()` | Implemented |
 | Habits | `REINFORCES_KNOWLEDGE` | Strengthens knowledge through repetition | `habits_service.link_habit_to_knowledge()` | Implemented |
 | Events | `APPLIES_KNOWLEDGE` | Applies knowledge in scheduled context | `events_service.link_event_to_knowledge()` | Implemented |
-| Choices | `INFORMED_BY_KNOWLEDGE` | Knowledge informs decision-making | — | Implemented |
-| Principles | `GROUNDED_IN_KNOWLEDGE` | Philosophical grounding in knowledge | — | Implemented |
+| Choices | `INFORMED_BY_KNOWLEDGE` | Knowledge informs decision-making | (written at create-time in `choices_core_service`) | Implemented |
+| Principles | `GROUNDED_IN_KNOWLEDGE` | Philosophical grounding in knowledge | `principles_service.link_principle_to_knowledge()` | Implemented |
 
 All facade `link_*` methods delegate to `UnifiedRelationshipService` — no inline Cypher on domain backends.
 
-Confidence scoring for these relationships is defined in `RelationshipStrength` in `core/constants.py`:
-- `APPLIES_KNOWLEDGE: 0.85` (Task applies knowledge)
-- `PRACTICES_KNOWLEDGE: 0.9` (Event practices knowledge)
-- `DEVELOPS_KNOWLEDGE: 0.9` (Habit develops knowledge)
-- `DEFAULT: 0.7` (generic fallback)
+**One edge per domain (single-edge convention).** Each domain writes and reads exactly the edge
+in the table above, as defined in `core/models/relationship_registry.py`. There is no separate
+"confidence scoring" constant table — the former dead `RelationshipStrength` class in
+`core/constants.py` (which named a `PRACTICES_KNOWLEDGE` / `DEVELOPS_KNOWLEDGE` that the registry
+never wrote) was deleted; the live `RelationshipStrength` is the `StrEnum` in
+`core/models/graph_context.py` (WEAK/MODERATE/STRONG/CRITICAL), unrelated to these edges.
 
-> **Drift note:** `PRACTICES_KNOWLEDGE` / `DEVELOPS_KNOWLEDGE` are NOT the edge names the
-> registry actually writes (Events use `APPLIES_KNOWLEDGE`, Habits `REINFORCES_KNOWLEDGE` —
-> see `core/models/relationship_registry.py`). This confidence-scoring block is stale vs the
-> live registry; flagged here rather than rewritten — verify against the registry before relying
-> on these constant names.
+> **Events convergence:** Event→knowledge previously had a split-brain — the study-session path
+> (`events_learning_service.create_study_session`) wrote a shadow `PRACTICES_KNOWLEDGE` edge that
+> the MEGA-QUERY never read, while the facade / registry wrote `APPLIES_KNOWLEDGE`. The
+> `PRACTICES_KNOWLEDGE` edge has been **removed entirely** (One Path Forward): every event→knowledge
+> write and read now uses `APPLIES_KNOWLEDGE` (study-session writer, askesis read-map,
+> `curriculum_backends.get_practicing_event_uids`). Existing edges are backfilled by
+> `scripts/migrations/migrate_event_practices_to_applies_knowledge_2026_06.cypher` — run it
+> **before** deploying, since the new readers match only `APPLIES_KNOWLEDGE`.
 
 ### Relationship Targets
 
@@ -114,7 +118,7 @@ and ingestion wires all six via `dsl_knowledge_connector` / the per-domain core 
 - `core/models/entity.py` — Entity base class
 - `core/models/relationship_names.py` — RelationshipName enum
 - `adapters/persistence/neo4j/backends/activity_backends.py` — Backend link methods
-- `core/constants.py` — RelationshipStrength confidence scoring
+- `core/models/relationship_registry.py` — per-domain knowledge edge definitions (single-edge convention)
 - `adapters/persistence/neo4j/user_context_queries.py` — MEGA-QUERY knowledge traversals
 - `adapters/persistence/neo4j/zpd_backend.py` — ZPD zone / engagement Ku-grain traversals
 

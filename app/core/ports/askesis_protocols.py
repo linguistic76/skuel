@@ -330,7 +330,7 @@ class AskesisDomainSynthesisOperations(Protocol):
         - Tasks (APPLIES_KNOWLEDGE)
         - Goals (REQUIRES_KNOWLEDGE)
         - Habits (REINFORCES_KNOWLEDGE)
-        - Events (PRACTICES_KNOWLEDGE)
+        - Events (APPLIES_KNOWLEDGE)
         - Choices (INFORMED_BY_KNOWLEDGE)
         - Principles (GROUNDED_IN_KNOWLEDGE)
 

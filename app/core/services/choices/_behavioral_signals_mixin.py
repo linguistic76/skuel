@@ -26,6 +26,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from core.constants import QueryLimit
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
@@ -86,6 +87,7 @@ class _BehavioralSignalsMixin:
             system_calculator=self._make_system_decision_quality_calculator(period_days),
             level_scorer=self._decision_quality_level_to_score,
             entity_type="user_choices",
+            require_entity=False,  # user-level: uid=user_uid, no :Entity row to fetch
             insight_generator=self._generate_choice_gap_insights,
             recommendation_generator=self._generate_choice_gap_recommendations,
         )
@@ -123,15 +125,22 @@ class _BehavioralSignalsMixin:
 
         evidence: list[str] = []
 
-        # Get choices for period
+        # Get choices for period — fetch the full set (find_by defaults to limit=100,
+        # so the in-memory window filter below would otherwise sample an arbitrary page).
         start_date = date.today() - timedelta(days=period_days)
-        choices_result = await self.backend.find_by(user_uid=user_uid)
+        choices_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
 
         if choices_result.is_error or not choices_result.value:
             evidence.append("No choices found in analysis period")
             return DecisionQualityLevel.STRUGGLING, 0.0, evidence
 
         all_items = choices_result.value
+        if len(all_items) >= QueryLimit.MAXIMUM:
+            self.logger.warning(
+                "Decision-quality assessment for %s capped at %d choices — score may be truncated",
+                user_uid,
+                QueryLimit.MAXIMUM,
+            )
         # Filter to Choice instances and period (using created_at)
         period_choices = [
             c

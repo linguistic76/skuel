@@ -348,6 +348,7 @@ class BaseAnalyticsService(Generic[B, T]):
         level_scorer: Callable[[L], float],
         # OPTIONAL CUSTOMIZATION
         entity_type: str = "",
+        require_entity: bool = True,
         insight_generator: Callable[[str, float, str], list[str]] | None = None,
         recommendation_generator: Callable[[str, float, Any, list[str]], list[str]] | None = None,
         store_callback: Callable[[str, Any], Awaitable[None]] | None = None,
@@ -401,8 +402,12 @@ class BaseAnalyticsService(Generic[B, T]):
             return entity_result
 
         entity = entity_result.value
-        if not entity:
+        if not entity and require_entity:
             return Result.fail(Errors.not_found(f"Entity not found: {uid}"))
+        # User-level assessments (Tasks/Events/Choices) pass uid=user_uid and have no
+        # entity row to fetch (a User node is :User, not :Entity) — proceed with
+        # entity=None. The insight/recommendation generators are None-safe and fall
+        # back to entity_type for the display label.
 
         # 2. Calculate user score from level
         user_score = level_scorer(user_level)
@@ -422,7 +427,9 @@ class BaseAnalyticsService(Generic[B, T]):
         gap, direction = self._calculate_perception_gap(user_score, system_score)
 
         # 5. Get entity name for insights
-        entity_name = getattr(entity, "name", None) or getattr(entity, "title", None) or uid
+        entity_name = (
+            getattr(entity, "name", None) or getattr(entity, "title", None) or entity_type or uid
+        )
 
         # 6. Generate insights
         if insight_generator:
