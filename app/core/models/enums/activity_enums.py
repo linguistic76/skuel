@@ -468,3 +468,28 @@ class DecisionQualityLevel(StrEnum):
             return cls.POOR
         else:
             return cls.STRUGGLING
+
+
+class DualTrackDimension(StrEnum):
+    """
+    The three *user-level* dual-track perception-gap dimensions (ADR-030).
+
+    Unlike the per-entity dimensions (Goals/Habits/Principles, keyed by the
+    entity's own UID and persisted on the entity's ``dual_track_checkins``
+    field), these assess the user across *all* their entities of a kind and
+    have no ``:Entity`` row to attach to. Their check-ins are persisted on the
+    ``User`` node, keyed by this enum's value — see ``User.dual_track_checkins``
+    and ``UserService.append_dual_track_checkin``.
+
+    The value doubles as the Self Check-In form field name and the storage key,
+    so the route, the persistence method, and the cross-domain aggregator all
+    agree on one canonical token per dimension.
+    """
+
+    PRODUCTIVITY = "productivity"  # Tasks — throughput / on-time / backlog
+    ENGAGEMENT = "engagement"  # Events — attendance / participation
+    DECISION_QUALITY = "decision_quality"  # Choices — outcome quality
+
+    def label(self) -> str:
+        """Human-readable label, e.g. ``decision_quality`` -> ``Decision Quality``."""
+        return self.value.replace("_", " ").title()

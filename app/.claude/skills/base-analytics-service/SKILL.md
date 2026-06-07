@@ -278,8 +278,27 @@ async def assess_alignment_dual_track(
         system_calculator=self._calculate_system_alignment,
         level_scorer=self._alignment_level_to_score,  # delegates to AlignmentLevel.to_score()
         entity_type=EntityType.PRINCIPLE.value,
+        store_callback=self._store_dual_track_checkin,  # per-entity persistence (ADR-030)
     )
 ```
+
+**Persistence + the per-entity / user-level split (ADR-030).** A `store_callback(uid, result)`
+runs *after* the result is built (so it sees the computed system level/score + gap, not just the
+self-rating) and is **safe-by-design** — it logs and returns on any failure so a persistence hiccup
+never fails the assessment. Two flavors, by who the assessment is about:
+
+- **Per-entity** (Goals/Habits/Principles, `require_entity=True`): callback is the canonical
+  `BaseAnalyticsService._store_dual_track_checkin`, which appends the snapshot to the *entity's*
+  `dual_track_checkins` field via `self.backend` (capped at `DualTrackCheckin.HISTORY_LIMIT`).
+- **User-level** (Tasks/Events/Choices, `require_entity=False`, `uid == user_uid`): there is no
+  `:Entity` row and the intelligence service's `self.backend` is the activity backend, not the User
+  node. So the callback is `UserService.append_dual_track_checkin(user_uid, result, *, dimension)`,
+  bound via `functools.partial(..., dimension=…)` at the route and passed in as `store_callback`.
+  It appends to `User.dual_track_checkins` (a `dict[str, list[dict]]` keyed by `DualTrackDimension`
+  value). The three user-level assess methods take an optional `store_callback` param and forward
+  it. The cross-domain aggregator
+  (`UserContextIntelligence.get_cross_domain_perception_analysis`) reads per-entity logs via
+  `find_by(user_uid=…)` and user-level logs off `context.dual_track_checkins`.
 
 ---
 

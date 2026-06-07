@@ -639,6 +639,13 @@ class BaseAnalyticsService(Generic[B, T]):
         existing = list(getattr(entity, "dual_track_checkins", ()) or ())
         existing.append(result.to_checkin_snapshot(date.today()))
         capped = existing[-DualTrackCheckin.HISTORY_LIMIT :]
+        # KNOWN LIMITATION (accepted, ADR-030): Python read-modify-write of the whole
+        # check-in log — two near-simultaneous check-ins on the SAME entity can lose
+        # one snapshot (last writer wins). Bounded (one trend point), no corruption.
+        # The user-level path (UserService.append_dual_track_checkin) shares this
+        # shape; a true atomic append (native per-dimension list props covering BOTH
+        # paths) is a deferred One-Path follow-up. See ADR-030 § "Deferred — atomic
+        # check-in append".
 
         update_result = await self.backend.update(uid, {"dual_track_checkins": capped})  # type: ignore[attr-defined]
         if update_result.is_error:

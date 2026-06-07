@@ -41,6 +41,15 @@ from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
+# Append-only User properties that are managed EXCLUSIVELY via the field-only
+# `update_user_fields` path and must never be written by a whole-model write.
+# A full `update_user`/`create_user` serializes every field, so without this
+# guard a stale whole-model write (e.g. a preferences/session update that read
+# the user before a dual-track check-in but commits after it) would clobber the
+# just-persisted log. Excluding them here makes the race impossible in BOTH
+# directions (ADR-030). See `update_user` / `update_user_fields` below.
+_APPEND_ONLY_FIELDS: frozenset[str] = frozenset({"dual_track_checkins"})
+
 
 class UserBackend:
     """
@@ -84,8 +93,11 @@ class UserBackend:
             Result[User]: Created user or error
         """
         try:
-            # Convert User to Neo4j properties
-            user_dict = to_neo4j_node(user)
+            # Convert User to Neo4j properties. Append-only fields are managed
+            # solely via update_user_fields, never seeded by a whole-model write.
+            user_dict = {
+                k: v for k, v in to_neo4j_node(user).items() if k not in _APPEND_ONLY_FIELDS
+            }
 
             query = f"""
             CREATE (u:{self.label})
@@ -225,8 +237,11 @@ class UserBackend:
                     Errors.validation(message="User must have uid", field="uid", value=None)
                 )
 
-            # Remove uid from updates (it's the match key)
-            updates = {k: v for k, v in user_dict.items() if k != "uid"}
+            # Remove uid (match key) and append-only fields (managed solely via
+            # update_user_fields — a whole-model write must never clobber them).
+            updates = {
+                k: v for k, v in user_dict.items() if k != "uid" and k not in _APPEND_ONLY_FIELDS
+            }
 
             query = f"""
             MATCH (u:{self.label} {{uid: $uid}})
@@ -248,6 +263,44 @@ class UserBackend:
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to update user: {e}")
             return Result.fail(Errors.database(operation="update_user", message=str(e)))
+
+    async def update_user_fields(self, user_uid: UserUID, fields: dict[str, Any]) -> Result[bool]:
+        """
+        Partial, field-only update of selected User properties.
+
+        Serializes only the given ``fields`` (via the shared Neo4j mapper, so a
+        ``dict`` field like ``dual_track_checkins`` becomes its JSON-string
+        property) and ``SET u += $updates``. Unlike ``update_user`` — which writes
+        the whole model and so can overwrite a concurrent profile / preferences /
+        session change with stale values — this touches nothing but the named
+        fields. Mirrors the per-entity ``backend.update(uid, {field: ...})``
+        partial-write used by the per-entity dual-track store callback.
+
+        Args:
+            user_uid: UID of the user to update.
+            fields: Domain field name -> value (serialized by the mapper).
+
+        Returns:
+            Result[bool]: True if the user existed and was updated.
+        """
+        try:
+            updates = to_neo4j_node(fields)  # dict input -> per-field serialization
+            query = f"""
+            MATCH (u:{self.label} {{uid: $uid}})
+            SET u += $updates
+            RETURN count(u) AS updated
+            """
+            async with self.driver.session() as session:
+                result = await session.run(query, {"uid": user_uid, "updates": updates})
+                record = await result.single()
+                updated = bool(record and record["updated"] > 0)
+                if not updated:
+                    return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+                return Result.ok(True)
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed to update user fields: {e}")
+            return Result.fail(Errors.database(operation="update_user_fields", message=str(e)))
 
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """
