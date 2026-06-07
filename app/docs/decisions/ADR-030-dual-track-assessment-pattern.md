@@ -135,6 +135,21 @@ and feed the aggregator, closing the v2 deferral:
   `UserContextBuilder` straight from the `:User` node — no second read) and merges them into the
   same `per_domain` rollup as the per-entity domains, so the synthesis spans all six.
 
+**Deferred — atomic check-in append (known concurrency limitation).** Both persistence paths —
+per-entity (`BaseAnalyticsService._store_dual_track_checkin`) and user-level
+(`UserService.append_dual_track_checkin`) — do a Python **read-modify-write** of the whole
+JSON-encoded `dual_track_checkins` log (read current → append → cap → write the field). Two
+near-simultaneous check-ins on the *same* subject (same entity, or same user for the user-level
+dims) can therefore lose one snapshot to last-writer-wins. The blast radius is small: one dropped
+trend point, no corruption, no cross-user effect, and it requires the same user/entity to be
+written twice within the same ~10ms window. A genuinely atomic append is **not** possible on the
+current single-JSON-string property (Cypher can't append inside a JSON string), so closing it means
+moving to **native per-dimension Neo4j list properties** with an atomic
+`SET u.<field> = (coalesce(u.<field>, []) + [$snapshot])[-limit..]`. To stay One-Path that refactor
+must migrate **both** the per-entity and user-level paths together — so it is deferred to a dedicated
+follow-up rather than diverging the two mechanisms here. The shipped behavior matches the per-entity
+pattern that has been live since v2 (#262).
+
 **Deferred:** the Knowledge-domain dimension (below) remains future.
 
 ### Future Extensions

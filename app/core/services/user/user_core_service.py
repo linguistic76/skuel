@@ -323,6 +323,15 @@ class UserCoreService:
         dim_log.append(result.to_checkin_snapshot(date.today()))
         logs[dimension.value] = dim_log[-DualTrackCheckin.HISTORY_LIMIT :]
 
+        # KNOWN LIMITATION (accepted, ADR-030): this is a Python read-modify-write of
+        # the whole JSON-encoded log, so two *same-user* self-check-ins committing in
+        # the same ~10ms window can lose one snapshot (last writer wins). Bounded —
+        # one trend point dropped, no corruption, no cross-user effect. Identical to
+        # the per-entity store callback (BaseAnalyticsService._store_dual_track_checkin),
+        # so a true atomic append (native per-dimension list props) is deferred as a
+        # cross-cutting follow-up covering BOTH paths to stay One-Path. See
+        # docs/decisions/ADR-030 § "Deferred — atomic check-in append".
+        #
         # Field-only write — SET only dual_track_checkins so a concurrent
         # profile/preferences/session update isn't clobbered by a stale whole-model
         # write. Mirrors the per-entity store callback's partial update.
