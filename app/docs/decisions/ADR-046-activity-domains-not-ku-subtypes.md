@@ -43,8 +43,9 @@ never wrote) was deleted; the live `RelationshipStrength` is the `StrEnum` in
 > the MEGA-QUERY never read, while the facade / registry wrote `APPLIES_KNOWLEDGE`. The
 > `PRACTICES_KNOWLEDGE` edge has been **removed entirely** (One Path Forward): every event→knowledge
 > write and read now uses `APPLIES_KNOWLEDGE` (study-session writer, askesis read-map,
-> `curriculum_backends.get_practicing_event_uids`). Existing edges migrated via
-> `MATCH (e:Event)-[r:PRACTICES_KNOWLEDGE]->(k:Entity) MERGE (e)-[:APPLIES_KNOWLEDGE]->(k) DELETE r`.
+> `curriculum_backends.get_practicing_event_uids`). Existing edges are backfilled by
+> `scripts/migrations/migrate_event_practices_to_applies_knowledge_2026_06.cypher` — run it
+> **before** deploying, since the new readers match only `APPLIES_KNOWLEDGE`.
 
 ### Relationship Targets
 
