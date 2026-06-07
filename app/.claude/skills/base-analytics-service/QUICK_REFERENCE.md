@@ -170,10 +170,18 @@ async def _dual_track_assessment(
     entity_type: str = "",
     insight_generator: Callable[[str, float, str], list[str]] | None = None,
     recommendation_generator: Callable[[str, float, Any, list[str]], list[str]] | None = None,
-    store_callback: Callable[[str, Any], Awaitable[None]] | None = None,
+    require_entity: bool = True,  # False for user-level dims (uid=user_uid, no :Entity row)
+    # store_callback receives the BUILT DualTrackResult (incl. system level/score + gap),
+    # invoked after the result is built. Canonical impl: _store_dual_track_checkin (ADR-030).
+    store_callback: Callable[[str, "DualTrackResult[L]"], Awaitable[None]] | None = None,
 ) -> Result[DualTrackResult[L]]:
     """Template for dual-track assessment (vision vs action)."""
 ```
+
+**Per-entity persistence (ADR-030):** Goals/Habits/Principles pass
+`store_callback=self._store_dual_track_checkin` — the base helper appends the snapshot to the
+entity's `dual_track_checkins` (`tuple[dict]`) log. `UserContextIntelligence`
+`.get_cross_domain_perception_analysis()` reads those check-ins across domains.
 
 ---
 

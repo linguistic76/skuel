@@ -105,6 +105,9 @@ class HabitDTO(UserOwnedDTO):
     reminder_days: list[str] = field(default_factory=list)
     reminder_enabled: bool = False
 
+    # Dual-track perception-gap check-ins (ADR-030).
+    dual_track_checkins: list[dict[str, Any]] = field(default_factory=list)
+
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
@@ -204,7 +207,7 @@ class HabitDTO(UserOwnedDTO):
                 "started_at",
                 "completed_at",
             ],
-            list_fields=["tags", "reminder_days"],
+            list_fields=["tags", "reminder_days", "dual_track_checkins"],
             dict_fields=["metadata"],
         )
 
@@ -262,6 +265,7 @@ class HabitDTO(UserOwnedDTO):
                 "reminder_time",
                 "reminder_days",
                 "reminder_enabled",
+                "dual_track_checkins",
                 "source_path_step_uid",
                 "curriculum_practice_type",
                 "engagement_state",

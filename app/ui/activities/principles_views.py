@@ -23,9 +23,11 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon
 
+from core.models.enums.principle_enums import AlignmentLevel
 from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
+from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.palette import StrengthColor
@@ -383,6 +385,16 @@ def PrincipleDetailView(
     if connections:
         conn_section = PrincipleConnectionsSection(connections)
 
+    # Dual-track self-assessment (perception gap + trend) — ADR-030
+    dual_track_section = DualTrackSection(
+        domain="principles",
+        entity_uid=principle.uid,
+        level_enum=AlignmentLevel,
+        label="Alignment",
+        prompt="How well do you feel you're living by this principle?",
+        checkins=principle.dual_track_checkins,
+    )
+
     # Lateral relationships
     relationships = EntityRelationshipsSection(
         entity_uid=principle.uid,
@@ -403,6 +415,7 @@ def PrincipleDetailView(
         meta_grid,
         tags_el,
         conn_section,
+        dual_track_section,
         relationships,
         size="3xl",
     )

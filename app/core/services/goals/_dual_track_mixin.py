@@ -34,7 +34,9 @@ class _DualTrackMixin:
     # Populated by GoalsIntelligenceService.__init__
     backend: Any
     logger: Any
+    # Provided by BaseAnalyticsService on the composed service.
     _dual_track_assessment: Any
+    _store_dual_track_checkin: Any
 
     async def assess_progress_dual_track(
         self,
@@ -63,6 +65,7 @@ class _DualTrackMixin:
             entity_type="goal",
             insight_generator=self._generate_progress_gap_insights,
             recommendation_generator=self._generate_progress_gap_recommendations,
+            store_callback=self._store_dual_track_checkin,
         )
 
     async def _calculate_system_progress(

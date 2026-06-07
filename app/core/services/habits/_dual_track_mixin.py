@@ -39,6 +39,8 @@ class _DualTrackMixin:
     relationships: Any
     cross_domain_query: CrossDomainQueryService
     logger: Any
+    # Provided by BaseAnalyticsService on the composed service.
+    _store_dual_track_checkin: Any
 
     async def assess_consistency_dual_track(
         self,
@@ -94,6 +96,7 @@ class _DualTrackMixin:
             entity_type="habit",
             insight_generator=self._generate_consistency_gap_insights,
             recommendation_generator=self._generate_consistency_gap_recommendations,
+            store_callback=self._store_dual_track_checkin,
         )
 
     async def _calculate_system_consistency(
