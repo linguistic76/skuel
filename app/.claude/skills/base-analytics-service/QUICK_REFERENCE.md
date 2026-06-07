@@ -9,7 +9,7 @@
 | `/core/services/base_analytics_service.py` | Base class (~608 lines) |
 | `/core/services/base_ai_service.py` | AI base class (separate skill) |
 | `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations + DomainIntelligenceOperations + composed IntelligenceOperations |
-| `/core/services/intelligence/graph_context_loader.py` | GraphContextLoader |
+| `/core/services/intelligence/_core_intelligence_mixin.py` | `_CoreIntelligenceMixin[T]` — shared `get_with_context()` (mechanism B) |
 | `/core/services/intelligence/recommendation_engine.py` | RecommendationEngine utility |
 | `/core/services/intelligence/metrics_calculator.py` | MetricsCalculator utility |
 | `/core/services/intelligence/pattern_analyzer.py` | PatternAnalyzer utility |
@@ -56,11 +56,12 @@ from core.ports.intelligence_protocols import (
 )
 ```
 
-### Context Loader
+### Cross-domain context (mechanism B)
 ```python
-# Wired automatically by self._init_context_loader(...) in __init__.
-# Direct import only needed for type annotations:
-from core.services.intelligence.graph_context_loader import GraphContextLoader
+# get_with_context() is inherited from _CoreIntelligenceMixin[T] — no wiring.
+# It routes through self.relationships.get_with_context (registry-sourced edges).
+from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
+# GraphContextLoader / _init_context_loader / self.context_loader were deleted (#241).
 ```
 
 ### Shared Utilities
@@ -215,9 +216,8 @@ async def get_domain_insights(
 | `relationships` | `UnifiedRelationshipService` | Yes | Relationships |
 | `event_bus` | `EventBus` | Yes | Event publishing |
 | `logger` | `Logger` | No | Hierarchical logger |
-| `context_loader` | `GraphContextLoader \| None` | Yes* | Context retrieval (set via `self._init_context_loader(...)`) |
 
-*`context_loader` is created only if `graph_intel` is provided. Call `self._init_context_loader(...)` from `__init__` — it no-ops when `graph_intel` is None.
+Cross-domain context retrieval uses `self.relationships` (mechanism B); `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]`. The former `context_loader` attribute / `_init_context_loader(...)` wiring was deleted (#241).
 
 ---
 
