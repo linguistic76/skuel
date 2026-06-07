@@ -17,6 +17,14 @@ Cypher can't append inside a JSON string, so the append/cap happens in Python be
 the locked read and the write — but always under the lock, so it is serialized. Both
 store callbacks route through here so the per-entity and user-level paths share one
 mechanism (One Path Forward). See docs/decisions/ADR-030.
+
+Uses an **explicit transaction (no managed auto-retry)** deliberately: the append is
+not idempotent (it blindly appends ``snapshot``), so a managed ``execute_write`` retry
+after an unknown commit outcome could duplicate a check-in. An explicit transaction is
+at-most-once — a rare transient failure surfaces as an error the (safe-by-design) store
+callback swallows, losing that one check-in rather than duplicating it. Losing a check-in
+is already within the persistence contract; duplicating one (skewed trends, wasted history
+slots) is not.
 """
 
 from __future__ import annotations
@@ -25,8 +33,10 @@ import json
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
+
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver, AsyncManagedTransaction
+    from neo4j import AsyncDriver
 
 
 def _apply_append(
@@ -77,7 +87,7 @@ async def atomic_append_checkin(
     lock_token = uuid4().hex
     # Statement 1 acquires the node write-lock (a real property write) *before* the
     # read, so a concurrent appender blocks here until we commit. Statement 2 writes
-    # the new log and drops the sentinel — both inside one managed transaction.
+    # the new log and drops the sentinel — both inside one explicit transaction.
     read_q = (
         f"MATCH (n:{label} {{uid: $uid}}) "
         "SET n._dtc_lock = $token "
@@ -85,16 +95,18 @@ async def atomic_append_checkin(
     )
     write_q = f"MATCH (n:{label} {{uid: $uid}}) SET n.dual_track_checkins = $val REMOVE n._dtc_lock"
 
-    async def _txn(tx: AsyncManagedTransaction) -> bool:
-        result = await tx.run(read_q, uid=uid, token=lock_token)
-        record = await result.single()
-        if record is None:
-            return False
-        new_value = _apply_append(record["raw"], snapshot, history_limit, dimension)
-        await tx.run(write_q, uid=uid, val=new_value)
-        return True
-
     async with driver.session() as session:
-        # execute_write is typed Any in the driver stubs; _txn returns bool.
-        appended: bool = await session.execute_write(_txn)
-        return appended
+        tx = await session.begin_transaction()
+        try:
+            result = await tx.run(read_q, uid=uid, token=lock_token)
+            record = await result.single()
+            if record is None:
+                await tx.rollback()
+                return False
+            new_value = _apply_append(record["raw"], snapshot, history_limit, dimension)
+            await tx.run(write_q, uid=uid, val=new_value)
+            await tx.commit()
+            return True
+        except NEO4J_EXCEPTIONS:
+            await tx.rollback()
+            raise

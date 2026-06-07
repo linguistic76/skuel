@@ -145,11 +145,15 @@ so the append/cap stays in Python — but the whole read-modify-write now runs *
 write-lock**, serializing concurrent same-subject appends so none is lost.
 
 - **Shared mechanism — `adapters/persistence/neo4j/_dual_track_checkin_store.py::atomic_append_checkin`.**
-  A managed write transaction whose first statement writes a sentinel property (`_dtc_lock`) to
+  An **explicit** write transaction whose first statement writes a sentinel property (`_dtc_lock`) to
   acquire the node's write-lock *before* the read; a concurrent appender blocks on that lock until
   this transaction commits, then reads the just-written value. The sentinel is removed in the same
   transaction (never lingers). `dimension=None` → flat per-entity list; a dimension key → the
-  user-level dict-keyed log.
+  user-level dict-keyed log. Explicit (not managed `execute_write`) **on purpose**: the append isn't
+  idempotent, so a managed auto-retry after an unknown commit outcome could duplicate a check-in. An
+  explicit transaction is at-most-once — a rare transient failure surfaces as an error the
+  safe-by-design store callback swallows (one check-in lost, never duplicated), which is already
+  within the persistence contract.
 
 - **Both paths route through it (One Path Forward).** Per-entity:
   `UniversalNeo4jBackend.atomic_append_dual_track_checkin` (`_CrudMixin`), called by
