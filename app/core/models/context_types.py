@@ -64,6 +64,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import EntityUID
 
 if TYPE_CHECKING:
+    from core.services.infrastructure.prerequisite_checker import LearningRequirements
     from core.services.ps_engagement.engagement import Engagement
     from core.services.user.unified_user_context import UserContext
 
@@ -71,41 +72,6 @@ if TYPE_CHECKING:
 # =============================================================================
 # SCORING ENGINE - Pure Functions for Contextual Entity Scoring
 # =============================================================================
-
-
-def _compute_readiness(
-    required_knowledge: list[str],
-    required_tasks: list[str],
-    knowledge_mastery: dict[str, float],
-    completed_task_uids: set[str] | list[str],
-    threshold: float = 0.7,
-) -> float:
-    """
-    Calculate readiness score based on prerequisites met.
-
-    Args:
-        required_knowledge: Knowledge prerequisite UIDs
-        required_tasks: Task prerequisite UIDs
-        knowledge_mastery: Map of ku_uid -> mastery level (0.0-1.0)
-        completed_task_uids: Set of completed task UIDs
-        threshold: Minimum mastery to consider "met"
-
-    Returns:
-        Score from 0.0 (no prerequisites met) to 1.0 (all met)
-    """
-    total = len(required_knowledge) + len(required_tasks)
-    if total == 0:
-        return 1.0
-
-    met = 0
-    for ku_uid in required_knowledge:
-        if knowledge_mastery.get(ku_uid, 0.0) >= threshold:
-            met += 1
-    for task_uid in required_tasks:
-        if task_uid in completed_task_uids:
-            met += 1
-
-    return met / total
 
 
 def _compute_relevance(
@@ -210,44 +176,6 @@ def _compute_priority(
         Combined priority score, capped at 1.0
     """
     return min(1.0, sum(d * w for d, w in zip(dimensions, weights, strict=False)))
-
-
-def _compute_blocking_reasons(
-    required_knowledge: list[str],
-    required_tasks: list[str],
-    knowledge_mastery: dict[str, float],
-    completed_task_uids: set[str] | list[str],
-    max_reasons: int = 3,
-) -> list[str]:
-    """
-    Identify reasons blocking engagement with an entity.
-
-    Args:
-        required_knowledge: Knowledge prerequisite UIDs
-        required_tasks: Task prerequisite UIDs
-        knowledge_mastery: Map of ku_uid -> mastery level
-        completed_task_uids: Set of completed task UIDs
-        max_reasons: Maximum reasons to return
-
-    Returns:
-        List of blocking reason strings
-    """
-    reasons: list[str] = []
-
-    for ku_uid in required_knowledge:
-        mastery = knowledge_mastery.get(ku_uid, 0.0)
-        if mastery < 0.7:
-            reasons.append(f"Missing knowledge: {ku_uid} (mastery: {mastery:.0%})")
-            if len(reasons) >= max_reasons:
-                return reasons
-
-    for task_uid in required_tasks:
-        if task_uid not in completed_task_uids:
-            reasons.append(f"Incomplete prerequisite: {task_uid}")
-            if len(reasons) >= max_reasons:
-                return reasons
-
-    return reasons
 
 
 # =============================================================================
@@ -371,6 +299,12 @@ class ContextualTask(ContextualEntity):
     dependency_count: int = 0
     dependent_count: int = 0  # Tasks waiting on this one
 
+    # Mastery-aware learning-requirements payload (REQUIRES_KNOWLEDGE domains only).
+    # Built from the SAME PrerequisiteChecker split that drives readiness/gaps, via
+    # build_learning_requirements — the single source of mastery-gap truth. None when
+    # the task requires no knowledge. See: _shared lens (Goal + Task), PR #254.
+    learning_requirements: "LearningRequirements | None" = None
+
     @classmethod
     def from_entity_and_context(
         cls,
@@ -395,22 +329,31 @@ class ContextualTask(ContextualEntity):
 
         Standard path: readiness from prerequisites, relevance from goals,
         urgency from deadline/overdue, priority from weighted sum.
+
+        Readiness, ``can_start``, ``blocking_reasons`` and ``learning_gaps`` all
+        derive from a SINGLE ``PrerequisiteChecker.check_prerequisites`` split (the
+        one mastery-gap source); the richer ``learning_requirements`` display payload
+        comes from ``build_learning_requirements``, which delegates to the same split.
         """
+        from core.services.infrastructure.prerequisite_checker import (
+            PrerequisiteChecker,
+            build_learning_requirements,
+        )
+
         req_knowledge = prerequisite_knowledge or []
         req_tasks = prerequisite_tasks or []
         goals = goal_uids or []
         applies_ku = knowledge_uids or []
 
-        readiness = (
-            readiness_override
-            if readiness_override is not None
-            else _compute_readiness(
-                req_knowledge,
-                req_tasks,
-                context.knowledge_mastery,
-                context.completed_task_uids,
-            )
+        # Single source of mastery-gap truth — readiness, gaps, and blocking
+        # reasons all come from this one check (incl. task prerequisites).
+        check = PrerequisiteChecker.check_prerequisites(
+            required_knowledge_uids=req_knowledge,
+            required_task_uids=req_tasks,
+            context=context,
         )
+
+        readiness = readiness_override if readiness_override is not None else check.score
         relevance = (
             relevance_override
             if relevance_override is not None
@@ -441,11 +384,12 @@ class ContextualTask(ContextualEntity):
                 weights,
             )
         )
-        blocking = _compute_blocking_reasons(
-            req_knowledge,
-            req_tasks,
-            context.knowledge_mastery,
-            context.completed_task_uids,
+
+        # Rich display payload (knowledge-only) from the same split source.
+        learning_requirements = build_learning_requirements(
+            required_knowledge_uids=req_knowledge,
+            learning_path_uids=[],
+            context=context,
         )
 
         return cls(
@@ -454,8 +398,12 @@ class ContextualTask(ContextualEntity):
             readiness_score=readiness,
             relevance_score=relevance,
             priority_score=priority,
+            # can_start tracks the EFFECTIVE readiness (honours readiness_override),
+            # unchanged from before; gaps/blocking come from the real prerequisite check.
             can_start=readiness >= 0.7,
-            blocking_reasons=tuple(blocking),
+            blocking_reasons=check.blocking_reasons,
+            learning_gaps=check.missing_knowledge,
+            learning_requirements=learning_requirements,
             contributes_to_goals=tuple(goals),
             applies_knowledge=tuple(applies_ku),
             is_overdue=is_overdue,
@@ -481,6 +429,7 @@ class ContextualTask(ContextualEntity):
                 "is_milestone": self.is_milestone,
                 "dependency_count": self.dependency_count,
                 "dependent_count": self.dependent_count,
+                "learning_requirements": self.learning_requirements,
             }
         )
         return base
@@ -640,6 +589,12 @@ class ContextualGoal(ContextualEntity):
     milestone_count: int = 0
     milestones_completed: int = 0
 
+    # Mastery-aware learning-requirements payload (REQUIRES_KNOWLEDGE domains only).
+    # Built from the SAME PrerequisiteChecker split that drives readiness/gaps, via
+    # build_learning_requirements — the single source of mastery-gap truth. None when
+    # the goal requires no knowledge. See: _shared lens (Goal + Task), PR #254.
+    learning_requirements: "LearningRequirements | None" = None
+
     @classmethod
     def from_entity_and_context(
         cls,
@@ -661,23 +616,31 @@ class ContextualGoal(ContextualEntity):
 
         Standard path: 4D — readiness from knowledge prereqs, relevance from
         active+primary focus, progress from context, urgency from deadline/at-risk.
+
+        Readiness and ``learning_gaps`` derive from a SINGLE
+        ``PrerequisiteChecker.check_prerequisites`` split (the one mastery-gap source);
+        the richer ``learning_requirements`` display payload comes from
+        ``build_learning_requirements``, which delegates to the same split.
         """
+        from core.services.infrastructure.prerequisite_checker import (
+            PrerequisiteChecker,
+            build_learning_requirements,
+        )
+
         tasks = contributing_task_uids or []
         habits = contributing_habit_uids or []
         knowledge = required_knowledge_uids or []
 
         progress = context.goal_progress.get(uid, 0.0)
 
-        readiness = (
-            readiness_override
-            if readiness_override is not None
-            else _compute_readiness(
-                knowledge,
-                [],
-                context.knowledge_mastery,
-                context.completed_task_uids,
-            )
+        # Single source of mastery-gap truth (goals gate on knowledge only).
+        check = PrerequisiteChecker.check_prerequisites(
+            required_knowledge_uids=knowledge,
+            required_task_uids=[],
+            context=context,
         )
+
+        readiness = readiness_override if readiness_override is not None else check.score
         relevance = (
             relevance_override
             if relevance_override is not None
@@ -706,7 +669,12 @@ class ContextualGoal(ContextualEntity):
             dims = (readiness, relevance, progress, urgency)
             priority = _compute_priority(dims[: len(weights)], weights)
 
-        learning_gaps = [ku for ku in knowledge if context.knowledge_mastery.get(ku, 0.0) < 0.7]
+        # Rich display payload from the same split source.
+        learning_requirements = build_learning_requirements(
+            required_knowledge_uids=knowledge,
+            learning_path_uids=[],
+            context=context,
+        )
 
         return cls(
             uid=uid,
@@ -718,7 +686,8 @@ class ContextualGoal(ContextualEntity):
             contributing_tasks=tuple(tasks),
             contributing_habits=tuple(habits),
             knowledge_required=tuple(knowledge),
-            learning_gaps=tuple(learning_gaps[:5]),
+            learning_gaps=check.missing_knowledge[:5],
+            learning_requirements=learning_requirements,
             days_to_deadline=days_to_deadline,
             is_at_risk=is_at_risk,
         )
@@ -750,6 +719,7 @@ class ContextualGoal(ContextualEntity):
                 "milestones_completed": self.milestones_completed,
                 "is_near_completion": self.is_near_completion(),
                 "is_stalled": self.is_stalled(),
+                "learning_requirements": self.learning_requirements,
             }
         )
         return base
@@ -1639,12 +1609,12 @@ class ScheduleAwareRecommendation:
 # =============================================================================
 
 __all__ = [
-    # Scoring engine
-    "_compute_readiness",
+    # Scoring engine (readiness / gaps / blocking now sourced from
+    # PrerequisiteChecker — the single mastery-split source; see ContextualTask /
+    # ContextualGoal factories)
     "_compute_relevance",
     "_compute_urgency",
     "_compute_priority",
-    "_compute_blocking_reasons",
     # Base types
     "ContextualEntity",
     # Domain contextual types
