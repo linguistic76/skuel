@@ -39,11 +39,11 @@ EventsIntelligenceService analyzes events through cross-domain impact tracking, 
 
 ## Core Methods
 
-**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via `self.context_loader` (set by `BaseAnalyticsService._init_context_loader`). The Events `_CoreIntelligenceMixin` (in `core/services/events/`) extends this shared base and adds `get_event_with_context` and `analyze_event_performance`.
+**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via **mechanism B**: it routes through `self.relationships.get_with_context`, whose edge vocabulary comes from `DomainConfig.cross_domain_relationship_types` (the registry). `BaseAnalyticsService.__init__` stores the injected relationship service on `self.relationships` — there is no loader to wire (`GraphContextLoader` / `_init_context_loader` / `self.context_loader` were deleted in #241). The Events `_CoreIntelligenceMixin` (in `core/services/events/`) extends this shared base and adds `get_event_with_context` and `analyze_event_performance`.
 
 ### Method 1: get_event_with_context()
 
-**Purpose:** Get event with full graph context using pure Cypher graph intelligence. Single query retrieves event entity plus supporting goals, reinforcing habits, related knowledge units, learning path connections, and semantic relationships.
+**Purpose:** Domain-named alias for the inherited `get_with_context()` (mechanism B) — delegates straight to it. Returns the event entity plus supporting goals, reinforcing habits, related knowledge units, learning path connections, and semantic relationships, with the traversed edge vocabulary sourced from `DomainConfig.cross_domain_relationship_types`.
 
 **Signature:**
 ```python
@@ -83,8 +83,8 @@ if result.is_ok:
 ```
 
 **Dependencies:**
-- GraphIntelligenceService (REQUIRED - fails with system error if not available)
-- Uses `graph_intel.get_entity_context()` for pure Cypher traversal
+- GraphIntelligenceService (REQUIRED — `get_with_context` is gated by `@requires_graph_intelligence`; fails with a system error if not available)
+- Relationship service (`self.relationships`) — mechanism B routes through `self.relationships.get_with_context`
 
 ---
 

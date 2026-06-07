@@ -1,6 +1,6 @@
 ---
 name: base-analytics-service
-description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations/DomainIntelligenceOperations/IntelligenceOperations protocols, using GraphContextLoader, or working with the 9 domain intelligence services.
+description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations/DomainIntelligenceOperations/IntelligenceOperations protocols, cross-domain context retrieval (mechanism B / get_with_context), or working with the 9 domain intelligence services.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -147,7 +147,6 @@ After `super().__init__()`, these attributes are available:
 | `self.event_bus` | `EventBus \| None` | Event publishing |
 | `self.insight_store` | `InsightStore \| None` | Event-driven insight persistence |
 | `self.logger` | `Logger` | Hierarchical logger |
-| `self.context_loader` | `GraphContextLoader \| None` | Context retrieval (set via `self._init_context_loader(...)`) |
 
 ---
 
@@ -443,37 +442,43 @@ async def get_domain_insights(
 
 ---
 
-## GraphContextLoader
+## Cross-domain context (mechanism B)
 
-Each analytics service uses `GraphContextLoader` (in `core/services/intelligence/graph_context_loader.py`) for unified context retrieval. Services never import it directly — they call the `self._init_context_loader(...)` helper on `BaseAnalyticsService`, which no-ops when `graph_intel` is `None` and constructs the loader otherwise, storing it on `self.context_loader`.
+> **Deleted (intent-traversal ↔ registry convergence, #241):** `GraphContextLoader`,
+> `self._init_context_loader(...)`, and the `self.context_loader` attribute no longer
+> exist. Context retrieval is now **mechanism B** (registry-sourced) — no per-service
+> wiring. See `/docs/roadmap/intent-traversal-registry-convergence.md`.
+
+`get_with_context()` is provided by the shared `_CoreIntelligenceMixin[T]`
+(`core/services/intelligence/_core_intelligence_mixin.py`), which routes through
+`self.relationships.get_with_context` — whose edge vocabulary comes from the domain's
+`DomainConfig.cross_domain_relationship_types` (the registry, the single source of
+truth). `BaseAnalyticsService.__init__` stores the injected relationship service on
+`self.relationships`; there is nothing to wire.
 
 ```python
 class TasksIntelligenceService(
-    _CoreIntelligenceMixin,  # inherits get_with_context() — typed via per-domain wrapper
+    _CoreIntelligenceMixin[Task],  # inherits get_with_context() — typed in the domain model
     BaseAnalyticsService["TasksOperations", Task],
 ):
     def __init__(self, backend, graph_intel=None, ...):
         super().__init__(backend, graph_intel, ...)
-
-        self._init_context_loader(
-            get_entity=self.backend.get_task,
-            dto_class=TaskDTO,
-            model_class=Task,
-            domain=Domain.TASKS,
-            model_name="Task",
-        )
-    # get_with_context() is inherited — no override needed.
+    # get_with_context() is inherited — no override, no loader wiring needed.
 ```
 
 `_CoreIntelligenceMixin[T]` is generic: PS, LP, and KU inherit it directly
 (`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[LearningPath]`,
-`_CoreIntelligenceMixin[Ku]`) and get a typed
-`Result[tuple[T, GraphContext]]` return with no per-domain wrapper. Activity
-domains use their package's `_CoreIntelligenceMixin` wrapper (which extends
-the shared base) because they also expose a domain-named alias
-(e.g. `get_goal_with_context`). No service needs to special-case the
-`_init_context_loader` call — `BaseAnalyticsService` fail-fasts on a missing
-backend, so the loader wiring is unconditional.
+`_CoreIntelligenceMixin[Ku]`) and get a typed `Result[tuple[T, GraphContext]]`
+return. Activity domains use their package's `_CoreIntelligenceMixin` wrapper
+(which extends the shared base) because they also expose a domain-named alias
+(e.g. `get_goal_with_context`).
+
+For cross-domain **analysis** (metrics + recommendations), use the template method
+`BaseAnalyticsService._analyze_entity_with_typed_context(uid, metrics_fn, recommendations_fn)`,
+which sources the canonical typed, path-aware context from
+`UnifiedRelationshipService.get_cross_domain_context_typed` and is built per-domain via
+`{Domain}CrossContext.from_categorized` (`core/models/graph/path_aware_types.py`). All
+6 activity domains run on it.
 
 ---
 
@@ -569,14 +574,8 @@ class NewDomainIntelligenceService(
             event_bus=event_bus,
             insight_store=insight_store,
         )
-
-        self._init_context_loader(
-            get_entity=self.backend.get,
-            dto_class=NewDomainDTO,
-            model_class=NewDomainModel,
-            domain=Domain.NEW_DOMAIN,
-            model_name="NewDomainModel",
-        )
+        # get_with_context() is inherited from _CoreIntelligenceMixin[NewDomainModel]
+        # via mechanism B (self.relationships.get_with_context) — no wiring needed.
 ```
 
 ### Step 2: Implement Protocol Methods
@@ -635,7 +634,7 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 | `/core/services/base_analytics_service.py` | Base class definition |
 | `/core/services/base_ai_service.py` | AI features (separate - see base-ai-service skill) |
 | `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations + DomainIntelligenceOperations + composed IntelligenceOperations |
-| `/core/services/intelligence/graph_context_loader.py` | GraphContextLoader |
+| `/core/services/intelligence/_core_intelligence_mixin.py` | `_CoreIntelligenceMixin[T]` — shared `get_with_context()` (mechanism B) |
 | `/core/services/{domain}/{domain}_intelligence_service.py` | Domain implementations |
 | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | Master documentation |
 
@@ -667,4 +666,4 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - File locations, imports, signatures
 - [PATTERNS.md](PATTERNS.md) - Implementation patterns with code examples
-- [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md) - IntelligenceOperations + GraphContextLoader
+- [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md) - IntelligenceOperations + cross-domain context (mechanism B)
