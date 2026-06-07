@@ -41,6 +41,15 @@ from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
+# Append-only User properties that are managed EXCLUSIVELY via the field-only
+# `update_user_fields` path and must never be written by a whole-model write.
+# A full `update_user`/`create_user` serializes every field, so without this
+# guard a stale whole-model write (e.g. a preferences/session update that read
+# the user before a dual-track check-in but commits after it) would clobber the
+# just-persisted log. Excluding them here makes the race impossible in BOTH
+# directions (ADR-030). See `update_user` / `update_user_fields` below.
+_APPEND_ONLY_FIELDS: frozenset[str] = frozenset({"dual_track_checkins"})
+
 
 class UserBackend:
     """
@@ -84,8 +93,11 @@ class UserBackend:
             Result[User]: Created user or error
         """
         try:
-            # Convert User to Neo4j properties
-            user_dict = to_neo4j_node(user)
+            # Convert User to Neo4j properties. Append-only fields are managed
+            # solely via update_user_fields, never seeded by a whole-model write.
+            user_dict = {
+                k: v for k, v in to_neo4j_node(user).items() if k not in _APPEND_ONLY_FIELDS
+            }
 
             query = f"""
             CREATE (u:{self.label})
@@ -225,8 +237,11 @@ class UserBackend:
                     Errors.validation(message="User must have uid", field="uid", value=None)
                 )
 
-            # Remove uid from updates (it's the match key)
-            updates = {k: v for k, v in user_dict.items() if k != "uid"}
+            # Remove uid (match key) and append-only fields (managed solely via
+            # update_user_fields — a whole-model write must never clobber them).
+            updates = {
+                k: v for k, v in user_dict.items() if k != "uid" and k not in _APPEND_ONLY_FIELDS
+            }
 
             query = f"""
             MATCH (u:{self.label} {{uid: $uid}})
