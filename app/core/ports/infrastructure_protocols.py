@@ -98,10 +98,17 @@ class UserCrudOperations(Protocol):
         """Update user data."""
         ...
 
-    async def update_user_fields(self, user_uid: UserUID, fields: "dict[str, Any]") -> Result[bool]:
-        """Partial, field-only update — SET only the given fields, leaving every
-        other User property untouched (no whole-model write, so it cannot clobber
-        a concurrent profile/preferences/session change)."""
+    async def atomic_append_dual_track_checkin(
+        self,
+        user_uid: UserUID,
+        snapshot: "dict[str, Any]",
+        history_limit: int,
+        dimension: str,
+    ) -> Result[bool]:
+        """Atomically append a user-level dual-track check-in snapshot to the
+        ``:User`` node's ``dual_track_checkins`` log, keyed by ``dimension`` —
+        serialized via a node write-lock so concurrent same-user appends can't lose
+        a snapshot (ADR-030)."""
         ...
 
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:

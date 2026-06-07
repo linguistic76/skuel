@@ -441,6 +441,41 @@ class _CrudMixin[T: DomainModelProtocol]:
 
             return Result.ok(updated)
 
+    @safe_backend_operation("atomic_append_dual_track_checkin")
+    async def atomic_append_dual_track_checkin(
+        self, uid: str, snapshot: dict[str, Any], history_limit: int
+    ) -> Result[bool]:
+        """Atomically append a per-entity dual-track check-in snapshot (ADR-030).
+
+        Node-lock-serialized so two near-simultaneous check-ins on the SAME entity
+        can't lose a snapshot (the read-modify-write of the JSON ``dual_track_checkins``
+        log runs under a Neo4j node write-lock). Replaces the former get()+update()
+        read-modify-write in ``BaseAnalyticsService._store_dual_track_checkin``.
+
+        Backend: ``_dual_track_checkin_store.atomic_append_checkin`` (flat list — the
+        per-entity log has no dimension key).
+
+        Args:
+            uid: Entity UID.
+            snapshot: ``DualTrackResult.to_checkin_snapshot`` dict.
+            history_limit: Max snapshots retained (oldest dropped).
+
+        Returns:
+            Result[bool]: True if appended, NotFound if the entity does not exist.
+        """
+        from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
+
+        appended = await atomic_append_checkin(
+            self.driver,
+            label=str(self.label),
+            uid=uid,
+            snapshot=snapshot,
+            history_limit=history_limit,
+        )
+        if not appended:
+            return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
+        return Result.ok(True)
+
     @safe_backend_operation("delete")
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
