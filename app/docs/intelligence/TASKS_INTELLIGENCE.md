@@ -223,8 +223,19 @@ typed-reader convergence.
 counts) via the typed reader's ok-empty-context policy; a real fetch error logs and yields
 `available: False` rather than failing the whole route (the readiness lens still answers).
 
+**Additive `learning_requirements` block (#254 — shared mastery lens with Goals):**
+`get_domain_insights` also returns a `learning_requirements` key built from the task's
+`required_knowledge` via the shared `build_learning_requirements` helper — the same
+`PrerequisiteChecker.check_prerequisites` split that drives readiness, so gaps never disagree.
+When the call has a `user_context` the split is truthful; otherwise every requirement is an open
+gap. Shape = the `LearningRequirements` TypedDict (`knowledge_requirements` / `learning_paths` /
+`learning_analysis` blocks — see [PREREQUISITE_CHECKER_PATTERN.md](/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md)).
+Note: `ContextualTask` carries the same field, but the daily-plan UI renders it for **goals only**
+(actionable tasks are pre-filtered to ready), so this block is for non-UI consumers + `to_dict`.
+
 **Backing functions:** `calculate_task_cross_domain_metrics` + `task_recommendations`
-(`core/services/intelligence/metrics_calculators.py`).
+(`core/services/intelligence/metrics_calculators.py`); `build_learning_requirements`
+(`core/services/infrastructure/prerequisite_checker.py`).
 
 ---
 

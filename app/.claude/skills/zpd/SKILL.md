@@ -90,6 +90,13 @@ class ZPDService:
 - `_build_zone_evidence()` — compound mastery tracking per current-zone KU
 - `_build_recommended_actions()` — three action types: unblock, learn, reinforce
 
+> **Not the same as `PrerequisiteChecker`.** ZPD's `_compute_readiness_scores` is a per-proximal-KU
+> zone assessment (curriculum-graph positioning) and is **deliberately separate** from
+> `PrerequisiteChecker.check_prerequisites` (the per-task/goal one-off readiness + learning-requirements
+> lens — see [PREREQUISITE_CHECKER_PATTERN.md](/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md)). They share the
+> 0.7 mastery threshold and the same `knowledge_mastery` data, but serve different use cases — the
+> #254/#255 mastery-gap consolidation did **not** fold ZPD into it.
+
 ### Backend Layer (Cypher queries)
 
 **File:** `adapters/persistence/neo4j/zpd_backend.py`
