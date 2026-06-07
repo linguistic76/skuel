@@ -14,13 +14,16 @@ pass ``require_entity=False`` to the BaseAnalyticsService template.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.enums import ProductivityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
 class _DualTrackMixin:
@@ -44,6 +47,8 @@ class _DualTrackMixin:
         user_evidence: str,
         user_reflection: str | None = None,
         period_days: int = 30,
+        store_callback: Callable[[str, DualTrackResult[ProductivityLevel]], Awaitable[None]]
+        | None = None,
     ) -> Result[DualTrackResult[ProductivityLevel]]:
         """Compare self-assessed productivity with measured task throughput.
 
@@ -57,6 +62,10 @@ class _DualTrackMixin:
             user_evidence: Free-text evidence behind the self-rating.
             user_reflection: Optional reflection.
             period_days: Window (days) to measure throughput over (default 30).
+            store_callback: Optional persistence callback (uid, result) -> None. The
+                user-level check-in lives on the :User node, so the caller binds
+                ``UserService.append_dual_track_checkin`` with the dimension — the
+                Tasks intelligence backend can't write the User node itself.
 
         Returns:
             Result[DualTrackResult[ProductivityLevel]] with perception-gap analysis.
@@ -71,6 +80,7 @@ class _DualTrackMixin:
             level_scorer=self._productivity_level_to_score,
             entity_type="productivity",
             require_entity=False,  # user-level: uid=user_uid, no :Entity row to fetch
+            store_callback=store_callback,
         )
 
     def _make_system_productivity_calculator(self, period_days: int) -> Any:

@@ -145,6 +145,18 @@ class User:
     # Settings
     settings: dict[str, Any] = field(default_factory=dict)
 
+    # Dual-track perception-gap check-ins (ADR-030), user-level dimensions only.
+    # Keyed by DualTrackDimension value (productivity/engagement/decision_quality);
+    # each value is an append-only log of snapshots (DualTrackResult.to_checkin_snapshot),
+    # capped at DualTrackCheckin.HISTORY_LIMIT. This is the user-level analog of the
+    # per-entity `dual_track_checkins: tuple[dict, ...]` field on Goal/Habit/Principle —
+    # user-level dims (Tasks/Events/Choices) assess the user across all their entities
+    # and have no :Entity row to attach to, so they persist here on the :User node.
+    # Round-trips as a JSON property via neo4j_mapper (dict -> json -> dict).
+    # Written by UserService.append_dual_track_checkin; read by the Self Check-In page
+    # and UserContextIntelligence.get_cross_domain_perception_analysis.
+    dual_track_checkins: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+
     def is_entity_active(self, entity_uid: EntityUID) -> bool:
         """Check if an entity is in the active set"""
         return entity_uid in self.active_entity_uids

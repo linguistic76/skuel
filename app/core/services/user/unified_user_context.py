@@ -139,6 +139,13 @@ class UserContext:
     display_name: str = ""
     user_role: UserRole = UserRole.REGISTERED
 
+    # User-level dual-track perception-gap check-ins (ADR-030), keyed by
+    # DualTrackDimension value (productivity/engagement/decision_quality). Copied
+    # straight off the :User node by UserContextBuilder so the perception-gap
+    # aggregator (get_cross_domain_perception_analysis) can fold the user-level
+    # dims in alongside the per-entity ones without a second User read.
+    dual_track_checkins: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+
     # Session tracking
     session_id: str | None = None
     session_start: datetime | None = None

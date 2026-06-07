@@ -45,6 +45,11 @@ pass `require_entity=False` (added June 2026), and the template proceeds with `e
 label). The other three — **Goals** (per `goal_uid`), **Habits** (per `habit_uid`), **Principles**
 (per `principle_uid`) — are per-entity and keep the default `require_entity=True`.
 
+**Where check-ins persist follows the same split.** Per-entity check-ins append to the entity's
+own `dual_track_checkins` field (via the domain backend); user-level check-ins append to
+`User.dual_track_checkins` — a `dict[str, list[dict]]` keyed by `DualTrackDimension` value — since
+there is no `:Entity` row to attach them to. See "Surfacing (v3)" below.
+
 Tasks' implementation lives in `core/services/tasks/_dual_track_mixin.py` (mixed into
 `TasksIntelligenceService`), accessed via `tasks_service.intelligence.assess_productivity_dual_track(...)`.
 It uses the shared template — there is no separate `TasksProductivityService`.
@@ -94,10 +99,43 @@ The remaining pieces shipped:
   insights ("You tend to rate yourself higher than your tracked actions on Goals and Habits").
   Analytics-tier (no AI) — available at `INTELLIGENCE_TIER=core`.
 
-**Deferred:** user-level dims (Productivity/Engagement/Decision Quality) are not yet persisted (the
-Self Check-In page is non-persisting GET) so the aggregator covers only the three per-entity
-domains; persisting user-level check-ins to fold them into the aggregator is the next increment.
-The Knowledge-domain dimension (below) remains future.
+### Surfacing (v3, June 2026) — user-level persistence + aggregator fold-in
+
+The three **user-level** dimensions (Productivity / Engagement / Decision Quality) now persist
+and feed the aggregator, closing the v2 deferral:
+
+- **Storage shape — inline `dual_track_checkins` field on the `:User` node**, keyed by
+  `DualTrackDimension` value (`productivity`/`engagement`/`decision_quality`); each value is an
+  append-only log of snapshots, capped at `DualTrackCheckin.HISTORY_LIMIT`. This is the user-level
+  analog of the per-entity `dual_track_checkins: tuple[dict]` field — the per-entity dims attach to
+  an `:Entity` row, but user-level dims assess the user across *all* their entities of a kind and
+  have no entity endpoint, so they live on the `:User` node (`User.dual_track_checkins`). It
+  round-trips as a JSON property via `neo4j_mapper` (`dict[str, list[dict]]` ↔ JSON), so no new
+  relationship types, backends, or schema. *(Chosen over option (b), a separate per-user store
+  keyed by `(user_uid, dimension)`, for the same One-Path reasons the per-entity field beat a graph
+  edge: it reuses the matured inline-log pattern and the existing User read/write path.)*
+
+- **Persistence callback — `UserService.append_dual_track_checkin(user_uid, result, *, dimension)`.**
+  The user-level analog of `BaseAnalyticsService._store_dual_track_checkin`: that callback uses the
+  *domain* backend (`self.backend`) to write an entity, but the three user-level intelligence
+  services' backends are the Task/Event/Choice backends — they can't write the `:User` node. So the
+  callback lives on `UserService` (which owns the User node) and is **bound into the
+  `store_callback(uid, result)` shape via `functools.partial(..., dimension=…)`** by the Self
+  Check-In route. Safe-by-design (returns `None`, never raises). The three user-level assess methods
+  (`assess_productivity_dual_track`, `assess_engagement_dual_track`,
+  `assess_decision_quality_dual_track`) gained an optional `store_callback` param, forwarded to the
+  template — so persistence is a property of the assessment, not the route.
+
+- **Self Check-In is now `POST /self-checkin/results` + `@csrf_protected`** (was a non-persisting
+  GET) — it mutates, exactly the v2 per-entity fix. The page surfaces a per-dimension trend
+  (`render_checkin_trend`) on load and after each submit.
+
+- **Aggregator fold-in.** `get_cross_domain_perception_analysis()` reads the latest check-in per
+  user-level dimension off `context.dual_track_checkins` (copied onto `UserContext` by
+  `UserContextBuilder` straight from the `:User` node — no second read) and merges them into the
+  same `per_domain` rollup as the per-entity domains, so the synthesis spans all six.
+
+**Deferred:** the Knowledge-domain dimension (below) remains future.
 
 ### Future Extensions
 
@@ -255,7 +293,13 @@ async def assess_alignment_dual_track(
 | `core/services/base_analytics_service.py` | Add `_dual_track_assessment()` template and helpers |
 | `core/services/principles/principles_intelligence_service.py` | Add `assess_alignment_dual_track()` implementation |
 | `core/services/tasks/_dual_track_mixin.py` | `assess_productivity_dual_track()` (June 2026, shared template + `require_entity=False`) |
-| `adapters/inbound/self_checkin_routes.py` / `ui/self_checkin.py` | Self Check-In surface — first consumer (June 2026) |
+| `adapters/inbound/self_checkin_routes.py` / `ui/self_checkin.py` | Self Check-In surface — first consumer (v1 June 2026); v3 → POST + CSRF + persistence + per-dimension trend |
+| `core/models/enums/activity_enums.py` | v3: `DualTrackDimension` StrEnum (productivity/engagement/decision_quality) |
+| `core/models/user/user.py` | v3: `User.dual_track_checkins: dict[str, list[dict]]` (user-level check-in log) |
+| `core/services/user/user_core_service.py` + `core/services/user_service.py` | v3: `append_dual_track_checkin()` store callback |
+| `core/services/{tasks/_dual_track_mixin,events/_behavioral_signals_mixin,choices/_behavioral_signals_mixin}.py` | v3: optional `store_callback` param on the 3 user-level assess methods |
+| `core/services/user/unified_user_context.py` + `user_context_builder.py` | v3: `UserContext.dual_track_checkins` populated from the `:User` node |
+| `core/services/user/intelligence/perception_intelligence.py` | v3: aggregator folds in user-level dims |
 | `core/services/goals/goaps_intelligence_service.py` | Add `assess_progress_dual_track()` implementation |
 | `core/services/habits/habits_intelligence_service.py` | Add `assess_consistency_dual_track()` implementation |
 | `core/services/events/events_intelligence_service.py` | Add `assess_engagement_dual_track()` implementation |
@@ -302,23 +346,24 @@ async def assess_alignment_dual_track(
 
 The cross-domain aggregator below **shipped** (June 2026, v2) as
 `UserContextIntelligence.get_cross_domain_perception_analysis()` — see "Surfacing (v2)" above. It
-reads from `self.context` (no `user_uid` param needed) and currently covers the three per-entity
-domains:
+reads from `self.context` (no `user_uid` param needed). As of v3 (June 2026) it covers **all six**
+assessable domains — the three per-entity domains (Goals/Habits/Principles) plus the three
+user-level dimensions (Productivity/Engagement/Decision Quality, read off
+`context.dual_track_checkins`):
 
 ```python
 # core/services/user/intelligence/perception_intelligence.py
 async def get_cross_domain_perception_analysis(self) -> Result[dict[str, Any]]:
     """
-    Synthesize perception gaps across Goals, Habits, and Principles.
+    Synthesize perception gaps across all six assessable domains/dimensions.
 
     Returns insights like:
-    - "You tend to rate yourself higher than your tracked actions on Goals and Habits"
-    - "You're doing better than you think on Principles"
+    - "You tend to rate yourself higher than your tracked actions on Goals, Habits, and Productivity"
+    - "You're doing better than you think on Principles and Engagement"
     """
 ```
 
-Remaining future work: persist the user-level dims (Tasks/Events/Choices) so the aggregator can
-include them, and the Knowledge-domain dimension (Substance score).
+Remaining future work: the Knowledge-domain dimension (Substance score).
 
 ## References
 

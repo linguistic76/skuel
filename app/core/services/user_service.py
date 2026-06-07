@@ -21,7 +21,8 @@ Architecture:
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import UserRole
+from core.models.enums import DualTrackDimension, UserRole
+from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import EntityUID, UserUID
 from core.models.user import User
 from core.ports.infrastructure_protocols import (
@@ -198,6 +199,20 @@ class UserService:
     ) -> Result[User]:
         """Update user preferences (convenience method)."""
         return await self.core.update_preferences(user_uid, preferences_update)
+
+    async def append_dual_track_checkin(
+        self,
+        user_uid: UserUID,
+        result: DualTrackResult[Any],
+        *,
+        dimension: DualTrackDimension,
+    ) -> None:
+        """Persist a user-level dual-track check-in to the User node (ADR-030).
+
+        Safe-by-design store_callback for the user-level dimensions (Productivity /
+        Engagement / Decision Quality). See ``UserCoreService.append_dual_track_checkin``.
+        """
+        await self.core.append_dual_track_checkin(user_uid, result, dimension=dimension)
 
     async def delete_user(
         self,
