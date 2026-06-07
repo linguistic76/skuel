@@ -10,7 +10,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.enums.activity_enums import EngagementLevel
@@ -18,6 +18,9 @@ from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
 class _BehavioralSignalsMixin:
@@ -44,6 +47,8 @@ class _BehavioralSignalsMixin:
         user_evidence: str,
         user_reflection: str | None = None,
         period_days: int = 30,
+        store_callback: Callable[[str, DualTrackResult[EngagementLevel]], Awaitable[None]]
+        | None = None,
     ) -> Result[DualTrackResult[EngagementLevel]]:
         """
         Dual-track engagement assessment for events.
@@ -57,6 +62,10 @@ class _BehavioralSignalsMixin:
             user_evidence: User's evidence for their assessment
             user_reflection: Optional reflection on engagement
             period_days: Period to analyze (default 30 days)
+            store_callback: Optional persistence callback (uid, result) -> None. The
+                user-level check-in lives on the :User node, so the caller binds
+                ``UserService.append_dual_track_checkin`` with the dimension — the
+                Events intelligence backend can't write the User node itself.
 
         Returns:
             Result[DualTrackResult[EngagementLevel]] with gap analysis
@@ -73,6 +82,7 @@ class _BehavioralSignalsMixin:
             require_entity=False,  # user-level: uid=user_uid, no :Entity row to fetch
             insight_generator=self._generate_event_gap_insights,
             recommendation_generator=self._generate_event_gap_recommendations,
+            store_callback=store_callback,
         )
 
     def _make_system_engagement_calculator(self, period_days: int) -> Any:

@@ -20,13 +20,15 @@ This service is part of the refactored UserService architecture:
 """
 
 import dataclasses
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
-from core.constants import SYSTEM_USER_UID
+from core.constants import SYSTEM_USER_UID, DualTrackCheckin
 from core.events import publish_event
 from core.events.user_events import UserDeleted
+from core.models.enums import DualTrackDimension
 from core.models.enums.user_enums import UserRole
+from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.models.user import User, create_user
 from core.ports.infrastructure_protocols import EventBusOperations, UserCrudOperations
@@ -275,6 +277,72 @@ class UserCoreService:
             logger.error(f"Failed to update preferences for {user_uid}: {result.error}")
 
         return result
+
+    async def append_dual_track_checkin(
+        self,
+        user_uid: UserUID,
+        result: DualTrackResult[Any],
+        *,
+        dimension: DualTrackDimension,
+    ) -> None:
+        """
+        Append a user-level dual-track check-in snapshot to the User node (ADR-030).
+
+        The user-level analog of ``BaseAnalyticsService._store_dual_track_checkin``:
+        that callback persists per-entity check-ins to an entity's
+        ``dual_track_checkins`` field via the domain backend, but the user-level
+        dimensions (Productivity / Engagement / Decision Quality) assess the user
+        across *all* their entities of a kind and have no ``:Entity`` row — so they
+        persist here on the ``:User`` node, keyed by ``dimension``.
+
+        Appends ``result.to_checkin_snapshot(today)`` to the dimension's log and
+        caps it at ``DualTrackCheckin.HISTORY_LIMIT`` (oldest dropped). The snapshot
+        round-trips as a JSON property (see core/utils/neo4j_mapper.py).
+
+        Safe-by-design (returns ``None``, never raises) so it can be used directly
+        as a ``store_callback`` — a persistence hiccup must never fail the
+        assessment itself. ``dimension`` is keyword-only so the method can be bound
+        with ``functools.partial(..., dimension=...)`` into the
+        ``store_callback(uid, result)`` shape the dual-track template expects.
+
+        Args:
+            user_uid: User whose check-in is being recorded.
+            result: The computed dual-track result (carries the system level/score
+                and the perception gap — not just the user's self-rating).
+            dimension: Which user-level dimension this check-in belongs to.
+        """
+        user_result = await self.get_user(user_uid)
+        if user_result.is_error or not user_result.value:
+            logger.warning("Cannot store dual-track check-in: user %s not found", user_uid)
+            return
+
+        user = user_result.value
+        # `or {}` guards the empty-dict-serializes-to-None round-trip (neo4j_mapper).
+        logs = {k: list(v) for k, v in (user.dual_track_checkins or {}).items()}
+        dim_log = logs.get(dimension.value, [])
+        dim_log.append(result.to_checkin_snapshot(date.today()))
+        logs[dimension.value] = dim_log[-DualTrackCheckin.HISTORY_LIMIT :]
+
+        # KNOWN LIMITATION (accepted, ADR-030): this is a Python read-modify-write of
+        # the whole JSON-encoded log, so two *same-user* self-check-ins committing in
+        # the same ~10ms window can lose one snapshot (last writer wins). Bounded —
+        # one trend point dropped, no corruption, no cross-user effect. Identical to
+        # the per-entity store callback (BaseAnalyticsService._store_dual_track_checkin),
+        # so a true atomic append (native per-dimension list props) is deferred as a
+        # cross-cutting follow-up covering BOTH paths to stay One-Path. See
+        # docs/decisions/ADR-030 § "Deferred — atomic check-in append".
+        #
+        # Field-only write — SET only dual_track_checkins so a concurrent
+        # profile/preferences/session update isn't clobbered by a stale whole-model
+        # write. Mirrors the per-entity store callback's partial update.
+        update_result = await self.repo.update_user_fields(user_uid, {"dual_track_checkins": logs})
+        if update_result.is_error:
+            logger.warning(
+                "Failed to persist dual-track check-in for %s (%s): %s",
+                user_uid,
+                dimension.value,
+                update_result.expect_error().message,
+            )
 
     @with_error_handling("delete_user", error_type="database", uid_param="user_uid")
     async def delete_user(

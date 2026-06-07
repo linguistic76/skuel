@@ -278,6 +278,7 @@ class UserContextBuilder:
             email=user.email,
             display_name=user.display_name or user.title,
             user_role=user.role,
+            dual_track_checkins=user.dual_track_checkins or {},
         )
 
         # Execute consolidated query
@@ -364,6 +365,7 @@ class UserContextBuilder:
             email=user.email,
             display_name=user.display_name or user.title,
             user_role=user.role,
+            dual_track_checkins=user.dual_track_checkins or {},
         )
 
         # Compute activity window — always passed to MEGA-QUERY.
