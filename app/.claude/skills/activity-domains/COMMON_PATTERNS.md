@@ -243,8 +243,10 @@ domain facades as `self.knowledge_intelligence`. The 4 delegation methods are pr
 copy-pasting the methods. Satisfies `KnowledgeIntelligenceOperations` protocol (4 methods):
 `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`,
 `get_knowledge_prerequisites()`, `get_learning_opportunities()`.
-Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` so `find_by(user_uid=...)` returns
-user-owned activity entities across all domains (shared entities lack `user_uid` and filter out).
+Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` so `find_by(user_uid=...)` matches the
+denormalized `user_uid` PROPERTY across all domains (shared entities lack `user_uid` and filter out).
+The property is kept aligned to the canonical `(User)-[:OWNS]->` owner by the live write-paths + the
+2026-06 backfill (`docs/migrations/USER_UID_OWNS_BACKFILL_2026-06.md`); `:OWNS` is authoritative.
 
 ## Cross-Domain Relationships
 

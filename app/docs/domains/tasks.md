@@ -37,8 +37,7 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | Search Service | `/core/services/tasks/tasks_search_service.py` |
 | Progress Service | `/core/services/tasks/tasks_progress_service.py` |
 | Scheduling Service | `/core/services/tasks/tasks_scheduling_service.py` |
-| Intelligence Service | `/core/services/tasks/tasks_intelligence_service.py` |
-| Productivity Service | `/core/services/tasks/tasks_productivity_service.py` |
+| Intelligence Service | `/core/services/tasks/tasks_intelligence_service.py` (4 mixins, incl. `_dual_track_mixin.py` for ADR-030 productivity) |
 | Event Handler Service | `/core/services/tasks/task_event_handler_service.py` |
 | Facade | `/core/services/tasks_service.py` |
 | Config | `TASKS_CONFIG` in `/core/models/relationship_registry.py` |
@@ -68,10 +67,10 @@ class TasksService(BaseService[TasksOperations, Task]):
     progress: TasksProgressService
     scheduling: TasksSchedulingService
     relationships: UnifiedRelationshipService
-    intelligence: TasksIntelligenceService
+    intelligence: TasksIntelligenceService  # incl. _DualTrackMixin — assess_productivity_dual_track (ADR-030)
     knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
-    productivity: TasksProductivityService
     event_handler: TaskEventHandlerService
+    ai: TasksAIService | None  # FULL tier only
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_task(self, *args: Any, **kwargs: Any) -> Any:
@@ -81,7 +80,7 @@ class TasksService(BaseService[TasksOperations, Task]):
         return await self.intelligence.analyze_task_learning_metrics(*args, **kwargs)
 ```
 
-**Note (January 2026)**: TasksAnalyticsService removed. KU analytics methods are now direct in TasksService. **Note (March 2026)**: Dual-track productivity assessment extracted to `TasksProductivityService`. Domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted to `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — shared across all 6 activity domains. **Note (April 2026)**: `TasksLearningMetricsService` retired — its two methods (`analyze_task_learning_metrics`, `generate_task_knowledge_insights`) folded back into `TasksIntelligenceService` via `_productivity_mixin`, where they sit alongside sibling analytics. The name created false parity with peer domains' `*LearningService` (which handle learning-path integration); removing it restores a consistent sub-service taxonomy across all 6 Activity Domains.
+**Note (January 2026)**: TasksAnalyticsService removed. KU analytics methods are now direct in TasksService. **Note (March 2026)**: `TasksProductivityService` was shelved 2026-03-28; dual-track productivity assessment (`assess_productivity_dual_track`, ADR-030) lives in `tasks/_dual_track_mixin.py`, mixed into `TasksIntelligenceService` and wired to `GET /self-checkin` in #259. Domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted to `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — shared across all 6 activity domains. **Note (April 2026)**: `TasksLearningMetricsService` retired — its two methods (`analyze_task_learning_metrics`, `generate_task_knowledge_insights`) folded back into `TasksIntelligenceService` via `_productivity_mixin`, where they sit alongside sibling analytics. The name created false parity with peer domains' `*LearningService` (which handle learning-path integration); removing it restores a consistent sub-service taxonomy across all 6 Activity Domains.
 
 ## Event Handler — Insight Persistence (March 2026)
 

@@ -40,8 +40,7 @@ Services >~350 lines are decomposed into mixin files in the same package directo
 | Domain | Service | Inherits | Key Focus |
 |--------|---------|----------|-----------|
 | **Activity (6)** |
-| Tasks | `TasksIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _ProductivityMixin, BaseAnalyticsService["TasksOperations", Task]` | Knowledge, behavioral, performance (shell + 3 mixins) |
-| Tasks | `TasksProductivityService` | `BaseAnalyticsService["TasksOperations", Task]` | Dual-track productivity (ADR-030) |
+| Tasks | `TasksIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _ProductivityMixin, _DualTrackMixin, BaseAnalyticsService["TasksOperations", Task]` | Knowledge, behavioral, performance, dual-track productivity ADR-030 (shell + 4 mixins) |
 | Goals | `GoalsIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _PredictiveMixin, _DualTrackMixin, BaseAnalyticsService[GoalsOperations, Goal]` | Progress forecasting (shell + 4 mixins) |
 | Habits | `HabitsIntelligenceService` | `BaseAnalyticsService[HabitsOperations, Habit]` | Streak patterns |
 | Events | `EventsIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _BehavioralSignalsMixin, BaseAnalyticsService["EventsOperations", Event]` | Cross-domain impact (shell + 3 mixins) |

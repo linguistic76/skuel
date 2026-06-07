@@ -254,8 +254,9 @@ behavior. They are listed here only so the gap is visible.
   `GROUNDED_IN_KNOWLEDGE`, `GUIDES_GOAL`, `GUIDES_CHOICE`
 - **PRINCIPLE_ALIGNMENT** — `ALIGNED_WITH_PRINCIPLE`, `INFORMED_BY_KNOWLEDGE`, `SUPPORTS_GOAL`,
   `CONFLICTS_WITH_GOAL`, `REQUIRES_KNOWLEDGE_FOR_DECISION`, `OPENS_LEARNING_PATH`, `GUIDED_BY_PRINCIPLE`
-- **SCHEDULED_ACTION** — `EXECUTES_TASK`, `PRACTICES_KNOWLEDGE`, `REINFORCES_HABIT`,
+- **SCHEDULED_ACTION** — `EXECUTES_TASK`, `REINFORCES_HABIT`,
   `MILESTONE_FOR_GOAL`, `CONFLICTS_WITH`, `SUPPORTS_GOAL`, `SCHEDULED_FOR`, `DERIVED_FROM_TASK`
+  (the former `PRACTICES_KNOWLEDGE` edge was deleted in #259 — event→knowledge is `APPLIES_KNOWLEDGE`)
 
 > ⚠️ `CONFLICTS_WITH_GOAL` (and several others above) are written **nowhere** by any writer in the
 > codebase — they exist only in this dead clause and the enum. Do not resurrect them; a real lens needs

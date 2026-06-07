@@ -944,7 +944,7 @@ async def create_study_session(
     if result.is_ok and knowledge_uids:
         for ku_uid in knowledge_uids:
             await self.backend.add_relationship(
-                result.value.uid, ku_uid, RelationshipName.PRACTICES_KNOWLEDGE
+                result.value.uid, ku_uid, RelationshipName.APPLIES_KNOWLEDGE
             )
 
     return result
