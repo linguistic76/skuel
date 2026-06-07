@@ -92,36 +92,14 @@ The Context-First system has three layers:
 
 ## Layer 1: Harmonized Scoring Engine
 
-Five pure functions in `core/models/context_types.py`, extracted from what was previously scattered across `PrerequisiteChecker` and 5 domain planning services. Same formulas, one location, parameterized for all domains.
+Three pure functions in `core/models/context_types.py` (`_compute_relevance`, `_compute_urgency`, `_compute_priority`). Same formulas, one location, parameterized for all domains.
 
-### `_compute_readiness(required_knowledge, required_tasks, knowledge_mastery, completed_task_uids, threshold=0.7) -> float`
-
-Calculates what fraction of prerequisites are met.
-
-```python
-def _compute_readiness(
-    required_knowledge: list[str],
-    required_tasks: list[str],
-    knowledge_mastery: dict[str, float],
-    completed_task_uids: set[str] | list[str],
-    threshold: float = 0.7,
-) -> float:
-    total = len(required_knowledge) + len(required_tasks)
-    if total == 0:
-        return 1.0  # No prerequisites = always ready
-
-    met = 0
-    for ku_uid in required_knowledge:
-        if knowledge_mastery.get(ku_uid, 0.0) >= threshold:
-            met += 1
-    for task_uid in required_tasks:
-        if task_uid in completed_task_uids:
-            met += 1
-
-    return met / total
-```
-
-**Returns:** 0.0 (no prerequisites met) to 1.0 (all met). No prerequisites returns 1.0.
+**Readiness and blocking reasons are NOT computed here** — they come from a single
+`PrerequisiteChecker.check_prerequisites(...)` call (`core/services/infrastructure/prerequisite_checker.py`).
+The factory passes `check.score` as `readiness_score` and `check.blocking_reasons` / `check.missing_knowledge`
+straight through. This consolidation (#255) deleted the former inline `_compute_readiness` /
+`_compute_blocking_reasons` helpers so the same mastery split drives readiness, gaps, *and* the rich
+`learning_requirements` display payload. **See:** [PREREQUISITE_CHECKER_PATTERN.md](/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md).
 
 ### `_compute_relevance(goal_uids, principle_uids, active_goal_uids, primary_goal_focus, core_principle_uids, principle_priorities) -> float`
 
@@ -181,12 +159,13 @@ def _compute_priority(
 | Knowledge | 3D: readiness, gap, impact | `(0.5, 0.3, 0.2)` | Readiness-led (prerequisites matter most) |
 | Knowledge (gaps) | 2D: readiness, relevance | `(0.4, 0.6)` | Relevance-led (blocking goals matters) |
 
-### `_compute_blocking_reasons(required_knowledge, required_tasks, knowledge_mastery, completed_task_uids, max_reasons=3) -> list[str]`
+### Blocking reasons — `PrerequisiteResult.blocking_reasons`
 
-Generates human-readable strings explaining what blocks engagement:
+Human-readable strings explaining what blocks engagement come from `check_prerequisites`
+(`max_blocking_reasons=3` by default), not a local helper:
 
 ```python
-# Example output:
+# Example PrerequisiteResult.blocking_reasons:
 ["Missing knowledge: ku_python-basics_abc123 (mastery: 45%)",
  "Incomplete prerequisite: task_setup-env_xyz789"]
 ```
@@ -661,7 +640,7 @@ UserContext (MEGA-QUERY)
 | `core/services/principles/principles_planning_service.py` | 2 principle planning methods + 1 direct |
 | `core/services/ku/ku_graph_service.py` | 3 knowledge planning methods |
 | `core/utils/sort_functions.py` | Sorting helpers (`get_priority_score`, etc.) |
-| `core/services/infrastructure/` | `PrerequisiteChecker` (shared by tasks/scheduling) |
+| `core/services/infrastructure/prerequisite_checker.py` | `PrerequisiteChecker.check_prerequisites` (readiness + blocking reasons — the single mastery split for all context-first types and planning/scheduling) + `build_learning_requirements` (Goal+Task lens) |
 
 
 ## Implementation History
@@ -672,8 +651,10 @@ UserContext (MEGA-QUERY)
 | 1.1.0 | January 2026 | Protocol compliance update, package restructuring |
 | **2.0.0** | **February 2026** | **Harmonized scoring engine + factory classmethods. 18 construction sites consolidated into 7 factory methods. One scoring engine, parameterized for all domains.** |
 | **2.1.0** | **April 2026** | **Retired `ContextFirstMixin` adapter. Its 4 `_enrich_*_with_context` methods had zero call sites (services call factory classmethods directly). 22 live call sites across 6 service files remain.** |
+| **2.2.0** | **June 2026** | **Mastery-gap lens consolidated onto `PrerequisiteChecker` (#254/#255). Deleted the inline `_compute_readiness` / `_compute_blocking_reasons` pure functions; readiness, gaps, and the new `learning_requirements` payload now derive from one `check_prerequisites` split. `ContextualGoal`/`ContextualTask` gained a `learning_requirements` field.** |
 
 **See also:**
+- `/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md` — readiness + learning-requirements lens
 - `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — UserContext architecture
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` — Intelligence service catalog
 - `/docs/patterns/protocol_architecture.md` — Protocol-based architecture

@@ -362,7 +362,7 @@ Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtoco
 
 | Helper | Purpose |
 |--------|---------|
-| `PrerequisiteChecker` | Unified prerequisite checking (returns `PrerequisiteResult` with score, is_ready, blocking_reasons) |
+| `PrerequisiteChecker` | Unified prerequisite checking — `check_prerequisites()` → `PrerequisiteResult` (score, is_ready, missing_knowledge, missing_tasks, blocking_reasons). Pure helper `build_learning_requirements()` → `LearningRequirements` (mastery-aware Goal+Task lens, same split as readiness). **See:** `/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md` |
 | `LearningAlignmentBridge` | LP integration for any domain |
 | `SemanticRelationshipLinker` | Semantic relationship ops |
 
