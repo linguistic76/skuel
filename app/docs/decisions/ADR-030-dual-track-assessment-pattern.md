@@ -62,9 +62,9 @@ This insight was first implemented in LifePath's `WordActionAlignment` and recen
 
 1. **Dual-track IS intelligence work** - Comparing user perception with measured behavior is core intelligence, not a utility.
 
-2. **Infrastructure exists** - `BaseAnalyticsService` already has `backend`, `relationships`, `event_bus`, and `_analyze_entity_with_context()` template.
+2. **Infrastructure exists** - `BaseAnalyticsService` already has `backend`, `relationships`, `event_bus`, and the analysis template (`_analyze_entity_with_typed_context()`, renamed from the original `_analyze_entity_with_context()` during the intent-traversal ↔ registry convergence, #253).
 
-3. **Template pattern matches** - The existing `_analyze_entity_with_context()` is 80% of what we need. Extending it maintains consistency.
+3. **Template pattern matches** - The existing analysis template is 80% of what we need. Extending it maintains consistency.
 
 4. **One Path Forward** - All 10 domain intelligence services inherit from `BaseAnalyticsService`. Adding the method there means automatic availability without additional composition.
 

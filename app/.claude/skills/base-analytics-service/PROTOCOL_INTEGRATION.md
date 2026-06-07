@@ -1,8 +1,8 @@
-# Intelligence Protocols & GraphContextLoader
+# Intelligence Protocols & Cross-Domain Context (Mechanism B)
 
 ## Overview
 
-All 9 domain intelligence services use `GraphContextLoader` for unified context retrieval and implement protocols enabling automatic route generation via `IntelligenceRouteFactory`. The loader is wired by calling `self._init_context_loader(...)` from `BaseAnalyticsService.__init__` overrides.
+All 9 domain intelligence services retrieve unified context via **mechanism B** — the inherited `get_with_context()` on `_CoreIntelligenceMixin[T]`, which routes through `self.relationships.get_with_context` (registry-sourced edges) — and implement protocols enabling automatic route generation via `IntelligenceRouteFactory`. There is nothing to wire: `BaseAnalyticsService.__init__` stores the injected relationship service on `self.relationships`. (The former `GraphContextLoader` + `self._init_context_loader(...)` were deleted in the intent-traversal ↔ registry convergence, #241.)
 
 ---
 
@@ -103,10 +103,17 @@ class _CoreIntelligenceMixin[T]:
     async def get_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[T, GraphContext]]:
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
+        # Mechanism B: route through the relationship service, whose edge
+        # vocabulary comes from DomainConfig.cross_domain_relationship_types.
+        if self.relationships is None:
+            return Result.fail(Errors.system(
+                message="relationship_service required for get_with_context",
+                operation="get_with_context",
+            ))
+        return await self.relationships.get_with_context(uid, depth)
 ```
 
-Subclasses parameterize with their model (`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[Goal]`, etc.) to get a typed return. Activity domains wrap this in a per-package `_CoreIntelligenceMixin` that also adds domain-named aliases (`get_task_with_context`, etc.). PS/LP/KU/Events inherit directly.
+Subclasses parameterize with their model (`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[Goal]`, etc.) to get a typed return. Activity domains wrap this in a per-package `_CoreIntelligenceMixin` that also adds domain-named aliases (`get_task_with_context`, etc.). PS/LP/KU inherit directly (Events is an activity domain and inherits via its package wrapper).
 
 **Returns:**
 ```python
@@ -166,62 +173,40 @@ async def get_domain_insights(
 
 ---
 
-## GraphContextLoader
+## Cross-domain context (mechanism B)
 
-### Purpose
+> **Deleted (#241):** `GraphContextLoader`, `_init_context_loader`, and `self.context_loader`
+> no longer exist. The model-suggested "mechanism A" loader was removed in the
+> intent-traversal ↔ registry convergence. See
+> `/docs/roadmap/intent-traversal-registry-convergence.md`.
 
-`GraphContextLoader[T]` provides unified context retrieval for all intelligence services. It handles:
+### How it works now
 
-1. Entity fetching via injected `get_entity` callable
-2. DTO ↔ Model conversion via injected `to_domain` callable
-3. Graph context retrieval through `graph_intel`
-4. Relationship summarization
+Unified context retrieval is **mechanism B** (registry-sourced):
 
-### Location
-
-```python
-from core.services.intelligence.graph_context_loader import GraphContextLoader
-```
-
-### Initialization Pattern
-
-`BaseAnalyticsService` exposes a `_init_context_loader[M]` helper that wires the loader for you. Per-domain services call it from `__init__` — it no-ops when `graph_intel` is `None`, so no `if` guard is needed. `BaseAnalyticsService.__init__` already fail-fasts on a missing backend, so no `self.backend` guard is needed either.
+1. `BaseAnalyticsService.__init__` stores the injected relationship service on
+   `self.relationships` — nothing to wire per service.
+2. `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` and routes
+   through `self.relationships.get_with_context`.
+3. The edge vocabulary it traverses comes from the domain's
+   `DomainConfig.cross_domain_relationship_types` — the registry, the single source
+   of truth (not a model-suggested query intent).
 
 ```python
-class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
-    def __init__(self, backend, graph_intel=None, ...):
-        super().__init__(backend, graph_intel, ...)
-
-        self._init_context_loader(
-            get_entity=self.backend.get_task,   # bound async fetch method
-            dto_class=TaskDTO,
-            model_class=Task,
-            domain=Domain.TASKS,
-            model_name="Task",
-        )
+class TasksIntelligenceService(
+    _CoreIntelligenceMixin[Task],  # inherits get_with_context() — typed in the model
+    BaseAnalyticsService[TasksOperations, Task],
+):
+    def __init__(self, backend, graph_intel=None, relationship_service=None, ...):
+        super().__init__(backend, graph_intel, relationship_service=relationship_service, ...)
+    # get_with_context() inherited — no override, no loader wiring.
 ```
 
-### Helper Parameters
-
-| Parameter | Type | Purpose |
-|-----------|------|---------|
-| `get_entity` | `Callable[[str], Awaitable[Result[Any]]]` | Bound backend method that fetches an entity by uid |
-| `dto_class` | `type` | DTO class used for conversion |
-| `model_class` | `type[M]` | Domain model class (PEP 695 method-generic) |
-| `domain` | `Domain` | Domain enum for relationship config |
-| `model_name` | `str` | Friendly name used in error messages |
-
-Internally the helper wraps `self._to_domain_model` with `functools.partial`, so subclasses don't need to import `partial` themselves.
-
-### Usage
-
-```python
-# In intelligence service
-async def get_with_context(
-    self, uid: str, depth: int = 2
-) -> Result[tuple[Task, GraphContext]]:
-    return await self.context_loader.get_with_context(uid=uid, depth=depth)
-```
+For cross-domain **analysis** (metrics + recommendations), call the template
+`BaseAnalyticsService._analyze_entity_with_typed_context(uid, metrics_fn, recommendations_fn)`,
+which sources the canonical typed, path-aware context from
+`UnifiedRelationshipService.get_cross_domain_context_typed` (built per-domain via
+`{Domain}CrossContext.from_categorized`).
 
 ### GraphContext Structure
 
@@ -345,14 +330,8 @@ class TasksIntelligenceService(
             event_bus=event_bus,
             insight_store=insight_store,
         )
-
-        self._init_context_loader(
-            get_entity=self.backend.get_task,
-            dto_class=TaskDTO,
-            model_class=Task,
-            domain=Domain.TASKS,
-            model_name="Task",
-        )
+        # get_with_context() is inherited from _CoreIntelligenceMixin[Task] (mechanism B);
+        # the relationship service is stored on self.relationships — no loader to wire.
 
     # =========================================================================
     # THREE STANDARDIZED METHODS
@@ -426,10 +405,11 @@ class TasksIntelligenceService(
 
 ## Rollout Status
 
-All 9 domain intelligence services implement the protocol and use `_init_context_loader`:
+All 9 domain intelligence services implement the protocol and inherit
+`get_with_context()` from `_CoreIntelligenceMixin[T]` (mechanism B):
 
-| Service | Protocol | Context Loader | Routes |
-|---------|----------|----------------|--------|
+| Service | Protocol | get_with_context (inherited) | Routes |
+|---------|----------|------------------------------|--------|
 | TasksIntelligenceService | ✅ | ✅ | ✅ |
 | GoalsIntelligenceService | ✅ | ✅ | ✅ |
 | HabitsIntelligenceService | ✅ | ✅ | ✅ |
@@ -438,7 +418,7 @@ All 9 domain intelligence services implement the protocol and use `_init_context
 | PrinciplesIntelligenceService | ✅ | ✅ | ✅ |
 | KuIntelligenceService | ✅ | ✅ | ✅ |
 | PsIntelligenceService | ✅ | ✅ | ✅ |
-| LpIntelligenceService | ✅ | ✅ (gated on `self.backend`) | ✅ |
+| LpIntelligenceService | ✅ | ✅ | ✅ |
 
 ---
 

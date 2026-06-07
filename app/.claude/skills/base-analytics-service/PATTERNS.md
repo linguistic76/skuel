@@ -4,9 +4,12 @@
 
 A full analytics service with all common patterns. For large services (1000+ LOC), use mixin decomposition — see `ChoicesIntelligenceService`, `HabitsIntelligenceService`, and `PrinciplesIntelligenceService` for the established local pattern (`_core_intelligence_mixin.py`, `_alignment_intelligence_mixin.py`, `_influence_mixin.py` in the same package directory).
 
-**Shared `get_with_context()` base (April 2026):** `core/services/intelligence/_CoreIntelligenceMixin[T]` is generic in the domain model and owns the `get_with_context() → self.context_loader` delegation, returning `Result[tuple[T, GraphContext]]`. All Activity Domain `_core_intelligence_mixin.py` files inherit from it parameterized by their model (e.g. `_CoreIntelligenceMixin[Goal]`), and add domain-named aliases (`get_goal_with_context`, etc.). `EventsIntelligenceService`, `PsIntelligenceService`, `LpIntelligenceService`, and `KuIntelligenceService` inherit directly (no domain mixin file), parameterized by `Event`, `PathStep`, `LearningPath`, `Ku` respectively.
+**Shared `get_with_context()` base (mechanism B):** `core/services/intelligence/_CoreIntelligenceMixin[T]` is generic in the domain model and owns the `get_with_context()` delegation, routing through `self.relationships.get_with_context` (whose edge vocabulary comes from the domain's `DomainConfig.cross_domain_relationship_types` — the registry, the single source of truth) and returning `Result[tuple[T, GraphContext]]`. All Activity Domain `_core_intelligence_mixin.py` files inherit from it parameterized by their model (e.g. `_CoreIntelligenceMixin[Goal]`), and add domain-named aliases (`get_goal_with_context`, etc.). `PsIntelligenceService`, `LpIntelligenceService`, and `KuIntelligenceService` inherit directly (no domain mixin file), parameterized by `PathStep`, `LearningPath`, `Ku` respectively. The 6 activity domains no longer override `get_with_context` — they inherit it.
 
-**Wiring the loader:** Services never import `GraphContextLoader` or `functools.partial` directly. They call `self._init_context_loader(...)` — a helper on `BaseAnalyticsService` that no-ops when `graph_intel` is `None`, constructs the loader otherwise, and stores it on `self.context_loader`. See `core/services/base_analytics_service.py::_init_context_loader`.
+> **Deleted (intent-traversal ↔ registry convergence, #241):** `GraphContextLoader`,
+> `self._init_context_loader(...)`, and `self.context_loader` no longer exist. There is
+> no loader to wire — `BaseAnalyticsService.__init__` stores the injected
+> `relationship_service` on `self.relationships`, and `get_with_context` is inherited.
 
 ```python
 """
@@ -28,7 +31,10 @@ from core.utils.result_simplified import Result
 from core.utils.errors_simplified import Errors
 
 
-class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
+class HabitsIntelligenceService(
+    _CoreIntelligenceMixin,  # inherits get_with_context() (mechanism B) — typed via the habits wrapper
+    BaseAnalyticsService[HabitsOperations, Habit],
+):
     """Analytics service for habit analysis and recommendations."""
 
     # Class attributes
@@ -55,15 +61,8 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             event_bus=event_bus,
             insight_store=insight_store,
         )
-
-        # Wire the context loader — helper no-ops when graph_intel is None
-        self._init_context_loader(
-            get_entity=self.backend.get_habit,
-            dto_class=HabitDTO,
-            model_class=Habit,
-            domain=Domain.HABITS,
-            model_name="Habit",
-        )
+        # get_with_context() is inherited from _CoreIntelligenceMixin (mechanism B) —
+        # no loader to wire; the relationship service is stored on self.relationships.
 
         # Domain-specific initialization
         self._streak_thresholds = {
@@ -73,18 +72,11 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         }
 
     # =========================================================================
-    # PROTOCOL METHODS (Three Standardized)
+    # PROTOCOL METHODS
     # =========================================================================
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Habit, Any]]:
-        """Get habit with full graph neighborhood."""
-        if not self.context_loader:
-            return Result.fail(Errors.system(
-                "Context loader unavailable - graph intelligence not provided"
-            ))
-        return await self.context_loader.get_with_context(uid=uid, depth=depth)
+    # get_with_context() is inherited from _CoreIntelligenceMixin (mechanism B).
+    # Activity domains expose a domain-named alias (get_habit_with_context) from
+    # their package wrapper; no override of get_with_context is needed.
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

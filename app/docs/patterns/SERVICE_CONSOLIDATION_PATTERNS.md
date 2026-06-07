@@ -810,7 +810,7 @@ class ChoicesService(
 - Each mixin declares `Any`-typed attributes for sub-services it touches
 - The facade's `__init__` populates those attributes — no `__init__` in mixins
 - Public API unchanged — callers don't know about the decomposition
-- **Shared `_CoreIntelligenceMixin[T]`:** `core/services/intelligence/_core_intelligence_mixin.py` owns `get_with_context() → self.context_loader` delegation, generic in the domain model so subclasses get `Result[tuple[T, GraphContext]]` for free. All 6 Activity Domain intelligence services (Tasks, Goals, Habits, Events, Choices, Principles) inherit it via a per-package wrapper that adds domain-named aliases (e.g. `get_goal_with_context`). PS, LP, KU inherit it directly (`_CoreIntelligenceMixin[PathStep]`, `[LearningPath]`, `[Ku]`) — no per-package wrapper.
+- **Shared `_CoreIntelligenceMixin[T]`:** `core/services/intelligence/_core_intelligence_mixin.py` owns the `get_with_context()` delegation, routing through `self.relationships.get_with_context` (mechanism B — edge vocabulary from `DomainConfig.cross_domain_relationship_types`; the `GraphContextLoader`/`self.context_loader` path was deleted in #241). Generic in the domain model so subclasses get `Result[tuple[T, GraphContext]]` for free. All 6 Activity Domain intelligence services (Tasks, Goals, Habits, Events, Choices, Principles) inherit it via a per-package wrapper that adds domain-named aliases (e.g. `get_goal_with_context`). PS, LP, KU inherit it directly (`_CoreIntelligenceMixin[PathStep]`, `[LearningPath]`, `[Ku]`) — no per-package wrapper.
 
 ---
 
