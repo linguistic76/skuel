@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
+from core.constants import QueryLimit
 from core.models.enums import ProductivityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
@@ -102,7 +103,10 @@ class _DualTrackMixin:
         evidence: list[str] = []
         start_date = date.today() - timedelta(days=period_days)
 
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        # Fetch the full task set (find_by defaults to limit=100 with no ordering, so
+        # the in-memory window filter below would otherwise sample an arbitrary page and
+        # miss recent completions / backlog for prolific users).
+        tasks_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
         if tasks_result.is_error or not tasks_result.value:
             evidence.append("No tasks found to measure")
             # No data is not the same as low productivity — return a neutral midpoint
@@ -110,6 +114,12 @@ class _DualTrackMixin:
             return ProductivityLevel.MODERATELY_PRODUCTIVE, 0.5, evidence
 
         all_tasks = tasks_result.value
+        if len(all_tasks) >= QueryLimit.MAXIMUM:
+            self.logger.warning(
+                "Productivity assessment for %s capped at %d tasks — score may be truncated",
+                user_uid,
+                QueryLimit.MAXIMUM,
+            )
 
         completed_in_window = [
             t
