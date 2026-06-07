@@ -22,6 +22,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 from core.utils.connection_configs import HABIT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_habits
@@ -63,6 +64,9 @@ def create_habits_ui_routes(
         stats_component=HabitStatsBar,
         detail_component=HabitDetailView,
         create_href="/habits/create",
+        dual_track_assess=habits_service.intelligence.assess_consistency_dual_track,
+        dual_track_level_enum=ConsistencyLevel,
+        dual_track_label="Consistency",
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 

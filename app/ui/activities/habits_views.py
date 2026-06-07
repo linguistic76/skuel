@@ -18,10 +18,12 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon
 
+from core.models.enums.activity_enums import ConsistencyLevel
 from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
+from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
@@ -331,6 +333,16 @@ def HabitDetailView(
             cls="my-4",
         )
 
+    # Dual-track self-assessment (perception gap + trend) — ADR-030
+    dual_track_section = DualTrackSection(
+        domain="habits",
+        entity_uid=habit.uid,
+        level_enum=ConsistencyLevel,
+        label="Consistency",
+        prompt="How consistent do you feel you've been with this habit?",
+        checkins=habit.dual_track_checkins,
+    )
+
     # Lateral relationships
     relationships = EntityRelationshipsSection(
         entity_uid=habit.uid,
@@ -348,6 +360,7 @@ def HabitDetailView(
         meta_grid,
         tags_el,
         conn_section,
+        dual_track_section,
         relationships,
         size="3xl",
     )

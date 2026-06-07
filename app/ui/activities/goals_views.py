@@ -20,8 +20,10 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon
 
+from core.models.enums.activity_enums import ProgressLevel
 from core.utils.activity_stats import compute_goal_stats
 from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
+from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
@@ -285,6 +287,16 @@ def GoalDetailView(
     if connections:
         conn_section = GoalConnectionsSection(connections)
 
+    # Dual-track self-assessment (perception gap + trend) — ADR-030
+    dual_track_section = DualTrackSection(
+        domain="goals",
+        entity_uid=goal.uid,
+        level_enum=ProgressLevel,
+        label="Progress",
+        prompt="How much progress do you feel you've made toward this goal?",
+        checkins=goal.dual_track_checkins,
+    )
+
     # Lateral relationships (Vis.js graph, blocking chain, alternatives)
     relationships = EntityRelationshipsSection(
         entity_uid=goal.uid,
@@ -300,6 +312,7 @@ def GoalDetailView(
         tags_el,
         milestones_section,
         conn_section,
+        dual_track_section,
         relationships,
         cls="max-w-3xl mx-auto px-4",
     )

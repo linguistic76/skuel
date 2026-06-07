@@ -74,6 +74,7 @@ class GoalDTO(UserOwnedDTO):
     progress_percentage: float = 0.0
     last_progress_update: datetime | None = None
     progress_history: list[dict[str, Any]] = field(default_factory=list)
+    dual_track_checkins: list[dict[str, Any]] = field(default_factory=list)
 
     # =========================================================================
     # MOTIVATION
@@ -179,6 +180,7 @@ class GoalDTO(UserOwnedDTO):
                 "strategies",
                 "milestones",
                 "progress_history",
+                "dual_track_checkins",
             ],
             dict_fields=["metadata"],
         )
@@ -222,6 +224,7 @@ class GoalDTO(UserOwnedDTO):
                 "progress_percentage",
                 "last_progress_update",
                 "progress_history",
+                "dual_track_checkins",
                 "vision_statement",
                 "why_important",
                 "success_criteria",

@@ -82,6 +82,7 @@ class PrincipleDTO(UserOwnedDTO):
     # =========================================================================
     current_alignment: AlignmentLevel | None = None
     alignment_history: list[dict[str, Any]] = field(default_factory=list)
+    dual_track_checkins: list[dict[str, Any]] = field(default_factory=list)
     last_review_date: date | None = None
 
     # =========================================================================
@@ -190,6 +191,7 @@ class PrincipleDTO(UserOwnedDTO):
                 "expressions",
                 "key_behaviors",
                 "alignment_history",
+                "dual_track_checkins",
                 "potential_conflicts",
                 "conflicting_principles",
                 "resolution_strategies",
@@ -234,6 +236,7 @@ class PrincipleDTO(UserOwnedDTO):
                 "key_behaviors",
                 "current_alignment",
                 "alignment_history",
+                "dual_track_checkins",
                 "last_review_date",
                 "potential_conflicts",
                 "conflicting_principles",

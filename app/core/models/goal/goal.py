@@ -93,6 +93,13 @@ class Goal(UserOwnedEntity):
     last_progress_update: datetime | None = None
     progress_history: tuple[dict, ...] = ()
 
+    # Dual-track perception-gap check-ins (ADR-030). Append-only log of
+    # self-rated-vs-measured progress snapshots, written by the dual-track
+    # store_callback. tuple[dict] (not a typed record) round-trips through
+    # neo4j_mapper as a JSON property with no _from_dto rehydration — same
+    # shape as progress_history above. See: core/models/shared/dual_track.py.
+    dual_track_checkins: tuple[dict, ...] = ()
+
     # =========================================================================
     # MOTIVATION
     # =========================================================================

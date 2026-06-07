@@ -30,9 +30,11 @@ Usage:
 """
 
 from collections.abc import Awaitable, Callable
+from datetime import date
 from enum import Enum
 from typing import Any, ClassVar, Generic, TypeVar
 
+from core.constants import DualTrackCheckin
 from core.events import publish_event
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import EntityUID, UserUID
@@ -351,7 +353,7 @@ class BaseAnalyticsService(Generic[B, T]):
         require_entity: bool = True,
         insight_generator: Callable[[str, float, str], list[str]] | None = None,
         recommendation_generator: Callable[[str, float, Any, list[str]], list[str]] | None = None,
-        store_callback: Callable[[str, Any], Awaitable[None]] | None = None,
+        store_callback: Callable[[str, "DualTrackResult[L]"], Awaitable[None]] | None = None,
     ) -> "Result[DualTrackResult[L]]":
         """
         Template method for dual-track assessment.
@@ -374,7 +376,11 @@ class BaseAnalyticsService(Generic[B, T]):
             entity_type: EntityType value for result (e.g., "principle", "goal")
             insight_generator: Optional custom insight generation
             recommendation_generator: Optional custom recommendations
-            store_callback: Optional async fn(uid, assessment_data) to persist
+            store_callback: Optional async fn(uid, DualTrackResult) to persist.
+                Invoked AFTER the result is built, so it receives the computed
+                system level/score/gap — not just the user-declared side — which
+                gap-trending needs. See _store_dual_track_checkin (the canonical
+                per-entity persistence callback).
 
         Returns:
             Result[DualTrackResult[L]] containing dual-track assessment
@@ -445,21 +451,7 @@ class BaseAnalyticsService(Generic[B, T]):
                 direction, gap, entity, system_evidence
             )
 
-        # 8. Store assessment if callback provided
-        if store_callback:
-            try:
-                assessment_data = {
-                    "user_level": user_level,
-                    "user_evidence": user_evidence,
-                    "user_reflection": user_reflection,
-                }
-                await store_callback(uid, assessment_data)
-            except (
-                Exception
-            ) as e:  # safety-net: catch unexpected errors from caller-provided store_callback
-                self.logger.warning(f"Failed to store assessment for {uid}: {e}")
-
-        # 9. Build and return DualTrackResult
+        # 8. Build DualTrackResult
         result = DualTrackResult(
             entity_uid=EntityUID(uid),
             entity_type=entity_type,
@@ -475,6 +467,18 @@ class BaseAnalyticsService(Generic[B, T]):
             insights=tuple(insights),
             recommendations=tuple(recommendations[:4]),  # Limit to top 4
         )
+
+        # 9. Persist the full snapshot if a store callback is provided. Runs AFTER
+        # the result is built so the callback sees the computed system level/score
+        # and the gap — gap-trending needs the historical gap, not just the user's
+        # self-rating.
+        if store_callback:
+            try:
+                await store_callback(uid, result)
+            except (
+                Exception
+            ) as e:  # safety-net: catch unexpected errors from caller-provided store_callback
+                self.logger.warning(f"Failed to store assessment for {uid}: {e}")
 
         return Result.ok(result)
 
@@ -608,3 +612,34 @@ class BaseAnalyticsService(Generic[B, T]):
             )
 
         return recommendations[:4]
+
+    async def _store_dual_track_checkin(self, uid: str, result: "DualTrackResult[L]") -> None:
+        """
+        Canonical store_callback for per-entity dual-track assessments (ADR-030).
+
+        Appends the dual-track snapshot to the entity's ``dual_track_checkins``
+        append-only log (Goals/Habits/Principles all share this field), capping
+        at ``DualTrackCheckin.HISTORY_LIMIT``. Writes back the single field via a
+        partial update (``SET n += {dual_track_checkins: ...}``) so no other
+        column is touched. The field is a ``tuple[dict]`` on the domain model and
+        round-trips as a JSON property (see core/utils/neo4j_mapper.py), so no
+        typed-record rehydration is required.
+
+        Replaces the per-domain ``_store_alignment_assessment`` (Principles) —
+        one path forward for dual-track persistence across all three per-entity
+        domains. Safe-by-design: logs and returns on any read/write failure so a
+        persistence hiccup never fails the assessment itself.
+        """
+        entity_result = await self.backend.get(uid)  # type: ignore[attr-defined]
+        if entity_result.is_error or not entity_result.value:
+            self.logger.warning(f"Cannot store dual-track check-in: entity {uid} not found")
+            return
+
+        entity = entity_result.value
+        existing = list(getattr(entity, "dual_track_checkins", ()) or ())
+        existing.append(result.to_checkin_snapshot(date.today()))
+        capped = existing[-DualTrackCheckin.HISTORY_LIMIT :]
+
+        update_result = await self.backend.update(uid, {"dual_track_checkins": capped})  # type: ignore[attr-defined]
+        if update_result.is_error:
+            self.logger.warning(f"Failed to persist dual-track check-in for {uid}: {update_result}")

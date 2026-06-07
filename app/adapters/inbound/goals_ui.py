@@ -24,6 +24,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from core.models.enums.activity_enums import ProgressLevel
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.utils.connection_configs import GOAL_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_goals
@@ -65,6 +66,9 @@ def create_goals_ui_routes(
         stats_component=GoalStatsBar,
         detail_component=GoalDetailView,
         create_href="/goals/create",
+        dual_track_assess=goals_service.intelligence.assess_progress_dual_track,
+        dual_track_level_enum=ProgressLevel,
+        dual_track_label="Progress",
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 

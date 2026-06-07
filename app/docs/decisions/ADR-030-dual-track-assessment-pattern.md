@@ -56,9 +56,48 @@ UI, and the user-level callers (Events/Choices) had a latent `not_found` bug at 
 step that was never hit because nothing called them. The **Self Check-In** page
 (`GET /self-checkin`, `adapters/inbound/self_checkin_routes.py` + `ui/self_checkin.py`) is the
 first consumer: it surfaces the three **user-level** dimensions (Productivity / Engagement /
-Decision Quality) as a self-rate-then-see-the-gap fragment. The per-entity dimensions
-(Goals/Habits/Principles) remain unsurfaced — they belong on entity detail pages, not a global
-check-in, and can be added later. The cross-domain aggregator below is still unbuilt.
+Decision Quality) as a self-rate-then-see-the-gap fragment.
+
+### Surfacing (v2, June 2026) — per-entity + persistence + aggregator
+
+The remaining pieces shipped:
+
+- **Per-entity dimensions on detail pages.** Goals/Habits/Principles detail pages each carry a
+  self-assessment section (`ui/dual_track_card.py::DualTrackSection`) — a self-rate form keyed by
+  the entity UID that POSTs to `/{domain}/dual-track/results` (registered by the activity UI
+  factory when `ActivityUIConfig.dual_track_assess` is set) — POST + `@csrf_protected` because it
+  mutates (persists a check-in); it computes the gap, persists, and swaps in the gap card +
+  refreshed trend. These keep `require_entity=True`. The shared gap-card
+  primitives were lifted out of `ui/self_checkin.py` into `ui/dual_track_card.py` (one path).
+
+- **Persistence + gap-trending (storage shape).** Each per-entity check-in is appended to an
+  **inline `dual_track_checkins` field** on the entity — a uniform `tuple[dict]` log on Goal,
+  Habit, and Principle (mirrors `Goal.progress_history`; round-trips as a JSON property via
+  `neo4j_mapper`, no typed-record rehydration). The canonical store callback is
+  `BaseAnalyticsService._store_dual_track_checkin` (appends the full snapshot — built by
+  `DualTrackResult.to_checkin_snapshot`, incl. the computed system level/score + gap — capped at
+  `DualTrackCheckin.HISTORY_LIMIT`, partial-update write). This **replaces** the former
+  per-domain `_store_alignment_assessment` (Principles), which was dual-track-only glue; the
+  separate single-track `assess_with_user_input` keeps its own `alignment_history` writer. The
+  simple trend (`render_checkin_trend`) shows the last `DualTrackCheckin.TREND_WINDOW` snapshots
+  with date + direction + gap.
+
+  *Why a per-entity field over a graph edge:* the user-level dims aside, every per-entity check-in
+  has an entity endpoint, and `create_relationship` MERGEs (one edge per pair → can't append a
+  history); the inline field reuses the existing matured `progress_history`/`alignment_history`
+  pattern with zero new relationship types, backend methods, or schema, and the cross-domain
+  aggregator reads it uniformly via `find_by(user_uid=…)`.
+
+- **Cross-domain aggregator.** `UserContextIntelligence.get_cross_domain_perception_analysis()`
+  (new `PerceptionIntelligenceMixin`) loads the user's Goals/Habits/Principles, reads each
+  entity's latest check-in, buckets `gap_direction` per domain, and synthesizes natural-language
+  insights ("You tend to rate yourself higher than your tracked actions on Goals and Habits").
+  Analytics-tier (no AI) — available at `INTELLIGENCE_TIER=core`.
+
+**Deferred:** user-level dims (Productivity/Engagement/Decision Quality) are not yet persisted (the
+Self Check-In page is non-persisting GET) so the aggregator covers only the three per-entity
+domains; persisting user-level check-ins to fold them into the aggregator is the next increment.
+The Knowledge-domain dimension (below) remains future.
 
 ### Future Extensions
 
@@ -261,21 +300,25 @@ async def assess_alignment_dual_track(
 
 ## Future Extensions
 
-Once all Activity Domains implement dual-track:
+The cross-domain aggregator below **shipped** (June 2026, v2) as
+`UserContextIntelligence.get_cross_domain_perception_analysis()` — see "Surfacing (v2)" above. It
+reads from `self.context` (no `user_uid` param needed) and currently covers the three per-entity
+domains:
 
 ```python
-# In UserContextIntelligence
-async def get_cross_domain_perception_analysis(
-    self, user_uid: str
-) -> Result[dict[str, Any]]:
+# core/services/user/intelligence/perception_intelligence.py
+async def get_cross_domain_perception_analysis(self) -> Result[dict[str, Any]]:
     """
-    Synthesize perception gaps across all domains.
+    Synthesize perception gaps across Goals, Habits, and Principles.
 
     Returns insights like:
-    - "You consistently underestimate yourself across Goals and Habits"
-    - "Your self-perception is accurate for Principles but optimistic for Tasks"
+    - "You tend to rate yourself higher than your tracked actions on Goals and Habits"
+    - "You're doing better than you think on Principles"
     """
 ```
+
+Remaining future work: persist the user-level dims (Tasks/Events/Choices) so the aggregator can
+include them, and the Knowledge-domain dimension (Substance score).
 
 ## References
 
