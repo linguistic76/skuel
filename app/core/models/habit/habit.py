@@ -115,6 +115,15 @@ class Habit(UserOwnedEntity):
     reminder_enabled: bool = False
 
     # =========================================================================
+    # DUAL-TRACK PERCEPTION-GAP CHECK-INS (ADR-030)
+    # =========================================================================
+    # Append-only log of self-rated-vs-measured consistency snapshots, written
+    # by the dual-track store_callback. tuple[dict] round-trips through
+    # neo4j_mapper as a JSON property with no _from_dto rehydration.
+    # See: core/models/shared/dual_track.py.
+    dual_track_checkins: tuple[dict, ...] = ()
+
+    # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
     source_path_step_uid: str | None = None  # HABIT -> PS

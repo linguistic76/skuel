@@ -10,7 +10,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -48,6 +47,7 @@ class _AlignmentIntelligenceMixin:
     logger: Any
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
     _analyze_entity_with_typed_context: Any
+    _store_dual_track_checkin: Any
 
     @requires_graph_intelligence("assess_principle_alignment")
     async def assess_principle_alignment(
@@ -184,7 +184,7 @@ class _AlignmentIntelligenceMixin:
             entity_type="principle",
             insight_generator=self._generate_principle_gap_insights,
             recommendation_generator=self._generate_principle_gap_recommendations,
-            store_callback=self._store_alignment_assessment,
+            store_callback=self._store_dual_track_checkin,
         )
 
     async def _calculate_system_alignment_for_dual_track(
@@ -333,59 +333,13 @@ class _AlignmentIntelligenceMixin:
 
         return recommendations[:4]
 
-    async def _store_alignment_assessment(
-        self, principle_uid: str, assessment_data: dict[str, Any]
-    ) -> None:
-        """Store user's self-assessment in principle's alignment_history."""
-        from core.models.principle.principle import Principle
-        from core.models.principle.principle_dto import PrincipleDTO
-
-        # Get current principle
-        principle_result = await self.backend.get(principle_uid)
-        if principle_result.is_error:
-            self.logger.warning(f"Could not store assessment: {principle_result}")
-            return
-
-        principle_data = principle_result.value
-        if isinstance(principle_data, dict):
-            dto = PrincipleDTO.from_dict(principle_data)
-        elif isinstance(principle_data, Principle):
-            dto = principle_data.to_dto()
-        else:
-            self.logger.warning(f"Unknown principle data type: {type(principle_data)}")
-            return
-
-        # Create assessment
-        raw_level = assessment_data.get("user_level")
-        if isinstance(raw_level, AlignmentLevel):
-            user_level = raw_level
-        elif isinstance(raw_level, str) and raw_level in set(AlignmentLevel):
-            user_level = AlignmentLevel(raw_level)
-        else:
-            user_level = AlignmentLevel.UNKNOWN
-        user_evidence = assessment_data.get("user_evidence", "")
-        user_reflection = assessment_data.get("user_reflection")
-
-        # Add assessment to history
-        from core.models.principle.principle_types import (
-            AlignmentAssessment as KuAlignmentAssessment,
-        )
-
-        assessment = KuAlignmentAssessment(
-            assessed_date=date.today(),
-            alignment_level=user_level,
-            evidence=user_evidence,
-            reflection=user_reflection,
-        )
-        # DTO stores alignment_history as list[dict] (flattened on to_dict via asdict);
-        # convert here so the transfer-tier contract stays honest. See Principle._from_dto.
-        dto.alignment_history.append(asdict(assessment))
-
-        # raw-write: full-DTO entity replace after appending to alignment_history (not a
-        # partial property patch). ADR-066's PrincipleUpdateIntent models partial column
-        # patches, not whole-entity persistence or history mutation — dto.to_dict() is the
-        # honest shape here.
-        await self.backend.update(principle_uid, dto.to_dict())
+    # Persistence: dual-track check-ins are stored via the canonical
+    # BaseAnalyticsService._store_dual_track_checkin (uniform across Goals/Habits/
+    # Principles) → entity.dual_track_checkins. The former bespoke
+    # _store_alignment_assessment (which wrote the typed alignment_history) was
+    # dual-track-only glue and was removed (ADR-030, One Path Forward). The
+    # separate single-track assess_with_user_input feature keeps its own
+    # alignment_history writer in PrinciplesAlignmentService.
 
     # ========================================================================
     # ADHERENCE TRENDS

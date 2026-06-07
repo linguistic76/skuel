@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 from core.services.user.intelligence.daily_planning import DailyPlanningMixin
 from core.services.user.intelligence.learning_intelligence import LearningIntelligenceMixin
 from core.services.user.intelligence.life_path_intelligence import LifePathIntelligenceMixin
+from core.services.user.intelligence.perception_intelligence import PerceptionIntelligenceMixin
 from core.services.user.intelligence.schedule_intelligence import ScheduleIntelligenceMixin
 from core.services.user.intelligence.synergy_intelligence import SynergyIntelligenceMixin
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
@@ -62,6 +63,7 @@ class UserContextIntelligence(
     ScheduleIntelligenceMixin,
     TemporalMomentumMixin,
     DailyPlanningMixin,
+    PerceptionIntelligenceMixin,
 ):
     """
     Learning journey intelligence = Context + 12 Domain Services.

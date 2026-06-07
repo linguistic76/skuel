@@ -148,6 +148,14 @@ class Principle(UserOwnedEntity):
     alignment_history: tuple[AlignmentAssessment, ...] = ()
     last_review_date: date | None = None
 
+    # Dual-track perception-gap check-ins (ADR-030). Distinct from the typed
+    # alignment_history above (which the older single-track assess_with_user_input
+    # feature writes): this append-only tuple[dict] log holds the full dual-track
+    # snapshot (self-rated vs measured + gap) the dual-track store_callback writes,
+    # and is what the per-entity gap card + cross-domain aggregator read.
+    # See: core/models/shared/dual_track.py.
+    dual_track_checkins: tuple[dict, ...] = ()
+
     # =========================================================================
     # CONFLICTS & TENSIONS
     # =========================================================================

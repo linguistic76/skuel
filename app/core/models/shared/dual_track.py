@@ -16,6 +16,7 @@ ADR: ADR-030 (Dual-Track Assessment Pattern)
 """
 
 from dataclasses import dataclass
+from datetime import date
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
@@ -156,6 +157,35 @@ class DualTrackResult(Generic[L]):
             # Convenience fields
             "has_perception_gap": self.has_perception_gap(),
             "is_self_aware": self.is_self_aware(),
+        }
+
+    def to_checkin_snapshot(self, assessed_date: date) -> dict[str, Any]:
+        """
+        Build a compact, JSON-safe snapshot for the append-only check-in log.
+
+        Unlike ``to_dict`` (full API payload incl. insights/recommendations),
+        this captures just what gap-trending needs: the date, both levels/scores,
+        and the gap. Enums are flattened to their ``.value`` so the dict
+        round-trips as a Neo4j JSON property (see core/utils/neo4j_mapper.py).
+
+        Used by ``BaseAnalyticsService._store_dual_track_checkin`` (ADR-030).
+        """
+        user_level_value = (
+            self.user_level.value if isinstance(self.user_level, Enum) else self.user_level
+        )
+        system_level_value = (
+            self.system_level.value if isinstance(self.system_level, Enum) else self.system_level
+        )
+        return {
+            "assessed_date": assessed_date.isoformat(),
+            "user_level": user_level_value,
+            "user_score": self.user_score,
+            "system_level": system_level_value,
+            "system_score": self.system_score,
+            "perception_gap": self.perception_gap,
+            "gap_direction": self.gap_direction,
+            "user_evidence": self.user_evidence,
+            "user_reflection": self.user_reflection,
         }
 
     @classmethod

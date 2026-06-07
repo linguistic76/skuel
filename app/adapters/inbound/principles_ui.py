@@ -24,6 +24,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from core.models.enums.principle_enums import AlignmentLevel
 from core.models.principle.principle import merge_why_important
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
 from core.models.sentinels import UNSET
@@ -72,6 +73,9 @@ def create_principles_ui_routes(
         stats_component=PrincipleStatsBar,
         detail_component=PrincipleDetailView,
         create_href="/principles/create",
+        dual_track_assess=principles_service.intelligence.assess_alignment_dual_track,
+        dual_track_level_enum=AlignmentLevel,
+        dual_track_label="Alignment",
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 

@@ -731,6 +731,23 @@ class InferenceConfidence:
     }
 
 
+class DualTrackCheckin:
+    """
+    Constants for dual-track perception-gap check-in persistence (ADR-030).
+
+    Check-ins are an append-only log on the entity's ``dual_track_checkins``
+    field. HISTORY_LIMIT caps the retained snapshots so the JSON property does
+    not grow unbounded; TREND_WINDOW is how many recent snapshots the per-entity
+    card and aggregator inspect when reporting direction-of-travel.
+    """
+
+    # Max snapshots retained per entity (oldest dropped on overflow)
+    HISTORY_LIMIT: Final = 20
+
+    # Recent snapshots inspected for the simple trend signal
+    TREND_WINDOW: Final = 5
+
+
 KU_NAMESPACES: Final[frozenset[str]] = frozenset(
     {
         "attention",

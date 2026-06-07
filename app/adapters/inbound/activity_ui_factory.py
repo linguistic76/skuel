@@ -28,6 +28,7 @@ from ui.activities._shared import CurriculumOriginField
 from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
 from ui.buttons import ButtonLink, ButtonT
+from ui.dual_track_card import render_dual_track_result
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
@@ -68,6 +69,15 @@ class ActivityUIConfig:
         list_component: (filtered, connections_map) -> FT
         stats_component: (all_items) -> FT
         detail_component: (entity, connections) -> FT
+        dual_track_assess: Per-entity dual-track assessment method, e.g.
+            goals_service.intelligence.assess_progress_dual_track. When set, the
+            factory registers GET /{domain}/dual-track/results (ADR-030). Called
+            as (uid, user_uid, level, user_evidence=...). None for domains
+            without a per-entity dual-track dimension (Tasks/Events/Choices are
+            user-level — surfaced on the Self Check-In page instead).
+        dual_track_level_enum: The StrEnum the user self-rates with (ProgressLevel
+            / ConsistencyLevel / AlignmentLevel).
+        dual_track_label: Card title noun, e.g. "Progress".
     """
 
     domain_name: str
@@ -85,6 +95,10 @@ class ActivityUIConfig:
     detail_component: Callable[..., Any]
     create_href: str | None = None
     create_label: str | None = None
+    # Dual-track per-entity self-assessment (ADR-030) — optional
+    dual_track_assess: Callable[..., Awaitable[Any]] | None = None
+    dual_track_level_enum: type | None = None
+    dual_track_label: str = ""
 
 
 # ============================================================================
@@ -265,4 +279,52 @@ def create_activity_ui_routes(
 
         return body
 
-    return [page, content_fragment, list_fragment, detail_page, detail_content_fragment]
+    routes = [page, content_fragment, list_fragment, detail_page, detail_content_fragment]
+
+    # ------------------------------------------------------------------
+    # 6. Dual-track results fragment: /{domain}/dual-track/results (ADR-030)
+    #    Registered only for domains with a per-entity dual-track dimension
+    #    (Goals/Habits/Principles). Computes + persists a perception-gap
+    #    check-in, then swaps in the gap card + refreshed trend.
+    # ------------------------------------------------------------------
+
+    if config.dual_track_assess is not None and config.dual_track_level_enum is not None:
+        dual_track_assess = config.dual_track_assess
+        level_enum = config.dual_track_level_enum
+
+        @rt(f"/{domain}/dual-track/results")
+        async def dual_track_results(request: Request) -> Any:
+            """HTMX fragment: run + persist a per-entity dual-track assessment."""
+            user_uid = require_authenticated_user(request)
+            uid = request.query_params.get("uid", "")
+            level_raw = request.query_params.get("level", "")
+            reflection = request.query_params.get("reflection", "")
+            not_found_label = f"{singular.capitalize()} not found"
+
+            if not uid:
+                return Div(render_error_banner(f"Missing {singular} UID"))
+
+            # Ownership: 404-not-403 for entities the user doesn't own.
+            owned = await config.get_one(uid)
+            if owned.is_error or owned.value.user_uid != user_uid:
+                return Div(render_error_banner(not_found_label))
+
+            try:
+                level = level_enum(level_raw)
+            except ValueError:
+                return Div(render_error_banner("Please choose a rating first."))
+
+            assess_result = await dual_track_assess(uid, user_uid, level, user_evidence=reflection)
+            if assess_result.is_error:
+                return Div(render_error_banner(assess_result.expect_error().display_message))
+
+            # Re-fetch so the trend includes the just-stored check-in.
+            refreshed = await config.get_one(uid)
+            checkins = (
+                getattr(refreshed.value, "dual_track_checkins", ()) if refreshed.is_ok else ()
+            )
+            return render_dual_track_result(config.dual_track_label, assess_result.value, checkins)
+
+        routes.append(dual_track_results)
+
+    return routes
