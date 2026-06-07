@@ -71,7 +71,7 @@ Infrastructure modules with no root-level facade.
 | `transcription/` | TranscriptionService + BatchTranscriptionService + BatchProcessingService |
 | `mixins/` | 7 BaseService mixin files |
 | `intelligence/` | Shared `_CoreIntelligenceMixin` (mechanism-B `get_with_context`) + analytics helpers |
-| `infrastructure/` | Cross-cutting helpers (PrerequisiteChecker, etc.) |
+| `infrastructure/` | Cross-cutting helpers — `PrerequisiteChecker` (readiness + `build_learning_requirements` lens — see `/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md`), `LearningAlignmentBridge`, `SemanticRelationshipLinker` |
 | `ingestion/` | UnifiedIngestionService |
 | `query/` | Query builders (CypherGenerator, etc.) |
 | `insight/` | Insight analytics |

@@ -11,10 +11,9 @@
 |------|---------------|
 | `goals_intelligence_service.py` | Shell: `__init__` + dataclasses (`GoalPrediction`, `HabitImpactAnalysis`); label attrs resolved via `DomainConfig` |
 | `_core_intelligence_mixin.py` | `get_goal_with_context` (alias for `get_with_context`); inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
-| `_analytics_mixin.py` | `get_performance_analytics`, `get_domain_insights`, `get_goal_progress_dashboard`, `_generate_progress_recommendations` |
+| `_analytics_mixin.py` | `get_performance_analytics`, `get_domain_insights`, `get_goal_progress_dashboard`, `_generate_progress_recommendations`, `get_goal_completion_forecast`, `get_goal_learning_requirements` |
 | `_predictive_mixin.py` | `predict_goal_success`, `analyze_habit_impact`, `assess_goal_risk`, `run_scenario_analysis` + all `_calculate_*` / `_identify_*` / `_determine_*` private helpers |
 | `_dual_track_mixin.py` | `assess_progress_dual_track`, `_calculate_system_progress`, `_progress_level_to_score`, `_generate_progress_gap_*` |
-| `_learning_requirements_mixin.py` | `get_goal_completion_forecast`, `get_goal_learning_requirements`, `_generate_learning_recommendations` |
 
 **Related:** `GoalEventHandlerService` (`/core/services/goals/goal_event_handler_service.py`) — fire-and-forget reactive handlers; persists `COMPLETION_PATTERN` (abandonment, milestones) and `IMBALANCE_DETECTED` (progress stalls) insights to InsightStore (March 2026).
 
@@ -250,7 +249,7 @@ if result.is_ok:
 
 ### Method 4: get_goal_learning_requirements()
 
-**Purpose:** Analyze goal's learning requirements including required knowledge areas, current mastery status, available learning paths, and knowledge gaps.
+**Purpose:** Analyze goal's learning requirements including required knowledge areas, current mastery status, available learning paths, and knowledge gaps. The three returned blocks are produced by the shared `build_learning_requirements` helper, so the mastery split is **truthful**: when `user_context` is supplied, `knowledge_gaps` / `mastered_knowledge` / `ready_to_start` reflect the user's actual `knowledge_mastery` (via `PrerequisiteChecker.check_prerequisites`, same 0.7 readiness threshold). Context-free callers degrade to the prior behaviour — every requirement treated as an open gap. **See:** [PREREQUISITE_CHECKER_PATTERN.md](/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md).
 
 **Signature:**
 ```python
@@ -258,7 +257,8 @@ async def get_goal_learning_requirements(
     self,
     uid: str,
     depth: int = 2,
-    min_confidence: float = 0.7
+    min_confidence: float = 0.7,
+    user_context: UserContext | None = None,
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -266,6 +266,7 @@ async def get_goal_learning_requirements(
 - `uid` (str) - Goal UID
 - `depth` (int, default=2) - Graph traversal depth
 - `min_confidence` (float, default=0.7) - Minimum confidence for relationships
+- `user_context` (`UserContext | None`, default=None) - When supplied, the mastery split is real; when None, every requirement is an open gap
 
 **Returns:**
 ```python
