@@ -460,7 +460,7 @@ class HabitEventScheduler:
                 event.skip_breaks_habit_streak = True
 
                 # Add knowledge reinforcement if applicable
-                # Store in metadata - service layer creates PRACTICES_KNOWLEDGE graph relationships
+                # Store in metadata - service layer creates APPLIES_KNOWLEDGE graph relationships
                 if rels.knowledge_reinforcement_uids:
                     event.metadata["practices_knowledge_uids"] = list(
                         rels.knowledge_reinforcement_uids

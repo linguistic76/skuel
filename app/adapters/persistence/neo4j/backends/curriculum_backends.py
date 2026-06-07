@@ -222,9 +222,9 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
     async def get_practicing_event_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get events practicing this knowledge."""
+        """Get events applying (practicing) this knowledge via APPLIES_KNOWLEDGE."""
         query = """
-        MATCH (event:Event)-[:PRACTICES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (event:Event)-[:APPLIES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
         RETURN event.uid as uid
         LIMIT 100
         """

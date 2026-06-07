@@ -30,13 +30,35 @@ This insight was first implemented in LifePath's `WordActionAlignment` and recen
 | Domain | Method | Level Enum | System Metrics |
 |--------|--------|------------|----------------|
 | **Principles** | `assess_alignment_dual_track()` | `AlignmentLevel` | Expression count, goal alignment, behavioral consistency |
-| **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | Completion rate, overdue ratio, on-time rate (custom impl*) |
+| **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | Completion throughput, on-time rate, overdue backlog |
 | **Goals** | `assess_progress_dual_track()` | `ProgressLevel` | Progress %, milestone completion, status factor |
 | **Habits** | `assess_consistency_dual_track()` | `ConsistencyLevel` | Success rate, current streak, best streak |
 | **Events** | `assess_engagement_dual_track()` | `EngagementLevel` | Attendance rate, goal support, habit reinforcement |
 | **Choices** | `assess_decision_quality_dual_track()` | `DecisionQualityLevel` | Outcome quality, principle alignment, confidence calibration |
 
-**Note on Tasks:** Tasks uses a custom implementation (not the template) because it assesses USER productivity across all tasks, not a single entity. The template expects `uid → entity lookup`, which doesn't apply for user-level assessments. The custom implementation follows the same DualTrackResult contract with `entity_uid=user_uid` and `entity_type="productivity"`. **March 2026:** Extracted to `TasksProductivityService` (`tasks_productivity_service.py`), accessed via `tasks_service.productivity.assess_productivity_dual_track(...)`.
+**User-level vs per-entity (and the `require_entity` flag).** Three dimensions assess the
+USER across all their entities, not a single one: **Tasks** (productivity), **Events**
+(engagement), **Choices** (decision quality). They pass `uid=user_uid`. Because a User node
+is `:User`, not `:Entity`, the template's `backend.get(uid)` returns nothing — so these callers
+pass `require_entity=False` (added June 2026), and the template proceeds with `entity=None`
+(the insight/recommendation generators are None-safe and fall back to `entity_type` for the
+label). The other three — **Goals** (per `goal_uid`), **Habits** (per `habit_uid`), **Principles**
+(per `principle_uid`) — are per-entity and keep the default `require_entity=True`.
+
+Tasks' implementation lives in `core/services/tasks/_dual_track_mixin.py` (mixed into
+`TasksIntelligenceService`), accessed via `tasks_service.intelligence.assess_productivity_dual_track(...)`.
+It uses the shared template — there is no separate `TasksProductivityService`.
+
+### Surfacing (v1, June 2026)
+
+Until June 2026 the dual-track engine was **dormant** — implemented but consumed by no route or
+UI, and the user-level callers (Events/Choices) had a latent `not_found` bug at the entity-fetch
+step that was never hit because nothing called them. The **Self Check-In** page
+(`GET /self-checkin`, `adapters/inbound/self_checkin_routes.py` + `ui/self_checkin.py`) is the
+first consumer: it surfaces the three **user-level** dimensions (Productivity / Engagement /
+Decision Quality) as a self-rate-then-see-the-gap fragment. The per-entity dimensions
+(Goals/Habits/Principles) remain unsurfaced — they belong on entity detail pages, not a global
+check-in, and can be added later. The cross-domain aggregator below is still unbuilt.
 
 ### Future Extensions
 
@@ -193,7 +215,8 @@ async def assess_alignment_dual_track(
 | `core/models/enums/activity_enums.py` | Add 5 level enums: ProductivityLevel, ProgressLevel, ConsistencyLevel, EngagementLevel, DecisionQualityLevel |
 | `core/services/base_analytics_service.py` | Add `_dual_track_assessment()` template and helpers |
 | `core/services/principles/principles_intelligence_service.py` | Add `assess_alignment_dual_track()` implementation |
-| `core/services/tasks/tasks_productivity_service.py` | `assess_productivity_dual_track()` (extracted March 2026) |
+| `core/services/tasks/_dual_track_mixin.py` | `assess_productivity_dual_track()` (June 2026, shared template + `require_entity=False`) |
+| `adapters/inbound/self_checkin_routes.py` / `ui/self_checkin.py` | Self Check-In surface — first consumer (June 2026) |
 | `core/services/goals/goaps_intelligence_service.py` | Add `assess_progress_dual_track()` implementation |
 | `core/services/habits/habits_intelligence_service.py` | Add `assess_consistency_dual_track()` implementation |
 | `core/services/events/events_intelligence_service.py` | Add `assess_engagement_dual_track()` implementation |

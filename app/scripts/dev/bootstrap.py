@@ -637,6 +637,10 @@ async def _wire_all_routes(
 
     create_insights_routes(app, rt, services, None)
 
+    from adapters.inbound.self_checkin_routes import create_self_checkin_routes
+
+    create_self_checkin_routes(app, rt, services, None)
+
     from adapters.inbound.search_routes import create_search_routes
 
     create_search_routes(app, rt, services)

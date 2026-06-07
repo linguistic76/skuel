@@ -1014,7 +1014,7 @@ class AskesisService:
             ],
             "choice": [RelationshipName.INFORMED_BY_KNOWLEDGE.value],
             "principle": [RelationshipName.GROUNDED_IN_KNOWLEDGE.value],
-            "event": [RelationshipName.PRACTICES_KNOWLEDGE.value],
+            "event": [RelationshipName.APPLIES_KNOWLEDGE.value],
         }
 
         relationship_map.get(activity_domain, [RelationshipName.APPLIES_KNOWLEDGE.value])

@@ -10,6 +10,7 @@ Architecture: Shell delegates to 3 focused mixins in this directory:
   _productivity_mixin.py         — analyze_learning_patterns, calculate_knowledge_aware_priorities,
                                    generate_task_insights, track_knowledge_mastery_progression,
                                    analyze_task_learning_metrics, generate_task_knowledge_insights
+  _dual_track_mixin.py           — assess_productivity_dual_track (ADR-030 perception gap)
 
 Created: Original November 2025
 Updated: January 2026 - Migrated to BaseAnalyticsService (ADR-030)
@@ -28,8 +29,10 @@ Domain-agnostic knowledge intelligence (knowledge suggestions, prerequisites,
 learning opportunities) was extracted to ActivityKnowledgeIntelligenceService
 (March 2026) — those methods work for all 6 activity domains, not just Tasks.
 
+Dual-track productivity assessment (ADR-030) lives in `_dual_track_mixin.py`
+(user-level perception-gap: self-rating vs measured throughput).
+
 Related sub-services (extracted March 2026):
-- TasksProductivityService: Dual-track productivity assessment (ADR-030)
 - ActivityKnowledgeIntelligenceService: Knowledge intelligence (all domains)
 
 NOTE: This service does NOT use AI (LLM/embeddings).
@@ -56,6 +59,7 @@ from core.services.intelligence import (
 )
 from core.services.tasks._analytics_mixin import _AnalyticsMixin
 from core.services.tasks._core_intelligence_mixin import _CoreIntelligenceMixin
+from core.services.tasks._dual_track_mixin import _DualTrackMixin
 from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.utils.result_simplified import Errors, Result
 
@@ -70,6 +74,7 @@ class TasksIntelligenceService(
     _CoreIntelligenceMixin,
     _AnalyticsMixin,
     _ProductivityMixin,
+    _DualTrackMixin,
     BaseAnalyticsService["TasksOperations", Task],
 ):
     """
@@ -78,6 +83,7 @@ class TasksIntelligenceService(
     Provides:
     - Behavioral insights and patterns (completion time, procrastination)
     - Performance analytics and optimization (rates, trends, duration calibration)
+    - Dual-track productivity self-assessment (perception gap, ADR-030)
     - Cross-domain context (path-aware TaskCrossContext via the typed reader)
 
     Domain-agnostic knowledge intelligence was extracted to
