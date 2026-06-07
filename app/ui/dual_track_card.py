@@ -6,9 +6,9 @@ check-ins. Used by BOTH the user-level Self Check-In page
 (``ui/self_checkin.py``) and the per-entity self-assessment sections on the
 Goal / Habit / Principle detail pages.
 
-Server-rendered FastHTML; the self-rate form loads results via an HTMX GET
-fragment (non-mutating-from-the-client's view; the assessment itself persists a
-check-in server-side via the dual-track store_callback).
+Server-rendered FastHTML; the per-entity self-rate form submits via an HTMX POST
+(it persists a check-in server-side via the dual-track store_callback, so it's a
+mutation — POST + CSRF, not GET).
 """
 
 from __future__ import annotations
@@ -160,7 +160,7 @@ def DualTrackSection(
     """Per-entity self-assessment section for a detail page (ADR-030).
 
     Renders the self-rate form (one level select + reflection), an empty results
-    slot, and the current trend. On submit the form GETs
+    slot, and the current trend. On submit the form POSTs to
     ``/{domain}/dual-track/results?uid={entity_uid}`` which computes + persists a
     check-in and swaps the gap card + refreshed trend into the results slot.
 
@@ -202,7 +202,7 @@ def DualTrackSection(
                         ),
                         cls="text-right",
                     ),
-                    hx_get=f"/{domain}/dual-track/results?uid={entity_uid}",
+                    hx_post=f"/{domain}/dual-track/results?uid={entity_uid}",
                     hx_target=f"#{results_slot}",
                     hx_swap="innerHTML",
                     hx_include="[name='level'],[name='reflection']",

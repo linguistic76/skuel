@@ -64,9 +64,10 @@ The remaining pieces shipped:
 
 - **Per-entity dimensions on detail pages.** Goals/Habits/Principles detail pages each carry a
   self-assessment section (`ui/dual_track_card.py::DualTrackSection`) — a self-rate form keyed by
-  the entity UID that GETs `/{domain}/dual-track/results` (registered by the activity UI factory
-  when `ActivityUIConfig.dual_track_assess` is set), computes the gap, persists a check-in, and
-  swaps in the gap card + refreshed trend. These keep `require_entity=True`. The shared gap-card
+  the entity UID that POSTs to `/{domain}/dual-track/results` (registered by the activity UI
+  factory when `ActivityUIConfig.dual_track_assess` is set) — POST + `@csrf_protected` because it
+  mutates (persists a check-in); it computes the gap, persists, and swaps in the gap card +
+  refreshed trend. These keep `require_entity=True`. The shared gap-card
   primitives were lifted out of `ui/self_checkin.py` into `ui/dual_track_card.py` (one path).
 
 - **Persistence + gap-trending (storage shape).** Each per-entity check-in is appended to an

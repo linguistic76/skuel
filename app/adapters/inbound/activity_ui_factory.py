@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from ui.activities._shared import CurriculumOriginField
 from ui.activities.filter_bar import ActivityFilterBar
@@ -71,7 +72,7 @@ class ActivityUIConfig:
         detail_component: (entity, connections) -> FT
         dual_track_assess: Per-entity dual-track assessment method, e.g.
             goals_service.intelligence.assess_progress_dual_track. When set, the
-            factory registers GET /{domain}/dual-track/results (ADR-030). Called
+            factory registers POST /{domain}/dual-track/results (ADR-030). Called
             as (uid, user_uid, level, user_evidence=...). None for domains
             without a per-entity dual-track dimension (Tasks/Events/Choices are
             user-level — surfaced on the Self Check-In page instead).
@@ -292,13 +293,21 @@ def create_activity_ui_routes(
         dual_track_assess = config.dual_track_assess
         level_enum = config.dual_track_level_enum
 
-        @rt(f"/{domain}/dual-track/results")
+        @rt(f"/{domain}/dual-track/results", methods=["POST"])
+        @csrf_protected
         async def dual_track_results(request: Request) -> Any:
-            """HTMX fragment: run + persist a per-entity dual-track assessment."""
+            """HTMX POST: run + persist a per-entity dual-track assessment.
+
+            POST (not GET) because it mutates — the assessment appends a check-in
+            to the entity's dual_track_checkins. CSRF-protected so a check-in
+            can't be written via a plain link / prefetch; skuel.js attaches the
+            X-CSRF-Token header to every HTMX request.
+            """
             user_uid = require_authenticated_user(request)
             uid = request.query_params.get("uid", "")
-            level_raw = request.query_params.get("level", "")
-            reflection = request.query_params.get("reflection", "")
+            form = await request.form()
+            level_raw = str(form.get("level", ""))
+            reflection = str(form.get("reflection", ""))
             not_found_label = f"{singular.capitalize()} not found"
 
             if not uid:
