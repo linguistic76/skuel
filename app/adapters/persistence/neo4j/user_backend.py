@@ -49,7 +49,7 @@ logger = get_logger(__name__)
 # user before a dual-track check-in but commits after it) would clobber the
 # just-persisted log. Excluding them here makes the race impossible in BOTH
 # directions (ADR-030). See `update_user` / `atomic_append_dual_track_checkin` below.
-_APPEND_ONLY_FIELDS: frozenset[str] = frozenset({"dual_track_checkins"})
+_APPEND_ONLY_FIELDS: frozenset[str] = frozenset({"dual_track_checkins", "knowledge_checkins"})
 
 
 class UserBackend:
@@ -309,6 +309,57 @@ class UserBackend:
             self.logger.error(f"Failed to append dual-track check-in: {e}")
             return Result.fail(
                 Errors.database(operation="atomic_append_dual_track_checkin", message=str(e))
+            )
+
+    async def atomic_append_knowledge_checkin(
+        self,
+        user_uid: UserUID,
+        snapshot: dict[str, Any],
+        history_limit: int,
+        ku_uid: str,
+    ) -> Result[bool]:
+        """Atomically append a Knowledge dual-track check-in snapshot (ADR-030).
+
+        The Knowledge dimension is per-(user, Ku). A Ku is SHARED/public curriculum,
+        so its mastery check-ins live on the ``:User`` node keyed by ``ku_uid`` within
+        the ``knowledge_checkins`` ``dict[str, list[dict]]`` log — a separate property
+        from ``dual_track_checkins`` so the open-ended per-Ku keys never collide with
+        the three fixed user-level dimensions.
+
+        Node-lock-serialized so two near-simultaneous mastery check-ins for the SAME
+        (user, Ku) can't lose a snapshot (the read-modify-write of the JSON log runs
+        under a Neo4j node write-lock).
+
+        Backend: ``_dual_track_checkin_store.atomic_append_checkin`` (key=``ku_uid``,
+        property=``knowledge_checkins``).
+
+        Args:
+            user_uid: User UID.
+            snapshot: ``DualTrackResult.to_checkin_snapshot`` dict.
+            history_limit: Max snapshots retained per Ku (oldest dropped).
+            ku_uid: The Ku the mastery self-rating belongs to.
+
+        Returns:
+            Result[bool]: True if appended, NotFound if the user does not exist.
+        """
+        try:
+            appended = await atomic_append_checkin(
+                self.driver,
+                label=self.label,
+                uid=user_uid,
+                snapshot=snapshot,
+                history_limit=history_limit,
+                dimension=ku_uid,
+                property_name="knowledge_checkins",
+            )
+            if not appended:
+                return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+            return Result.ok(True)
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed to append knowledge check-in: {e}")
+            return Result.fail(
+                Errors.database(operation="atomic_append_knowledge_checkin", message=str(e))
             )
 
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:

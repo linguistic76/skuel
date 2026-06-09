@@ -47,7 +47,7 @@ Services >~350 lines are decomposed into mixin files in the same package directo
 | Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService["ChoicesOperations", Choice]` | Decision support |
 | Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Principle]` | Alignment analysis |
 | **Curriculum (3)** |
-| KU | `KuIntelligenceService` | `_CoreIntelligenceMixin[Ku], BaseAnalyticsService["BackendOperations[Ku]", Ku]` | Knowledge graph analytics |
+| KU | `KuIntelligenceService` | `_CoreIntelligenceMixin[Ku], BaseAnalyticsService["BackendOperations[Ku]", Ku]` | Knowledge graph analytics + dual-track mastery ADR-030 (`assess_mastery_dual_track`, per-(user, Ku)) |
 | PS | `PsIntelligenceService` | `_CoreIntelligenceMixin[PathStep], BaseAnalyticsService["BackendOperations[PathStep]", PathStep]` | Readiness checks |
 | LP | `LpIntelligenceService` | `_CoreIntelligenceMixin[LearningPath], BaseAnalyticsService[Any, LearningPath]` | Learning state analysis |
 
@@ -285,7 +285,7 @@ async def assess_alignment_dual_track(
 **Persistence + the per-entity / user-level split (ADR-030).** A `store_callback(uid, result)`
 runs *after* the result is built (so it sees the computed system level/score + gap, not just the
 self-rating) and is **safe-by-design** — it logs and returns on any failure so a persistence hiccup
-never fails the assessment. Two flavors, by who the assessment is about:
+never fails the assessment. Three flavors, by who the assessment is about:
 
 - **Per-entity** (Goals/Habits/Principles, `require_entity=True`): callback is the canonical
   `BaseAnalyticsService._store_dual_track_checkin`, which appends the snapshot to the *entity's*
@@ -296,16 +296,29 @@ never fails the assessment. Two flavors, by who the assessment is about:
   bound via `functools.partial(..., dimension=…)` at the route and passed in as `store_callback`.
   It appends to `User.dual_track_checkins` (a `dict[str, list[dict]]` keyed by `DualTrackDimension`
   value). The three user-level assess methods take an optional `store_callback` param and forward
-  it. The cross-domain aggregator
-  (`UserContextIntelligence.get_cross_domain_perception_analysis`) reads per-entity logs via
-  `find_by(user_uid=…)` and user-level logs off `context.dual_track_checkins`.
+  it.
+- **Knowledge / per-(user, Ku)** (`KuIntelligenceService.assess_mastery_dual_track`,
+  `require_entity=True` — a Ku *is* an `:Entity`): the system side wraps `calculate_user_substance`
+  (mastery `MasteryLevel` vs substance score), but a Ku is SHARED/public, so the check-in can't live
+  on the `:Ku` node — it would collide across users. The callback is
+  `UserService.append_knowledge_checkin(ku_uid, result, *, user_uid)` (the template passes `ku_uid`
+  as the positional `uid`; the Ku-detail route binds `user_uid` via a small store closure). It
+  appends to a **separate** `User.knowledge_checkins` field — `dict[ku_uid, list[dict]]`, kept
+  distinct from `dual_track_checkins` so per-Ku keys never collide with the fixed dimensions. The
+  assess method takes the **rich** `UserContext` (substance needs the rich-only activity→Ku maps).
 
-**Atomic append (both paths).** The append is a read-modify-write of a single JSON-string property,
+The cross-domain aggregator (`UserContextIntelligence.get_cross_domain_perception_analysis`) reads
+per-entity logs via `find_by(user_uid=…)`, user-level logs off `context.dual_track_checkins`, and the
+per-Ku Knowledge logs off `context.knowledge_checkins` (aggregated into one "Knowledge" bucket).
+
+**Atomic append (all paths).** The append is a read-modify-write of a single JSON-string property,
 so it runs **under a Neo4j node write-lock** to keep concurrent same-subject appends from losing a
-snapshot. Both callbacks route through one shared mechanism —
-`adapters/persistence/neo4j/_dual_track_checkin_store.py::atomic_append_checkin`, surfaced as
-`UniversalNeo4jBackend.atomic_append_dual_track_checkin` (per-entity, flat list) and
-`UserBackend.atomic_append_dual_track_checkin` (user-level, dimension-keyed). Don't reintroduce a
+snapshot. All callbacks route through one shared mechanism —
+`adapters/persistence/neo4j/_dual_track_checkin_store.py::atomic_append_checkin` (parameterized with
+`property_name` for the Knowledge `knowledge_checkins` log), surfaced as
+`UniversalNeo4jBackend.atomic_append_dual_track_checkin` (per-entity, flat list),
+`UserBackend.atomic_append_dual_track_checkin` (user-level, dimension-keyed), and
+`UserBackend.atomic_append_knowledge_checkin` (Knowledge, `ku_uid`-keyed). Don't reintroduce a
 plain `get()`+`update()` read-modify-write for check-ins — it reopens the lost-update race.
 
 ---

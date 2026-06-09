@@ -24,9 +24,13 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
+    from core.models.enums import MasteryLevel
     from core.models.graph_context import GraphContext
     from core.models.ku.ku import Ku
+    from core.models.shared.dual_track import DualTrackResult
     from core.ports.query_types import KuUserSubstanceResult, ListContext
     from core.services.ku.ku_intelligence_service import KuIntelligenceService
     from core.services.user import UserContext
@@ -180,6 +184,32 @@ class KuService:
         See: KuIntelligenceService.calculate_user_substance
         """
         return await self.intelligence.calculate_user_substance(ku_uid, user_context)
+
+    async def assess_mastery_dual_track(
+        self,
+        user_uid: UserUID,
+        ku_uid: str,
+        user_level: MasteryLevel,
+        user_evidence: str,
+        user_context: UserContext,
+        user_reflection: str | None = None,
+        store_callback: (
+            Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]] | None
+        ) = None,
+    ) -> Result[DualTrackResult[MasteryLevel]]:
+        """Dual-track mastery assessment for a Ku (ADR-030 — Knowledge dimension).
+
+        See: KuIntelligenceService.assess_mastery_dual_track
+        """
+        return await self.intelligence.assess_mastery_dual_track(
+            user_uid,
+            ku_uid,
+            user_level,
+            user_evidence,
+            user_context,
+            user_reflection=user_reflection,
+            store_callback=store_callback,
+        )
 
     # =========================================================================
     # GRAPH (reverse traversal via backend)

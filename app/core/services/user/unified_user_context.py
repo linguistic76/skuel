@@ -146,6 +146,13 @@ class UserContext:
     # dims in alongside the per-entity ones without a second User read.
     dual_track_checkins: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
+    # Knowledge dual-track (mastery) perception-gap check-ins (ADR-030), keyed by
+    # Ku uid. The Knowledge dimension is per-(user, Ku) — a Ku is SHARED, so its
+    # mastery check-ins live on the :User node (not the shared :Ku node). Copied off
+    # the :User node by UserContextBuilder so the perception-gap aggregator can fold
+    # a "Knowledge" bucket in alongside the other dimensions without a second read.
+    knowledge_checkins: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+
     # Session tracking
     session_id: str | None = None
     session_start: datetime | None = None

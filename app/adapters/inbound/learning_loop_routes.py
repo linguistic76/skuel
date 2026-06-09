@@ -25,10 +25,14 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from core.models.enums import MasteryLevel
+from core.models.shared.dual_track import DualTrackResult
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.explore.ku_detail import render_ku_detail_content, render_ku_not_found
+from ui.explore.ku_mastery import render_ku_mastery_result
 from ui.explore.nav import render_explore_sidebar_page
 from ui.explore.ps_detail import render_ps_detail_content, render_ps_not_found
 from ui.learning_loop.exercise_status import render_exercise_list
@@ -37,10 +41,58 @@ from ui.patterns.error_banner import render_inline_error
 from ui.patterns.loading import content_loading_placeholder
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 
 logger = get_logger("skuel.routes.learning_loop")
+
+
+# =============================================================================
+# Knowledge dual-track (mastery) helpers — ADR-030
+# =============================================================================
+
+
+def _parse_mastery_level(raw: str) -> MasteryLevel | None:
+    """Parse a raw form value into a MasteryLevel, or None when blank/invalid."""
+    if not raw:
+        return None
+    try:
+        return MasteryLevel(raw)
+    except ValueError:
+        logger.debug("Ku mastery check-in: ignoring invalid MasteryLevel value %r", raw)
+        return None
+
+
+async def _load_ku_mastery_checkins(
+    user_service: Any, user_uid: str, ku_uid: str
+) -> list[dict[str, Any]]:
+    """Read the user's stored Knowledge dual-track check-ins for a Ku.
+
+    The Knowledge dimension persists per-(user, Ku) on the :User node's
+    ``knowledge_checkins`` log (a Ku is SHARED, so its mastery check-ins can't live
+    on the shared :Ku node). Returns the log for this Ku, newest last.
+    """
+    if user_service is None:
+        return []
+    user_result = await user_service.get_user(user_uid)
+    if user_result.is_ok and user_result.value:
+        log: list[dict[str, Any]] = (user_result.value.knowledge_checkins or {}).get(ku_uid, [])
+        return log
+    return []
+
+
+def _make_ku_mastery_store(
+    user_service: Any, user_uid: str
+) -> "Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]]":
+    """Build the dual-track ``store_callback(ku_uid, result)`` for the Knowledge
+    dimension, with ``user_uid`` bound — persists per-(user, Ku) on the :User node."""
+
+    async def _store(ku_uid: str, result: DualTrackResult[MasteryLevel]) -> None:
+        await user_service.append_knowledge_checkin(ku_uid, result, user_uid=user_uid)
+
+    return _store
 
 
 # =============================================================================
@@ -105,6 +157,7 @@ def create_learning_loop_detail_routes(
         # Learning state
         learning_state: dict[str, bool] = {"is_studying": False, "is_understood": False}
         is_pinned = False
+        mastery_checkins: list[dict] = []
         if user_uid:
             state_result = await orchestrator.get_ku_learning_state(user_uid, uid)
             if state_result.is_ok:
@@ -112,6 +165,7 @@ def create_learning_loop_detail_routes(
             pins_result = await orchestrator.get_pinned_entities(user_uid)
             if pins_result.is_ok and pins_result.value:
                 is_pinned = uid in set(pins_result.value)
+            mastery_checkins = await _load_ku_mastery_checkins(user_service, user_uid, uid)
 
         # Exercises
         exercises_result = await orchestrator.get_exercises_for_curriculum(uid)
@@ -129,7 +183,59 @@ def create_learning_loop_detail_routes(
             is_pinned=is_pinned,
             user_uid=user_uid,
             exercises_for_ku=exercises_for_ku,
+            mastery_checkins=mastery_checkins,
         )
+
+    # -----------------------------------------------------------------
+    # POST /explore/ku/{uid}/mastery-checkin — Knowledge dual-track (ADR-030)
+    # -----------------------------------------------------------------
+
+    @rt("/explore/ku/{uid}/mastery-checkin", methods=["POST"])
+    @csrf_protected
+    async def explore_ku_mastery_checkin(request: Request, uid: str) -> Any:
+        """HTMX POST: run + persist a Knowledge mastery dual-track check-in.
+
+        POST + ``@csrf_protected`` because it mutates — appends a per-(user, Ku)
+        check-in to the :User node's ``knowledge_checkins`` log (a Ku is SHARED, so
+        its mastery check-ins live per-user, never on the shared :Ku node). The
+        system side is the substance score, which needs the RICH user context
+        (the activity→Ku channels), so we build it here.
+        """
+        user_uid = require_authenticated_user(request)
+        if user_service is None:
+            return render_inline_error("Mastery check-in is unavailable")
+
+        form = await request.form()
+        level = _parse_mastery_level(str(form.get("level", "")))
+        if level is None:
+            return render_inline_error("Please choose a mastery level")
+        reflection = str(form.get("reflection", ""))
+
+        ctx_result = await user_service.get_rich_unified_context(user_uid)
+        if ctx_result.is_error:
+            return render_inline_error("Could not load your context")
+
+        result = await orchestrator.assess_ku_mastery(
+            user_uid,
+            uid,
+            level,
+            user_evidence=reflection,
+            user_context=ctx_result.value,
+            user_reflection=reflection or None,
+            store_callback=_make_ku_mastery_store(user_service, user_uid),
+        )
+        if result.is_error:
+            logger.warning(
+                "Ku mastery assessment failed for %s (ku=%s): %s",
+                user_uid,
+                uid,
+                result.expect_error().message,
+            )
+            return render_inline_error("Could not assess mastery right now")
+
+        # Re-read so the trend includes the just-stored check-in.
+        checkins = await _load_ku_mastery_checkins(user_service, user_uid, uid)
+        return render_ku_mastery_result(result.value, checkins)
 
     # -----------------------------------------------------------------
     # GET /explore/ps/{uid} — PathStep detail page (learning loop anchor)

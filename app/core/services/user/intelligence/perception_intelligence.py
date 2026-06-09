@@ -63,9 +63,9 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
 
     async def get_cross_domain_perception_analysis(self) -> Result[dict[str, Any]]:
         """
-        Synthesize dual-track perception gaps across all six assessable domains.
+        Synthesize dual-track perception gaps across all assessable domains.
 
-        Two sources are merged into one rollup:
+        Three sources are merged into one rollup:
 
         - **Per-entity** (Goals/Habits/Principles): loads the user's entities, takes
           the most recent dual-track check-in per entity (``dual_track_checkins[-1]``),
@@ -74,6 +74,9 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
         - **User-level** (Productivity/Engagement/Decision Quality): reads the most
           recent check-in per dimension off ``context.dual_track_checkins`` (persisted
           on the :User node by the Self Check-In page) and buckets its direction.
+        - **Knowledge** (per-Ku mastery): reads the latest check-in per Ku off
+          ``context.knowledge_checkins`` (persisted per-(user, Ku) on the :User node by
+          the Ku detail page) and aggregates them into a single "Knowledge" bucket.
 
         Each domain/dimension is classified as over-rated (user rates higher than the
         data), under-rated (doing better than they think), or accurate.
@@ -82,8 +85,8 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
             Result[dict] with:
             - per_domain: {key: {label, assessed_count, direction_counts,
               avg_gap, dominant_direction}} — keys are domain names (goals/habits/
-              principles) and DualTrackDimension values (productivity/engagement/
-              decision_quality)
+              principles), DualTrackDimension values (productivity/engagement/
+              decision_quality), and "knowledge"
             - over_rated_domains / under_rated_domains / accurate_domains: labels
             - total_assessed_entities: int
             - insights: list[str] — natural-language cross-domain synthesis
@@ -185,6 +188,44 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
                 "direction_counts": {d: (1 if d == direction else 0) for d in _DIRECTIONS},
                 "avg_gap": avg_gap,
                 "dominant_direction": direction,
+            }
+
+        # Knowledge dimension (per-Ku mastery, ADR-030) — aggregate the latest
+        # check-in per Ku into one "Knowledge" bucket (analogous to a per-entity
+        # domain) so the synthesis spans the Knowledge dimension too. A Ku is SHARED,
+        # so its mastery check-ins live per-user on the :User node
+        # (context.knowledge_checkins), keyed by Ku uid.
+        knowledge_checkins = getattr(self.context, "knowledge_checkins", {}) or {}
+        k_direction_counts: dict[str, int] = {d: 0 for d in _DIRECTIONS}
+        k_gaps: list[float] = []
+        for log in knowledge_checkins.values():
+            if not log:
+                continue
+            latest = log[-1]
+            direction = str(latest.get("gap_direction", "aligned"))
+            if direction not in k_direction_counts:
+                direction = "aligned"
+            k_direction_counts[direction] += 1
+            gap = latest.get("perception_gap")
+            if isinstance(gap, int | float):
+                k_gaps.append(float(gap))
+
+        k_assessed = sum(k_direction_counts.values())
+        if k_assessed:
+            total_assessed += k_assessed
+            k_dominant = max(k_direction_counts.items(), key=itemgetter(1))[0]
+            if k_dominant == "user_higher":
+                over_rated.append("Knowledge")
+            elif k_dominant == "system_higher":
+                under_rated.append("Knowledge")
+            else:
+                accurate.append("Knowledge")
+            per_domain["knowledge"] = {
+                "label": "Knowledge",
+                "assessed_count": k_assessed,
+                "direction_counts": k_direction_counts,
+                "avg_gap": round(sum(k_gaps) / len(k_gaps), 3) if k_gaps else 0.0,
+                "dominant_direction": k_dominant,
             }
 
         insights = self._synthesize_perception_insights(over_rated, under_rated, accurate)
