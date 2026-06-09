@@ -111,6 +111,19 @@ class UserCrudOperations(Protocol):
         a snapshot (ADR-030)."""
         ...
 
+    async def atomic_append_knowledge_checkin(
+        self,
+        user_uid: UserUID,
+        snapshot: "dict[str, Any]",
+        history_limit: int,
+        ku_uid: str,
+    ) -> Result[bool]:
+        """Atomically append a Knowledge dual-track check-in snapshot to the
+        ``:User`` node's ``knowledge_checkins`` log, keyed by ``ku_uid`` — serialized
+        via a node write-lock so concurrent same-(user, Ku) appends can't lose a
+        snapshot (ADR-030)."""
+        ...
+
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """Soft-delete a user: mark status=DELETED, scrub PII, preserve graph."""
         ...

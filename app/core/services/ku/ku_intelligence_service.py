@@ -18,7 +18,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import MasteryLevel
 from core.models.ku.ku import Ku
+from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.ports.query_types import KuUserSubstanceResult
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -28,6 +30,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from core.ports import BackendOperations
     from core.services.user import UserContext
 
@@ -312,6 +316,81 @@ class KuIntelligenceService(
             "status_message": status_message,
         }
         return Result.ok(result)
+
+    # ========================================================================
+    # DUAL-TRACK: KNOWLEDGE MASTERY (ADR-030)
+    # ========================================================================
+
+    async def assess_mastery_dual_track(
+        self,
+        user_uid: UserUID,
+        ku_uid: str,
+        user_level: MasteryLevel,
+        user_evidence: str,
+        user_context: UserContext,
+        user_reflection: str | None = None,
+        store_callback: (
+            Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]] | None
+        ) = None,
+    ) -> Result[DualTrackResult[MasteryLevel]]:
+        """Dual-track mastery assessment for a Ku (ADR-030 — Knowledge dimension).
+
+        Compares the user's self-rated mastery (``MasteryLevel``) with the
+        system-measured **substance score** — how much they have actually applied
+        this Ku across their life (``calculate_user_substance``) — to surface the
+        perception gap ("I've mastered this" vs the lived evidence).
+
+        Unlike the per-entity dimensions (Goals/Habits/Principles), a Ku is SHARED/
+        public curriculum, so this is per-(user, Ku): ``user_context`` supplies the
+        user's activity→Ku channels the substance score is computed from, and the
+        check-in persists per-user (keyed by ``ku_uid``) via ``store_callback``, not
+        on the shared ``:Ku`` node.
+
+        Args:
+            user_uid: The user making the assessment.
+            ku_uid: The Ku being self-rated.
+            user_level: User's self-reported mastery level.
+            user_evidence: User's evidence for the rating (free text).
+            user_context: The user's built context — source of the substance score.
+            user_reflection: Optional reflection.
+            store_callback: Optional ``(ku_uid, result)`` persistence hook
+                (Ku detail route binds ``UserService.append_knowledge_checkin``).
+
+        Returns:
+            Result[DualTrackResult[MasteryLevel]] — the perception-gap result.
+        """
+
+        async def _system_calculator(
+            _entity: Any, _user_uid: str
+        ) -> tuple[MasteryLevel, float, list[str]]:
+            """System side: substance score → (MasteryLevel, score, evidence)."""
+            sub_result = await self.calculate_user_substance(ku_uid, user_context)
+            if sub_result.is_error:
+                # Surface the failure through the template's safety-net, which converts
+                # it to a Result.fail (propagate, don't silently degrade to score=0).
+                raise RuntimeError(sub_result.expect_error().message)
+            sub = sub_result.value
+            score = float(sub["user_substance_score"])
+            evidence: list[str] = [sub["status_message"]]
+            evidence.extend(
+                f"{channel.title()} applied: {contribution:.0%}"
+                for channel, contribution in sub["breakdown"].items()
+                if contribution > 0
+            )
+            return MasteryLevel.from_score(score), score, evidence
+
+        return await self._dual_track_assessment(
+            uid=ku_uid,
+            user_uid=user_uid,
+            user_level=user_level,
+            user_evidence=user_evidence,
+            user_reflection=user_reflection,
+            system_calculator=_system_calculator,
+            level_scorer=MasteryLevel.to_score,
+            entity_type="ku",
+            require_entity=True,
+            store_callback=store_callback,
+        )
 
     @with_error_handling("get_organization_depth", error_type="database", uid_param="ku_uid")
     async def get_organization_depth(self, ku_uid: str) -> Result[int]:

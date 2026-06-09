@@ -324,6 +324,52 @@ class UserCoreService:
                 store_result.expect_error().message,
             )
 
+    async def append_knowledge_checkin(
+        self,
+        ku_uid: str,
+        result: DualTrackResult[Any],
+        *,
+        user_uid: UserUID,
+    ) -> None:
+        """
+        Append a Knowledge dual-track check-in snapshot to the User node (ADR-030).
+
+        The Knowledge-dimension analog of ``append_dual_track_checkin``: that callback
+        persists the three fixed user-level dimensions keyed by ``DualTrackDimension``;
+        this persists per-Ku mastery self-ratings keyed by ``ku_uid`` in a *separate*
+        ``knowledge_checkins`` log on the ``:User`` node. A Ku is SHARED/public
+        curriculum, so a mastery check-in can't live on the ``:Ku`` node (it would
+        collide across users) — it lives per-user, keyed by the Ku.
+
+        The append is **atomic** — serialized via a Neo4j node write-lock
+        (Backend: ``UserBackend.atomic_append_knowledge_checkin``), capped at
+        ``DualTrackCheckin.HISTORY_LIMIT`` per Ku — so two near-simultaneous mastery
+        check-ins for the same (user, Ku) can't lose a snapshot.
+
+        Safe-by-design (returns ``None``, never raises) so it can be used directly as a
+        ``store_callback``. The signature mirrors the dual-track template's
+        ``store_callback(uid, result)`` contract — the template passes the assessed
+        ``ku_uid`` as the positional ``uid``; ``user_uid`` is keyword-bound by the
+        Ku-detail route (via a small store closure).
+
+        Args:
+            ku_uid: The Ku the mastery self-rating belongs to (the template's ``uid``).
+            result: The computed dual-track result (carries the system level/score and
+                the perception gap — not just the user's self-rating).
+            user_uid: User whose check-in is being recorded.
+        """
+        snapshot = result.to_checkin_snapshot(date.today())
+        store_result = await self.repo.atomic_append_knowledge_checkin(
+            user_uid, snapshot, DualTrackCheckin.HISTORY_LIMIT, ku_uid
+        )
+        if store_result.is_error:
+            logger.warning(
+                "Failed to persist knowledge check-in for %s (ku=%s): %s",
+                user_uid,
+                ku_uid,
+                store_result.expect_error().message,
+            )
+
     @with_error_handling("delete_user", error_type="database", uid_param="user_uid")
     async def delete_user(
         self,

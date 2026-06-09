@@ -157,6 +157,19 @@ class User:
     # and UserContextIntelligence.get_cross_domain_perception_analysis.
     dual_track_checkins: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
+    # Knowledge dual-track perception-gap check-ins (ADR-030), keyed by Ku uid.
+    # The Knowledge dimension is per-(user, Ku): "how well I've mastered this Ku"
+    # (MasteryLevel) vs the system-measured substance score. A Ku is SHARED/public
+    # curriculum (not user-owned), so a mastery check-in can't live on the :Ku node
+    # without colliding across users — it lives here on the :User node, keyed by the
+    # Ku uid. A separate field (not a key inside dual_track_checkins) keeps the three
+    # fixed DualTrackDimension values distinct from the open-ended per-Ku keys.
+    # Each value is an append-only log of snapshots, capped at
+    # DualTrackCheckin.HISTORY_LIMIT. Round-trips as a JSON property via neo4j_mapper.
+    # Written by UserService.append_knowledge_checkin; read by the Ku detail page and
+    # UserContextIntelligence.get_cross_domain_perception_analysis.
+    knowledge_checkins: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+
     def is_entity_active(self, entity_uid: EntityUID) -> bool:
         """Check if an entity is in the active set"""
         return entity_uid in self.active_entity_uids

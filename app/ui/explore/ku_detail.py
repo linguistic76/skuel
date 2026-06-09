@@ -17,6 +17,7 @@ from adapters.inbound.ku_ui import (
 from core.models.type_hints import EntityUID
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
+from ui.explore.ku_mastery import render_ku_mastery_section
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.breadcrumbs import Breadcrumbs
@@ -56,6 +57,7 @@ def render_ku_detail_content(
     is_pinned: bool,
     user_uid: str | None,
     exercises_for_ku: list[dict],
+    mastery_checkins: list[dict] | None = None,
 ) -> Div:
     """Render the full Ku detail content fragment.
 
@@ -68,6 +70,9 @@ def render_ku_detail_content(
         is_pinned: Whether pinned by the current user.
         user_uid: Current user UID, or None if unauthenticated.
         exercises_for_ku: Exercise dicts for this Ku.
+        mastery_checkins: The user's stored Knowledge dual-track check-ins for this
+            Ku (``User.knowledge_checkins[uid]``); seeds the mastery self-check
+            trend. None/empty when unauthenticated or never rated.
     """
     has_toc = bool(toc_html and toc_html.strip())
 
@@ -133,12 +138,16 @@ def render_ku_detail_content(
         else Div()
     )
 
+    # Mastery self-check (dual-track Knowledge dimension, ADR-030) — authenticated only.
+    mastery_section = render_ku_mastery_section(uid, mastery_checkins or []) if user_uid else None
+
     main_column = Div(
         Breadcrumbs(path=breadcrumb_path, show_home=False),
         reading_content,
         ku_action_area,
         metadata_footer,
         _exercises_for_ku_section(exercises_for_ku),
+        mastery_section,
         Div(
             EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ku"),
             cls="mt-8",
