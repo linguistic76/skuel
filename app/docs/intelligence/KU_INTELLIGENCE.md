@@ -7,7 +7,9 @@
 **Service Name:** `ps.intelligence`
 **Updated:** April 2026 (Lesson merged into PathStep)
 
-> **Historical note:** This file was originally titled "KU_INTELLIGENCE" (substance tracking on Ku nodes), then retitled around the Article→Lesson rename in March 2026. In April 2026 the Lesson entity was merged into PathStep — substance tracking and knowledge intelligence now live on PathStep nodes and are served by `PsIntelligenceService`. The filename is kept for link stability; for the live service see `core/services/ps/ps_intelligence_service.py`.
+> **Historical note:** This file was originally titled "KU_INTELLIGENCE" (substance tracking on Ku nodes), then retitled around the Article→Lesson rename in March 2026. In April 2026 the Lesson entity was merged into PathStep — PathStep-grain substance and knowledge intelligence are served by `PsIntelligenceService` (documented here). The filename is kept for link stability; for the live service see `core/services/ps/ps_intelligence_service.py`.
+>
+> **Per-Ku intelligence still exists** on `KuIntelligenceService` (`core/services/ku/ku_intelligence_service.py`): `calculate_user_substance(ku_uid, user_context)` (per-(user, Ku) substance, re-activated by the activity→Ku rollup bridge, #247) and `assess_mastery_dual_track(...)` — the **Knowledge dual-track dimension** (ADR-030, #265): self-rated `MasteryLevel` vs the substance score, persisted per-(user, Ku) on `User.knowledge_checkins`. See ADR-030 and the base-analytics-service skill.
 
 ---
 

@@ -454,7 +454,7 @@ RecurrencePattern.WEEKLY.to_rrule_base()          # → "FREQ=WEEKLY"
 
 ## Dual-Track Assessment
 
-Five assessment enums (ADR-030) compare user self-perception with system measurement. Each has exactly 5 levels with `to_score()` / `from_score()`:
+Six self-rating level enums (ADR-030) compare user self-perception with system measurement. Each has exactly 5 levels with `to_score()` / `from_score()`:
 
 | Enum | Domain | Measures | System Counterpart |
 |------|--------|----------|-------------------|
@@ -463,6 +463,17 @@ Five assessment enums (ADR-030) compare user self-perception with system measure
 | ConsistencyLevel | Habits | "How consistent am I?" | Streak data |
 | EngagementLevel | Events | "How engaged was I?" | Attendance records |
 | DecisionQualityLevel | Choices | "How good are my decisions?" | Outcome tracking |
+| MasteryLevel | Knowledge (Ku) | "How well have I mastered this?" | Substance score (`calculate_user_substance`) |
+
+(Principles use `AlignmentLevel`, which lives with the other principle enums.) `MasteryLevel`
+(mastered/proficient/familiar/aware/novice) is **distinct from `MasteryImpact`** — the latter is a
+contribution-weighting enum, not a self-rating.
+
+**`DualTrackDimension`** (`productivity`/`engagement`/`decision_quality`) is the storage/aggregation
+**key** for the three *user-level* dimensions (Tasks/Events/Choices), which assess the user across all
+their entities of a kind and persist on the `:User` node (`User.dual_track_checkins`, keyed by this
+enum's value). The per-entity dimensions key by entity UID; the Knowledge dimension keys by Ku UID
+(`User.knowledge_checkins`).
 
 Used with `DualTrackResult[L]` (generic dataclass in `core/models/shared/dual_track.py`) which captures both user_level and system_level, computes perception_gap, and generates insights.
 

@@ -1,6 +1,6 @@
 ---
 name: user-context-intelligence
-description: Expert guide for SKUEL's central cross-domain intelligence hub. Use when implementing daily planning, life path alignment, learning recommendations, schedule-aware recommendations, or when working with UserContextIntelligence, UserContextIntelligenceFactory, or the 8 flagship methods.
+description: Expert guide for SKUEL's central cross-domain intelligence hub. Use when implementing daily planning, life path alignment, learning recommendations, schedule-aware recommendations, or when working with UserContextIntelligence, UserContextIntelligenceFactory, or the 9 flagship methods.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -48,7 +48,7 @@ UserContextIntelligence = UserContext + 12 Domain Services
 
 ---
 
-## The 8 Core Methods
+## The 9 Core Methods
 
 | # | Method | Mixin | Purpose |
 |---|--------|-------|---------|
@@ -60,6 +60,9 @@ UserContextIntelligence = UserContext + 12 Domain Services
 | 6 | `get_cross_domain_synergies()` | Synergy | Cross-domain synergy detection |
 | 7 | `calculate_life_path_alignment()` | LifePath | Life path alignment scoring |
 | 8 | `get_schedule_aware_recommendations()` | Schedule | Schedule-aware recommendations |
+| 9 | `get_cross_domain_perception_analysis()` | Perception | Dual-track perception-gap synthesis across all assessable dimensions (ADR-030) |
+
+Method 9 (`PerceptionIntelligenceMixin`) synthesizes the dual-track perception gaps — per-entity (Goals/Habits/Principles, off `find_by(user_uid)`), user-level (Productivity/Engagement/Decision Quality, off `context.dual_track_checkins`), and per-Ku Knowledge (off `context.knowledge_checkins`) — into one over-/under-/accurate-rated rollup. Analytics-tier (no AI); available at `INTELLIGENCE_TIER=core`.
 
 ---
 
