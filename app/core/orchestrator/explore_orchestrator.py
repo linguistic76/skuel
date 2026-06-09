@@ -19,10 +19,15 @@ from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from core.models.enums import MasteryLevel
+    from core.models.shared.dual_track import DualTrackResult
     from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
     from core.services.ps_service import PsService
+    from core.services.user import UserContext
     from core.services.user_entry.learning_loop_query import LearningLoopQueryService
 
 
@@ -59,6 +64,29 @@ class ExploreOrchestrator:
     async def get_ku_learning_state(self, user_uid: UserUID, ku_uid: str) -> Result[dict]:
         """Get a user's learning state for a specific KU."""
         return await self._ku.get_ku_learning_state(user_uid, ku_uid)
+
+    async def assess_ku_mastery(
+        self,
+        user_uid: UserUID,
+        ku_uid: str,
+        user_level: "MasteryLevel",
+        user_evidence: str,
+        user_context: "UserContext",
+        user_reflection: str | None = None,
+        store_callback: (
+            "Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]] | None"
+        ) = None,
+    ) -> "Result[DualTrackResult[MasteryLevel]]":
+        """Run a dual-track Knowledge-mastery assessment for a Ku (ADR-030)."""
+        return await self._ku.assess_mastery_dual_track(
+            user_uid,
+            ku_uid,
+            user_level,
+            user_evidence,
+            user_context,
+            user_reflection=user_reflection,
+            store_callback=store_callback,
+        )
 
     async def get_exercises_for_curriculum(self, ku_uid: str) -> Result[list]:
         """Get exercises associated with a KU."""

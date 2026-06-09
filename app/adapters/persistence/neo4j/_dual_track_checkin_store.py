@@ -68,6 +68,7 @@ async def atomic_append_checkin(
     snapshot: dict[str, Any],
     history_limit: int,
     dimension: str | None = None,
+    property_name: str = "dual_track_checkins",
 ) -> bool:
     """Atomically append a dual-track check-in snapshot to a node's log.
 
@@ -81,19 +82,22 @@ async def atomic_append_checkin(
         uid: Subject UID.
         snapshot: The check-in snapshot dict (``DualTrackResult.to_checkin_snapshot``).
         history_limit: Max snapshots retained (oldest dropped past this).
-        dimension: ``None`` for a flat per-entity log; the dimension key for the
-            user-level ``dict``-keyed log.
+        dimension: ``None`` for a flat per-entity log; the dimension/key for the
+            ``dict``-keyed log (user-level dual-track dimension, or a Ku uid for the
+            user's Knowledge check-ins).
+        property_name: The node property holding the JSON log. Defaults to
+            ``dual_track_checkins`` (the activity dual-track dimensions); the
+            Knowledge dimension uses ``knowledge_checkins`` (keyed by Ku uid) so a
+            per-Ku self-rating never collides with the three fixed user-level dims.
     """
     lock_token = uuid4().hex
     # Statement 1 acquires the node write-lock (a real property write) *before* the
     # read, so a concurrent appender blocks here until we commit. Statement 2 writes
     # the new log and drops the sentinel — both inside one explicit transaction.
     read_q = (
-        f"MATCH (n:{label} {{uid: $uid}}) "
-        "SET n._dtc_lock = $token "
-        "RETURN n.dual_track_checkins AS raw"
+        f"MATCH (n:{label} {{uid: $uid}}) SET n._dtc_lock = $token RETURN n.{property_name} AS raw"
     )
-    write_q = f"MATCH (n:{label} {{uid: $uid}}) SET n.dual_track_checkins = $val REMOVE n._dtc_lock"
+    write_q = f"MATCH (n:{label} {{uid: $uid}}) SET n.{property_name} = $val REMOVE n._dtc_lock"
 
     async with driver.session() as session:
         tx = await session.begin_transaction()

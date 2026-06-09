@@ -214,6 +214,21 @@ class UserService:
         """
         await self.core.append_dual_track_checkin(user_uid, result, dimension=dimension)
 
+    async def append_knowledge_checkin(
+        self,
+        ku_uid: str,
+        result: DualTrackResult[Any],
+        *,
+        user_uid: UserUID,
+    ) -> None:
+        """Persist a Knowledge dual-track (mastery) check-in to the User node (ADR-030).
+
+        Safe-by-design store_callback for the per-Ku Knowledge dimension — keyed by
+        ``ku_uid`` in the User node's ``knowledge_checkins`` log (a Ku is SHARED, so its
+        mastery check-ins live per-user). See ``UserCoreService.append_knowledge_checkin``.
+        """
+        await self.core.append_knowledge_checkin(ku_uid, result, user_uid=user_uid)
+
     async def delete_user(
         self,
         user_uid: UserUID,

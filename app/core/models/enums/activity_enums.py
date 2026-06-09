@@ -470,6 +470,51 @@ class DecisionQualityLevel(StrEnum):
             return cls.STRUGGLING
 
 
+class MasteryLevel(StrEnum):
+    """
+    Self-assessment level for knowledge mastery of a Ku (ADR-030).
+
+    The user side of the Knowledge dual-track dimension: how well the user
+    *feels* they have mastered an atomic Knowledge Unit. Compared against the
+    system-measured Knowledge **substance score**
+    (``KuIntelligenceService.calculate_user_substance`` — how much they have
+    actually applied the Ku across their life) to surface the perception gap.
+
+    NOTE: distinct from ``MasteryImpact`` (a contribution-weighting enum) — this
+    is a self-rating, not an impact weight.
+    """
+
+    MASTERED = "mastered"  # Internalized — I can teach it and apply it fluently
+    PROFICIENT = "proficient"  # Solid working command, occasional reference
+    FAMILIAR = "familiar"  # Comfortable with the basics, still consolidating
+    AWARE = "aware"  # I know what it is but rarely apply it
+    NOVICE = "novice"  # Just encountered it — theoretical only
+
+    def to_score(self) -> float:
+        """Convert to numeric score (0.0-1.0)."""
+        return {
+            MasteryLevel.MASTERED: 1.0,
+            MasteryLevel.PROFICIENT: 0.75,
+            MasteryLevel.FAMILIAR: 0.5,
+            MasteryLevel.AWARE: 0.25,
+            MasteryLevel.NOVICE: 0.05,
+        }.get(self, 0.5)
+
+    @classmethod
+    def from_score(cls, score: float) -> "MasteryLevel":
+        """Convert numeric score to level."""
+        if score >= 0.85:
+            return cls.MASTERED
+        elif score >= 0.6:
+            return cls.PROFICIENT
+        elif score >= 0.35:
+            return cls.FAMILIAR
+        elif score >= 0.1:
+            return cls.AWARE
+        else:
+            return cls.NOVICE
+
+
 class DualTrackDimension(StrEnum):
     """
     The three *user-level* dual-track perception-gap dimensions (ADR-030).

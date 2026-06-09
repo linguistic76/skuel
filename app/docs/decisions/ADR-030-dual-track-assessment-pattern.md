@@ -170,13 +170,60 @@ write-lock**, serializing concurrent same-subject appends so none is lost.
   retain all 12 (per-entity, user-level same-dimension, and user-level across 3 dimensions); a
   no-lock negative control retains only 1/12, confirming the lock is what closes the race.
 
-**Deferred:** the Knowledge-domain dimension (below) remains future.
+### Surfacing (v3.2, June 2026) — Knowledge dimension (per-Ku mastery)
+
+The final deferred row — the **Knowledge** dimension — shipped: "I've mastered this Ku"
+(`MasteryLevel`) vs the system-measured **substance score**
+(`KuIntelligenceService.calculate_user_substance` — how much the user has actually applied the Ku
+across their life, per the Knowledge Substance Philosophy). The gap is the perception of mastery
+against the lived evidence.
+
+- **Per-(user, Ku), not per-entity.** A Ku is SHARED/public curriculum (not user-owned, unlike
+  Goals/Habits/Principles), so a mastery check-in is per-(user, Ku) and **cannot** live on the shared
+  `:Ku` node — it would collide across users. The per-entity inline-field pattern does not transfer.
+  Instead, check-ins persist on the **`:User` node** in a **separate `knowledge_checkins:
+  dict[ku_uid, list[dict]]` field** (chosen over namespacing inside `dual_track_checkins` so the open-ended
+  per-Ku keys stay distinct from the three fixed `DualTrackDimension` values). Append-only, capped at
+  `DualTrackCheckin.HISTORY_LIMIT` per Ku; round-trips as a JSON property via `neo4j_mapper`.
+
+- **Assessment — `KuIntelligenceService.assess_mastery_dual_track(user_uid, ku_uid, user_level,
+  user_evidence, user_context, ...)`** via the shared `_dual_track_assessment()` template
+  (`require_entity=True` — the Ku IS an `:Entity`). `level_scorer = MasteryLevel.to_score`; the
+  `system_calculator` wraps the existing `calculate_user_substance` → `(MasteryLevel, score, evidence)`.
+  Because substance is computed from the user's activity→Ku channels, the caller passes the **rich**
+  `UserContext` (`get_rich_unified_context` — those maps are rich-only); the route builds it.
+
+- **Atomic persistence — `UserService.append_knowledge_checkin(ku_uid, result, *, user_uid)`**,
+  routing through `UserBackend.atomic_append_knowledge_checkin` → the shared
+  `_dual_track_checkin_store.atomic_append_checkin` (now parameterized with `property_name`, keyed by
+  `ku_uid`). Same node-write-lock guarantee as v3.1 (One Path Forward — no new mechanism). Added to
+  `_APPEND_ONLY_FIELDS` so whole-model `User` writes never clobber the log.
+
+- **Surface — Ku detail page (`/explore/ku/{uid}`).** A "Mastery Self-Check" section
+  (`ui/explore/ku_mastery.py`, reusing the `ui/dual_track_card.py` primitives) POSTs to
+  `POST /explore/ku/{uid}/mastery-checkin` (`@csrf_protected` — it mutates). Wired **manually** in
+  `learning_loop_routes.py` (the Ku detail page is not the activity UI factory). Authenticated users
+  only.
+
+- **Aggregator fold-in.** `get_cross_domain_perception_analysis()` reads `context.knowledge_checkins`
+  (copied off the `:User` node by `UserContextBuilder`), aggregates the latest check-in per Ku into a
+  single **"Knowledge"** bucket, and folds it into the same `per_domain` rollup — so the synthesis now
+  spans **all assessable dimensions**.
+
+- **Verified on live Neo4j**: seed `(Task)-[:APPLIES_KNOWLEDGE]->(Ku)` → substance moves off 0 → rate
+  MASTERED → gap 95% `user_higher` → atomic persist → round-trip → builder populates
+  `context.knowledge_checkins` → aggregator surfaces "Knowledge" in `over_rated_domains`; a real
+  concurrency test (12 overlapping same-(user, Ku) appends) retains all 12.
+
+**All dual-track dimensions are now shipped.** No deferred rows remain.
 
 ### Future Extensions
 
-| Domain | User Self-Assessment | System Measurement |
-|--------|---------------------|-------------------|
-| **Knowledge** | "I've mastered this" | Substance score |
+_(All shipped — retained for the historical record.)_
+
+| Domain | User Self-Assessment | System Measurement | Status |
+|--------|---------------------|-------------------|--------|
+| **Knowledge** | "I've mastered this" (`MasteryLevel`) | Substance score | ✅ Shipped (v3.2, June 2026) |
 
 ## Decision
 
@@ -350,7 +397,7 @@ async def assess_alignment_dual_track(
 5. **Phase 5**: Implement for Habits (consistency self-assessment) ✅
 6. **Phase 6**: Implement for Events (engagement self-assessment) ✅
 7. **Phase 7**: Implement for Choices (decision quality self-assessment) ✅
-8. **Future**: Extend to Knowledge domain as needed
+8. **Phase 8**: Implement for Knowledge (per-Ku mastery vs substance score, v3.2 June 2026) ✅
 
 ## Verification
 
@@ -381,10 +428,11 @@ async def assess_alignment_dual_track(
 
 The cross-domain aggregator below **shipped** (June 2026, v2) as
 `UserContextIntelligence.get_cross_domain_perception_analysis()` — see "Surfacing (v2)" above. It
-reads from `self.context` (no `user_uid` param needed). As of v3 (June 2026) it covers **all six**
-assessable domains — the three per-entity domains (Goals/Habits/Principles) plus the three
+reads from `self.context` (no `user_uid` param needed). As of v3.2 (June 2026) it covers **all
+assessable dimensions** — the three per-entity domains (Goals/Habits/Principles), the three
 user-level dimensions (Productivity/Engagement/Decision Quality, read off
-`context.dual_track_checkins`):
+`context.dual_track_checkins`), and the per-Ku **Knowledge** dimension (read off
+`context.knowledge_checkins`):
 
 ```python
 # core/services/user/intelligence/perception_intelligence.py
@@ -398,7 +446,7 @@ async def get_cross_domain_perception_analysis(self) -> Result[dict[str, Any]]:
     """
 ```
 
-Remaining future work: the Knowledge-domain dimension (Substance score).
+No remaining future work — the Knowledge-domain dimension shipped in v3.2 (see "Surfacing (v3.2)").
 
 ## References
 
