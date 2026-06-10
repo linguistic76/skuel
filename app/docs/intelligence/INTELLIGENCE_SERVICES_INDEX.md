@@ -330,9 +330,10 @@ over-rated / under-rated / accurate — spanning every assessable dimension.
 
 ### Level Enums
 
-Each domain has a 5-level `StrEnum` with bidirectional conversion methods (all in
-`core/models/enums/activity_enums.py`; the Knowledge dimension's `MasteryLevel` lives there too —
-distinct from `MasteryImpact`):
+Most dimensions use a 5-level `StrEnum` with bidirectional conversion methods, all in
+`core/models/enums/activity_enums.py` (the Knowledge dimension's `MasteryLevel` lives there too —
+distinct from `MasteryImpact`). **Exception: Principles** uses `AlignmentLevel` (8 values, in
+`core/models/enums/principle_enums.py`), not a 5-level activity enum:
 
 ```python
 class ProductivityLevel(StrEnum):

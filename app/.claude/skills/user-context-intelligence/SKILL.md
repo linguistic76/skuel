@@ -24,6 +24,7 @@ class UserContextIntelligence(
     ScheduleIntelligenceMixin,      # Method 8: Schedule-aware recommendations
     TemporalMomentumMixin,          # Momentum signals (entities_rich analysis)
     DailyPlanningMixin,             # Method 5: THE FLAGSHIP - Daily work plan
+    PerceptionIntelligenceMixin,    # Method 9: Dual-track perception-gap synthesis (ADR-030)
 ):
     """Learning journey intelligence = Context + 12 Domain Services."""
 ```
@@ -434,7 +435,7 @@ if result.is_ok:
 
 ## Mixin Architecture
 
-### 5 Specialized Mixins
+### 7 Specialized Mixins
 
 | Mixin | Methods | Lines | Focus |
 |-------|---------|-------|-------|
@@ -443,6 +444,8 @@ if result.is_ok:
 | `SynergyIntelligenceMixin` | 6 | ~200 | Cross-domain synergy detection |
 | `ScheduleIntelligenceMixin` | 8 | ~180 | Schedule-aware recommendations |
 | `DailyPlanningMixin` | 5 | ~255 | THE FLAGSHIP daily planning |
+| `TemporalMomentumMixin` | — | ~115 | Momentum signals (entities_rich analysis) |
+| `PerceptionIntelligenceMixin` | 9 | ~280 | Dual-track perception-gap synthesis (ADR-030) |
 
 ### Mixin Composition Pattern
 
@@ -452,7 +455,9 @@ class UserContextIntelligence(
     LifePathIntelligenceMixin,
     SynergyIntelligenceMixin,
     ScheduleIntelligenceMixin,
+    TemporalMomentumMixin,
     DailyPlanningMixin,
+    PerceptionIntelligenceMixin,
 ):
     def __init__(self, context: UserContext, ...):
         # Store context and all 12 services
