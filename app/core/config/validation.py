@@ -18,7 +18,6 @@ from core.config.unified_config import (
     AskesisConfig,
     CacheConfig,
     DatabaseConfig,
-    EmbeddingConfig,
     Environment,
     KnowledgeConfig,
     SearchConfig,
@@ -203,27 +202,6 @@ def validate_knowledge_config(_config: KnowledgeConfig) -> list[str]:
     return []
 
 
-def validate_embedding_config(config: EmbeddingConfig) -> list[str]:
-    """Validate embedding configuration"""
-    errors = []
-
-    if config.enabled:
-        if not config.embedding_model:
-            errors.append("Embedding model is required when embeddings are enabled")
-
-        error = ConfigValidator.validate_positive_int(
-            config.embedding_dimension, "Embedding dimension"
-        )
-        if error:
-            errors.append(error)
-
-        error = ConfigValidator.validate_positive_int(config.batch_size, "Embedding batch size")
-        if error:
-            errors.append(error)
-
-    return errors
-
-
 def validate_config(config: UnifiedConfig) -> list[str]:
     """
     Validate the entire configuration
@@ -266,9 +244,6 @@ def validate_config(config: UnifiedConfig) -> list[str]:
     # Validate knowledge configuration
     errors.extend(validate_knowledge_config(config.knowledge))
 
-    # Validate embedding configuration
-    errors.extend(validate_embedding_config(config.genai))
-
     return errors
 
 
@@ -291,15 +266,17 @@ def print_validation_report(errors: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    # Demo configuration validation
-    from core.config.settings import get_settings as _get_settings
+    # Demo configuration validation. Builds the config directly via
+    # create_config — get_settings() would RAISE on validation errors,
+    # which defeats a validation report (and its import is circular here).
+    from core.config.unified_config import create_config as _create_config
 
     print("🧠 SKUEL Configuration Validation")
     print("=" * 40)
 
     # Validate configuration
     try:
-        config: UnifiedConfig = _get_settings()  # type: ignore[has-type]
+        config: UnifiedConfig = _create_config()
         config_errors = validate_config(config)
         print("\nConfiguration:")
         print_validation_report(config_errors)

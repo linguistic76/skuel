@@ -20,7 +20,7 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 - **Environment:** Docker-based Neo4j 2025.12.1
 - **Connection:** `bolt://localhost:7687`
 - **Plugins:** APOC (meta only) — no GenAI plugin needed
-- **Embeddings:** Python-side via HuggingFace Inference API (`HF_API_TOKEN`)
+- **Embeddings:** Python-side via OpenAI Embeddings API (`OPENAI_API_KEY` — ADR-068)
 - **Management:** Manual via docker-compose
 - **Backup:** Manual via Neo4j CLI
 
@@ -72,8 +72,8 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 
 | Aspect | Docker (Current) | AuraDB (Production) |
 |--------|------------------|---------------------|
-| **Generation** | Python-side (HuggingFace Inference API) | Same — no change |
-| **API Key** | `HF_API_TOKEN` in app container | `HF_API_TOKEN` in app container |
+| **Generation** | Python-side (OpenAI Embeddings API — ADR-068) | Same — no change |
+| **API Key** | `OPENAI_API_KEY` in app container | `OPENAI_API_KEY` in app container |
 | **Neo4j Plugin** | None needed | None needed |
 | **Vector Indexes** | 1024-dim cosine | 1024-dim cosine (recreate after migration) |
 
@@ -103,7 +103,7 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 
 - [ ] **Backup:** Export current Neo4j database from Docker
 - [ ] **Credentials:** Neo4j Aura account (create at https://console.neo4j.io/)
-- [ ] **API Keys:** HuggingFace API token for embeddings (`HF_API_TOKEN`)
+- [ ] **API Keys:** OpenAI API key for embeddings + LLM (`OPENAI_API_KEY`)
 - [ ] **Time:** 4-6 hours for full migration
 - [ ] **Testing:** Staging environment for validation
 - [ ] **Access:** Admin access to AuraDB console
@@ -265,24 +265,23 @@ asyncio.run(test())
 
 **Time: 5 minutes**
 
-Embeddings are generated Python-side via HuggingFace Inference API. No Neo4j plugin setup is needed. Just ensure `HF_API_TOKEN` is set in your production environment.
+Embeddings are generated Python-side via the OpenAI Embeddings API (ADR-068). No Neo4j plugin setup is needed. Just ensure `OPENAI_API_KEY` is set in your production environment.
 
-### 3.1 Verify HF Token
+### 3.1 Verify OpenAI Key
 
 ```bash
-# Ensure HF_API_TOKEN is in production .env
-grep HF_API_TOKEN /home/mike/skuel/app/.env
+# Ensure OPENAI_API_KEY is available in production (keychain or env)
+grep OPENAI_API_KEY /home/mike/skuel/app/.env
 ```
 
 ### 3.2 Test Embedding Generation
 
 ```bash
 uv run python -c "
-from huggingface_hub import InferenceClient
-import os
-client = InferenceClient(model='BAAI/bge-large-en-v1.5', token=os.getenv('HF_API_TOKEN'))
-result = client.feature_extraction('test')
-print(f'✅ HuggingFace embeddings working! Dimension: {len(result[0]) if hasattr(result, \"__len__\") else \"unknown\"}')
+import asyncio
+from adapters.external.embeddings import create_embedding_client
+result = asyncio.run(create_embedding_client().embed('test'))
+print(f'✅ Embeddings working! Dimension: {len(result.value)}' if result.is_ok else f'❌ {result.error}')
 "
 ```
 
@@ -527,13 +526,10 @@ NEO4J_PASSWORD=<auradb-password>
 NEO4J_DATABASE=neo4j
 
 # ============================================================================
-# Embeddings (HuggingFace Inference API)
+# Embeddings (ADR-068: OpenAI text-embedding-3-small @1024)
 # ============================================================================
-HF_API_TOKEN=hf_your-token
-
-# Optional overrides (defaults shown)
-EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
-EMBEDDING_DIMENSION=1024
+# Uses OPENAI_API_KEY (same credential as the LLM service). Provider/model/
+# dimension live in code (adapters/external/embeddings/factory.py).
 
 # Intelligence tier
 INTELLIGENCE_TIER=full
@@ -554,7 +550,7 @@ INTELLIGENCE_TIER=full
 
 If your application code has Docker-specific comments, update them:
 
-**Note:** Embeddings are Python-side (`HuggingFaceEmbeddingsService`), so no Neo4j-specific embedding config changes are needed for AuraDB. Just ensure `HF_API_TOKEN` is set in the production app environment.
+**Note:** Embeddings are Python-side (`EmbeddingsService`), so no Neo4j-specific embedding config changes are needed for AuraDB. Just ensure `OPENAI_API_KEY` is set in the production app environment.
 
 ---
 
@@ -783,13 +779,13 @@ Connection timeout after 30s
 
 **Symptoms:**
 ```
-Warning: HF_API_TOKEN not set - embeddings will fail
+ValueError: OPENAI_API_KEY is required to construct OpenAIEmbeddingAdapter
 ```
 
 **Solution:**
-- Ensure `HF_API_TOKEN` is set in production app environment
-- Get a token at https://huggingface.co/settings/tokens
-- Restart the application after setting the token
+- Ensure `OPENAI_API_KEY` is set in the production app environment
+- Get a key at https://platform.openai.com
+- Restart the application after setting the key
 
 ### Issue: "Slow query performance"
 
@@ -1046,7 +1042,7 @@ uv run python scripts/verify_auradb_backups.py
 
 - [ ] AuraDB instance created (Professional tier)
 - [ ] Connection verified from application
-- [ ] HF_API_TOKEN configured in app environment
+- [ ] OPENAI_API_KEY configured in app environment
 - [ ] Embeddings generation verified (Python-side, no plugin needed)
 
 ### Data Migration
@@ -1068,7 +1064,7 @@ uv run python scripts/verify_auradb_backups.py
 
 - [ ] Production `.env` updated (neo4j+s:// URI)
 - [ ] Docker-specific config removed
-- [ ] HF_API_TOKEN set in production environment
+- [ ] OPENAI_API_KEY set in production environment
 - [ ] Application code reviewed (no changes needed)
 
 ### Testing

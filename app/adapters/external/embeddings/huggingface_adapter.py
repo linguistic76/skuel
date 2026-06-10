@@ -8,7 +8,7 @@ Inference API (``huggingface_hub.AsyncInferenceClient``).
 This is a thin adapter, NOT a service. It has no caching, no persistence,
 no business logic — just the model call plus transport-level retry. The
 caching / versioning / Neo4j storage orchestration lives in the consuming
-core service (``HuggingFaceEmbeddingsService``), which depends only on the
+core service (``EmbeddingsService``), which depends only on the
 ``EmbeddingClientOperations`` port.
 
 ARCHITECTURE (W1 / ADR-044):
@@ -16,7 +16,9 @@ Keeps the ``huggingface_hub`` SDK out of ``core/``. The API key is read at
 the composition root and passed in (mirrors DeepgramAdapter); the SDK lives
 here, below the hexagonal boundary.
 
-Model: BAAI/bge-large-en-v1.5 (1024 dims) — see ADR-049.
+Model: BAAI/bge-large-en-v1.5 (1024 dims) — see ADR-049. NOT the wired
+provider today: ADR-068 wires OpenAI now and stages this adapter for the
+BGE long-term swap (single swap point: ``create_embedding_client()``).
 
 Usage:
     adapter = HuggingFaceEmbeddingAdapter(api_key="hf_...")
@@ -31,13 +33,16 @@ import numpy as np
 from huggingface_hub import AsyncInferenceClient
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# Adapter → core import is the allowed hexagonal direction (SKUEL022). The model
-# defaults are the single source of truth shared with the consuming service.
-from core.services.embeddings_service import DEFAULT_DIMENSION, DEFAULT_MODEL
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.adapters.embeddings.huggingface")
+
+# BGE-large-en-v1.5 model facts (single source of truth for this adapter;
+# the consuming service reads them off the port, never from constants).
+DEFAULT_MODEL = "BAAI/bge-large-en-v1.5"
+DEFAULT_DIMENSION = 1024
+MAX_INPUT_CHARS = 2000  # ~512 tokens, the BGE model cap (conservative estimate)
 
 
 class HuggingFaceEmbeddingAdapter:
@@ -85,6 +90,10 @@ class HuggingFaceEmbeddingAdapter:
     @property
     def dimension(self) -> int:
         return self._dimension
+
+    @property
+    def max_input_chars(self) -> int:
+        return MAX_INPUT_CHARS
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def _call_api(self, text: str) -> list[float]:

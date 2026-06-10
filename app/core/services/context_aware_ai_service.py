@@ -33,7 +33,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.query_types import AIInsightsResult
-    from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    from core.services.embeddings_service import EmbeddingsService
     from core.services.infrastructure.graph_intelligence_service import (
         GraphIntelligenceService,
     )
@@ -62,7 +62,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         self,
         backend: Any,  # Uses UserContextOperations or similar
         llm_service: LLMService,
-        embeddings_service: HuggingFaceEmbeddingsService,
+        embeddings_service: EmbeddingsService,
         graph_intel: GraphIntelligenceService | None = None,
         event_bus: Any | None = None,
     ) -> None:

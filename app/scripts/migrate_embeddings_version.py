@@ -10,8 +10,8 @@ Use this script when:
 - Changing embedding parameters
 - Fixing corrupted embeddings
 
-CAUTION: This script makes API calls to the HuggingFace Inference API to regenerate
-embeddings. Rate limits apply based on your HuggingFace plan.
+CAUTION: This script makes API calls to the embedding provider to regenerate
+embeddings. Provider rate limits apply.
 
 Usage:
     uv run python scripts/migrate_embeddings_version.py --dry-run
@@ -29,7 +29,7 @@ import sys
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.services.embeddings_service import (
     EMBEDDING_VERSION,
-    HuggingFaceEmbeddingsService,
+    EmbeddingsService,
 )
 from core.utils.logging import get_logger
 
@@ -104,7 +104,7 @@ def get_text_for_embedding(node: dict) -> str:
 
 
 async def migrate_node(
-    service: HuggingFaceEmbeddingsService,
+    service: EmbeddingsService,
     node: dict,
     dry_run: bool = False,
 ) -> dict:
@@ -181,7 +181,7 @@ async def migrate_node(
 
 async def migrate_embeddings(
     driver,
-    service: HuggingFaceEmbeddingsService,
+    service: EmbeddingsService,
     label: str | None = None,
     limit: int | None = None,
     dry_run: bool = False,
@@ -309,7 +309,7 @@ Examples:
   # Migrate with smaller batches (if hitting rate limits)
   uv run python scripts/migrate_embeddings_version.py --batch-size 5
 
-CAUTION: This makes API calls to the HuggingFace Inference API. Rate limits apply.
+CAUTION: This makes API calls to the embedding provider. Rate limits apply.
         """,
     )
 
@@ -335,22 +335,21 @@ CAUTION: This makes API calls to the HuggingFace Inference API. Rate limits appl
         logger.info("✅ Connected to Neo4j")
 
         # Create embeddings service (inference client behind a port — W1).
-        # The vendor SDK lives in the adapter; a missing HF_API_TOKEN is the
-        # modern "not available" signal (replaces the removed _check_plugin_availability).
-        from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+        # The factory is the provider chokepoint (ADR-068); a missing API key
+        # raises ValueError = the "not available" signal.
+        from adapters.external.embeddings import create_embedding_client
         from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
         from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-        from core.config.credential_store import get_credential
 
-        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
-        if not hf_token:
-            logger.error("❌ Embeddings service not available")
-            logger.error("   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env")
+        try:
+            embedding_client = create_embedding_client()
+        except ValueError as e:
+            logger.error(f"❌ Embeddings service not available: {e}")
             return 1
 
-        service = HuggingFaceEmbeddingsService(
+        service = EmbeddingsService(
             backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
-            embedding_client=HuggingFaceEmbeddingAdapter(api_key=hf_token),
+            embedding_client=embedding_client,
         )
 
         # Run migration

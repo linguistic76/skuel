@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from core.services.chunks.batch_chunking_service import BatchChunkingService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
-    from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    from core.services.embeddings_service import EmbeddingsService
     from core.services.events_service import EventsService
     from core.services.finance_service import FinanceService
     from core.services.goals_service import GoalsService
@@ -343,8 +343,8 @@ class Services:
     # Below-the-boundary backend behind ConnectionFetchOperations (ADR-044).
     connection_fetch_backend: "ConnectionFetchOperations | None" = None
 
-    # Embedding + vector search services (March 2026 - HuggingFace)
-    embeddings_service: "HuggingFaceEmbeddingsService | None" = None
+    # Embedding + vector search services (ADR-068)
+    embeddings_service: "EmbeddingsService | None" = None
     vector_search_service: "Neo4jVectorSearchService | None" = None
 
     # Background workers (January 2026)

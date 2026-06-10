@@ -46,7 +46,7 @@ Everything in CORE, plus:
 |---------|---------|
 | LLM-powered report generation | ExerciseReportService |
 | AI content processing (journals, transcripts) | ContentEnrichmentService |
-| Embedding generation for semantic search | HuggingFaceEmbeddingsService |
+| Embedding generation for semantic search | EmbeddingsService |
 | Vector + hybrid search (70% vector, 30% keyword) | Neo4jVectorSearchService |
 | Askesis RAG (question answering + suggestions) | AskesisService (LLM mode) |
 | 12 AI intelligence services (BaseAIService) | Various |
@@ -94,7 +94,7 @@ Intelligence tier: FULL (analytics + AI services)
 
 Three service groups are gated:
 
-1. **Embeddings** — `HuggingFaceEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
+1. **Embeddings** — `EmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
 2. **LLM** — `LLMService` — skipped in CORE
 3. **Chat adapter** — the `OpenAIChatAdapter` (`ChatCompletionPort`, in `adapters/external/llm/`) and its consumers `ContentEnrichmentService` / `UnifiedLLMCaller` / `ProgressReportGenerator` — skipped in CORE (W1 / ADR-063)
 

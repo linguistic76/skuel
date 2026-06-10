@@ -5,7 +5,7 @@ Embeddings Backend
 Neo4j adapter for storing and retrieving embedding vectors and metadata.
 
 Implements: EmbeddingsBackendOperations protocol
-Consumer: HuggingFaceEmbeddingsService
+Consumer: EmbeddingsService
 """
 
 from typing import TYPE_CHECKING, Any

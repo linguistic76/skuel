@@ -11,7 +11,7 @@ Usage:
 
 Context:
     - Activity domains (Tasks, Goals, Habits, Events, Choices, Principles) now track embedding versions
-    - KUs already had version tracking via HuggingFaceEmbeddingsService
+    - KUs already had version tracking via EmbeddingsService
     - This migration ensures Activity embeddings can be identified for model upgrades
     - Safe to run multiple times (idempotent)
 """

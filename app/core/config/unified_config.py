@@ -392,72 +392,6 @@ class MessageQueueConfig:
 
 
 # ============================================================================
-# AI & GENAI CONFIGURATIONS
-# ============================================================================
-
-
-@dataclass
-class EmbeddingConfig:
-    """
-    Embedding service configuration.
-
-    ARCHITECTURE:
-    - Python-side embedding via HuggingFace Inference API
-    - BAAI/bge-large-en-v1.5 (1024 dimensions)
-    - No Neo4j plugin dependency
-    - Graceful degradation when HF_API_TOKEN not set
-    """
-
-    # Feature flags
-    enabled: bool = field(default=False)
-    vector_search_enabled: bool = field(default=False)
-
-    # Provider configuration
-    provider: str = field(default="huggingface")
-    embedding_model: str = field(default="BAAI/bge-large-en-v1.5")
-    embedding_dimension: int = field(default=1024)
-    embedding_version: str = field(default="v2")
-
-    # Vector index configuration
-    vector_index_similarity: str = field(default="cosine")
-    vector_index_name_prefix: str = field(default="vector_idx")
-
-    # Batch processing
-    batch_size: int = field(default=25)
-    max_concurrent_batches: int = field(default=5)
-
-    # Fallback behavior
-    fallback_to_keyword_search: bool = field(default=True)
-    show_unavailable_features: bool = field(default=True)
-
-    @classmethod
-    def from_env(cls) -> "EmbeddingConfig":
-        """Create config from environment variables"""
-        return cls(
-            enabled=os.getenv("EMBEDDING_ENABLED", "false").lower() == "true",
-            vector_search_enabled=os.getenv("EMBEDDING_VECTOR_SEARCH_ENABLED", "false").lower()
-            == "true",
-            provider=os.getenv("EMBEDDING_PROVIDER", "huggingface"),
-            embedding_model=os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en-v1.5"),
-            embedding_dimension=int(os.getenv("EMBEDDING_DIMENSION", "1024")),
-            embedding_version=os.getenv("EMBEDDING_VERSION", "v2"),
-            batch_size=int(os.getenv("EMBEDDING_BATCH_SIZE", "25")),
-            fallback_to_keyword_search=os.getenv(
-                "EMBEDDING_FALLBACK_TO_KEYWORD_SEARCH", "true"
-            ).lower()
-            == "true",
-            show_unavailable_features=os.getenv(
-                "EMBEDDING_SHOW_UNAVAILABLE_FEATURES", "true"
-            ).lower()
-            == "true",
-        )
-
-
-# Backward compatibility alias
-GenAIConfig = EmbeddingConfig
-
-
-# ============================================================================
 # CORE DOMAIN CONFIGURATIONS
 # ============================================================================
 
@@ -748,9 +682,6 @@ class UnifiedConfig:
     cache: CacheConfig = field(default_factory=CacheConfig)
     message_queue: MessageQueueConfig = field(default_factory=MessageQueueConfig)
 
-    # Embedding configuration (formerly GenAI)
-    genai: EmbeddingConfig = field(default_factory=EmbeddingConfig)
-
     # Core domain configurations
     search: SearchConfig = field(default_factory=SearchConfig)
     askesis: AskesisConfig = field(default_factory=AskesisConfig)
@@ -874,9 +805,6 @@ class UnifiedConfig:
 
         # API from env
         self.api = APIConfig.from_env()
-
-        # Embedding config from env
-        self.genai = EmbeddingConfig.from_env()
 
         # Override specific settings from env
         if os.getenv("CACHE_ENABLED"):

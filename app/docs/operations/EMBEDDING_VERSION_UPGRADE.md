@@ -2,266 +2,114 @@
 
 ## Overview
 
-When upgrading embedding models (e.g., HuggingFace releases a new version of `BAAI/bge-large-en-v1.5`), follow this systematic workflow to re-embed all Activity domain entities with version tracking.
+When changing the embedding model or its parameters (e.g., the staged OpenAI → BGE swap,
+ADR-068), follow this workflow to re-embed all entities with version tracking.
 
-**Applies to:** Tasks, Goals, Habits, Events, Choices, Principles
-**KUs:** Already have version tracking via `HuggingFaceEmbeddingsService`
+**Version source of truth:** the `EMBEDDING_VERSION` constant in
+`core/services/embeddings_service.py`. Both the background worker and the backfill script store
+through `EmbeddingsService.store_embedding_with_metadata()`, so there is exactly one writer of
+version/model metadata. There are NO embedding env vars (ADR-068 deleted `EmbeddingConfig`).
+
+**Applies to:** all 12 embeddable labels (Task, Goal, Habit, Event, Choice, Principle, Ku,
+Resource, Exercise, PathStep, LearningPath, RevisedExercise).
 
 ---
 
 ## Prerequisites
 
-- Database backup completed
-- New embedding model tested and validated
-- Sufficient HuggingFace API capacity (or local inference setup)
-- Downtime window scheduled (if running live migration)
+- Database backup completed (production only)
+- New model available through an `EmbeddingClientOperations` adapter
+- `OPENAI_API_KEY` (or the new provider's key) available via keychain/env
 
 ---
 
-## Step 1: Update Configuration
+## Step 1: Swap the Provider / Bump the Version (code change)
 
-Update the embedding version and model in your environment:
+1. **Provider/model:** edit `create_embedding_client()` in
+   `adapters/external/embeddings/factory.py` — THE provider chokepoint. For the staged BGE swap
+   this means returning `HuggingFaceEmbeddingAdapter` instead of `OpenAIEmbeddingAdapter`.
+2. **Version:** increment `EMBEDDING_VERSION` in `core/services/embeddings_service.py` and
+   extend its history comment.
+3. Restart the application.
+
+**Dimension changes require index recreation** — `CREATE VECTOR INDEX IF NOT EXISTS` never
+alters an existing index, and Neo4j vector indexes silently ignore wrong-dimension vectors:
 
 ```bash
-# Set new version
-export EMBEDDING_VERSION="v3"  # Increment from current v2
-
-# Set new model (if model name changed)
-export EMBEDDING_MODEL="BAAI/bge-large-en-v1.5"  # or updated model name
-
-# Restart application for changes to take effect
+uv run python scripts/create_vector_indexes.py --recreate
 ```
 
-**Config location:** `/core/config/unified_config.py` (`EmbeddingConfig`)
-
-```python
-@dataclass
-class EmbeddingConfig:
-    embedding_version: str = field(default="v2")  # Increment for upgrades
-    embedding_model: str = field(default="BAAI/bge-large-en-v1.5")
-    embedding_dimension: int = field(default=1024)
-```
-
-**Note:** Vector indexes (1024-dim, cosine) are automatically created at bootstrap when `INTELLIGENCE_TIER=full`. If changing dimensions, drop and recreate indexes.
+(The current 1024-dim indexes already match both `text-embedding-3-small` @1024 and
+`bge-large-en-v1.5`, so the OpenAI↔BGE swap does NOT need this step.)
 
 ---
 
 ## Step 2: Identify Entities Needing Re-embedding
 
-Query the database to find entities with old version:
-
-### Count by Domain
-
 ```cypher
-MATCH (n)
-WHERE n.embedding_version IS NOT NULL
-  AND n.embedding_version < 'v2'
-  AND (n:Task OR n:Goal OR n:Habit OR n:Event OR n:Choice OR n:Principle)
-RETURN labels(n)[0] as entity_type, count(n) as count
-ORDER BY count DESC
+MATCH (n:Entity)
+WHERE n.embedding IS NOT NULL
+RETURN n.embedding_version AS version, n.entity_type AS entity_type, count(n) AS count
+ORDER BY version, count DESC
 ```
 
-**Expected output:**
-```
-entity_type | count
-------------|------
-Task        | 1,245
-Goal        |   342
-Habit       |   189
-Event       |   567
-Choice      |    78
-Principle   |    34
-```
-
-### Get Specific UIDs (for batch processing)
-
-```cypher
-MATCH (n:Task)
-WHERE n.embedding_version = 'v1'
-RETURN n.uid
-LIMIT 100
-```
+Anything with a version older than the current constant needs re-embedding;
+`check_version_compatibility()` / `get_or_create_embedding()` treat it as stale automatically.
 
 ---
 
-## Step 3: Cost Estimation
-
-**HuggingFace Inference API Pricing (as of 2026):**
-- `BAAI/bge-large-en-v1.5`: see https://huggingface.co/pricing
-- Average entity: ~500 tokens
-- Formula: `entity_count * tokens_per_entity * rate`
-
-**Example:**
-```
-2,455 entities * 500 tokens = 1,227,500 tokens
-Cost depends on HuggingFace tier — check current pricing
-```
-
----
-
-## Step 4: Run Re-embedding Migration
-
-**Option A: Background Worker (Recommended)**
-
-The embedding worker will automatically use the new version for new embeddings. For existing entities:
+## Step 3: Re-embed
 
 ```bash
-# Publish EmbeddingRequested events for all old-version entities
-uv run python scripts/migrations/reembed_activity_domains.py \
-    --from-version v1 \
-    --to-version v2 \
-    --batch-size 100
+# Stale-version sweep (regenerates where version != current)
+uv run python scripts/migrate_embeddings_version.py
+
+# Or: backfill nodes with no embedding at all
+uv run python scripts/generate_embeddings_batch.py [--label Ku]
+
+# Content chunks (RAG)
+uv run python scripts/migrations/migrate_chunk_embeddings.py
 ```
 
-**Option B: Direct Cypher (for manual control)**
-
-```cypher
-// Re-embed all Tasks with v1 embeddings
-MATCH (n:Task)
-WHERE n.embedding_version = 'v1'
-WITH n
-LIMIT 100
-// Trigger re-embedding via application layer
-```
+Cost at SKUEL scale is negligible with `text-embedding-3-small` (a few hundred entities ≈
+well under $0.01).
 
 ---
 
-## Step 5: Monitor Progress
+## Step 4: Monitor
 
-### Check Version Distribution
+### Version distribution
 
-```cypher
-MATCH (n)
-WHERE n.embedding_version IS NOT NULL
-  AND (n:Task OR n:Goal OR n:Habit OR n:Event OR n:Choice OR n:Principle)
-RETURN
-  n.embedding_version as version,
-  labels(n)[0] as entity_type,
-  count(n) as count
-ORDER BY version, entity_type
-```
+Re-run the Step 2 query — old-version counts should drain to zero.
 
-**Expected progression:**
-```
-version | entity_type | count
---------|-------------|------
-v1      | Task        | 1,000  (decreasing)
-v1      | Goal        |   300  (decreasing)
-v2      | Task        |   245  (increasing)
-v2      | Goal        |    42  (increasing)
-```
-
-### Worker Metrics
-
-Check embedding worker status:
+### Worker metrics (event-driven embeddings)
 
 ```bash
-curl http://localhost:8000/api/background/embedding-worker/metrics
-```
-
-**Response:**
-```json
-{
-  "total_processed": 1245,
-  "total_success": 1240,
-  "total_failed": 5,
-  "queue_size": 50,
-  "success_rate": 99.6
-}
+curl http://localhost:8000/api/monitoring/embedding-worker
 ```
 
 ---
 
-## Step 6: Verify Upgrade Complete
-
-### Confirm All Entities Updated
+## Step 5: Verify Complete
 
 ```cypher
-MATCH (n)
-WHERE n.embedding_version IS NOT NULL
-  AND n.embedding_version < 'v2'
-  AND (n:Task OR n:Goal OR n:Habit OR n:Event OR n:Choice OR n:Principle)
-RETURN count(n) as remaining
+MATCH (n:Entity)
+WHERE n.embedding IS NOT NULL
+  AND n.embedding_version <> $current_version
+RETURN count(n) AS remaining
 ```
 
-**Expected:** `remaining: 0`
-
-### Validate Embedding Quality
-
-```cypher
-// Check sample embeddings have correct model and version
-MATCH (n:Task)
-WHERE n.embedding_version = 'v2'
-RETURN
-  n.uid,
-  n.embedding_version,
-  n.embedding_model,
-  n.embedding_updated_at
-LIMIT 5
-```
+**Expected:** `remaining: 0`. Spot-check `n.embedding_model` and `size(n.embedding)` on a few
+nodes.
 
 ---
 
 ## Rollback Strategy
 
-If issues arise during migration:
-
-### 1. Stop Embedding Worker
-
-```bash
-# Set config to pause new embeddings
-export GENAI_ENABLED="false"
-# Restart application
-```
-
-### 2. Revert Configuration
-
-```bash
-# Roll back to previous version
-export GENAI_EMBEDDING_VERSION="v1"
-export GENAI_EMBEDDING_MODEL="BAAI/bge-large-en-v1.5"
-```
-
-### 3. Restore from Backup (if needed)
-
-```bash
-# Restore Neo4j backup
-neo4j-admin restore --from=/backups/pre-upgrade
-```
-
----
-
-## Future Considerations
-
-### Automatic Version Detection
-
-**Future enhancement:** Detect model changes automatically:
-
-```python
-# In EmbeddingBackgroundWorker
-def _detect_version_mismatch(self) -> bool:
-    """Check if model changed since last embedding"""
-    current_model = self.config.genai.embedding_model
-    stored_model = await self._get_latest_embedding_model()
-    return current_model != stored_model
-```
-
-### Incremental Re-embedding
-
-**Strategy:** Re-embed in priority order:
-1. Active tasks (status != COMPLETED)
-2. Recent entities (created_at > 30 days ago)
-3. High-value entities (linked to life path goals)
-4. Historical/archived entities
-
----
-
-## Related Documentation
-
-- `/docs/architecture/EMBEDDING_VERSION_TRACKING.md` - Architecture decision
-- `/scripts/migrations/backfill_activity_embedding_versions.py` - Initial backfill
-- `/core/services/background/embedding_worker.py` - Worker implementation
-- `/core/config/unified_config.py` - Configuration
+1. Revert the factory/constant commit (provider + version are code, not env).
+2. Restart the application.
+3. Re-run the re-embedding sweep at the reverted version, or restore the pre-upgrade Neo4j
+   backup if vectors must be byte-identical.
 
 ---
 
@@ -269,5 +117,15 @@ def _detect_version_mismatch(self) -> bool:
 
 | Version | Date       | Change |
 |---------|------------|--------|
-| v1      | 2026-01-29 | Initial Activity domain embeddings (BAAI/bge-large-en-v1.5, 1024d) |
-| v2      | TBD        | Model upgrade (when implemented) |
+| v1      | pre-2026-03 | OpenAI `text-embedding-3-small` @1536 via Neo4j GenAI plugin |
+| v2      | 2026-03-12 | BGE `bge-large-en-v1.5` @1024 via HF Inference API (ADR-049 — never backfilled) |
+| v3      | 2026-06-10 | OpenAI `text-embedding-3-small` @1024 via API `dimensions` param (ADR-068) |
+
+---
+
+## Related Documentation
+
+- `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md` — provider decision + chokepoint
+- `/docs/development/GENAI_SETUP.md` — setup guide
+- `/core/services/background/embedding_worker.py` — worker implementation
+- `/scripts/generate_embeddings_batch.py` — backfill (service-mediated, version-aware)

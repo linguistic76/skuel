@@ -66,7 +66,7 @@ uv sync --no-dev
 uv run python -c "from adapters.persistence.neo4j_adapter import Neo4jAdapter; import asyncio; asyncio.run(Neo4jAdapter().connect())"
 
 # Test embeddings service
-uv run python -c "from core.services.embeddings_service import HuggingFaceEmbeddingsService; print('OK')"
+uv run python -c "from core.services.embeddings_service import EmbeddingsService; print('OK')"
 ```
 
 ### 3. Start Application

@@ -8,6 +8,8 @@ E2E tests use the same Neo4j testcontainer and fixtures as integration tests,
 but test complete workflows from start to finish.
 """
 
+from typing import Any
+
 import pytest_asyncio
 
 # Import all integration test fixtures for E2E tests
@@ -50,46 +52,49 @@ async def event_bus():
 
 @pytest_asyncio.fixture
 async def embeddings_service(neo4j_driver):
-    """Mock embeddings service with real Neo4j-backed storage.
+    """Real EmbeddingsService with Neo4j-backed storage and a stubbed model call.
 
-    create_batch_embeddings is stubbed to avoid real HuggingFace API calls,
-    but backend is a real EmbeddingsBackend wired to the test container so
-    the worker's _store_embedding path actually writes to Neo4j (commit
-    bdbb4710 moved storage off self.executor onto embeddings_service.backend).
+    create_batch_embeddings is stubbed to avoid real embedding-API calls, but
+    the service + backend are real and wired to the test container, so the
+    worker's _store_embedding path (service.store_embedding_with_metadata)
+    actually writes vectors AND version/model metadata to Neo4j.
     """
-    from unittest.mock import Mock
+    from unittest.mock import AsyncMock, MagicMock
 
     from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.services.embeddings_service import EmbeddingsService
     from core.utils.result_simplified import Result
 
-    mock = Mock()
-    mock.model = "BAAI/bge-large-en-v1.5"
+    mock_client = MagicMock()
+    mock_client.model = "test-embedder"
+    mock_client.dimension = 1024
+    mock_client.max_input_chars = 2000
+    mock_client.embed = AsyncMock()
 
-    async def fake_batch_embeddings(texts: list[str]) -> Result:
+    service = EmbeddingsService(
+        backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        embedding_client=mock_client,
+    )
+
+    async def fake_batch_embeddings(
+        texts: list[str], metadata_list: list[dict[str, Any]] | None = None
+    ) -> Result[list[list[float]]]:
         fake_vector = [0.1] * 1024
         return Result.ok([fake_vector for _ in texts])
 
-    mock.create_batch_embeddings = fake_batch_embeddings
-    mock.backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
-    return mock
+    service.create_batch_embeddings = fake_batch_embeddings
+    return service
 
 
 @pytest_asyncio.fixture
 async def embedding_worker(event_bus, embeddings_service, neo4j_driver):
     """Create embedding background worker for e2e tests."""
-    from unittest.mock import Mock
-
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
-
-    # Mock config for embedding version
-    mock_config = Mock()
-    mock_config.genai.embedding_version = "v1"
 
     return EmbeddingBackgroundWorker(
         event_bus=event_bus,
         embeddings_service=embeddings_service,
-        config=mock_config,
         batch_size=25,
         batch_interval_seconds=2,  # Short interval for tests (production uses 30s)
     )

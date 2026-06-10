@@ -45,7 +45,7 @@ class _DriverConnection:
 
 
 class _FakeEmbeddingsService:
-    """Deterministic stand-in for HuggingFaceEmbeddingsService.
+    """Deterministic stand-in for EmbeddingsService.
 
     Returns a fixed-length unit vector per input text so the worker can persist
     something to `ContentChunk.embedding` without touching the network.
@@ -59,10 +59,6 @@ class _FakeEmbeddingsService:
         # Embedding dimension is irrelevant for the wiring test — what matters
         # is that store_chunk_embeddings receives one vector per chunk_uid.
         return Result.ok([[float(len(t) % 7) / 7.0] * 4 for t in texts])
-
-
-class _DummyConfig:
-    """Minimal config stub: the worker only reads attributes opaquely."""
 
 
 @pytest.mark.asyncio
@@ -101,7 +97,6 @@ Ingestion publishes ChunkEmbeddingRequested and the worker drains the queue.
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings,
-            config=_DummyConfig(),
             content_adapter=content_adapter,
         )
         event_bus.subscribe(ChunkEmbeddingRequested, worker._queue_chunk_request)

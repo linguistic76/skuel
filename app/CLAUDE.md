@@ -42,7 +42,7 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **Core Principle:** "One Path Forward - Docker -> DigitalOcean -> AuraDB"
 
-**Stage 1 (Current):** Docker-based Neo4j (`bolt://localhost:7687`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via HuggingFace Inference API (Python-side, no Neo4j plugin).
+**Stage 1 (Current):** Docker-based Neo4j (`bolt://localhost:7687`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via OpenAI `text-embedding-3-small` @1024 dims (Python-side, no Neo4j plugin; provider chokepoint `create_embedding_client()` — ADR-068, BGE staged long-term).
 
 **Stage 2:** Droplet (Neo4j) + App Platform (app). Same config as local Docker.
 
@@ -54,7 +54,7 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **Schema-change monitoring (opt-in, default OFF):** `SchemaChangeDetector` fingerprints the live schema and invalidates query-optimization caches on drift. On-demand via `Neo4jAdapter.check_schema_changes()`; or wire a background poll at startup with `NEO4J_SCHEMA_MONITORING=true` (+ `NEO4J_SCHEMA_MONITORING_INTERVAL`, default 900s, validated ≥1). Tier-independent (not `INTELLIGENCE_TIER`-gated) — off by default keeps the CORE-tier "no background workers" guarantee. **See:** neo4j-cypher-patterns skill § 7.
 
-**See:** `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`, `/docs/decisions/ADR-064-neo4j-per-query-timeout.md`, `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-049-huggingface-embeddings-migration.md`
+**See:** `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`, `/docs/decisions/ADR-064-neo4j-per-query-timeout.md`, `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md`
 
 ## Skills & Documentation Cross-Reference
 
