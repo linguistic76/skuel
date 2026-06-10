@@ -15,6 +15,8 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **SKUEL does NOT maintain backward compatibility.** When a better pattern emerges, the old pattern is removed entirely. No legacy wrappers, no deprecation periods, no alternative paths. Update all call sites immediately. Dead code is deleted, not archived.
 
+**Abandoned ≠ staged:** deliberately staged-but-unwired work is NOT dead code — register it in the bloat detector's PLANNED tier (`PLANNED_EVENTS`/`PLANNED_METHODS` in `scripts/detect_bloat.py`) as a visible completion backlog. One Path Forward deletes the abandoned, never the staged.
+
 **Design Philosophy:** Type errors are teachers, showing us where components don't flow together properly. When errors appear, investigate the fundamental design first rather than working around with quick fixes.
 
 **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
@@ -527,11 +529,21 @@ Target the latest stable CPython (currently **3.14**, pinned in `.python-version
 
 **See:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`
 
+## PR Review Workflow
+
+**Core Principle:** "Reviews are advisory on a timer, not unbounded gates"
+
+CI Gate is the sole automatic check. Codex review is on-demand via `scripts/request_codex_review.sh <PR#>` — timeboxed summon + poll across all three verdict surfaces (exit 0 clean / 2 findings / 3 no-show; run AFTER the final push — the gate drops the label on synchronize). The required `Codex Review Gate` clears via a PR-side consideration note (accept/reject + why) plus the `codex-considered` label — *considered*, not necessarily agreed with.
+
+**See:** `/docs/development/PR_WORKFLOW.md`, `.github/workflows/README.md` (repo root), `AGENTS.md` (repo root)
+
 ## Code Quality & Formatting
 
 **Formatting:** Ruff. Run `./dev format` to format, `./dev quality` for full checks.
 
 **Dead-code detection (advisory):** `./dev bloat` — AST-sound event-lifecycle + Vulture-backed method liveness with SKUEL dispatch knowledge. Verify WARNING findings before deleting; staged-but-unwired work belongs in the PLANNED tier (`PLANNED_EVENTS`/`PLANNED_METHODS`), not the trash. **See:** `/docs/tools/BLOAT_DETECTION.md`
+
+**Docs-staleness check (automatic):** a Claude Code PostToolUse hook (`.claude/hooks/post-commit-docs.sh`) fires after any Bash command invoking `git commit` and flags docs/skills that reference the changed files for semantic staleness review. **See:** `/docs/tools/AUTOMATIC_DOCS_CHECK.md`
 
 **Key SKUEL Linter Rules:**
 - SKUEL001: No banned APOC procedures anywhere in `core/` [CRITICAL] — APOC is adapter-only (ADR-044). Docstring-aware (APOC named in docstrings/comments is prose, not a violation); unsuppressable.
