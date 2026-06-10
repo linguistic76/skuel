@@ -58,14 +58,9 @@ fi
 # Positive marker: a successful git commit prints its stats summary
 # ("N file(s) changed, ..."). When present it kills the false-fire class where
 # a non-commit command merely CONTAINS the string "git commit" (e.g. a grep
-# pattern) inside the recency window. When ABSENT we don't bail — piped
-# commits (`git commit ... | tail -5`) and `git commit --quiet` hide the
-# stats line yet still commit (this silently skipped the 58-file ADR-068
-# commit). Instead, a marker-less match falls through to a much TIGHTER
-# recency window below: a real commit lands seconds before this hook runs,
-# while the grep-pattern false-fire class only slips through if it runs
-# within seconds of an unrelated real commit — rare, and the cost is a
-# duplicate advisory check, not a wrong one.
+# pattern). When ABSENT we don't bail — piped commits
+# (`git commit ... | tail -5`) and `git commit --quiet` hide the stats line
+# yet still commit (this silently skipped the 58-file ADR-068 commit).
 COMMIT_MARKER_RE='[0-9]+ files? changed'
 MARKER_PRESENT=1
 if [[ ! "$TOOL_RESPONSE" =~ $COMMIT_MARKER_RE ]]; then
@@ -79,15 +74,40 @@ if [[ ! -d "$PROJECT_ROOT" ]]; then
     exit 0
 fi
 
-# Guard against false fires: the regex can match inside a quoted string
-# (e.g. a commit message that merely *mentions* git commit), and HEAD would
-# then be some older commit. Only proceed if HEAD was committed moments ago.
-# Two-tier window: with the stats marker confirming a commit, the generous
-# window applies; without it (truncated/quiet output) the tight window is
-# the only evidence a commit just happened, so it must be small enough to
-# exclude stale HEADs while covering hook latency after the commit lands.
+# Commit-identity dedupe: each HEAD sha is checked AT MOST ONCE. The sha of
+# the last checked commit persists in .git (survives across sessions,
+# per-worktree). This is the primary guard — it both prevents duplicate
+# advisories (a later command that merely mentions "git commit" while HEAD
+# is still fresh re-matches the regex but finds the sha already checked)
+# and lets the marker-less recency window below be GENEROUS, closing the
+# long-chain blind spot (`git commit | tail && gh pr checks --watch` used
+# to outlive a tight window and skip the check).
+HEAD_SHA=$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || echo "")
+if [[ -z "$HEAD_SHA" ]]; then
+    echo '{}'
+    exit 0
+fi
+GIT_DIR=$(git -C "$PROJECT_ROOT" rev-parse --absolute-git-dir 2>/dev/null || echo "")
+STATE_FILE="$GIT_DIR/skuel-docs-check-last"
+LAST_CHECKED=""
+if [[ -n "$GIT_DIR" && -f "$STATE_FILE" ]]; then
+    LAST_CHECKED=$(cat "$STATE_FILE" 2>/dev/null || echo "")
+fi
+if [[ "$HEAD_SHA" == "$LAST_CHECKED" ]]; then
+    echo '{}'
+    exit 0
+fi
+
+# Recency bound — a SANITY check, not the evidence (the sha dedupe is).
+# With the marker confirming a commit, the standard window applies; without
+# it (truncated/quiet output) a generous window still excludes the case
+# where a command mentioning "git commit" textually would otherwise fire on
+# a genuinely old, never-checked HEAD (e.g. a commit made outside Claude
+# Code days ago). 1800s covers a commit followed by chained pushes/PR
+# creation/watch loops within the same Bash call; the duplicate-advisory
+# cost of a false fire inside the window is removed by the dedupe above.
 MAX_AGE_S="${SKUEL_DOCS_CHECK_MAX_AGE_S:-300}"
-FALLBACK_AGE_S="${SKUEL_DOCS_CHECK_FALLBACK_AGE_S:-60}"
+FALLBACK_AGE_S="${SKUEL_DOCS_CHECK_FALLBACK_AGE_S:-1800}"
 HEAD_TS=$(git -C "$PROJECT_ROOT" log -1 --format=%ct 2>/dev/null || echo 0)
 HEAD_AGE=$(( $(date +%s) - HEAD_TS ))
 if (( MARKER_PRESENT )); then
@@ -98,6 +118,13 @@ if (( MARKER_PRESENT )); then
 elif (( HEAD_AGE > FALLBACK_AGE_S )); then
     echo '{}'
     exit 0
+fi
+
+# Passed all gates — this commit is now considered checked, regardless of
+# whether the analysis below finds referencing docs (a no-findings result
+# is still a completed check; later regex matches must not re-run it).
+if [[ -n "$GIT_DIR" ]]; then
+    echo "$HEAD_SHA" > "$STATE_FILE" 2>/dev/null || true
 fi
 
 # Get changed code files from the commit (deletions included — docs that

@@ -17,23 +17,36 @@ Every time you commit code via Claude Code's Bash tool, the hook automatically:
 3. Cross-references `skills_metadata.yaml` to identify affected skills
 4. Returns `hookSpecificOutput.additionalContext` (full detail, injected into Claude's context) plus a `systemMessage` summary (visible to the user)
 
-**Trigger mechanics (fixed 2026-06-10, hardened same day):** the PostToolUse
-matcher fires on every Bash call; the script filters for a `git commit`
-invocation at a command-segment boundary, so compound chains like
-`git add ... && git commit ...` are covered (the original prefix-only check
-missed them, which kept the hook silent for most real commits). Commit
-confirmation is two-tier: the stats marker (`N files changed`) in the tool
-output confirms a commit and gets the generous HEAD-recency window
-(`SKUEL_DOCS_CHECK_MAX_AGE_S`, default 300s); when the marker is hidden —
-piped output (`git commit ... | tail -5`) or `git commit --quiet`, which
-silently skipped a 58-file commit before the hardening — the hook falls back
-to a tight window (`SKUEL_DOCS_CHECK_FALLBACK_AGE_S`, default 60s) as the
-only evidence a commit just landed. False fires are bounded either way: a
-command that merely *mentions* "git commit" inside a string can match the
-regex, but outside the window the hook exits silently, and inside it the
-worst case is re-suggesting review of a genuinely recent commit. The
-original output also placed `additionalContext` at the JSON top level, where
-PostToolUse ignores it — it must be nested under `hookSpecificOutput`.
+**Trigger mechanics (fixed 2026-06-10, hardened twice same day):** the
+PostToolUse matcher fires on every Bash call; the script filters for a
+`git commit` invocation at a command-segment boundary, so compound chains
+like `git add ... && git commit ...` are covered (the original prefix-only
+check missed them, which kept the hook silent for most real commits).
+
+The primary guard is **commit-identity dedupe**: the last-checked HEAD sha
+persists in `.git/skuel-docs-check-last` (per-worktree, survives sessions),
+and each commit sha is checked AT MOST ONCE — a command that merely
+*mentions* "git commit" (e.g. a grep pattern) re-matches the regex but finds
+the sha already checked and stays silent. A no-findings analysis still
+records the sha (a completed check is a completed check).
+
+Recency is a SANITY bound, not the evidence: with the stats marker
+(`N files changed`) confirming a commit in the tool output, the standard
+window applies (`SKUEL_DOCS_CHECK_MAX_AGE_S`, default 300s); when the marker
+is hidden — piped output (`git commit ... | tail -5`) or
+`git commit --quiet`, which silently skipped a 58-file commit before the
+hardening — a generous fallback window applies
+(`SKUEL_DOCS_CHECK_FALLBACK_AGE_S`, default 1800s). The dedupe is what makes
+1800s safe: it closes the long-chain blind spot
+(`git commit | tail && gh pr checks --watch` outlived the previous 60s
+window) without re-introducing duplicate advisories. The residual false
+positive — a "git commit"-mentioning non-commit command firing on a
+never-checked HEAD younger than the window — costs one advisory for a real
+recent commit, at most once per sha.
+
+The original output also placed `additionalContext` at the JSON top level,
+where PostToolUse ignores it — it must be nested under
+`hookSpecificOutput`.
 
 Note: merges via `gh pr merge` never trigger the hook (no local `git commit`;
 the squash commit is created server-side). That is by design — branch content
@@ -76,7 +89,8 @@ Claude then reads the flagged docs, compares them against what actually changed,
 - No code files (`.py`/`.js`/`.css`/`.sh`/`.toml`/`.yaml`) in the commit
 - No docs reference the changed filenames
 - The commit failed (`nothing to commit`)
-- HEAD is older than the recency window — 300s with the stats marker, 60s without (guards against false regex matches)
+- HEAD sha already checked (`.git/skuel-docs-check-last` — each commit is checked at most once)
+- HEAD is older than the recency window — 300s with the stats marker, 1800s without (sanity bound against false regex matches)
 - Running outside Claude Code (standard git commits bypass the hook)
 
 ---
