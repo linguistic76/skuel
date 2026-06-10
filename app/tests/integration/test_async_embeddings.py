@@ -100,9 +100,9 @@ class TestEmbeddingBackgroundWorker:
         WHEN: Publishing 10 embedding requests
         THEN: Worker processes batch and stores embeddings in Neo4j
         """
-        # Mock embeddings service
-        embeddings_service.create_batch_embeddings = AsyncMock(
-            return_value=Mock(is_ok=True, is_error=False, value=[[0.1] * 1024 for _ in range(10)])
+        # Mock embeddings service (worker generates per item via create_embedding)
+        embeddings_service.create_embedding = AsyncMock(
+            return_value=Mock(is_ok=True, is_error=False, value=[0.1] * 1024)
         )
 
         # Create and start worker
@@ -132,10 +132,10 @@ class TestEmbeddingBackgroundWorker:
         # Wait for batch processing (interval + buffer)
         await asyncio.sleep(2)
 
-        # Verify batch embedding was called
-        embeddings_service.create_batch_embeddings.assert_called_once()
-        call_args = embeddings_service.create_batch_embeddings.call_args
-        assert len(call_args[0][0]) == 10  # 10 texts
+        # Verify per-item embedding was called for every request in the batch
+        assert embeddings_service.create_embedding.await_count == 10
+        called_texts = {c.args[0] for c in embeddings_service.create_embedding.await_args_list}
+        assert called_texts == {f"Test task {i}" for i in range(10)}
 
         # Cleanup
         worker_task.cancel()
@@ -154,7 +154,7 @@ class TestEmbeddingBackgroundWorker:
         # Mock failure
         from core.utils.result_simplified import Errors, Result
 
-        embeddings_service.create_batch_embeddings = AsyncMock(
+        embeddings_service.create_embedding = AsyncMock(
             return_value=Result.fail(
                 Errors.integration(service="GenAI", message="API rate limit exceeded")
             )
@@ -567,8 +567,8 @@ class TestEndToEndEmbeddingIntegration:
 
         # 1. Mock external embedding API (we want to test DB storage, not external HTTP calls)
         mock_embedding = [0.123] * 1024
-        embeddings_service.create_batch_embeddings = AsyncMock(
-            return_value=Mock(is_ok=True, is_error=False, value=[mock_embedding])
+        embeddings_service.create_embedding = AsyncMock(
+            return_value=Mock(is_ok=True, is_error=False, value=mock_embedding)
         )
         # 2. Give the embeddings_service a real backend if it doesn't have one
         from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
