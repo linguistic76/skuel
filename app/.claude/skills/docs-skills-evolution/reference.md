@@ -530,10 +530,12 @@ uv run python scripts/validate_cross_references.py
 
 **Location**: `.claude/hooks/post-commit-docs.sh`
 
-**Fires after `git commit` via Claude Code Bash tool:**
-- Collects changed `.py` files
+**Fires after any Bash command invoking `git commit` (compound chains included):**
+- Collects changed code files (`.py`/`.js`/`.css`/`.sh`/`.toml`/`.yaml`, deletions included)
 - Finds docs/skills referencing those files
 - Injects context so Claude evaluates staleness semantically
+
+See `/docs/tools/AUTOMATIC_DOCS_CHECK.md` for trigger mechanics and guards.
 
 ### Post-Merge Hook (Automatic)
 
