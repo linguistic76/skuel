@@ -6,8 +6,8 @@ Assessment scoring + teacher-review queue and reporting.
 Covers teacher authority verification, assessment relationships,
 review queue queries, report creation, and teacher dashboards.
 
-Consolidated from ``_SubmissionAssessmentMixin`` + the ADR-054 Step 4 wrapper
-into a single standalone mixin (commit 7).
+Consolidated from the legacy ``_SubmissionAssessmentMixin`` into a single
+standalone mixin (ADR-054).
 
 Requires on concrete class:
     driver, label, logger, execute_query (from _SearchMixin)

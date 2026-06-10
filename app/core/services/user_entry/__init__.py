@@ -1,12 +1,9 @@
 """
-UserEntry Service Package — ADR-054 Step 5
-============================================
+UserEntry Service Package — ADR-054
+===================================
 
-Facade + processing dispatcher over ``UserEntryBackend``. Replaces
-``core/services/submissions/`` and ``core/services/journal/`` post-migration
-(those packages stay in place through Step 13).
-
-See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
+Facade + processing dispatcher over ``UserEntryBackend``. Replaced the
+legacy ``core/services/submissions/`` and ``core/services/journal/`` packages.
 """
 
 from core.services.user_entry.assessment_service import AssessmentService

@@ -1,6 +1,6 @@
 """
-UserEntry Learning Loop Query Service — ADR-054 Commit 6a
-==========================================================
+UserEntry Learning Loop Query Service — ADR-054
+===============================================
 
 Read-only queries that traverse the four-phase learning loop graph:
 

@@ -1092,9 +1092,8 @@ async def compose_services(
         )
         logger.info("✅ LearningLoopQueryService created (UserEntry read-side peer)")
 
-        # ADR-054 Step 7 — UserEntry facade + processing dispatcher.
-        # Additive through Step 13; lives alongside the legacy submissions
-        # and journal services while the migration lands incrementally.
+        # ADR-054 — UserEntry facade + processing dispatcher (the successor to
+        # the former submissions + journal services).
         from core.services.user_entry import (
             AssessmentService,
             UserEntryProcessingService,
@@ -1235,7 +1234,7 @@ async def compose_services(
         )
         logger.info("✅ Profile Orchestrator created (intelligence post-wired below)")
 
-        # ADR-054 Commit 5c: SubmissionsOrchestrator + JournalOrchestrator retired.
+        # ADR-054: the former SubmissionsOrchestrator + JournalOrchestrator are retired.
         # UserEntryOrchestrator is the sole facade for submissions + journals.
         from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
 

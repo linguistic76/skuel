@@ -6,8 +6,8 @@ Journal processing context + exercise-instruction enrichment reads.
 Covers journal temporal/thematic/goal linking, exercise-instruction
 set CRUD, and path-step entry listings.
 
-Consolidated from ``_SubmissionContentMixin`` + the ADR-054 Step 4 wrapper
-into a single standalone mixin (commit 7).
+Consolidated from the legacy ``_SubmissionContentMixin`` into a single
+standalone mixin (ADR-054).
 
 Requires on concrete class:
     driver, label, logger, execute_query (from _SearchMixin)

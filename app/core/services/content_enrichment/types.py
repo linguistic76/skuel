@@ -3,9 +3,9 @@ Content Enrichment Types
 ========================
 
 Frozen dataclasses for the LLM-driven transcript enrichment pipeline.
-Ported from ``submissions/submission_processing_types.py`` on ADR-054
-Commit 6a (Step 10) and renamed so that the content_enrichment package is
-no longer coupled to the legacy Submission naming.
+Ported from the legacy ``submissions/submission_processing_types.py`` on
+ADR-054 and renamed so that the content_enrichment package is no longer
+coupled to the legacy Submission naming.
 """
 
 from dataclasses import dataclass, field

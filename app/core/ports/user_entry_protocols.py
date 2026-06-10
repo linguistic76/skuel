@@ -7,7 +7,7 @@ Backend-level, ISP-split protocols for the unified ``UserEntry`` domain.
 ``JeOutput`` as one type of user-authored artifact. Dispatch is driven by the
 ``Pipeline`` enum on the entry, not by ``entity_type`` branching.
 
-Five ISP parents mirror the five backend mixins (renamed in Step 4 from
+Five ISP parents mirror the five backend mixins (renamed from
 ``_submission_*_mixin.py`` to ``_user_entry_*_mixin.py``):
 
     UserEntryCrudOperations         — content search + feedback-count joins
@@ -22,17 +22,11 @@ Five ISP parents mirror the five backend mixins (renamed in Step 4 from
 
 ``UserEntryOperations`` aggregates the five parents and extends
 ``BackendOperations[UserEntry]`` — this is the protocol that
-``UserEntryBackend`` satisfies (added in Step 4) and that
-``UserEntryService.__init__`` consumes (added in Step 5).
+``UserEntryBackend`` satisfies and that ``UserEntryService.__init__`` consumes.
 
 ``UserEntryProcessingOperations`` is a separate, narrower contract for the
 dispatcher service — it takes a ``UserEntry`` and runs its ``Pipeline``.
 
-Additive for Step 3: nothing consumes these protocols yet. The legacy
-``submission_protocols.py`` and ``journal_protocols.py`` remain in place
-through Step 13 and are removed in the final cleanup step.
-
-See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 

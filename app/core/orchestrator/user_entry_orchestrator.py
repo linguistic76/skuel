@@ -1,14 +1,10 @@
-"""UserEntry UI Orchestrator (ADR-054 — Commit 4)
-=================================================
+"""UserEntry UI Orchestrator (ADR-054)
+======================================
 
-Unified orchestrator for the UserEntry hub — the successor to
+Unified orchestrator for the UserEntry hub — the successor to the former
 ``SubmissionsOrchestrator`` + ``JournalOrchestrator``. Journal is a
 ``pipeline=TRANSCRIBE_AND_STRUCTURE`` flow on ``UserEntry``, not a
 separate domain, so the previously-split orchestrators collapse into one.
-
-Legacy orchestrators remain alive through commit 5 while the legacy
-submissions_* / journals_* route files still bind against them. Any
-new UI code should depend on this orchestrator instead.
 
 All dependencies are required — bootstrap raises if any are missing
 (Fail-Fast Dependency Philosophy).

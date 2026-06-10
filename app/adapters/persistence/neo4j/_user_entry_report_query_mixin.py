@@ -6,8 +6,8 @@ Cross-joins to ExerciseReport and learning-loop chain queries.
 Covers pending entries, unsubmitted exercises, report summaries,
 and learning-loop chain reads.
 
-Consolidated from ``_SubmissionReportQueryMixin`` + the ADR-054 Step 4 wrapper
-into a single standalone mixin (commit 7).
+Consolidated from the legacy ``_SubmissionReportQueryMixin`` into a single
+standalone mixin (ADR-054).
 
 Requires on concrete class:
     driver, label, logger, execute_query (from _SearchMixin)
