@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import date
 
-from core.models.enums import Domain, EntityStatus, RecurrencePattern
+from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
@@ -84,7 +84,6 @@ from core.utils.sort_functions import (
 )
 
 if TYPE_CHECKING:
-    from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.context_types import ContextualDependencies, ContextualHabit
     from core.models.graph_context import GraphContext
     from core.models.habit.habit_request import HabitCreateRequest
@@ -162,7 +161,7 @@ class HabitsService(
     Delegation methods (explicit ~45 methods):
     - Core: get_habit, get_user_habits, list_habits, get_user_items_in_range
     - Progress: complete_habit_with_quality, get_at_risk_habits, analyze_habit_consistency, etc.
-    - Search: get_habits_by_status, get_habits_by_domain, get_upcoming, get_overdue, etc.
+    - Search: get_active, get_upcoming, get_overdue, get_habits_due_today, etc.
     - Learning: get_learning_habits, create_habit_from_learning_goal, etc.
     - Planning: get_habit_priorities_for_user, get_actionable_habits_for_user, etc.
     - Scheduling: check_habit_capacity, suggest_habit_stacking, etc.
@@ -315,40 +314,16 @@ class HabitsService(
     ) -> Result[list[Habit]]:
         return await self.search.get_overdue(user_uid, limit)
 
-    async def list_habit_categories(self, user_uid: UserUID) -> Result[list[str]]:
-        return await self.search.list_user_categories(user_uid)
-
-    async def list_all_habit_categories(self) -> Result[list[str]]:
-        return await self.search.list_all_categories()
-
-    async def get_habits_by_category(
-        self, category: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Habit]]:
-        return await self.search.get_by_category(category, user_uid=user_uid, limit=limit)
-
     async def get_habits_due_today(self, user_uid: UserUID) -> Result[list[Habit]]:
         return await self.search.get_user_due_today(user_uid)
 
     async def get_all_habits_due_today(self) -> Result[list[Habit]]:
         return await self.search.get_all_due_today()
 
-    async def get_habits_by_status(
-        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
-    ) -> Result[list[Habit]]:
-        return await self.search.get_by_status(status, limit, user_uid)
-
-    async def get_habits_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Habit]]:
-        return await self.search.get_by_domain(domain, limit)
-
     async def get_habits_by_frequency(
         self, frequency: RecurrencePattern, limit: int = 100
     ) -> Result[list[Habit]]:
         return await self.search.get_by_frequency(frequency, limit)
-
-    async def get_prioritized_habits(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Habit]]:
-        return await self.search.get_prioritized(user_context, limit)
 
     # Learning delegations
     async def get_learning_habits(self, user_context: UserContext) -> Result[list[Habit]]:
@@ -387,17 +362,6 @@ class HabitsService(
         self, habit_uid: str, learning_position: LpPosition
     ) -> Result[dict[str, Any]]:
         return await self.learning.assess_habit_learning_impact(habit_uid, learning_position)
-
-    # Relationship delegations
-    async def get_habit_with_semantic_context(
-        self,
-        uid: str,
-        min_confidence: float = 0.8,
-        semantic_types: list[SemanticRelationshipType] | None = None,
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_with_semantic_context(
-            uid, min_confidence, semantic_types
-        )
 
     # Intelligence delegations
     async def get_habit_with_context(

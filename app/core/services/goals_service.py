@@ -455,12 +455,6 @@ class GoalsService(
         )
 
     # Search delegations
-    async def list_goal_categories(self, user_uid: UserUID) -> Result[list[str]]:
-        return await self.search.list_user_categories(user_uid)
-
-    async def list_all_goal_categories(self) -> Result[list[str]]:
-        return await self.search.list_all_categories()
-
     async def get_goals_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
@@ -677,5 +671,5 @@ class GoalsService(
         )
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)
-    # and Search operations (list_goal_categories, get_goals_by_status, get_upcoming,
-    # get_overdue, get_active, etc.) delegated via explicit methods above.
+    # and Search operations (get_goals_by_status, get_upcoming, get_overdue,
+    # get_active, etc.) delegated via explicit methods above.
