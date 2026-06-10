@@ -56,6 +56,12 @@ EVENT_ROOT_BASE = "BaseEvent"
 # Exemptions require a documented reason (audit_route_security.py convention).
 # Exempted findings are still printed, collapsed — never hidden.
 EXEMPTED_EVENTS: dict[str, str] = {}
+# Keyed "relative/path.py::method_name".
+EXEMPTED_METHODS: dict[str, str] = {}
+
+# Method findings are scoped to the service layer; the rest of the tree is
+# covered by the standalone vulture run at --min-confidence 90.
+METHOD_SCOPE = "core/services/"
 
 
 class Colors:
@@ -682,6 +688,278 @@ def analyze_events(
 
 
 # ============================================================================
+# Method analysis — Vulture liveness engine + SKUEL dispatch-knowledge filter
+# ============================================================================
+
+
+# Names constructed by query_route_factory.py at route registration
+# (get_user_{d} / find_{d} / get_{d}_for_goal / get_{d}_for_habit).
+QUERY_ROUTE_TEMPLATES = (
+    "get_user_{d}",
+    "find_{d}",
+    "get_{d}_for_goal",
+    "get_{d}_for_habit",
+)
+
+
+class DispatchKnowledge:
+    """SKUEL's dynamic-dispatch vocabulary, collected structurally.
+
+    Vulture cannot see ``getattr(service, name)`` when ``name`` is computed.
+    Every collector here reads only literal configuration (kwargs, dict keys)
+    and expands the runtime templates those literals feed. Expansion
+    over-approximates in the safe direction: it may suppress a dead-method
+    accusation, never create one. Anything string-shaped but unexplained is
+    DEMOTED to needs-verification, not suppressed; getattr with a computed
+    name is counted, not hidden (no silent caps).
+    """
+
+    METHOD_KWARG = "method_name"
+    METHOD_KWARG_SUFFIX = "_method"
+
+    def __init__(self, codebase: ParsedCodebase) -> None:
+        self.codebase = codebase
+        self.live: dict[str, str] = {}  # method name -> reason
+        self.string_literals: dict[str, Site] = {}  # identifier-shaped constants
+        self.unanalyzable_getattr: list[Site] = []
+        self._domains: dict[str, Site] = {}
+        self._entity_labels: set[str] = set()
+        self._relationship_suffixes: set[str] = set()
+
+    def collect(self) -> None:
+        for path, tree in self.codebase.production.items():
+            rel = self.codebase.rel(path)
+            self._collect_calls(rel, tree)
+            self._collect_identifier_strings(rel, tree)
+        self._expand_templates()
+
+    # -- call-site configuration ----------------------------------------------
+
+    def _collect_calls(self, rel: str, tree: ast.Module) -> None:
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            site = Site(rel, node.lineno)
+            callee = _base_name(node.func)
+
+            if callee == "getattr":
+                name_arg = node.args[1] if len(node.args) > 1 else None
+                is_literal = isinstance(name_arg, ast.Constant) and isinstance(name_arg.value, str)
+                if not is_literal:
+                    self.unanalyzable_getattr.append(site)
+                continue
+
+            for kw in node.keywords:
+                if kw.arg is None:
+                    continue
+                value = kw.value
+                literal = (
+                    value.value
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str)
+                    else None
+                )
+                if literal is not None and (
+                    kw.arg == self.METHOD_KWARG or kw.arg.endswith(self.METHOD_KWARG_SUFFIX)
+                ):
+                    self.live.setdefault(literal, f"literal method kwarg at {site}")
+                elif literal is not None and kw.arg == "domain_name":
+                    self._domains.setdefault(literal, site)
+                elif literal is not None and kw.arg == "entity_label":
+                    self._entity_labels.add(literal)
+                elif kw.arg in ("outgoing_relationships", "incoming_relationships"):
+                    # Dict KEYS are relationship method suffixes
+                    # (relationship_registry.py -> get_{label}_{suffix}).
+                    if isinstance(value, ast.Dict):
+                        for key in value.keys:
+                            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                                self._relationship_suffixes.add(key.value)
+                elif kw.arg == "transitions" and callee == "StatusRouteFactory":
+                    # transitions={action: StatusTransition(...)} ->
+                    # f"{action}_{domain_singular}" (status_route_factory.py).
+                    singular = self._literal_kwarg(node, "domain_singular")
+                    if singular is not None and isinstance(value, ast.Dict):
+                        for key in value.keys:
+                            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                                self.live.setdefault(
+                                    f"{key.value}_{singular}",
+                                    f"status route template at {site}",
+                                )
+
+    @staticmethod
+    def _literal_kwarg(node: ast.Call, name: str) -> str | None:
+        for kw in node.keywords:
+            if (
+                kw.arg == name
+                and isinstance(kw.value, ast.Constant)
+                and isinstance(kw.value.value, str)
+            ):
+                return kw.value.value
+        return None
+
+    def _expand_templates(self) -> None:
+        # Query-route templates per registered domain. Hyphenated domain names
+        # also expand underscored (route slugs vs method identifiers).
+        for domain, site in self._domains.items():
+            variants = {domain, domain.replace("-", "_")}
+            for template in QUERY_ROUTE_TEMPLATES:
+                for variant in variants:
+                    self.live.setdefault(
+                        template.format(d=variant),
+                        f"query route template for domain_name='{domain}' ({site})",
+                    )
+        # Relationship registry: get_{entity_label}_{suffix}, full cross
+        # product of literal labels x literal suffixes (safe direction).
+        for label in self._entity_labels:
+            for suffix in self._relationship_suffixes:
+                self.live.setdefault(
+                    f"get_{label.lower()}_{suffix}",
+                    f"relationship registry expansion ({label} x {suffix})",
+                )
+
+    # -- string-literal demotion tier ------------------------------------------
+
+    def _collect_identifier_strings(self, rel: str, tree: ast.Module) -> None:
+        """Identifier-shaped string constants in USED positions.
+
+        A vulture finding matching one of these is demoted to
+        needs-verification (likely dynamic dispatch), never suppressed.
+        Bare-string statements (docstrings, prose) are inert.
+        """
+        inert: set[int] = set()
+        for node in ast.walk(tree):
+            body = getattr(node, "body", None)
+            if not isinstance(body, list):
+                continue
+            for stmt in body:
+                if (
+                    isinstance(stmt, ast.Expr)
+                    and isinstance(stmt.value, ast.Constant)
+                    and isinstance(stmt.value.value, str)
+                ):
+                    inert.add(id(stmt.value))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and node.value.isidentifier()
+                and id(node) not in inert
+            ):
+                self.string_literals.setdefault(node.value, Site(rel, node.lineno))
+
+
+@dataclass
+class MethodAnalysis:
+    """Outcome of the vulture + dispatch-knowledge pipeline."""
+
+    findings: list[Finding]
+    exempted: list[Finding]
+    suppressed: dict[str, str]  # method name -> dispatch reason
+    total_candidates: int
+    dispatch: DispatchKnowledge
+
+
+def _test_reference_index(codebase: ParsedCodebase) -> dict[str, int]:
+    """name -> reference count across tests/ (attribute reads + imports)."""
+    counts: dict[str, int] = defaultdict(int)
+    for tree in codebase.tests.values():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute):
+                counts[node.attr] += 1
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    counts[alias.name] += 1
+    return counts
+
+
+def run_vulture(root: Path) -> list:
+    """Vulture over the full first-party tree (whitelist included).
+
+    min_confidence=60 is mechanics, not tuning: vulture assigns exactly 60 to
+    unused functions/methods/properties, so 60 is the floor required to see
+    them at all. The standalone --min-confidence 90 CLI run is unaffected.
+    """
+    import vulture
+
+    v = vulture.Vulture()
+    paths = [str(root / name) for name in FIRST_PARTY_ROOTS]
+    paths.append(str(root / "vulture_whitelist.py"))
+    v.scavenge(paths)
+    return [
+        item
+        for item in v.get_unused_code(min_confidence=60)
+        if item.typ in ("function", "method", "property")
+    ]
+
+
+def analyze_methods(codebase: ParsedCodebase, vulture_items: list) -> MethodAnalysis:
+    """Filter vulture's service-layer candidates through dispatch knowledge.
+
+    Pipeline: scope to core/services -> drop names in the dispatch-live
+    vocabulary (printed with reasons) -> demote names that appear as string
+    literals (likely dynamic dispatch) -> annotate test references -> apply
+    EXEMPTED_METHODS -> report the remainder.
+    """
+    dispatch = DispatchKnowledge(codebase)
+    dispatch.collect()
+    test_refs = _test_reference_index(codebase)
+
+    findings: list[Finding] = []
+    exempted: list[Finding] = []
+    suppressed: dict[str, str] = {}
+    total = 0
+
+    for item in vulture_items:
+        rel = str(Path(item.filename).relative_to(codebase.root))
+        if not rel.startswith(METHOD_SCOPE):
+            continue
+        total += 1
+        name = item.name
+
+        if name in dispatch.live:
+            suppressed[name] = dispatch.live[name]
+            continue
+
+        annotations: list[str] = []
+        if test_refs.get(name):
+            annotations.append(f"referenced in tests ({test_refs[name]} sites)")
+
+        if name in dispatch.string_literals:
+            finding = Finding(
+                kind="method-needs-verification",
+                severity=BloatSeverity.UNVERIFIED,
+                subject=name,
+                file=rel,
+                line=item.first_lineno,
+                detail=(
+                    "unused per vulture, but the name appears as a string "
+                    f"literal at {dispatch.string_literals[name]} — likely "
+                    "dynamic dispatch, verify manually"
+                ),
+                annotations=annotations,
+            )
+        else:
+            finding = Finding(
+                kind="method-unused",
+                severity=BloatSeverity.WARNING,
+                subject=name,
+                file=rel,
+                line=item.first_lineno,
+                detail=f"unused {item.typ} (vulture confidence {item.confidence})",
+                annotations=annotations,
+            )
+
+        key = f"{rel}::{name}"
+        if key in EXEMPTED_METHODS:
+            finding.annotations.append(f"exempted: {EXEMPTED_METHODS[key]}")
+            exempted.append(finding)
+        else:
+            findings.append(finding)
+
+    findings.sort(key=lambda f: (f.file, f.line))
+    return MethodAnalysis(findings, exempted, suppressed, total, dispatch)
+
+
+# ============================================================================
 # Reporting
 # ============================================================================
 
@@ -764,7 +1042,70 @@ def print_event_report(
             print(f"  {Colors.DIM}{site}{Colors.RESET}")
 
 
-def print_limitations(codebase: ParsedCodebase, usage: EventUsage | None) -> None:
+def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
+    print(
+        f"\n{Colors.BOLD}🔧 Service Methods Analysis (vulture + dispatch knowledge){Colors.RESET}"
+    )
+    print(f"  Vulture candidates in {METHOD_SCOPE}: {analysis.total_candidates}")
+    print(
+        f"  Suppressed by dispatch knowledge: {len(analysis.suppressed)}  "
+        f"(dynamic-dispatch vocabulary: {len(analysis.dispatch.live)} names)"
+    )
+
+    by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
+    for finding in analysis.findings:
+        by_severity[finding.severity].append(finding)
+
+    dead = by_severity.get(BloatSeverity.WARNING, [])
+    demoted = by_severity.get(BloatSeverity.UNVERIFIED, [])
+
+    if dead:
+        print(
+            f"\n{Colors.YELLOW}Unused service methods "
+            f"({len(dead)}) — verify before deleting:{Colors.RESET}\n"
+        )
+        by_file: dict[str, list[Finding]] = defaultdict(list)
+        for finding in dead:
+            by_file[finding.file].append(finding)
+        for file in sorted(by_file):
+            print(f"  {Colors.BOLD}{file}{Colors.RESET}")
+            for finding in by_file[file]:
+                print(f"    {Colors.RED}✗{Colors.RESET} {finding.subject}  (line {finding.line})")
+                for note in finding.annotations:
+                    print(f"        {Colors.YELLOW}⚠ {note}{Colors.RESET}")
+            print()
+    else:
+        print(f"\n  {Colors.GREEN}✓ No unused service methods.{Colors.RESET}")
+
+    if demoted:
+        print(
+            f"{Colors.YELLOW}Needs verification — name appears as a string "
+            f"literal, likely dynamic dispatch ({len(demoted)}):{Colors.RESET}\n"
+        )
+        for finding in demoted:
+            _print_finding(finding)
+
+    if analysis.exempted:
+        print(
+            f"\n  {Colors.DIM}exempted ({len(analysis.exempted)}): "
+            f"{', '.join(f.subject for f in analysis.exempted)}{Colors.RESET}"
+        )
+
+    if verbose and analysis.suppressed:
+        print(f"\n{Colors.DIM}Suppressed by dispatch knowledge:{Colors.RESET}")
+        for name, reason in sorted(analysis.suppressed.items()):
+            print(f"  {Colors.DIM}{name}: {reason}{Colors.RESET}")
+    if verbose and analysis.dispatch.unanalyzable_getattr:
+        print(f"\n{Colors.DIM}Unanalyzable getattr sites:{Colors.RESET}")
+        for site in analysis.dispatch.unanalyzable_getattr:
+            print(f"  {Colors.DIM}{site}{Colors.RESET}")
+
+
+def print_limitations(
+    codebase: ParsedCodebase,
+    usage: EventUsage | None,
+    methods: MethodAnalysis | None,
+) -> None:
     print(f"\n{Colors.BOLD}📏 Limitations (read before acting on findings){Colors.RESET}")
     if usage is not None:
         print(
@@ -775,6 +1116,17 @@ def print_limitations(codebase: ParsedCodebase, usage: EventUsage | None) -> Non
         print(
             "  - No cross-file dataflow by design: events that travel between "
             "files before publication land in the UNVERIFIED tier, not WARNING."
+        )
+    if methods is not None:
+        print(
+            f"  - {len(methods.dispatch.unanalyzable_getattr)} getattr sites use a "
+            "computed name — methods reachable only through them may be falsely "
+            "flagged (run --verbose for locations)."
+        )
+        print(
+            "  - Vulture name-collision: any same-named attribute access anywhere "
+            "marks ALL same-named methods used, so common-named dead methods stay "
+            "invisible (inherent under-reporting)."
         )
     if codebase.syntax_errors:
         print(
@@ -812,15 +1164,6 @@ def main() -> int:
     # With --json, stdout carries ONLY the findings document.
     progress_out = sys.stderr if args.as_json else sys.stdout
 
-    if check_methods:
-        print(
-            f"{Colors.YELLOW}Method analysis: not yet implemented in the rewrite "
-            f"(lands in PR 2 — Vulture engine + dispatch-knowledge filter).{Colors.RESET}",
-            file=progress_out,
-        )
-        if not check_events:
-            return 0
-
     print(f"{Colors.CYAN}🔍 Parsing codebase...{Colors.RESET}", file=progress_out)
     codebase = ParsedCodebase(ROOT)
     codebase.load()
@@ -837,6 +1180,7 @@ def main() -> int:
 
     findings: list[Finding] = []
     usage: EventUsage | None = None
+    methods: MethodAnalysis | None = None
 
     if check_events:
         universe = EventUniverse(codebase)
@@ -844,13 +1188,24 @@ def main() -> int:
         usage = EventUsageCollector(universe, codebase).collect()
         event_findings, exempted = analyze_events(universe, usage)
         findings.extend(event_findings)
-        if args.as_json:
-            print(json.dumps([f.to_json() for f in event_findings], indent=2))
-        else:
+        if not args.as_json:
             print_event_report(universe, usage, event_findings, exempted, args.verbose)
 
+    if check_methods:
+        print(
+            f"{Colors.CYAN}🔍 Running vulture (liveness engine)...{Colors.RESET}",
+            file=progress_out,
+        )
+        methods = analyze_methods(codebase, run_vulture(ROOT))
+        findings.extend(methods.findings)
+        if not args.as_json:
+            print_method_report(methods, args.verbose)
+
+    if args.as_json:
+        print(json.dumps([f.to_json() for f in findings], indent=2))
+
     if not args.as_json:
-        print_limitations(codebase, usage)
+        print_limitations(codebase, usage, methods)
         warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
         print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
         if warnings:
