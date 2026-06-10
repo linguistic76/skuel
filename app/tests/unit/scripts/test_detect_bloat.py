@@ -22,10 +22,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from detect_bloat import (  # type: ignore[import-not-found]
     ROOT,
     BloatSeverity,
+    DispatchKnowledge,
     EventUniverse,
     EventUsageCollector,
     ParsedCodebase,
     analyze_events,
+    analyze_methods,
+    run_vulture,
 )
 
 # ============================================================================
@@ -383,6 +386,110 @@ def test_published_never_subscribed_is_info():
 
 
 # ============================================================================
+# DISPATCH KNOWLEDGE — dynamic-dispatch vocabulary collection
+# ============================================================================
+
+
+def dispatch_for(files: dict[str, str]) -> DispatchKnowledge:
+    codebase = build_codebase(files)
+    dispatch = DispatchKnowledge(codebase)
+    dispatch.collect()
+    return dispatch
+
+
+def test_literal_method_kwarg_marks_live():
+    dispatch = dispatch_for(
+        {
+            "adapters/inbound/x_routes.py": (
+                "t = StatusTransition(target_status='active', method_name='activate_goal')\n"
+                "h = HierarchyRouteFactory(get_children_method='get_steps')\n"
+            )
+        }
+    )
+    assert "activate_goal" in dispatch.live
+    assert "get_steps" in dispatch.live
+
+
+def test_query_route_templates_expand_per_domain():
+    dispatch = dispatch_for(
+        {
+            "adapters/inbound/x_routes.py": (
+                "cfg = create_activity_domain_route_config(domain_name='tasks')\n"
+            )
+        }
+    )
+    for name in ["get_user_tasks", "find_tasks", "get_tasks_for_goal", "get_tasks_for_habit"]:
+        assert name in dispatch.live
+
+
+def test_hyphenated_domain_expands_underscored_variant():
+    dispatch = dispatch_for(
+        {"adapters/inbound/x_routes.py": ("cfg = DomainRouteConfig(domain_name='path-steps')\n")}
+    )
+    assert "get_user_path_steps" in dispatch.live
+
+
+def test_status_factory_transitions_expand():
+    dispatch = dispatch_for(
+        {
+            "adapters/inbound/x_routes.py": (
+                "f = StatusRouteFactory(\n"
+                "    domain_singular='goal',\n"
+                "    transitions={'activate': t1, 'pause': t2},\n"
+                ")\n"
+            )
+        }
+    )
+    assert "activate_goal" in dispatch.live
+    assert "pause_goal" in dispatch.live
+
+
+def test_relationship_registry_cross_product():
+    dispatch = dispatch_for(
+        {
+            "core/models/registry.py": (
+                "cfg = DomainRelationshipConfig(\n"
+                "    entity_label='Task',\n"
+                "    outgoing_relationships={'subtasks': spec},\n"
+                "    incoming_relationships={'parents': spec},\n"
+                ")\n"
+            )
+        }
+    )
+    assert "get_task_subtasks" in dispatch.live
+    assert "get_task_parents" in dispatch.live
+
+
+def test_string_literal_demotion_index_skips_docstrings():
+    dispatch = dispatch_for(
+        {
+            "core/services/x.py": (
+                'DISPATCH = [("dim", "assess_special_method")]\n'
+                "def f():\n"
+                '    """Docstring mentioning fake_docstring_method."""\n'
+                "    return None\n"
+            )
+        }
+    )
+    assert "assess_special_method" in dispatch.string_literals
+    assert "fake_docstring_method" not in dispatch.string_literals
+
+
+def test_computed_getattr_is_counted_not_hidden():
+    dispatch = dispatch_for(
+        {
+            "core/services/x.py": (
+                "def f(service, method_name):\n"
+                "    return getattr(service, method_name)\n"
+                "def g(service):\n"
+                "    return getattr(service, 'literal_name')\n"
+            )
+        }
+    )
+    assert len(dispatch.unanalyzable_getattr) == 1  # literal getattr is vulture's job
+
+
+# ============================================================================
 # SENTINELS — live codebase ground truth
 # ============================================================================
 
@@ -440,3 +547,67 @@ def test_live_collector_self_diagnostic(live_analysis):
     # Resolution quality bar: at most a handful of irreducible unresolved sites.
     assert len(usage.unresolved_publishes) <= 3
     assert len(usage.unresolved_subscribes) <= 4
+
+
+# ============================================================================
+# METHOD SENTINELS — live codebase ground truth (vulture + dispatch filter)
+# ============================================================================
+
+
+@pytest.fixture(scope="module")
+def live_methods():
+    codebase = ParsedCodebase(ROOT)
+    codebase.load()
+    return analyze_methods(codebase, run_vulture(ROOT))
+
+
+def test_live_properties_and_handlers_never_flagged(live_methods):
+    # Each was a FALSE POSITIVE of the old name-regex detector: @cached_property
+    # reads and by-reference handler registration are attribute accesses.
+    flagged = {f.subject for f in live_methods.findings}
+    for name in [
+        "entity_label",
+        "config_lookup_label",
+        "search_fields",
+        "category_field",
+        "handle_task_completed",
+    ]:
+        assert name not in flagged, f"{name} must not be flagged"
+
+
+def test_live_by_reference_usage_never_flagged(live_methods):
+    # get_path_steps_batch is passed by reference to the GraphQL batch loader
+    # (adapters/inbound/graphql/context.py) — a manual call-parens grep called
+    # it dead; vulture's attribute-read semantics know better.
+    flagged = {f.subject for f in live_methods.findings}
+    assert "get_path_steps_batch" not in flagged
+
+
+def test_live_template_dispatched_methods_suppressed_or_absent(live_methods):
+    # Names constructed by query_route_factory templates must never surface
+    # as findings — either not candidates at all or suppressed with a reason.
+    flagged = {f.subject for f in live_methods.findings}
+    for name in ["get_user_tasks", "find_tasks", "get_tasks_for_goal"]:
+        assert name not in flagged
+
+
+def test_live_string_table_dispatch_demoted_not_dead(live_methods):
+    # _DISPATCH table in self_checkin_routes.py carries this name as a string.
+    finding = finding_for(live_methods.findings, "assess_productivity_dual_track")
+    if finding is not None:  # absent entirely is also acceptable
+        assert finding.severity is BloatSeverity.UNVERIFIED
+
+
+def test_live_known_dead_facade_method_flagged(live_methods):
+    # Hand-verified dead (zero references of any kind). Delete this sentinel
+    # alongside the method when it is removed.
+    finding = finding_for(live_methods.findings, "list_user_knowledge")
+    assert finding is not None and finding.severity is BloatSeverity.WARNING
+
+
+def test_live_method_self_diagnostic(live_methods):
+    # The engine must actually see candidates, and dispatch knowledge must
+    # actually collect a vocabulary — zeros mean a broken collector.
+    assert live_methods.total_candidates > 100
+    assert len(live_methods.dispatch.live) > 100
+    assert len(live_methods.dispatch.unanalyzable_getattr) > 0
