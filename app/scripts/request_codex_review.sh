@@ -118,12 +118,20 @@ summon() {
 # as belt-and-braces (`since` matches on updated_at >=, jq on created/
 # submitted_at strictly >).
 check_verdict() {
-  local since="$1" reviews comments
+  local since="$1" reviews inline comments
   reviews=$(gh_retry api "repos/$REPO/pulls/$PR/reviews?per_page=100" \
     --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.submitted_at > \"$since\")] | length" \
     2>/dev/null) || return 4
   [[ "$reviews" =~ ^[0-9]+$ ]] || return 4
-  if (( reviews > 0 )); then
+  # Inline comments are a first-class verdict surface, not a detail of the
+  # review object (Codex P2 on #276): line-anchored comments can arrive
+  # without a matching review, and skipping this lookup would route exactly
+  # that case into the outage path — labeling over unread findings.
+  inline=$(gh_retry api "repos/$REPO/pulls/$PR/comments?since=$since&per_page=100" \
+    --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\")] | length" \
+    2>/dev/null) || return 4
+  [[ "$inline" =~ ^[0-9]+$ ]] || return 4
+  if (( reviews > 0 || inline > 0 )); then
     echo "── Codex FINDINGS (inline review) ──"
     gh_retry api "repos/$REPO/pulls/$PR/comments?since=$since&per_page=100" \
       --jq ".[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | \"\(.path):\(.line // 0)\n\(.body)\n\"" || true
