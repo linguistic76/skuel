@@ -34,3 +34,21 @@ engines  # noqa: F821, B018
 
 # Intentional: Alpine.js expanded state placeholder (tree_view.py)
 is_expanded  # noqa: F821, B018
+
+# TYPE_CHECKING imports — used in string annotations, vulture can't track them
+EmbeddingClientOperations  # noqa: F821, B018
+EmbeddingsBackendOperations  # noqa: F821, B018
+IngestionBackendOperations  # noqa: F821, B018
+InsightBackendOperations  # noqa: F821, B018
+JupyterSyncBackendOperations  # noqa: F821, B018
+LateralRelationshipBackendOperations  # noqa: F821, B018
+LateralRelationshipOperations  # noqa: F821, B018
+VectorSearchBackendOperations  # noqa: F821, B018
+ActivityReportGeneratorBackendOperations  # noqa: F821, B018
+ReviewQueueBackendOperations  # noqa: F821, B018
+UserProgressBackendOperations  # noqa: F821, B018
+SupportsRichComparison  # noqa: F821, B018
+ProfileDomainItem  # noqa: F821, B018
+
+# Protocol method parameters — names define keyword-callable contracts
+new_instructions  # noqa: F821, B018

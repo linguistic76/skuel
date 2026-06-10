@@ -200,7 +200,6 @@ def create_navbar(
     active_page: str = "",
     is_admin: bool = False,
     is_teacher: bool = False,
-    unread_insights: int = 0,
 ) -> Nav:
     """
     Create the slim top navigation bar.
@@ -214,7 +213,6 @@ def create_navbar(
         active_page: Current page slug for highlighting
         is_admin: Whether user has admin role
         is_teacher: Whether user has teacher role or higher
-        unread_insights: Number of unread insights/notifications
 
     Returns:
         FastHTML Nav element (slim top bar)
@@ -431,7 +429,6 @@ async def create_navbar_for_request(
         active_page=active_page,
         is_admin=get_is_admin(request),
         is_teacher=get_is_teacher(request),
-        unread_insights=0,
     )
 
 
