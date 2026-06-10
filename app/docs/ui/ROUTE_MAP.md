@@ -33,6 +33,21 @@ Filter tabs (All/Learning/Saved) control both graph node highlighting and list v
 
 **PathStep detail (`/explore/ps/{uid}`)** is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) via `/learning-loop/ps/{ps_uid}/*` fragment endpoints wired in `explore_ui.py` (`create_explore_ui_routes`); renderers in `ui/learning_loop/`.
 
+**Ku detail (`/explore/ku/{uid}`)** carries a **"Mastery Self-Check"** section (authenticated only) —
+the Knowledge dual-track surface (ADR-030): rate mastery (`MasteryLevel`) → see it against the
+system-measured substance score. `POST /explore/ku/{uid}/mastery-checkin` (`@csrf_protected`) persists
+a per-(user, Ku) check-in and swaps in the gap card + trend. UI: `ui/explore/ku_mastery.py`; route in
+`learning_loop_routes.py`.
+
+### `/self-checkin` — Dual-Track Self Check-In
+
+The user-level dual-track perception-gap page (ADR-030): rate Productivity / Engagement / Decision
+Quality and see each gap vs the system-measured reality. `POST /self-checkin/results`
+(`@csrf_protected`) persists a check-in per rated dimension to the `:User` node and renders gap cards +
+per-dimension trends. Route in `adapters/inbound/self_checkin_routes.py`, UI in `ui/self_checkin.py`
+(shared gap primitives in `ui/dual_track_card.py`). The per-entity counterpart (Goals/Habits/Principles)
+is a "Self-Assessment" section on each activity detail page → `POST /{domain}/dual-track/results`.
+
 ### `/home` — Post-Login Landing Hub
 
 No `UserContext` on the page itself. Three-tab interface (Submissions / GradeBook / Library) with HTMX-loaded domain blocks per tab; Settings button in footer. `/submissions`, `/gradebook`, `/library` render the same `HomeHub()` with the matching tab pre-selected via the `active_tab` param. Hub view in `ui/home_hub.py`, route in `adapters/inbound/home_routes.py`.

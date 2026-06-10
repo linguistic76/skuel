@@ -178,10 +178,17 @@ async def _dual_track_assessment(
     """Template for dual-track assessment (vision vs action)."""
 ```
 
-**Per-entity persistence (ADR-030):** Goals/Habits/Principles pass
-`store_callback=self._store_dual_track_checkin` — the base helper appends the snapshot to the
-entity's `dual_track_checkins` (`tuple[dict]`) log. `UserContextIntelligence`
-`.get_cross_domain_perception_analysis()` reads those check-ins across domains.
+**Persistence (ADR-030), three flavors — all atomic via the shared node-write-lock appender
+`atomic_append_checkin`:**
+- **Per-entity** (Goals/Habits/Principles): `store_callback=self._store_dual_track_checkin` → entity's
+  inline `dual_track_checkins` (`tuple[dict]`) log.
+- **User-level** (Tasks/Events/Choices, `require_entity=False`): `UserService.append_dual_track_checkin`
+  → `User.dual_track_checkins` keyed by `DualTrackDimension`.
+- **Knowledge** (`KuIntelligenceService.assess_mastery_dual_track`, `MasteryLevel` vs substance score):
+  `UserService.append_knowledge_checkin` → `User.knowledge_checkins` keyed by Ku UID (a Ku is SHARED,
+  so check-ins are per-(user, Ku), never on the `:Ku` node).
+
+`UserContextIntelligence.get_cross_domain_perception_analysis()` reads all three across domains.
 
 ---
 

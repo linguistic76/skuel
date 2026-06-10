@@ -253,14 +253,16 @@ async def _dual_track_assessment(
     user_reflection: str | None,
     # SYSTEM CALCULATION
     system_calculator: Callable[
-        [str, str], Awaitable[tuple[Any, float, list[str]]]
+        [Any, str], Awaitable[tuple[Any, float, list[str]]]  # (entity, user_uid)
     ],
     # LEVEL SCORING
     level_scorer: Callable[[Any], float],
     # OPTIONAL CUSTOMIZATION
     entity_type: str = "",
+    require_entity: bool = True,          # False for user-level dims (uid == user_uid, no :Entity row)
     insight_generator: Callable[[str, float, str], list[str]] | None = None,
     recommendation_generator: Callable[[str, float, Any, list[str]], list[str]] | None = None,
+    store_callback: Callable[[str, DualTrackResult[L]], Awaitable[None]] | None = None,  # persists the snapshot
 ) -> Result[DualTrackResult[L]]
 ```
 
@@ -296,28 +298,50 @@ class DualTrackResult(Generic[L]):
 
 ### Domain Implementations
 
-All 6 Activity Domain intelligence services implement dual-track assessment:
+**Seven** assessable dimensions implement dual-track assessment — the 6 Activity Domains plus the Knowledge dimension:
 
-| Service | Method | Level Enum | System Metrics |
-|---------|--------|------------|----------------|
-| **Principles** | `assess_alignment_dual_track()` | `AlignmentLevel` | Goal alignment, choice consistency, habit support, entity count |
-| **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | Completion rate, on-time %, overdue ratio, knowledge linking |
-| **Goals** | `assess_progress_dual_track()` | `ProgressLevel` | Milestone completion, habit support, on-track %, consistency |
-| **Habits** | `assess_consistency_dual_track()` | `ConsistencyLevel` | Completion rate, streak health, avg streak length, active ratio |
-| **Events** | `assess_engagement_dual_track()` | `EngagementLevel` | Attendance rate, goal support, habit reinforcement, recency |
-| **Choices** | `assess_decision_quality_dual_track()` | `DecisionQualityLevel` | Outcome quality, principle alignment, decision rate, confidence |
+| Service | Method | Level Enum | Subject | System Metrics |
+|---------|--------|------------|---------|----------------|
+| **Principles** | `assess_alignment_dual_track()` | `AlignmentLevel` | per-entity | Goal alignment, choice consistency, habit support, entity count |
+| **Goals** | `assess_progress_dual_track()` | `ProgressLevel` | per-entity | Milestone completion, habit support, on-track %, consistency |
+| **Habits** | `assess_consistency_dual_track()` | `ConsistencyLevel` | per-entity | Completion rate, streak health, avg streak length, active ratio |
+| **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | user-level | Completion rate, on-time %, overdue ratio, knowledge linking |
+| **Events** | `assess_engagement_dual_track()` | `EngagementLevel` | user-level | Attendance rate, goal support, habit reinforcement, recency |
+| **Choices** | `assess_decision_quality_dual_track()` | `DecisionQualityLevel` | user-level | Outcome quality, principle alignment, decision rate, confidence |
+| **Knowledge** | `KuIntelligenceService.assess_mastery_dual_track()` | `MasteryLevel` | per-(user, Ku) | Substance score (`calculate_user_substance` — how much the Ku is applied across the user's life) |
+
+- **Per-entity** (Goals/Habits/Principles, `require_entity=True`): assesses one entity; persists to the
+  entity's inline `dual_track_checkins: tuple[dict]` field.
+- **User-level** (Tasks/Events/Choices, `require_entity=False`, `uid == user_uid`): assesses the user
+  across all their entities of a kind; persists to `User.dual_track_checkins` (keyed by `DualTrackDimension`).
+- **Knowledge** (`require_entity=True` — a Ku *is* an `:Entity`): a Ku is SHARED, so the per-(user, Ku)
+  check-in persists to a **separate** `User.knowledge_checkins` field (keyed by Ku UID), never the
+  shared `:Ku` node.
+
+**Atomic persistence.** All `store_callback`s route through one node-write-lock appender
+(`adapters/persistence/neo4j/_dual_track_checkin_store.py::atomic_append_checkin`), so concurrent
+same-subject check-ins can't lose a snapshot. Canonical per-entity callback:
+`BaseAnalyticsService._store_dual_track_checkin`; user-level: `UserService.append_dual_track_checkin`;
+Knowledge: `UserService.append_knowledge_checkin`.
+
+**Cross-domain synthesis.** `UserContextIntelligence.get_cross_domain_perception_analysis()`
+(`PerceptionIntelligenceMixin`) reads all three sources and buckets each domain/dimension as
+over-rated / under-rated / accurate — spanning every assessable dimension.
 
 ### Level Enums
 
-Each domain has a level enum with bidirectional conversion methods:
+Most dimensions use a 5-level `StrEnum` with bidirectional conversion methods, all in
+`core/models/enums/activity_enums.py` (the Knowledge dimension's `MasteryLevel` lives there too —
+distinct from `MasteryImpact`). **Exception: Principles** uses `AlignmentLevel` (8 values, in
+`core/models/enums/principle_enums.py`), not a 5-level activity enum:
 
 ```python
-class ProductivityLevel(str, Enum):
-    HIGHLY_PRODUCTIVE = "highly_productive"    # 0.85+
-    PRODUCTIVE = "productive"                   # 0.70-0.85
-    MODERATELY_PRODUCTIVE = "moderately_productive"  # 0.50-0.70
-    STRUGGLING = "struggling"                   # 0.30-0.50
-    UNPRODUCTIVE = "unproductive"              # <0.30
+class ProductivityLevel(StrEnum):
+    HIGHLY_PRODUCTIVE = "highly_productive"          # 1.0
+    PRODUCTIVE = "productive"                         # 0.8
+    MODERATELY_PRODUCTIVE = "moderately_productive"   # 0.6
+    STRUGGLING = "struggling"                         # 0.35
+    OVERWHELMED = "overwhelmed"                       # 0.15
 
     def to_score(self) -> float: ...
     @classmethod
@@ -327,13 +351,12 @@ class ProductivityLevel(str, Enum):
 ### Usage Pattern
 
 ```python
-# User provides self-assessment
-result = await tasks_service.productivity.assess_productivity_dual_track(
-    user_uid="user.mike",
-    user_productivity_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
+# User provides self-assessment (user-level dim — accessed via .intelligence)
+result = await tasks_service.intelligence.assess_productivity_dual_track(
+    user_uid="user_mike",
+    user_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
     user_evidence="I complete all my tasks on time",
-    user_reflection="I feel very productive lately",
-    period_days=30,
+    store_callback=store_callback,  # optional: persists the snapshot
 )
 
 if result.is_ok:
@@ -344,44 +367,22 @@ if result.is_ok:
             print(f"  - {insight}")
 ```
 
-### API Endpoints
+### HTTP Surfaces (HTMX, server-rendered)
 
-Each domain exposes a dual-track endpoint:
+Dual-track is a server-rendered HTMX surface — each self-rating POSTs a self-rate form and swaps in a
+gap card + check-in trend (all `@csrf_protected`, since each persists a check-in):
 
-```
-POST /api/tasks/assess-productivity
-POST /api/goals/assess-progress
-POST /api/habits/assess-consistency
-POST /api/events/assess-engagement
-POST /api/choices/assess-decision-quality
-POST /api/principles/assess-alignment
-```
+| Surface | Route | Dimensions |
+|---------|-------|-----------|
+| Self Check-In page | `POST /self-checkin/results` | user-level (Productivity / Engagement / Decision Quality) |
+| Activity detail pages | `POST /{domain}/dual-track/results` | per-entity (Goals / Habits / Principles) |
+| Ku detail page | `POST /explore/ku/{uid}/mastery-checkin` | Knowledge (per-Ku mastery) |
 
-**Request Body:**
-```json
-{
-    "user_level": "productive",
-    "user_evidence": "I complete most tasks on time",
-    "user_reflection": "Feeling good about my productivity",
-    "period_days": 30
-}
-```
-
-**Response:**
-```json
-{
-    "entity_uid": "user.mike",
-    "entity_type": "productivity_assessment",
-    "user_level": "productive",
-    "user_score": 0.775,
-    "system_level": "moderately_productive",
-    "system_score": 0.58,
-    "perception_gap": 0.195,
-    "gap_direction": "user_higher",
-    "insights": ["Self-assessment exceeds measured productivity by ~20%"],
-    "recommendations": ["Focus on reducing overdue tasks"]
-}
-```
+The per-entity route is registered by the activity UI factory (`adapters/inbound/activity_ui_factory.py`)
+when `ActivityUIConfig.dual_track_assess` is set; the Self Check-In page lives in
+`adapters/inbound/self_checkin_routes.py`; the Ku mastery route is wired manually in
+`adapters/inbound/learning_loop_routes.py`. Shared UI primitives: `ui/dual_track_card.py` (gap card +
+trend), `ui/self_checkin.py`, `ui/explore/ku_mastery.py`.
 
 ### See Also
 
