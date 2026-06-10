@@ -295,7 +295,7 @@ class EmbeddingBackgroundWorker:
                 if result.is_error:
                     self.logger.warning(
                         f"Embedding generation failed for {event.entity_type} "
-                        f"{event.entity_uid}: {result.error}"
+                        f"{event.entity_uid}: {result.expect_error().message}"
                     )
                     self._retry_or_drop(pending, stats)
                     continue
@@ -417,7 +417,8 @@ class EmbeddingBackgroundWorker:
 
             if result.is_error:
                 self.logger.warning(
-                    f"Failed to store embedding for {entity_type} {entity_uid}: {result.error}"
+                    f"Failed to store embedding for {entity_type} {entity_uid}: "
+                    f"{result.expect_error().message}"
                 )
                 return False
 
