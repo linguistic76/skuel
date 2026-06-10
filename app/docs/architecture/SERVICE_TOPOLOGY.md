@@ -94,7 +94,7 @@ Standalone services without subfolders.
 | Category | Services |
 |----------|----------|
 | **Base Classes** | `base_service.py`, `base_analytics_service.py`, `base_ai_service.py`, `base_planning_service.py` |
-| **AI/LLM** | `llm_caller.py` (UnifiedLLMCaller), `llm_service.py`, `embeddings_service.py` (HuggingFaceEmbeddingsService), `neo4j_vector_search_service.py`, `context_aware_ai_service.py` — all port-based; the vendor SDK clients live below the boundary in `adapters/external/llm/{openai,anthropic}_adapter.py` + `adapters/external/embeddings/huggingface_adapter.py` (W1 / ADR-063) |
+| **AI/LLM** | `llm_caller.py` (UnifiedLLMCaller), `llm_service.py`, `embeddings_service.py` (EmbeddingsService), `neo4j_vector_search_service.py`, `context_aware_ai_service.py` — all port-based; the vendor SDK clients live below the boundary in `adapters/external/llm/{openai,anthropic}_adapter.py` + `adapters/external/embeddings/{openai,huggingface}_adapter.py` behind the `create_embedding_client()` chokepoint (W1 / ADR-063, ADR-068) |
 | **Analytics** | `analytics_engine.py`, `analytics_service.py`, `cross_domain_analytics_service.py`, `analytics_relationship_service.py` |
 | **Askesis Secondary** | `askesis_ai_service.py`, `askesis_citation_service.py` |
 | **KU Generation Pipeline** | `entity_chunking_service.py`, `insight_generation_service.py`, `entity_inference_service.py`, `ku_intelligence_service.py` |

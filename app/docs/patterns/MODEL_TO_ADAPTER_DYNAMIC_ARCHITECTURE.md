@@ -73,7 +73,7 @@ adapters/external/
 
 **Ports** (`core/ports/`): `llm_protocols.py` (`ChatCompletionPort.complete(messages, *, system_prompt, model, ...) -> Result[LLMCompletion]`) and `embeddings_protocols.py` (`EmbeddingClientOperations.embed(text) -> Result[list[float]]`, plus the Neo4j-storage `EmbeddingsBackendOperations`).
 
-**Consumers stay in `core/`, SDK-free:** `LLMService`, `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `HuggingFaceEmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port — they never construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. `core/services/ai_service.py` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/test_llm_sdk_boundary.py`.
+**Consumers stay in `core/`, SDK-free:** `LLMService`, `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `EmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port — they never construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. `core/services/ai_service.py` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/test_llm_sdk_boundary.py`.
 
 **See:** `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`.
 
@@ -312,7 +312,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `VectorSearchBackend` | `vector_search_backend.py` | 5 | `Neo4jVectorSearchService` (was `self.executor`) |
 | `IngestionBackend` | `ingestion_backend.py` | 12 | `IngestionHistoryService`, `IngestionTracker` |
 | `JupyterSyncBackend` | `jupyter_sync_backend.py` | 9 | `JupyterNeo4jSyncService` |
-| `EmbeddingsBackend` | `embeddings_backend.py` | 3 | `HuggingFaceEmbeddingsService`, `EmbeddingBackgroundWorker` |
+| `EmbeddingsBackend` | `embeddings_backend.py` | 3 | `EmbeddingsService` (the worker stores through it) |
 | `KnowledgeDomainBackend` | `knowledge_domain_backend.py` | 3 | `KnowledgeDomainService` |
 
 **CrossDomainBackend expansion (+9 methods):** `get_entity_system_metrics`, `get_all_users_progress`, `get_user_ku_detail`, `get_user_submissions_detail`, `get_user_activity_detail`, `get_learning_metrics`, `get_user_overview_stats`, `get_user_learning_goal_progress`, `get_system_health`. Migrated from `AdminStatsService` and `UserStatsAggregator`.

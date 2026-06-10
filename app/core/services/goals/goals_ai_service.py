@@ -30,7 +30,7 @@ from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    from core.services.embeddings_service import EmbeddingsService
     from core.services.llm_service import LLMService
 
 
@@ -58,7 +58,7 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
         self,
         backend: GoalsOperations,
         llm_service: "LLMService",
-        embeddings_service: "HuggingFaceEmbeddingsService",
+        embeddings_service: "EmbeddingsService",
         event_bus: Any | None = None,
     ) -> None:
         """

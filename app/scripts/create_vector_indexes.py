@@ -3,28 +3,30 @@ Create Vector Indexes for Semantic Search
 ==========================================
 
 This script creates vector indexes for all embedding-enabled entities in SKUEL.
-Embeddings are generated Python-side via HuggingFaceEmbeddingsService using the
-HuggingFace Inference API. No Neo4j plugin is required.
+Embeddings are generated Python-side via EmbeddingsService (ADR-068:
+text-embedding-3-small at 1024 dims). No Neo4j plugin is required.
+
+A vector index silently ignores vectors whose dimension doesn't match its
+config, and ``CREATE VECTOR INDEX IF NOT EXISTS`` never alters an existing
+index — so changing embedding dimension REQUIRES ``--recreate`` (drop + create).
 
 Prerequisites:
 - Neo4j running (Docker or AuraDB)
-- HF_API_TOKEN environment variable set
-- INTELLIGENCE_TIER=full in .env
 - Connection to Neo4j (bolt://localhost:7687)
 
 Usage:
     # Create indexes for all priority entities
     uv run python scripts/create_vector_indexes.py
 
+    # Drop + recreate (required when the embedding dimension changes)
+    uv run python scripts/create_vector_indexes.py --recreate
+
     # Create indexes for specific entities only
     uv run python scripts/create_vector_indexes.py --labels Ku Task Goal
 
-    # Use different embedding dimensions
-    uv run python scripts/create_vector_indexes.py --dimension 1024
-
 See also:
-- /docs/development/GENAI_SETUP.md - Embeddings setup guide
-- /docs/deployment/AURADB_MIGRATION_GUIDE.md - AuraDB production migration
+- /docs/decisions/ADR-068-openai-embeddings-now-bge-later.md
+- /docs/architecture/SEARCH_ARCHITECTURE.md
 """
 
 import asyncio
@@ -49,13 +51,14 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.scripts.create_vector_indexes")
 
 
-# Priority entities with embedding fields (as of - January 2026)
+# Labels carrying vector indexes. `Entity` covers every domain node via the
+# multi-label architecture; Task/Goal are per-label query optimizations;
+# ContentChunk powers RAG retrieval.
 PRIORITY_ENTITIES = [
-    "Curriculum",  # Curriculum (Knowledge Units) - CRITICAL
-    "ContentChunk",  # Curriculum Content Chunks - CRITICAL (for RAG)
-    "Task",  # Tasks - HIGH
-    "Goal",  # Goals - HIGH
-    "LpStep",  # Learning Path Steps - HIGH
+    "Entity",
+    "ContentChunk",
+    "Task",
+    "Goal",
 ]
 
 
@@ -63,29 +66,26 @@ async def create_vector_indexes(
     entity_labels: list[str] | None = None,
     dimension: int = 1024,
     similarity: str = "cosine",
+    recreate: bool = False,
 ) -> None:
     """
     Create vector indexes for embedding-enabled entities.
 
     Args:
         entity_labels: List of entity labels (defaults to PRIORITY_ENTITIES)
-        dimension: Vector dimension (default 1024 for BAAI/bge-large-en-v1.5)
+        dimension: Vector dimension (default 1024, ADR-068)
         similarity: Similarity function (default "cosine")
+        recreate: Drop each index first (required when dimension changes —
+            CREATE ... IF NOT EXISTS never alters an existing index)
     """
+    from core.config.intelligence_tier import IntelligenceTier
+
     config = create_config()
 
-    # Check if embeddings service is enabled
-    if not config.genai.enabled:
-        logger.warning("⚠️ Embeddings service is disabled (INTELLIGENCE_TIER is not full)")
-        logger.warning("   Vector indexes will be created, but search will not work")
+    if not IntelligenceTier.from_env().ai_enabled:
+        logger.warning("⚠️ Intelligence tier is CORE — embeddings/vector search are inactive")
+        logger.warning("   Vector indexes will be created, but stay unused")
         logger.warning("   Set INTELLIGENCE_TIER=full in .env and restart app to use vector search")
-        logger.warning("")
-
-    # Check if vector search is enabled
-    if not config.genai.vector_search_enabled:
-        logger.warning("⚠️ Vector search is disabled in config (GENAI_VECTOR_SEARCH_ENABLED=False)")
-        logger.warning("   Vector indexes will be created, but search will not work")
-        logger.warning("   Enable vector search in config to use")
         logger.warning("")
 
     # Use provided labels or default to priority entities
@@ -106,6 +106,15 @@ async def create_vector_indexes(
     try:
         # Create schema manager
         schema_manager = Neo4jSchemaManager(driver)
+
+        if recreate:
+            logger.info("Dropping existing vector indexes (--recreate)...")
+            async with driver.session() as session:
+                for raw_label in labels:
+                    index_name = f"{raw_label.lower()}_embedding_idx"
+                    await session.run(f"DROP INDEX {index_name} IF EXISTS")
+                    logger.info(f"  Dropped (if existed): {index_name}")
+            logger.info("")
 
         # Sync vector indexes
         result = await schema_manager.sync_vector_indexes(
@@ -213,24 +222,24 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Create vector indexes for semantic search (HuggingFace embeddings)",
+        description="Create vector indexes for semantic search",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Create indexes for all priority entities (Curriculum, Task, Goal, LpStep)
+  # Create indexes for all priority entities (Entity, ContentChunk, Task, Goal)
   uv run python scripts/create_vector_indexes.py
 
-  # Create indexes for specific entities only
-  uv run python scripts/create_vector_indexes.py --labels Curriculum Task
+  # Drop + recreate at the current dimension (required after a dimension change)
+  uv run python scripts/create_vector_indexes.py --recreate
 
-  # Use different embedding dimensions
-  uv run python scripts/create_vector_indexes.py --dimension 1024
+  # Create indexes for specific entities only
+  uv run python scripts/create_vector_indexes.py --labels Ku Task
 
   # Verify existing indexes
   uv run python scripts/create_vector_indexes.py --verify
 
 For more information:
-  - Setup guide: /docs/development/GENAI_SETUP.md
+  - ADR-068: /docs/decisions/ADR-068-openai-embeddings-now-bge-later.md
   - Search architecture: /docs/architecture/SEARCH_ARCHITECTURE.md
         """,
     )
@@ -244,8 +253,9 @@ For more information:
     parser.add_argument(
         "--dimension",
         type=int,
-        default=1536,
-        help="Vector dimension (default: 1536; use 1024 for BAAI/bge-large-en-v1.5)",
+        default=1024,
+        help="Vector dimension (default: 1024 — ADR-068, shared by text-embedding-3-small "
+        "via the API dimensions param and BAAI/bge-large-en-v1.5)",
     )
 
     parser.add_argument(
@@ -253,6 +263,12 @@ For more information:
         choices=["cosine", "euclidean", "dot"],
         default="cosine",
         help="Similarity function (default: cosine)",
+    )
+
+    parser.add_argument(
+        "--recreate",
+        action="store_true",
+        help="Drop each index before creating (required when the dimension changes)",
     )
 
     parser.add_argument(
@@ -268,7 +284,10 @@ For more information:
     else:
         asyncio.run(
             create_vector_indexes(
-                entity_labels=args.labels, dimension=args.dimension, similarity=args.similarity
+                entity_labels=args.labels,
+                dimension=args.dimension,
+                similarity=args.similarity,
+                recreate=args.recreate,
             )
         )
 

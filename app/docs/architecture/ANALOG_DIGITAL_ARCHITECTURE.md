@@ -99,7 +99,7 @@ When switching from Digital back to Analog, nothing is lost. Existing embeddings
 
 **Analog -> Digital:**
 1. Set `INTELLIGENCE_TIER=full` in `.env`
-2. Ensure `HF_API_TOKEN` is configured (embeddings) and `OPENAI_API_KEY` (LLM features)
+2. Ensure `OPENAI_API_KEY` is configured (covers embeddings + LLM — ADR-068)
 3. Restart the app
 4. Run `scripts/generate_embeddings_batch.py` to backfill embeddings on existing entities
 

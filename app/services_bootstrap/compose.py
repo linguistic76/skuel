@@ -729,7 +729,6 @@ async def compose_services(
             embedding_worker = EmbeddingBackgroundWorker(
                 event_bus=event_bus,
                 embeddings_service=embeddings_service,
-                config=config,
                 content_adapter=content_adapter,  # Unlocks _process_chunk_batch
                 prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
                 batch_size=25,  # Process 25 entities per batch (cost-optimized)

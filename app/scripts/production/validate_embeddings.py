@@ -4,14 +4,14 @@ Production Validation Script - Async Embedding System
 ======================================================
 
 Tests complete end-to-end flow:
-1. Verify HuggingFace embeddings service is available
+1. Verify embeddings service is available (OPENAI_API_KEY, ADR-068)
 2. Create test task
 3. Verify embedding worker processes it
 4. Validate embedding stored in Neo4j
 5. Test semantic search
 6. Clean up test data
 
-Prerequisites: HF_API_TOKEN and INTELLIGENCE_TIER=full set in .env.
+Prerequisites: OPENAI_API_KEY available (keychain or env) and INTELLIGENCE_TIER=full in .env.
 """
 
 import asyncio
@@ -42,14 +42,14 @@ async def main():
     driver = AsyncGraphDatabase.driver(neo4j_uri, auth=("neo4j", neo4j_password))
 
     try:
-        # Step 1: Verify HuggingFace embeddings service
-        print("[1/5] Verifying HuggingFace embeddings service...")
-        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True)
+        # Step 1: Verify embeddings service credentials (ADR-068: OpenAI)
+        print("[1/5] Verifying embeddings service...")
+        openai_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
         intelligence_tier = os.getenv("INTELLIGENCE_TIER", "core")
-        if not hf_token:
-            print("  ❌ HF_API_TOKEN not set")
+        if not openai_key:
+            print("  ❌ OPENAI_API_KEY not set")
             print("\n  Configure embeddings:")
-            print("    Add HF_API_TOKEN=hf_your_token_here to .env")
+            print("    Add OPENAI_API_KEY to the keychain or .env")
             print("    Add INTELLIGENCE_TIER=full to .env")
             sys.exit(1)
         if intelligence_tier != "full":
@@ -57,7 +57,7 @@ async def main():
             print("    Set INTELLIGENCE_TIER=full in .env to enable vector search")
         else:
             print(
-                "  ✅ Embeddings service configured (HF_API_TOKEN present, INTELLIGENCE_TIER=full)"
+                "  ✅ Embeddings service configured (OPENAI_API_KEY present, INTELLIGENCE_TIER=full)"
             )
 
         # Step 2: Create test task
@@ -176,10 +176,10 @@ async def main():
         print("=" * 60)
         print()
         print("Validated:")
-        print("  ✅ HuggingFace embeddings service configured")
+        print("  ✅ Embeddings service configured")
         print("  ✅ Task creation successful")
         print("  ✅ Background worker processing events")
-        print("  ✅ Embedding generation via HuggingFace Inference API")
+        print("  ✅ Embedding generation via OpenAI Embeddings API")
         print("  ✅ Embedding storage in Neo4j")
         print("  ✅ Vector index retrieval confirmed")
         print()

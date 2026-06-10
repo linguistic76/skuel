@@ -39,9 +39,7 @@ def _create_learning_services(
     from core.services.ps_service import PsService
     from core.services.user_progress_service import UserProgressService
 
-    # Create embedding + vector search services (March 2026 - HuggingFace Migration)
-    # Uses HuggingFace Inference API with BAAI/bge-large-en-v1.5 (1024 dims)
-    # Replaces Neo4j GenAI plugin + OpenAI text-embedding-3-small (ADR-049)
+    # Create embedding + vector search services (ADR-068: OpenAI now, BGE long-term)
     # Gated by intelligence tier (ADR-043): CORE skips entirely, FULL creates normally
     embeddings_service = None
     vector_search_service = None
@@ -54,27 +52,26 @@ def _create_learning_services(
         logger.info("⏭️  Embedding services skipped (intelligence tier: CORE)")
     else:
         try:
-            from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+            from adapters.external.embeddings import create_embedding_client
             from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
-            from core.config.credential_store import get_credential
-            from core.services.embeddings_service import HuggingFaceEmbeddingsService
+            from core.services.embeddings_service import EmbeddingsService
             from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
-            # Inference client (vendor SDK) lives below the hexagonal boundary.
-            # Read the credential here at the composition root and inject the
-            # adapter — the core service holds no SDK or credential reads (W1).
-            # Empty token → adapter raises ValueError, wrapped below with tier guidance.
-            hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
-            embedding_client = HuggingFaceEmbeddingAdapter(api_key=hf_token)
+            # Inference client (vendor SDK + credential read) lives below the
+            # hexagonal boundary; the factory is the provider chokepoint (ADR-068).
+            # Missing key → adapter raises ValueError, wrapped below with tier guidance.
+            embedding_client = create_embedding_client()
 
-            # Create HuggingFace embeddings service
             embeddings_backend = EmbeddingsBackend(executor=query_executor)
-            embeddings_service = HuggingFaceEmbeddingsService(
+            embeddings_service = EmbeddingsService(
                 backend=embeddings_backend,
                 embedding_client=embedding_client,
                 prometheus_metrics=prometheus_metrics,
             )
-            logger.info("✅ HuggingFace embeddings service created (BAAI/bge-large-en-v1.5)")
+            logger.info(
+                f"✅ Embeddings service created ({embedding_client.model}, "
+                f"{embedding_client.dimension}d)"
+            )
 
             # Create vector search backend + service
             from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
@@ -92,7 +89,7 @@ def _create_learning_services(
             # graph-only answers — exactly the silent fallback Gap #6 calls out.
             logger.error(f"FULL-tier embedding services failed to initialize: {e}")
             raise RuntimeError(
-                "FULL-tier bootstrap requires HuggingFace embedding services. "
+                "FULL-tier bootstrap requires embedding services. "
                 "Set INTELLIGENCE_TIER=core to run without vector search, or fix the "
                 f"underlying init error: {e}"
             ) from e
@@ -138,7 +135,7 @@ def _create_learning_services(
         query_builder=query_builder,  # QueryBuilder is now REQUIRED
         user_service=user_service,  # KU-Activity Integration
         vector_search_service=vector_search_service,  # GenAI vector search
-        embeddings_service=embeddings_service,  # HuggingFace embeddings (bge-large-en-v1.5)
+        embeddings_service=embeddings_service,  # EmbeddingClientOperations-backed (ADR-068)
         ps_intelligence_backend=PsIntelligenceBackend(query_executor),
     )
 

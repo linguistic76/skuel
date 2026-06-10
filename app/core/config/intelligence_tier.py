@@ -8,7 +8,7 @@ CORE: Analytics only — BaseAnalyticsService, UserContextIntelligence,
       GraphIntelligenceService. Pure Python + Cypher. No API costs.
 
 FULL: Analytics + AI — all CORE features plus BaseAIService, the LLM chat
-      adapters (ChatCompletionPort) and HuggingFaceEmbeddingsService,
+      adapters (ChatCompletionPort) and EmbeddingsService,
       embeddings, LLM chat, content processing. Costs money per API call.
 
 Usage:

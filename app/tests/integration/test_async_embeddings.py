@@ -105,15 +105,10 @@ class TestEmbeddingBackgroundWorker:
             return_value=Mock(is_ok=True, is_error=False, value=[[0.1] * 1024 for _ in range(10)])
         )
 
-        # Mock config for embedding version
-        mock_config = Mock()
-        mock_config.genai.embedding_version = "v1"
-
         # Create and start worker
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
-            config=mock_config,
             batch_size=25,
             batch_interval_seconds=1,  # Faster for testing
         )
@@ -165,14 +160,9 @@ class TestEmbeddingBackgroundWorker:
             )
         )
 
-        # Mock config for embedding version
-        mock_config = Mock()
-        mock_config.genai.embedding_version = "v1"
-
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
-            config=mock_config,
             batch_size=5,
             batch_interval_seconds=1,
         )
@@ -580,9 +570,6 @@ class TestEndToEndEmbeddingIntegration:
         embeddings_service.create_batch_embeddings = AsyncMock(
             return_value=Mock(is_ok=True, is_error=False, value=[mock_embedding])
         )
-        mock_config = Mock()
-        mock_config.genai.embedding_version = "v1"
-
         # 2. Give the embeddings_service a real backend if it doesn't have one
         from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
         from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -594,7 +581,6 @@ class TestEndToEndEmbeddingIntegration:
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
-            config=mock_config,
             batch_size=5,
             batch_interval_seconds=1,
         )
@@ -623,8 +609,11 @@ class TestEndToEndEmbeddingIntegration:
         assert query_result.is_ok
         record = query_result.value
 
+        from core.services.embeddings_service import EMBEDDING_VERSION
+
         assert record is not None, "Task node NOT FOUND in Neo4j"
-        assert record["version"] == "v1", "Embedding version not set correctly"
+        # Worker stores via the service, which owns the canonical version.
+        assert record["version"] == EMBEDDING_VERSION, "Embedding version not set correctly"
         assert record["embedding"] is not None, "Embedding vector missing in Neo4j"
         assert len(record["embedding"]) == 1024, "Embedding vector length mismatch"
         assert record["embedding"][0] == 0.123, "Embedding vector value mismatch"

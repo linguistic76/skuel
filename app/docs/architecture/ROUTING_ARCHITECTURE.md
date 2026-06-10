@@ -767,7 +767,7 @@ class TasksService:
 **Philosophy Change (January 2026):**
 - **REQUIRED**: Neo4j (graph database), Deepgram (audio transcription) - fail fast if missing
 - **OPTIONAL**: HuggingFace API (AI features) - graceful degradation with basic features if missing
-- Embeddings via `HuggingFaceEmbeddingsService` (`BAAI/bge-large-en-v1.5`, 1024d) + vector search via `Neo4jVectorSearchService`
+- Embeddings via `EmbeddingsService` (OpenAI `text-embedding-3-small`, 1024d — ADR-068) + vector search via `Neo4jVectorSearchService`
 
 ```python
 # File: /services_bootstrap/compose.py

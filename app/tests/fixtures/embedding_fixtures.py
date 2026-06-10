@@ -53,7 +53,7 @@ def mock_embeddings_service(mock_embedding_vector):
     Mock HuggingFace embeddings service.
 
     Returns deterministic embeddings without API calls.
-    Mimics HuggingFaceEmbeddingsService interface.
+    Mimics EmbeddingsService interface.
 
     Returns:
         Mock embeddings service with create_embedding and create_batch_embeddings methods

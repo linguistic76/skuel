@@ -35,7 +35,7 @@ Each stage has a single responsible service. The entire pipeline is async.
    - Extract content body
    - Handle relationships
    - Add timestamps
-   - **Generate embedding** (if `HF_API_TOKEN` is set — see Stage 2)
+   - **Generate embedding** (if `OPENAI_API_KEY` is set — see Stage 2)
 6. **Neo4j write** — Entity node created with all properties including the embedding vector
 
 **Key detail:** Ingestion and embedding happen in the same transaction. The entity arrives in Neo4j already searchable by vector similarity.
@@ -44,7 +44,7 @@ Each stage has a single responsible service. The entire pipeline is async.
 
 ## Stage 2: Embedding — Content Becomes Searchable
 
-**Service:** `HuggingFaceEmbeddingsService` (`core/services/embeddings_service.py`)
+**Service:** `EmbeddingsService` (`core/services/embeddings_service.py`)
 
 **Model:** `BAAI/bge-large-en-v1.5` — produces 1024-dimensional vectors
 
@@ -52,7 +52,7 @@ Each stage has a single responsible service. The entire pipeline is async.
 
 | Path | When | Service |
 |------|------|---------|
-| **During ingestion** | `ingest_file()` calls `prepare_entity_data_async()` | `HuggingFaceEmbeddingsService.create_embedding()` |
+| **During ingestion** | `ingest_file()` calls `prepare_entity_data_async()` | `EmbeddingsService.create_embedding()` |
 | **Background worker** | Entities created via API (not ingestion) | `EmbeddingBackgroundWorker` in `core/services/background/embedding_worker.py` — batches of 25 every 30s |
 
 ### Text Extraction
@@ -363,7 +363,7 @@ AskesisService (Facade — zero business logic)
 └── External dependencies (injected via AskesisDeps):
     ├── UserService            ← builds UserContext (~250 fields)
     ├── LLMService             ← generates natural language answers
-    ├── HuggingFaceEmbeddingsService ← creates embeddings
+    ├── EmbeddingsService ← creates embeddings
     ├── GraphIntelligenceService ← executes graph queries
     ├── ZPDService             ← targeted KU readiness assessment
     ├── Neo4jVectorSearchService ← vector similarity search
@@ -397,7 +397,7 @@ See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 
 | Variable | Required For | Consequence If Missing |
 |----------|-------------|----------------------|
-| `HF_API_TOKEN` | Embedding generation | Ingestion works but without embeddings; vector search unavailable |
+| `OPENAI_API_KEY` | Embedding generation | Ingestion works but without embeddings; vector search unavailable |
 | `OPENAI_API_KEY` | LLM answer generation | `generate_context_aware_answer()` fails |
 | `INTELLIGENCE_TIER=full` | Askesis creation | Askesis not instantiated; routes return 404 |
 | Neo4j vector indexes | Vector search | `db.index.vector.queryNodes()` fails |

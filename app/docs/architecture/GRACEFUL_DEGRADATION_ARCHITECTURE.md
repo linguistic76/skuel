@@ -61,11 +61,11 @@ INTELLIGENCE_TIER=core
 ```
 
 **What happens:**
-- `HuggingFaceEmbeddingsService` — not created
+- `EmbeddingsService` — not created
 - `Neo4jVectorSearchService` — not created
 - `EmbeddingBackgroundWorker` — not started
 - `LLMService` — not created
-- OpenAI / Anthropic chat adapters + the HuggingFace embedding client (`adapters/external/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`) — not constructed (no API keys read, no vendor SDK clients; W1 / ADR-063)
+- OpenAI / Anthropic chat adapters + the OpenAI embedding client (`adapters/external/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`; HF/BGE adapter staged — ADR-068) — not constructed (no API keys read, no vendor SDK clients; W1 / ADR-063)
 - All 12 `BaseAIService` instances — not created
 - Search falls back to keyword (fulltext indexes)
 - Askesis is **not created** (requires FULL tier — no degraded mode)
@@ -79,7 +79,7 @@ INTELLIGENCE_TIER=core
 INTELLIGENCE_TIER=full
 ```
 
-Requires `HF_API_TOKEN` (for embeddings) and optionally `OPENAI_API_KEY` (for LLM features). The embedding background worker starts automatically and processes entity embeddings in batches every 30 seconds.
+Requires `OPENAI_API_KEY` (covers both embeddings and LLM chat — ADR-068). The embedding background worker starts automatically and processes entity embeddings in batches every 30 seconds.
 
 ## How Graceful Degradation Works
 
@@ -91,8 +91,12 @@ The bootstrap creates AI services conditionally. When `INTELLIGENCE_TIER=core`, 
 # Bootstrap (services_bootstrap/compose.py)
 embeddings_service = None
 if tier.ai_enabled:
-    from core.services.embeddings_service import HuggingFaceEmbeddingsService
-    embeddings_service = HuggingFaceEmbeddingsService(executor=query_executor)
+    from adapters.external.embeddings import create_embedding_client
+    from core.services.embeddings_service import EmbeddingsService
+    embeddings_service = EmbeddingsService(
+        backend=EmbeddingsBackend(executor=query_executor),
+        embedding_client=create_embedding_client(),
+    )
 
 # Downstream — worker only starts if service exists
 if embeddings_service:
@@ -145,7 +149,7 @@ All in `services_bootstrap/compose.py`:
 
 | Gate | What It Controls | Core Behavior |
 |------|-----------------|---------------|
-| Embeddings block | `HuggingFaceEmbeddingsService`, `Neo4jVectorSearchService` (embedding client adapter not built) | Skipped |
+| Embeddings block | `EmbeddingsService`, `Neo4jVectorSearchService` (embedding client adapter not built) | Skipped |
 | LLM block | `LLMService` (built with an injected `OpenAIChatAdapter` chat port at FULL) | Skipped |
 | Chat-adapter block | `OpenAIChatAdapter` (`ChatCompletionPort`, `adapters/external/llm/`) → `ContentEnrichmentService`, `UnifiedLLMCaller`, `ProgressReportGenerator` | Adapter not built; consumers receive `chat_port=None` and degrade |
 
@@ -163,7 +167,7 @@ Everything downstream of these three blocks naturally degrades via None-propagat
 
 Switching from CORE → FULL:
 1. Set `INTELLIGENCE_TIER=full` in `.env`
-2. Ensure `HF_API_TOKEN` is set (and `OPENAI_API_KEY` for LLM features)
+2. Ensure `OPENAI_API_KEY` is set (covers embeddings + LLM — ADR-068)
 3. Restart the app
 4. Existing entities without embeddings will get them as they're updated, or run `scripts/generate_embeddings_batch.py` for bulk backfill
 

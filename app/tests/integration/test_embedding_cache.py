@@ -14,7 +14,7 @@ import pytest
 
 from core.services.embeddings_service import (
     EMBEDDING_VERSION,
-    HuggingFaceEmbeddingsService,
+    EmbeddingsService,
 )
 from core.utils.result_simplified import Errors, Result
 
@@ -43,8 +43,9 @@ def embeddings_service(mock_backend):
     mock_client = MagicMock()
     mock_client.model = "BAAI/bge-large-en-v1.5"
     mock_client.dimension = DIM
+    mock_client.max_input_chars = 2000
     mock_client.embed = AsyncMock()
-    return HuggingFaceEmbeddingsService(mock_backend, embedding_client=mock_client)
+    return EmbeddingsService(mock_backend, embedding_client=mock_client)
 
 
 def _embed_ok(embedding):

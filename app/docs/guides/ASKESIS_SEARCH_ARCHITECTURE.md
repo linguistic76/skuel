@@ -254,7 +254,7 @@ find_similar_by_text(label, text, limit, min_score)  # Embed text + native vecto
 - Entities must have `embedding` field populated (via ingestion or batch job)
 - Neo4j vector index `entity_embedding_idx` must exist
 - `Neo4jVectorSearchService` available (requires `INTELLIGENCE_TIER=full`)
-- `HuggingFaceEmbeddingsService` for embedding generation (used internally by vector search)
+- `EmbeddingsService` for embedding generation (used internally by vector search)
 
 ---
 
