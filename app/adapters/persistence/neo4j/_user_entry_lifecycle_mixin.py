@@ -5,8 +5,8 @@ UserEntry Lifecycle Mixin
 Exercise entry processing, FULFILLS_EXERCISE linking, temporal/thematic
 relationship creation, and revision-chain queries.
 
-Consolidated from ``_SubmissionLifecycleMixin`` + the ADR-054 Step 4 wrapper
-into a single standalone mixin (commit 7).
+Consolidated from the legacy ``_SubmissionLifecycleMixin`` into a single
+standalone mixin (ADR-054).
 
 Requires on concrete class:
     driver, label, logger, execute_query (from _SearchMixin)

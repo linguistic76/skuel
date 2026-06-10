@@ -1,6 +1,6 @@
 """
-UserEntryProcessingService — ADR-054 Commit 1 (cosmic-kindling-papert)
-=======================================================================
+UserEntryProcessingService — ADR-054
+====================================
 
 Pipeline dispatcher for ``UserEntry``. Reads ``entry.pipeline`` and routes
 to the matching processor:
@@ -17,8 +17,6 @@ edge (wired via ``UserEntryCreateRequest.transforms_of_uid`` on the
 facade).
 
 ADR-054: activity extraction from journals dropped; create Tasks/Goals directly.
-
-See: /home/mike/.claude/plans/cosmic-kindling-papert.md
 """
 
 from __future__ import annotations

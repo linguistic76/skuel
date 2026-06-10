@@ -1,6 +1,6 @@
 """
-UserEntry Relationship Service — ADR-054 Commit 6a
-===================================================
+UserEntry Relationship Service — ADR-054
+========================================
 
 Creates graph relationships for ``UserEntry`` nodes. Ported from
 ``SubmissionsRelationshipService`` unchanged — the underlying edge wiring

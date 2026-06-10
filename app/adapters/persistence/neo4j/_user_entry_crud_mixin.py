@@ -5,8 +5,8 @@ UserEntry CRUD / Content Mixin
 CRUD/query operations for the ``UserEntry`` domain — content substring search,
 feedback-count joins, exercise-linked entry lookups, teacher feedback-state EMA.
 
-Consolidated from ``_SubmissionCrudMixin`` + the ADR-054 Step 4 wrapper into a
-single standalone mixin (commit 7).
+Consolidated from the legacy ``_SubmissionCrudMixin`` into a single
+standalone mixin (ADR-054).
 
 Requires on concrete class:
     driver, label, logger, execute_query (from _SearchMixin)

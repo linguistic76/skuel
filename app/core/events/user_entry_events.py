@@ -1,13 +1,9 @@
 """
-UserEntry Domain Events (ADR-054 Step 8)
-========================================
+UserEntry Domain Events (ADR-054)
+=================================
 
 Events published across the unified ``UserEntry`` lifecycle — the single
-entry point that replaces the legacy Submission + Journal event streams
-post-migration. Lives alongside ``submission_events`` and ``journal_events``
-through Step 13 per the additive-through-Step-13 discipline.
-
-See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
+entry point that replaced the legacy Submission + Journal event streams.
 """
 
 from dataclasses import dataclass
