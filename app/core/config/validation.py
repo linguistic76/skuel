@@ -266,15 +266,17 @@ def print_validation_report(errors: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    # Demo configuration validation
-    from core.config.settings import get_settings as _get_settings
+    # Demo configuration validation. Builds the config directly via
+    # create_config — get_settings() would RAISE on validation errors,
+    # which defeats a validation report (and its import is circular here).
+    from core.config.unified_config import create_config as _create_config
 
     print("🧠 SKUEL Configuration Validation")
     print("=" * 40)
 
     # Validate configuration
     try:
-        config: UnifiedConfig = _get_settings()
+        config: UnifiedConfig = _create_config()
         config_errors = validate_config(config)
         print("\nConfiguration:")
         print_validation_report(config_errors)
