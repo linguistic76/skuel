@@ -14,9 +14,12 @@
 #      - findings -> print them, exit 2 (address, push, re-run this script)
 #   3. No-show at deadline -> CAPABILITY probe (a live API call, never the
 #      status page). API healthy -> one automatic re-summon + second timebox
-#      (the mention itself may have been dropped). API degraded, or second
-#      no-show -> post an outage note, apply `codex-considered`, exit 3
-#      (proceed per workflow — considered, not zero).
+#      (the mention itself may have been dropped; polling stays anchored at
+#      the FIRST summon so a gap-delivered verdict is still seen). API
+#      degraded, or second no-show -> post an outage note, apply
+#      `codex-considered`, exit 3 (proceed per workflow — considered, not
+#      zero). A window whose channel reads ALL failed exits 1 without
+#      labeling — an unreadable surface is not a no-show.
 #
 # Worst case is bounded at ~2x deadline + slack instead of "until the GitHub
 # status page feels better".
@@ -96,7 +99,14 @@ summon() {
   echo "$since"
 }
 
-# Prints the verdict (if any) and returns: 0 clean | 2 findings | 1 none yet
+# Prints the verdict (if any) and returns:
+#   0 clean | 2 findings | 1 none yet | 4 channels unreadable
+#
+# A failed lookup is NOT an empty result (Codex P2 on #276): counting an
+# unreadable channel as zero lets the script reach the no-show path and
+# label codex-considered without ever reading the review surface. rc 4
+# propagates so the caller keeps polling, and a window with zero successful
+# reads hard-fails instead of labeling.
 #
 # Pagination: REST list endpoints default to 30 items/page in ascending
 # order, so on a comment-heavy PR a fresh verdict can land beyond page 1 and
@@ -111,8 +121,9 @@ check_verdict() {
   local since="$1" reviews comments
   reviews=$(gh_retry api "repos/$REPO/pulls/$PR/reviews?per_page=100" \
     --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.submitted_at > \"$since\")] | length" \
-    2>/dev/null || echo 0)
-  if [[ "$reviews" =~ ^[0-9]+$ ]] && (( reviews > 0 )); then
+    2>/dev/null) || return 4
+  [[ "$reviews" =~ ^[0-9]+$ ]] || return 4
+  if (( reviews > 0 )); then
     echo "── Codex FINDINGS (inline review) ──"
     gh_retry api "repos/$REPO/pulls/$PR/comments?since=$since&per_page=100" \
       --jq ".[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | \"\(.path):\(.line // 0)\n\(.body)\n\"" || true
@@ -120,8 +131,9 @@ check_verdict() {
   fi
   comments=$(gh_retry api "repos/$REPO/issues/$PR/comments?since=$since&per_page=100" \
     --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\")] | length" \
-    2>/dev/null || echo 0)
-  if [[ "$comments" =~ ^[0-9]+$ ]] && (( comments > 0 )); then
+    2>/dev/null) || return 4
+  [[ "$comments" =~ ^[0-9]+$ ]] || return 4
+  if (( comments > 0 )); then
     local body
     body=$(gh_retry api "repos/$REPO/issues/$PR/comments?since=$since&per_page=100" \
       --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | .body] | join(\"\n\")" || true)
@@ -154,15 +166,22 @@ apply_label() {
   return 1
 }
 
+# Returns: 0 clean | 2 findings | 1 genuine no-show (>=1 successful read) |
+#          4 window had ZERO successful reads (channels unreadable — caller
+#          must NOT treat as no-show, never label)
 wait_for_verdict() {
-  local since="$1" elapsed=0 rc
+  local since="$1" elapsed=0 rc read_ok=0
   while (( elapsed < DEADLINE )); do
     sleep "$POLL_INTERVAL"; elapsed=$(( elapsed + POLL_INTERVAL ))
     check_verdict "$since"; rc=$?
-    [[ $rc -ne 1 ]] && return $rc
-    echo "  … ${elapsed}s / ${DEADLINE}s" >&2
+    case $rc in
+      0|2) return $rc ;;
+      1)   read_ok=1; echo "  … ${elapsed}s / ${DEADLINE}s" >&2 ;;
+      4)   echo "  … ${elapsed}s / ${DEADLINE}s (channel read FAILED)" >&2 ;;
+    esac
   done
-  return 1
+  (( read_ok )) && return 1
+  return 4
 }
 
 echo "▶ summoning @codex review on #$PR (deadline ${DEADLINE}s)"
@@ -174,13 +193,23 @@ if [[ $RC -eq 0 ]]; then apply_label || exit 1; exit 0; fi
 if [[ $RC -eq 2 ]]; then echo "→ address findings, push, re-run this script"; exit 2; fi
 
 # No-show. Capability probe decides between re-summon and outage protocol.
-if api_healthy; then
+if [[ $RC -eq 1 ]] && api_healthy; then
   echo "▶ no verdict in ${DEADLINE}s but API healthy — one automatic re-summon"
-  SINCE=$(summon)
-  [[ -n "$SINCE" ]] || exit 1
+  # SINCE stays anchored at the FIRST summon (Codex P2 on #276): resetting
+  # it to the re-summon timestamp would hide a verdict that landed in the
+  # gap between window 1's last poll and the second mention. The re-summon
+  # is just a nudge; window 2's first poll then catches any gap verdict.
+  summon >/dev/null || exit 1
   wait_for_verdict "$SINCE"; RC=$?
   if [[ $RC -eq 0 ]]; then apply_label || exit 1; exit 0; fi
   if [[ $RC -eq 2 ]]; then echo "→ address findings, push, re-run this script"; exit 2; fi
+fi
+
+if [[ $RC -eq 4 ]]; then
+  echo "✗ verdict channels were unreadable for an entire window — cannot" >&2
+  echo "  distinguish no-show from unread verdict; NOT labeling. Re-run when" >&2
+  echo "  the API stabilizes." >&2
+  exit 1
 fi
 
 echo "▶ Codex no-show — applying outage protocol (considered, not zero)"
