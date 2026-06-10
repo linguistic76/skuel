@@ -97,23 +97,33 @@ summon() {
 }
 
 # Prints the verdict (if any) and returns: 0 clean | 2 findings | 1 none yet
+#
+# Pagination: REST list endpoints default to 30 items/page in ascending
+# order, so on a comment-heavy PR a fresh verdict can land beyond page 1 and
+# read as a false no-show — the outage path would then label over an unread
+# verdict (Codex P2 on #276). Comments endpoints take `since` (only items
+# updated after the summon return, so page 1 holds them all); the reviews
+# endpoint has no `since`, so per_page=100 covers it (a PR with >100 reviews
+# is out of scope for a timeboxed advisory check). The jq time filters stay
+# as belt-and-braces (`since` matches on updated_at >=, jq on created/
+# submitted_at strictly >).
 check_verdict() {
   local since="$1" reviews comments
-  reviews=$(gh_retry api "repos/$REPO/pulls/$PR/reviews" \
+  reviews=$(gh_retry api "repos/$REPO/pulls/$PR/reviews?per_page=100" \
     --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.submitted_at > \"$since\")] | length" \
     2>/dev/null || echo 0)
   if [[ "$reviews" =~ ^[0-9]+$ ]] && (( reviews > 0 )); then
     echo "── Codex FINDINGS (inline review) ──"
-    gh_retry api "repos/$REPO/pulls/$PR/comments" \
+    gh_retry api "repos/$REPO/pulls/$PR/comments?since=$since&per_page=100" \
       --jq ".[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | \"\(.path):\(.line // 0)\n\(.body)\n\"" || true
     return 2
   fi
-  comments=$(gh_retry api "repos/$REPO/issues/$PR/comments" \
+  comments=$(gh_retry api "repos/$REPO/issues/$PR/comments?since=$since&per_page=100" \
     --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\")] | length" \
     2>/dev/null || echo 0)
   if [[ "$comments" =~ ^[0-9]+$ ]] && (( comments > 0 )); then
     local body
-    body=$(gh_retry api "repos/$REPO/issues/$PR/comments" \
+    body=$(gh_retry api "repos/$REPO/issues/$PR/comments?since=$since&per_page=100" \
       --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | .body] | join(\"\n\")" || true)
     # Only the known clean signature counts as clean. Anything else from
     # Codex on this channel (agentic task summaries, suggestion lists,
