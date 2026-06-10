@@ -19,6 +19,7 @@ import pytest
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
+import detect_bloat  # type: ignore[import-not-found]
 from detect_bloat import (  # type: ignore[import-not-found]
     PLANNED_EVENTS,
     PLANNED_METHODS,
@@ -393,7 +394,12 @@ def test_published_never_subscribed_is_info():
 
 
 def test_planned_event_reports_planned_not_dead(monkeypatch):
-    monkeypatch.setitem(PLANNED_EVENTS, "GammaOrphan", "awaiting synthetic wiring")
+    # setattr replaces the registry wholesale — the production entries (real
+    # embedding events) are absent from synthetic universes and would
+    # otherwise fire the vanished-key stale check.
+    monkeypatch.setattr(
+        detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": "awaiting synthetic wiring"}
+    )
     _, _, findings = analyze({})
     finding = finding_for(findings, "GammaOrphan")
     assert finding is not None
@@ -403,7 +409,9 @@ def test_planned_event_reports_planned_not_dead(monkeypatch):
 
 
 def test_planned_event_subscriber_is_staging_not_dead_chain(monkeypatch):
-    monkeypatch.setitem(PLANNED_EVENTS, "GammaOrphan", "awaiting synthetic wiring")
+    monkeypatch.setattr(
+        detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": "awaiting synthetic wiring"}
+    )
     _, _, findings = analyze(
         {
             "services_bootstrap/wiring.py": (
@@ -419,7 +427,9 @@ def test_planned_event_subscriber_is_staging_not_dead_chain(monkeypatch):
 
 
 def test_stale_planned_event_marking_is_reported(monkeypatch):
-    monkeypatch.setitem(PLANNED_EVENTS, "GammaOrphan", "awaiting synthetic wiring")
+    monkeypatch.setattr(
+        detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": "awaiting synthetic wiring"}
+    )
     _, _, findings = analyze(
         {
             "core/services/x.py": (
@@ -431,6 +441,19 @@ def test_stale_planned_event_marking_is_reported(monkeypatch):
     stale = [f for f in findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["GammaOrphan"]
     assert stale[0].severity is BloatSeverity.INFO
+
+
+def test_vanished_planned_event_marking_is_reported(monkeypatch):
+    # A PLANNED_EVENTS key whose class was deleted/renamed/mistyped is not in
+    # the universe — the stale check must still fire (Codex P2, PR #274).
+    monkeypatch.setattr(
+        detect_bloat, "PLANNED_EVENTS", {"NoSuchEventAnywhere": "awaiting synthetic wiring"}
+    )
+    _, _, findings = analyze({})
+    stale = [f for f in findings if f.kind == "planned-marking-stale"]
+    assert [f.subject for f in stale] == ["NoSuchEventAnywhere"]
+    assert stale[0].severity is BloatSeverity.INFO
+    assert "no such event class" in stale[0].detail
 
 
 class FakeVultureItem:

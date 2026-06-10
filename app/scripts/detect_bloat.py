@@ -741,6 +741,25 @@ def analyze_events(
         else:
             findings.append(finding)
 
+    # Stale planned markings for vanished subjects: a PLANNED_EVENTS key
+    # absent from the event universe was deleted, renamed, or mistyped —
+    # without this pass the registry would silently keep dead keys.
+    for cls in sorted(PLANNED_EVENTS):
+        if cls not in universe:
+            findings.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.INFO,
+                    subject=cls,
+                    file="core/events/",
+                    line=0,
+                    detail=(
+                        "marked planned but no such event class exists — deleted, "
+                        "renamed, or mistyped; remove from PLANNED_EVENTS"
+                    ),
+                )
+            )
+
     return findings, exempted
 
 
