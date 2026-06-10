@@ -323,6 +323,7 @@ module = [
     "strawberry.*",
     "graphql.*",
     "huggingface_hub.*",
+    "vulture.*",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"
