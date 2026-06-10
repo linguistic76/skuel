@@ -8,8 +8,6 @@ E2E tests use the same Neo4j testcontainer and fixtures as integration tests,
 but test complete workflows from start to finish.
 """
 
-from typing import Any
-
 import pytest_asyncio
 
 # Import all integration test fixtures for E2E tests
@@ -54,10 +52,11 @@ async def event_bus():
 async def embeddings_service(neo4j_driver):
     """Real EmbeddingsService with Neo4j-backed storage and a stubbed model call.
 
-    create_batch_embeddings is stubbed to avoid real embedding-API calls, but
-    the service + backend are real and wired to the test container, so the
-    worker's _store_embedding path (service.store_embedding_with_metadata)
-    actually writes vectors AND version/model metadata to Neo4j.
+    Only the inference client's ``embed`` is stubbed (no real embedding-API
+    calls); the service + backend are real and wired to the test container, so
+    the worker's per-item generation (create_embedding) and storage
+    (store_embedding_with_metadata) paths run for real, writing vectors AND
+    version/model metadata to Neo4j.
     """
     from unittest.mock import AsyncMock, MagicMock
 
@@ -70,21 +69,12 @@ async def embeddings_service(neo4j_driver):
     mock_client.model = "test-embedder"
     mock_client.dimension = 1024
     mock_client.max_input_chars = 2000
-    mock_client.embed = AsyncMock()
+    mock_client.embed = AsyncMock(return_value=Result.ok([0.1] * 1024))
 
-    service = EmbeddingsService(
+    return EmbeddingsService(
         backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
         embedding_client=mock_client,
     )
-
-    async def fake_batch_embeddings(
-        texts: list[str], metadata_list: list[dict[str, Any]] | None = None
-    ) -> Result[list[list[float]]]:
-        fake_vector = [0.1] * 1024
-        return Result.ok([fake_vector for _ in texts])
-
-    service.create_batch_embeddings = fake_batch_embeddings
-    return service
 
 
 @pytest_asyncio.fixture

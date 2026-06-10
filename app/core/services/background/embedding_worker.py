@@ -13,16 +13,25 @@ Architecture:
 Performance:
 - Batch size: 25 entities per batch
 - Interval: 30 seconds between batches
-- API efficiency: Batch embedding calls reduce costs
+- Concurrency: items in a batch embed concurrently (the inference clients
+  are single-text, so "batching" is concurrency, not a batch endpoint)
+
+Retry policy (bounded — no infinite loops):
+- Generation failures are PER ITEM: one poison text never fails its batchmates
+- Each request retries up to MAX_GENERATION_ATTEMPTS, then is dropped with an
+  error log (and a Prometheus `status="dropped"` count)
+- Re-queueing respects MAX_QUEUE_SIZE; overflow drops instead of growing
+- Storage failures (Neo4j-side) are not re-queued — they are logged and counted
 
 Implementation:
-- Queue pending requests in memory
+- Queue pending requests in memory (wrapped with an attempt counter)
 - Process batches on timer (asyncio.sleep loop)
 - Update Neo4j nodes with embeddings
 - Log success/failures for debugging
 """
 
 import asyncio
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import EntityUID
@@ -56,6 +65,27 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 _EMBEDDING_EXCEPTIONS = (*NEO4J_EXCEPTIONS, ConnectionError, TimeoutError)
+
+# Generation attempts per request before the worker gives up on it.
+MAX_GENERATION_ATTEMPTS = 5
+# Re-queue overflow guard — beyond this, failed requests drop instead of growing the queue.
+MAX_QUEUE_SIZE = 1000
+
+
+@dataclass
+class _PendingRequest:
+    """A queued entity-embedding request with its retry budget."""
+
+    event: EmbeddingRequested
+    attempts: int = field(default=0)
+
+
+@dataclass
+class _PendingChunkRequest:
+    """A queued chunk-embedding request with its retry budget."""
+
+    event: ChunkEmbeddingRequested
+    attempts: int = field(default=0)
 
 
 class EmbeddingBackgroundWorker:
@@ -98,14 +128,15 @@ class EmbeddingBackgroundWorker:
         self.batch_size = batch_size
         self.batch_interval = batch_interval_seconds
         self.prometheus_metrics = prometheus_metrics
-        self._pending_requests: list[EmbeddingRequested] = []
-        self._pending_chunk_requests: list[ChunkEmbeddingRequested] = []
+        self._pending_requests: list[_PendingRequest] = []
+        self._pending_chunk_requests: list[_PendingChunkRequest] = []
         self.logger = get_logger("skuel.background.embeddings")
 
         # Internal metrics (kept for backward compatibility with /api/monitoring endpoint)
         self._total_processed = 0
         self._total_success = 0
         self._total_failed = 0
+        self._total_dropped = 0
         self._batches_processed = 0
         self._started_at: datetime | None = None
 
@@ -155,7 +186,7 @@ class EmbeddingBackgroundWorker:
         Args:
             event: EmbeddingRequested event from entity creation
         """
-        self._pending_requests.append(event)
+        self._pending_requests.append(_PendingRequest(event))
         self.logger.debug(
             f"Queued embedding request for {event.entity_type} {event.entity_uid} "
             f"(queue size: {len(self._pending_requests)})"
@@ -168,7 +199,7 @@ class EmbeddingBackgroundWorker:
         Args:
             event: ChunkEmbeddingRequested event from ingestion or regeneration
         """
-        self._pending_chunk_requests.append(event)
+        self._pending_chunk_requests.append(_PendingChunkRequest(event))
         self.logger.debug(
             f"Queued chunk embedding request for {event.parent_uid} "
             f"({len(event.chunk_uids)} chunks, queue size: {len(self._pending_chunk_requests)})"
@@ -220,56 +251,68 @@ class EmbeddingBackgroundWorker:
 
                 await self._process_chunk_batch(chunk_batch)
 
-    async def _process_batch(self, requests: list[EmbeddingRequested]) -> None:
+    async def _process_batch(self, batch: list[_PendingRequest]) -> None:
         """
-        Generate embeddings for batch of entities.
+        Generate and store embeddings for a batch, per item.
+
+        Items embed concurrently but succeed or fail INDIVIDUALLY — one poison
+        text re-queues (or drops) alone instead of failing its batchmates.
+        Generation failures go through _retry_or_drop (bounded retries);
+        storage failures are logged and counted but not re-queued.
 
         Args:
-            requests: List of EmbeddingRequested events to process
+            batch: Pending requests sliced off the queue by the timer loop
         """
         import time
 
         batch_start = time.time()
 
         try:
-            # Extract texts for batch embedding generation
-            texts = [req.embedding_text for req in requests]
+            # Concurrent per-item generation; exceptions are captured per item
+            # so a raising call degrades exactly like a Result failure.
+            results = await asyncio.gather(
+                *(self.embeddings_service.create_embedding(p.event.embedding_text) for p in batch),
+                return_exceptions=True,
+            )
 
-            # Generate embeddings in batch (more efficient than individual calls)
-            embeddings_result = await self.embeddings_service.create_batch_embeddings(texts)
-
-            if embeddings_result.is_error:
-                self.logger.error(
-                    f"Batch embedding generation failed: {embeddings_result.expect_error().message}"
-                )
-                # Track metrics
-                self._total_failed += len(requests)
-                # Re-queue requests for retry (simple retry logic)
-                self._pending_requests.extend(requests)
-                return
-
-            embeddings = embeddings_result.value
-
-            # Update each entity with its embedding
             success_count = 0
             entity_type_stats: dict[str, dict[str, int]] = {}
 
-            for req, embedding in zip(requests, embeddings, strict=True):
-                stored = await self._store_embedding(req.entity_uid, req.entity_type, embedding)
+            for pending, result in zip(batch, results, strict=True):
+                event = pending.event
+                stats = entity_type_stats.setdefault(
+                    event.entity_type, {"success": 0, "failed": 0, "dropped": 0}
+                )
 
-                # Track stats per entity type
-                if req.entity_type not in entity_type_stats:
-                    entity_type_stats[req.entity_type] = {"success": 0, "failed": 0}
+                if isinstance(result, BaseException):
+                    self.logger.warning(
+                        f"Embedding generation raised for {event.entity_type} "
+                        f"{event.entity_uid}: {result}"
+                    )
+                    self._retry_or_drop(pending, stats)
+                    continue
 
+                if result.is_error:
+                    self.logger.warning(
+                        f"Embedding generation failed for {event.entity_type} "
+                        f"{event.entity_uid}: {result.expect_error().message}"
+                    )
+                    self._retry_or_drop(pending, stats)
+                    continue
+
+                stored = await self._store_embedding(
+                    event.entity_uid, event.entity_type, result.value
+                )
                 if stored:
                     success_count += 1
-                    entity_type_stats[req.entity_type]["success"] += 1
+                    stats["success"] += 1
                 else:
-                    entity_type_stats[req.entity_type]["failed"] += 1
+                    # Neo4j-side failure: logged in _store_embedding, not re-queued
+                    stats["failed"] += 1
 
             # Track internal metrics (backward compatibility)
-            failed_count = len(requests) - success_count
-            self._total_processed += len(requests)
+            failed_count = len(batch) - success_count
+            self._total_processed += len(batch)
             self._total_success += success_count
             self._total_failed += failed_count
             self._batches_processed += 1
@@ -278,38 +321,59 @@ class EmbeddingBackgroundWorker:
             if self.prometheus_metrics:
                 # Per-entity-type counters
                 for entity_type, stats in entity_type_stats.items():
-                    if stats["success"] > 0:
-                        self.prometheus_metrics.ai.embeddings_processed_total.labels(
-                            entity_type=entity_type, status="success"
-                        ).inc(stats["success"])
-
-                    if stats["failed"] > 0:
-                        self.prometheus_metrics.ai.embeddings_processed_total.labels(
-                            entity_type=entity_type, status="failed"
-                        ).inc(stats["failed"])
+                    for status in ("success", "failed", "dropped"):
+                        if stats[status] > 0:
+                            self.prometheus_metrics.ai.embeddings_processed_total.labels(
+                                entity_type=entity_type, status=status
+                            ).inc(stats[status])
 
                 # Batch size histogram
-                self.prometheus_metrics.ai.embedding_batch_size.observe(len(requests))
+                self.prometheus_metrics.ai.embedding_batch_size.observe(len(batch))
 
             batch_duration = time.time() - batch_start
 
             self.logger.info(
-                f"✅ Generated {success_count}/{len(requests)} embeddings successfully "
+                f"✅ Generated {success_count}/{len(batch)} embeddings successfully "
                 f"(took {batch_duration:.2f}s, total: {self._total_success}/{self._total_processed})"
             )
 
-        except _EMBEDDING_EXCEPTIONS as e:
+        except Exception as e:  # safety-net: a bug here must not kill the timer loop
             self.logger.error(f"Batch processing exception: {e}")
-            # Track metrics
-            self._total_failed += len(requests)
-            # Re-queue for retry (with limit to avoid infinite loops)
-            if len(self._pending_requests) < 1000:  # Safety limit
-                self._pending_requests.extend(requests)
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Batch processing exception: {e}")
-            self._total_failed += len(requests)
-            if len(self._pending_requests) < 1000:
-                self._pending_requests.extend(requests)
+            self._total_failed += len(batch)
+            for pending in batch:
+                self._retry_or_drop(pending, {"failed": 0, "dropped": 0})
+
+    def _retry_or_drop(self, pending: _PendingRequest, stats: dict[str, int]) -> None:
+        """Spend one retry attempt: re-queue the request, or drop it at the caps.
+
+        Drops when the attempt budget (MAX_GENERATION_ATTEMPTS) is exhausted or
+        the queue is at MAX_QUEUE_SIZE — a persistently failing request must
+        not retry forever, and a full queue must not grow unbounded.
+        """
+        event = pending.event
+        pending.attempts += 1
+        stats["failed"] = stats.get("failed", 0) + 1
+
+        if pending.attempts >= MAX_GENERATION_ATTEMPTS:
+            self._total_dropped += 1
+            stats["dropped"] = stats.get("dropped", 0) + 1
+            self.logger.error(
+                f"🗑️ Dropping embedding request for {event.entity_type} {event.entity_uid} "
+                f"after {pending.attempts} failed attempts"
+            )
+        elif len(self._pending_requests) >= MAX_QUEUE_SIZE:
+            self._total_dropped += 1
+            stats["dropped"] = stats.get("dropped", 0) + 1
+            self.logger.error(
+                f"🗑️ Queue full ({MAX_QUEUE_SIZE}) — dropping embedding request for "
+                f"{event.entity_type} {event.entity_uid}"
+            )
+        else:
+            self._pending_requests.append(pending)
+            self.logger.debug(
+                f"Re-queued embedding request for {event.entity_type} {event.entity_uid} "
+                f"(attempt {pending.attempts}/{MAX_GENERATION_ATTEMPTS})"
+            )
 
     async def _store_embedding(
         self, entity_uid: EntityUID, entity_type: str, embedding: list[float]
@@ -353,7 +417,8 @@ class EmbeddingBackgroundWorker:
 
             if result.is_error:
                 self.logger.warning(
-                    f"Failed to store embedding for {entity_type} {entity_uid}: {result.error}"
+                    f"Failed to store embedding for {entity_type} {entity_uid}: "
+                    f"{result.expect_error().message}"
                 )
                 return False
 
@@ -367,97 +432,107 @@ class EmbeddingBackgroundWorker:
             self.logger.error(f"Failed to store embedding for {entity_uid}: {e}")
             return False
 
-    async def _process_chunk_batch(self, requests: list[ChunkEmbeddingRequested]) -> None:
+    async def _process_chunk_batch(self, batch: list[_PendingChunkRequest]) -> None:
         """
-        Generate embeddings for batch of chunk requests.
+        Generate embeddings for a batch of chunk requests, per request.
 
-        Each request contains multiple chunks from a single KU.
-        Flattens chunks across all requests for efficient batch processing.
+        Each request carries all chunks of one parent and succeeds or fails
+        as a unit (chunk storage is an all-chunks-of-parent write), but
+        requests fail INDIVIDUALLY — one bad parent re-queues (or drops)
+        alone via _retry_or_drop_chunks instead of failing its batchmates.
 
         Args:
-            requests: List of ChunkEmbeddingRequested events to process
+            batch: Pending chunk requests sliced off the queue by the timer loop
         """
         import time
         from datetime import datetime
 
+        if not self.content_adapter:
+            self.logger.warning("Content adapter not configured - chunk embeddings not stored")
+            return
+
         batch_start = time.time()
+        total_chunks = sum(len(p.event.chunk_uids) for p in batch)
+        self.logger.info(f"Processing {total_chunks} chunks from {len(batch)} parents")
 
-        try:
-            # Flatten chunks from all requests
-            all_chunk_uids: list[str] = []
-            all_chunk_texts: list[str] = []
-            request_map: dict[str, ChunkEmbeddingRequested] = {}
-
-            for req in requests:
-                all_chunk_uids.extend(req.chunk_uids)
-                all_chunk_texts.extend(req.chunk_texts)
-                request_map[req.parent_uid] = req
-
-            self.logger.info(
-                f"Processing {len(all_chunk_uids)} chunks from {len(requests)} parents"
-            )
-
-            # Generate embeddings in batch
-            embeddings_result = await self.embeddings_service.create_batch_embeddings(
-                all_chunk_texts
-            )
-
-            if embeddings_result.is_error:
-                self.logger.error(
-                    f"Batch chunk embedding generation failed: {embeddings_result.expect_error().message}"
+        success_chunks = 0
+        for pending in batch:
+            event = pending.event
+            try:
+                embeddings_result = await self.embeddings_service.create_batch_embeddings(
+                    list(event.chunk_texts)
                 )
-                # Re-queue for retry
-                self._pending_chunk_requests.extend(requests)
-                return
 
-            embeddings = embeddings_result.value
+                if embeddings_result.is_error:
+                    self.logger.warning(
+                        f"Chunk embedding generation failed for parent {event.parent_uid}: "
+                        f"{embeddings_result.expect_error().message}"
+                    )
+                    self._retry_or_drop_chunks(pending)
+                    continue
 
-            # Store embeddings via content adapter
-            if self.content_adapter:
                 stored = await self.content_adapter.store_chunk_embeddings(
-                    chunk_uids=all_chunk_uids,
-                    embeddings=embeddings,
+                    chunk_uids=list(event.chunk_uids),
+                    embeddings=embeddings_result.value,
                     version="v1",
                     model=self.embeddings_service.model,
                 )
 
-                if stored:
-                    # Publish completion events for each parent
-                    for parent_uid, req in request_map.items():
-                        now = datetime.now()
-                        await publish_event(
-                            self.event_bus,
-                            ChunkEmbeddingsCompleted(
-                                parent_uid=parent_uid,
-                                chunk_uids=req.chunk_uids,
-                                success_count=len(req.chunk_uids),
-                                failed_count=0,
-                                completed_at=now,
-                            ),
-                            self.logger,
-                        )
-
-                    batch_duration = time.time() - batch_start
-                    self.logger.info(
-                        f"✅ Generated {len(all_chunk_uids)} chunk embeddings successfully "
-                        f"(took {batch_duration:.2f}s)"
+                if not stored:
+                    self.logger.warning(
+                        f"Failed to store chunk embeddings for parent {event.parent_uid}"
                     )
-                else:
-                    self.logger.error("Failed to store chunk embeddings")
-                    # Re-queue for retry
-                    self._pending_chunk_requests.extend(requests)
-            else:
-                self.logger.warning("Content adapter not configured - chunk embeddings not stored")
+                    self._retry_or_drop_chunks(pending)
+                    continue
 
-        except _EMBEDDING_EXCEPTIONS as e:
-            self.logger.error(f"Chunk batch processing exception: {e}")
-            # Re-queue for retry (with safety limit)
-            if len(self._pending_chunk_requests) < 1000:
-                self._pending_chunk_requests.extend(requests)
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Chunk batch processing exception: {e}")
-            if len(self._pending_chunk_requests) < 1000:
-                self._pending_chunk_requests.extend(requests)
+                success_chunks += len(event.chunk_uids)
+                await publish_event(
+                    self.event_bus,
+                    ChunkEmbeddingsCompleted(
+                        parent_uid=event.parent_uid,
+                        chunk_uids=event.chunk_uids,
+                        success_count=len(event.chunk_uids),
+                        failed_count=0,
+                        completed_at=datetime.now(),
+                    ),
+                    self.logger,
+                )
+
+            except Exception as e:  # safety-net: one parent's bug must not kill the loop
+                self.logger.error(f"Chunk processing exception for parent {event.parent_uid}: {e}")
+                self._retry_or_drop_chunks(pending)
+
+        batch_duration = time.time() - batch_start
+        self.logger.info(
+            f"✅ Generated {success_chunks}/{total_chunks} chunk embeddings "
+            f"(took {batch_duration:.2f}s)"
+        )
+
+    def _retry_or_drop_chunks(self, pending: _PendingChunkRequest) -> None:
+        """Spend one retry attempt on a chunk request; drop at the caps.
+
+        Same bounded-retry policy as _retry_or_drop, on the chunk queue.
+        """
+        pending.attempts += 1
+
+        if pending.attempts >= MAX_GENERATION_ATTEMPTS:
+            self._total_dropped += 1
+            self.logger.error(
+                f"🗑️ Dropping chunk embedding request for parent {pending.event.parent_uid} "
+                f"({len(pending.event.chunk_uids)} chunks) after {pending.attempts} failed attempts"
+            )
+        elif len(self._pending_chunk_requests) >= MAX_QUEUE_SIZE:
+            self._total_dropped += 1
+            self.logger.error(
+                f"🗑️ Chunk queue full ({MAX_QUEUE_SIZE}) — dropping request for parent "
+                f"{pending.event.parent_uid}"
+            )
+        else:
+            self._pending_chunk_requests.append(pending)
+            self.logger.debug(
+                f"Re-queued chunk embedding request for parent {pending.event.parent_uid} "
+                f"(attempt {pending.attempts}/{MAX_GENERATION_ATTEMPTS})"
+            )
 
     def get_metrics(self) -> dict[str, Any]:
         """
@@ -467,7 +542,8 @@ class EmbeddingBackgroundWorker:
             Dictionary with worker statistics:
             - total_processed: Total entities processed
             - total_success: Successfully embedded entities
-            - total_failed: Failed embeddings
+            - total_failed: Failed embedding attempts (retried ones count per attempt)
+            - total_dropped: Requests abandoned after exhausting retries (or queue overflow)
             - batches_processed: Number of batches processed
             - queue_size: Current pending requests count
             - chunk_queue_size: Current pending chunk requests count
@@ -495,6 +571,7 @@ class EmbeddingBackgroundWorker:
             "total_processed": self._total_processed,
             "total_success": self._total_success,
             "total_failed": self._total_failed,
+            "total_dropped": self._total_dropped,
             "batches_processed": self._batches_processed,
             "queue_size": len(self._pending_requests),
             "chunk_queue_size": len(self._pending_chunk_requests),
