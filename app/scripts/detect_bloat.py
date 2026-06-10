@@ -1,550 +1,871 @@
 #!/usr/bin/env python3
 """
-Bloat Detection Script
-======================
+Bloat Detection — AST-sound dead-code analysis for SKUEL semantics.
+===================================================================
 
-Systematically finds unused code in the SKUEL codebase:
-- Unused events (defined but never published)
-- Unused methods (defined but never called)
-- Unused service methods (public methods never called externally)
-- Dead event subscribers (subscribed but event never published)
+Finds dead code that generic tools cannot express:
+
+- Event lifecycle: events defined but never published, subscribed but never
+  published, published but never subscribed (the publish/subscribe semantics
+  live in SKUEL's event bus, not in Python's import graph).
+- Service-method liveness (PR 2, pending): Vulture as the liveness engine,
+  post-filtered through SKUEL dynamic-dispatch knowledge (route-factory
+  templates, relationship-registry method names, dispatch tables).
+
+Design rules (mirrors the SKUEL linter's structural-soundness discipline):
+
+- AST only — no regex over source. Docstring examples are inert for free.
+- No cross-file dataflow. An event constructed in one file and published from
+  another is reported as UNVERIFIED ("constructed but publication not
+  structurally traceable"), never as dead. A tool that lies is worse than none.
+- Over-approximation is only allowed in the safe direction: it may suppress a
+  dead-code accusation, never create one.
+- No silent caps: everything the analysis could not resolve is counted and
+  printed in the Limitations section.
+
+Advisory by default (exit 0). ``--check`` exits 1 on surviving WARNING
+findings — not wired into quality gates until the manual false-positive audit
+passes (see the rewrite plan).
 
 Usage:
     uv run python scripts/detect_bloat.py
     uv run python scripts/detect_bloat.py --events-only
     uv run python scripts/detect_bloat.py --methods-only
-    uv run python scripts/detect_bloat.py --verbose
+    uv run python scripts/detect_bloat.py --verbose --json
 """
 
 import argparse
 import ast
-import re
+import json
+import sys
 from collections import defaultdict
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Any
 
-# ANSI colors for terminal output
-CYAN = "\033[96m"
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RED = "\033[91m"
-BOLD = "\033[1m"
-RESET = "\033[0m"
+ROOT = Path(__file__).resolve().parent.parent
+
+# Production code that confers liveness. tests/ is parsed separately and only
+# ever contributes annotations ("published in tests"), never liveness.
+FIRST_PARTY_ROOTS = ["core", "adapters", "api", "ui", "services_bootstrap", "main.py"]
+EXCLUDED_PARTS = {"__pycache__", "archive"}
+
+EVENTS_PACKAGE = ROOT / "core" / "events"
+EVENT_ROOT_BASE = "BaseEvent"
+
+# Exemptions require a documented reason (audit_route_security.py convention).
+# Exempted findings are still printed, collapsed — never hidden.
+EXEMPTED_EVENTS: dict[str, str] = {}
 
 
-class BloatDetector:
-    """Detects unused code patterns across the codebase."""
+class Colors:
+    """Terminal colors for better output readability."""
 
-    def __init__(self, root_dir: Path, verbose: bool = False):
-        self.root_dir = root_dir
-        self.verbose = verbose
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RESET = "\033[0m"
 
-        # Event tracking
-        self.event_definitions: dict[str, list[str]] = defaultdict(list)  # event_class -> [files]
-        self.event_publications: dict[str, list[str]] = defaultdict(list)  # event_class -> [files]
-        self.event_subscriptions: dict[str, list[str]] = defaultdict(list)  # event_class -> [files]
-        self.event_imports: dict[str, list[str]] = defaultdict(list)  # NEW: event_class -> [files]
+    @classmethod
+    def disable(cls) -> None:
+        """Disable colors (for non-TTY output)."""
+        cls.RED = ""
+        cls.GREEN = ""
+        cls.YELLOW = ""
+        cls.BLUE = ""
+        cls.CYAN = ""
+        cls.BOLD = ""
+        cls.DIM = ""
+        cls.RESET = ""
 
-        # Method tracking
-        self.method_definitions: dict[str, list[str]] = defaultdict(list)  # method_name -> [files]
-        self.method_calls: dict[str, list[str]] = defaultdict(list)  # method_name -> [files]
-        self.reflection_calls: dict[str, list[str]] = defaultdict(
-            list
-        )  # NEW: method_name -> [files using reflection]
 
-        # Service method tracking (public methods in services)
-        self.service_methods: dict[str, dict[str, list[str]]] = defaultdict(
-            lambda: defaultdict(list)
-        )  # service_name -> method_name -> [files where defined]
-        self.service_method_calls: dict[str, dict[str, list[str]]] = defaultdict(
-            lambda: defaultdict(list)
-        )  # service_name -> method_name -> [files where called]
+class BloatSeverity(Enum):
+    """Finding tiers. Only WARNING can ever fail a --check run."""
 
-    def scan_codebase(self) -> None:
-        """Scan entire codebase for events and methods."""
-        print(f"{CYAN}🔍 Scanning codebase for bloat...{RESET}\n")
+    WARNING = "warning"  # structurally dead — verified absence of liveness
+    UNVERIFIED = "unverified"  # constructed somewhere; publication untraceable
+    INFO = "info"  # live but noteworthy (e.g. published, never subscribed)
 
-        # Scan core directory
-        core_dir = self.root_dir / "core"
-        if core_dir.exists():
-            self._scan_directory(core_dir)
 
-        # Scan adapters directory
-        adapters_dir = self.root_dir / "adapters"
-        if adapters_dir.exists():
-            self._scan_directory(adapters_dir)
+@dataclass
+class Finding:
+    """One bloat finding."""
 
-        # Scan tests directory for method calls
-        tests_dir = self.root_dir / "tests"
-        if tests_dir.exists():
-            self._scan_directory(tests_dir, scan_definitions=False)
+    kind: str  # e.g. "event-never-published"
+    severity: BloatSeverity
+    subject: str  # e.g. event class name
+    file: str
+    line: int
+    detail: str
+    annotations: list[str] = field(default_factory=list)
 
-    def _scan_directory(self, directory: Path, scan_definitions: bool = True) -> None:
-        """Recursively scan directory for Python files."""
-        for py_file in directory.rglob("*.py"):
-            # Skip __pycache__
-            if "__pycache__" in str(py_file):
-                continue
+    def to_json(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "severity": self.severity.value,
+            "subject": self.subject,
+            "file": self.file,
+            "line": self.line,
+            "detail": self.detail,
+            "annotations": self.annotations,
+        }
 
-            # Skip archived code
-            if "archive" in str(py_file):
-                continue
 
-            try:
-                content = py_file.read_text()
-                relative_path = py_file.relative_to(self.root_dir)
+@dataclass
+class Site:
+    """A source location."""
 
-                if scan_definitions:
-                    # Scan for event definitions
-                    if "core/events" in str(py_file):
-                        self._scan_event_definitions(content, str(relative_path))
+    file: str
+    line: int
 
-                    # Scan for service method definitions
-                    if "core/services" in str(py_file) and "_service.py" in py_file.name:
-                        self._scan_service_methods(content, str(relative_path), py_file.stem)
+    def __str__(self) -> str:
+        return f"{self.file}:{self.line}"
 
-                # Scan for event imports
-                self._scan_event_imports(content, str(relative_path))
 
-                # Scan for event publications
-                self._scan_event_publications(content, str(relative_path))
+# ============================================================================
+# Parsed codebase — every file parsed exactly once, shared by all analyses
+# ============================================================================
 
-                # Scan for event subscriptions
-                self._scan_event_subscriptions(content, str(relative_path))
 
-                # Scan for method calls
-                self._scan_method_calls(content, str(relative_path))
+class ParsedCodebase:
+    """File discovery + one-shot ast.parse cache.
 
-            except Exception as e:
-                if self.verbose:
-                    print(f"  ⚠️  Error scanning {py_file}: {e}")
+    Syntax errors are collected and REPORTED — never silently skipped. A file
+    the analysis cannot see is a hole in every liveness claim.
+    """
 
-    def _scan_event_definitions(self, content: str, file_path: str) -> None:
-        """Scan for event class definitions."""
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.production: dict[Path, ast.Module] = {}
+        self.tests: dict[Path, ast.Module] = {}
+        self.syntax_errors: list[str] = []
+
+    def load(self) -> None:
+        for path in self._discover(FIRST_PARTY_ROOTS):
+            self._parse_into(path, self.production)
+        for path in self._discover(["tests"]):
+            self._parse_into(path, self.tests)
+
+    def _discover(self, roots: list[str]) -> list[Path]:
+        files: list[Path] = []
+        for root_name in roots:
+            target = self.root / root_name
+            if target.is_file() and target.suffix == ".py":
+                files.append(target)
+            elif target.is_dir():
+                for path in sorted(target.rglob("*.py")):
+                    if not EXCLUDED_PARTS.intersection(path.parts):
+                        files.append(path)
+        return files
+
+    def _parse_into(self, path: Path, cache: dict[Path, ast.Module]) -> None:
         try:
-            tree = ast.parse(content)
+            cache[path] = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:
+            self.syntax_errors.append(f"{self.rel(path)}: {exc.msg} (line {exc.lineno})")
+        except (OSError, UnicodeDecodeError) as exc:
+            self.syntax_errors.append(f"{self.rel(path)}: unreadable ({exc})")
+
+    def rel(self, path: Path) -> str:
+        return str(path.relative_to(self.root))
+
+
+# ============================================================================
+# Event universe — transitive inheritance closure from BaseEvent
+# ============================================================================
+
+
+def _base_name(node: ast.expr) -> str | None:
+    """Resolve a class base expression to its terminal name."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+class EventUniverse:
+    """All event classes in core/events/, closed transitively over BaseEvent.
+
+    Catches indirect subclasses (e.g. TaskEmbeddingRequested(EmbeddingRequested))
+    that a direct-base check misses. Builds a descendants map so an intermediate
+    base counts as publish-live when any descendant is published.
+    """
+
+    def __init__(self, codebase: ParsedCodebase) -> None:
+        self.codebase = codebase
+        self.classes: dict[str, Site] = {}  # event class -> definition site
+        self.descendants: dict[str, set[str]] = defaultdict(set)
+
+    def build(self) -> None:
+        bases: dict[str, list[str]] = {}
+        sites: dict[str, Site] = {}
+        for path, tree in self.codebase.production.items():
+            if EVENTS_PACKAGE not in path.parents:
+                continue
+            rel = self.codebase.rel(path)
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
-                    # Check if class inherits from BaseEvent
-                    for base in node.bases:
-                        if isinstance(base, ast.Name) and base.id == "BaseEvent":
-                            self.event_definitions[node.name].append(file_path)
-                            if self.verbose:
-                                print(f"  📝 Found event definition: {node.name} in {file_path}")
-        except SyntaxError:
-            pass  # Skip files with syntax errors
+                    names = [b for b in map(_base_name, node.bases) if b]
+                    bases[node.name] = names
+                    sites[node.name] = Site(rel, node.lineno)
 
-    def _scan_event_imports(self, content: str, file_path: str) -> None:
-        """Track event imports to correlate with usage."""
-        # Pattern: from core.events import EventName
-        # Pattern: from core.events.{module}_events import EventName
-        import_pattern = r"from core\.events(?:\.\w+)? import .*?([A-Z]\w+(?:Event|Created|Updated|Deleted|Completed|Made|Recorded|Paid|Achieved|Mastered|Started|Changed|Assessed|Generated|Earned|Broken|Missed|Reached|Abandoned|Analyzed|Invalidated|Practiced|Milestone|Rescheduled|Applied|Task|Habit|Choice|Journal))"
-        matches = re.finditer(import_pattern, content)
-        for match in matches:
-            event_class = match.group(1)
-            self.event_imports[event_class].append(file_path)
-            if self.verbose:
-                print(f"  📥 Found event import: {event_class} in {file_path}")
+        # Fixpoint closure from BaseEvent.
+        universe = {EVENT_ROOT_BASE}
+        changed = True
+        while changed:
+            changed = False
+            for cls, cls_bases in bases.items():
+                if cls not in universe and universe.intersection(cls_bases):
+                    universe.add(cls)
+                    changed = True
 
-    def _scan_event_publications(self, content: str, file_path: str) -> None:
-        """Scan for event publications (event_bus.publish_async calls)."""
-        # Pattern: event = SomeEvent(...)
-        # followed by: await self.event_bus.publish_async(event)
-        # OR: await event_bus.publish_async(SomeEvent(...))
+        for cls in universe - {EVENT_ROOT_BASE}:
+            self.classes[cls] = sites[cls]
 
-        # Common event name suffixes
-        event_suffixes = [
-            "Event",
-            "Created",
-            "Updated",
-            "Deleted",
-            "Completed",
-            "Started",
-            "Changed",
-            "Assessed",
-            "Recorded",
-            "Generated",
-            "Earned",
-            "Broken",
-            "Missed",
-            "Reached",
-            "Made",
-            "Abandoned",
-            "Analyzed",
-            "Invalidated",
-            "Paid",
-            "Mastered",
-            "Practiced",
-            "Milestone",
-            "Rescheduled",
-            "Achieved",  # GoalAchieved
-            "Applied",  # KnowledgeBulkApplied
-            "Task",  # KnowledgeAppliedInTask
-            "Habit",  # KnowledgeBuiltIntoHabit
-            "Choice",  # KnowledgeInformedChoice
-            "Journal",  # KnowledgeReflectedInJournal
-        ]
+        # Direct-child edges -> transitive descendants.
+        children: dict[str, set[str]] = defaultdict(set)
+        for cls in self.classes:
+            for base in bases.get(cls, []):
+                if base in self.classes:
+                    children[base].add(cls)
+        for cls in self.classes:
+            stack = list(children[cls])
+            while stack:
+                child = stack.pop()
+                if child not in self.descendants[cls]:
+                    self.descendants[cls].add(child)
+                    stack.extend(children[child])
 
-        # Build comprehensive pattern
-        suffix_pattern = "|".join(event_suffixes)
+    def __contains__(self, name: str) -> bool:
+        return name in self.classes
 
-        # Method 1: event = EventClass(...) then publish_async(event) OR publish_event(...)
-        # Match any capitalized class ending with event suffixes
-        event_instantiation_pattern = rf"(\w+)\s*=\s*([A-Z]\w*(?:{suffix_pattern}))\("
-        matches = re.finditer(event_instantiation_pattern, content)
-        for match in matches:
-            event_class = match.group(2)
-            # Check if followed by publish_async OR publish_event (increased lookahead for multiline constructors)
+    def registry_size(self) -> int | None:
+        """Entry count of EVENT_REGISTRY in core/events/__init__.py (AST, no import).
+
+        Used as a self-diagnostic cross-check; None if the dict moved.
+        """
+        init_path = EVENTS_PACKAGE / "__init__.py"
+        tree = self.codebase.production.get(init_path)
+        if tree is None:
+            return None
+        for node in ast.walk(tree):
             if (
-                "publish_async" in content[match.end() : match.end() + 1500]
-                or "publish_event" in content[match.end() : match.end() + 1500]
+                isinstance(node, ast.AnnAssign)
+                and isinstance(node.target, ast.Name)
+                and node.target.id == "EVENT_REGISTRY"
+                and isinstance(node.value, ast.Dict)
             ):
-                self.event_publications[event_class].append(file_path)
-                if self.verbose:
-                    print(f"  📤 Found event publication: {event_class} in {file_path}")
+                return len(node.value.keys)
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict):
+                targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+                if "EVENT_REGISTRY" in targets:
+                    return len(node.value.keys)
+        return None
 
-        # Method 2: publish_async(EventClass(...))
-        direct_publish_pattern = rf"publish_async\(([A-Z]\w*(?:{suffix_pattern}))\("
-        matches = re.finditer(direct_publish_pattern, content)
-        for match in matches:
-            event_class = match.group(1)
-            self.event_publications[event_class].append(file_path)
-            if self.verbose:
-                print(f"  📤 Found event publication: {event_class} in {file_path}")
 
-        # Method 3: publish_event(event_bus, EventClass(...), logger)
-        # This is the MOST COMMON pattern in SKUEL
-        helper_publish_pattern = rf"publish_event\([^,]+,\s*([A-Z]\w*(?:{suffix_pattern}))\("
-        matches = re.finditer(helper_publish_pattern, content)
-        for match in matches:
-            event_class = match.group(1)
-            self.event_publications[event_class].append(file_path)
-            if self.verbose:
-                print(f"  📤 Found event publication (helper): {event_class} in {file_path}")
+# ============================================================================
+# Publication / construction / subscription collectors (pure AST)
+# ============================================================================
 
-    def _scan_event_subscriptions(self, content: str, file_path: str) -> None:
-        """Scan for event subscriptions (event_bus.subscribe calls)."""
-        # Pattern: event_bus.subscribe(EventClass, handler)
-        subscription_pattern = r"\.subscribe\((\w+Event\w*),\s*\w+"
-        matches = re.finditer(subscription_pattern, content)
-        for match in matches:
-            event_class = match.group(1)
-            self.event_subscriptions[event_class].append(file_path)
-            if self.verbose:
-                print(f"  📥 Found event subscription: {event_class} in {file_path}")
 
-    def _scan_service_methods(self, content: str, file_path: str, service_name: str) -> None:
-        """Scan for public method definitions in service files."""
-        try:
-            tree = ast.parse(content)
+@dataclass
+class EventUsage:
+    """Aggregated event usage across the production tree (tests kept apart)."""
+
+    published: dict[str, list[Site]] = field(default_factory=lambda: defaultdict(list))
+    constructed: dict[str, list[Site]] = field(default_factory=lambda: defaultdict(list))
+    subscribed: dict[str, list[Site]] = field(default_factory=lambda: defaultdict(list))
+    test_published: dict[str, list[Site]] = field(default_factory=lambda: defaultdict(list))
+    test_constructed: dict[str, list[Site]] = field(default_factory=lambda: defaultdict(list))
+    unresolved_publishes: list[Site] = field(default_factory=list)
+    unresolved_subscribes: list[Site] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PublishWrapper:
+    """A function/method that publishes one of its own parameters.
+
+    ``caller_index`` is the event argument's position as seen by callers
+    (``self``/``cls`` already stripped); ``param_name`` resolves keyword calls.
+    """
+
+    caller_index: int
+    param_name: str
+
+
+class PublishWrapperInference:
+    """Infers publish-wrapper functions structurally, to a fixpoint.
+
+    A def whose body publishes one of its OWN parameters (via a primitive
+    ``publish_async``/``publish`` or an already-known wrapper) is itself a
+    wrapper — e.g. ``publish_event`` (core/events/__init__.py),
+    ``group_service._publish_event``, ``BaseAIService._publish_event``.
+    Applied globally by name: marking events live is the safe direction.
+    Interior publish sites of recognized wrappers (the parameter pass-through)
+    are accounted for at call sites and excluded from the unresolved count.
+    """
+
+    # Bus methods (Attribute calls only — bare publish()/publish_async() names
+    # would be ambiguous) and the canonical helper (Name or Attribute; its
+    # signature publish_event(event_bus, event, logger) is the documented
+    # contract at core/events/__init__.py).
+    PRIMITIVES = {"publish_async": 0, "publish": 0}
+    CANONICAL_HELPERS = {"publish_event": 1}
+
+    def __init__(self, codebase: ParsedCodebase) -> None:
+        self.codebase = codebase
+        self.wrappers: dict[str, set[PublishWrapper]] = defaultdict(set)
+        self.interior_sites: set[tuple[str, int]] = set()  # (file, line) to skip
+
+    def infer(self) -> None:
+        defs: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]] = []
+        for path, tree in self.codebase.production.items():
+            rel = self.codebase.rel(path)
             for node in ast.walk(tree):
-                if isinstance(node, ast.ClassDef):
-                    for item in node.body:
-                        if isinstance(item, ast.AsyncFunctionDef | ast.FunctionDef):
-                            # Public methods (not starting with _)
-                            if not item.name.startswith("_") and item.name not in [
-                                "__init__",
-                                "__str__",
-                                "__repr__",
-                            ]:
-                                self.service_methods[service_name][item.name].append(file_path)
-                                if self.verbose:
-                                    print(
-                                        f"  🔧 Found service method: {service_name}.{item.name} in {file_path}"
-                                    )
-        except SyntaxError:
-            pass
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    defs.append((rel, node))
 
-    def _scan_method_calls(self, content: str, file_path: str) -> None:
-        """Scan for method calls including reflection patterns."""
-        # Pattern: .method_name(  or  service.method_name(
-        method_call_pattern = r"\.(\w+)\("
-        matches = re.finditer(method_call_pattern, content)
-        for match in matches:
-            method_name = match.group(1)
-            self.method_calls[method_name].append(file_path)
+        changed = True
+        while changed:
+            changed = False
+            for rel, fn in defs:
+                if self._try_promote(rel, fn):
+                    changed = True
 
-            # Track service method calls
-            # Pattern: service_name.method_name(
-            service_call_pattern = r"(\w+_service)\.(\w+)\("
-            service_matches = re.finditer(service_call_pattern, content)
-            for smatch in service_matches:
-                service_name = smatch.group(1)
-                method_name = smatch.group(2)
-                self.service_method_calls[service_name][method_name].append(file_path)
+    def event_arg_candidates(self, call: ast.Call) -> tuple[list[ast.expr], bool]:
+        """(candidate event arguments, is publish-shaped) for a call node.
 
-        # NEW: Detect reflection-based method calls
-        # Pattern: getattr(obj, "method_name") or getattr(Service, "method_name")
-        reflection_pattern = r'getattr\([^,]+,\s*["\'](\w+)["\']'
-        matches = re.finditer(reflection_pattern, content)
-        for match in matches:
-            method_name = match.group(1)
-            self.method_calls[method_name].append(file_path)
-            self.reflection_calls[method_name].append(file_path)
-            if self.verbose:
-                print(f"  🔍 Found reflection call: {method_name} in {file_path}")
+        A wrapper name can carry several inferred signatures (two different
+        ``_publish_event`` defs exist); every signature's argument is a
+        candidate and the caller records whichever resolves to an event class.
+        """
+        name = _base_name(call.func)
+        if name in self.PRIMITIVES and isinstance(call.func, ast.Attribute):
+            arg = _call_arg(call, self.PRIMITIVES[name], "event")
+            return ([arg] if arg is not None else []), True
+        if name in self.CANONICAL_HELPERS:
+            arg = _call_arg(call, self.CANONICAL_HELPERS[name], "event")
+            return ([arg] if arg is not None else []), True
+        if name in self.wrappers:
+            candidates = []
+            for wrapper in sorted(self.wrappers[name], key=lambda w: w.caller_index):
+                arg = _call_arg(call, wrapper.caller_index, wrapper.param_name)
+                if arg is not None:
+                    candidates.append(arg)
+            return candidates, True
+        return [], False
 
-        # NEW: Track dynamic method construction (f"{var}_method_suffix")
-        # Pattern: getattr(obj, f"{entity}_create_to_pure") or similar
-        # This catches ConversionService patterns like {entity}_to_pure, {entity}_to_dto
-        dynamic_pattern = r'getattr\([^,]+,\s*f["\'][^"\']*\{[^}]+\}[^"\']*?(_to_\w+|_create_to_\w+|_update_to_\w+)["\']'
-        matches = re.finditer(dynamic_pattern, content)
-        for match in matches:
-            method_suffix = match.group(1)
-            # Mark this as a reflection pattern usage
-            self.reflection_calls[f"*{method_suffix}"].append(file_path)
-            if self.verbose:
-                print(f"  🔍 Found dynamic reflection pattern: *{method_suffix} in {file_path}")
+    def _try_promote(self, rel: str, fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        params = [a.arg for a in fn.args.args]
+        promoted = False
+        for node in ast.walk(fn):
+            if not isinstance(node, ast.Call):
+                continue
+            candidates, is_publish = self.event_arg_candidates(node)
+            if not is_publish:
+                continue
+            for arg in candidates:
+                if not isinstance(arg, ast.Name) or arg.id not in params:
+                    continue
+                self.interior_sites.add((rel, node.lineno))
+                index = params.index(arg.id)
+                if params and params[0] in ("self", "cls"):
+                    index -= 1
+                if index < 0:
+                    continue
+                wrapper = PublishWrapper(index, arg.id)
+                # Dedup on the full (index, param) signature — two defs sharing
+                # a name may put the event at different positions.
+                if wrapper not in self.wrappers[fn.name]:
+                    self.wrappers[fn.name].add(wrapper)
+                    promoted = True
+        return promoted
 
-        # NEW: Special pattern for ConversionService - any getattr on ConversionService/V2 is reflection
-        # Pattern: getattr(ConversionService[V2], ...)
-        conversion_service_pattern = r"getattr\((ConversionService(?:V2)?),\s*(\w+)"
-        matches = re.finditer(conversion_service_pattern, content)
-        for match in matches:
-            # Mark all conversion service methods as reflection-used
-            self.reflection_calls["*conversion_service*"].append(file_path)
-            if self.verbose:
-                print(f"  🔍 Found ConversionService reflection usage in {file_path}")
 
-    def find_unused_events(self) -> list[dict[str, Any]]:
-        """Find events that are defined but never published."""
-        unused = []
+def _call_arg(node: ast.Call, position: int, keyword: str) -> ast.expr | None:
+    for kw in node.keywords:
+        if kw.arg == keyword:
+            return kw.value
+    if len(node.args) > position:
+        return node.args[position]
+    return None
 
-        for event_class, def_files in self.event_definitions.items():
-            pub_files = self.event_publications.get(event_class, [])
 
-            if not pub_files:
-                unused.append(
-                    {
-                        "event_class": event_class,
-                        "defined_in": def_files,
-                        "published_in": [],
-                        "subscribed_in": self.event_subscriptions.get(event_class, []),
-                    }
-                )
+class EventUsageCollector:
+    """Collects publish / construct / subscribe sites for the event universe.
 
-        return unused
+    Resolution rules (all structural, all file-scoped):
+    - Import aliases: ``from core.events.x import TaskCompleted as TC`` makes
+      ``TC`` resolve to ``TaskCompleted`` within that file.
+    - Variables: ``x = EventClass(...)`` anywhere in a file lets a later
+      ``publish_*(x)`` in the same file resolve — over-approximation in the
+      safe direction (it can only suppress a dead-event accusation).
+    - Publish wrappers: see PublishWrapperInference.
+    Cross-FILE event flow is never traced — it surfaces as an unresolved
+    publish site plus the UNVERIFIED construction tier.
+    """
 
-    def find_dead_subscriptions(self) -> list[dict[str, Any]]:
-        """Find event subscriptions where the event is never published."""
-        dead_subs = []
+    def __init__(self, universe: EventUniverse, codebase: ParsedCodebase) -> None:
+        self.universe = universe
+        self.codebase = codebase
+        self.usage = EventUsage()
+        self.wrappers = PublishWrapperInference(codebase)
 
-        for event_class, sub_files in self.event_subscriptions.items():
-            pub_files = self.event_publications.get(event_class, [])
+    def collect(self) -> EventUsage:
+        self.wrappers.infer()
+        for path, tree in self.codebase.production.items():
+            self._collect_file(self.codebase.rel(path), tree, is_test=False)
+        for path, tree in self.codebase.tests.items():
+            self._collect_file(self.codebase.rel(path), tree, is_test=True)
+        return self.usage
 
-            if not pub_files:
-                dead_subs.append(
-                    {
-                        "event_class": event_class,
-                        "subscribed_in": sub_files,
-                        "published_in": [],
-                        "defined_in": self.event_definitions.get(event_class, []),
-                    }
-                )
+    # -- per-file ------------------------------------------------------------
 
-        return dead_subs
+    def _collect_file(self, rel: str, tree: ast.Module, is_test: bool) -> None:
+        aliases = self._file_alias_map(tree)
+        var_events = self._file_event_var_index(tree, aliases)
+        var_lists = self._file_event_list_index(tree, aliases)
+        in_events_pkg = rel.startswith("core/events/")
 
-    def find_unused_service_methods(self) -> list[dict[str, Any]]:
-        """Find public service methods that are never called externally."""
-        unused = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            site = Site(rel, node.lineno)
 
-        for service_name, methods in self.service_methods.items():
-            for method_name, def_files in methods.items():
-                # Check if method is called anywhere
-                call_files = self.method_calls.get(method_name, [])
+            # Constructions: EventClass(...) anywhere. Definitions inside
+            # core/events/ are the class statements, not constructions, so the
+            # package itself still counts (it rarely constructs its own events).
+            ctor = self._ctor_class(node, aliases)
+            if ctor is not None and not in_events_pkg:
+                target = self.usage.test_constructed if is_test else self.usage.constructed
+                target[ctor].append(site)
 
-                # Filter out self-calls (calls within the same file)
-                external_calls = [f for f in call_files if f not in def_files]
+            candidates, is_publish = self.wrappers.event_arg_candidates(node)
+            if is_publish:
+                if (rel, node.lineno) in self.wrappers.interior_sites:
+                    continue  # parameter pass-through, accounted at call sites
+                self._record_publish(node, candidates, var_events, aliases, site, is_test)
+            elif (
+                _base_name(node.func) == "subscribe"
+                and isinstance(node.func, ast.Attribute)
+                and not is_test
+            ):
+                self._record_subscribe(node, var_lists, aliases, site)
 
-                if not external_calls:
-                    unused.append(
-                        {
-                            "service": service_name,
-                            "method": method_name,
-                            "defined_in": def_files,
-                            "called_in": call_files,
-                            "external_calls": external_calls,
-                        }
+    # -- name resolution -------------------------------------------------------
+
+    def _file_alias_map(self, tree: ast.Module) -> dict[str, str]:
+        """Import-alias -> canonical event class name, for one file."""
+        aliases: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    if alias.asname and alias.name in self.universe:
+                        aliases[alias.asname] = alias.name
+        return aliases
+
+    def _resolve(self, name: str | None, aliases: dict[str, str]) -> str | None:
+        if name is None:
+            return None
+        if name in self.universe:
+            return name
+        return aliases.get(name)
+
+    def _ctor_class(self, node: ast.expr, aliases: dict[str, str]) -> str | None:
+        if isinstance(node, ast.Call):
+            return self._resolve(_base_name(node.func), aliases)
+        return None
+
+    # -- variable indices (file-scoped, safe over-approximation) --------------
+
+    def _file_event_var_index(
+        self, tree: ast.Module, aliases: dict[str, str]
+    ) -> dict[str, set[str]]:
+        """var name -> event classes assigned to it: ``x = EventClass(...)``."""
+        index: dict[str, set[str]] = defaultdict(set)
+        for node in ast.walk(tree):
+            value = None
+            targets: list[ast.expr] = []
+            if isinstance(node, ast.Assign):
+                value, targets = node.value, node.targets
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                value, targets = node.value, [node.target]
+            if value is None:
+                continue
+            cls = self._ctor_class(value, aliases)
+            if cls is None:
+                continue
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    index[target.id].add(cls)
+        return index
+
+    def _file_event_list_index(
+        self, tree: ast.Module, aliases: dict[str, str]
+    ) -> dict[str, set[str]]:
+        """var name -> event classes, for subscribe-loop resolution.
+
+        Covers ``events = [TaskCreated, ...]`` and ``for ev in events:`` /
+        ``for ev in [TaskCreated, ...]:`` (services_bootstrap/_event_wiring.py).
+        """
+        index: dict[str, set[str]] = defaultdict(set)
+        list_vars: dict[str, set[str]] = defaultdict(set)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.List):
+                classes = self._event_names_in_list(node.value, aliases)
+                if classes:
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            list_vars[target.id].update(classes)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.For, ast.AsyncFor)):
+                continue
+            if not isinstance(node.target, ast.Name):
+                continue
+            loop_classes: set[str] = set()
+            if isinstance(node.iter, ast.List):
+                loop_classes = self._event_names_in_list(node.iter, aliases)
+            elif isinstance(node.iter, ast.Name):
+                loop_classes = list_vars.get(node.iter.id, set())
+            if loop_classes:
+                index[node.target.id].update(loop_classes)
+
+        return index
+
+    def _event_names_in_list(self, node: ast.List, aliases: dict[str, str]) -> set[str]:
+        resolved = (
+            self._resolve(elt.id, aliases) for elt in node.elts if isinstance(elt, ast.Name)
+        )
+        return {name for name in resolved if name is not None}
+
+    # -- recording -----------------------------------------------------------
+
+    def _record_publish(
+        self,
+        call: ast.Call,
+        candidates: list[ast.expr],
+        var_events: dict[str, set[str]],
+        aliases: dict[str, str],
+        site: Site,
+        is_test: bool,
+    ) -> None:
+        published = self.usage.test_published if is_test else self.usage.published
+        # Bare .publish() exists on non-event objects; only its resolvable
+        # calls count, and it never lands in the unresolved tally (noise).
+        is_bare_publish = _base_name(call.func) == "publish"
+        for arg in candidates:
+            ctor = self._ctor_class(arg, aliases)
+            if ctor is not None:
+                published[ctor].append(site)
+                return
+            if isinstance(arg, ast.Name):
+                classes = set(var_events.get(arg.id, set()))
+                direct = self._resolve(arg.id, aliases)
+                if direct is not None:
+                    classes.add(direct)
+                if classes:
+                    for cls in classes:
+                        published[cls].append(site)
+                    return
+        if not is_test and not is_bare_publish:
+            self.usage.unresolved_publishes.append(site)
+
+    def _record_subscribe(
+        self,
+        node: ast.Call,
+        var_lists: dict[str, set[str]],
+        aliases: dict[str, str],
+        site: Site,
+    ) -> None:
+        arg = _call_arg(node, position=0, keyword="event_type")
+        if isinstance(arg, ast.Name):
+            resolved = self._resolve(arg.id, aliases)
+            if resolved is not None:
+                self.usage.subscribed[resolved].append(site)
+                return
+            if arg.id in var_lists:
+                for cls in var_lists[arg.id]:
+                    self.usage.subscribed[cls].append(site)
+                return
+        self.usage.unresolved_subscribes.append(site)
+
+
+# ============================================================================
+# Event findings assembly
+# ============================================================================
+
+
+def analyze_events(
+    universe: EventUniverse, usage: EventUsage
+) -> tuple[list[Finding], list[Finding]]:
+    """Build (findings, exempted) for the event universe.
+
+    Liveness rule: an event is publish-live iff it OR any descendant has a
+    resolved publish site (an intermediate base is not dead while its children
+    fly). Tier order: live -> UNVERIFIED (constructed in production, flow not
+    traceable) -> WARNING (structurally dead).
+    """
+    findings: list[Finding] = []
+    exempted: list[Finding] = []
+
+    for cls, site in sorted(universe.classes.items()):
+        family = {cls} | universe.descendants[cls]
+        publish_live = any(usage.published.get(member) for member in family)
+        subscribed = usage.subscribed.get(cls, [])
+
+        if publish_live:
+            if not subscribed and not universe.descendants[cls]:
+                findings.append(
+                    Finding(
+                        kind="event-never-subscribed",
+                        severity=BloatSeverity.INFO,
+                        subject=cls,
+                        file=site.file,
+                        line=site.line,
+                        detail="published but no subscriber — fine if fire-and-forget",
                     )
-
-        return unused
-
-    def _is_reflection_method(self, service: str, method: str) -> bool:
-        """Check if method is used via reflection."""
-        # Direct reflection call
-        if method in self.reflection_calls:
-            return True
-
-        # ConversionService - if we found any ConversionService reflection usage
-        if service == "conversion_service":
-            # If we detected ConversionService reflection usage, all its methods are reflection-used
-            if "*conversion_service*" in self.reflection_calls:
-                return True
-            # Check for patterns like *_to_pure, *_to_dto, etc.
-            for pattern in self.reflection_calls.keys():
-                if pattern.startswith("*") and pattern[1:] in method:
-                    return True
-
-        return False
-
-    def generate_report(
-        self, check_events: bool = True, check_methods: bool = True
-    ) -> dict[str, Any]:
-        """Generate comprehensive bloat report."""
-        report: dict[str, Any] = {}
-
-        if check_events:
-            unused_events = self.find_unused_events()
-            dead_subscriptions = self.find_dead_subscriptions()
-
-            report["unused_events"] = unused_events
-            report["dead_subscriptions"] = dead_subscriptions
-            report["total_events"] = len(self.event_definitions)
-            report["unused_event_count"] = len(unused_events)
-            report["dead_subscription_count"] = len(dead_subscriptions)
-
-        if check_methods:
-            unused_service_methods = self.find_unused_service_methods()
-
-            report["unused_service_methods"] = unused_service_methods
-            report["total_service_methods"] = sum(
-                len(methods) for methods in self.service_methods.values()
-            )
-            report["unused_service_method_count"] = len(unused_service_methods)
-
-        return report
-
-    def print_report(self, report: dict[str, Any]) -> None:
-        """Print formatted bloat report."""
-        print(f"\n{BOLD}{'=' * 80}{RESET}")
-        print(f"{BOLD}{CYAN}📊 BLOAT DETECTION REPORT{RESET}")
-        print(f"{BOLD}{'=' * 80}{RESET}\n")
-
-        # Unused Events Section
-        if "unused_events" in report:
-            unused_events = report["unused_events"]
-            total_events = report["total_events"]
-            unused_count = report["unused_event_count"]
-
-            print(f"{BOLD}🔔 Events Analysis{RESET}")
-            print(f"  Total events defined: {total_events}")
-            print(f"  Unused events: {YELLOW}{unused_count}{RESET}")
-
-            if unused_events:
-                print(f"\n{YELLOW}⚠️  Unused Events (defined but never published):{RESET}\n")
-                for item in unused_events:
-                    print(f"  {RED}✗{RESET} {BOLD}{item['event_class']}{RESET}")
-                    print(f"    Defined in: {', '.join(item['defined_in'])}")
-                    if item["subscribed_in"]:
-                        print(
-                            f"    {YELLOW}⚠️  Has subscribers!{RESET} {', '.join(item['subscribed_in'])}"
-                        )
-                    print()
-            else:
-                print(f"  {GREEN}✓ No unused events found!{RESET}\n")
-
-        # Dead Subscriptions Section
-        if "dead_subscriptions" in report:
-            dead_subs = report["dead_subscriptions"]
-            dead_count = report["dead_subscription_count"]
-
-            if dead_count > 0:
-                print(f"{BOLD}📥 Event Subscriptions Analysis{RESET}")
-                print(f"  Dead subscriptions: {YELLOW}{dead_count}{RESET}\n")
-
-                print(f"{YELLOW}⚠️  Dead Subscriptions (subscribed but never published):{RESET}\n")
-                for item in dead_subs:
-                    print(f"  {RED}✗{RESET} {BOLD}{item['event_class']}{RESET}")
-                    print(f"    Subscribed in: {', '.join(item['subscribed_in'])}")
-                    if item["defined_in"]:
-                        print(f"    Defined in: {', '.join(item['defined_in'])}")
-                    else:
-                        print(f"    {RED}⚠️  Event not defined!{RESET}")
-                    print()
-
-        # Unused Service Methods Section
-        if "unused_service_methods" in report:
-            unused_methods = report["unused_service_methods"]
-            total_methods = report["total_service_methods"]
-            unused_method_count = report["unused_service_method_count"]
-
-            print(f"\n{BOLD}🔧 Service Methods Analysis{RESET}")
-            print(f"  Total public service methods: {total_methods}")
-            print(f"  Potentially unused methods: {YELLOW}{unused_method_count}{RESET}")
-
-            if unused_methods:
-                print(
-                    f"\n{YELLOW}⚠️  Potentially Unused Service Methods (no external calls):{RESET}\n"
                 )
+            continue
 
-                # Group by service
-                by_service: dict[str, list] = defaultdict(list)
-                for item in unused_methods:
-                    by_service[item["service"]].append(item)
+        constructed = [s for member in family for s in usage.constructed.get(member, [])]
+        annotations = []
+        if subscribed:
+            annotations.append(
+                f"has subscribers ({', '.join(str(s) for s in subscribed[:3])}) — dead wiring chain"
+            )
+        test_sites = [
+            s
+            for member in family
+            for s in usage.test_published.get(member, []) + usage.test_constructed.get(member, [])
+        ]
+        if test_sites:
+            annotations.append(f"referenced in tests ({len(test_sites)} sites)")
 
-                for service_name in sorted(by_service.keys()):
-                    methods = by_service[service_name]
-                    print(f"  {BOLD}{service_name}{RESET} ({len(methods)} methods):")
-                    for item in methods:
-                        print(f"    {RED}✗{RESET} {item['method']}")
-                        if item["called_in"]:
-                            print(f"      (called internally in {len(item['called_in'])} places)")
-                        # NEW: Note if used via reflection
-                        if self._is_reflection_method(item["service"], item["method"]):
-                            print(f"      {CYAN}ℹ️  Used via reflection (getattr){RESET}")
-                    print()
-            else:
-                print(f"  {GREEN}✓ No unused service methods found!{RESET}\n")
-
-        # Summary
-        print(f"{BOLD}{'=' * 80}{RESET}")
-        print(f"{BOLD}📈 Summary{RESET}\n")
-
-        total_issues = 0
-        if "unused_event_count" in report:
-            total_issues += report["unused_event_count"]
-            total_issues += report.get("dead_subscription_count", 0)
-
-        if "unused_service_method_count" in report:
-            total_issues += report["unused_service_method_count"]
-
-        if total_issues == 0:
-            print(f"{GREEN}{BOLD}✅ No bloat detected! Codebase is clean.{RESET}\n")
+        if constructed:
+            finding = Finding(
+                kind="event-publication-untraced",
+                severity=BloatSeverity.UNVERIFIED,
+                subject=cls,
+                file=site.file,
+                line=site.line,
+                detail=(
+                    f"constructed at {constructed[0]} but publication not "
+                    "structurally traceable — verify manually"
+                ),
+                annotations=annotations,
+            )
         else:
-            print(f"{YELLOW}Found {total_issues} potential bloat issues.{RESET}")
-            print(
-                f"{CYAN}Review these items to determine if they should be removed or implemented.{RESET}\n"
+            finding = Finding(
+                kind="event-never-published",
+                severity=BloatSeverity.WARNING,
+                subject=cls,
+                file=site.file,
+                line=site.line,
+                detail="defined but never published nor constructed in production code",
+                annotations=annotations,
             )
 
-        print(f"{BOLD}{'=' * 80}{RESET}\n")
+        if cls in EXEMPTED_EVENTS:
+            finding.annotations.append(f"exempted: {EXEMPTED_EVENTS[cls]}")
+            exempted.append(finding)
+        else:
+            findings.append(finding)
+
+    return findings, exempted
 
 
-def main():
-    """Run bloat detection."""
-    parser = argparse.ArgumentParser(description="Detect unused code in SKUEL codebase")
+# ============================================================================
+# Reporting
+# ============================================================================
+
+
+def _print_finding(finding: Finding) -> None:
+    mark = {
+        BloatSeverity.WARNING: f"{Colors.RED}✗{Colors.RESET}",
+        BloatSeverity.UNVERIFIED: f"{Colors.YELLOW}?{Colors.RESET}",
+        BloatSeverity.INFO: f"{Colors.CYAN}i{Colors.RESET}",
+    }[finding.severity]
+    print(f"  {mark} {Colors.BOLD}{finding.subject}{Colors.RESET}  ({finding.file}:{finding.line})")
+    print(f"      {finding.detail}")
+    for note in finding.annotations:
+        print(f"      {Colors.YELLOW}⚠ {note}{Colors.RESET}")
+
+
+def print_event_report(
+    universe: EventUniverse,
+    usage: EventUsage,
+    findings: list[Finding],
+    exempted: list[Finding],
+    verbose: bool,
+) -> None:
+    print(f"\n{Colors.BOLD}🔔 Events Analysis{Colors.RESET}")
+    registry = universe.registry_size()
+    registry_note = f" (EVENT_REGISTRY lists {registry})" if registry is not None else ""
+    print(
+        f"  Event universe (transitive BaseEvent subclasses): {len(universe.classes)}{registry_note}"
+    )
+    resolved_pubs = sum(len(v) for v in usage.published.values())
+    resolved_subs = sum(len(v) for v in usage.subscribed.values())
+    print(
+        f"  Resolved publish sites: {resolved_pubs}  (unresolved: {len(usage.unresolved_publishes)})"
+    )
+    print(
+        f"  Resolved subscriptions: {resolved_subs}  (unresolved: {len(usage.unresolved_subscribes)})"
+    )
+
+    # Self-diagnostic: a scanner finding nothing is more likely broken than
+    # the codebase being silent (fail-fast applied to the tool itself).
+    if resolved_pubs == 0 or resolved_subs == 0:
+        print(
+            f"\n{Colors.RED}{Colors.BOLD}🚨 SELF-DIAGNOSTIC: zero resolved "
+            f"{'publish sites' if resolved_pubs == 0 else 'subscriptions'} — "
+            f"the collector is almost certainly broken. Do not trust this report.{Colors.RESET}"
+        )
+
+    by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
+    for finding in findings:
+        by_severity[finding.severity].append(finding)
+
+    for severity, title in [
+        (BloatSeverity.WARNING, "Structurally dead events"),
+        (BloatSeverity.UNVERIFIED, "Constructed but publication untraced — verify manually"),
+        (BloatSeverity.INFO, "Published but never subscribed (may be intentional)"),
+    ]:
+        items = by_severity.get(severity, [])
+        if not items:
+            continue
+        print(f"\n{Colors.YELLOW}{title} ({len(items)}):{Colors.RESET}\n")
+        for finding in items:
+            _print_finding(finding)
+
+    if not findings:
+        print(f"\n  {Colors.GREEN}✓ No event findings.{Colors.RESET}")
+
+    if exempted:
+        print(
+            f"\n  {Colors.DIM}exempted ({len(exempted)}): "
+            f"{', '.join(f.subject for f in exempted)}{Colors.RESET}"
+        )
+
+    if verbose and usage.unresolved_publishes:
+        print(f"\n{Colors.DIM}Unresolved publish sites:{Colors.RESET}")
+        for site in usage.unresolved_publishes:
+            print(f"  {Colors.DIM}{site}{Colors.RESET}")
+    if verbose and usage.unresolved_subscribes:
+        print(f"\n{Colors.DIM}Unresolved subscription sites:{Colors.RESET}")
+        for site in usage.unresolved_subscribes:
+            print(f"  {Colors.DIM}{site}{Colors.RESET}")
+
+
+def print_limitations(codebase: ParsedCodebase, usage: EventUsage | None) -> None:
+    print(f"\n{Colors.BOLD}📏 Limitations (read before acting on findings){Colors.RESET}")
+    if usage is not None:
+        print(
+            f"  - {len(usage.unresolved_publishes)} publish and "
+            f"{len(usage.unresolved_subscribes)} subscribe sites could not be "
+            "resolved to an event class (run --verbose for locations)."
+        )
+        print(
+            "  - No cross-file dataflow by design: events that travel between "
+            "files before publication land in the UNVERIFIED tier, not WARNING."
+        )
+    if codebase.syntax_errors:
+        print(
+            f"  - {Colors.RED}{len(codebase.syntax_errors)} files failed to parse "
+            f"— their usage is INVISIBLE to this report:{Colors.RESET}"
+        )
+        for err in codebase.syntax_errors:
+            print(f"      {err}")
+
+
+# ============================================================================
+# CLI
+# ============================================================================
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Detect unused code in SKUEL (AST-sound)")
     parser.add_argument("--events-only", action="store_true", help="Check events only")
     parser.add_argument("--methods-only", action="store_true", help="Check methods only")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
-
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit 1 if WARNING findings survive (advisory otherwise)",
+    )
+    parser.add_argument("--json", action="store_true", dest="as_json", help="Emit findings as JSON")
     args = parser.parse_args()
 
-    # Determine what to check
+    if not sys.stdout.isatty():
+        Colors.disable()
+
     check_events = not args.methods_only
     check_methods = not args.events_only
 
-    # Initialize detector
-    root_dir = Path(__file__).parent.parent
-    detector = BloatDetector(root_dir, verbose=args.verbose)
+    # With --json, stdout carries ONLY the findings document.
+    progress_out = sys.stderr if args.as_json else sys.stdout
 
-    # Scan codebase
-    detector.scan_codebase()
+    if check_methods:
+        print(
+            f"{Colors.YELLOW}Method analysis: not yet implemented in the rewrite "
+            f"(lands in PR 2 — Vulture engine + dispatch-knowledge filter).{Colors.RESET}",
+            file=progress_out,
+        )
+        if not check_events:
+            return 0
 
-    # Generate report
-    report = detector.generate_report(check_events=check_events, check_methods=check_methods)
+    print(f"{Colors.CYAN}🔍 Parsing codebase...{Colors.RESET}", file=progress_out)
+    codebase = ParsedCodebase(ROOT)
+    codebase.load()
+    print(
+        f"  {len(codebase.production)} production files, "
+        f"{len(codebase.tests)} test files parsed"
+        + (
+            f", {Colors.RED}{len(codebase.syntax_errors)} unparseable{Colors.RESET}"
+            if codebase.syntax_errors
+            else ""
+        ),
+        file=progress_out,
+    )
 
-    # Print report
-    detector.print_report(report)
+    findings: list[Finding] = []
+    usage: EventUsage | None = None
+
+    if check_events:
+        universe = EventUniverse(codebase)
+        universe.build()
+        usage = EventUsageCollector(universe, codebase).collect()
+        event_findings, exempted = analyze_events(universe, usage)
+        findings.extend(event_findings)
+        if args.as_json:
+            print(json.dumps([f.to_json() for f in event_findings], indent=2))
+        else:
+            print_event_report(universe, usage, event_findings, exempted, args.verbose)
+
+    if not args.as_json:
+        print_limitations(codebase, usage)
+        warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
+        print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
+        if warnings:
+            print(
+                f"{Colors.YELLOW}{len(warnings)} structurally-dead findings "
+                f"(+{len(findings) - len(warnings)} unverified/info). "
+                f"Verify before deleting.{Colors.RESET}"
+            )
+        else:
+            print(f"{Colors.GREEN}✅ No structurally-dead findings.{Colors.RESET}")
+
+    if args.check:
+        return 1 if any(f.severity is BloatSeverity.WARNING for f in findings) else 0
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
