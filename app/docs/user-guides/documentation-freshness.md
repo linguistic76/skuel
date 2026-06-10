@@ -33,21 +33,21 @@ Any time
 ## System 1: Claude Code Post-Commit Hook
 
 **File:** `.claude/hooks/post-commit-docs.sh`
-**Trigger:** Fires after any `git commit` via Bash tool use
+**Trigger:** Fires after any Bash command invoking `git commit` (compound chains included)
 **Cost:** ~0ms for non-commits, ~80ms for commits
 
 After a commit, the hook:
-1. Collects changed `.py` files
+1. Collects changed code files (`.py`/`.js`/`.css`/`.sh`/`.toml`/`.yaml`, deletions included)
 2. Finds docs/skills that reference those filenames (via `grep`)
 3. Cross-references `skills_metadata.yaml` to identify affected skills
-4. Returns a system message so Claude can semantically evaluate staleness
+4. Returns `hookSpecificOutput.additionalContext` + a `systemMessage` summary so Claude can semantically evaluate staleness
 
 ### What You See
 
 ```
 POST-COMMIT DOCS CHECK: A commit just landed...
 
-Changed Python files (3):
+Changed code files (3):
   - core/services/tasks_service.py
   - core/services/tasks/tasks_core_service.py
   - adapters/inbound/tasks_routes.py

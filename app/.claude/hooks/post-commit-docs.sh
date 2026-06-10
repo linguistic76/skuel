@@ -2,9 +2,13 @@
 #
 # Claude Code PostToolUse Hook: Documentation Staleness Detection
 #
-# Fires after git commit (filtered by "if": "Bash(git commit:*)" in settings).
-# Collects changed files, finds referencing docs, returns a systemMessage
-# so Claude can semantically evaluate staleness.
+# Fires after any Bash command that invokes `git commit` — including compound
+# chains like `git add ... && git commit ...` (the PostToolUse matcher fires
+# on every Bash call; filtering happens inside this script). Collects changed
+# files, finds referencing docs/skills, and returns additionalContext (for
+# Claude to semantically evaluate staleness) + a systemMessage summary.
+#
+# See: /docs/tools/AUTOMATIC_DOCS_CHECK.md
 #
 
 set -euo pipefail
@@ -25,7 +29,12 @@ except Exception:
     print('')
 " "$INPUT" 2>/dev/null || echo "")
 
-if [[ "$TOOL_COMMAND" != git\ commit* ]]; then
+# Match a `git commit` invocation at a command-segment boundary (start of
+# command, or after ; & | or whitespace) — a bare prefix check missed every
+# compound chain ("git add ... && git commit ..."), which kept this hook
+# silent for most real commits.
+COMMIT_RE='(^|[;&|[:space:]])git[[:space:]]+commit'
+if [[ ! "$TOOL_COMMAND" =~ $COMMIT_RE ]]; then
     echo '{}'
     exit 0
 fi
@@ -46,6 +55,17 @@ if [[ "$TOOL_RESPONSE" == *"nothing to commit"* ]] || [[ "$TOOL_RESPONSE" == *"n
     exit 0
 fi
 
+# Positive marker: a successful git commit prints its stats summary
+# ("N file(s) changed, ..."). Requiring it kills the false-fire class where
+# a non-commit command merely CONTAINS the string "git commit" (e.g. a grep
+# pattern) inside the recency window. Known miss: `git commit --quiet`
+# prints nothing and is skipped — acceptable for an advisory check.
+COMMIT_MARKER_RE='[0-9]+ files? changed'
+if [[ ! "$TOOL_RESPONSE" =~ $COMMIT_MARKER_RE ]]; then
+    echo '{}'
+    exit 0
+fi
+
 # Get project root
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)/app
 if [[ ! -d "$PROJECT_ROOT" ]]; then
@@ -53,8 +73,20 @@ if [[ ! -d "$PROJECT_ROOT" ]]; then
     exit 0
 fi
 
-# Get changed .py files from the commit
-CHANGED_FILES=$(git -C "$PROJECT_ROOT" diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep '\.py$' || true)
+# Guard against false fires: the regex can match inside a quoted string
+# (e.g. a commit message that merely *mentions* git commit), and HEAD would
+# then be some older commit. Only proceed if HEAD was committed moments ago.
+MAX_AGE_S="${SKUEL_DOCS_CHECK_MAX_AGE_S:-300}"
+HEAD_TS=$(git -C "$PROJECT_ROOT" log -1 --format=%ct 2>/dev/null || echo 0)
+if (( $(date +%s) - HEAD_TS > MAX_AGE_S )); then
+    echo '{}'
+    exit 0
+fi
+
+# Get changed code files from the commit (deletions included — docs that
+# reference a deleted file definitely need updating). Not just .py: static
+# JS, hooks, and config are documented in skills/docs too.
+CHANGED_FILES=$(git -C "$PROJECT_ROOT" diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep -E '\.(py|js|css|sh|toml|ya?ml)$' || true)
 if [[ -z "$CHANGED_FILES" ]]; then
     echo '{}'
     exit 0
@@ -66,12 +98,13 @@ DIFF_STAT=$(git -C "$PROJECT_ROOT" diff-tree --no-commit-id --stat HEAD 2>/dev/n
 # Detect newly added .md files (for INDEX.md updates)
 NEW_DOCS=$(git -C "$PROJECT_ROOT" diff-tree --no-commit-id --diff-filter=A -r HEAD 2>/dev/null | awk '{print $NF}' | grep '\.md$' || true)
 
-# Build ripgrep patterns from changed filenames (deduplicated basenames)
+# Build grep patterns from changed filenames (deduplicated basenames,
+# dots escaped so "x.py" doesn't match "xapy")
 PATTERNS=""
-declare -A SEEN_BASENAMES 2>/dev/null || true
 while IFS= read -r file; do
     [[ -z "$file" ]] && continue
     bn=$(basename "$file")
+    bn="${bn//./\\.}"
     # Simple dedup: skip if we already have this basename in the pattern
     if [[ "$PATTERNS" == *"$bn"* ]]; then
         continue
@@ -180,7 +213,7 @@ fi
 MSG="POST-COMMIT DOCS CHECK: A commit just landed. Review whether any documentation needs updating.
 
 Commit stats: $DIFF_STAT
-Changed Python files ($FILE_COUNT):
+Changed code files ($FILE_COUNT):
 $CHANGED_LIST"
 
 if [[ -n "$DOC_LIST" ]]; then
@@ -217,11 +250,23 @@ if [[ "$SKILL_COUNT" -gt 0 ]]; then
     SUMMARY="$SUMMARY, $SKILL_COUNT skills flagged"
 fi
 
-# Use Python for reliable JSON escaping
-# additionalContext = full detail for Claude; systemMessage = visible summary for user
+# Use Python for reliable JSON escaping.
+# additionalContext = full detail for Claude — for PostToolUse hooks it MUST
+# be nested under hookSpecificOutput or the harness ignores it (a top-level
+# additionalContext was silently dropped). systemMessage = visible summary.
 python3 -c "
 import json, sys
-print(json.dumps({'additionalContext': sys.argv[1], 'systemMessage': sys.argv[2]}))
+print(
+    json.dumps(
+        {
+            'hookSpecificOutput': {
+                'hookEventName': 'PostToolUse',
+                'additionalContext': sys.argv[1],
+            },
+            'systemMessage': sys.argv[2],
+        }
+    )
+)
 " "$MSG" "$SUMMARY"
 
 exit 0
