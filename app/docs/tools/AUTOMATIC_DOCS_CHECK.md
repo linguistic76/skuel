@@ -17,17 +17,27 @@ Every time you commit code via Claude Code's Bash tool, the hook automatically:
 3. Cross-references `skills_metadata.yaml` to identify affected skills
 4. Returns `hookSpecificOutput.additionalContext` (full detail, injected into Claude's context) plus a `systemMessage` summary (visible to the user)
 
-**Trigger mechanics (fixed 2026-06-10):** the PostToolUse matcher fires on
-every Bash call; the script filters for a `git commit` invocation at a
-command-segment boundary, so compound chains like
+**Trigger mechanics (fixed 2026-06-10, hardened same day):** the PostToolUse
+matcher fires on every Bash call; the script filters for a `git commit`
+invocation at a command-segment boundary, so compound chains like
 `git add ... && git commit ...` are covered (the original prefix-only check
-missed them, which kept the hook silent for most real commits). A
-HEAD-recency guard (`SKUEL_DOCS_CHECK_MAX_AGE_S`, default 300s) bounds false
-fires: a command that merely *mentions* "git commit" inside a string can
-match the regex, but outside the window the hook exits silently, and inside
-it the worst case is re-suggesting review of a genuinely recent commit. The
+missed them, which kept the hook silent for most real commits). Commit
+confirmation is two-tier: the stats marker (`N files changed`) in the tool
+output confirms a commit and gets the generous HEAD-recency window
+(`SKUEL_DOCS_CHECK_MAX_AGE_S`, default 300s); when the marker is hidden —
+piped output (`git commit ... | tail -5`) or `git commit --quiet`, which
+silently skipped a 58-file commit before the hardening — the hook falls back
+to a tight window (`SKUEL_DOCS_CHECK_FALLBACK_AGE_S`, default 60s) as the
+only evidence a commit just landed. False fires are bounded either way: a
+command that merely *mentions* "git commit" inside a string can match the
+regex, but outside the window the hook exits silently, and inside it the
+worst case is re-suggesting review of a genuinely recent commit. The
 original output also placed `additionalContext` at the JSON top level, where
 PostToolUse ignores it — it must be nested under `hookSpecificOutput`.
+
+Note: merges via `gh pr merge` never trigger the hook (no local `git commit`;
+the squash commit is created server-side). That is by design — branch content
+is checked at local commit time.
 
 ```
 POST-COMMIT DOCS CHECK: A commit just landed...
@@ -66,7 +76,7 @@ Claude then reads the flagged docs, compares them against what actually changed,
 - No code files (`.py`/`.js`/`.css`/`.sh`/`.toml`/`.yaml`) in the commit
 - No docs reference the changed filenames
 - The commit failed (`nothing to commit`)
-- HEAD is older than the recency window (guards against false regex matches)
+- HEAD is older than the recency window — 300s with the stats marker, 60s without (guards against false regex matches)
 - Running outside Claude Code (standard git commits bypass the hook)
 
 ---

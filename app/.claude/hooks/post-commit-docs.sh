@@ -56,14 +56,20 @@ if [[ "$TOOL_RESPONSE" == *"nothing to commit"* ]] || [[ "$TOOL_RESPONSE" == *"n
 fi
 
 # Positive marker: a successful git commit prints its stats summary
-# ("N file(s) changed, ..."). Requiring it kills the false-fire class where
+# ("N file(s) changed, ..."). When present it kills the false-fire class where
 # a non-commit command merely CONTAINS the string "git commit" (e.g. a grep
-# pattern) inside the recency window. Known miss: `git commit --quiet`
-# prints nothing and is skipped — acceptable for an advisory check.
+# pattern) inside the recency window. When ABSENT we don't bail — piped
+# commits (`git commit ... | tail -5`) and `git commit --quiet` hide the
+# stats line yet still commit (this silently skipped the 58-file ADR-068
+# commit). Instead, a marker-less match falls through to a much TIGHTER
+# recency window below: a real commit lands seconds before this hook runs,
+# while the grep-pattern false-fire class only slips through if it runs
+# within seconds of an unrelated real commit — rare, and the cost is a
+# duplicate advisory check, not a wrong one.
 COMMIT_MARKER_RE='[0-9]+ files? changed'
+MARKER_PRESENT=1
 if [[ ! "$TOOL_RESPONSE" =~ $COMMIT_MARKER_RE ]]; then
-    echo '{}'
-    exit 0
+    MARKER_PRESENT=0
 fi
 
 # Get project root
@@ -76,9 +82,20 @@ fi
 # Guard against false fires: the regex can match inside a quoted string
 # (e.g. a commit message that merely *mentions* git commit), and HEAD would
 # then be some older commit. Only proceed if HEAD was committed moments ago.
+# Two-tier window: with the stats marker confirming a commit, the generous
+# window applies; without it (truncated/quiet output) the tight window is
+# the only evidence a commit just happened, so it must be small enough to
+# exclude stale HEADs while covering hook latency after the commit lands.
 MAX_AGE_S="${SKUEL_DOCS_CHECK_MAX_AGE_S:-300}"
+FALLBACK_AGE_S="${SKUEL_DOCS_CHECK_FALLBACK_AGE_S:-60}"
 HEAD_TS=$(git -C "$PROJECT_ROOT" log -1 --format=%ct 2>/dev/null || echo 0)
-if (( $(date +%s) - HEAD_TS > MAX_AGE_S )); then
+HEAD_AGE=$(( $(date +%s) - HEAD_TS ))
+if (( MARKER_PRESENT )); then
+    if (( HEAD_AGE > MAX_AGE_S )); then
+        echo '{}'
+        exit 0
+    fi
+elif (( HEAD_AGE > FALLBACK_AGE_S )); then
     echo '{}'
     exit 0
 fi
