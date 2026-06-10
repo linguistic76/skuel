@@ -656,7 +656,7 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 | Domain enums | `/core/models/enums/` |
 | Protocols | `/core/ports/` |
 | Generic backend | `/adapters/persistence/neo4j/universal_backend.py` |
-| Event bus | `/core/events/event_bus.py` |
+| Event bus | `/adapters/infrastructure/event_bus.py` (protocols: `/core/ports/infrastructure_protocols.py`) |
 | Exception types | `/core/utils/exception_types.py` |
 | Error boundary | `/core/utils/error_boundary.py` |
 | Result helpers | `/adapters/inbound/result_helpers.py` (`require_found`) |
