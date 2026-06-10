@@ -1,8 +1,8 @@
 """
-Learning Loop Events (ADR-054 Commit 6a)
-========================================
+Learning Loop Events (ADR-054)
+==============================
 
-Events for the teacher-student feedback loop, relocated from
+Events for the teacher-student feedback loop, relocated from the former
 ``core/events/submission_events.py`` during the UserEntry consolidation.
 Kept events (``ReportSubmitted``, ``RevisedExerciseCreated``) retain their
 names. Renamed events:
@@ -12,9 +12,7 @@ names. Renamed events:
 - ``SubmissionRevisionRequested`` → ``UserEntryRevisionRequested``
   (``submission_uid`` → ``entity_uid``)
 
-The legacy ``core/events/submission_events.py`` still defines the original
-symbols through Commit 6b. Importers should source these four events from
-here or via ``core.events`` re-exports.
+Source these events from here or via ``core.events`` re-exports.
 """
 
 from dataclasses import dataclass
@@ -28,7 +26,7 @@ class ReportSubmitted(BaseEvent):
     """Published when a teacher writes feedback on a user entry.
 
     Field ``submission_uid`` is retained (not renamed to ``entity_uid``)
-    for source-compatibility with the notification handler — the plan
+    for source-compatibility with the notification handler — ADR-054
     only renames the two events that took user-entry identity hits.
 
     See: /docs/decisions/ADR-040-teacher-exercise-workflow.md

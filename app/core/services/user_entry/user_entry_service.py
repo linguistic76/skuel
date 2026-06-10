@@ -1,14 +1,10 @@
 """
-UserEntryService — ADR-054 Step 5
-==================================
+UserEntryService — ADR-054
+===========================
 
 Facade over ``UserEntryBackend`` for the unified user-authored content
 domain. Handles creation (with optional exercise link, TRANSFORMS edge,
 and audience resolution), reads, updates, and deletion.
-
-Additive through Step 13 — the legacy ``core/services/submissions/`` and
-``core/services/journal/`` packages remain in place. Routes + processing
-handlers are rewired in later steps.
 
 Create flow
 -----------
@@ -24,8 +20,6 @@ Create flow
      - ``pipeline=TEACHER_REVIEW`` + no audience + no exercise → validation
        error (ADR §3: no silent no-audience turn-ins)
      - otherwise → honor explicit ``share_with_groups`` / ``share_with_users``
-
-See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
 """
 
 from __future__ import annotations

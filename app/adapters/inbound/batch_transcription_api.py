@@ -4,8 +4,8 @@ Batch Transcription API Routes
 
 Admin-only endpoint for batch audio transcription (Tier 1).
 
-Tier 2 (batch LLM txt→md) retired with ADR-054 Commit 6a — that path now
-lives inside ``UserEntryProcessingService`` per the unified hub.
+Tier 2 (batch LLM txt→md) retired with ADR-054 — that path now lives
+inside ``UserEntryProcessingService`` per the unified hub.
 
 Endpoints:
 - POST /api/journals/batch-transcribe — audio → txt (preview or run)

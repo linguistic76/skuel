@@ -1,15 +1,14 @@
 """
-UserEntry Routes (ADR-054 Commit 5b)
-=====================================
+UserEntry Routes (ADR-054)
+==========================
 
 Wires the ``user_entry`` domain's API + UI surface via ``DomainRouteConfig``,
 then re-registers the cross-cutting extension factories and the three sibling
 sub-UIs (exercise_reports, activity_reports, revised_exercises) that used to
-live under ``submissions_routes``. Commit 5b turns this file into the single
-entry point for the unified submission/journal experience.
+live under the legacy ``submissions_routes``. This is the single entry point
+for the unified submission/journal experience.
 
-See: /home/mike/.claude/plans/starry-waddling-coral.md
-     /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
+See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
 from typing import Any

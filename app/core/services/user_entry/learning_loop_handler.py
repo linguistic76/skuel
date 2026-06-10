@@ -1,6 +1,6 @@
 """
-UserEntry Learning Loop Event Handler — ADR-054 Commit 6a
-==========================================================
+UserEntry Learning Loop Event Handler — ADR-054
+===============================================
 
 Fire-and-forget handlers that track UserEntry iterations, teacher
 feedback turnaround calibration, and mastery velocity — persisting

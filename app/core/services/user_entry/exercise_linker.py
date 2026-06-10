@@ -1,6 +1,6 @@
 """
-UserEntry Exercise Linker — ADR-054 Commit 6a
-==============================================
+UserEntry Exercise Linker — ADR-054
+===================================
 
 Validates exercise-scope + group membership for a freshly created
 ``UserEntry`` and updates the entry's canonical title. The

@@ -1,10 +1,9 @@
 """
-UserEntry UI Routes (ADR-054 Commit 5b)
-========================================
+UserEntry UI Routes (ADR-054)
+=============================
 
-The single UI route file for the unified UserEntry hub. Replaces the legacy
-``submissions_ui``, ``submissions_hub_routes``, and ``journals_ui`` surfaces
-registered in parallel through Commit 5a.
+The single UI route file for the unified UserEntry hub. Replaced the legacy
+``submissions_ui``, ``submissions_hub_routes``, and ``journals_ui`` surfaces.
 
 Routes:
 - GET  /submit                           — Exercise worksheet upload form
@@ -23,8 +22,6 @@ Routes:
 
 All writes go through ``UserEntryService.submit_file``. All reads go through
 ``UserEntryOrchestrator``.
-
-See: /home/mike/.claude/plans/starry-waddling-coral.md (parent plan)
 """
 
 from __future__ import annotations

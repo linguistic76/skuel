@@ -729,7 +729,7 @@ Return ONLY Markdown in this structure:
             )
 
     # ========================================================================
-    # NOTE: CRUD methods removed (ADR-054 Commit 6a, Step 10). CES is now a
+    # NOTE: CRUD methods removed (ADR-054). CES is now a
     # pure stateless enrichment processor — persistence of enriched output is
     # the responsibility of UserEntryService / UserEntryProcessingService.
     # BaseService still exposes .get() via the CRUD mixin for callers that

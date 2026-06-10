@@ -1,12 +1,11 @@
 """
-UserEntry API Routes (ADR-054 Step 7)
-======================================
+UserEntry API Routes (ADR-054)
+==============================
 
 REST API for the unified ``UserEntry`` domain — the single entry point for
 every user-authored creation path (exercise turn-ins, journal audio, plain
-text, LLM-summary jobs, file uploads). Replaces the legacy submissions and
-journal REST surfaces post-migration; lives alongside them through Step 13
-per the additive-through-Step-13 discipline.
+text, LLM-summary jobs, file uploads). Replaced the legacy submissions and
+journal REST surfaces.
 
 Routes
 ------
@@ -20,8 +19,6 @@ Routes
 All routes require session authentication. User-owned reads return 404 for
 entries the requester does not own — never 403 — so other students' work is
 invisible.
-
-See: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md
 """
 
 from __future__ import annotations

@@ -210,7 +210,7 @@ from core.events.transcription_events import (
     TranscriptionFailed,
 )
 
-# UserEntry events (ADR-054 — additive through Step 13)
+# UserEntry events (ADR-054)
 from core.events.user_entry_events import (
     UserEntryCreated,
     UserEntryDeleted,
