@@ -103,7 +103,7 @@ For the full step-by-step workflows — library upgrades, pattern deprecation, s
 
 ```bash
 # Health checks (run after any refactor/rename)
-./dev health              # all three checks
+./dev health              # all four checks (modules, links, names, xref)
 ./dev health-modules      # orphaned Python modules
 ./dev health-links        # broken doc links
 ./dev health-names        # stale identifiers in doc code blocks

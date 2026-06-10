@@ -4,7 +4,7 @@ updated: 2026-03-04
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
-related: [AUTOMATIC_DOCS_CHECK.md]
+related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 ---
 
 # Codebase Health Checks
@@ -268,6 +268,6 @@ scripts/validate_cross_references.py   # Skill↔doc cross-reference validator
 
 **Related:**
 - `./dev health` — runs all four
-- `./dev bloat` — separate check for unused events/methods (different scope)
+- `./dev bloat` — separate check for unused events/methods (different scope) — see [BLOAT_DETECTION.md](BLOAT_DETECTION.md)
 - `docs/tools/AUTOMATIC_DOCS_CHECK.md` — post-commit hook for doc freshness
 - `docs/user-guides/documentation-freshness.md` — unified user guide
