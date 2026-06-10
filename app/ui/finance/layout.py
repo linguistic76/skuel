@@ -21,20 +21,16 @@ FINANCE_SIDEBAR_ITEMS: list[SidebarItem] = [
 async def create_finance_page(
     content: Any,
     active_section: str = "",
-    admin_username: str = "",
     title: str = "Finance Hub",
     request: "Request | None" = None,
-    budget_health: str = "healthy",
 ) -> "FT":
     """Create a finance hub page using the unified SidebarPage pattern.
 
     Args:
         content: Main page content
         active_section: Currently active section slug (empty = dashboard)
-        admin_username: Admin's display name (unused — kept for compatibility)
         title: Page title (browser tab)
         request: Starlette request for auto-detecting auth state
-        budget_health: Unused — kept for call-site compatibility
     """
     active = active_section if active_section else "dashboard"
 
