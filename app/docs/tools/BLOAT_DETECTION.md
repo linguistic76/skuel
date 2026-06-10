@@ -60,10 +60,21 @@ The detector follows the SKUEL linter's structural-soundness discipline
 |------|---------|------------------|
 | `WARNING` | Structurally dead — verified absence of liveness | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
+| `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS`, awaiting its wiring | No |
 | `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events) | No |
 
 Act on `WARNING` findings after a manual grep-verify; treat `UNVERIFIED` as a
 lead list, not a verdict.
+
+**Unwired by intent is not bloat.** One Path Forward demands deleting
+*abandoned* code; code whose wiring is deliberately staged (e.g. the
+curriculum/resource `*EmbeddingRequested` events — subscribers live in
+`embedding_worker.py`, publishers pending) is a completion to-do, not dead
+code. Register it in `PLANNED_EVENTS` / `PLANNED_METHODS` (keyed
+`relative/path.py::method_name`) with a reason naming what completes it. The
+PLANNED section then functions as the visible wiring backlog. Integrity is
+self-policing: a planned subject that becomes live (or disappears from the
+candidates) is reported as a **stale planned marking** demanding removal.
 
 ## Event analysis (pure AST)
 
@@ -107,10 +118,12 @@ dynamically-dispatched method vocabulary, collected structurally:
 | Collector | Covers |
 |-----------|--------|
 | Literal method kwargs (`method_name=` / `*_method`) | `StatusTransition`, hierarchy route factory |
+| Positional method args (`POSITIONAL_METHOD_ARGS`) | `AIRouteSpec` — `method_name` is field index 4, passed positionally in `ai_routes.py`'s route table |
 | Query-route template expansion per literal `domain_name=` | `get_user_{d}`, `find_{d}`, `get_{d}_for_goal/habit` (hyphenated domains also expand underscored) |
 | `StatusRouteFactory` transitions × `domain_singular` | `{action}_{singular}` names |
 | Relationship-registry cross product | `entity_label` × outgoing/incoming dict keys → `get_{label}_{suffix}` |
 | String-literal demotion tier | any finding whose name appears as a used identifier-shaped string constant (docstring-aware) → demoted to UNVERIFIED, never suppressed |
+| Operation-label inertness (`LABEL_CALL_FIRST_ARG` / `LABEL_KWARGS`) | strings naming an operation for error messages / metrics (`with_error_handling(...)`, `track_query_metrics(...)`, `operation=`) are NOT dispatch evidence and never demote — a method's own error label must not shield it from a dead finding |
 | Computed-name `getattr` counter | counted + listed under `--verbose`, never hidden |
 
 ## Known limitations (also printed by the tool)

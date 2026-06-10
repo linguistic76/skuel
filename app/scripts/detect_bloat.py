@@ -22,6 +22,10 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   dead-code accusation, never create one.
 - No silent caps: everything the analysis could not resolve is counted and
   printed in the Limitations section.
+- Unwired by intent is not bloat: staged work registered in PLANNED_EVENTS /
+  PLANNED_METHODS reports in its own PLANNED tier — a visible completion
+  to-do list that never fails --check. Stale markings (subject became live)
+  are themselves reported.
 
 Advisory by default (exit 0). ``--check`` exits 1 on surviving WARNING
 findings — not wired into quality gates until the manual false-positive audit
@@ -59,6 +63,27 @@ EXEMPTED_EVENTS: dict[str, str] = {}
 # Keyed "relative/path.py::method_name".
 EXEMPTED_METHODS: dict[str, str] = {}
 
+# Planned code: structurally dead TODAY, by intent — staged work awaiting its
+# wiring, not abandonment. One Path Forward demands deleting abandoned code;
+# staged work instead gets its own PLANNED tier here: still printed (it is a
+# completion to-do list), never counted as dead, never fails --check. The
+# reason must name what completes it. Entries whose subject becomes live are
+# reported as stale and must be removed.
+_EMBEDDING_WIRING = (
+    "curriculum/resource publish-side wiring of the embedding pipeline is "
+    "future work — subscribers in embedding_worker.py are intentional staging "
+    "(activity-domain siblings are already wired; OpenAI now, BGE long-term)"
+)
+PLANNED_EVENTS: dict[str, str] = {
+    "ExerciseEmbeddingRequested": _EMBEDDING_WIRING,
+    "KuEmbeddingRequested": _EMBEDDING_WIRING,
+    "LearningPathEmbeddingRequested": _EMBEDDING_WIRING,
+    "PathStepEmbeddingRequested": _EMBEDDING_WIRING,
+    "ResourceEmbeddingRequested": _EMBEDDING_WIRING,
+}
+# Keyed "relative/path.py::method_name".
+PLANNED_METHODS: dict[str, str] = {}
+
 # Method findings are scoped to the service layer; the rest of the tree is
 # covered by the standalone vulture run at --min-confidence 90.
 METHOD_SCOPE = "core/services/"
@@ -95,6 +120,7 @@ class BloatSeverity(Enum):
     WARNING = "warning"  # structurally dead — verified absence of liveness
     UNVERIFIED = "unverified"  # constructed somewhere; publication untraceable
     INFO = "info"  # live but noteworthy (e.g. published, never subscribed)
+    PLANNED = "planned"  # unwired by intent — a completion to-do, not bloat
 
 
 @dataclass
@@ -627,6 +653,20 @@ def analyze_events(
         subscribed = usage.subscribed.get(cls, [])
 
         if publish_live:
+            if cls in PLANNED_EVENTS:
+                findings.append(
+                    Finding(
+                        kind="planned-marking-stale",
+                        severity=BloatSeverity.INFO,
+                        subject=cls,
+                        file=site.file,
+                        line=site.line,
+                        detail=(
+                            "marked planned but now published — wiring complete; "
+                            "remove from PLANNED_EVENTS"
+                        ),
+                    )
+                )
             if not subscribed and not universe.descendants[cls]:
                 findings.append(
                     Finding(
@@ -654,7 +694,24 @@ def analyze_events(
         if test_sites:
             annotations.append(f"referenced in tests ({len(test_sites)} sites)")
 
-        if constructed:
+        if cls in PLANNED_EVENTS:
+            # Subscriber wiring is intentional staging here, not a dead chain.
+            planned_notes = []
+            if subscribed:
+                planned_notes.append(
+                    f"subscribers staged at {', '.join(str(s) for s in subscribed[:3])}"
+                )
+            planned_notes.extend(a for a in annotations if "dead wiring chain" not in a)
+            finding = Finding(
+                kind="event-awaiting-wiring",
+                severity=BloatSeverity.PLANNED,
+                subject=cls,
+                file=site.file,
+                line=site.line,
+                detail=f"unwired by intent — {PLANNED_EVENTS[cls]}",
+                annotations=planned_notes,
+            )
+        elif constructed:
             finding = Finding(
                 kind="event-publication-untraced",
                 severity=BloatSeverity.UNVERIFIED,
@@ -717,6 +774,21 @@ class DispatchKnowledge:
     METHOD_KWARG = "method_name"
     METHOD_KWARG_SUFFIX = "_method"
 
+    # Constructors whose POSITIONAL argument at the given index is a service
+    # method name. AIRouteSpec.method_name is field index 4 and the route
+    # table in ai_routes.py passes it positionally, so the kwarg collector
+    # alone misses every AI route's dispatch target.
+    POSITIONAL_METHOD_ARGS = {"AIRouteSpec": 4}
+
+    # Operation-label constructs: their string argument names an operation for
+    # error messages / Prometheus metrics and can never make a method
+    # reachable, so it is NOT dispatch evidence and must not demote a vulture
+    # finding. Known SKUEL constructs only (core/utils/decorators.py,
+    # core/utils/metrics.py, the Errors factory's ``operation=`` kwarg) — any
+    # other identifier-shaped string still demotes.
+    LABEL_CALL_FIRST_ARG = {"with_error_handling", "track_query_metrics"}
+    LABEL_KWARGS = {"operation"}
+
     def __init__(self, codebase: ParsedCodebase) -> None:
         self.codebase = codebase
         self.live: dict[str, str] = {}  # method name -> reason
@@ -748,6 +820,12 @@ class DispatchKnowledge:
                 if not is_literal:
                     self.unanalyzable_getattr.append(site)
                 continue
+
+            positional_index = self.POSITIONAL_METHOD_ARGS.get(callee or "")
+            if positional_index is not None and len(node.args) > positional_index:
+                arg = node.args[positional_index]
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    self.live.setdefault(arg.value, f"positional method arg ({callee}) at {site}")
 
             for kw in node.keywords:
                 if kw.arg is None:
@@ -823,10 +901,20 @@ class DispatchKnowledge:
 
         A vulture finding matching one of these is demoted to
         needs-verification (likely dynamic dispatch), never suppressed.
-        Bare-string statements (docstrings, prose) are inert.
+        Bare-string statements (docstrings, prose) are inert, and so are
+        operation-label strings (LABEL_CALL_FIRST_ARG / LABEL_KWARGS) — a
+        method's own ``@with_error_handling("name")`` label must not shield
+        it from a dead-method finding.
         """
         inert: set[int] = set()
         for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                callee = _base_name(node.func)
+                if callee in self.LABEL_CALL_FIRST_ARG and node.args:
+                    inert.add(id(node.args[0]))
+                for kw in node.keywords:
+                    if kw.arg in self.LABEL_KWARGS:
+                        inert.add(id(kw.value))
             body = getattr(node, "body", None)
             if not isinstance(body, list):
                 continue
@@ -923,6 +1011,21 @@ def analyze_methods(codebase: ParsedCodebase, vulture_items: list) -> MethodAnal
         if test_refs.get(name):
             annotations.append(f"referenced in tests ({test_refs[name]} sites)")
 
+        planned_key = f"{rel}::{name}"
+        if planned_key in PLANNED_METHODS:
+            findings.append(
+                Finding(
+                    kind="method-awaiting-wiring",
+                    severity=BloatSeverity.PLANNED,
+                    subject=name,
+                    file=rel,
+                    line=item.first_lineno,
+                    detail=f"unwired by intent — {PLANNED_METHODS[planned_key]}",
+                    annotations=annotations,
+                )
+            )
+            continue
+
         if name in dispatch.string_literals:
             finding = Finding(
                 kind="method-needs-verification",
@@ -955,6 +1058,27 @@ def analyze_methods(codebase: ParsedCodebase, vulture_items: list) -> MethodAnal
         else:
             findings.append(finding)
 
+    # Stale planned markings: a planned method that stopped being a vulture
+    # candidate is now live (wiring complete) or deleted — either way the
+    # entry must go.
+    flagged_keys = {f"{f.file}::{f.subject}" for f in findings + exempted}
+    for planned_key in PLANNED_METHODS:
+        if planned_key not in flagged_keys:
+            rel, _, name = planned_key.rpartition("::")
+            findings.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.INFO,
+                    subject=name,
+                    file=rel,
+                    line=0,
+                    detail=(
+                        "marked planned but no longer flagged unused — wiring "
+                        "complete or method deleted; remove from PLANNED_METHODS"
+                    ),
+                )
+            )
+
     findings.sort(key=lambda f: (f.file, f.line))
     return MethodAnalysis(findings, exempted, suppressed, total, dispatch)
 
@@ -969,6 +1093,7 @@ def _print_finding(finding: Finding) -> None:
         BloatSeverity.WARNING: f"{Colors.RED}✗{Colors.RESET}",
         BloatSeverity.UNVERIFIED: f"{Colors.YELLOW}?{Colors.RESET}",
         BloatSeverity.INFO: f"{Colors.CYAN}i{Colors.RESET}",
+        BloatSeverity.PLANNED: f"{Colors.BLUE}◷{Colors.RESET}",
     }[finding.severity]
     print(f"  {mark} {Colors.BOLD}{finding.subject}{Colors.RESET}  ({finding.file}:{finding.line})")
     print(f"      {finding.detail}")
@@ -1008,12 +1133,17 @@ def print_event_report(
         )
 
     by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
+    stale_planned: list[Finding] = []
     for finding in findings:
-        by_severity[finding.severity].append(finding)
+        if finding.kind == "planned-marking-stale":
+            stale_planned.append(finding)
+        else:
+            by_severity[finding.severity].append(finding)
 
     for severity, title in [
         (BloatSeverity.WARNING, "Structurally dead events"),
         (BloatSeverity.UNVERIFIED, "Constructed but publication untraced — verify manually"),
+        (BloatSeverity.PLANNED, "Planned — unwired by intent, awaiting completion"),
         (BloatSeverity.INFO, "Published but never subscribed (may be intentional)"),
     ]:
         items = by_severity.get(severity, [])
@@ -1021,6 +1151,14 @@ def print_event_report(
             continue
         print(f"\n{Colors.YELLOW}{title} ({len(items)}):{Colors.RESET}\n")
         for finding in items:
+            _print_finding(finding)
+
+    if stale_planned:
+        print(
+            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_EVENTS "
+            f"({len(stale_planned)}):{Colors.RESET}\n"
+        )
+        for finding in stale_planned:
             _print_finding(finding)
 
     if not findings:
@@ -1053,11 +1191,16 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
     )
 
     by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
+    stale_planned: list[Finding] = []
     for finding in analysis.findings:
-        by_severity[finding.severity].append(finding)
+        if finding.kind == "planned-marking-stale":
+            stale_planned.append(finding)
+        else:
+            by_severity[finding.severity].append(finding)
 
     dead = by_severity.get(BloatSeverity.WARNING, [])
     demoted = by_severity.get(BloatSeverity.UNVERIFIED, [])
+    planned = by_severity.get(BloatSeverity.PLANNED, [])
 
     if dead:
         print(
@@ -1083,6 +1226,22 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
             f"literal, likely dynamic dispatch ({len(demoted)}):{Colors.RESET}\n"
         )
         for finding in demoted:
+            _print_finding(finding)
+
+    if planned:
+        print(
+            f"\n{Colors.YELLOW}Planned — unwired by intent, awaiting completion "
+            f"({len(planned)}):{Colors.RESET}\n"
+        )
+        for finding in planned:
+            _print_finding(finding)
+
+    if stale_planned:
+        print(
+            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_METHODS "
+            f"({len(stale_planned)}):{Colors.RESET}\n"
+        )
+        for finding in stale_planned:
             _print_finding(finding)
 
     if analysis.exempted:
@@ -1207,15 +1366,20 @@ def main() -> int:
     if not args.as_json:
         print_limitations(codebase, usage, methods)
         warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
+        planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
+        other = len(findings) - len(warnings) - len(planned)
         print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
         if warnings:
             print(
                 f"{Colors.YELLOW}{len(warnings)} structurally-dead findings "
-                f"(+{len(findings) - len(warnings)} unverified/info). "
+                f"(+{other} unverified/info, {len(planned)} planned). "
                 f"Verify before deleting.{Colors.RESET}"
             )
         else:
-            print(f"{Colors.GREEN}✅ No structurally-dead findings.{Colors.RESET}")
+            print(
+                f"{Colors.GREEN}✅ No structurally-dead findings"
+                f"{f' ({len(planned)} planned)' if planned else ''}.{Colors.RESET}"
+            )
 
     if args.check:
         return 1 if any(f.severity is BloatSeverity.WARNING for f in findings) else 0

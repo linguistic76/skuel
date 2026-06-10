@@ -20,6 +20,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from detect_bloat import (  # type: ignore[import-not-found]
+    PLANNED_EVENTS,
+    PLANNED_METHODS,
     ROOT,
     BloatSeverity,
     DispatchKnowledge,
@@ -386,6 +388,84 @@ def test_published_never_subscribed_is_info():
 
 
 # ============================================================================
+# PLANNED TIER — unwired by intent is not bloat
+# ============================================================================
+
+
+def test_planned_event_reports_planned_not_dead(monkeypatch):
+    monkeypatch.setitem(PLANNED_EVENTS, "GammaOrphan", "awaiting synthetic wiring")
+    _, _, findings = analyze({})
+    finding = finding_for(findings, "GammaOrphan")
+    assert finding is not None
+    assert finding.severity is BloatSeverity.PLANNED
+    assert finding.kind == "event-awaiting-wiring"
+    assert "awaiting synthetic wiring" in finding.detail
+
+
+def test_planned_event_subscriber_is_staging_not_dead_chain(monkeypatch):
+    monkeypatch.setitem(PLANNED_EVENTS, "GammaOrphan", "awaiting synthetic wiring")
+    _, _, findings = analyze(
+        {
+            "services_bootstrap/wiring.py": (
+                "def wire(event_bus, handler):\n    event_bus.subscribe(GammaOrphan, handler)\n"
+            )
+        }
+    )
+    finding = finding_for(findings, "GammaOrphan")
+    assert finding is not None
+    assert finding.severity is BloatSeverity.PLANNED
+    assert any("subscribers staged" in note for note in finding.annotations)
+    assert not any("dead wiring chain" in note for note in finding.annotations)
+
+
+def test_stale_planned_event_marking_is_reported(monkeypatch):
+    monkeypatch.setitem(PLANNED_EVENTS, "GammaOrphan", "awaiting synthetic wiring")
+    _, _, findings = analyze(
+        {
+            "core/services/x.py": (
+                "async def f(self):\n"
+                "    await publish_event(self.event_bus, GammaOrphan(uid='1'), self.logger)\n"
+            )
+        }
+    )
+    stale = [f for f in findings if f.kind == "planned-marking-stale"]
+    assert [f.subject for f in stale] == ["GammaOrphan"]
+    assert stale[0].severity is BloatSeverity.INFO
+
+
+class FakeVultureItem:
+    def __init__(self, rel: str, name: str, lineno: int = 1):
+        self.filename = str(ROOT / rel)
+        self.name = name
+        self.first_lineno = lineno
+        self.typ = "method"
+        self.confidence = 60
+
+
+def test_planned_method_reports_planned_not_dead(monkeypatch):
+    monkeypatch.setitem(
+        PLANNED_METHODS, "core/services/x.py::future_method", "awaiting synthetic wiring"
+    )
+    codebase = build_codebase({"core/services/x.py": "def future_method():\n    pass\n"})
+    analysis = analyze_methods(codebase, [FakeVultureItem("core/services/x.py", "future_method")])
+    finding = finding_for(analysis.findings, "future_method")
+    assert finding is not None
+    assert finding.severity is BloatSeverity.PLANNED
+    assert finding.kind == "method-awaiting-wiring"
+
+
+def test_stale_planned_method_marking_is_reported(monkeypatch):
+    monkeypatch.setitem(
+        PLANNED_METHODS, "core/services/x.py::now_live_method", "awaiting synthetic wiring"
+    )
+    codebase = build_codebase({})
+    analysis = analyze_methods(codebase, [])  # not a vulture candidate -> live or deleted
+    stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
+    assert [f.subject for f in stale] == ["now_live_method"]
+    assert stale[0].severity is BloatSeverity.INFO
+
+
+# ============================================================================
 # DISPATCH KNOWLEDGE — dynamic-dispatch vocabulary collection
 # ============================================================================
 
@@ -458,6 +538,41 @@ def test_relationship_registry_cross_product():
     )
     assert "get_task_subtasks" in dispatch.live
     assert "get_task_parents" in dispatch.live
+
+
+def test_positional_method_arg_marks_live():
+    # AIRouteSpec.method_name is field index 4, passed positionally in the
+    # route table — the kwarg collector alone misses it.
+    dispatch = dispatch_for(
+        {
+            "adapters/inbound/ai_routes.py": (
+                "SPEC = AIRouteSpec('ps', 'Path Steps', 'path-steps', 'similar', "
+                "'find_similar_steps', 'uid_limit', 'ps_ai_similar', 'similar_steps')\n"
+            )
+        }
+    )
+    assert "find_similar_steps" in dispatch.live
+
+
+def test_operation_label_strings_are_inert():
+    # A method's own error/metrics label is not dispatch evidence: it must
+    # not demote the dead-method finding. A genuine dispatch-table string
+    # for another name in the same file still registers.
+    dispatch = dispatch_for(
+        {
+            "core/services/x.py": (
+                "@track_query_metrics('ps_get_subtasks')\n"
+                "@with_error_handling('get_subtasks', error_type='database')\n"
+                "async def get_subtasks(self, uid):\n"
+                "    return Errors.database(operation='get_subtasks_inner', message='x')\n"
+                "DISPATCH = {'real_dispatch_target': None}\n"
+            )
+        }
+    )
+    assert "get_subtasks" not in dispatch.string_literals
+    assert "ps_get_subtasks" not in dispatch.string_literals
+    assert "get_subtasks_inner" not in dispatch.string_literals
+    assert "real_dispatch_target" in dispatch.string_literals
 
 
 def test_string_literal_demotion_index_skips_docstrings():
@@ -539,6 +654,20 @@ def test_live_docstring_examples_do_not_subscribe(live_analysis):
             assert site.file != "core/events/goal_events.py"
 
 
+def test_live_planned_embedding_events_report_planned(live_analysis):
+    # The curriculum/resource embedding events are staged work (subscribers
+    # wired in embedding_worker.py, publishers pending) — PLANNED, not dead.
+    # When the wiring ships, the stale-marking diagnostic will demand removal
+    # from PLANNED_EVENTS; update this sentinel alongside.
+    _, _, findings = live_analysis
+    for event in sorted(PLANNED_EVENTS):
+        finding = finding_for(findings, event)
+        assert finding is not None and finding.severity is BloatSeverity.PLANNED, (
+            f"{event} should report PLANNED (awaiting wiring)"
+        )
+    assert not any(f.kind == "planned-marking-stale" for f in findings)
+
+
 def test_live_collector_self_diagnostic(live_analysis):
     # A scanner finding nothing is more likely broken than the codebase silent.
     _, usage, _ = live_analysis
@@ -589,6 +718,22 @@ def test_live_template_dispatched_methods_suppressed_or_absent(live_methods):
     flagged = {f.subject for f in live_methods.findings}
     for name in ["get_user_tasks", "find_tasks", "get_tasks_for_goal"]:
         assert name not in flagged
+
+
+def test_live_ai_route_spec_methods_suppressed_or_absent(live_methods):
+    # Dispatched by name through AIRouteSpec's positional method_name field
+    # (adapters/inbound/ai_routes.py) — must never surface as findings.
+    flagged = {f.subject for f in live_methods.findings}
+    for name in ["find_similar_steps", "generate_step_insight", "find_similar_tasks"]:
+        assert name not in flagged, f"{name} is AIRouteSpec-dispatched, must not be flagged"
+
+
+def test_live_error_label_does_not_shield_dead_method(live_methods):
+    # get_subtasks' only string occurrence is its own @with_error_handling
+    # label — a label is not dispatch evidence, so the finding stays WARNING.
+    # Delete this sentinel alongside the method when it is removed.
+    finding = finding_for(live_methods.findings, "get_subtasks")
+    assert finding is not None and finding.severity is BloatSeverity.WARNING
 
 
 def test_live_string_table_dispatch_demoted_not_dead(live_methods):
