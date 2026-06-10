@@ -153,6 +153,22 @@ check_verdict() {
   return 1
 }
 
+# The repo workflow (AGENTS.md, .github/workflows/README.md) treats a
+# PR-side "Codex consideration" note as the audit trail for what was
+# accepted/rejected before the label unblocks the gate. The clean path
+# posts it automatically; on findings the note is written manually during
+# the address cycle (it must say WHAT was accepted/rejected and why).
+post_clean_consideration() {
+  if gh_retry api "repos/$REPO/issues/$PR/comments" \
+    -f body="**Codex consideration:** clean verdict — no findings to accept or reject." \
+    --jq .html_url >/dev/null; then
+    echo "✓ consideration note posted"
+    return 0
+  fi
+  echo "⚠ could not post the consideration note — add it manually for the audit trail" >&2
+  return 0  # the verdict comment itself is on the PR; don't block the label on this
+}
+
 # The label IS the gate's unblock signal — a silent failure here would
 # report merge-ready without satisfying the gate (happened live during the
 # 2026-06-10 auth incident). Hard-fail so the caller retries explicitly.
@@ -189,7 +205,7 @@ SINCE=$(summon)
 [[ -n "$SINCE" ]] || exit 1
 
 wait_for_verdict "$SINCE"; RC=$?
-if [[ $RC -eq 0 ]]; then apply_label || exit 1; exit 0; fi
+if [[ $RC -eq 0 ]]; then post_clean_consideration; apply_label || exit 1; exit 0; fi
 if [[ $RC -eq 2 ]]; then echo "→ address findings, push, re-run this script"; exit 2; fi
 
 # No-show. Capability probe decides between re-summon and outage protocol.
@@ -201,7 +217,7 @@ if [[ $RC -eq 1 ]] && api_healthy; then
   # is just a nudge; window 2's first poll then catches any gap verdict.
   summon >/dev/null || exit 1
   wait_for_verdict "$SINCE"; RC=$?
-  if [[ $RC -eq 0 ]]; then apply_label || exit 1; exit 0; fi
+  if [[ $RC -eq 0 ]]; then post_clean_consideration; apply_label || exit 1; exit 0; fi
   if [[ $RC -eq 2 ]]; then echo "→ address findings, push, re-run this script"; exit 2; fi
 fi
 
