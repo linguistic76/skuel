@@ -5,22 +5,34 @@
 
 ## Overview
 
-SKUEL automatically checks if documentation needs updating after every git commit. A Claude Code PostToolUse hook (`.claude/hooks/post-commit-docs.sh`) fires after `git commit` bash commands, analyzes changed files, finds referencing docs and skills, and injects context so Claude can evaluate staleness.
+SKUEL automatically checks if documentation needs updating after every git commit. A Claude Code PostToolUse hook (`.claude/hooks/post-commit-docs.sh`) fires after any Bash command that invokes `git commit`, analyzes changed files, finds referencing docs and skills, and injects context so Claude can evaluate staleness.
 
 ## How It Works
 
 ### Trigger: Claude Code PostToolUse Hook
 
 Every time you commit code via Claude Code's Bash tool, the hook automatically:
-1. Collects changed `.py` files from the commit
+1. Collects changed code files (`.py`/`.js`/`.css`/`.sh`/`.toml`/`.yaml`, deletions included) from the commit
 2. Finds docs/skills that reference those filenames (via `grep`)
 3. Cross-references `skills_metadata.yaml` to identify affected skills
-4. Returns a system message so Claude can semantically evaluate staleness
+4. Returns `hookSpecificOutput.additionalContext` (full detail, injected into Claude's context) plus a `systemMessage` summary (visible to the user)
+
+**Trigger mechanics (fixed 2026-06-10):** the PostToolUse matcher fires on
+every Bash call; the script filters for a `git commit` invocation at a
+command-segment boundary, so compound chains like
+`git add ... && git commit ...` are covered (the original prefix-only check
+missed them, which kept the hook silent for most real commits). A
+HEAD-recency guard (`SKUEL_DOCS_CHECK_MAX_AGE_S`, default 300s) bounds false
+fires: a command that merely *mentions* "git commit" inside a string can
+match the regex, but outside the window the hook exits silently, and inside
+it the worst case is re-suggesting review of a genuinely recent commit. The
+original output also placed `additionalContext` at the JSON top level, where
+PostToolUse ignores it — it must be nested under `hookSpecificOutput`.
 
 ```
 POST-COMMIT DOCS CHECK: A commit just landed...
 
-Changed Python files (3):
+Changed code files (3):
   - core/services/tasks_service.py
   - core/services/tasks/tasks_core_service.py
   - adapters/inbound/tasks_routes.py
@@ -47,13 +59,14 @@ Claude then reads the flagged docs, compares them against what actually changed,
 
 - Conceptual changes: major architecture shifts requiring manual review
 - New features: entirely new functionality not yet documented
-- Deleted code: when you remove something, docs may need pruning
+- Docs that describe a changed file without naming it (prose-only references)
 
 ### When It's Silent
 
-- No `.py` files in the commit
+- No code files (`.py`/`.js`/`.css`/`.sh`/`.toml`/`.yaml`) in the commit
 - No docs reference the changed filenames
 - The commit failed (`nothing to commit`)
+- HEAD is older than the recency window (guards against false regex matches)
 - Running outside Claude Code (standard git commits bypass the hook)
 
 ---
@@ -64,7 +77,7 @@ Claude then reads the flagged docs, compares them against what actually changed,
 
 | File | Purpose |
 |------|---------|
-| `.claude/hooks/post-commit-docs.sh` | Claude Code PostToolUse hook — fires after `git commit` |
+| `.claude/hooks/post-commit-docs.sh` | Claude Code PostToolUse hook — fires after any Bash command invoking `git commit` |
 | `.claude/skills/skills_metadata.yaml` | Skill registry (source of truth for skill metadata) |
 | `scripts/docs_freshness.py` | Traditional mtime-based staleness checker |
 | `scripts/docs_update.py` | LLM-assisted doc updater |
@@ -77,7 +90,7 @@ Git Commit (via Claude Code Bash tool)
 PostToolUse hook fires
     |
 post-commit-docs.sh
-    |-- 1. Collect changed .py files
+    |-- 1. Collect changed code files
     |-- 2. Grep docs/skills for references to those files
     |-- 3. Cross-reference skills_metadata.yaml
     |
