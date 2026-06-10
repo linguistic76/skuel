@@ -32,10 +32,11 @@ def test_fail_fast_without_api_key():
 
 
 def test_model_and_dimension_properties():
-    """model/dimension are exposed for the consuming service's metrics + validation."""
+    """model/dimension/max_input_chars are exposed for the consuming service."""
     adapter = HuggingFaceEmbeddingAdapter(api_key="test-token")
     assert adapter.model == "BAAI/bge-large-en-v1.5"
     assert adapter.dimension == DIM
+    assert adapter.max_input_chars == 2000  # ~512 tokens, the BGE model cap
 
 
 @pytest.mark.asyncio

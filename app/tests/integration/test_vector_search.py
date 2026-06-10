@@ -15,7 +15,7 @@ Updated: March 2026 — HuggingFace migration (1536→1024 dims)
 
 import pytest
 
-from core.services.embeddings_service import HuggingFaceEmbeddingsService
+from core.services.embeddings_service import EmbeddingsService
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
 # Dimension for bge-large-en-v1.5
@@ -459,7 +459,7 @@ async def test_embedding_service_initialization(neo4j_driver):
 
     embedding_client = HuggingFaceEmbeddingAdapter(api_key="test-token")
     embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
-    embeddings_service = HuggingFaceEmbeddingsService(
+    embeddings_service = EmbeddingsService(
         backend=embeddings_backend, embedding_client=embedding_client
     )
 

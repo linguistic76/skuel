@@ -29,7 +29,7 @@ import re
 from collections import Counter
 
 from core.ports.content_protocols import ContentAdapter
-from core.services.embeddings_service import HuggingFaceEmbeddingsService
+from core.services.embeddings_service import EmbeddingsService
 from core.services.lp_intelligence.types import ContentMetadata
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -56,7 +56,7 @@ class ContentAnalyzer:
     - Returns frozen dataclass ContentMetadata
     """
 
-    def __init__(self, embeddings_service: HuggingFaceEmbeddingsService | None = None) -> None:
+    def __init__(self, embeddings_service: EmbeddingsService | None = None) -> None:
         """
         Initialize content analyzer.
 

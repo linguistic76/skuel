@@ -1,6 +1,6 @@
 # ADR-049: Migrate from OpenAI/GenAI Plugin Embeddings to HuggingFace Inference API
 
-**Status:** Accepted
+**Status:** Superseded in part by [ADR-068](ADR-068-openai-embeddings-now-bge-later.md) (2026-06-10): the provider choice is now OpenAI `text-embedding-3-small` @1024 — the BGE/HF adapter is staged as the long-term swap, and this ADR's data migration never ran (zero embeddings, stale 1536-dim indexes). The architectural decisions below (Python-side generation, no Neo4j plugin, SDK behind a port) still stand.
 **Date:** 2026-03-12
 **Deciders:** MCF
 

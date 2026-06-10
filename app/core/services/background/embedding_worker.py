@@ -30,6 +30,8 @@ from core.models.type_hints import EntityUID
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from core.services.embeddings_service import EmbeddingsService
+
 from core.events import (
     ChoiceEmbeddingRequested,
     ChunkEmbeddingRequested,
@@ -72,8 +74,7 @@ class EmbeddingBackgroundWorker:
     def __init__(
         self,
         event_bus: EventBusOperations,
-        embeddings_service: Any,  # HuggingFaceEmbeddingsService
-        config: Any,  # UnifiedConfig for embedding version
+        embeddings_service: "EmbeddingsService",
         content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
         batch_size: int = 25,
         batch_interval_seconds: int = 30,
@@ -84,8 +85,8 @@ class EmbeddingBackgroundWorker:
 
         Args:
             event_bus: Event bus for subscribing to embedding requests
-            embeddings_service: HuggingFaceEmbeddingsService for generating embeddings
-            config: UnifiedConfig for accessing embedding version
+            embeddings_service: EmbeddingsService for generating + storing embeddings
+                (owns version/model metadata — the worker never writes those itself)
             content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)
             batch_size: Number of entities to process per batch
             batch_interval_seconds: Seconds between batch processing runs
@@ -93,7 +94,6 @@ class EmbeddingBackgroundWorker:
         """
         self.event_bus = event_bus
         self.embeddings_service = embeddings_service
-        self.config = config
         self.content_adapter = content_adapter
         self.batch_size = batch_size
         self.batch_interval = batch_interval_seconds
@@ -343,13 +343,12 @@ class EmbeddingBackgroundWorker:
             }
             label = label_map.get(entity_type, entity_type.capitalize())
 
-            result = await self.embeddings_service.backend.store_embedding_metadata(
-                label=label,
+            # Storage goes through the service — it owns label validation and
+            # the version/model metadata (single source of truth).
+            result = await self.embeddings_service.store_embedding_with_metadata(
                 uid=entity_uid,
+                label=label,
                 embedding=embedding,
-                version=self.config.genai.embedding_version,
-                model=self.embeddings_service.model,
-                text=None,
             )
 
             if result.is_error:
@@ -358,12 +357,8 @@ class EmbeddingBackgroundWorker:
                 )
                 return False
 
-            if result.value:
-                self.logger.debug(f"Stored embedding for {entity_type} {entity_uid}")
-                return True
-            else:
-                self.logger.warning(f"Entity not found: {entity_type} {entity_uid}")
-                return False
+            self.logger.debug(f"Stored embedding for {entity_type} {entity_uid}")
+            return True
 
         except _EMBEDDING_EXCEPTIONS as e:
             self.logger.error(f"Failed to store embedding for {entity_uid}: {e}")

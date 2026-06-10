@@ -33,7 +33,7 @@ from collections import defaultdict
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.services.embeddings_service import (
     EMBEDDING_VERSION,
-    HuggingFaceEmbeddingsService,
+    EmbeddingsService,
 )
 from core.utils.logging import get_logger
 
@@ -91,7 +91,7 @@ def get_text_from_node(node: dict) -> str:
 
 
 async def benchmark_cache_first(
-    service: HuggingFaceEmbeddingsService,
+    service: EmbeddingsService,
     nodes: list[dict],
     verbose: bool = False,
 ) -> dict:
@@ -180,7 +180,7 @@ async def benchmark_cache_first(
 
 
 async def benchmark_always_generate(
-    service: HuggingFaceEmbeddingsService,
+    service: EmbeddingsService,
     nodes: list[dict],
     verbose: bool = False,
 ) -> dict:
@@ -239,7 +239,7 @@ def calculate_cost_savings(cache_results: dict, always_results: dict) -> dict:
     Calculate cost savings from caching.
 
     Estimates API call volume saved by caching.
-    HuggingFace Inference API pricing varies by plan; cost figures are illustrative.
+    Cost figures are illustrative (ADR-068: OpenAI text-embedding-3-small).
 
     Args:
         cache_results: Cache-first benchmark results
@@ -265,7 +265,7 @@ def calculate_cost_savings(cache_results: dict, always_results: dict) -> dict:
     )
 
     # Cost calculation (assuming 500 tokens per embedding)
-    cost_per_1m_tokens = 0.02  # illustrative; HuggingFace pricing varies by plan
+    cost_per_1m_tokens = 0.02  # text-embedding-3-small list price
     tokens_per_embedding = 500
 
     cost_without_cache = (
@@ -420,24 +420,21 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
         logger.info("✅ Connected to Neo4j")
 
         # Create embeddings service (inference client behind a port — W1).
-        # The vendor SDK lives in the adapter; a missing HF_API_TOKEN is the
-        # modern "not available" signal (replaces the removed _check_plugin_availability).
-        from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+        # The factory is the provider chokepoint (ADR-068); a missing API key
+        # raises ValueError = the "not available" signal.
+        from adapters.external.embeddings import create_embedding_client
         from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
         from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-        from core.config.credential_store import get_credential
 
-        hf_token = get_credential("HF_API_TOKEN", fallback_to_env=True) or ""
-        if not hf_token:
-            logger.error("❌ Embeddings service not available")
-            logger.error(
-                "   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env to run this benchmark"
-            )
+        try:
+            embedding_client = create_embedding_client()
+        except ValueError as e:
+            logger.error(f"❌ Embeddings service not available: {e}")
             return 1
 
-        service = HuggingFaceEmbeddingsService(
+        service = EmbeddingsService(
             backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
-            embedding_client=HuggingFaceEmbeddingAdapter(api_key=hf_token),
+            embedding_client=embedding_client,
         )
 
         # Get sample nodes

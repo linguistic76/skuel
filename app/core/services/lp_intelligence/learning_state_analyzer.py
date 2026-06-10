@@ -28,7 +28,7 @@ from typing import Any
 
 from core.models.enums import GuidanceMode
 from core.models.type_hints import UserUID
-from core.services.embeddings_service import HuggingFaceEmbeddingsService
+from core.services.embeddings_service import EmbeddingsService
 from core.services.lp_intelligence.types import LearningAnalysis, LearningReadiness, ProgressSummary
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
@@ -60,7 +60,7 @@ class LearningStateAnalyzer:
     def __init__(
         self,
         progress_backend: Any | None = None,
-        embeddings_service: HuggingFaceEmbeddingsService | None = None,
+        embeddings_service: EmbeddingsService | None = None,
     ) -> None:
         """
         Initialize learning state analyzer.

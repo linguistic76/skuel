@@ -832,7 +832,7 @@ def embeddings_service():
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    from core.services.embeddings_service import EmbeddingsService
 
     mock_backend = MagicMock()
     mock_backend.store_embedding_metadata = AsyncMock()
@@ -841,8 +841,9 @@ def embeddings_service():
     mock_client = MagicMock()
     mock_client.model = "BAAI/bge-large-en-v1.5"
     mock_client.dimension = 1024
+    mock_client.max_input_chars = 2000
     mock_client.embed = AsyncMock()
-    return HuggingFaceEmbeddingsService(mock_backend, embedding_client=mock_client)
+    return EmbeddingsService(mock_backend, embedding_client=mock_client)
 
 
 @pytest.fixture

@@ -82,7 +82,7 @@ QueryExecutor — the most common focused protocol:
     # Used by: PsGraphService,
     #          UserContextQueryExecutor, UserStatsAggregator, ReportSharingService,
     #          ProgressReportGenerator, Neo4jVectorSearchService,
-    #          HuggingFaceEmbeddingsService, UserProgressService
+    #          EmbeddingsService, UserProgressService
     #
     # Note: LateralRelationshipService and TeacherReviewService migrated to
     # typed backends (LateralRelationshipBackend, UserEntryBackend, etc.)

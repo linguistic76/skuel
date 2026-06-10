@@ -1,26 +1,21 @@
 """
-HuggingFace Embeddings Service
-==============================
+Embeddings Service
+==================
 
 Orchestrates embedding generation: caching, version tracking, dimension
 validation, metrics, and Neo4j storage around an injected inference client.
 
 ARCHITECTURE:
-- Model: BAAI/bge-large-en-v1.5 (1024 dims) — sentence-transformers-compatible,
-  hosted on HuggingFace. Top-tier retrieval quality on MTEB benchmarks.
-- Inference client: injected via the ``EmbeddingClientOperations`` port. The
-  vendor SDK (``huggingface_hub.AsyncInferenceClient``) lives below the
-  hexagonal boundary in ``adapters/external/embeddings/`` (W1 / ADR-044); the
-  API key is read at the composition root, not here.
+- Provider-agnostic: the inference client is injected via the
+  ``EmbeddingClientOperations`` port and is the single source of truth for
+  model, dimension, and input-size limits. Vendor SDKs live below the
+  hexagonal boundary in ``adapters/external/embeddings/`` (W1 / ADR-044);
+  the API key is read at the composition root, not here.
+- Wired provider: OpenAI text-embedding-3-small at 1024 dims (ADR-068);
+  the HuggingFace/BGE adapter is staged for the long-term swap.
 - Stores embeddings in Neo4j via EmbeddingsBackend (``EmbeddingsBackendOperations``)
 
-MIGRATION (March 2026):
-- Replaces Neo4jGenAIEmbeddingsService (OpenAI text-embedding-3-small via GenAI plugin)
-- Embedding dimension changed: 1536 → 1024
-- EMBEDDING_VERSION incremented: v1 → v2
-- All existing embeddings must be regenerated
-
-See: /docs/decisions/ADR-049-huggingface-embeddings-migration.md
+See: /docs/decisions/ADR-068-openai-embeddings-now-bge-later.md
 """
 
 import asyncio
@@ -40,24 +35,22 @@ if TYPE_CHECKING:
 
 logger = get_logger("skuel.embeddings")
 
-# Embedding version tracking
-# Increment when changing embedding model or parameters
-EMBEDDING_VERSION = "v2"
-
-# BGE-large-en-v1.5 configuration
-DEFAULT_MODEL = "BAAI/bge-large-en-v1.5"
-DEFAULT_DIMENSION = 1024
-MAX_TOKENS = 512  # Model max token limit
-MAX_CHARS = 2000  # ~512 tokens, conservative estimate
+# Embedding version tracking — THE single source of truth for stored-embedding
+# compatibility. Increment when changing embedding model or parameters.
+# History: v1 = OpenAI text-embedding-3-small @1536 via Neo4j GenAI plugin;
+# v2 = BGE-large-en-v1.5 @1024 via HF Inference API (never backfilled);
+# v3 = OpenAI text-embedding-3-small @1024 via API `dimensions` param (ADR-068).
+EMBEDDING_VERSION = "v3"
 
 
-class HuggingFaceEmbeddingsService:
+class EmbeddingsService:
     """
-    Embeddings service orchestrating an injected HuggingFace inference client.
+    Embeddings service orchestrating an injected inference client.
 
     Owns caching, version tracking, dimension validation, metrics, and Neo4j
     storage. The actual text → vector call is delegated to an
-    ``EmbeddingClientOperations`` adapter (BAAI/bge-large-en-v1.5, 1024 dims).
+    ``EmbeddingClientOperations`` adapter, which also dictates model,
+    dimension, and truncation budget.
 
     Setup:
     - Inference client injected at the composition root (no SDK or credential
@@ -65,7 +58,7 @@ class HuggingFaceEmbeddingsService:
     - No Neo4j plugin dependency (pure Python-side embedding generation)
     - Stores embeddings in Neo4j via EmbeddingsBackend
 
-    See: /docs/decisions/ADR-049-huggingface-embeddings-migration.md
+    See: /docs/decisions/ADR-068-openai-embeddings-now-bge-later.md
     """
 
     def __init__(
@@ -99,10 +92,11 @@ class HuggingFaceEmbeddingsService:
         if not text or not text.strip():
             return Result.fail(Errors.validation("Text cannot be empty", field="text"))
 
-        # Truncate to stay within model token limits
-        if len(text) > MAX_CHARS:
-            text = text[:MAX_CHARS]
-            self.logger.warning(f"Text truncated to {MAX_CHARS} chars for token limit")
+        # Truncate to stay within model token limits (budget owned by the client)
+        max_chars = self._embedding_client.max_input_chars
+        if len(text) > max_chars:
+            text = text[:max_chars]
+            self.logger.warning(f"Text truncated to {max_chars} chars for token limit")
 
         start_time = time.time()
         result = await self._embedding_client.embed(text)
@@ -131,7 +125,7 @@ class HuggingFaceEmbeddingsService:
         if len(embedding) != self.dimension:
             return Result.fail(
                 Errors.integration(
-                    service="HuggingFace",
+                    service="embeddings",
                     message=f"Expected {self.dimension}d embedding, got {len(embedding)}d",
                 )
             )
@@ -144,8 +138,9 @@ class HuggingFaceEmbeddingsService:
         """
         Create embeddings for multiple texts.
 
-        Calls HuggingFace API for each text individually (batch endpoint
-        not reliably available for all models on Inference API).
+        Calls the inference client for each text individually, concurrently
+        (single-text ``embed()`` is the port contract; providers with native
+        batch endpoints can be exploited later via a port extension).
 
         Args:
             texts: List of texts to embed
@@ -168,7 +163,7 @@ class HuggingFaceEmbeddingsService:
             if result.is_error:
                 return Result.fail(
                     Errors.integration(
-                        service="HuggingFace",
+                        service="embeddings",
                         message=f"Batch embedding failed at index {i}: {result.error}",
                     )
                 )

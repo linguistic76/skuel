@@ -5,7 +5,7 @@ Tests complete workflow: Ingest → Generate Embeddings → Store → Search →
 
 These tests validate the full integration of:
 - UnifiedIngestionService - Content ingestion and preparation
-- HuggingFaceEmbeddingsService - Embedding generation
+- EmbeddingsService - Embedding generation
 - UniversalNeo4jBackend - Database storage
 - Neo4jVectorSearchService - Vector similarity search
 - LessonSearchService - Search orchestration

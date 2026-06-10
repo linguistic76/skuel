@@ -12,7 +12,7 @@ This migration script:
 5. Tracks progress and handles errors gracefully
 
 Prerequisites:
-- HF_API_TOKEN environment variable set
+- OPENAI_API_KEY available (keychain or env)
 - INTELLIGENCE_TIER=full in .env
 - Vector index created: contentchunk_embedding_idx
 
@@ -49,7 +49,7 @@ from neo4j import AsyncGraphDatabase
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.config import create_config
-from core.services.embeddings_service import HuggingFaceEmbeddingsService
+from core.services.embeddings_service import EmbeddingsService
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.migrations.chunk_embeddings")
@@ -140,17 +140,14 @@ async def migrate_chunk_embeddings(
         - failed: Failed chunks
         - skipped: Skipped chunks (dry run)
     """
+    from core.config.intelligence_tier import IntelligenceTier
+
     config = create_config()
 
     # Validate prerequisites
-    if not config.genai.enabled:
+    if not IntelligenceTier.from_env().ai_enabled:
         logger.error("❌ Embeddings service is disabled (INTELLIGENCE_TIER is not full)")
         logger.error("   Set INTELLIGENCE_TIER=full in .env before running migration")
-        return {"total": 0, "processed": 0, "successful": 0, "failed": 0, "skipped": 0}
-
-    if not config.genai.embeddings_enabled:  # type: ignore[attr-defined]
-        logger.error("❌ Embeddings are disabled (GENAI_EMBEDDINGS_ENABLED=False)")
-        logger.error("   Enable embeddings in config before running migration")
         return {"total": 0, "processed": 0, "successful": 0, "failed": 0, "skipped": 0}
 
     logger.info("=" * 70)
@@ -176,18 +173,14 @@ async def migrate_chunk_embeddings(
     await neo4j_connection.connect()
 
     # Inference client behind a port (W1) — vendor SDK lives in the adapter.
-    # Construction fail-fasts if HF_API_TOKEN is missing.
-    from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+    # The factory is the provider chokepoint (ADR-068); fail-fasts on a missing key.
+    from adapters.external.embeddings import create_embedding_client
     from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from core.config.credential_store import get_credential
 
-    embeddings_service = HuggingFaceEmbeddingsService(
+    embeddings_service = EmbeddingsService(
         backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
-        embedding_client=HuggingFaceEmbeddingAdapter(
-            api_key=get_credential("HF_API_TOKEN", fallback_to_env=True) or "",
-            model=config.genai.embedding_model,
-        ),
+        embedding_client=create_embedding_client(),
     )
 
     content_adapter = Neo4jContentAdapter(neo4j_connection)
@@ -277,7 +270,7 @@ async def migrate_chunk_embeddings(
                 chunk_uids=chunk_uids,
                 embeddings=embeddings,
                 version="v1",
-                model=config.genai.embedding_model,
+                model=embeddings_service.model,
             )
 
             if stored:
@@ -404,16 +397,16 @@ Examples:
   uv run python scripts/migrations/migrate_chunk_embeddings.py --limit 1000 --dry-run
 
 Performance:
-  - Batch size 100: ~10-15s per batch (HuggingFace Inference API rate limits)
+  - Batch size 100: provider rate limits apply
   - Expected: ~100 chunks/minute
   - For 10,000 chunks: ~1.5-2 hours
 
 Cost:
-  - HuggingFace Inference API (free tier available; paid plans for higher throughput)
+  - OpenAI Embeddings API (text-embedding-3-small — negligible cost at SKUEL scale)
 
 Prerequisites:
   1. Vector index created: uv run python scripts/create_vector_indexes.py
-  2. HF_API_TOKEN set in .env
+  2. OPENAI_API_KEY available (keychain or env)
   3. INTELLIGENCE_TIER=full in .env
         """,
     )
