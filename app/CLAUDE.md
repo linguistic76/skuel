@@ -531,7 +531,7 @@ Target the latest stable CPython (currently **3.14**, pinned in `.python-version
 
 **Formatting:** Ruff. Run `./dev format` to format, `./dev quality` for full checks.
 
-**Dead-code detection (advisory):** `./dev bloat` — AST-sound event-lifecycle + Vulture-backed method liveness with SKUEL dispatch knowledge. WARNING tier is audited; verify before deleting. **See:** `/docs/tools/BLOAT_DETECTION.md`
+**Dead-code detection (advisory):** `./dev bloat` — AST-sound event-lifecycle + Vulture-backed method liveness with SKUEL dispatch knowledge. Verify WARNING findings before deleting; staged-but-unwired work belongs in the PLANNED tier (`PLANNED_EVENTS`/`PLANNED_METHODS`), not the trash. **See:** `/docs/tools/BLOAT_DETECTION.md`
 
 **Key SKUEL Linter Rules:**
 - SKUEL001: No banned APOC procedures anywhere in `core/` [CRITICAL] — APOC is adapter-only (ADR-044). Docstring-aware (APOC named in docstrings/comments is prose, not a violation); unsuppressable.
