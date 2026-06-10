@@ -38,8 +38,12 @@ PR="${1:-}"
 DEADLINE="${2:-240}"
 POLL_INTERVAL=20
 
-if [[ -z "$PR" ]]; then
+if [[ -z "$PR" || ! "$PR" =~ ^[0-9]+$ ]]; then
   echo "usage: $0 <pr-number> [deadline-seconds]" >&2
+  exit 1
+fi
+if [[ ! "$DEADLINE" =~ ^[0-9]+$ ]] || (( DEADLINE < POLL_INTERVAL )); then
+  echo "✗ deadline must be an integer >= ${POLL_INTERVAL}s (got: $DEADLINE)" >&2
   exit 1
 fi
 
@@ -71,8 +75,11 @@ gh_retry() {
   return 1
 }
 
+# Through gh_retry deliberately: a FLAPPING API (one of three attempts
+# succeeds) counts as healthy -> we re-summon, which is the right bet — the
+# mention may still deliver, and the cost is one more bounded timebox.
 api_healthy() {
-  GH_TOKEN="$TOK" gh api graphql -f query='query{viewer{login}}' >/dev/null 2>&1
+  gh_retry api graphql -f query='query{viewer{login}}' >/dev/null 2>&1
 }
 
 acquire_token || { echo "✗ could not read gh auth token" >&2; exit 1; }
@@ -105,17 +112,36 @@ check_verdict() {
     --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\")] | length" \
     2>/dev/null || echo 0)
   if [[ "$comments" =~ ^[0-9]+$ ]] && (( comments > 0 )); then
-    echo "── Codex CLEAN verdict ──"
-    gh_retry api "repos/$REPO/issues/$PR/comments" \
-      --jq ".[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | .body[0:300]" || true
-    return 0
+    local body
+    body=$(gh_retry api "repos/$REPO/issues/$PR/comments" \
+      --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | .body] | join(\"\n\")" || true)
+    # Only the known clean signature counts as clean. Anything else from
+    # Codex on this channel (agentic task summaries, suggestion lists,
+    # account/connect boilerplate) must be READ, not auto-labeled — observed
+    # live: an agentic "Committed changes on the current branch" comment.
+    if grep -qiE "didn'?t find any (major )?issues" <<< "$body"; then
+      echo "── Codex CLEAN verdict ──"
+      printf '%s\n' "${body:0:300}"
+      return 0
+    fi
+    echo "── Codex responded with an UNRECOGNIZED comment shape — read before proceeding ──"
+    printf '%s\n' "$body"
+    return 2
   fi
   return 1
 }
 
+# The label IS the gate's unblock signal — a silent failure here would
+# report merge-ready without satisfying the gate (happened live during the
+# 2026-06-10 auth incident). Hard-fail so the caller retries explicitly.
 apply_label() {
-  gh_retry api "repos/$REPO/issues/$PR/labels" -f "labels[]=codex-considered" --jq '.[0].name' >/dev/null \
-    && echo "✓ codex-considered applied"
+  if gh_retry api "repos/$REPO/issues/$PR/labels" -f "labels[]=codex-considered" --jq '.[0].name' >/dev/null; then
+    echo "✓ codex-considered applied"
+    return 0
+  fi
+  echo "✗ could not apply codex-considered (gate NOT satisfied) — apply manually:" >&2
+  echo "  gh pr edit $PR --add-label codex-considered" >&2
+  return 1
 }
 
 wait_for_verdict() {
@@ -134,7 +160,7 @@ SINCE=$(summon)
 [[ -n "$SINCE" ]] || exit 1
 
 wait_for_verdict "$SINCE"; RC=$?
-if [[ $RC -eq 0 ]]; then apply_label; exit 0; fi
+if [[ $RC -eq 0 ]]; then apply_label || exit 1; exit 0; fi
 if [[ $RC -eq 2 ]]; then echo "→ address findings, push, re-run this script"; exit 2; fi
 
 # No-show. Capability probe decides between re-summon and outage protocol.
@@ -143,7 +169,7 @@ if api_healthy; then
   SINCE=$(summon)
   [[ -n "$SINCE" ]] || exit 1
   wait_for_verdict "$SINCE"; RC=$?
-  if [[ $RC -eq 0 ]]; then apply_label; exit 0; fi
+  if [[ $RC -eq 0 ]]; then apply_label || exit 1; exit 0; fi
   if [[ $RC -eq 2 ]]; then echo "→ address findings, push, re-run this script"; exit 2; fi
 fi
 
@@ -151,5 +177,5 @@ echo "▶ Codex no-show — applying outage protocol (considered, not zero)"
 gh_retry api "repos/$REPO/issues/$PR/comments" \
   -f body="Codex was summoned twice with a ${DEADLINE}s timebox each and delivered no verdict on any channel (healthy Codex answers in ~90s) — treating as infra failure per workflow and applying \`codex-considered\`. Re-summon later if a verdict is wanted." \
   --jq .html_url >/dev/null || true
-apply_label
+apply_label || exit 1
 exit 3
