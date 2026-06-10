@@ -96,4 +96,6 @@ no `embedding_version`, which the cache layer would have treated as stale foreve
   Exercise, Resource) remain PLANNED (`scripts/detect_bloat.py`) — wiring them is a separate
   decision now that the backfill script covers the existing corpus.
 - All embedding publishes are create-only; no domain re-embeds on update.
-- The worker re-queues failed batches without an attempt cap (only a 1000-item queue cap).
+- ~~The worker re-queues failed batches without an attempt cap (only a 1000-item queue cap).~~
+  Resolved (2026-06-10, follow-up PR): per-item generation + bounded retries
+  (`MAX_GENERATION_ATTEMPTS`, drop-and-log with a `status="dropped"` metric).
