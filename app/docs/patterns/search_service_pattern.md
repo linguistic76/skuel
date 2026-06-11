@@ -67,7 +67,6 @@ class DomainSearchOperations(Protocol[T]):
     # Universal methods - ALL domains implement these
     async def search(self, query: str, limit: int = 50) -> Result[list[T]]: ...
     async def get_by_status(self, status: str, limit: int = 100) -> Result[list[T]]: ...
-    async def get_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[T]]: ...
     async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[T]]: ...
     async def get_by_relationship(self, related_uid: str, relationship_type: str, direction: str = "outgoing") -> Result[list[T]]: ...
     async def get_upcoming(self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100) -> Result[list[T]]: ...
@@ -86,7 +85,6 @@ class DomainSearchOperations(Protocol[T]):
 | `search()` | Text search on configurable fields | `_search_fields`, `_search_order_by` |
 | `get_by_relationship()` | Graph traversal queries | Uses `_dto_class`, `_model_class` |
 | `get_by_status()` | Filter by status field | Generic implementation |
-| `get_by_domain()` | Filter by Domain enum | Generic implementation |
 | `get_by_category()` | Filter by category field | Uses DomainConfig `category_field` |
 | `list_categories()` | List unique category values | Uses DomainConfig `category_field` |
 | `get_prerequisites()` | Traverse prerequisite chains | Uses `_prerequisite_relationships` |
@@ -315,7 +313,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     _prerequisite_relationships = [REQUIRES_KNOWLEDGE, DEPENDS_ON_GOAL]
     _enables_relationships = [ENABLES_GOAL]
 
-    # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
+    # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
     # get_prerequisites(), get_enables()
 
@@ -334,7 +332,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
     _prerequisite_relationships = [REQUIRES_PREREQUISITE_HABIT]
     _enables_relationships = [ENABLES_HABIT]
 
-    # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
+    # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
     # get_prerequisites(), get_enables()
 
@@ -358,7 +356,7 @@ class EventsSearchService(BaseService[EventsOperations, Event]):
     _prerequisite_relationships = [REQUIRES_KNOWLEDGE]
     _enables_relationships = [REINFORCES_HABIT]
 
-    # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
+    # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
     # get_prerequisites(), get_enables()
 
@@ -381,7 +379,7 @@ class ChoicesSearchService(BaseService[ChoicesOperations, Choice]):
     _prerequisite_relationships = [REQUIRES_KNOWLEDGE_FOR_DECISION]
     _enables_relationships = [AFFECTS_GOAL, OPENS_LEARNING_PATH]
 
-    # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
+    # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
     # get_prerequisites(), get_enables()
 
@@ -402,7 +400,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
     _prerequisite_relationships = [BLOCKED_BY, REQUIRES_TASK]
     _enables_relationships = [BLOCKS, ENABLES_TASK]
 
-    # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
+    # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
     # get_prerequisites(), get_enables()
 
@@ -427,7 +425,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
     # OVERRIDES inherited methods (Principles use different data model)
     async def get_by_status(self, status: str, ...) -> ...:  # Converts to is_active boolean
-    async def get_by_domain(self, domain: Domain, ...) -> ...:  # Maps to PrincipleCategory
     async def get_by_category(self, category: PrincipleCategory | str, ...) -> ...:  # Typed for PrincipleCategory
     async def list_categories(self) -> ...:  # Returns PrincipleCategory enum values
 
@@ -614,19 +611,12 @@ class PsSearchService:
         self.driver = driver
 
     async def search(self, query: str, limit: int = 50) -> Result[list[Ls]]: ...
-    async def search_filtered(self, filters: LsSearchFilters) -> Result[list[Ls]]: ...
     async def intelligent_search(self, query: str, limit: int) -> Result[tuple[list[Ls], ParsedSearchQuery]]: ...
-    async def get_by_domain(self, domain: Domain, limit: int) -> Result[list[Ls]]: ...
     async def get_by_status(self, status: StepStatus, limit: int) -> Result[list[Ls]]: ...
     async def get_standalone_steps(self, limit: int) -> Result[list[Ls]]: ...
     async def get_for_learning_path(self, path_uid: str, limit: int) -> Result[list[Ls]]: ...
     async def get_prioritized(self, user_uid: UserUID, context: UserContext, limit: int) -> Result[list[Ls]]: ...
 ```
-
-**LsSearchFilters:**
-- `domain`, `difficulty`, `status`, `priority`, `learning_path_uid`
-- `is_standalone`, `is_completed`
-- `has_tag`, `has_any_tags`
 
 ### LpSearchService
 
@@ -640,19 +630,12 @@ class LpSearchService:
         self.driver = driver
 
     async def search(self, query: str, limit: int = 50) -> Result[list[Lp]]: ...
-    async def search_filtered(self, filters: LpSearchFilters) -> Result[list[Lp]]: ...
     async def intelligent_search(self, query: str, limit: int) -> Result[tuple[list[Lp], ParsedSearchQuery]]: ...
-    async def get_by_domain(self, domain: Domain, limit: int) -> Result[list[Lp]]: ...
     async def get_by_path_type(self, path_type: LpType, limit: int) -> Result[list[Lp]]: ...
     async def get_for_user(self, user_uid: UserUID, limit: int) -> Result[list[Lp]]: ...
     async def get_aligned_with_goal(self, goal_uid: str, limit: int) -> Result[list[Lp]]: ...
     async def get_prioritized(self, user_uid: UserUID, context: UserContext, limit: int) -> Result[list[Lp]]: ...
 ```
-
-**LpSearchFilters:**
-- `domain`, `path_type`, `difficulty`, `created_by`
-- `min_steps`, `max_steps`
-- `is_complete`, `has_outcomes`
 
 ### Service Wiring
 

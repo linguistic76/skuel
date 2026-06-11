@@ -54,7 +54,6 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
     Universal Methods (DomainSearchOperations protocol):
     - search() - Text search on title/description (inherited from BaseService)
     - get_by_status() - Filter by EntityStatus
-    - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
     - get_upcoming() - Events within N days
@@ -95,13 +94,13 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         super().__init__(backend=backend, service_name="events.search")
 
     # Inherited from BaseService (December 2025):
-    # - search(), get_by_status(), get_by_domain(), get_by_category(),
+    # - search(), get_by_status(), get_by_category(),
     # - list_categories(), get_by_relationship()
 
     # ========================================================================
     # DOMAIN SEARCH OPERATIONS PROTOCOL IMPLEMENTATION
     # ========================================================================
-    # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
+    # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")

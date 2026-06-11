@@ -91,7 +91,7 @@ class _InfluenceMixin:
         if self.relationships is None:
             return Result.fail(
                 Errors.system(
-                    message="PrinciplesRelationshipOperations not available",
+                    message="relationship service (BaseRelationshipOperations) not available",
                     operation="detect_conflicts",
                 )
             )

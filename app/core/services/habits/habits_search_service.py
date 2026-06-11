@@ -47,7 +47,6 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     Universal Methods (DomainSearchOperations protocol):
     - search() - Text search on title/description (inherited from BaseService)
     - get_by_status() - Filter by EntityStatus
-    - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
     - get_upcoming() - Habits due within N days (based on frequency)
@@ -102,7 +101,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     )
 
     # Inherited from BaseService (December 2025):
-    # - search(), get_by_status(), get_by_domain(), get_by_category(),
+    # - search(), get_by_status(), get_by_category(),
     # - list_categories(), get_by_relationship()
 
     def _is_active(self, habit: Habit, include_paused: bool = False) -> bool:
@@ -122,7 +121,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
     # DOMAIN SEARCH OPERATIONS PROTOCOL IMPLEMENTATION
     # ========================================================================
-    # Inherited from BaseService: search(), get_by_status(), get_by_domain(),
+    # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship()
 
     @with_error_handling("get_prioritized", error_type="database")

@@ -487,6 +487,7 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/goals/_relationship_mixin.py::create_semantic_goal_relationship": (
         _GOALS_GRAVITY
     ),
+    "core/services/goals/_relationship_mixin.py::unlink_goal_from_habit": _GOALS_GRAVITY,
     # --- Goals: scheduling-aware creation ---
     "core/services/goals_service.py::create_goal_with_scheduling_context": _GOALS_SCHED_CREATE,
     "core/services/goals_service.py::create_goal_with_learning_scheduling": _GOALS_SCHED_CREATE,

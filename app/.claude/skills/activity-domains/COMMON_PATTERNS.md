@@ -192,7 +192,6 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
     # - search(query, limit=50, user_uid=None)
     # - get_by_status(status, limit=100, user_uid=None)
     # - get_by_category(category, user_uid=None, limit=100)
-    # - get_by_domain(domain, limit=100)
     # - get_by_relationship(related_uid, rel_type, direction)
     # - graph_aware_faceted_search(request, user_uid)
     # - list_user_categories(user_uid)

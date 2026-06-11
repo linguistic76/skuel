@@ -181,7 +181,6 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description, location |
 | `get_by_status(status, user_uid)` | Filter by EntityStatus |
-| `get_by_domain(domain, user_uid)` | Filter by Domain |
 | `get_by_category(category, user_uid)` | Filter by event_type (category_field) |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
 | `graph_aware_faceted_search(request)` | Unified search with graph context |

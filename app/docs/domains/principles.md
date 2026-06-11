@@ -204,7 +204,6 @@ The `CONFLICTS_WITH_PRINCIPLE` relationship helps identify when principles may b
 | Method | Override Reason |
 |--------|-----------------|
 | `get_by_status(status, user_uid)` | Principles use `is_active: bool` instead of `status: str` |
-| `get_by_domain(domain, user_uid)` | Domain is `core_domain` field |
 | `list_categories(user_uid)` | Custom category enumeration |
 
 ### Domain-Specific Methods

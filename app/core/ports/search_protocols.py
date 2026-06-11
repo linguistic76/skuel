@@ -18,8 +18,6 @@ Protocol Categories:
 5. CypherOperations - Query execution
 6. SearchIndexOperations - Index management
 
-          completing the protocol layer per MyPy analysis
-- v2.1.0: Added search_filtered() method with BaseSearchFilters type
 - v2.0.0: Added DomainSearchOperations[T] protocol for activity domain search services
 """
 
@@ -35,12 +33,10 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.choice.choice import Choice as Choice
-    from core.models.enums import Domain
     from core.models.event.event import Event as Event
     from core.models.goal.goal import Goal as Goal
     from core.models.habit.habit import Habit as Habit
     from core.models.principle.principle import Principle as Principle
-    from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
     from core.models.task.task import Task as Task
@@ -72,10 +68,8 @@ class DomainSearchOperations(Protocol[T]):
 
     Universal Methods (all domains implement):
     - search() - Text search on title/description
-    - search_filtered() - Type-safe filtered search (NEW v2.1.0)
-    - intelligent_search() - Natural language search with semantic filter extraction (NEW v2.1.0)
+    - intelligent_search() - Natural language search with semantic filter extraction
     - get_by_status() - Filter by EntityStatus
-    - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
     - get_upcoming() - Entities with upcoming dates / work still to do
@@ -152,54 +146,6 @@ class DomainSearchOperations(Protocol[T]):
         """
         ...
 
-    async def search_filtered(self, filters: "BaseSearchFilters") -> Result[list[T]]:
-        """
-        Type-safe filtered search using domain-specific filter dataclass.
-
-        Accepts a BaseSearchFilters (or domain-specific subclass) with type-safe
-        filter fields. This is the preferred method for complex queries as it
-        provides compile-time verification of filter parameters.
-
-        Args:
-            filters: BaseSearchFilters or domain-specific subclass
-                     (TaskSearchFilters, GoalSearchFilters, etc.)
-
-        Returns:
-            Result containing entities matching all specified filters
-
-        Example:
-            from dataclasses import dataclass
-            from core.models.search import BaseSearchFilters
-            from core.models.enums import EntityStatus, Domain
-
-            # Define domain-specific filters locally (see MocSearchFilters pattern)
-            @dataclass(frozen=True)
-            class MocSearchFilters(BaseSearchFilters):
-                is_template: bool | None = None
-                visibility: str | None = None
-
-            # Create type-safe filters
-            filters = MocSearchFilters(
-                query="python tutorial",
-                domain=Domain.TECH,
-                is_template=False,
-                limit=20
-            )
-
-            # Execute filtered search
-            result = await moc_search.search_filtered(filters)
-
-        Note:
-            For most searches, use SearchRequest (Pydantic model) via SearchRouter.
-            search_filtered() is for domain-specific internal searches that need
-            type-safe frozen filter objects.
-
-        See Also:
-            - core.models.search_request.SearchRequest - THE canonical search model
-            - core.models.search.filters.BaseSearchFilters - Base for local filters
-        """
-        ...
-
     async def intelligent_search(
         self, query: str, limit: int = 50
     ) -> Result[tuple[list[T], "ParsedSearchQuery"]]:
@@ -259,19 +205,6 @@ class DomainSearchOperations(Protocol[T]):
 
         Returns:
             Result containing entities with matching status
-        """
-        ...
-
-    async def get_by_domain(self, domain: "Domain", limit: int = 100) -> Result[list[T]]:
-        """
-        Filter entities by Domain enum.
-
-        Args:
-            domain: Domain enum value (TECH, HEALTH, PERSONAL, etc.)
-            limit: Maximum results to return
-
-        Returns:
-            Result containing entities in specified domain
         """
         ...
 
@@ -395,8 +328,8 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
     Uses Entity model with EntityType.EVENT.
 
     Inherits all methods from DomainSearchOperations[Entity]:
-    - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - search(), intelligent_search()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds event-specific methods:
@@ -456,8 +389,8 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
     Extended search protocol for Habits domain.
 
     Inherits all methods from DomainSearchOperations[Habit]:
-    - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - search(), intelligent_search()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds habit-specific methods:
@@ -513,8 +446,8 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
     Extended search protocol for Tasks domain.
 
     Inherits all methods from DomainSearchOperations[Task]:
-    - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - search(), intelligent_search()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds task-specific methods:
@@ -568,8 +501,8 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
     Extended search protocol for Goals domain.
 
     Inherits all methods from DomainSearchOperations[Entity]:
-    - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - search(), intelligent_search()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds goal-specific methods:
@@ -598,8 +531,8 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
     Extended search protocol for Choices domain.
 
     Inherits all methods from DomainSearchOperations[Entity]:
-    - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - search(), intelligent_search()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds choice-specific methods:
@@ -640,8 +573,8 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
     Extended search protocol for Principles domain. Uses Entity model with EntityType.PRINCIPLE.
 
     Inherits all methods from DomainSearchOperations[Entity]:
-    - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - search(), intelligent_search()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds principle-specific methods:

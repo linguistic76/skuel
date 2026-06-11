@@ -81,7 +81,7 @@ class GoalsService(
 | Mixin | File | Methods |
 |-------|------|---------|
 | `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_goal_with_context`, `generate_tasks_for_goal`, `assess_goal_feasibility` |
-| `_RelationshipMixin` | `_relationship_mixin.py` | `create_user_goal_relationship`, `link_goal_to_habit/knowledge/principle`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge` |
+| `_RelationshipMixin` | `_relationship_mixin.py` | `create_user_goal_relationship`, `link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge` |
 
 **Sub-services:**
 | Service | Purpose |
@@ -213,7 +213,6 @@ Goals track which habits are essential for achievement:
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description, success_criteria |
 | `get_by_status(status, user_uid)` | Filter by GoalStatus |
-| `get_by_domain(domain, user_uid)` | Filter by Domain |
 | `get_by_category(category, user_uid)` | Filter by domain (category_field) |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
 | `graph_aware_faceted_search(request)` | Unified search with graph context |

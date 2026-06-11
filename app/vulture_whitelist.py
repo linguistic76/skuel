@@ -8,9 +8,6 @@ See: https://github.com/jendrikseipp/vulture#whitelisting
 
 # TYPE_CHECKING imports — used in string annotations, vulture can't track them
 AnalyticsService  # noqa: F821, B018
-EventsRelationshipOperations  # noqa: F821, B018
-GoalsRelationshipOperations  # noqa: F821, B018
-HabitsRelationshipOperations  # noqa: F821, B018
 
 # __exit__ protocol — exc_tb is part of the Python context manager signature
 exc_tb  # noqa: F821, B018
