@@ -53,7 +53,6 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
     from core.services.user.unified_user_context import RichUserContext
-    from core.services.user_entry import UserEntryRelationshipService
 
 
 class UserContextIntelligence(
@@ -82,13 +81,13 @@ class UserContextIntelligence(
     - choices: UnifiedRelationshipService - What decisions await?
     - principles: UnifiedRelationshipService - What values guide this?
 
-    Curriculum Domains (2):
+    Curriculum Domains (3):
     - ps: PsService - What knowledge is ready?
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
+    - exercises: ExerciseService facade - Daily-plan exercise enrichment
 
-    Processing Domains (3):
-    - user_entries: UserEntryRelationshipService - Student submissions + journals
-    - feedback: ReportRelationshipService - Report loop graph queries
+    Processing Domains (2):
+    - report: ReportRelationshipService - Report loop graph queries
     - analytics: AnalyticsRelationshipOperations - Cross-domain analytics
 
     Temporal Domain (1):
@@ -127,8 +126,7 @@ class UserContextIntelligence(
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
         exercises: Any,  # ExerciseService facade — daily-plan exercise enrichment
-        # Processing Domains (3) - REQUIRED
-        user_entries: UserEntryRelationshipService,
+        # Processing Domains (2) - REQUIRED
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipOperations,
         # Temporal Domain (1) - REQUIRED
@@ -158,8 +156,7 @@ class UserContextIntelligence(
                 ps: PathStep service facade for learning readiness
                 lp: Learning path service for critical path analysis
 
-            Processing Domains (3):
-                user_entries: UserEntry relationship service (student work + journals)
+            Processing Domains (2):
                 report: Report relationship service (pending submissions, completion rate)
                 analytics: Analytics relationship service (cross-domain)
 
@@ -187,8 +184,7 @@ class UserContextIntelligence(
             "ps": ps,
             "lp": lp,
             "exercises": exercises,
-            # Processing Domains (3)
-            "user_entries": user_entries,
+            # Processing Domains (2)
             "report": report,
             "analytics": analytics,
             # Temporal Domain (1)
@@ -198,7 +194,7 @@ class UserContextIntelligence(
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligence requires all 13 domain services. "
+                f"UserContextIntelligence requires all 12 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -218,8 +214,7 @@ class UserContextIntelligence(
         self.lp = lp
         self.exercises = exercises
 
-        # Processing domains (3)
-        self.user_entries = user_entries
+        # Processing domains (2)
         self.report = report
         self.analytics = analytics
 

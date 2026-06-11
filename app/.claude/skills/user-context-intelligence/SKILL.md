@@ -90,11 +90,10 @@ Method 9 (`PerceptionIntelligenceMixin`) synthesizes the dual-track perception g
 | PS | `self.ps` | PathStep sequencing (UnifiedRelationshipService) |
 | LP | `self.lp` | Life path analysis (UnifiedRelationshipService) |
 
-### Processing (3)
+### Processing (2)
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
-| User Entries | `self.user_entries` | Student work relationship graph — FOLLOWS, RELATED_TO, SUPPORTS_GOAL (`UserEntryRelationshipService`) |
 | Report | `self.report` | Report loop graph queries — pending submissions, completion rate (`ReportRelationshipService`) |
 | Analytics | `self.analytics` | Cross-domain analytics (`AnalyticsRelationshipService`) |
 
@@ -102,7 +101,6 @@ Method 9 (`PerceptionIntelligenceMixin`) synthesizes the dual-track perception g
 >
 > | Service | Status |
 > |---------|--------|
-> | `self.user_entries` | Wired, not called (cross-domain submission state planned) |
 > | `self.analytics` | Wired, not called (cross-domain pattern queries planned) |
 > | `self.report` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5) and `context.pending_revised_exercises` (Priority 2.3). Daily planning reads both fields directly. |
 
@@ -264,7 +262,7 @@ UserContextIntelligence (Level 1)
 └── ScheduleIntelligenceMixin     → Pure Cypher: calendar + capacity scoring
 ```
 
-All 12 required services are Level 1. `UserEntryRelationshipService`, `ReportRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
+All 12 required services are Level 1. `ReportRelationshipService` and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
 
 ### Level 2 — AI Enhancement (Optional)
 
@@ -279,7 +277,7 @@ tasks_ai_service.py            ← Level 2: BaseAIService (optional, requires LL
 
 ### Why the Processing Domains Are Wired But Not Called
 
-`self.user_entries`, `self.report`, and `self.analytics` are Level 1 services stored on the instance. The mixin methods that CALL them have not been written yet — the architecture is established, the implementation is next.
+`self.report` and `self.analytics` are Level 1 services stored on the instance. The mixin methods that CALL them have not been written yet — the architecture is established, the implementation is next.
 
 This is by design. The slot reservation ensures future implementation is a fill-in, not a redesign.
 
@@ -312,8 +310,7 @@ factory = UserContextIntelligenceFactory(
     ps=learning_services["ps"],  # PsService facade
     lp=learning_services["learning_paths"].relationships,
     exercises=services.exercises,  # ExerciseService facade (REQUIRED)
-    # Processing Domains (3)
-    user_entries=entry_relationship_service,
+    # Processing Domains (2)
     report=report_relationship_service,
     analytics=analytics_relationship_service,
     # Temporal Domain (1)
@@ -341,7 +338,7 @@ Note: `factory.create()` also accepts an optional `vector_search=` service for s
 
 ## The Flagship Method: get_ready_to_work_on_today()
 
-This is THE core value proposition of SKUEL. It currently synthesizes 10 domains and has slot reservations for 2 more:
+This is THE core value proposition of SKUEL. It currently synthesizes 10 domains and has a slot reservation for 1 more:
 
 ### Method Signature
 
@@ -359,8 +356,7 @@ async def get_ready_to_work_on_today(
     - Curriculum (3): ku, ls, lp
     - Submissions Domain (1): self.report — Priority 2.5: unsubmitted exercises
 
-    Processing Domains (2): wired, not yet called
-    - self.user_entries: cross-domain submission state (planned)
+    Processing Domains (1): wired, not yet called
     - self.analytics: cross-domain pattern scoring (planned)
 
     Respects:
@@ -696,7 +692,6 @@ intelligence = factory.create(context)
 | `/core/services/user/intelligence/life_path_intelligence.py` | Method 7 |
 | `/core/services/user/intelligence/synergy_intelligence.py` | Method 6 |
 | `/core/services/user/intelligence/schedule_intelligence.py` | Method 8 |
-| `/core/services/user_entry/relationship_service.py` | Level 1 — submission graph queries (`UserEntryRelationshipService`) |
 | `/core/services/report/report_relationship_service.py` | Level 1 — report loop graph queries |
 | `/core/services/analytics_relationship_service.py` | Level 1 — cross-domain analytics queries |
 | `/core/services/relationships/_domain_planning_mixin.py` | 6 domain-specific planning methods called by DailyPlanningMixin on URS instances |

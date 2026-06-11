@@ -213,7 +213,6 @@ from core.events.transcription_events import (
 # UserEntry events (ADR-054)
 from core.events.user_entry_events import (
     UserEntryCreated,
-    UserEntryDeleted,
     UserEntryProcessingCompleted,
     UserEntryProcessingFailed,
     UserEntryProcessingStarted,
@@ -340,7 +339,6 @@ __all__ = [
     "UserPreferencesChanged",
     # UserEntry (ADR-054)
     "UserEntryCreated",
-    "UserEntryDeleted",
     "UserEntryProcessingCompleted",
     "UserEntryProcessingFailed",
     "UserEntryProcessingStarted",
@@ -461,7 +459,6 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "user_entry.processing_started": UserEntryProcessingStarted,
     "user_entry.processing_completed": UserEntryProcessingCompleted,
     "user_entry.processing_failed": UserEntryProcessingFailed,
-    "user_entry.deleted": UserEntryDeleted,
     # Transcriptions
     "transcription.created": TranscriptionCreated,
     "transcription.completed": TranscriptionCompleted,
@@ -658,7 +655,6 @@ USER_ENTRY_EVENTS = [
     UserEntryProcessingStarted,
     UserEntryProcessingCompleted,
     UserEntryProcessingFailed,
-    UserEntryDeleted,
 ]
 
 TRANSCRIPTION_EVENTS = [

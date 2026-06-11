@@ -666,7 +666,6 @@ def test_live_known_dead_events_are_flagged(live_analysis):
         "ExerciseCreated",
         "ExerciseSubmitted",
         "PrerequisitesAnalyzed",
-        "UserEntryDeleted",
     ]:
         finding = finding_for(findings, event)
         assert finding is not None and finding.severity is BloatSeverity.WARNING, (

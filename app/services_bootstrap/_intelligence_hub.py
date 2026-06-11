@@ -38,14 +38,12 @@ async def _create_intelligence_hub(
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.services.report import ReportRelationshipService
     from core.services.user.intelligence import UserContextIntelligenceFactory
-    from core.services.user_entry import UserEntryRelationshipService
 
-    entry_relationship_service = UserEntryRelationshipService(backend=user_entry_backend)
     report_relationship_service = ReportRelationshipService(backend=user_entry_backend)
     # AnalyticsRelationshipBackend runs parameterized Cypher via the executor — wrap
     # the driver (its methods call executor.execute(), which AsyncDriver lacks).
     analytics_relationship_service = AnalyticsRelationshipBackend(Neo4jQueryExecutor(driver))
-    logger.info("✅ Processing domain relationship services created (UserEntry, Report, Analytics)")
+    logger.info("✅ Processing domain relationship services created (Report, Analytics)")
 
     # ── PsEngagementService post-wire to context_builder (ADR-059) ──────────
     # ps_engagement is core-tier (always wired by template_services before this
@@ -150,8 +148,7 @@ async def _create_intelligence_hub(
         ps=learning_services["ps"],
         lp=learning_services["learning_paths"].relationships,  # factory param name
         exercises=services.exercises,
-        # Processing Domains (3)
-        user_entries=entry_relationship_service,
+        # Processing Domains (2)
         report=report_relationship_service,
         analytics=analytics_relationship_service,
         # Temporal Domain (1)
@@ -163,7 +160,7 @@ async def _create_intelligence_hub(
     )
     services.context_intelligence = context_intelligence_factory
     logger.info(
-        "✅ UserContextIntelligence factory created (13 domain services + ZPD + %d filtered providers)",
+        "✅ UserContextIntelligence factory created (12 domain services + ZPD + %d filtered providers)",
         len(filtered_providers),
     )
 
