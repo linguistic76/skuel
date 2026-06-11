@@ -28,7 +28,7 @@ from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import require_owned_entity
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
-from core.models.type_hints import EntityUID
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.connection_configs import HABIT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_habits
 from core.utils.logging import get_logger
@@ -48,6 +48,7 @@ from ui.patterns.error_banner import render_error_banner
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.ports import ConnectionFetchOperations
+    from core.ports.service_protocols import OwnershipVerifier
     from core.services.habits_service import HabitsService
 
 logger = get_logger("skuel.routes.habits_ui")
@@ -58,8 +59,16 @@ def create_habits_ui_routes(
     rt: RouteDecorator,
     habits_service: HabitsService,
     connection_fetch_backend: ConnectionFetchOperations,
+    choices_ownership: OwnershipVerifier | None = None,
 ) -> list[Any]:
-    """Register Habits UI routes (list/detail + create/edit forms)."""
+    """Register Habits UI routes (list/detail + create/edit forms).
+
+    ``choices_ownership`` is an owner-scoped verifier for the Habit ↔ Choice
+    fragment: the INFORMS_CHOICE / IMPACTS_HABIT edges can point at choices
+    owned by *other* users, so each related choice is filtered through
+    ``verify_ownership`` before render (USER_OWNED 404-not-403 invariant —
+    a cross-user choice is invisible, never surfaced as a title + detail link).
+    """
     config = ActivityUIConfig(
         domain_name="habits",
         domain_singular="habit",
@@ -100,12 +109,38 @@ def create_habits_ui_routes(
 
         return HabitInsightsSection(result.value)
 
+    async def _owned_choices(
+        choices: list[dict[str, Any]], user_uid: UserUID
+    ) -> list[dict[str, Any]]:
+        """Drop choices the requesting user doesn't own.
+
+        The INFORMS_CHOICE / IMPACTS_HABIT traversal returns choices by edge
+        only (no owner predicate), so a habit edged to another user's choice
+        would otherwise leak that choice's title + detail link. Filter each
+        through ``verify_ownership`` (404-shaped error ⇒ not owned ⇒ hidden).
+        If no verifier is wired (degraded boot), fail closed: surface nothing.
+        """
+        if choices_ownership is None:
+            return []
+        owned: list[dict[str, Any]] = []
+        for choice in choices:
+            choice_uid = str(choice.get("uid", ""))
+            if not choice_uid:
+                continue
+            ownership = await choices_ownership.verify_ownership(choice_uid, user_uid)
+            if ownership.is_ok:
+                owned.append(choice)
+        return owned
+
     @rt("/habits/choices-fragment")
     async def habit_choices_fragment(request: Request) -> Any:
         """HTMX fragment: Habit ↔ Choice lens (informed + impacting choices).
 
         Resolves choice titles via relationship metadata (registry fields on
-        INFORMS_CHOICE / IMPACTS_HABIT include uid + title).
+        INFORMS_CHOICE / IMPACTS_HABIT include uid + title). Each related choice
+        is owner-scoped to the requesting user before render — choices are
+        USER_OWNED, and the edge traversal carries no owner predicate, so a
+        cross-user choice must never leak (404-not-403 invariant).
         """
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -126,8 +161,8 @@ def create_habits_ui_routes(
             "impacting_choices", habit_uid
         )
         return HabitChoicesSection(
-            informed.value if informed.is_ok else [],
-            impacting.value if impacting.is_ok else [],
+            await _owned_choices(informed.value, user_uid) if informed.is_ok else [],
+            await _owned_choices(impacting.value, user_uid) if impacting.is_ok else [],
         )
 
     @rt("/habits/create", methods=["GET"])
