@@ -11,7 +11,7 @@ Clean implementation with no backwards compatibility.
 __version__ = "2.0"
 
 import uuid
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable
 from dataclasses import fields, is_dataclass
 from datetime import datetime
 from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
@@ -485,119 +485,6 @@ class ConversionServiceV2:
             complex_tuple_fields=("expressions",),
             **kwargs,
         )
-
-    # ========================================================================
-    # PRINCIPLE EXTENDED FEATURES (Conversion layer complete - service stubs remain)
-    # ========================================================================
-
-    @classmethod
-    def principle_expression_to_dto(
-        cls, expression_uid: str, principle_uid: str, data: Any
-    ) -> dict[str, Any]:
-        """
-        Convert PrincipleExpressionRequest to DTO dict.
-
-        Args:
-            expression_uid: Generated UID for the expression
-            principle_uid: Parent principle UID
-            data: PrincipleExpressionRequest with context, behavior, example
-
-        Returns:
-            Dict representation for service layer consumption
-        """
-        # Extract fields from Pydantic model
-        if isinstance(data, PydanticModel):
-            data_dict = data.model_dump(exclude_none=False)
-        elif isinstance(data, Mapping) or (
-            isinstance(data, Iterable) and not isinstance(data, str | bytes)
-        ):
-            data_dict = dict(data)
-        else:
-            data_dict = {}
-
-        return {
-            "uid": expression_uid,
-            "principle_uid": principle_uid,
-            "context": data_dict.get("context", ""),
-            "behavior": data_dict.get("behavior", ""),
-            "example": data_dict.get("example"),
-            "created_at": datetime.now(),
-        }
-
-    @classmethod
-    def alignment_assessment_to_dto(
-        cls, assessment_uid: str, principle_uid: str, data: Any
-    ) -> dict[str, Any]:
-        """
-        Convert AlignmentAssessmentRequest to DTO dict.
-
-        Args:
-            assessment_uid: Generated UID for the assessment
-            principle_uid: Parent principle UID
-            data: AlignmentAssessmentRequest with alignment_level, evidence, reflection
-
-        Returns:
-            Dict representation for service layer consumption
-        """
-        from core.models.enums.principle_enums import AlignmentLevel
-        from core.ports.base_protocols import EnumLike
-
-        # Extract fields from Pydantic model
-        if isinstance(data, PydanticModel):
-            data_dict = data.model_dump(exclude_none=False)
-        elif isinstance(data, Mapping) or (
-            isinstance(data, Iterable) and not isinstance(data, str | bytes)
-        ):
-            data_dict = dict(data)
-        else:
-            data_dict = {}
-
-        # Handle enum value extraction
-        alignment_level = data_dict.get("alignment_level", AlignmentLevel.PARTIAL)
-        if isinstance(alignment_level, EnumLike):
-            alignment_level = alignment_level.value
-
-        return {
-            "uid": assessment_uid,
-            "principle_uid": principle_uid,
-            "alignment_level": alignment_level,
-            "evidence": data_dict.get("evidence", ""),
-            "reflection": data_dict.get("reflection"),
-            "assessed_date": data_dict.get("assessed_date"),
-            "created_at": datetime.now(),
-        }
-
-    @classmethod
-    def principle_link_to_dto(cls, link_uid: str, principle_uid: str, data: Any) -> dict[str, Any]:
-        """
-        Convert PrincipleLinkRequest to DTO dict.
-
-        Args:
-            link_uid: Generated UID for the link
-            principle_uid: Source principle UID
-            data: PrincipleLinkRequest with link_type, uid, bidirectional
-
-        Returns:
-            Dict representation for service layer consumption
-        """
-        # Extract fields from Pydantic model
-        if isinstance(data, PydanticModel):
-            data_dict = data.model_dump(exclude_none=False)
-        elif isinstance(data, Mapping) or (
-            isinstance(data, Iterable) and not isinstance(data, str | bytes)
-        ):
-            data_dict = dict(data)
-        else:
-            data_dict = {}
-
-        return {
-            "uid": link_uid,
-            "principle_uid": principle_uid,
-            "link_type": data_dict.get("link_type", ""),
-            "target_uid": data_dict.get("uid", ""),  # 'uid' in request is the target
-            "bidirectional": data_dict.get("bidirectional", False),
-            "created_at": datetime.now(),
-        }
 
     # ========================================================================
     # CONVERTER REGISTRY — static mapping from schema type to converter method

@@ -208,20 +208,6 @@ async def test_get_upcoming_uses_review_threshold_helper(search_service, mock_ba
 
 
 @pytest.mark.asyncio
-async def test_get_by_strength(search_service, mock_backend):
-    core = _principle("p:core", strength=PrincipleStrength.CORE)
-    mock_backend.find_by.return_value = Result.ok([core.to_dto().to_dict()])
-
-    result = await search_service.get_by_strength(PrincipleStrength.CORE, limit=50)
-
-    assert result.is_ok
-    assert len(result.value) == 1
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["strength"] == PrincipleStrength.CORE.value
-    assert kwargs["limit"] == 50
-
-
-@pytest.mark.asyncio
 async def test_get_by_category(search_service, mock_backend):
     health = _principle("p:health", category=PrincipleCategory.HEALTH)
     mock_backend.find_by.return_value = Result.ok([health.to_dto().to_dict()])

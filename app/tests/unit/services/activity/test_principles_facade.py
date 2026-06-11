@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums.principle_enums import PrincipleCategory
-from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.services.principles_service import PrinciplesService
 from core.utils.result_simplified import Errors, Result
@@ -138,50 +137,6 @@ class TestPrinciplesServicePortfolio:
         principles_service.relationships.get_cross_domain_context.assert_called_once_with(
             "principle_abc"
         )
-
-
-# ---------------------------------------------------------------------------
-# TestPrinciplesServiceSearch
-# ---------------------------------------------------------------------------
-
-
-class TestPrinciplesServiceSearch:
-    @pytest.mark.asyncio
-    async def test_search_principles_no_filter_returns_all_results(
-        self, principles_service: PrinciplesService
-    ) -> None:
-        """search_principles with no filters returns all search results."""
-        p1 = Mock()
-        p1.category = PrincipleCategory.ETHICAL
-        p2 = Mock()
-        p2.category = PrincipleCategory.PERSONAL
-        principles_service.search.search = AsyncMock(return_value=Result.ok([p1, p2]))
-
-        result = await principles_service.search_principles("integrity")
-
-        assert result.is_ok
-        assert len(result.value) == 2
-
-    @pytest.mark.asyncio
-    async def test_search_principles_category_filter_narrows_results(
-        self, principles_service: PrinciplesService
-    ) -> None:
-        """search_principles with category filter returns only matching principles."""
-        p_ethics = Mock(spec=Principle)
-        p_ethics.category = PrincipleCategory.ETHICAL
-        p_discipline = Mock(spec=Principle)
-        p_discipline.category = PrincipleCategory.PERSONAL
-        principles_service.search.search = AsyncMock(
-            return_value=Result.ok([p_ethics, p_discipline])
-        )
-
-        result = await principles_service.search_principles(
-            "values", filters={"category": PrincipleCategory.ETHICAL}
-        )
-
-        assert result.is_ok
-        assert len(result.value) == 1
-        assert result.value[0].category == PrincipleCategory.ETHICAL
 
 
 # ---------------------------------------------------------------------------

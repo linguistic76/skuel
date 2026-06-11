@@ -2,7 +2,7 @@
 Embodiment Mixin — PrinciplesService
 ======================================
 
-How Principles are lived — expressions, alignment history, portfolio, integrity.
+How Principles are lived — expressions, portfolio, integrity.
 This is the values-in-action layer.
 
 Part of principles_service.py decomposition (April 2026).
@@ -16,11 +16,6 @@ from typing import Any
 
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
-
-
-def _by_assessed_date(item: dict[str, Any]) -> str:
-    """Sort key for alignment history by assessed_date (SKUEL012: no lambdas)."""
-    return item.get("assessed_date", "")
 
 
 class _EmbodimentMixin:
@@ -105,104 +100,6 @@ class _EmbodimentMixin:
         self.logger.info("Created expression for principle %s", principle_uid)
 
         return Result.ok({"context": context, "behavior": behavior, "example": example})
-
-    async def get_principle_expressions(
-        self,
-        principle_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Get expressions of a principle (instances where it was lived out).
-
-        Reads from the principle's inline expressions list.
-
-        Args:
-            principle_uid: Principle UID
-
-        Returns:
-            Result with list of expression dicts
-        """
-        from core.models.principle.principle import Principle
-        from core.models.principle.principle_dto import PrincipleDTO
-
-        principle_result = await self.core.backend.get(principle_uid)
-        if principle_result.is_error:
-            return Result.fail(principle_result)
-
-        principle_data = principle_result.value
-        if isinstance(principle_data, Principle):
-            ku_dto = principle_data.to_dto()
-        elif isinstance(principle_data, dict):
-            ku_dto = PrincipleDTO.from_dict(principle_data)
-        else:
-            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
-
-        return Result.ok(
-            [
-                {
-                    "context": e.get("context"),
-                    "behavior": e.get("behavior"),
-                    "example": e.get("example"),
-                }
-                for e in ku_dto.expressions
-            ]
-        )
-
-    # ========================================================================
-    # ALIGNMENT HISTORY — Inline list on Principle entity
-    # ========================================================================
-
-    async def get_principle_alignment_history(
-        self,
-        principle_uid: str,
-        limit: int = 50,
-        days: int = 90,
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Get historical alignment assessments for a principle.
-
-        Reads from the principle's inline alignment_history list, filtered
-        by recency (days) and capped by limit.
-
-        Args:
-            principle_uid: Principle UID
-            limit: Maximum records
-            days: Lookback period in days
-
-        Returns:
-            Result with list of alignment assessment dicts
-        """
-        from datetime import date, timedelta
-
-        from core.models.principle.principle import Principle
-        from core.models.principle.principle_dto import PrincipleDTO
-
-        principle_result = await self.core.backend.get(principle_uid)
-        if principle_result.is_error:
-            return Result.fail(principle_result)
-
-        principle_data = principle_result.value
-        if isinstance(principle_data, Principle):
-            ku_dto = principle_data.to_dto()
-        elif isinstance(principle_data, dict):
-            ku_dto = PrincipleDTO.from_dict(principle_data)
-        else:
-            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
-
-        cutoff = date.today() - timedelta(days=days)
-        history = [
-            {
-                "assessed_date": str(a.get("assessed_date")),
-                "alignment_level": a.get("alignment_level"),
-                "evidence": a.get("evidence"),
-                "reflection": a.get("reflection"),
-            }
-            for a in ku_dto.alignment_history
-            if (assessed_date := a.get("assessed_date")) and assessed_date >= cutoff
-        ]
-
-        # Most recent first, then cap
-        history.sort(key=_by_assessed_date, reverse=True)
-        return Result.ok(history[:limit])
 
     # ========================================================================
     # PORTFOLIO & INTEGRITY

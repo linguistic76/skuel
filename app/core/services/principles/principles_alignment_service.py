@@ -15,7 +15,7 @@ Part of the PrinciplesService decomposition.
 """
 
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import date
 from operator import itemgetter
 from typing import Any
 
@@ -38,7 +38,7 @@ from core.services.cross_domain.cross_domain_types import PrincipleAlignmentEvid
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from core.utils.sort_functions import get_principle_priority, get_timestamp
+from core.utils.sort_functions import get_principle_priority
 
 logger = get_logger(__name__)
 
@@ -323,7 +323,6 @@ class PrinciplesAlignmentService:
         Returns:
             Result with PrincipleAlignmentAssessmentResult as dict
         """
-        from datetime import date
 
         from core.models.principle.principle_dto import PrincipleDTO
         from core.models.principle.principle_request import PrincipleAlignmentAssessmentResult
@@ -414,7 +413,6 @@ class PrinciplesAlignmentService:
             dto = principle_dict.to_dto()
 
         # Add assessment to history (append pattern — no assess_alignment method on PrincipleDTO)
-        from datetime import date
 
         from core.models.principle.principle_types import (
             AlignmentAssessment as KuAlignmentAssessment,
@@ -902,175 +900,3 @@ class PrinciplesAlignmentService:
         Delegates to AlignmentLevel.to_score() — the single source of truth.
         """
         return level.to_score()
-
-    async def get_principle_expressions_and_alignments(
-        self, principle_uid: str
-    ) -> Result[dict[str, Any]]:
-        """
-        Get expressions and alignment history for a principle.
-
-        Returns:
-            Result[Dict]: {
-                "expressions": List[str],
-                "alignments": List[Dict] with assessed_date, level, evidence, reflection
-            }
-        """
-        self.logger.debug(f"Getting expressions and alignments for {principle_uid}")
-
-        # Get principle
-        principle_result = await self.backend.get(principle_uid)
-        if principle_result.is_error:
-            return principle_result
-
-        principle_dict = principle_result.value
-        from core.models.principle.principle_dto import PrincipleDTO
-
-        principle_dto = PrincipleDTO.from_dict(principle_dict)
-        principle = Principle.from_dto(principle_dto)
-
-        # Extract expressions
-        expressions = list(principle.expressions) if principle.expressions else []
-
-        # Extract alignment history
-        alignments = []
-        if principle.alignment_history:
-            for assessment in principle.alignment_history:
-                # Handle both date objects and string dates
-                from datetime import date, datetime
-
-                assessed_date_str = (
-                    assessment.assessed_date.isoformat()
-                    if isinstance(assessment.assessed_date, date | datetime)
-                    else str(assessment.assessed_date)
-                )
-
-                alignments.append(
-                    {
-                        "assessed_date": assessed_date_str,
-                        "alignment_level": assessment.alignment_level.value,
-                        "alignment_score": self._alignment_level_to_score(
-                            assessment.alignment_level
-                        ),
-                        "evidence": assessment.evidence,
-                        "reflection": assessment.reflection,
-                    }
-                )
-
-        return Result.ok(
-            {
-                "principle_uid": principle_uid,
-                "expressions": expressions,
-                "alignments": alignments,
-                "current_alignment": principle.current_alignment.value
-                if principle.current_alignment
-                else None,
-                "total_expressions": len(expressions),
-                "total_assessments": len(alignments),
-            }
-        )
-
-    async def get_recent_activity(
-        self, user_uid: UserUID, limit: int = 10
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Get recent principle-related activities for a user.
-
-        Activities include:
-        - Alignment assessments created
-        - Principles updated
-        - Expressions added
-
-        Returns:
-            Result[List[Dict]]: List of activity dicts with timestamp, type, description
-        """
-        self.logger.debug(f"Getting recent activity for user {user_uid}")
-
-        # Get all user's principles
-        principles_result = await self.backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
-        )
-        if principles_result.is_error:
-            return principles_result
-
-        activities = []
-
-        for item in principles_result.value:
-            if isinstance(item, dict):
-                from core.models.principle.principle_dto import PrincipleDTO
-
-                principle_dto = PrincipleDTO.from_dict(item)
-                principle = Principle.from_dto(principle_dto)
-            else:
-                principle = item
-
-            # Track principle updates
-            activities.append(
-                {
-                    "timestamp": principle.updated_at,
-                    "type": "principle_updated",
-                    "description": f"Updated principle: {principle.statement}",
-                    "principle_uid": principle.uid,
-                    "principle_name": (principle.statement or "")[:50] + "..."
-                    if principle.statement and len(principle.statement) > 50
-                    else (principle.statement or ""),
-                }
-            )
-
-            # Track alignment assessments
-            if principle.alignment_history:
-                activities.extend(
-                    [
-                        {
-                            # Convert date to datetime for consistent sorting with other timestamps
-                            "timestamp": datetime.combine(
-                                assessment.assessed_date, datetime.min.time()
-                            )
-                            if isinstance(assessment.assessed_date, date)
-                            and not isinstance(assessment.assessed_date, datetime)
-                            else assessment.assessed_date,
-                            "type": "alignment_assessed",
-                            "description": f"Assessed alignment as {assessment.alignment_level.value}",
-                            "principle_uid": principle.uid,
-                            "principle_name": (principle.statement or "")[:50] + "..."
-                            if principle.statement and len(principle.statement) > 50
-                            else (principle.statement or ""),
-                            "alignment_level": assessment.alignment_level.value,
-                        }
-                        for assessment in principle.alignment_history
-                    ]
-                )
-
-            # Track expressions (using principle updated_at as proxy)
-            if principle.expressions:
-                for expression in principle.expressions:
-                    # Handle PrincipleExpression objects and strings
-                    from core.models.principle.principle_types import PrincipleExpression
-
-                    expr_text = (
-                        expression.behavior
-                        if isinstance(expression, PrincipleExpression)
-                        else str(expression)
-                    )
-                    expr_summary = expr_text[:50] + "..." if len(expr_text) > 50 else expr_text
-
-                    activities.append(
-                        {
-                            "timestamp": principle.updated_at,
-                            "type": "expression_added",
-                            "description": f"Added expression: {expr_summary}",
-                            "principle_uid": principle.uid,
-                            "principle_name": (principle.statement or "")[:50] + "..."
-                            if principle.statement and len(principle.statement) > 50
-                            else (principle.statement or ""),
-                            "expression": expr_text,
-                        }
-                    )
-
-        # Sort by timestamp (most recent first)
-        activities.sort(key=get_timestamp, reverse=True)
-
-        # Limit results
-        limited_activities = activities[:limit]
-
-        self.logger.debug(f"Found {len(limited_activities)} recent activities")
-        return Result.ok(limited_activities)

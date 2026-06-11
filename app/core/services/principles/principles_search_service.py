@@ -54,11 +54,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     - get_overdue() - Principles past review date
 
     Principle-Specific Methods:
-    - get_by_strength() - Filter by PrincipleStrength (core, strong, moderate, etc.)
     - get_by_category() - Filter by PrincipleCategory
-    - get_guiding_goals() - Principles guiding specific goals
-    - get_inspiring_habits() - Principles inspiring specific habits
-    - get_for_choice() - Principles relevant to a decision
     - get_active() - Get all active principles for user (overrides base — uses is_active flag)
     - get_upcoming() - Principles approaching review threshold (overrides base)
     - get_overdue() - Principles past review threshold (delegates to get_needing_review)
@@ -274,32 +270,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     # PRINCIPLE-SPECIFIC SEARCH METHODS
     # ========================================================================
 
-    @with_error_handling("get_by_strength", error_type="database")
-    async def get_by_strength(
-        self, strength: PrincipleStrength, limit: int = 100
-    ) -> Result[list[Principle]]:
-        """
-        Get principles filtered by strength level.
-
-        Args:
-            strength: PrincipleStrength enum (CORE, STRONG, MODERATE, DEVELOPING, EXPLORING)
-            limit: Maximum results to return
-
-        Returns:
-            Result containing principles with matching strength
-        """
-        from core.ports import get_enum_value
-
-        strength_value = get_enum_value(strength)
-        result = await self.backend.find_by(strength=strength_value, limit=limit)
-        if result.is_error:
-            return Result.fail(result)
-
-        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
-
-        self.logger.debug(f"Found {len(principles)} {strength_value} principles")
-        return Result.ok(principles)
-
     @with_error_handling("get_by_category", error_type="database")
     async def get_by_category(
         self, category: PrincipleCategory | str, user_uid: UserUID | None = None, limit: int = 100
@@ -325,74 +295,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
         self.logger.debug(f"Found {len(principles)} principles in category '{category_value}'")
         return Result.ok(principles)
-
-    @with_error_handling("get_guiding_goals", error_type="database")
-    async def get_guiding_goals(self, principle_uid: str) -> Result[list[str]]:
-        """
-        Get goal UIDs that a principle guides.
-
-        Query: (Principle)-[:GUIDES_GOAL]->(Goal)
-
-        Args:
-            principle_uid: Principle UID
-
-        Returns:
-            Result containing goal UIDs guided by this principle
-        """
-        result = await self.backend.get_related_uids(
-            uid=principle_uid,
-            relationship_type=RelationshipName.GUIDES_GOAL,
-            direction="outgoing",
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        self.logger.debug(f"Found {len(result.value)} goals guided by principle {principle_uid}")
-        return result
-
-    @with_error_handling("get_inspiring_habits", error_type="database")
-    async def get_inspiring_habits(self, principle_uid: str) -> Result[list[str]]:
-        """
-        Get habit UIDs that a principle inspires.
-
-        Query: (Principle)-[:INSPIRES_HABIT]->(Habit)
-
-        Args:
-            principle_uid: Principle UID
-
-        Returns:
-            Result containing habit UIDs inspired by this principle
-        """
-        result = await self.backend.get_related_uids(
-            uid=principle_uid,
-            relationship_type=RelationshipName.INSPIRES_HABIT,
-            direction="outgoing",
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        self.logger.debug(f"Found {len(result.value)} habits inspired by principle {principle_uid}")
-        return result
-
-    @with_error_handling("get_for_choice", error_type="database")
-    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list[Principle]]:
-        """
-        Get principles relevant to a choice/decision.
-
-        Query: (Principle)-[:GUIDES_CHOICE]->(Choice)
-
-        Args:
-            choice_uid: Choice UID
-            limit: Maximum results to return
-
-        Returns:
-            Result containing principles that can guide this choice
-        """
-        return await self.get_by_relationship(
-            related_uid=choice_uid,
-            relationship_type=RelationshipName.GUIDES_CHOICE,
-            direction="incoming",
-        )
 
     @with_error_handling("get_for_goal", error_type="database")
     async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list[Principle]]:
