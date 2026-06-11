@@ -68,30 +68,10 @@ class HabitRelationships:
         """Check if habit supports any goals."""
         return len(self.linked_goal_uids) > 0
 
-    def has_knowledge_reinforcement(self) -> bool:
-        """Check if habit reinforces any knowledge."""
-        return len(self.knowledge_reinforcement_uids) > 0
-
     def supports_goal_count(self) -> int:
         """Count how many goals this habit supports."""
         return len(self.linked_goal_uids)
 
-    def serves_life_path(self) -> bool:
-        """Check if habit serves user's life path."""
-        return len(self.serves_life_path_uids) > 0
-
-    def get_life_path_uid(self) -> str | None:
-        """Get the life path UID this habit serves (if any)."""
-        return self.serves_life_path_uids[0] if self.serves_life_path_uids else None
-
-    def has_choice_impact(self) -> bool:
-        """Check if habit has any choice relationships."""
-        return len(self.informed_choice_uids) > 0 or len(self.impacting_choice_uids) > 0
-
     def informs_choices(self) -> bool:
         """Check if this habit has informed any choices."""
         return len(self.informed_choice_uids) > 0
-
-    def impacted_by_choices(self) -> bool:
-        """Check if this habit was impacted by any choices."""
-        return len(self.impacting_choice_uids) > 0

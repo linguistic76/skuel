@@ -190,22 +190,6 @@ class HabitsProgressService:
         )
         return to_domain_model(dto, HabitDTO, Habit)
 
-    def _get_streak_from_context(self, habit_uid: str, user_context: UserContext) -> int | None:
-        """
-        Get habit's current streak from UserContext (standard context).
-
-        This is available even without rich context, from the basic
-        habit_streaks dict populated by the MEGA-QUERY.
-
-        Args:
-            habit_uid: Habit identifier
-            user_context: User's context
-
-        Returns:
-            Current streak if in context, None otherwise
-        """
-        return user_context.habit_streaks.get(habit_uid)
-
     # ========================================================================
     # HABIT COMPLETION AND STREAK MANAGEMENT
     # ========================================================================

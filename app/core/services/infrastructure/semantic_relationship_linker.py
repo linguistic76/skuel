@@ -195,7 +195,7 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
                 source_tag="habits_service_explicit",
             )
 
-            # In get_habit_with_semantic_context():
+            # In a facade delegation method:
             return await self.semantic_helper.get_with_semantic_context(
                 uid=uid,
                 semantic_types=[

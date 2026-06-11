@@ -82,16 +82,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
     # PRIVATE HELPER METHODS (Domain-Specific)
     # ========================================================================
 
-    async def _get_habits_by_uids(self, uids: list[str]) -> list[Habit]:
-        """Alias for base class method with domain-specific naming."""
-        return await self._get_entities_by_uids(uids)
-
-    async def _get_related_habit_uids(
-        self, relationship_key: str, entity_uid: EntityUID
-    ) -> list[str]:
-        """Alias for base class method with domain-specific naming."""
-        return await self._get_related_uids(relationship_key, entity_uid)
-
     def _get_habit_from_rich_context(self, habit_uid: str, context: UserContext) -> Habit | None:
         """
         Try to get Habit entity from UserContext rich data.

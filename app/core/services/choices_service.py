@@ -352,12 +352,6 @@ class ChoicesService(
     ) -> Result[list[Choice]]:
         return await self.search.get_prioritized(user_context, limit)
 
-    async def list_choice_categories(self, user_uid: UserUID) -> Result[list[str]]:
-        return await self.search.list_user_categories(user_uid)
-
-    async def list_all_choice_categories(self) -> Result[list[str]]:
-        return await self.search.list_all_categories()
-
     def __init__(
         self,
         backend: ChoicesOperations,

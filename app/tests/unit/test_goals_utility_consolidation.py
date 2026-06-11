@@ -8,11 +8,13 @@ correctly wired for the Goals domain.  No database required.
 
 Changes verified:
 1. `list_goal_categories()` removed from GoalsCoreService — it was dead code
-   that used a raw Cypher query, never called by the facade (which correctly
-   delegates to search.list_user_categories).
-2. GoalsService facade correctly delegates:
-   - list_goal_categories     → search.list_user_categories(user_uid)
-   - list_all_goal_categories → search.list_all_categories()
+   that used a raw Cypher query. The live category paths are the
+   search sub-service mixin methods `list_user_categories(user_uid)` and
+   `list_all_categories()` (used by service introspection).
+
+Note: the facade `list_*_categories` wrapper methods were deleted in the
+2026-06 dead-code campaign (zero production callers) — only the sub-service
+mixin methods remain.
 """
 
 from __future__ import annotations
@@ -86,126 +88,7 @@ class TestGoalsCoreServiceListCategories:
 
 
 # ============================================================================
-# 2. GoalsService facade — delegation routing
-# ============================================================================
-
-
-class TestGoalsServiceCategoryDelegation:
-    """GoalsService facade must delegate category queries to the search sub-service."""
-
-    def test_list_goal_categories_exists_on_facade(self):
-        """list_goal_categories must be present on GoalsService."""
-        service = _make_goals_service()
-        assert hasattr(service, "list_goal_categories")
-
-    def test_list_all_goal_categories_exists_on_facade(self):
-        """list_all_goal_categories must be present on GoalsService."""
-        service = _make_goals_service()
-        assert hasattr(service, "list_all_goal_categories")
-
-    @pytest.mark.asyncio
-    async def test_list_goal_categories_delegates_to_search_list_user_categories(self):
-        """list_goal_categories must call search.list_user_categories, not core."""
-        from core.utils.result_simplified import Result
-
-        service = _make_goals_service()
-        service.search.list_user_categories = AsyncMock(
-            return_value=Result.ok(["health", "career"])
-        )
-
-        result = await service.list_goal_categories("user_test_123")
-
-        service.search.list_user_categories.assert_called_once_with("user_test_123")
-        assert result.is_ok
-        assert result.value == ["health", "career"]
-
-    @pytest.mark.asyncio
-    async def test_list_all_goal_categories_delegates_to_search_list_all_categories(self):
-        """list_all_goal_categories must call search.list_all_categories (no user filter)."""
-        from core.utils.result_simplified import Result
-
-        service = _make_goals_service()
-        service.search.list_all_categories = AsyncMock(
-            return_value=Result.ok(["health", "career", "learning", "personal"])
-        )
-
-        result = await service.list_all_goal_categories()
-
-        service.search.list_all_categories.assert_called_once()
-        assert result.is_ok
-
-    @pytest.mark.asyncio
-    async def test_list_goal_categories_does_not_call_core(self):
-        """list_goal_categories must not touch core sub-service at all."""
-        from core.utils.result_simplified import Result
-
-        service = _make_goals_service()
-        # Mock search to succeed
-        service.search.list_user_categories = AsyncMock(return_value=Result.ok([]))
-        # Spy on core — it must not be called
-        service.core.list_goal_categories = AsyncMock()
-
-        await service.list_goal_categories("user_test_123")
-
-        service.core.list_goal_categories.assert_not_called()
-
-
-# ============================================================================
-# 3. Naming consistency — all four domains follow the same pattern
-# ============================================================================
-
-
-class TestAllDomainsHaveListCategoriesMethods:
-    """Goals, Habits, Choices, and Principles facades must expose consistent names."""
-
-    @pytest.mark.parametrize(
-        ("service_module", "service_class", "user_method", "all_method"),
-        [
-            (
-                "core.services.goals_service",
-                "GoalsService",
-                "list_goal_categories",
-                "list_all_goal_categories",
-            ),
-            (
-                "core.services.habits_service",
-                "HabitsService",
-                "list_habit_categories",
-                "list_all_habit_categories",
-            ),
-            (
-                "core.services.choices_service",
-                "ChoicesService",
-                "list_choice_categories",
-                "list_all_choice_categories",
-            ),
-            (
-                "core.services.principles_service",
-                "PrinciplesService",
-                "list_principle_categories",
-                "list_all_principle_categories",
-            ),
-        ],
-    )
-    def test_both_category_methods_exist(
-        self, service_module, service_class, user_method, all_method
-    ):
-        """Each facade must have both user-scoped and all-scoped category methods."""
-        import importlib
-
-        module = importlib.import_module(service_module)
-        cls = getattr(module, service_class)
-
-        assert hasattr(cls, user_method), f"{service_class}.{user_method} is missing"
-        assert hasattr(cls, all_method), f"{service_class}.{all_method} is missing"
-
-    def test_no_core_service_defines_list_goal_categories(self):
-        """list_goal_categories must not be defined directly on GoalsCoreService."""
-        assert "list_goal_categories" not in GoalsCoreService.__dict__
-
-
-# ============================================================================
-# 4. GoalsService.cancel_goal — abandonment guard on the facade
+# 2. GoalsService.cancel_goal — abandonment guard on the facade
 # ============================================================================
 
 
