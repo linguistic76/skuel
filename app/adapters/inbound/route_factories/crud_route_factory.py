@@ -55,7 +55,7 @@ Benefits:
 
 import uuid
 from collections.abc import Callable
-from typing import Any, Protocol, TypeVar, cast
+from typing import Any, Protocol, TypedDict, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -71,6 +71,15 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 T = TypeVar("T")
+
+
+class EntityListPayload[T](TypedDict):
+    """JSON shape of the generic list route: paginated entities + total count."""
+
+    items: list[T]
+    total: int
+    limit: int
+    offset: int
 
 
 # ============================================================================
@@ -111,7 +120,7 @@ class CRUDOperations(Protocol[T]):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: UserUID | None = None,  # NEW: User filtering
-    ) -> Result[list[T]]:
+    ) -> Result[tuple[list[T], int]]:
         """
         List entities with pagination and optional user filtering.
 
@@ -123,7 +132,7 @@ class CRUDOperations(Protocol[T]):
             user_uid: Filter entities by user (uses graph relationships)
 
         Returns:
-            Result[List[T]]: List of entities
+            Result[tuple[list[T], int]]: (entities, total_count) for pagination
         """
         ...
 
@@ -572,7 +581,7 @@ class CRUDRouteFactory[T]:
             - order_by: Sort field (optional)
             - order_desc: Sort descending (default: false)
 
-        Response: List of entities with user filtering
+        Response: EntityListPayload — {items, total, limit, offset}
 
         SECURITY (December 2025): When verify_ownership=True, requires authentication.
 
@@ -603,7 +612,7 @@ class CRUDRouteFactory[T]:
             offset: int = 0,
             order_by: str | None = None,
             order_desc: bool = False,
-        ) -> Result[list[T]]:
+        ) -> Result[EntityListPayload[T]]:
             """List entities with pagination and user filtering"""
             # Role check — skipped when role_gates_reads=False
             if factory.role_gates_reads:
@@ -611,7 +620,7 @@ class CRUDRouteFactory[T]:
                     request, factory.require_role, factory.user_service_getter, factory.domain
                 )
                 if role_check.is_error:
-                    return cast("Result[list[T]]", role_check)
+                    return cast("Result[EntityListPayload[T]]", role_check)
 
             # FastHTML extracts query params via type hints
 
@@ -633,9 +642,14 @@ class CRUDRouteFactory[T]:
                 order_desc=order_desc,
                 user_uid=user_uid,
             )
+            if result.is_error:
+                return Result.fail(result)
 
+            entities, total = result.value
             logger.debug(f"Listed {domain}: user={user_uid}, limit={limit}, offset={offset}")
-            return result
+            return Result.ok(
+                EntityListPayload(items=entities, total=total, limit=limit, offset=offset)
+            )
 
         # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(list_entities, f"{self.base_path}/list")

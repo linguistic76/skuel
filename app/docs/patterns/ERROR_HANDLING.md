@@ -281,7 +281,8 @@ async def backend_method(self):
     # Exceptions automatically wrapped in Result.fail()
 
 # Manual conversion when needed
-response = result_to_response(result)  # → (body, status_code)
+response = result_to_response(result)  # → JSONResponse; ok-values (incl. frozen
+# domain models, enums, datetimes) are serialized JSON-safely via jsonable_content()
 exception = result_to_exception(result)  # → Exception (rarely needed)
 
 # Fetch + null-check guard (/adapters/inbound/result_helpers.py)
