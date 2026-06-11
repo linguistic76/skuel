@@ -273,25 +273,6 @@ class UserContextService:
 
         return Result.ok(summary)
 
-    async def get_active_context(
-        self,
-        user_uid: UserUID,
-    ) -> Result[UserContext]:
-        """
-        Get raw UserContext for user.
-
-        Returns the complete context object for advanced use cases.
-        Most consumers should use get_context_dashboard() instead.
-
-        Args:
-            user_uid: User identifier
-
-        Returns:
-            Result containing UserContext
-        """
-        # Build context - builder owns user resolution (Option A architecture)
-        return await self.context_builder.build(user_uid)
-
     async def get_next_action(self, user_uid: UserUID) -> Result[NextActionResult]:
         """
         Get AI-recommended next action by reshaping the daily work plan.

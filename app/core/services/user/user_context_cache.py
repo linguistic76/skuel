@@ -151,11 +151,6 @@ class UserContextCache:
             del self._cache[user_uid]
             del self._last_update[user_uid]
 
-    def invalidate_all(self) -> None:
-        """Clear all cached contexts."""
-        self._cache.clear()
-        self._last_update.clear()
-
     def cleanup_expired(self) -> int:
         """
         Remove expired contexts.

@@ -130,8 +130,8 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 | `LateralRelationshipItem`, `BlockingChainResult`, `RelationshipGraphData` | `LateralRelationshipOperations` | `get_lateral_relationships`, `get_blocking_chain`, `get_relationship_graph` |
 | `AnnotationResult`, `AnnotationState`, `PrivacySummary` | `ActivityReportOperations` | `annotate`, `get_annotation`, `get_privacy_summary` |
 | `SystemHealthStatus`, `HealthCheckValidation`, `ComponentHealthStatus`, `HealthCheckerValidationResult` | `SystemServiceOperations` | `get_health_status`, `validate_health_checkers` |
-| `RichEntityItem`, `RichKnowledgeUnitItem`, `RichLearningPathItem`, `RichPathStepItem`, `RichMOCItem` | `UserContext` fields | `entities_rich`, `knowledge_units_rich`, `enrolled_paths_rich`, `active_path_steps_rich`, `active_mocs_rich` |
-| `UnsubmittedExerciseItem`, `PendingRevisedExerciseItem`, `FacetInteractionItem` | `UserContext` fields | `unsubmitted_exercises`, `pending_revised_exercises`, `facet_interaction_history` |
+| `RichEntityItem`, `RichKnowledgeUnitItem`, `RichLearningPathItem`, `RichPathStepItem` | `UserContext` fields | `entities_rich`, `knowledge_units_rich`, `enrolled_paths_rich`, `active_path_steps_rich` |
+| `UnsubmittedExerciseItem`, `PendingRevisedExerciseItem` | `UserContext` fields | `unsubmitted_exercises`, `pending_revised_exercises` |
 | `CrossDomainInsightsData`, `CrossDomainInsightItem` | `UserContext` field | `cross_domain_insights` |
 | `NextActionResult`, `AtRiskHabitsResult`, `AdaptiveLearningPathResult`, `FutureContextStateResult`, `ContextHealthResult` | `ContextAwareOperations` | `get_next_action`, `get_at_risk_habits`, `get_adaptive_learning_path`, `predict_future_context_state`, `get_context_health` |
 | `GraphInfluenceItem`, `RelationshipSummaryResult` | `GraphEntity` | `get_upstream_influences`, `get_downstream_impacts`, `get_relationship_summary` |

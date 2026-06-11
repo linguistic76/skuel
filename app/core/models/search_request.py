@@ -227,7 +227,7 @@ class SearchRequest(BaseModel):
     )
 
     # ========================================================================
-    # NOUS-SPECIFIC FACETS (For worldview MOC content)
+    # NOUS-SPECIFIC FACETS (For worldview content)
     # ========================================================================
 
     # Nous section filter

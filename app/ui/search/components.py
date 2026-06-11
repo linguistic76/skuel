@@ -237,7 +237,6 @@ def _render_entity_type_select() -> str:
         ("ku", "Knowledge Units"),
         ("ps", "Path Steps"),
         ("lp", "Learning Paths"),
-        ("moc", "Maps of Content"),
         ("task", "Tasks"),
         ("goal", "Goals"),
         ("habit", "Habits"),
