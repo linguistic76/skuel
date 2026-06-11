@@ -79,7 +79,7 @@ def create_principles_ui_routes(
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 
-    @rt("/principles/create")
+    @rt("/principles/create", methods=["GET"])
     async def principle_create_page(request: Request) -> Any:
         """Render the new-principle form."""
         require_authenticated_user(request)
@@ -116,7 +116,7 @@ def create_principles_ui_routes(
 
         return RedirectResponse(f"/principles/detail?uid={result.value.uid}", status_code=303)
 
-    @rt("/principles/edit")
+    @rt("/principles/edit", methods=["GET"])
     async def principle_edit_page(request: Request) -> Any:
         """Render the edit form prefilled from an existing principle."""
         user_uid = require_authenticated_user(request)

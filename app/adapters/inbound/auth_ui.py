@@ -337,7 +337,7 @@ def create_auth_ui_routes(
     # PASSWORD RESET
     # ========================================================================
 
-    @rt("/forgot-password")
+    @rt("/forgot-password", methods=["GET"])
     async def forgot_password_page(_request: Request) -> Any:
         """Show forgot password email form"""
         return AuthComponents.render_forgot_password_form()

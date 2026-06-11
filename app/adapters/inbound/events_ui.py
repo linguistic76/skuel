@@ -92,7 +92,7 @@ def create_events_ui_routes(
 
         return habit_display, goal_display
 
-    @rt("/events/create")
+    @rt("/events/create", methods=["GET"])
     async def event_create_page(request: Request) -> Any:
         """Render the new-event form."""
         require_authenticated_user(request)
@@ -129,7 +129,7 @@ def create_events_ui_routes(
 
         return RedirectResponse(f"/events/detail?uid={result.value.uid}", status_code=303)
 
-    @rt("/events/edit")
+    @rt("/events/edit", methods=["GET"])
     async def event_edit_page(request: Request) -> Any:
         """Render the edit form prefilled from an existing event."""
         user_uid = require_authenticated_user(request)
