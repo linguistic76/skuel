@@ -407,7 +407,7 @@ counts = PatternAnalyzer.extract_dict_field_counts(
 | Service | Methods Migrated |
 |---------|-----------------|
 | Tasks | `_analyze_task_patterns`, `_identify_learning_opportunities` |
-| Principles | `_extract_activities_from_dict`, `_extract_recent_activities_from_dict` |
+| Principles | `_extract_recent_activities_from_dict` |
 
 ---
 

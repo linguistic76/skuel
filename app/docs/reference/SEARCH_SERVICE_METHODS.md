@@ -45,7 +45,6 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | `get_by_streak_status()` | - | - | D | - | - | - | - | - | - |
 | `get_by_date_range()` | - | - | - | D | - | - | - | - | - |
 | `get_by_urgency()` | - | - | - | - | D | - | - | - | - |
-| `get_by_strength()` | - | - | - | - | - | D | - | - | - |
 | `find_similar_content()` | - | - | - | - | - | - | D | - | - |
 | `get_for_learning_path()` | - | - | - | - | - | - | - | D | - |
 | `get_by_path_type()` | - | - | - | - | - | - | - | - | D |
@@ -372,12 +371,9 @@ _graph_enrichment_patterns = [
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_by_strength` | `(min_strength: float, user_uid: UserUID) -> Result[list[Principle]]` | Filter by conviction strength |
 | `get_by_category` | `(category: str, user_uid: UserUID) -> Result[list[Principle]]` | Filter by category |
-| `get_guiding_goals` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Goal]]` | Goals guided by principle |
-| `get_inspiring_habits` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Habits inspired by principle |
-| `get_for_choice` | `(choice_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Relevant principles for decision |
 | `get_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles aligned with goal |
+| `get_for_habit` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles inspiring habit |
 | `get_needing_review` | `(user_uid: UserUID, days: int = 90) -> Result[list[Principle]]` | Principles not reviewed recently (also drives the overridden `get_overdue`) |
 | `get_related_principles` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Related principles |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Principle]]` | Smart prioritization |
@@ -504,13 +500,6 @@ if path_result.is_ok:
             progress = await ku_search.get_user_progress(ku_uid, "user.123")
             if progress.is_ok and progress.value["mastery_level"] < 0.8:
                 print(f"Gap: {ku_uid}")
-```
-
-### Get principles relevant to a decision
-
-```python
-# Find principles that should guide a choice
-principles_result = await principles_search.get_for_choice("choice.career-change", "user.123")
 ```
 
 ### Smart prioritization across domains
