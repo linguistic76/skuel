@@ -137,6 +137,78 @@ def test_result_to_response_system_error():
 
 
 # ============================================================================
+# Test result_to_response domain-model serialization (regression)
+# ============================================================================
+# POST /api/{domain}/create 500'd after a successful create because the frozen
+# domain dataclass went straight into Starlette's JSONResponse (json.dumps
+# can't serialize dataclasses, enums, datetimes, or MappingProxyType). These
+# tests use the REAL Task model — dict-only mocks are what hid the bug.
+
+
+def test_result_to_response_frozen_dataclass_entity():
+    """A created domain entity must serialize to JSON (the create-route path)."""
+    from datetime import date
+
+    from core.models.enums.entity_enums import EntityStatus, EntityType
+    from core.models.task.task import Task
+
+    task = Task(
+        uid="task:abc123def456",
+        title="Boundary serialization",
+        user_uid="user_test",
+        due_date=date(2026, 6, 15),
+        knowledge_confidence_scores={"ku_x": 0.5},  # wrapped in MappingProxyType
+    )
+    result = Result.ok(task)
+
+    response = result_to_response(result, success_status=201)
+    body, status = extract_response(response)
+
+    assert status == 201
+    assert body["uid"] == "task:abc123def456"
+    assert body["title"] == "Boundary serialization"
+    assert body["entity_type"] == EntityType.TASK.value
+    assert body["status"] == EntityStatus.DRAFT.value
+    assert body["due_date"] == "2026-06-15"
+    assert body["knowledge_confidence_scores"] == {"ku_x": 0.5}
+    # datetime fields serialize as ISO strings
+    assert isinstance(body["created_at"], str)
+
+
+def test_result_to_response_list_of_entities():
+    """A list of domain entities must serialize to JSON (the list-route path)."""
+    from core.models.task.task import Task
+
+    tasks = [
+        Task(uid="task:aaa111", title="First", user_uid="user_test"),
+        Task(uid="task:bbb222", title="Second", user_uid="user_test"),
+    ]
+    response = result_to_response(Result.ok(tasks))
+    body, status = extract_response(response)
+
+    assert status == 200
+    assert [t["uid"] for t in body] == ["task:aaa111", "task:bbb222"]
+
+
+@pytest.mark.asyncio
+async def test_boundary_handler_unserializable_value_returns_500():
+    """A genuinely unserializable value still hits the safety-net, not a crash."""
+
+    class NotSerializable:
+        pass
+
+    @boundary_handler()
+    async def handler():
+        return Result.ok(NotSerializable())
+
+    response = await handler()
+    body, status = extract_response(response)
+
+    assert status == 500
+    assert body == {"error": "An internal error occurred"}
+
+
+# ============================================================================
 # Test result_to_exception (Alternative Boundary Conversion)
 # ============================================================================
 

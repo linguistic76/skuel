@@ -709,6 +709,136 @@ async def test_multi_domain_coverage():
         assert domain_name.capitalize() in body["title"]
 
 
+# ============================================================================
+# TEST REAL FACTORY HANDLERS (regression: domain models must serialize)
+# ============================================================================
+# POST /api/{domain}/create 500'd after a successful create because the frozen
+# domain dataclass hit Starlette's JSONResponse unconverted. The hand-rolled
+# handlers above never caught it — their mocks return dicts. These tests run
+# the REAL handlers CRUDRouteFactory registers, with the real Task model and
+# the real ConversionServiceV2 converter path.
+
+
+class CapturingRT:
+    """Records the handlers a factory registers, keyed by path."""
+
+    def __init__(self):
+        self.handlers: dict[str, Any] = {}
+
+    def __call__(self, path: str, methods: list[str] | None = None):
+        def register(handler):
+            self.handlers[path] = handler
+            return handler
+
+        return register
+
+
+class FactoryRequest:
+    """Mock request satisfying auth + CSRF + JSON-body needs of real factory handlers."""
+
+    def __init__(self, method: str = "GET", body: dict | None = None, csrf: str = "tok-123"):
+        from types import SimpleNamespace
+
+        self.method = method
+        self._body = body or {}
+        self.session = {"user_uid": "user_test"}
+        self.cookies = {"csrf_token": csrf}
+        self.headers = {"X-CSRF-Token": csrf, "content-type": "application/json"}
+        self.query_params: dict[str, str] = {}
+        self.url = SimpleNamespace(path="/api/tasks/test")
+        self.state = SimpleNamespace()
+
+    async def json(self):
+        return self._body
+
+
+class EchoTaskService:
+    """Protocol-accurate mock: create echoes the real entity; list returns (items, total)."""
+
+    def __init__(self):
+        self.created: list[Any] = []
+
+    async def create(self, entity: Any) -> Result[Any]:
+        self.created.append(entity)
+        return Result.ok(entity)
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str | None = None,
+        order_desc: bool = False,
+        user_uid: str | None = None,
+    ) -> Result[tuple[list[Any], int]]:
+        from core.models.task.task import Task
+
+        tasks = [
+            Task(uid="task:aaa111", title="First", user_uid=user_uid or "user_test"),
+            Task(uid="task:bbb222", title="Second", user_uid=user_uid or "user_test"),
+        ]
+        return Result.ok((tasks, 7))
+
+
+def _real_task_factory(service: Any) -> tuple[CRUDRouteFactory, CapturingRT]:
+    from core.models.task.task_request import (
+        TaskCreateRequest as RealTaskCreateRequest,
+    )
+    from core.models.task.task_request import (
+        TaskUpdateRequest as RealTaskUpdateRequest,
+    )
+
+    factory = CRUDRouteFactory(
+        service=service,
+        domain_name="tasks",
+        create_schema=RealTaskCreateRequest,
+        update_schema=RealTaskUpdateRequest,
+        uid_prefix="task",
+    )
+    rt = CapturingRT()
+    factory.register_routes(None, rt)
+    return factory, rt
+
+
+@pytest.mark.asyncio
+async def test_real_factory_create_returns_201_with_entity_json():
+    """The registered create handler must serialize the created Task to JSON."""
+    service = EchoTaskService()
+    _, rt = _real_task_factory(service)
+
+    request = FactoryRequest(
+        method="POST", body={"title": "Real factory create", "description": "regression"}
+    )
+    response = await rt.handlers["/api/tasks/create"](request)
+    body, status = extract_response(response)
+
+    assert status == 201
+    assert body["title"] == "Real factory create"
+    assert body["uid"].startswith("task:")
+    assert body["entity_type"] == "task"
+    assert body["user_uid"] == "user_test"
+    assert isinstance(body["status"], str)
+    # The service really received a frozen Task domain model, not a dict
+    from core.models.task.task import Task
+
+    assert isinstance(service.created[0], Task)
+
+
+@pytest.mark.asyncio
+async def test_real_factory_list_returns_paginated_payload():
+    """The registered list handler must unpack (items, total) into a JSON payload."""
+    service = EchoTaskService()
+    _, rt = _real_task_factory(service)
+
+    response = await rt.handlers["/api/tasks/list"](FactoryRequest(method="GET"))
+    body, status = extract_response(response)
+
+    assert status == 200
+    assert body["total"] == 7
+    assert body["limit"] == 100
+    assert body["offset"] == 0
+    assert [t["uid"] for t in body["items"]] == ["task:aaa111", "task:bbb222"]
+
+
 if __name__ == "__main__":
     # Run with: uv run pytest tests/test_adapter_less_crud_routes.py -v
     pytest.main([__file__, "-v"])
