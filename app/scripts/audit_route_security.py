@@ -106,6 +106,8 @@ class Handler:
     has_csrf: bool
     has_auth: bool
     signal: str  # why we consider it a mutation (empty string = not a mutation)
+    path: str | None  # the @rt(...) path string, when a string literal
+    claims_post: bool  # True if this registration accepts POST (explicit or by default)
 
     @property
     def is_mutation(self) -> bool:
@@ -117,16 +119,25 @@ def _by_location(h: Handler) -> tuple[str, int]:
     return (h.file, h.lineno)
 
 
-def _decorator_name(d: ast.expr) -> tuple[str | None, bool, list[ast.keyword]]:
+def _decorator_name(
+    d: ast.expr,
+) -> tuple[str | None, bool, list[ast.keyword], list[ast.expr]]:
     if isinstance(d, ast.Call):
         f = d.func
         name = f.id if isinstance(f, ast.Name) else getattr(f, "attr", None)
-        return name, True, d.keywords
+        return name, True, d.keywords, d.args
     if isinstance(d, ast.Name):
-        return d.id, False, []
+        return d.id, False, [], []
     if isinstance(d, ast.Attribute):
-        return d.attr, False, []
-    return None, False, []
+        return d.attr, False, [], []
+    return None, False, [], []
+
+
+def _route_path(args: list[ast.expr]) -> str | None:
+    """Return the first positional arg of an @rt(...) call when it is a string."""
+    if args and isinstance(args[0], ast.Constant) and isinstance(args[0].value, str):
+        return args[0].value
+    return None
 
 
 def _methods_kwarg(keywords: list[ast.keyword]) -> frozenset[str]:
@@ -175,14 +186,18 @@ def _analyze(
     node: ast.AsyncFunctionDef | ast.FunctionDef, filename: str, include_json: bool
 ) -> Handler | None:
     has_rt = False
+    has_methods_kwarg = False
     methods: frozenset[str] = frozenset()
+    path: str | None = None
     has_csrf = False
     has_role = False
     for d in node.decorator_list:
-        name, is_call, kwargs = _decorator_name(d)
+        name, is_call, kwargs, args = _decorator_name(d)
         if name in ROUTE_DECORATORS and is_call:
             has_rt = True
             methods = _methods_kwarg(kwargs)
+            has_methods_kwarg = any(kw.arg == "methods" for kw in kwargs)
+            path = _route_path(args)
         elif name == CSRF_DECORATOR:
             has_csrf = True
         elif name in ROLE_DECORATORS:
@@ -195,6 +210,12 @@ def _analyze(
     else:
         signal = _body_signal(node, include_json) or ""
 
+    # A registration accepts POST if it names POST explicitly, OR if it carries
+    # no methods= kwarg at all (FastHTML's @rt default is GET+POST). Two POST-
+    # claiming registrations on the same path shadow each other (Starlette
+    # first-match wins) — see _collision_gaps.
+    claims_post = ("POST" in methods) if has_methods_kwarg else True
+
     return Handler(
         file=filename,
         lineno=node.lineno,
@@ -202,6 +223,8 @@ def _analyze(
         has_csrf=has_csrf,
         has_auth=has_role or _has_auth(node),
         signal=signal,
+        path=path,
+        claims_post=claims_post,
     )
 
 
@@ -221,6 +244,27 @@ def collect_handlers(scan_dir: Path, include_json: bool) -> list[Handler]:
                 if h is not None:
                     handlers.append(h)
     return handlers
+
+
+def collision_gaps(handlers: list[Handler]) -> list[tuple[str, list[Handler]]]:
+    """Find paths where two or more @rt registrations both claim POST.
+
+    FastHTML's ``@rt(path)`` with no ``methods=`` registers BOTH GET and POST.
+    Starlette matches the first-registered route for a given path+method, so a
+    page/reader handler declared first as bare ``@rt(path)`` silently SHADOWS a
+    later ``@rt(path, methods=["POST"])`` + ``@csrf_protected`` submit handler:
+    the submit never runs and its CSRF gate is bypassed. The fix is to make the
+    page/reader handler GET-only (``methods=["GET"]``) so exactly one
+    registration per path claims POST.
+
+    Structural (registration-based), no flow analysis: group by path string,
+    flag any path with >1 POST-claiming registration.
+    """
+    by_path: dict[str, list[Handler]] = {}
+    for h in handlers:
+        if h.path is not None and h.claims_post:
+            by_path.setdefault(h.path, []).append(h)
+    return sorted((p, hs) for p, hs in by_path.items() if len(hs) > 1)
 
 
 def main() -> int:
@@ -248,6 +292,7 @@ def main() -> int:
 
     csrf_gaps = [h for h in mutations if not h.has_csrf and (h.file, h.name) not in CSRF_EXEMPT]
     auth_gaps = [h for h in mutations if not h.has_auth and (h.file, h.name) not in AUTH_EXEMPT]
+    collisions = collision_gaps(handlers)
 
     seen = {(h.file, h.name) for h in handlers}
     stale = sorted(k for k in (AUTH_EXEMPT.keys() | CSRF_EXEMPT.keys()) if k not in seen)
@@ -279,6 +324,15 @@ def main() -> int:
         for h in sorted(auth_gaps, key=_by_location):
             print(f"  {h.file}:{h.lineno} {h.name}  [{h.signal}]")
 
+    if collisions:
+        print(
+            f"\n{RED}{BOLD}✗ POST shadowing collisions ({len(collisions)}):{RESET} "
+            'make the page/reader handler GET-only (methods=["GET"])'
+        )
+        for path, hs in collisions:
+            who = ", ".join(f"{h.file}:{h.lineno} {h.name}" for h in sorted(hs, key=_by_location))
+            print(f"  {path}  ←  {who}")
+
     if stale:
         print(
             f"\n{YELLOW}⚠ stale exemptions (handler renamed/removed — clean up the table):{RESET}"
@@ -286,7 +340,7 @@ def main() -> int:
         for f, fn in stale:
             print(f"  {f}:{fn}")
 
-    if csrf_gaps or auth_gaps:
+    if csrf_gaps or auth_gaps or collisions:
         print(
             f"\n{RED}{BOLD}FAILED{RESET} — fix the handler, or if intentional add it to the "
             f"exemption table in {Path(__file__).name} with a reason."
@@ -295,7 +349,7 @@ def main() -> int:
 
     print(
         f"\n{GREEN}{BOLD}✓ PASSED{RESET} — every {mode} mutation handler is "
-        "CSRF-protected and authenticated."
+        "CSRF-protected and authenticated, and no path has shadowed POST registrations."
     )
     return 0
 

@@ -101,7 +101,7 @@ def create_transcription_api_routes(
 
         return await transcription_service.delete(uid)
 
-    @rt("/api/transcriptions")
+    @rt("/api/transcriptions", methods=["GET"])
     @boundary_handler()
     async def list_transcriptions(request) -> Result[list[dict[str, Any]]]:
         """List transcriptions for the authenticated user."""

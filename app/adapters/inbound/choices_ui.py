@@ -67,7 +67,7 @@ def create_choices_ui_routes(
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 
-    @rt("/choices/create")
+    @rt("/choices/create", methods=["GET"])
     async def choice_create_page(request: Request) -> Any:
         """Render the new-choice form."""
         require_authenticated_user(request)
@@ -104,7 +104,7 @@ def create_choices_ui_routes(
 
         return RedirectResponse(f"/choices/detail?uid={result.value.uid}", status_code=303)
 
-    @rt("/choices/edit")
+    @rt("/choices/edit", methods=["GET"])
     async def choice_edit_page(request: Request) -> Any:
         """Render the edit form prefilled from an existing choice."""
         user_uid = require_authenticated_user(request)

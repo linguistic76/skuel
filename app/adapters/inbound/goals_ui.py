@@ -76,7 +76,7 @@ def create_goals_ui_routes(
     # Create form: GET /goals/create  +  POST /goals/create
     # ------------------------------------------------------------------
 
-    @rt("/goals/create")
+    @rt("/goals/create", methods=["GET"])
     async def goal_create_page(request: Request) -> Any:
         """Render the new-goal form."""
         require_authenticated_user(request)
@@ -121,7 +121,7 @@ def create_goals_ui_routes(
     # Edit form: GET /goals/edit?uid=...  +  POST /goals/edit?uid=...
     # ------------------------------------------------------------------
 
-    @rt("/goals/edit")
+    @rt("/goals/edit", methods=["GET"])
     async def goal_edit_page(request: Request) -> Any:
         """Render the edit form prefilled from an existing goal."""
         user_uid = require_authenticated_user(request)

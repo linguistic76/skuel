@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import textwrap
 from pathlib import Path
 
 # scripts/ is not an importable package, so load the audit module by path.
@@ -30,6 +31,7 @@ AUTH_EXEMPT = _audit.AUTH_EXEMPT
 CSRF_EXEMPT = _audit.CSRF_EXEMPT
 SCAN_DIR = _audit.SCAN_DIR
 collect_handlers = _audit.collect_handlers
+collision_gaps = _audit.collision_gaps
 
 
 def _mutations():
@@ -65,3 +67,87 @@ def test_no_stale_exemptions() -> None:
     seen = {(h.file, h.name) for h in collect_handlers(SCAN_DIR, include_json=True)}
     stale = sorted(k for k in (AUTH_EXEMPT.keys() | CSRF_EXEMPT.keys()) if k not in seen)
     assert not stale, f"exemptions for handlers that no longer exist: {stale}"
+
+
+# ── POST shadowing-collision guard ───────────────────────────────────────────
+# FastHTML's @rt(path) with no methods= registers BOTH GET and POST; Starlette
+# matches the first-registered route, so a page handler declared first as bare
+# @rt(path) shadows a later @rt(path, methods=["POST"]) + @csrf_protected submit
+# (the submit never runs and its CSRF gate is bypassed). collision_gaps() flags
+# any path with >1 POST-claiming registration.
+
+
+def test_no_post_shadowing_collisions_in_tree() -> None:
+    # The real adapters/inbound tree must have exactly one POST-claiming
+    # registration per path — no page/reader handler shadowing a POST submit.
+    collisions = collision_gaps(collect_handlers(SCAN_DIR, include_json=True))
+    pretty = [f"{path}: {[f'{h.file}:{h.lineno} {h.name}' for h in hs]}" for path, hs in collisions]
+    assert not collisions, f"shadowed POST registrations: {pretty}"
+
+
+def _scan_source(tmp_path: Path, source: str) -> list:
+    (tmp_path / "mod.py").write_text(textwrap.dedent(source), encoding="utf-8")
+    return collect_handlers(tmp_path, include_json=True)
+
+
+def test_collision_flagged_for_colliding_pair(tmp_path: Path) -> None:
+    # Bare page handler registered first (defaults to GET+POST) + a real POST
+    # submit on the SAME path → both claim POST → flagged.
+    handlers = _scan_source(
+        tmp_path,
+        """
+        def make(rt):
+            @rt("/x/create")
+            async def x_page(request):
+                return "page"
+
+            @rt("/x/create", methods=["POST"])
+            @csrf_protected
+            async def x_submit(request):
+                return "submit"
+        """,
+    )
+    collisions = collision_gaps(handlers)
+    assert len(collisions) == 1
+    path, hs = collisions[0]
+    assert path == "/x/create"
+    assert {h.name for h in hs} == {"x_page", "x_submit"}
+
+
+def test_no_collision_for_clean_get_post_split(tmp_path: Path) -> None:
+    # Page handler is explicitly GET-only → only the submit claims POST → clean.
+    handlers = _scan_source(
+        tmp_path,
+        """
+        def make(rt):
+            @rt("/x/create", methods=["GET"])
+            async def x_page(request):
+                return "page"
+
+            @rt("/x/create", methods=["POST"])
+            @csrf_protected
+            async def x_submit(request):
+                return "submit"
+        """,
+    )
+    assert collision_gaps(handlers) == []
+
+
+def test_no_collision_for_distinct_paths(tmp_path: Path) -> None:
+    # A GET page and a POST submit on DIFFERENT paths (login → /login/submit
+    # pattern) never collide, even though the page handler defaults to GET+POST.
+    handlers = _scan_source(
+        tmp_path,
+        """
+        def make(rt):
+            @rt("/login")
+            async def login_page(request):
+                return "page"
+
+            @rt("/login/submit", methods=["POST"])
+            @csrf_protected
+            async def login_submit(request):
+                return "submit"
+        """,
+    )
+    assert collision_gaps(handlers) == []

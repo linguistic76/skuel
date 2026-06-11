@@ -36,7 +36,7 @@ def create_user_pins_routes(
         user_relationship_service: UserRelationshipOperations instance
     """
 
-    @rt("/api/user/pins")
+    @rt("/api/user/pins", methods=["GET"])
     @boundary_handler()
     async def get_pinned_entities(request: Request) -> Result[list[str]]:
         """

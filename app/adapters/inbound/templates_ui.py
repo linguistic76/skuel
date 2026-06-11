@@ -199,7 +199,7 @@ def create_templates_ui_routes(
     # GET /teaching/ps/{ps_uid}/templates/{domain}/new  — create form page
     # ------------------------------------------------------------------
 
-    @rt("/teaching/ps/{ps_uid}/templates/{domain}/new")
+    @rt("/teaching/ps/{ps_uid}/templates/{domain}/new", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     async def template_create_page(
         request: Request, ps_uid: str, domain: str, current_user: Any = None
@@ -326,7 +326,7 @@ def create_templates_ui_routes(
     # GET /teaching/ps/{ps_uid}/templates/{domain}/edit?uid=...  — edit form page
     # ------------------------------------------------------------------
 
-    @rt("/teaching/ps/{ps_uid}/templates/{domain}/edit")
+    @rt("/teaching/ps/{ps_uid}/templates/{domain}/edit", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     async def template_edit_page(
         request: Request, ps_uid: str, domain: str, current_user: Any = None

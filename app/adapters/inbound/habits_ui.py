@@ -70,7 +70,7 @@ def create_habits_ui_routes(
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 
-    @rt("/habits/create")
+    @rt("/habits/create", methods=["GET"])
     async def habit_create_page(request: Request) -> Any:
         """Render the new-habit form."""
         require_authenticated_user(request)
@@ -107,7 +107,7 @@ def create_habits_ui_routes(
 
         return RedirectResponse(f"/habits/detail?uid={result.value.uid}", status_code=303)
 
-    @rt("/habits/edit")
+    @rt("/habits/edit", methods=["GET"])
     async def habit_edit_page(request: Request) -> Any:
         """Render the edit form prefilled from an existing habit."""
         user_uid = require_authenticated_user(request)

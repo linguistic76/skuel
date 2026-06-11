@@ -100,7 +100,7 @@ def create_lifepath_ui_routes(
             id="lifepath-dashboard-content",
         )
 
-    @rt("/lifepath/vision")
+    @rt("/lifepath/vision", methods=["GET"])
     async def vision_capture_page(request: Request) -> Any:
         """Vision capture page - where user expresses their vision."""
         user_uid = require_authenticated_user(request)
