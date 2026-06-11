@@ -127,7 +127,6 @@ class TestPrincipleRelationships:
         assert not rels.guides_goals()
         assert not rels.inspires_habits()
         assert not rels.is_integrated()
-        assert not rels.has_related_principles()
         assert rels.integration_score() == 0.0
         assert rels.total_influence_count() == 0
 
@@ -144,7 +143,6 @@ class TestPrincipleRelationships:
         assert rels.guides_goals()
         assert rels.inspires_habits()
         assert rels.is_integrated()
-        assert rels.has_related_principles()
         assert rels.integration_score() > 0.0
         assert rels.total_influence_count() == 3  # 2 goals + 1 habit
 

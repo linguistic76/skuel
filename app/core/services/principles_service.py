@@ -330,16 +330,6 @@ class PrinciplesService(
     ) -> Result[list[Principle]]:
         return await self.search.get_related_principles(principle_uid, limit)
 
-    async def get_principles_by_status(
-        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
-    ) -> Result[list[Principle]]:
-        return await self.search.get_by_status(status, limit, user_uid)
-
-    async def get_principles_by_strength(
-        self, strength: PrincipleStrength, limit: int = 100
-    ) -> Result[list[Principle]]:
-        return await self.search.get_by_strength(strength, limit=limit)
-
     async def get_principles_by_category(
         self, category: PrincipleCategory | str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Principle]]:
@@ -375,11 +365,6 @@ class PrinciplesService(
         self, habit_uid: str, limit: int = 10
     ) -> Result[list[Principle]]:
         return await self.search.get_for_habit(habit_uid, limit)
-
-    async def get_principles_for_choice(
-        self, choice_uid: str, limit: int = 10
-    ) -> Result[list[Principle]]:
-        return await self.search.get_for_choice(choice_uid, limit)
 
     # Planning delegations
     async def get_principles_needing_attention_for_user(

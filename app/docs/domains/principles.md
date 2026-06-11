@@ -211,12 +211,9 @@ The `CONFLICTS_WITH_PRINCIPLE` relationship helps identify when principles may b
 
 | Method | Description |
 |--------|-------------|
-| `get_by_strength(min_strength, user_uid)` | Filter by conviction strength |
 | `get_by_category(category, user_uid)` | Filter by category |
-| `get_guiding_goals(principle_uid, user_uid)` | Goals guided by principle |
-| `get_inspiring_habits(principle_uid, user_uid)` | Habits inspired by principle |
-| `get_for_choice(choice_uid, user_uid)` | Relevant principles for decision |
 | `get_for_goal(goal_uid, user_uid)` | Principles aligned with goal |
+| `get_for_habit(habit_uid, user_uid)` | Principles inspiring habit |
 | `get_active(user_uid)` | Override of `TimeQueryMixin.get_active` — filters on the `is_active` flag and sorts by strength |
 | `get_upcoming(days_ahead, user_uid)` | Override — principles approaching the 90-day review threshold |
 | `get_overdue(user_uid)` | Override — thin delegation to `get_needing_review(days_threshold=90)` |
