@@ -85,6 +85,19 @@ PLANNED_EVENTS: dict[str, str] = {
         "services_bootstrap/_event_wiring.py is intentional staging — wire a "
         "scheduler/cron detector that publishes it, or delete the chain"
     ),
+    # Principles dead-code campaign (2026-06): publish side of the reflection
+    # surface never built (PrinciplesReflectionService shelved 2026-03-28);
+    # handlers in PrincipleEventHandlerService are intentional staging.
+    "PrincipleReflectionRecorded": (
+        "publish-side reflection recording never built; handler wiring in "
+        "services_bootstrap/_event_wiring.py is intentional staging — wire a "
+        "reflection entry point that publishes it, or delete the chain"
+    ),
+    "PrincipleConflictRevealed": (
+        "only ever fires FROM a reflection (publish side never built); handler "
+        "wiring is intentional staging — completes together with "
+        "PrincipleReflectionRecorded, or delete the chain"
+    ),
 }
 # Habits dead-code campaign (2026-06): staged habit capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
@@ -116,6 +129,27 @@ _INTELLIGENT_SEARCH = (
     "point at core/models/search/search_router.py + 8 domain impls) built but "
     "never wired to UI/Askesis; wire a search box/Askesis tool or delete the "
     "whole surface"
+)
+# Principles dead-code campaign (2026-06): staged principle capabilities kept
+# by deliberate decision — each reason names the wiring that completes it.
+_PRINCIPLES_HIERARCHY = (
+    "sub-principle hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
+)
+_PRINCIPLES_EMBODIMENT = (
+    "embodiment surface staged (post-create expression append, portfolio, integrity); "
+    "wire an add-expression UI on the detail page — create-time expressions and the "
+    "detail-page render are already live"
+)
+_PRINCIPLES_ASSESS = (
+    "single-track self-assessment staged — the ONLY post-create writer of "
+    "alignment_history, which the detail page already renders; wire an assess "
+    "route/UI (dual-track check-ins live separately in dual_track_checkins)"
+)
+_PRINCIPLES_GRAVITY = (
+    "goal/habit/Ku/choice link surface staged; wire link routes/UI or fold into relationship routes"
+)
+_PRINCIPLES_INSIGHTS = (
+    "principle analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
 )
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
@@ -209,6 +243,56 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     "core/services/ps/ps_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
     "core/services/lp/lp_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
+    # --- Principles: sub-principle hierarchy ---
+    "core/services/principles/principles_core_service.py::get_subprinciples": (
+        _PRINCIPLES_HIERARCHY
+    ),
+    "core/services/principles/principles_core_service.py::get_parent_principle": (
+        _PRINCIPLES_HIERARCHY
+    ),
+    "core/services/principles/principles_core_service.py::get_principle_hierarchy": (
+        _PRINCIPLES_HIERARCHY
+    ),
+    "core/services/principles/principles_core_service.py::create_subprinciple_relationship": (
+        _PRINCIPLES_HIERARCHY
+    ),
+    "core/services/principles/principles_core_service.py::remove_subprinciple_relationship": (
+        _PRINCIPLES_HIERARCHY
+    ),
+    # --- Principles: embodiment (expressions / portfolio / integrity) ---
+    "core/services/principles/_embodiment_mixin.py::create_principle_expression": (
+        _PRINCIPLES_EMBODIMENT
+    ),
+    "core/services/principles/_embodiment_mixin.py::get_user_principle_portfolio": (
+        _PRINCIPLES_EMBODIMENT
+    ),
+    "core/services/principles/_embodiment_mixin.py::calculate_principle_integrity": (
+        _PRINCIPLES_EMBODIMENT
+    ),
+    # --- Principles: single-track alignment self-assessment ---
+    "core/services/principles/principles_alignment_service.py::assess_with_user_input": (
+        _PRINCIPLES_ASSESS
+    ),
+    # --- Principles: gravity / cross-domain link surface ---
+    "core/services/principles/_gravity_mixin.py::create_user_principle_relationship": (
+        _PRINCIPLES_GRAVITY
+    ),
+    "core/services/principles/_gravity_mixin.py::link_principle_to_knowledge": (
+        _PRINCIPLES_GRAVITY
+    ),
+    "core/services/principles/_gravity_mixin.py::create_principle_link": _PRINCIPLES_GRAVITY,
+    "core/services/principles/_gravity_mixin.py::get_principle_links": _PRINCIPLES_GRAVITY,
+    # --- Principles: analytics / AI insights ---
+    "core/services/principles/_enrichment_mixin.py::get_analytics_summary": (_PRINCIPLES_INSIGHTS),
+    "core/services/principles/_influence_mixin.py::get_quick_principle_impact": (
+        _PRINCIPLES_INSIGHTS
+    ),
+    "core/services/principles/_influence_mixin.py::batch_analyze_principle_adoption": (
+        _PRINCIPLES_INSIGHTS
+    ),
+    "core/services/principles/_influence_mixin.py::get_choice_guidance_effectiveness": (
+        _PRINCIPLES_INSIGHTS
+    ),
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is

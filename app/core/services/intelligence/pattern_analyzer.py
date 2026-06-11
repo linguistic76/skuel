@@ -49,7 +49,7 @@ class PatternAnalyzer:
     Consolidates analysis patterns from:
     - TasksIntelligenceService: _analyze_task_patterns, _identify_learning_opportunities,
       _identify_knowledge_gaps, _identify_skill_opportunities
-    - PrinciplesIntelligenceService: _extract_activities_from_dict, _extract_recent_activities_from_dict
+    - PrinciplesIntelligenceService: _extract_recent_activities_from_dict
     """
 
     @staticmethod

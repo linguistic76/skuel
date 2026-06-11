@@ -432,29 +432,6 @@ class _AlignmentIntelligenceMixin:
     # HELPER METHODS
     # ========================================================================
 
-    def _extract_activities_from_dict(
-        self, context_dict: dict[str, Any]
-    ) -> tuple[list, list, list, list, dict[str, int]]:
-        """Extract and count activities by domain from cross-domain context dict.
-
-        Uses PatternAnalyzer.extract_dict_field_counts for consistent counting.
-        Returns (tasks, choices, habits, goals, counts_dict)
-        """
-        # Note: Tasks don't exist in principle cross-domain context (principles → goals/choices/habits)
-        recent_tasks: list[Any] = []  # Principles don't directly relate to tasks
-        recent_choices = context_dict.get("choices", [])
-        recent_habits = context_dict.get("habits", [])
-        guided_goals = context_dict.get("goals", [])
-
-        # Use PatternAnalyzer for consistent field counting
-        counts = PatternAnalyzer.extract_dict_field_counts(
-            context_dict, ["choices", "habits", "goals"]
-        )
-        counts["tasks"] = 0  # Principles don't relate to tasks
-        counts["total"] = counts["choices"] + counts["habits"]
-
-        return recent_tasks, recent_choices, recent_habits, guided_goals, counts
-
     def _determine_trend(self, total_activities: int) -> str:
         """Determine trend based on total activities.
 

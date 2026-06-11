@@ -97,10 +97,6 @@ class PrincipleRelationships:
             or self.guides_tasks()
         )
 
-    def has_related_principles(self) -> bool:
-        """Check if principle has relationships with other principles."""
-        return len(self.related_principle_uids) > 0
-
     def integration_score(self) -> float:
         """Calculate integration score (0.0-1.0) based on relationship counts."""
         score = 0.0
@@ -124,34 +120,3 @@ class PrincipleRelationships:
             + len(self.guided_choice_uids)
             + len(self.guided_task_uids)
         )
-
-    def get_all_related_uids(self) -> set[str]:
-        """Get all unique UIDs across all relationship types."""
-        all_uids: set[str] = set()
-        all_uids.update(self.grounded_knowledge_uids)
-        all_uids.update(self.guided_goal_uids)
-        all_uids.update(self.inspired_habit_uids)
-        all_uids.update(self.related_principle_uids)
-        all_uids.update(self.guided_choice_uids)
-        all_uids.update(self.guided_task_uids)
-        return all_uids
-
-    def serves_life_path(self) -> bool:
-        """Check if principle serves user's life path."""
-        return len(self.serves_life_path_uids) > 0
-
-    def get_life_path_uid(self) -> str | None:
-        """Get the life path UID this principle serves (if any)."""
-        return self.serves_life_path_uids[0] if self.serves_life_path_uids else None
-
-    def has_event_relationship(self) -> bool:
-        """Check if principle has any event relationships."""
-        return len(self.demonstrating_event_uids) > 0 or len(self.practice_event_uids) > 0
-
-    def demonstrated_at_events(self) -> bool:
-        """Check if this principle was demonstrated at any events."""
-        return len(self.demonstrating_event_uids) > 0
-
-    def practiced_at_events(self) -> bool:
-        """Check if this principle has practice events."""
-        return len(self.practice_event_uids) > 0

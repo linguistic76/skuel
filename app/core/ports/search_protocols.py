@@ -685,34 +685,16 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds principle-specific methods:
-    - Strength and category filtering
-    - Goal/choice guidance relationships
+    - Category filtering
+    - Goal/habit guidance relationships
     - Review scheduling
     """
 
     # --- Principle-specific methods ---
-    async def get_by_strength(
-        self, strength: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Principle"]]:
-        """Get principles by strength level."""
-        ...
-
     async def get_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Principle"]]:
         """Get principles by category."""
-        ...
-
-    async def get_guiding_goals(self, principle_uid: str) -> Result[list[str]]:
-        """Get goal UIDs guided by a principle."""
-        ...
-
-    async def get_inspiring_habits(self, principle_uid: str) -> Result[list[str]]:
-        """Get habit UIDs inspired by a principle."""
-        ...
-
-    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list["Principle"]]:
-        """Get principles relevant to a choice."""
         ...
 
     async def get_for_habit(self, habit_uid: str, limit: int = 10) -> Result[list["Principle"]]:
