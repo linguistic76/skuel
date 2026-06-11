@@ -151,6 +151,30 @@ _PRINCIPLES_GRAVITY = (
 _PRINCIPLES_INSIGHTS = (
     "principle analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
 )
+# Events dead-code campaign (2026-06): staged event capabilities kept by
+# deliberate decision — each reason names the wiring that completes it.
+_EVENTS_ATTENDEES = (
+    "attendee surface staged (uid-based add/remove/list over (User)-[:HAS_EVENT]->(Event)); "
+    "wire attendee routes/UI on the event detail page"
+)
+_EVENTS_ORCHESTRATION = (
+    "goal/Ku/user link + context-aware create surface staged; create_event_with_context is "
+    "the ONLY knowledge-practice-at-create writer (KnowledgePracticedInEvent); wire link "
+    "routes/UI or fold into relationship routes"
+)
+_EVENTS_SCHEDULING = (
+    "conflict-detection + recurring-instance-expansion surface staged; wire a conflict-check "
+    "UI and a recurrence expansion route, or fold conflicts into "
+    "CalendarOptimizationOrchestrator (cross-domain slot view)"
+)
+_EVENTS_HIERARCHY = (
+    "sub-event hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
+)
+_HABIT_EVENT_AUTOMATION = (
+    "bulk habit→event automation staged on the LIVE HabitEventScheduler (single-habit "
+    "schedule_events_for_habit is routed via orchestration_routes.py); wire bulk-scheduling/"
+    "routine/template routes or a scheduler cron"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -293,6 +317,44 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/principles/_influence_mixin.py::get_choice_guidance_effectiveness": (
         _PRINCIPLES_INSIGHTS
     ),
+    # --- Events: attendee surface ---
+    "core/services/events/_orchestration_mixin.py::get_event_attendees": _EVENTS_ATTENDEES,
+    "core/services/events/_orchestration_mixin.py::add_attendee": _EVENTS_ATTENDEES,
+    "core/services/events/_orchestration_mixin.py::remove_attendee": _EVENTS_ATTENDEES,
+    # --- Events: cross-domain link / context-aware create ---
+    "core/services/events/_orchestration_mixin.py::create_user_event_relationship": (
+        _EVENTS_ORCHESTRATION
+    ),
+    "core/services/events/_orchestration_mixin.py::link_event_to_goal": _EVENTS_ORCHESTRATION,
+    "core/services/events/_orchestration_mixin.py::link_event_to_knowledge": (
+        _EVENTS_ORCHESTRATION
+    ),
+    "core/services/events/_orchestration_mixin.py::create_event_with_context": (
+        _EVENTS_ORCHESTRATION
+    ),
+    # --- Events: conflict detection + recurring instances ---
+    "core/services/events/_scheduling_mixin.py::check_conflicts": _EVENTS_SCHEDULING,
+    "core/services/events/_scheduling_mixin.py::create_recurring_instances": (_EVENTS_SCHEDULING),
+    "core/services/events/events_search_service.py::get_conflicting": _EVENTS_SCHEDULING,
+    # --- Events: sub-event hierarchy ---
+    "core/services/events/events_core_service.py::get_subevents": _EVENTS_HIERARCHY,
+    "core/services/events/events_core_service.py::get_parent_event": _EVENTS_HIERARCHY,
+    "core/services/events/events_core_service.py::get_event_hierarchy": _EVENTS_HIERARCHY,
+    "core/services/events/events_core_service.py::create_subevent_relationship": (
+        _EVENTS_HIERARCHY
+    ),
+    "core/services/events/events_core_service.py::remove_subevent_relationship": (
+        _EVENTS_HIERARCHY
+    ),
+    # --- Events: bulk habit→event automation ---
+    "core/services/habit_event_scheduler.py::schedule_events_for_all_habits": (
+        _HABIT_EVENT_AUTOMATION
+    ),
+    "core/services/habit_event_scheduler.py::schedule_streak_maintenance": (
+        _HABIT_EVENT_AUTOMATION
+    ),
+    "core/services/habit_event_scheduler.py::create_habit_routine": _HABIT_EVENT_AUTOMATION,
+    "core/services/habit_event_scheduler.py::get_event_templates": _HABIT_EVENT_AUTOMATION,
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is

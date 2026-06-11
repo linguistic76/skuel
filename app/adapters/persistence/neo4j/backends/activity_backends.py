@@ -964,47 +964,6 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
             return Result.fail(result)
         return Result.ok([record["e"] for record in result.value])
 
-    async def get_completed_events_in_range(
-        self,
-        user_uid: UserUID,
-        start_date: str,
-        end_date: str,
-        limit: int = 100,
-    ) -> Result[list[Neo4jProperties]]:
-        """Get completed events within a date range, newest first.
-
-        Args:
-            user_uid: Owner of the events.
-            start_date: ISO date string (inclusive).
-            end_date: ISO date string (inclusive).
-            limit: Maximum results.
-
-        Returns:
-            Result containing list of completed event node properties.
-        """
-        query = """
-        MATCH (e:Entity)
-        WHERE e.user_uid = $user_uid
-          AND date(e.event_date) >= date($start_date)
-          AND date(e.event_date) <= date($today)
-          AND e.status = 'completed'
-        RETURN e
-        ORDER BY e.event_date DESC
-        LIMIT $limit
-        """
-        result = await self.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "start_date": start_date,
-                "today": end_date,
-                "limit": limit,
-            },
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([record["e"] for record in result.value])
-
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
         """Count event stats: total, scheduled, today."""
         from datetime import date

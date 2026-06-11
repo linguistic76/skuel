@@ -345,16 +345,6 @@ class EventsOperations(
         graph-edge mutations; its remaining set fields are written as node properties."""
         ...
 
-    async def cancel_event(self, event_id: EntityUID) -> Result[bool]:
-        """
-        Cancel an event (status transition to "cancelled", NOT a DETACH DELETE).
-
-        Events are cancelled, not deleted, to preserve history and relationship
-        context. Use delete() from BackendOperations only for test cleanup.
-        Returns Result[bool].
-        """
-        ...
-
     async def get_event(self, event_id: EntityUID) -> Result[Event]:
         """Get an event by ID. Not found is an error."""
         ...
@@ -434,16 +424,6 @@ class EventsOperations(
         self, user_uid: UserUID, start_date: str
     ) -> Result[dict[str, Any]]:
         """Aggregate completed events that celebrate goals via CELEBRATES_GOAL."""
-        ...
-
-    async def get_completed_events_in_range(
-        self,
-        user_uid: UserUID,
-        start_date: str,
-        end_date: str,
-        limit: int = 100,
-    ) -> Result[list[Neo4jProperties]]:
-        """Get completed events in a date range, newest first (raw properties)."""
         ...
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:

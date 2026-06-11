@@ -3,7 +3,7 @@ related_skills:
 - skuel-search-architecture
 ---
 # Search Service Method Reference
-*Last updated: 2026-01-06*
+*Last updated: 2026-06-11*
 
 Complete catalog of methods across all 9 domain search services. All services extend `BaseService[Backend, Model]` following the unified architecture (ADR-023).
 
@@ -288,31 +288,32 @@ _graph_enrichment_patterns = [
 
 **File:** `core/services/events/events_search_service.py`
 
-**Configuration:**
+**Configuration** (from `create_activity_domain_config(domain_name="events", ...)`):
 ```python
-_search_fields = ["title", "description", "location"]
+search_fields = ("title", "description")
 category_field = "category"  # DomainConfig (default)
-_graph_enrichment_patterns = [
-    ("RELATED_TO_GOAL", "Goal", "related_goals", "outgoing"),
-    ("APPLIES_KNOWLEDGE", "Ku", "applied_knowledge", "outgoing"),
-    ("PRACTICE_FOR_HABIT", "Habit", "practiced_habits", "outgoing"),
-]
+# graph_enrichment_patterns generated from EVENTS_CONFIG — key edges:
+#   APPLIES_KNOWLEDGE → applied_knowledge, CONTRIBUTES_TO_GOAL → supported_goals,
+#   REINFORCES_HABIT → reinforced_habits, CELEBRATES_GOAL → celebrated_goals,
+#   EXECUTES_TASK → executed_tasks, CONFLICTS_WITH → conflicting_events, ...
 ```
 
 **Domain-Specific Methods:**
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_upcoming` | `(user_uid: UserUID, days: int = 7) -> Result[list[Event]]` | Events in next N days |
-| `get_past` | `(user_uid: UserUID, days: int = 30) -> Result[list[Event]]` | Events in past N days |
-| `get_by_date_range` | `(start: date, end: date, user_uid: UserUID) -> Result[list[Event]]` | Events in date range |
-| `get_recurring` | `(user_uid: UserUID) -> Result[list[Event]]` | Recurring events only |
-| `get_by_event_type` | `(event_type: str, user_uid: UserUID) -> Result[list[Event]]` | Filter by type |
-| `get_related_to_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Event]]` | Events related to goal |
-| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Event]]` | AI-enhanced search |
-| `get_events_needing_prep` | `(user_uid: UserUID, days: int = 3) -> Result[list[Event]]` | Upcoming events needing preparation |
-| `get_calendar_view` | `(user_uid: UserUID, month: int, year: int) -> Result[dict]` | Calendar-formatted view |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Event]]` | Smart prioritization |
+| `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Event]]` | Smart prioritization (next-2-weeks window) |
+| `get_in_range` | `(start_date: date, end_date: date, user_uid, limit) -> Result[list[Event]]` | Events in date range |
+| `get_recurring` | `(user_uid: UserUID, limit: int = 100) -> Result[list[Event]]` | Recurring events only |
+| `get_for_goal` | `(goal_uid: str, user_uid) -> Result[list[Event]]` | Events supporting a goal |
+| `get_conflicting` | `(event_uid: str) -> Result[list[Event]]` | Time-overlap conflicts (PLANNED — staged conflict surface) |
+| `get_for_habit` | `(habit_uid: str, user_uid) -> Result[list[Event]]` | Events reinforcing a habit |
+| `get_calendar_events` | `(user_uid, start_date, end_date, limit) -> Result[list[Event]]` | Calendar window query |
+| `intelligent_search` | `(query: str, user_uid, context) -> Result[list[Event]]` | NL search (PLANNED — staged surface) |
+
+Deleted in the 2026-06 events dead-code campaign: `get_by_type` (superseded by
+`find_events(filters={"event_type": ...})`) and `get_history` (superseded by the
+status-filtered list path, `get_for_user_filtered`).
 
 ---
 

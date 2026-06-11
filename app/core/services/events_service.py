@@ -74,7 +74,6 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
-    from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.domain_protocols import EventsOperations
@@ -85,11 +84,6 @@ if TYPE_CHECKING:
     from core.services.events.events_ai_service import EventsAIService
     from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
-
-
-def _null_callable() -> None:
-    """No-op callable: fallback for getattr when attribute is an optional method."""
-    return
 
 
 def _get_event_status_value(event: Any) -> str:
@@ -159,18 +153,20 @@ class EventsService(
     - Core CRUD: get_event, get_user_events, find_events, count_events
     - Habits: get_events_for_habit, get_habit_reinforcement_events, etc.
     - Learning: get_learning_events, create_study_session, create_learning_path_schedule
-    - Search: get_calendar_events, get_event_history, get_upcoming, get_overdue, etc.
+    - Search: get_calendar_events, get_upcoming, get_overdue, etc.
     - Intelligence: get_event_with_context, analyze_event_performance, etc.
     - Scheduling: optimize_recurring_schedule, create_recurring_events
 
     Via _OrchestrationMixin:
-    - Status: update_event_status, start_event, complete_event, cancel_event
     - Attendees: add_attendee, remove_attendee, get_event_attendees
     - Linking: link_event_to_goal, link_event_to_habit, link_event_to_knowledge
     - Creation: create_event_with_context
 
     Via _SchedulingMixin:
     - check_conflicts, create_recurring_instances, get_recurring_events
+
+    Status transitions go through the one update path — the generic status API
+    route calls ``update_event(uid, EventUpdateIntent(status=...))`` (events_api.py).
 
     Cross-domain scheduling (get_busy_times, get_calendar_density, suggest_time_slots,
     find_next_available_slot, check_conflicts by time slot) lives in
@@ -540,11 +536,6 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.search.get_calendar_events(user_uid, start_date, end_date, limit)
 
-    async def get_event_history(
-        self, user_uid: UserUID, days_back: int = 90, limit: int = 100
-    ) -> Result[list[Event]]:
-        return await self.search.get_history(user_uid, days_back, limit)
-
     async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
@@ -558,11 +549,6 @@ class EventsService(
     async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Event]]:
         return await self.search.get_active(user_uid, limit)
 
-    async def get_events_by_status(
-        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
-    ) -> Result[list[Event]]:
-        return await self.search.get_by_status(status, limit, user_uid)
-
     async def get_events_in_range(
         self,
         start_date: date,
@@ -571,30 +557,6 @@ class EventsService(
         limit: int = 100,
     ) -> Result[list[Event]]:
         return await self.search.get_in_range(start_date, end_date, user_uid, limit)
-
-    async def get_prioritized_events(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Event]]:
-        return await self.search.get_prioritized(user_context, limit)
-
-    # Relationship delegations
-    async def get_event_cross_domain_context(
-        self, entity_uid: EntityUID, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
-
-    async def get_event_with_semantic_context(
-        self,
-        uid: str,
-        min_confidence: float = 0.8,
-        semantic_types: list[SemanticRelationshipType] | None = None,
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_with_semantic_context(
-            uid, min_confidence, semantic_types
-        )
-
-    async def analyze_event_impact(self, uid: str) -> Result[dict[str, Any]]:
-        return await self.relationships.get_completion_impact(uid)
 
     # Intelligence delegations
     async def get_event_with_context(
@@ -765,18 +727,17 @@ class EventsService(
     # get_next_habit_events
     # - Learning: get_learning_events, create_study_session,
     # suggest_spaced_repetition_events, create_learning_path_schedule
-    # - Search: get_calendar_events, get_event_history, get_upcoming, get_overdue,
-    # get_active, get_events_by_status, get_events_in_range, get_prioritized_events
-    # - Relationships: get_event_cross_domain_context, get_event_with_semantic_context, analyze_event_impact
+    # - Search: get_calendar_events, get_upcoming, get_overdue,
+    # get_active, get_events_in_range
     # - Intelligence: get_event_with_context, analyze_event_performance, analyze_upcoming_events
     # ========================================================================
 
     # ========================================================================
     # QUERY LAYER
     # ========================================================================
-    # Graph relationships, status management, attendee management, recurring
-    # instances, and context-aware creation are provided by:
-    #   _OrchestrationMixin  (status, attendees, linking, create_event_with_context)
+    # Graph relationships, attendee management, recurring instances, and
+    # context-aware creation are provided by:
+    #   _OrchestrationMixin  (attendees, linking, create_event_with_context)
     #   _SchedulingMixin     (check_conflicts, create_recurring_instances, get_recurring_events)
 
     async def get_filtered_context(

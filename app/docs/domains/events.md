@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-04-10
+updated: 2026-06-11
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -27,7 +27,7 @@ Events additionally has an integration sub-service (`EventsHabitIntegrationServi
 | Model | `/core/models/event/event.py` |
 | DTO | `/core/models/event/event_dto.py` |
 | Request Models | `/core/models/event/event_request.py` |
-| Relationships | `/core/services/events/event_relationships.py` |
+| Relationships | `UnifiedRelationshipService` with `EVENTS_CONFIG` (typed multi-edge view: `EventCrossContext`) |
 | Core Service | `/core/services/events/events_core_service.py` |
 | Search Service | `/core/services/events/events_search_service.py` |
 | Habit Integration | `/core/services/events/events_habit_integration_service.py` |
@@ -190,16 +190,15 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 
 | Method | Description |
 |--------|-------------|
-| `get_upcoming(user_uid, days=7)` | Events in next N days |
-| `get_past(user_uid, days=30)` | Events in past N days |
-| `get_by_date_range(start, end, user_uid)` | Events in date range |
+| `get_upcoming(days_ahead=7, user_uid, limit)` | Events in next N days (TimeQueryMixin) |
+| `get_in_range(start, end, user_uid)` | Events in date range |
 | `get_recurring(user_uid)` | Recurring events only |
-| `get_by_event_type(event_type, user_uid)` | Filter by type |
-| `get_related_to_goal(goal_uid, user_uid)` | Events related to goal |
-| `intelligent_search(query, user_uid, context)` | AI-enhanced search |
-| `get_events_needing_prep(user_uid, days=3)` | Upcoming events needing preparation |
-| `get_calendar_view(user_uid, month, year)` | Calendar-formatted view |
-| `get_prioritized(user_uid, limit=10)` | Smart prioritization |
+| `get_for_goal(goal_uid, user_uid)` | Events supporting a goal |
+| `get_for_habit(habit_uid, user_uid)` | Events reinforcing a habit |
+| `get_calendar_events(user_uid, start, end)` | Calendar window query |
+| `get_conflicting(event_uid)` | Time-overlap conflicts (PLANNED surface) |
+| `intelligent_search(query, user_uid, context)` | NL search (PLANNED surface) |
+| `get_prioritized(user_context, limit=10)` | Smart prioritization |
 
 **Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)
 
@@ -210,8 +209,9 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 | Method | Description |
 |--------|-------------|
 | `get_event_with_context(uid)` | Event with full graph neighborhood |
+| `analyze_event_performance(uid)` | Performance analysis for one event |
+| `analyze_upcoming_events(user_uid, days_ahead)` | Batch analysis of upcoming events |
 | `get_performance_analytics(user_uid, period_days)` | Event performance metrics for period |
-| `analyze_event_impact(uid)` | Impact analysis on goals/habits |
 | `get_domain_insights(uid, min_confidence)` | Domain-specific insights |
 
 **See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
