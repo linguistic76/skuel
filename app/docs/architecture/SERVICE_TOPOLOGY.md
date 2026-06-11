@@ -617,7 +617,6 @@ Routes / Application Code
 │   ├─ assessment_service.py             (AssessmentService — teacher assessments → ExerciseReport)
 │   ├─ user_entry_processing_service.py  (UserEntryProcessingService — transcription/LLM → UserEntry)
 │   ├─ exercise_linker.py                (UserEntryExerciseLinker — links UserEntry to Exercise)
-│   ├─ relationship_service.py           (UserEntryRelationshipService)
 │   ├─ audience_resolver.py              (AudienceResolver — shared sharing/audience helper)
 │   ├─ learning_loop_handler.py          (LearningLoopEventHandlerService — event-driven writes)
 │   └─ learning_loop_query.py            (read-side: Interaction/Report traversals)

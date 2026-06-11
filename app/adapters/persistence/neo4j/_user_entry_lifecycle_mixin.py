@@ -2,8 +2,8 @@
 UserEntry Lifecycle Mixin
 =========================
 
-Exercise entry processing, FULFILLS_EXERCISE linking, temporal/thematic
-relationship creation, and revision-chain queries.
+Exercise entry processing, FULFILLS_EXERCISE linking, and revision-chain
+queries.
 
 Consolidated from the legacy ``_SubmissionLifecycleMixin`` into a single
 standalone mixin (ADR-054).
@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import Neo4jProperties
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -154,92 +154,3 @@ class _UserEntryLifecycleMixin:
                 )
             )
         return Result.ok(created)
-
-    # ========================================================================
-    # TEMPORAL & THEMATIC RELATIONSHIPS
-    # ========================================================================
-
-    async def create_temporal_relationship(
-        self, entry_uid: str, user_uid: UserUID, entity_type: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create FOLLOWS relationship to most recent previous entry."""
-        query = """
-        MATCH (new:Entity {uid: $entry_uid})
-        MATCH (prev:Entity {user_uid: $user_uid, entity_type: $entity_type})
-        WHERE prev.uid <> $entry_uid
-          AND prev.created_at <= new.created_at
-        WITH new, prev
-        ORDER BY prev.created_at DESC
-        LIMIT 1
-        MERGE (new)-[r:FOLLOWS]->(prev)
-        RETURN count(r) as count
-        """
-        return await self.execute_query(
-            query, {"entry_uid": entry_uid, "user_uid": user_uid, "entity_type": entity_type}
-        )
-
-    async def create_thematic_relationships(
-        self,
-        entry_uid: str,
-        user_uid: UserUID,
-        themes: list[str],
-        shared_topics_str: str,
-    ) -> Result[list[Neo4jProperties]]:
-        """Create RELATED_TO relationships for shared topics."""
-        query = """
-        MATCH (new:Entity {uid: $entry_uid})
-        MATCH (other:Entity {user_uid: $user_uid})
-        WHERE other.uid <> $entry_uid
-          AND other.metadata IS NOT NULL
-        WITH new, other, other.metadata.themes as other_themes
-        WHERE other_themes IS NOT NULL
-          AND any(topic IN $themes WHERE topic IN other_themes)
-        WITH new, other
-        LIMIT 5
-        MERGE (new)-[r:RELATED_TO {shared_topics: $shared_topics_str}]->(other)
-        RETURN count(r) as count
-        """
-        return await self.execute_query(
-            query,
-            {
-                "entry_uid": entry_uid,
-                "user_uid": user_uid,
-                "themes": themes,
-                "shared_topics_str": shared_topics_str,
-            },
-        )
-
-    # ========================================================================
-    # RELATIONSHIP QUERIES
-    # ========================================================================
-
-    async def get_related_entry_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get UIDs of entries related via RELATED_TO."""
-        query = """
-        MATCH (a:Entity {uid: $entry_uid})-[:RELATED_TO]->(related:Entity)
-        RETURN related.uid as uid
-        ORDER BY related.uid
-        """
-        return await self.execute_query(query, {"entry_uid": entry_uid})
-
-    async def get_supported_goal_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get UIDs of goals supported by an entry via SUPPORTS_GOAL."""
-        query = """
-        MATCH (a:Entity {uid: $entry_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
-        RETURN goal.uid as uid
-        ORDER BY goal.uid
-        """
-        return await self.execute_query(query, {"entry_uid": entry_uid})
-
-    async def get_entry_relationship_summary(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """Per-entry relationship counts (related, goals, follows)."""
-        query = """
-        MATCH (a:Entity {uid: $entry_uid})
-        OPTIONAL MATCH (a)-[:RELATED_TO]->(related)
-        OPTIONAL MATCH (a)-[:SUPPORTS_GOAL]->(goal)
-        OPTIONAL MATCH (a)-[:FOLLOWS]->(prev)
-        RETURN count(DISTINCT related) as related_count,
-               count(DISTINCT goal) as goal_count,
-               count(DISTINCT prev) as follows_count
-        """
-        return await self.execute_query(query, {"entry_uid": entry_uid})

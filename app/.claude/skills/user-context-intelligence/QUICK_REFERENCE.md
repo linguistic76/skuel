@@ -90,7 +90,7 @@ from core.models.context_types import (
 
 ---
 
-## The 13 Required Services
+## The 12 Required Services
 
 | # | Domain | Service Type | Attribute |
 |---|--------|--------------|-----------|
@@ -102,15 +102,14 @@ from core.models.context_types import (
 | 5 | Choices | `UnifiedRelationshipService` | `self.choices` |
 | 6 | Principles | `UnifiedRelationshipService` | `self.principles` |
 | **Curriculum (3)** |
-| 7 | KU | `KuGraphService` | `self.ku` |
-| 8 | PS | `UnifiedRelationshipService` | `self.ps` |
-| 9 | LP | `UnifiedRelationshipService` | `self.lp` |
-| **Processing (3)** |
-| 10 | User Entries | `UserEntryRelationshipService` | `self.user_entries` |
-| 11 | Report | `ReportRelationshipService` | `self.report` |
-| 12 | Analytics | `AnalyticsRelationshipService` | `self.analytics` |
+| 7 | PS | `PsService` (facade) | `self.ps` |
+| 8 | LP | `UnifiedRelationshipService` | `self.lp` |
+| 9 | Exercises | `ExerciseService` (facade) | `self.exercises` |
+| **Processing (2)** |
+| 10 | Report | `ReportRelationshipService` | `self.report` |
+| 11 | Analytics | `AnalyticsRelationshipService` | `self.analytics` |
 | **Temporal (1)** |
-| 13 | Calendar | `CalendarService` | `self.calendar` |
+| 12 | Calendar | `CalendarService` | `self.calendar` |
 
 ### Optional: FilteredContextProvider Dict
 
@@ -329,8 +328,7 @@ class UserContextIntelligenceFactory:
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing (3)
-        user_entries: UserEntryRelationshipService,
+        # Processing (2)
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)

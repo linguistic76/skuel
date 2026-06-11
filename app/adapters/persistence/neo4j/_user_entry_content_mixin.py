@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -142,23 +141,3 @@ class _UserEntryContentMixin:
         if result.is_error:
             return Result.fail(result)
         return Result.ok([dict(record) for record in result.value])
-
-    async def create_goal_support_relationships(
-        self, entry_uid: str, goal_uids: list[str]
-    ) -> Result[int]:
-        """Batch-create SUPPORTS_GOAL relationships from an entry to goals."""
-        if not goal_uids:
-            return Result.ok(0)
-        relationships: list[tuple[str, str, str, dict[str, Any] | None]] = [
-            (entry_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
-            for goal_uid in goal_uids
-        ]
-        queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
-        total_created = 0
-        for query, rels_data in queries:
-            result = await self.execute_query(query, {"rels": rels_data})
-            if result.is_error:
-                continue
-            records = result.value or []
-            total_created += records[0]["created_count"] if records else 0
-        return Result.ok(total_created)

@@ -308,7 +308,7 @@ async def get_ready_to_work_on_today(
 ```
 UserContextIntelligence.__init__()
          │
-         ├── Store context and 13 services
+         ├── Store context and 12 services
          │
          ▼
      Mixins provide methods
@@ -341,7 +341,7 @@ UserContextIntelligence.__init__()
 
 ### All Services Required
 
-The main class requires ALL 13 services because `DailyPlanningMixin` synthesizes all domains:
+The main class requires ALL 12 services because `DailyPlanningMixin` synthesizes all domains:
 
 ```python
 class UserContextIntelligence(...):
@@ -359,8 +359,7 @@ class UserContextIntelligence(...):
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing (3)
-        user_entries: UserEntryRelationshipService,
+        # Processing (2)
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)

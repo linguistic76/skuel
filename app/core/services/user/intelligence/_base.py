@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from core.services.calendar_service import CalendarService
     from core.services.report import ReportRelationshipService
     from core.services.user.unified_user_context import RichUserContext
-    from core.services.user_entry import UserEntryRelationshipService
 
 
 class IntelligenceMixinBase:
@@ -59,8 +58,7 @@ class IntelligenceMixinBase:
     lp: Any
     exercises: Any  # ExerciseService facade — daily-plan exercise enrichment
 
-    # Processing Domains (3)
-    user_entries: UserEntryRelationshipService
+    # Processing Domains (2)
     report: ReportRelationshipService
     analytics: AnalyticsRelationshipOperations
 
