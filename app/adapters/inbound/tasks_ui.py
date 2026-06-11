@@ -78,7 +78,7 @@ def create_tasks_ui_routes(
     # Create form: GET /tasks/create  +  POST /tasks/create
     # ------------------------------------------------------------------
 
-    @rt("/tasks/create")
+    @rt("/tasks/create", methods=["GET"])
     async def task_create_page(request: Request) -> Any:
         """Render the new-task form."""
         require_authenticated_user(request)
@@ -142,7 +142,7 @@ def create_tasks_ui_routes(
 
         return goal_display, habit_display
 
-    @rt("/tasks/edit")
+    @rt("/tasks/edit", methods=["GET"])
     async def task_edit_page(request: Request) -> Any:
         """Render the edit form prefilled from an existing task."""
         user_uid = require_authenticated_user(request)

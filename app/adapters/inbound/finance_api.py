@@ -56,7 +56,7 @@ def create_finance_api_routes(
     # INVOICE ROUTES (Admin-Only)
     # ========================================================================
 
-    @rt("/api/invoices")
+    @rt("/api/invoices", methods=["GET"])
     @require_admin(get_user_service)
     @boundary_handler()
     async def list_invoices_route(request, current_user) -> Result[dict[str, Any]]:
