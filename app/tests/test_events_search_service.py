@@ -34,7 +34,6 @@ def mock_backend() -> Any:
     backend.get_events_in_range = AsyncMock(return_value=Result.ok([]))
     backend.get_events_on_date = AsyncMock(return_value=Result.ok([]))
     backend.get_recurring_events = AsyncMock(return_value=Result.ok([]))
-    backend.get_completed_events_in_range = AsyncMock(return_value=Result.ok([]))
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     # Temporal raw helpers
     backend.upcoming_raw = AsyncMock(return_value=Result.ok([]))
@@ -223,33 +222,6 @@ async def test_get_recurring(search_service, mock_backend, sample_events):
 
     assert result.is_ok
     assert len(result.value) == 1
-
-
-@pytest.mark.asyncio
-async def test_get_by_type(search_service, mock_backend, sample_events):
-    meetings = [e for e in sample_events if e.event_type == "meeting"]
-    mock_backend.find_by.return_value = Result.ok([e.to_dto().to_dict() for e in meetings])
-
-    result = await search_service.get_by_type("meeting", user_uid="user_demo")
-
-    assert result.is_ok
-    assert len(result.value) == 1
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["event_type"] == "meeting"
-    assert kwargs["user_uid"] == "user_demo"
-
-
-@pytest.mark.asyncio
-async def test_get_history_uses_completed_events(search_service, mock_backend):
-    mock_backend.get_completed_events_in_range.return_value = Result.ok([])
-
-    await search_service.get_history(user_uid="user_demo", days_back=30)
-
-    kwargs = mock_backend.get_completed_events_in_range.call_args.kwargs
-    assert kwargs["user_uid"] == "user_demo"
-    today = date.today()
-    assert kwargs["end_date"] == today.isoformat()
-    assert kwargs["start_date"] == (today - timedelta(days=30)).isoformat()
 
 
 @pytest.mark.asyncio

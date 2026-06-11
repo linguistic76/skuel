@@ -315,70 +315,8 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         self.logger.debug(f"Found {len(conflicts)} conflicting events for {event_uid}")
         return Result.ok(conflicts)
 
-    @with_error_handling("get_by_type", error_type="database")
-    async def get_by_type(
-        self, event_type: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Event]]:
-        """
-        Get events by event type.
-
-        Args:
-            event_type: Event type string (e.g., "meeting", "study", "exercise")
-            user_uid: Optional user filter
-            limit: Maximum results
-
-        Returns:
-            Result containing events of the specified type
-        """
-        if user_uid:
-            result = await self.backend.find_by(
-                event_type=event_type, user_uid=user_uid, limit=limit
-            )
-        else:
-            result = await self.backend.find_by(event_type=event_type, limit=limit)
-
-        if result.is_error:
-            return result
-
-        events = self._to_domain_models(result.value, EventDTO, Event)
-
-        self.logger.debug(f"Found {len(events)} events of type '{event_type}'")
-        return Result.ok(events)
-
     # get_upcoming() inherited from TimeQueryMixin — uses event_date field via DomainConfig.
     # Default signature: get_upcoming(days_ahead=7, user_uid=None, limit=100).
-
-    @with_error_handling("get_history", error_type="database", uid_param="user_uid")
-    async def get_history(
-        self, user_uid: UserUID, days_back: int = 90, limit: int = 100
-    ) -> Result[list[Event]]:
-        """
-        Get completed/past events for a user.
-
-        Args:
-            user_uid: User identifier
-            days_back: Number of days of history to retrieve
-            limit: Maximum results
-
-        Returns:
-            Result containing past events (most recent first)
-        """
-        today = date.today()
-        start_date = today - timedelta(days=days_back)
-
-        result = await self.backend.get_completed_events_in_range(
-            user_uid=user_uid,
-            start_date=start_date.isoformat(),
-            end_date=today.isoformat(),
-            limit=limit,
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        events = self._to_domain_models(result.value, EventDTO, Event)
-
-        self.logger.debug(f"Found {len(events)} events in history for user {user_uid}")
-        return Result.ok(events)
 
     @with_error_handling("get_for_habit", error_type="database", uid_param="habit_uid")
     async def get_for_habit(

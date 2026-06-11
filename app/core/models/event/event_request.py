@@ -8,17 +8,14 @@ Uses shared validation rules from core.models.validation_rules for DRY complianc
 """
 
 from datetime import date, datetime, time
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern, Visibility
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.sentinels import UNSET, Unset
 from core.models.type_hints import UserUID
 from core.models.validation_rules import (
-    validate_email,
-    validate_future_date,
     validate_recurrence_end_after_start,
     validate_time_after,
     validate_url_when_online,
@@ -294,64 +291,6 @@ class EventFilterRequest(BaseModel):
     )
 
 
-class EventStatusUpdateRequest(BaseModel):
-    """Request model for updating event status."""
-
-    event_uid: str = Field(description="UID of the event to update")
-    status: EntityStatus = Field(description="New event status")
-    notes: str | None = Field(default=None, description="Status change notes")
-    cancellation_reason: str | None = Field(default=None, description="Reason for cancellation")
-
-    model_config = ConfigDict(
-        # Pydantic V2 serializes enums automatically
-    )
-
-
-class EventPostponeRequest(BaseModel):
-    """Request model for postponing an event."""
-
-    new_date: date = Field(description="New event date")
-    new_start_time: time | None = Field(default=None, description="New start time")
-    new_end_time: time | None = Field(default=None, description="New end time")
-    reason: str | None = Field(default=None, description="Reason for postponement")
-    notify_attendees: bool = Field(default=True, description="Whether to notify attendees")
-
-    # Shared validators (DRY pattern)
-    _validate_new_date = validate_future_date("new_date")
-
-    model_config = ConfigDict(
-        # Pydantic V2 serializes dates and times automatically
-    )
-
-
-class EventAttendeeRequest(BaseModel):
-    """Request model for adding attendees to an event."""
-
-    email: str = Field(description="Attendee email address")
-    name: str | None = Field(default=None, description="Attendee name")
-    role: str | None = Field(default=None, description="Attendee role")
-    required: bool = Field(default=True, description="Whether attendance is required")
-
-    # Shared validators (DRY pattern)
-    _validate_email = validate_email("email")
-
-
-class AttendeeUpdateRequest(BaseModel):
-    """Request model for updating attendee response."""
-
-    response: str = Field(description="Attendee response: accepted, declined, maybe")
-    notes: str | None = Field(default=None, description="Response notes")
-
-    @field_validator("response")
-    @classmethod
-    def validate_response(cls, v) -> Any:
-        """Ensure response is valid."""
-        valid_responses = ["accepted", "declined", "maybe", "pending"]
-        if v.lower() not in valid_responses:
-            raise ValueError(f"Response must be one of: {', '.join(valid_responses)}")
-        return v.lower()
-
-
 # =============================================================================
 # OPERATION-SPECIFIC REQUEST TYPES
 # =============================================================================
@@ -396,23 +335,6 @@ class CheckConflictsRequest(BaseModel):
     """Request for checking event conflicts."""
 
     event_uid: str = Field(description="UID of the event to check for conflicts")
-
-
-class CalendarEventsRequest(BaseModel):
-    """Request for retrieving calendar events."""
-
-    user_uid: UserUID = Field(description="User identifier")
-    start_date: date | None = Field(default=None, description="Start of date range")
-    end_date: date | None = Field(default=None, description="End of date range")
-    limit: int = Field(default=100, ge=1, le=500, description="Maximum results")
-
-
-class EventHistoryRequest(BaseModel):
-    """Request for retrieving event history."""
-
-    user_uid: UserUID = Field(description="User identifier")
-    days_back: int = Field(default=90, ge=1, le=365, description="Number of days of history")
-    limit: int = Field(default=100, ge=1, le=500, description="Maximum results")
 
 
 class EventsInRangeRequest(BaseModel):

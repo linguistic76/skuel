@@ -2,8 +2,8 @@
 Orchestration Mixin — EventsService
 =====================================
 
-Multi-service coordination methods: event lifecycle (status, attendees),
-cross-domain linking, and context-aware event creation.
+Multi-service coordination methods: attendee management, cross-domain
+linking, and context-aware event creation.
 
 Part of events_service.py decomposition (April 2026).
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
@@ -11,24 +11,21 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-import dataclasses
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
-from core.models.enums import EntityStatus, RecurrencePattern
+from core.models.enums import RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.event.event_request import (
         AddAttendeeRequest,
         EventCreateRequest,
-        EventStatusUpdateRequest,
         RemoveAttendeeRequest,
     )
     from core.models.type_hints import UserUID
@@ -40,8 +37,10 @@ class _OrchestrationMixin:
     """
     Multi-service coordination methods for EventsService.
 
-    Covers event lifecycle (status transitions, attendee management),
-    cross-domain relationship linking, and the context-aware creation flow.
+    Covers attendee management, cross-domain relationship linking, and the
+    context-aware creation flow. Status transitions are NOT here — the one
+    status path is ``update_event(uid, EventUpdateIntent(status=...))`` via
+    the generic status API route (events_api.py).
 
     Declares class-level attributes used by these methods so mypy
     resolves them without runtime cost.
@@ -54,65 +53,6 @@ class _OrchestrationMixin:
     event_bus: Any
     logger: Any
     get_event: Any  # delegation method on EventsService
-
-    # ========================================================================
-    # STATUS MANAGEMENT
-    # ========================================================================
-
-    async def update_event_status(self, request: EventStatusUpdateRequest) -> Result[Event]:
-        """
-        Update an event's status using typed request object.
-
-        Args:
-            request: EventStatusUpdateRequest containing:
-                - event_uid: UID of the event (added via route)
-                - status: New status value
-                - notes: Optional status change notes
-                - cancellation_reason: Optional cancellation reason
-
-        Returns:
-            Result with the updated event
-        """
-        intent = EventUpdateIntent(status=get_enum_value(request.status))
-
-        metadata_updates = {}
-        if request.notes:
-            metadata_updates["status_change_notes"] = request.notes
-        if request.cancellation_reason:
-            metadata_updates["cancellation_reason"] = request.cancellation_reason
-
-        if metadata_updates:
-            event_result = await self.core.get(request.event_uid)
-            if event_result.is_error:
-                return Result.fail(event_result)
-            if event_result.value is None:
-                return Result.fail(Errors.not_found(resource="Event", identifier=request.event_uid))
-            current_metadata = event_result.value.metadata or {}
-            intent = dataclasses.replace(intent, metadata={**current_metadata, **metadata_updates})
-
-        return await self.core.update_event(request.event_uid, intent)
-
-    async def start_event(self, event_uid: str) -> Result[Event]:
-        """Mark an event as started/in progress."""
-        return await self.core.update_event(
-            event_uid, EventUpdateIntent(status=EntityStatus.ACTIVE.value)
-        )
-
-    async def complete_event(self, event_uid: str) -> Result[Event]:
-        """Mark an event as completed."""
-        return await self.core.update_event(
-            event_uid, EventUpdateIntent(status=EntityStatus.COMPLETED.value)
-        )
-
-    async def cancel_event(self, event_uid: str) -> Result[Event]:
-        """Cancel an event.
-
-        Cancellation *reasons* are not a node column (Event has no ``notes`` field); route
-        them through ``update_event_status``'s ``metadata`` when a reason must be recorded.
-        """
-        return await self.core.update_event(
-            event_uid, EventUpdateIntent(status=EntityStatus.CANCELLED.value)
-        )
 
     # ========================================================================
     # GRAPH RELATIONSHIPS — Cross-domain linking

@@ -482,20 +482,17 @@ The batch analysis methods generate **scheduling recommendations**:
 
 ### Graph-Native Relationships
 
-Uses `EventRelationships.fetch()` for typed relationship access:
-- `practices_knowledge_uids` - Knowledge units practiced; written/read via `APPLIES_KNOWLEDGE` (the intent field name is retained; the shadow `PRACTICES_KNOWLEDGE` edge was collapsed in #259)
-- `executes_task_uids` - Tasks executed via event
-- `conflicts_with_uids` - Conflicting events
-- `attendee_uids` - Event attendees
-- `supports_goal_uids` - Goals supported via `CONTRIBUTES_TO_GOAL` ✅ (January 2026)
+Typed multi-edge access goes through the canonical path-aware reader:
+`get_cross_domain_context_typed` → `EventCrossContext.from_categorized`
+(consumed by `_core_intelligence_mixin.py`). Single-edge reads use the
+relationship registry (`get_related_uids`, e.g. the facade's
+`get_celebrated_goal` / `get_reinforced_habit`). The older fetch-dataclass
+(`EventRelationships`) was deleted in the 2026-06 events dead-code campaign —
+it never gained a consumer.
 
-**Helper Methods:**
-- `has_knowledge_practice()` - Check if event practices any knowledge
-- `has_task_execution()` - Check if event executes any tasks
-- `has_conflicts()` - Check if event has conflicts
-- `has_attendees()` - Check if event has attendees
-- `has_goal_support()` - Check if event supports any goals ✅ (January 2026)
-- `total_relationships()` - Count all relationships (includes goals)
+Key edges: `APPLIES_KNOWLEDGE` (knowledge practiced; the shadow
+`PRACTICES_KNOWLEDGE` edge was collapsed in #259), `CONTRIBUTES_TO_GOAL`
+(goal support), `REINFORCES_HABIT`, `CELEBRATES_GOAL`.
 
 ### Recurrence Pattern Analysis
 
@@ -558,6 +555,5 @@ assert service.relationships == relationships
 - `/docs/intelligence/GOAPS_INTELLIGENCE.md` - Goal forecasting patterns
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/events/events_service.py` - EventsService facade
-- `/core/services/events/event_relationships.py` - EventRelationships typed access
+- `/core/services/events_service.py` - EventsService facade
 - `/docs/architecture/knowledge_substance_philosophy.md` - Applied knowledge measurement
