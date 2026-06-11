@@ -20,9 +20,8 @@ edges. They live on this intent only so the facade can carry them; ``to_changes(
 write them as junk node properties if they ever reached the backend, which is exactly the
 split the ADR-035/ADR-065 graph-native migration enforces.
 
-Beyond the request-settable columns, this intent also models ``metadata`` (written by
-``update_event_status`` for status-change notes / cancellation reasons), which constructs
-this intent directly.
+Beyond the request-settable columns, this intent also models ``metadata`` for callers
+that construct the intent directly with merged metadata updates.
 
 Deliberately **absent**: ``practices_knowledge_uids`` / ``executes_tasks`` (on
 ``EventUpdateRequest`` but neither node columns nor handled edges on the update path — the

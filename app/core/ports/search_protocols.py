@@ -433,18 +433,6 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
         """Get events that conflict with a given event."""
         ...
 
-    async def get_by_type(
-        self, event_type: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Event"]]:
-        """Get events by event type."""
-        ...
-
-    async def get_history(
-        self, user_uid: UserUID, days_back: int = 90, limit: int = 100
-    ) -> Result[list["Event"]]:
-        """Get completed/past events for a user."""
-        ...
-
     async def get_for_habit(
         self, habit_uid: str, user_uid: UserUID | None = None
     ) -> Result[list["Event"]]:

@@ -124,60 +124,6 @@ class EventsHabitIntegrationService:
             return reinforced[0].get("uid")
         return None
 
-    def _filter_events_by_habit(
-        self, events_rich: list[RichEntityItem], habit_uid: str
-    ) -> list[Event]:
-        """
-        Filter rich event data by the REINFORCES_HABIT edge.
-
-        Args:
-            events_rich: List of rich event dicts from context
-            habit_uid: UID of habit to filter by
-
-        Returns:
-            List of Event domain models that reinforce the habit (with the derived
-            reinforces_habit_uid populated from the graph context).
-        """
-        result = []
-        for event_data in events_rich:
-            if self._reinforced_habit_uid(event_data) == habit_uid:
-                event = self._dict_to_event(event_data.get("entity", {}))
-                if event:
-                    result.append(replace(event, reinforces_habit_uid=habit_uid))
-        return result
-
-    def _filter_events_by_date_range(
-        self,
-        events_rich: list[RichEntityItem],
-        start_date: date,
-        end_date: date,
-        status_filter: str | None = None,
-    ) -> list[Event]:
-        """
-        Filter rich event data by date range and optional status.
-
-        Args:
-            events_rich: List of rich event dicts from context
-            start_date: Inclusive start date
-            end_date: Inclusive end date
-            status_filter: Optional status to filter by
-
-        Returns:
-            List of Event domain models in date range
-        """
-        result = []
-        for event_data in events_rich:
-            event_dict = event_data.get("entity", {})
-            event_date = parse_date_field(event_dict.get("event_date"))
-
-            if event_date and start_date <= event_date <= end_date:
-                if status_filter and event_dict.get("status") != status_filter:
-                    continue
-                event = self._dict_to_event(event_dict)
-                if event:
-                    result.append(event)
-        return result
-
     def _dict_to_event(self, event_dict: dict[str, Any]) -> Event | None:
         """
         Convert raw Neo4j event dict to Event domain model.

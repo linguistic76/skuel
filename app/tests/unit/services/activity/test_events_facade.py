@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import EntityStatus
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.services.events_service import EventsService
 from core.utils.result_simplified import Errors, Result
@@ -179,60 +178,3 @@ class TestUpdateEventEdges:
         events_service.relationships.get_related_uids.assert_not_called()
         events_service.relationships.delete_relationship.assert_not_called()
         events_service.relationships.create_relationship.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# TestEventsServiceStatusManagement
-# ---------------------------------------------------------------------------
-
-
-class TestEventsServiceStatusManagement:
-    @pytest.mark.asyncio
-    async def test_update_event_status_no_notes_calls_core_update_directly(
-        self, events_service: EventsService
-    ) -> None:
-        """update_event_status with no notes/reason calls update_event without fetching event."""
-        mock_event = Mock()
-        events_service.core.update_event = AsyncMock(return_value=Result.ok(mock_event))
-
-        request = Mock()
-        request.event_uid = "event_abc"
-        request.status = EntityStatus.COMPLETED
-        request.notes = None
-        request.cancellation_reason = None
-
-        result = await events_service.update_event_status(request)
-
-        assert result.is_ok
-        # core.get should NOT be called (no metadata to merge)
-        events_service.core.get.assert_not_called()
-        events_service.core.update_event.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_event_status_with_notes_fetches_event_for_metadata_merge(
-        self, events_service: EventsService
-    ) -> None:
-        """update_event_status with notes fetches current event to merge metadata."""
-        mock_current_event = Mock()
-        mock_current_event.metadata = {"existing_key": "existing_val"}
-        events_service.core.get = AsyncMock(return_value=Result.ok(mock_current_event))
-
-        mock_updated_event = Mock()
-        events_service.core.update_event = AsyncMock(return_value=Result.ok(mock_updated_event))
-
-        request = Mock()
-        request.event_uid = "event_abc"
-        request.status = EntityStatus.CANCELLED
-        request.notes = "Cancelled due to conflict"
-        request.cancellation_reason = None
-
-        result = await events_service.update_event_status(request)
-
-        assert result.is_ok
-        # core.get IS called to fetch current metadata
-        events_service.core.get.assert_called_once_with(request.event_uid)
-        # update_event is called with a typed intent carrying the merged metadata
-        update_call = events_service.core.update_event.call_args
-        intent = update_call[0][1]  # second positional arg (EventUpdateIntent)
-        assert intent.metadata["existing_key"] == "existing_val"
-        assert intent.metadata["status_change_notes"] == "Cancelled due to conflict"
