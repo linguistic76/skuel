@@ -12,7 +12,7 @@ This service provides:
 
 Architecture (January 2026 Unified):
 - Extends BaseService[BackendOperations[Lp], Lp]
-- Inherits: search(), get_by_status(), get_by_domain(), get_with_content(), etc.
+- Inherits: search(), get_by_status(), get_with_content(), etc.
 - Adds: LP-specific methods for path type and goal alignment
 - No wrapper backend - uses UniversalNeo4jBackend directly
 """
@@ -50,7 +50,6 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
     - search(query, limit) - Text search on _search_fields
     - get_by_relationship(related_uid, relationship_type, direction)
     - get_by_status(status, limit) - Filter by status
-    - get_by_domain(domain, limit) - Filter by Domain
     - graph_aware_faceted_search(request) - Rich graph context search
     - get_with_content(uid) - Entity with full content
     - get_with_context(uid, depth) - Entity with graph neighborhood

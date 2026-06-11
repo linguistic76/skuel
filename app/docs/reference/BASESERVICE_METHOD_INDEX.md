@@ -59,7 +59,6 @@ These methods are available on **all services that extend BaseService**.
 | `__init__()` | 🔒 (internal) |
 | `count()` | ✅ |
 | `get_by_category()` | ✅ |
-| `get_by_domain()` | ✅ |
 | `get_by_relationship()` | ✅ |
 | `get_by_status()` | ✅ |
 | `graph_aware_faceted_search()` | ✅ |

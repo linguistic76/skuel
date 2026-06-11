@@ -213,7 +213,6 @@ Goals track which habits are essential for achievement:
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description, success_criteria |
 | `get_by_status(status, user_uid)` | Filter by GoalStatus |
-| `get_by_domain(domain, user_uid)` | Filter by Domain |
 | `get_by_category(category, user_uid)` | Filter by domain (category_field) |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
 | `graph_aware_faceted_search(request)` | Unified search with graph context |

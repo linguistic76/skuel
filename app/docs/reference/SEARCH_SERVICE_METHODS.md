@@ -20,7 +20,6 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | **Inherited (BaseService)** |
 | `search()` | I | I | I | I | I | I | I | I | I |
 | `get_by_status()` | I | I | I | I | I | O | I | I | I |
-| `get_by_domain()` | I | I | I | I | I | O | I | I | I |
 | `get_by_category()` | I | I | I | I | I | I | I | I | I |
 | `list_categories()` | I | I | I | I | I | O | I | I | I |
 | `get_by_relationship()` | I | I | I | I | I | I | I | I | I |
@@ -97,13 +96,6 @@ Filter by status field. Activity domains use `EntityStatus` enum.
 
 ```python
 result = await tasks_search.get_by_status("active", user_uid="user.123")
-```
-
-#### `get_by_domain(domain: Domain, user_uid: UserUID | None = None) -> Result[list[Model]]`
-Filter by domain field.
-
-```python
-result = await goals_search.get_by_domain(Domain.HEALTH, user_uid="user.123")
 ```
 
 #### `get_by_category(category: str, user_uid: UserUID | None = None) -> Result[list[Model]]`
@@ -243,7 +235,7 @@ date_field = "target_date"
 | `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Goal]]` | Context-aware prioritization via `score_goal()` |
 | `intelligent_search` | `(query: str, user_uid: UserUID \| None, limit: int) -> Result[tuple[list[Goal], ParsedSearchQuery]]` | NL search — extracts timeframe/status keywords (PLANNED: unwired surface) |
 
-Everything else (`search()`, `get_by_status()`, `get_by_domain()`, `get_by_category()`,
+Everything else (`search()`, `get_by_status()`, `get_by_category()`,
 `list_user_categories()`, `get_by_relationship()`, `get_upcoming()`, `get_overdue()`,
 `get_active()`) is inherited from `BaseService` via `DomainConfig`. The former
 goals-specific extensions (`get_by_timeframe`, `get_needing_habits`,
@@ -365,7 +357,6 @@ _graph_enrichment_patterns = [
 | Method | Reason for Override |
 |--------|---------------------|
 | `get_by_status` | Principles use `is_active: bool` instead of `status: str` |
-| `get_by_domain` | Domain is `core_domain` field in Principles |
 | `list_categories` | Custom category enumeration |
 
 **Domain-Specific Methods:**

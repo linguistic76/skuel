@@ -35,7 +35,6 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.choice.choice import Choice as Choice
-    from core.models.enums import Domain
     from core.models.event.event import Event as Event
     from core.models.goal.goal import Goal as Goal
     from core.models.habit.habit import Habit as Habit
@@ -75,7 +74,6 @@ class DomainSearchOperations(Protocol[T]):
     - search_filtered() - Type-safe filtered search (NEW v2.1.0)
     - intelligent_search() - Natural language search with semantic filter extraction (NEW v2.1.0)
     - get_by_status() - Filter by EntityStatus
-    - get_by_domain() - Filter by Domain enum
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
     - get_upcoming() - Entities with upcoming dates / work still to do
@@ -262,19 +260,6 @@ class DomainSearchOperations(Protocol[T]):
         """
         ...
 
-    async def get_by_domain(self, domain: "Domain", limit: int = 100) -> Result[list[T]]:
-        """
-        Filter entities by Domain enum.
-
-        Args:
-            domain: Domain enum value (TECH, HEALTH, PERSONAL, etc.)
-            limit: Maximum results to return
-
-        Returns:
-            Result containing entities in specified domain
-        """
-        ...
-
     async def get_prioritized(
         self, user_context: "UserContext", limit: int = 10
     ) -> Result[list[T]]:
@@ -396,7 +381,7 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
 
     Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds event-specific methods:
@@ -457,7 +442,7 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
 
     Inherits all methods from DomainSearchOperations[Habit]:
     - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds habit-specific methods:
@@ -514,7 +499,7 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
 
     Inherits all methods from DomainSearchOperations[Task]:
     - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds task-specific methods:
@@ -569,7 +554,7 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
 
     Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds goal-specific methods:
@@ -599,7 +584,7 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
 
     Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds choice-specific methods:
@@ -641,7 +626,7 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
 
     Inherits all methods from DomainSearchOperations[Entity]:
     - search(), search_filtered(), intelligent_search()
-    - get_by_status(), get_by_domain(), get_prioritized()
+    - get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds principle-specific methods:

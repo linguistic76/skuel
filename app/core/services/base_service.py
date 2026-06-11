@@ -64,7 +64,7 @@ CrudOperationsMixin:
 SearchOperationsMixin:
     search, get_by_relationship, search_connected_to, search_by_tags,
     search_array_field, graph_aware_faceted_search, get_by_status,
-    get_by_domain, get_by_category, list_user_categories,
+    get_by_category, list_user_categories,
     list_all_categories, count
 
 RelationshipOperationsMixin:

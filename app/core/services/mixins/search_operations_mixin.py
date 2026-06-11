@@ -20,7 +20,6 @@ PROVIDES (Methods for Routes/Facades):
 
     Filtering:
         - get_by_status: Filter by status field
-        - get_by_domain: Filter by domain enum
         - get_by_category: Filter by category field
         - list_user_categories: List unique categories for user
         - list_all_categories: List all categories (admin)
@@ -598,37 +597,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         self.logger.debug(
             f"Found {len(entities)} {self.config_lookup_label}(s) with status '{status}'"
-        )
-        return Result.ok(entities)
-
-    @with_error_handling("get_by_domain", error_type="database")
-    async def get_by_domain(self, domain: Any, limit: int = 100) -> Result[builtins.list[T]]:
-        """
-        Filter entities by Domain enum.
-
-        Args:
-            domain: Domain enum value (TECH, HEALTH, PERSONAL, etc.)
-            limit: Maximum results to return
-
-        Returns:
-            Result containing entities in specified domain
-        """
-        config_result = self._ensure_configured_for_search()
-        if config_result.is_error:
-            return Result.fail(config_result)
-        dto_class, model_class = config_result.value
-
-        from core.ports import get_enum_value
-
-        domain_value = get_enum_value(domain)
-        result = await self.backend.find_by(domain=domain_value, limit=limit)
-        if result.is_error:
-            return Result.fail(result)
-
-        entities = self._to_domain_models(result.value, dto_class, model_class)
-
-        self.logger.debug(
-            f"Found {len(entities)} {self.config_lookup_label}(s) in domain '{domain_value}'"
         )
         return Result.ok(entities)
 
