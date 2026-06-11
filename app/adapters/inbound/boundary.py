@@ -32,6 +32,10 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 
 
+# boundary: json-serialization — these helpers sit at the Result[T]→HTTP edge where
+# T is genuinely erased: the input is whatever value any service returned (frozen
+# domain dataclass, Pydantic model, dict, list, scalar) and the output is whatever
+# JSON-basic shape it maps to. No concrete type can name either side.
 def _unwrap_unserializable(value: Any) -> Any:
     """Fallback for types ``to_jsonable_python`` can't serialize natively.
 
@@ -45,7 +49,7 @@ def _unwrap_unserializable(value: Any) -> Any:
     raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
-def jsonable_content(content: Any) -> Any:
+def jsonable_content(content: Any) -> Any:  # boundary: json-serialization (see above)
     """Convert a service-layer value into JSON-safe Python.
 
     Handles the frozen domain dataclasses, Pydantic models, enums, datetimes,
