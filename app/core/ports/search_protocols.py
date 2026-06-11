@@ -635,12 +635,6 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
         """Get pending choices for a user."""
         ...
 
-    async def get_by_urgency(
-        self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Choice"]]:
-        """Get choices by urgency level."""
-        ...
-
     async def get_needing_decision(
         self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list["Choice"]]:

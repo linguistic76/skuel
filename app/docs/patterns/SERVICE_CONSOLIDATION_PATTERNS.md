@@ -788,7 +788,6 @@ class _RelationshipMixin:
 class ChoicesService(
     _OptionManagementMixin,
     _RelationshipMixin,
-    _EnrichmentMixin,
     KnowledgeIntelligenceDelegationMixin,
     BaseService["ChoicesOperations", Choice],
 ): ...
@@ -800,7 +799,7 @@ class ChoicesService(
 |--------|--------------|-------------------|
 | Goals | 2 (`_OrchestrationMixin`, `_RelationshipMixin`) | 5 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_PredictiveMixin`, `_DualTrackMixin`, `_LearningRequirementsMixin`) |
 | Habits | 3 (`_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_DualTrackMixin`) |
-| Choices | 3 (`_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
+| Choices | 2 (`_OptionManagementMixin`, `_RelationshipMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
 | Principles | 3 (`_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_AlignmentMixin`) |
 | Tasks | 0 (no facade mixins) | 0 |
 | Events | 0 (no facade mixins) | 0; `get_with_context` inherited from `_CoreIntelligenceMixin` |

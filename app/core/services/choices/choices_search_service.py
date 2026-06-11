@@ -61,7 +61,6 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
     Choice-Specific Methods:
     - get_pending() - Pending/undecided choices
-    - get_by_urgency() - Filter by urgency level
     - get_needing_decision() - Choices needing decision within N days
     - get_by_category() - Filter by category
 
@@ -175,34 +174,6 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
 
         self.logger.debug(f"Found {len(choices)} pending choices for user {user_uid}")
-        return Result.ok(choices)
-
-    @with_error_handling("get_by_urgency", error_type="database")
-    async def get_by_urgency(
-        self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Choice]]:
-        """
-        Get choices by urgency level.
-
-        Args:
-            urgency: Urgency string (e.g., "critical", "high", "medium", "low")
-            user_uid: Optional user filter
-            limit: Maximum results
-
-        Returns:
-            Result containing choices with matching urgency
-        """
-        if user_uid:
-            result = await self.backend.find_by(urgency=urgency, user_uid=user_uid, limit=limit)
-        else:
-            result = await self.backend.find_by(urgency=urgency, limit=limit)
-
-        if result.is_error:
-            return result
-
-        choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
-
-        self.logger.debug(f"Found {len(choices)} choices with urgency '{urgency}'")
         return Result.ok(choices)
 
     @with_error_handling("get_needing_decision", error_type="database", uid_param="user_uid")

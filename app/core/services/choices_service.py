@@ -14,25 +14,23 @@ Sub-Services:
 Facade Mixins:
 - _OptionManagementMixin: Option CRUD and decision-making
 - _RelationshipMixin: Cross-domain graph relationships and semantic connections
-- _EnrichmentMixin: Analytics delegates and enriched data views
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums import EntityStatus
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import ChoicesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 
 # Import sub-services
 from core.services.choices import ChoicesLearningService
-from core.services.choices._enrichment_mixin import _EnrichmentMixin
 from core.services.choices._option_management_mixin import _OptionManagementMixin
 from core.services.choices._relationship_mixin import _RelationshipMixin
 from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
@@ -58,7 +56,6 @@ from core.utils.type_converters import get_enum_attr_str
 if TYPE_CHECKING:
     from datetime import date
 
-    from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.choice.choice_request import ChoiceCreateRequest
     from core.models.enums import Domain, Priority
     from core.models.graph_context import GraphContext
@@ -72,17 +69,6 @@ if TYPE_CHECKING:
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
     from core.services.cross_domain import CrossDomainQueryService
-    from core.services.user import UserContext
-
-
-class ChoicesAnalyticsContext(TypedDict):
-    """Return type for ChoicesService.get_analytics_context()."""
-
-    total_choices: int
-    total_decisions: int
-    satisfaction_rate: float
-    on_time_rate: float
-    outcomes: list[dict[str, Any]]
 
 
 def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
@@ -145,7 +131,6 @@ def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[An
 class ChoicesService(
     _OptionManagementMixin,
     _RelationshipMixin,
-    _EnrichmentMixin,
     KnowledgeIntelligenceDelegationMixin,
     BaseService["ChoicesOperations", Choice, ChoiceUpdateIntent],
 ):
@@ -161,13 +146,12 @@ class ChoicesService(
     Delegations (explicit methods):
     - Core: get_choice, get_user_choices, get_user_items_in_range
     - Learning: create_choice_with_learning_guidance, suggest_learning_aligned_choices, etc.
-    - Search: get_choices_by_status, get_pending_choices, get_upcoming, get_overdue, etc.
+    - Search: get_pending_choices, get_upcoming, get_overdue, get_choices_needing_decision, etc.
     - Intelligence: get_choice_with_context, get_decision_intelligence, get_decision_patterns, etc.
 
     Facade Mixins:
     - _OptionManagementMixin: add_option, update_option, remove_option, make_decision
     - _RelationshipMixin: link_choice_to_*, create_semantic_*, find_choices_aligned_*
-    - _EnrichmentMixin: analyze_decision_patterns, get_analytics_context
 
     SKUEL Architecture:
     - Uses explicit delegation methods (February 2026)
@@ -260,25 +244,6 @@ class ChoicesService(
             learning_position, choice_domain, urgency_level
         )
 
-    # Relationship delegations
-    async def get_choice_cross_domain_context(
-        self,
-        entity_uid: EntityUID,
-        depth: int = 2,
-        min_confidence: float = 0.7,
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
-
-    async def get_choice_with_semantic_context(
-        self,
-        uid: str,
-        min_confidence: float = 0.8,
-        semantic_types: list[SemanticRelationshipType] | None = None,
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_with_semantic_context(
-            uid, min_confidence, semantic_types
-        )
-
     # Intelligence delegations
     async def get_choice_with_context(
         self, uid: str, depth: int = 2
@@ -311,14 +276,6 @@ class ChoicesService(
         return await self.intelligence.get_domain_decision_patterns(user_uid, days)
 
     # Search delegations
-    async def get_choices_by_status(
-        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
-    ) -> Result[list[Choice]]:
-        return await self.search.get_by_status(status, limit, user_uid)
-
-    async def get_choices_by_domain(self, domain: Any, limit: int = 100) -> Result[list[Choice]]:
-        return await self.search.get_by_domain(domain, limit)
-
     async def get_pending_choices(
         self, user_uid: UserUID, limit: int = 100
     ) -> Result[list[Choice]]:
@@ -337,20 +294,10 @@ class ChoicesService(
     async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
         return await self.search.get_active(user_uid, limit)
 
-    async def get_choices_by_urgency(
-        self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Choice]]:
-        return await self.search.get_by_urgency(urgency, user_uid, limit)
-
     async def get_choices_needing_decision(
         self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list[Choice]]:
         return await self.search.get_needing_decision(user_uid, deadline_days)
-
-    async def get_prioritized_choices(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Choice]]:
-        return await self.search.get_prioritized(user_context, limit)
 
     def __init__(
         self,
@@ -509,9 +456,6 @@ class ChoicesService(
     # Note: Relationship methods (link_choice_to_*, create_semantic_*, find_choices_aligned_*)
     # provided by _RelationshipMixin.
 
-    # Note: Analytics methods (analyze_decision_patterns, get_analytics_context)
-    # provided by _EnrichmentMixin.
-
     # ========================================================================
     # QUERY LAYER
     # ========================================================================
@@ -540,5 +484,5 @@ class ChoicesService(
 
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations
-    # (get_choices_by_status, get_pending_choices, get_upcoming, get_overdue, etc.) delegated
+    # (get_pending_choices, get_upcoming, get_overdue, etc.) delegated
     # via explicit methods above.

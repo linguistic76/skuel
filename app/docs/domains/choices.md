@@ -47,13 +47,12 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 
 ## Facade Pattern (February 2026, mixins April 2026)
 
-`ChoicesService` delegates to sub-services + 3 focused facade mixins for consistency with Habits/Goals/Principles:
+`ChoicesService` delegates to sub-services + 2 focused facade mixins for consistency with Habits/Goals/Principles:
 
 ```python
 class ChoicesService(
     _OptionManagementMixin,  # add/update/remove option, make_decision
     _RelationshipMixin,      # link_choice_to_*, semantic relationships
-    _EnrichmentMixin,        # analytics delegates + enriched data views
     KnowledgeIntelligenceDelegationMixin,
     BaseService[ChoicesOperations, Choice],
 ):
@@ -68,7 +67,6 @@ class ChoicesService(
 |-------|------|---------|
 | `_OptionManagementMixin` | `_option_management_mixin.py` | `add_option`, `update_option`, `remove_option`, `make_decision` |
 | `_RelationshipMixin` | `_relationship_mixin.py` | `link_choice_to_goal/habit/principle`, `create_semantic_choice_relationship`, `find_choices_aligned_with_principle` |
-| `_EnrichmentMixin` | `_enrichment_mixin.py` | `analyze_decision_patterns`, `get_analytics_context` |
 
 **Sub-services:**
 | Service | Purpose |
@@ -208,9 +206,9 @@ CHOICE_TYPES = ["binary", "multiple", "ranking", "strategic", "operational"]
 DOMAINS = ["personal", "business", "health", "finance", "social"]
 ```
 
-### Analytics Context
+### List-Page Stats
 
-Analytics computation is handled by `ChoicesService.get_analytics_context(user_uid)` → `Result[ChoicesAnalyticsContext]`. Returns `total_choices`, `total_decisions`, `satisfaction_rate`, `on_time_rate`, `outcomes`. TypedDict defined in `core/services/choices_service.py`.
+List-page stats (counts + average satisfaction) are computed directly from the fetched choice list in `ui/activities/choices_views.py` (`StatsGrid`); per-choice outcome data (`actual_outcome`, `satisfaction_score`, `lessons_learned`) renders on the detail page.
 
 ## Code Examples
 
@@ -337,7 +335,6 @@ Choices support full decision lifecycle:
 | Method | Description |
 |--------|-------------|
 | `get_pending(user_uid)` | Undecided choices |
-| `get_by_urgency(urgency, user_uid)` | Filter by urgency level |
 | `get_needing_decision(user_uid, days=7)` | Choices with deadline approaching |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 

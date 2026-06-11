@@ -115,35 +115,3 @@ class ChoiceRelationships:
         all_uids.update(self.informed_by_knowledge_uids)
         all_uids.update(self.required_knowledge_uids)
         return all_uids
-
-    def serves_life_path(self) -> bool:
-        """Check if choice serves user's life path."""
-        return len(self.serves_life_path_uids) > 0
-
-    def get_life_path_uid(self) -> str | None:
-        """Get the life path UID this choice serves (if any)."""
-        return self.serves_life_path_uids[0] if self.serves_life_path_uids else None
-
-    def has_habit_impact(self) -> bool:
-        """Check if choice has any habit relationships."""
-        return len(self.impacted_habit_uids) > 0 or len(self.informing_habit_uids) > 0
-
-    def impacts_habits(self) -> bool:
-        """Check if this choice impacted any habits."""
-        return len(self.impacted_habit_uids) > 0
-
-    def informed_by_habits(self) -> bool:
-        """Check if this choice was informed by any habits."""
-        return len(self.informing_habit_uids) > 0
-
-    def has_event_relationship(self) -> bool:
-        """Check if choice has any event relationships."""
-        return len(self.scheduled_event_uids) > 0 or len(self.triggering_event_uids) > 0
-
-    def schedules_events(self) -> bool:
-        """Check if this choice scheduled any events."""
-        return len(self.scheduled_event_uids) > 0
-
-    def triggered_by_events(self) -> bool:
-        """Check if this choice was triggered by any events."""
-        return len(self.triggering_event_uids) > 0
