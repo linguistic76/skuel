@@ -49,9 +49,7 @@ error: Incompatible return value type (got "Result[None]", expected "Result[T]")
 #### Scenario 2: Error from Helper Method
 
 ```python
-async def calculate_readiness_for_knowledge(
-    self, user_uid: UserUID, knowledge_uid: str
-) -> Result[float]:
+async def calculate_score(self, user_uid: UserUID, knowledge_uid: str) -> Result[float]:
     profile_result = await self.build_user_knowledge_profile(user_uid)
     if profile_result.is_error:
         return profile_result  # ❌ Returns Result[UserKnowledgeProfile], expects Result[float]
@@ -100,19 +98,19 @@ async def create(self, entity: T) -> Result[T]:
         return Result.fail(validation)  # Result[None] → Result[T]
 ```
 
-#### Fix 2: UserProgressService Helper Error
+#### Fix 2: Helper Error Across a Type Boundary
 
-**File**: `core/services/user_progress_service.py:273`
+(Pattern example — the original `UserProgressService` site was deleted in the 2026-06 user dead-code campaign; `build_user_knowledge_profile` remains live.)
 
 ```python
 # BEFORE
-async def calculate_readiness_for_knowledge(...) -> Result[float]:
+async def calculate_score(...) -> Result[float]:
     profile_result = await self.build_user_knowledge_profile(user_uid)
     if profile_result.is_error:
         return profile_result  # ❌ Result[UserKnowledgeProfile] → Result[float]
 
 # AFTER
-async def calculate_readiness_for_knowledge(...) -> Result[float]:
+async def calculate_score(...) -> Result[float]:
     profile_result = await self.build_user_knowledge_profile(user_uid)
     if profile_result.is_error:
         return Result.fail(profile_result)  # Result[Profile] → Result[float]

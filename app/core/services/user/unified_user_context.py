@@ -43,28 +43,24 @@ Field blocks (data):
                                  INTELLIGENCE_TIER=core)
  8. Learning-loop engagement  → SUBMISSION & FEEDBACK AWARENESS
  9. Progress & capacity       → PROGRESS AWARENESS, WORKLOAD & CAPACITY
-10. Facets & preferences      → FACET AWARENESS, USER PREFERENCES & STATE
+10. Preferences               → USER PREFERENCES & STATE
 11. Groups                    → GROUP AWARENESS
 12. Rich entity data          → RICH GRAPH CONTEXT
                                 (entities_rich; rich-only via build_rich())
-13. MOCs                      → MOC (MAP OF CONTENT) AWARENESS
+13. Organizers                → ORGANIZER (EMERGENT MOC) AWARENESS
 
 Method blocks (read API):
 
-14. Validation                → CONTEXT VALIDATION METHODS
-                                (_as_rich, get_rich_entities)
+14. Validation                → CONTEXT VALIDATION METHODS (_as_rich)
 15. Per-domain queries        → TASK / EVENT / GOAL / HABIT / KNOWLEDGE /
-                                PRINCIPLE / WORKLOAD / MOC / FACET QUERY METHODS
-16. Cache-local mutations     → DERIVED / CACHE-LOCAL MUTATIONS (SAFE)
-                                (see MUTATION GOVERNANCE in class docstring)
-17. Convenience properties    → CONVENIENCE PROPERTIES
+                                PRINCIPLE / WORKLOAD QUERY METHODS
+16. Convenience properties    → CONVENIENCE PROPERTIES
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from operator import itemgetter
 from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard, cast
 
 from core.models.enums import (
@@ -84,13 +80,11 @@ if TYPE_CHECKING:
     from core.ports.query_types import (
         CrossDomainInsightsData,
         CurrentPathStepItem,
-        FacetInteractionItem,
         GroupSummary,
         PendingRevisedExerciseItem,
         RichEntityItem,
         RichKnowledgeUnitItem,
         RichLearningPathItem,
-        RichMOCItem,
         RichPathStepItem,
         UnsubmittedExerciseItem,
     )
@@ -112,7 +106,6 @@ class UserContext:
 
     **ALLOWED mutations** (cache-local, non-authoritative):
     - Derived/cached values: life_path_alignment_score, current_workload_score
-    - Facet tracking: facet_affinities, facet_profile, facet_interaction_history
     - Session state: is_rich_context
 
     **FORBIDDEN mutations** (domain-authoritative state):
@@ -204,7 +197,6 @@ class UserContext:
     # Event participation
     event_attendance: dict[str, int] = field(default_factory=dict)  # uid -> quality (1-5)
     missed_event_uids: set[str] = field(default_factory=set)
-    event_streaks: dict[str, int] = field(default_factory=dict)  # recurring_uid -> streak
 
     # Event scheduling
     scheduled_event_uids: list[str] = field(default_factory=list)  # All scheduled (future) events
@@ -455,21 +447,6 @@ class UserContext:
     time_invested_this_month: float = 0.0
 
     # =========================================================================
-    # FACET AWARENESS - Tags, domains, and content preferences
-    # =========================================================================
-    facet_profile: dict[str, list[str]] = field(default_factory=dict)
-    # Example: {"tags": ["python", "testing"], "domains": ["TECH"], "difficulty": ["intermediate"]}
-
-    facet_affinities: dict[str, float] = field(default_factory=dict)
-    # Example: {"python": 0.8, "testing": 0.6, "TECH": 0.9}
-
-    facet_interaction_history: list[FacetInteractionItem] = field(default_factory=list)
-    # Track recent facet interactions for learning preferences
-
-    content_type_preferences: dict[str, float] = field(default_factory=dict)
-    # Example: {"tutorial": 0.7, "reference": 0.5, "exercise": 0.8}
-
-    # =========================================================================
     # USER PREFERENCES & STATE
     # =========================================================================
     learning_level: LearningLevel = LearningLevel.INTERMEDIATE
@@ -561,41 +538,18 @@ class UserContext:
     # - graph_context: {knowledge, prerequisites, practice_opportunities, guiding_principles, learning_path, etc.}
 
     # =========================================================================
-    # MOC (MAP OF CONTENT) AWARENESS - Non-linear knowledge navigation
+    # ORGANIZER (EMERGENT MOC) AWARENESS
     # =========================================================================
-    # MOCs provide non-linear organization complementing linear Learning Paths.
-    # They serve as navigation hubs, topic overviews, and cross-domain bridges.
-    #
-    # Design Philosophy:
-    # - LP is linear: "Step 1 → Step 2 → Step 3"
-    # - MOC is non-linear: "Browse everything about Python by topic"
-    # - MOC and LP are complementary, not competing
+    # A "MOC" is not a special entity — any owned Entity with outgoing
+    # ORGANIZES edges is an organizer (emergent identity). These fields carry
+    # the emergent read-pattern from the MEGA-QUERY; Askesis uses them to
+    # nudge users toward organizing their knowledge.
 
-    # Active MOC UIDs the user has created or enrolled in
+    # Owned entities that organize others (have outgoing ORGANIZES edges)
     active_moc_uids: list[str] = field(default_factory=list)
 
-    # Current MOC the user is focused on (for navigation context)
-    current_moc_focus: str | None = None
-
-    # MOC usage tracking (for discovery and recommendations)
-    moc_view_counts: dict[str, int] = field(default_factory=dict)  # moc_uid -> views
-    recently_viewed_moc_uids: list[str] = field(default_factory=list)  # Last 10 viewed
-
-    # MOC template enrollment (templates user has instantiated)
-    enrolled_template_moc_uids: list[str] = field(default_factory=list)
-
-    # MOC-Knowledge relationships (which KUs are organized in which MOCs)
-    mocs_by_knowledge: dict[str, list[str]] = field(default_factory=dict)  # ku_uid -> moc_uids
-    knowledge_by_moc: dict[str, list[str]] = field(default_factory=dict)  # moc_uid -> ku_uids
-
-    # MOC-Learning Path alignment (which MOCs support which LPs)
-    mocs_by_learning_path: dict[str, list[str]] = field(default_factory=dict)  # lp_uid -> moc_uids
-
-    # Rich MOC data (full KU-based MOC objects with graph neighborhoods) - Optional
-    active_mocs_rich: list[RichMOCItem] = field(default_factory=list)
-    # Each dict contains:
-    # - moc: KU entity properties (MOC is a KU with ORGANIZES relationships)
-    # - graph_context: {organized_kus, related_content}
+    # Most recently UPDATED organizers (by updated_at, last 10)
+    recently_viewed_moc_uids: list[str] = field(default_factory=list)
 
     # Cross-domain relationship insights (extracted from MEGA-QUERY)
     cross_domain_insights: CrossDomainInsightsData = field(default_factory=dict)  # type: ignore[assignment]  # empty dict is valid runtime default for TypedDict
@@ -650,35 +604,9 @@ class UserContext:
             raise RichContextRequiredError(operation)
         return cast("RichUserContext", self)
 
-    def get_rich_entities(
-        self,
-        domain: str,
-        filter_uids: set[str] | None = None,
-    ) -> list[RichEntityItem]:
-        """
-        Get rich entity data for an activity domain, optionally filtered by UIDs.
-
-        Args:
-            domain: Domain key — "tasks", "goals", "habits", "events", "choices", "principles"
-            filter_uids: If provided, only return entities whose uid is in this set.
-                         Pass None to return all entities for the domain.
-
-        Returns:
-            List of {"entity": {...}, "graph_context": {...}} dicts.
-            Empty list if domain not found or no entities match filter.
-        """
-        entities = self.entities_rich.get(domain, [])
-        if filter_uids is None:
-            return entities
-        return [e for e in entities if e.get("entity", {}).get("uid") in filter_uids]
-
     # =========================================================================
     # TASK QUERY METHODS
     # =========================================================================
-
-    def get_tasks_for_today(self) -> list[str]:
-        """Get prioritized tasks for today"""
-        return self.today_task_uids
 
     def get_tasks_for_goal(self, goal_uid: str) -> list[str]:
         """Get all tasks contributing to a specific goal. Requires rich context."""
@@ -700,14 +628,6 @@ class UserContext:
         """blocked_task_uids with graceful fallback — empty set at standard depth."""
         return self.blocked_task_uids if self.blocked_task_uids is not None else set()
 
-    def get_high_impact_tasks(self, threshold: float = 0.7) -> list[str]:
-        """Get tasks with high goal contribution"""
-        return [
-            uid
-            for uid, priority in self.task_priorities.items()
-            if priority >= threshold and uid in self.active_task_uids
-        ]
-
     # =========================================================================
     # EVENT QUERY METHODS
     # =========================================================================
@@ -715,16 +635,6 @@ class UserContext:
     def get_events_for_habit(self, habit_uid: str) -> list[str]:
         """Get events that reinforce a specific habit"""
         return self.events_by_habit.get(habit_uid, [])
-
-    def get_events_needing_attendance(self) -> list[str]:
-        """Get upcoming events that maintain important streaks"""
-        critical_events = []
-        for event_uid in self.upcoming_event_uids:
-            if event_uid in self.recurring_event_uids:
-                streak = self.event_streaks.get(event_uid, 0)
-                if streak > 7:  # Week+ streak at risk
-                    critical_events.append(event_uid)
-        return critical_events
 
     # =========================================================================
     # GOAL QUERY METHODS
@@ -772,10 +682,6 @@ class UserContext:
         """habits_by_goal with graceful fallback — empty dict at standard depth."""
         return self.habits_by_goal if self.habits_by_goal is not None else {}
 
-    def get_high_impact_habits(self) -> list[str]:
-        """Get keystone habits that affect multiple goals"""
-        return self.keystone_habits
-
     # =========================================================================
     # KNOWLEDGE QUERY METHODS
     # =========================================================================
@@ -800,56 +706,6 @@ class UserContext:
             | self.in_progress_knowledge_uids
             | self.blocked_knowledge_uids
         )
-
-    def get_knowledge_gaps_for_goal(self, _goal_uid: str) -> list[str]:
-        """Get missing knowledge for a goal"""
-        # Would need goal-knowledge mapping
-        gaps = []
-        for knowledge_uid, prereqs in self.prerequisites_needed.items():
-            if prereqs and knowledge_uid not in self.mastered_knowledge_uids:
-                gaps.append(knowledge_uid)
-        return gaps
-
-    def calculate_life_alignment(self, life_path_knowledge_uids: list[str]) -> float:
-        """
-        Calculate life path alignment score based on knowledge substance.
-
-        This method embodies "Everything flows toward the life path" philosophy.
-        It measures how well the user is APPLYING life path knowledge in real life.
-
-        Args:
-            life_path_knowledge_uids: Knowledge UIDs from the user's life path
-
-        Returns:
-            0.0-1.0 alignment score (average substance across life path knowledge)
-
-        Philosophy:
-            - Pure mastery (0.8+) without substance = 0.5 alignment (theory only)
-            - High substance (0.7+) = 0.9+ alignment (lifestyle integration)
-            - Life path alignment is NOT about completion, it's about LIVING it
-        """
-        if not life_path_knowledge_uids:
-            return 0.0
-
-        # Get substance scores for all life path knowledge
-        # NOTE: This assumes knowledge_mastery dict contains substance scores
-        # In practice, this would query PsService for substance_score() values
-        total_substance = 0.0
-        count = 0
-
-        for ku_uid in life_path_knowledge_uids:
-            # Use knowledge_mastery as proxy for substance (would be substance_score in real impl)
-            substance = self.knowledge_mastery.get(ku_uid, 0.0)
-            total_substance += substance
-            count += 1
-
-        # Average substance across all life path knowledge
-        avg_alignment = total_substance / count if count > 0 else 0.0
-
-        # Update cached alignment score (NOTE: this is mutation - acceptable for cached derived value)
-        self.life_path_alignment_score = avg_alignment
-
-        return avg_alignment
 
     def is_life_aligned(self, threshold: float = 0.7) -> bool:
         """
@@ -883,174 +739,8 @@ class UserContext:
         return gaps
 
     # =========================================================================
-    # MOC (MAP OF CONTENT) QUERY METHODS
-    # =========================================================================
-
-    def get_mocs_for_knowledge(self, ku_uid: str) -> list[str]:
-        """Get all MOCs that contain a specific knowledge unit."""
-        return self.mocs_by_knowledge.get(ku_uid, [])
-
-    def get_knowledge_in_moc(self, moc_uid: str) -> list[str]:
-        """Get all knowledge units organized in a specific MOC."""
-        return self.knowledge_by_moc.get(moc_uid, [])
-
-    def get_mocs_for_learning_path(self, lp_uid: str) -> list[str]:
-        """Get MOCs that support a specific learning path."""
-        return self.mocs_by_learning_path.get(lp_uid, [])
-
-    def get_recently_viewed_mocs(self, limit: int = 5) -> list[str]:
-        """Get recently viewed MOCs for quick navigation."""
-        return self.recently_viewed_moc_uids[:limit]
-
-    def get_most_used_mocs(self, limit: int = 5) -> list[str]:
-        """Get most frequently accessed MOCs."""
-        from core.utils.sort_functions import get_result_score
-
-        sorted_mocs = sorted(self.moc_view_counts.items(), key=get_result_score, reverse=True)
-        return [moc_uid for moc_uid, _ in sorted_mocs[:limit]]
-
-    def has_moc_for_domain(self, domain: Domain) -> bool:
-        """Check if user has any MOC for a specific domain."""
-        # This would require domain info from active_mocs_rich
-        # For now, check if any MOCs exist
-        return len(self.active_moc_uids) > 0
-
-    # =========================================================================
-    # FACET QUERY METHODS
-    # =========================================================================
-
-    def evaluate_against_facets(self, required_facets: dict[str, list[str]]) -> float:
-        """
-        Evaluate how well user context matches required facets.
-
-        Args:
-            required_facets: Dict of facet types to required values
-
-        Returns:
-            Match score from 0.0 to 1.0
-        """
-        if not required_facets:
-            return 1.0
-
-        total_score = 0.0
-        facet_count = 0
-
-        for facet_type, required_values in required_facets.items():
-            if not required_values:
-                continue
-
-            user_values = self.facet_profile.get(facet_type, [])
-            if user_values:
-                # Calculate overlap
-                overlap = len(set(required_values) & set(user_values))
-                score = overlap / len(required_values)
-
-                # Weight by affinity if available
-                for value in required_values:
-                    if value in self.facet_affinities:
-                        score *= (1 + self.facet_affinities[value]) / 2
-
-                total_score += score
-                facet_count += 1
-
-        return total_score / facet_count if facet_count > 0 else 0.0
-
-    def get_top_facets(self, facet_type: str, n: int = 10) -> list[str]:
-        """Get top N facets of a given type, sorted by affinity."""
-        facets = self.facet_profile.get(facet_type, [])
-
-        # Sort by affinity
-        facets_with_scores = []
-        for facet in facets:
-            score = self.facet_affinities.get(facet, 0.5)
-            facets_with_scores.append((facet, score))
-
-        facets_with_scores.sort(key=itemgetter(1), reverse=True)
-        return [f[0] for f in facets_with_scores[:n]]
-
-    # =========================================================================
-    # DERIVED / CACHE-LOCAL MUTATIONS (SAFE)
-    # =========================================================================
-    # These methods mutate context state, but only for:
-    # - Non-authoritative derived values
-    # - Session-local facet tracking
-    # - Cached computation results
-    #
-    # See MUTATION GOVERNANCE in class docstring for rules.
-
-    def update_facet_affinity(self, facet: str, delta: float = 0.1) -> None:
-        """
-        Update affinity for a facet based on user interaction.
-
-        MUTATION: Modifies facet_affinities, facet_interaction_history.
-        This is acceptable - facet tracking is cache-local, non-authoritative.
-        """
-        current = self.facet_affinities.get(facet, 0.5)
-        new_value = min(1.0, max(0.0, current + delta))
-        self.facet_affinities[facet] = new_value
-
-        # Track in history
-        self.facet_interaction_history.append(
-            {
-                "facet": facet,
-                "action": "affinity_update",
-                "delta": delta,
-                "new_value": new_value,
-                "timestamp": datetime.now().isoformat(),
-            }
-        )
-
-        # Limit history size
-        if len(self.facet_interaction_history) > 100:
-            self.facet_interaction_history = self.facet_interaction_history[-100:]
-
-    def add_facet(self, facet_type: str, value: str) -> None:
-        """
-        Add a facet value to the profile.
-
-        MUTATION: Modifies facet_profile, facet_affinities.
-        This is acceptable - facet tracking is cache-local, non-authoritative.
-        """
-        if facet_type not in self.facet_profile:
-            self.facet_profile[facet_type] = []
-
-        if value not in self.facet_profile[facet_type]:
-            self.facet_profile[facet_type].append(value)
-
-            # Initialize affinity if not present
-            if value not in self.facet_affinities:
-                self.facet_affinities[value] = 0.5
-
-    def get_facet_recommendations(self) -> dict[str, Any]:
-        """Get recommendations based on facet profile."""
-        return {
-            "preferred_tags": self.get_top_facets("tags", 10),
-            "preferred_domains": self.get_top_facets("domains", 5),
-            "preferred_difficulty": self.get_top_facets("difficulty", 1),
-            "content_types": sorted(
-                self.content_type_preferences.items(), key=itemgetter(1), reverse=True
-            )[:5],
-        }
-
-    # =========================================================================
     # PRINCIPLE QUERY METHODS
     # =========================================================================
-
-    def get_principle_aligned_tasks(self, principle_uid: str) -> list[str]:
-        """Get tasks aligned with a specific principle"""
-        # Would need task-principle alignment data
-        aligned = []
-        if principle_uid in self.core_principle_uids:
-            importance = self.principle_priorities.get(principle_uid, 0.5)
-            if importance > 0.7:
-                # Return high-priority tasks when principle is important
-                aligned = self.get_high_impact_tasks()
-        return aligned
-
-    def has_principle_conflict(self, action_domain: Domain) -> bool:
-        """Check if an action might conflict with principles"""
-        alignment = self.principle_alignment_by_domain.get(action_domain, 1.0)
-        return alignment < 0.5
 
     def get_principle_guided_choice_counts(self) -> dict[str, int]:
         """Counts of principle-guided choices by principle uid. Requires rich context."""
@@ -1099,14 +789,6 @@ class UserContext:
         )
         capacity = self.available_minutes_daily // 15  # 15 min per item average
         return min(1.0, active_items / max(capacity, 1))
-
-    def has_capacity_for_new_goal(self) -> bool:
-        """Check if user can take on a new goal"""
-        return (
-            self.current_workload_score < 0.8
-            and len(self.active_goal_uids) < 5
-            and not self.is_overwhelmed
-        )
 
     def get_recommended_next_action(self) -> dict[str, Any]:
         """

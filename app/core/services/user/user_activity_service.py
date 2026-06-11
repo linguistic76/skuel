@@ -355,35 +355,6 @@ class UserActivityService:
                 or ["askesis", "search", "recommendations", "dashboard"],
             )
 
-    async def flush_pending_invalidations(self, user_uid: UserUID | None = None) -> Result[None]:
-        """
-        Immediately execute any pending debounced invalidations.
-
-        Useful for testing or when you need to ensure invalidation completes
-        before proceeding (e.g., before returning from an API call).
-
-        Args:
-            user_uid: If provided, only flush for this user.
-                      If None, flush all pending invalidations.
-
-        Returns:
-            Result[None] indicating success.
-        """
-        return await self._invalidator.flush(user_uid)
-
-    def get_invalidation_stats(self) -> dict[str, Any]:
-        """
-        Get debouncing statistics for monitoring.
-
-        Returns:
-            Dict with requests_received, requests_debounced, invalidations_executed,
-            efficiency ratio, and pending count.
-        """
-        stats: dict[str, int | float] = dict(self._invalidator.get_stats())
-        stats["efficiency"] = self._invalidator.get_efficiency()
-        stats["pending_count"] = self._invalidator.get_pending_count()
-        return stats
-
     def get_valid_context(self, user_uid: UserUID) -> RichUserContext | None:
         """
         Get cached rich user context if still valid (not invalidated).

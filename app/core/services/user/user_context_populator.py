@@ -375,10 +375,9 @@ class UserContextPopulator:
         choices_data = data.get("choices", {})
         context.pending_choice_uids = [uid for uid in choices_data.get("pending_uids", []) if uid]
 
-        # MOCs (Maps of Content)
+        # Organizers (emergent MOCs — owned entities with ORGANIZES edges)
         mocs_data = data.get("mocs", {})
         context.active_moc_uids = mocs_data.get("active_uids", [])
-        context.moc_view_counts = mocs_data.get("view_counts", {})
         context.recently_viewed_moc_uids = mocs_data.get("recently_viewed_uids", [])
 
         # Activity report (latest)
@@ -559,24 +558,17 @@ class UserContextPopulator:
 
     def populate_moc_fields(self, context: UserContext, uids_data: dict[str, Any]) -> None:
         """
-        Populate MOC fields from MEGA-QUERY uids section.
+        Populate organizer (emergent MOC) fields from MEGA-QUERY uids section.
 
         Args:
             context: UserContext to populate
             uids_data: The "uids" section from MEGA-QUERY results
         """
-        # Active MOC UIDs
+        # Owned entities with outgoing ORGANIZES edges
         context.active_moc_uids = [uid for uid in uids_data.get("active_moc_uids", []) if uid]
 
-        # MOC metadata (view counts and recently viewed)
+        # Most recently updated organizers (by updated_at)
         moc_metadata = uids_data.get("moc_metadata", [])
-        context.moc_view_counts = {
-            item["uid"]: item["view_count"]
-            for item in moc_metadata
-            if item and item.get("uid") is not None
-        }
-
-        # Recently viewed MOCs (sorted by updated timestamp)
         context.recently_viewed_moc_uids = [
             item["uid"]
             for item in sorted(

@@ -12,7 +12,7 @@ Architecture:
 
 Coverage:
 - Basic instantiation and defaults
-- Intelligence methods (get_ready_to_learn, calculate_life_alignment)
+- Intelligence methods (get_ready_to_learn, is_life_aligned)
 - Property calculations (mastery_average, overdue_count, etc.)
 - Cache validity checks
 - Cross-domain relationships
@@ -227,56 +227,6 @@ class TestIntelligenceMethods:
         assert "ku:advanced_python" in ready
         assert "ku:web_dev" not in ready  # Missing ku:html
 
-    def test_calculate_life_alignment_empty_path(self):
-        """Should return 0.0 for empty life path"""
-        context = UserContext(
-            user_uid="user_test",
-            username="testuser",
-        )
-
-        alignment = context.calculate_life_alignment([])
-
-        assert alignment == 0.0
-        assert context.life_path_alignment_score == 0.0
-
-    def test_calculate_life_alignment_high_substance(self):
-        """Should return high alignment for high substance knowledge"""
-        context = UserContext(
-            user_uid="user_test",
-            username="testuser",
-            knowledge_mastery={
-                "ku:meditation": 0.9,
-                "ku:yoga": 0.85,
-                "ku:mindfulness": 0.8,
-            },
-        )
-
-        # Life path focuses on wellness
-        life_path_knowledge = ["ku:meditation", "ku:yoga", "ku:mindfulness"]
-        alignment = context.calculate_life_alignment(life_path_knowledge)
-
-        # Average of 0.9, 0.85, 0.8 = 0.85
-        assert alignment == pytest.approx(0.85, abs=0.01)
-        assert context.life_path_alignment_score == pytest.approx(0.85, abs=0.01)
-
-    def test_calculate_life_alignment_low_substance(self):
-        """Should return low alignment for theoretical knowledge"""
-        context = UserContext(
-            user_uid="user_test",
-            username="testuser",
-            knowledge_mastery={
-                "ku:meditation": 0.3,  # Theoretical only
-                "ku:yoga": 0.2,
-                "ku:mindfulness": 0.1,
-            },
-        )
-
-        life_path_knowledge = ["ku:meditation", "ku:yoga", "ku:mindfulness"]
-        alignment = context.calculate_life_alignment(life_path_knowledge)
-
-        # Average of 0.3, 0.2, 0.1 = 0.2 (theoretical knowledge, not lived)
-        assert alignment == pytest.approx(0.2, abs=0.01)
-
     def test_is_life_aligned_default_threshold(self):
         """Should check alignment against default threshold (0.7)"""
         # High alignment - should pass
@@ -308,24 +258,6 @@ class TestIntelligenceMethods:
 
         # Passes custom threshold (0.5)
         assert context.is_life_aligned(threshold=0.5) is True
-
-    def test_get_knowledge_gaps_for_goal(self):
-        """Should identify missing knowledge for goals"""
-        context = UserContext(
-            user_uid="user_test",
-            username="testuser",
-            prerequisites_needed={
-                "ku:advanced_python": ["ku:python"],
-                "ku:web_dev": ["ku:html", "ku:css"],
-            },
-            mastered_knowledge_uids={"ku:python"},  # Only python mastered
-        )
-
-        gaps = context.get_knowledge_gaps_for_goal("goal:build_webapp")
-
-        # Should include web_dev (not mastered, has prereqs)
-        assert "ku:web_dev" in gaps
-        # Should NOT include advanced_python (python prerequisite met, but not started)
 
 
 class TestPropertyCalculations:
@@ -532,55 +464,6 @@ class TestDomainProgress:
 
         assert context.overall_consistency_score == 0.85
         assert context.consistency_by_domain[Domain.TECH] == 0.9
-
-
-class TestFacetAwareness:
-    """Test facet profile and content preferences"""
-
-    def test_facet_profile(self):
-        """Should track facet profile"""
-        context = UserContext(
-            user_uid="user_test",
-            username="testuser",
-            facet_profile={
-                "tags": ["python", "testing", "docker"],
-                "domains": ["TECH"],
-                "difficulty": ["intermediate", "advanced"],
-            },
-        )
-
-        assert "python" in context.facet_profile["tags"]
-        assert len(context.facet_profile["tags"]) == 3
-
-    def test_facet_affinities(self):
-        """Should track facet affinities (preference scores)"""
-        context = UserContext(
-            user_uid="user_test",
-            username="testuser",
-            facet_affinities={
-                "python": 0.9,
-                "testing": 0.7,
-                "frontend": 0.4,
-            },
-        )
-
-        assert context.facet_affinities["python"] == 0.9
-        assert context.facet_affinities["testing"] == 0.7
-
-    def test_content_type_preferences(self):
-        """Should track content type preferences"""
-        context = UserContext(
-            user_uid="user_test",
-            username="testuser",
-            content_type_preferences={
-                "tutorial": 0.8,
-                "reference": 0.6,
-                "exercise": 0.9,
-            },
-        )
-
-        assert context.content_type_preferences["tutorial"] == 0.8
-        assert context.content_type_preferences["exercise"] == 0.9
 
 
 class TestUserContextBuilder:

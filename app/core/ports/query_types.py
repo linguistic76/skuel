@@ -1728,16 +1728,6 @@ class PendingRevisedExerciseItem(TypedDict, total=False):
     created_at: str | None
 
 
-class FacetInteractionItem(TypedDict):
-    """Shape for UserContext.facet_interaction_history items."""
-
-    facet: str
-    action: str
-    delta: float
-    new_value: float
-    timestamp: str
-
-
 class RichEntityItem(TypedDict, total=False):
     """Shape for items in UserContext.entities_rich lists.
 
@@ -1767,13 +1757,6 @@ class RichPathStepItem(TypedDict, total=False):
     """Shape for UserContext.active_path_steps_rich items."""
 
     step: dict[str, Any]
-    graph_context: dict[str, Any]
-
-
-class RichMOCItem(TypedDict, total=False):
-    """Shape for UserContext.active_mocs_rich items."""
-
-    moc: dict[str, Any]
     graph_context: dict[str, Any]
 
 
@@ -2738,12 +2721,10 @@ __all__ = [
     # User Context Field Types
     "UnsubmittedExerciseItem",
     "PendingRevisedExerciseItem",
-    "FacetInteractionItem",
     "RichEntityItem",
     "RichKnowledgeUnitItem",
     "RichLearningPathItem",
     "RichPathStepItem",
-    "RichMOCItem",
     "GroupSummary",
     "CrossDomainInsightItem",
     "CrossDomainInsightsData",

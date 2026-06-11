@@ -293,8 +293,12 @@ class ActionRecommendationEngine:
                 }
             )
 
-        # Optimization: MOC navigation
-        # Suggest MOC creation when user has scattered knowledge
+        # Optimization: knowledge organization
+        # Suggest creating an organizing structure (emergent MOC — any entity
+        # with ORGANIZES edges) when the user has scattered knowledge.
+        # NOTE: no stale-organizer "review" branch — recently_viewed_moc_uids
+        # derives from the same query as active_moc_uids, so "active but none
+        # recently viewed" cannot occur.
         if (
             len(user_context.mastered_knowledge_uids) > 10
             and len(user_context.active_moc_uids) == 0
@@ -309,25 +313,6 @@ class ActionRecommendationEngine:
                         "Identify your core knowledge domains",
                         "Create a MOC for your primary learning area",
                         "Link related knowledge units together",
-                    ],
-                }
-            )
-
-        # Suggest MOC review when user has many MOCs but hasn't viewed recently
-        elif (
-            len(user_context.active_moc_uids) > 0
-            and len(user_context.recently_viewed_moc_uids) == 0
-        ):
-            optimizations.append(
-                {
-                    "type": "review",
-                    "target": "moc",
-                    "suggestion": "Review your Maps of Content",
-                    "expected_benefit": "Rediscover organized knowledge and find gaps",
-                    "implementation": [
-                        "Browse your most-used MOCs",
-                        "Update outdated content links",
-                        "Add new knowledge to existing MOCs",
                     ],
                 }
             )

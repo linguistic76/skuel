@@ -175,6 +175,17 @@ _HABIT_EVENT_AUTOMATION = (
     "schedule_events_for_habit is routed via orchestration_routes.py); wire bulk-scheduling/"
     "routine/template routes or a scheduler cron"
 )
+# User dead-code campaign (2026-06): staged user-context capabilities kept by
+# deliberate decision — each reason names the wiring that completes it.
+_USER_PERCEPTION = (
+    "ADR-030 cross-domain perception aggregator built (#262–#265) but never wired; "
+    "wire a perception-insights panel (profile or Self Check-In page) consuming it"
+)
+_USER_PRINCIPLE_INTEGRATION = (
+    "staged rich-context principle-integration read surface — the populator fills "
+    "principle_guided_choice_counts/recent_principle_aligned_choices and SKUEL018 "
+    "mandates these accessors as the read path; wire a profile/insights consumer"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -355,6 +366,17 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     "core/services/habit_event_scheduler.py::create_habit_routine": _HABIT_EVENT_AUTOMATION,
     "core/services/habit_event_scheduler.py::get_event_templates": _HABIT_EVENT_AUTOMATION,
+    # --- User: cross-domain perception aggregator (ADR-030) ---
+    "core/services/user/intelligence/perception_intelligence.py::get_cross_domain_perception_analysis": (  # noqa: E501
+        _USER_PERCEPTION
+    ),
+    # --- User: rich-context principle-integration read surface ---
+    "core/services/user/unified_user_context.py::principle_guided_choice_counts_or_empty": (
+        _USER_PRINCIPLE_INTEGRATION
+    ),
+    "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (
+        _USER_PRINCIPLE_INTEGRATION
+    ),
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is
