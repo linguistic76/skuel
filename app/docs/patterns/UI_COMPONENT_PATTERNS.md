@@ -1469,7 +1469,6 @@ Domains outside the Activity pattern use the same principle — service methods 
 
 **Finance** (`FinanceService`): 4 typed context methods (`get_dashboard_context`, `get_budgets_context`, `get_reports_context`, `get_analytics_context`) return domain-specific `TypedDict`s (`FinanceDashboardContext`, etc.). Defined in `core/services/finance_service.py`.
 
-**Choices Analytics** (`ChoicesService.get_analytics_context`): Returns `ChoicesAnalyticsContext` TypedDict with `total_choices`, `total_decisions`, `satisfaction_rate`, `on_time_rate`, `outcomes`. Defined in `core/services/choices_service.py`.
 
 **Insights** (`insights_ui.py`): Module-level `filter_insights()` and `build_filter_query_string()` helpers DRY the filtering logic shared between `insights_dashboard` and `load_more_insights` routes.
 

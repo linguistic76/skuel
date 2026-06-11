@@ -186,6 +186,24 @@ _USER_PRINCIPLE_INTEGRATION = (
     "principle_guided_choice_counts/recent_principle_aligned_choices and SKUEL018 "
     "mandates these accessors as the read path; wire a profile/insights consumer"
 )
+# Choices dead-code campaign (2026-06): staged choice capabilities kept by
+# deliberate decision — each reason names the wiring that completes it.
+_CHOICES_HIERARCHY = (
+    "sub-choice hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
+)
+_CHOICES_GRAVITY = (
+    "goal/habit/principle link surface staged; wire link routes/UI or fold into relationship routes"
+)
+_CHOICES_QUICK_METRICS = (
+    "fast-path decision screening staged (ChoiceRelationships.fetch-based quick metrics, "
+    "the LIVE get_decision_intelligence is the full typed-reader lens); wire a dashboard "
+    "quick-view or batch complexity filter consuming it"
+)
+_CHOICES_OUTCOME = (
+    "outcome-evaluation write path staged — ADR-066 designates it THE writer of "
+    "satisfaction_score/actual_outcome/lessons_learned (rendered on the detail page; "
+    "ChoiceOutcomeRecorded handler is live-subscribed); wire an evaluate route/form"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -377,6 +395,35 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (
         _USER_PRINCIPLE_INTEGRATION
     ),
+    # --- Choices: sub-choice hierarchy ---
+    "core/services/choices/choices_core_service.py::get_subchoices": _CHOICES_HIERARCHY,
+    "core/services/choices/choices_core_service.py::get_parent_choice": _CHOICES_HIERARCHY,
+    "core/services/choices/choices_core_service.py::get_choice_hierarchy": _CHOICES_HIERARCHY,
+    "core/services/choices/choices_core_service.py::create_subchoice_relationship": (
+        _CHOICES_HIERARCHY
+    ),
+    "core/services/choices/choices_core_service.py::remove_subchoice_relationship": (
+        _CHOICES_HIERARCHY
+    ),
+    # --- Choices: gravity links ---
+    "core/services/choices/_relationship_mixin.py::link_choice_to_goal": _CHOICES_GRAVITY,
+    "core/services/choices/_relationship_mixin.py::link_choice_to_habit": _CHOICES_GRAVITY,
+    "core/services/choices/_relationship_mixin.py::link_choice_to_principle": _CHOICES_GRAVITY,
+    "core/services/choices/_relationship_mixin.py::create_semantic_choice_relationship": (
+        _CHOICES_GRAVITY
+    ),
+    "core/services/choices/_relationship_mixin.py::find_choices_aligned_with_principle": (
+        _CHOICES_GRAVITY
+    ),
+    # --- Choices: fast-path decision screening ---
+    "core/services/choices/_analytics_mixin.py::get_quick_decision_metrics": (
+        _CHOICES_QUICK_METRICS
+    ),
+    "core/services/choices/_analytics_mixin.py::batch_analyze_decision_complexity": (
+        _CHOICES_QUICK_METRICS
+    ),
+    # --- Choices: outcome evaluation write path ---
+    "core/services/choices/choices_core_service.py::evaluate_choice_outcome": _CHOICES_OUTCOME,
     # --- UserEntry: edit-my-entry surface ---
     "core/services/user_entry/user_entry_service.py::update_entry": (
         "edit-my-entry capability staged — ownership-verified content-field update "

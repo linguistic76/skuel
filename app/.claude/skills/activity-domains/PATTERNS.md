@@ -184,7 +184,7 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 
 **Route handlers stay thin:** authenticate → parse → call service → handle error → render. All form parsing and enum conversion lives in the pure helpers above, not inline in route handlers.
 
-**Domain-specific analytics** live on the service facade, not in route closures. Examples: `ChoicesService.get_analytics_context(user_uid)` → `Result[ChoicesAnalyticsContext]`, `PrinciplesService.get_analytics_summary(user_uid)` → `Result[dict]` (total, core_count, adherence, reflections).
+**Domain-specific analytics** live on the service facade, not in route closures. Example: `PrinciplesService.get_analytics_summary(user_uid)` → `Result[dict]` (total, core_count, adherence, reflections).
 
 **Tests:** `tests/unit/services/activity/test_activity_query_helpers.py` — 49 tests covering remaining Python-side helpers (sort, task secondary filters, principle filters).
 

@@ -44,7 +44,6 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | `get_by_frequency()` | - | - | D | - | - | - | - | - | - |
 | `get_by_streak_status()` | - | - | D | - | - | - | - | - | - |
 | `get_by_date_range()` | - | - | - | D | - | - | - | - | - |
-| `get_by_urgency()` | - | - | - | - | D | - | - | - | - |
 | `find_similar_content()` | - | - | - | - | - | - | D | - | - |
 | `get_for_learning_path()` | - | - | - | - | - | - | - | D | - |
 | `get_by_path_type()` | - | - | - | - | - | - | - | - | D |
@@ -338,7 +337,6 @@ _graph_enrichment_patterns = [
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `get_pending` | `(user_uid: UserUID) -> Result[list[Choice]]` | Undecided choices |
-| `get_by_urgency` | `(urgency: str, user_uid: UserUID) -> Result[list[Choice]]` | Filter by urgency level |
 | `get_needing_decision` | `(user_uid: UserUID, days: int = 7) -> Result[list[Choice]]` | Choices with deadline approaching |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Choice]]` | Smart prioritization |
 

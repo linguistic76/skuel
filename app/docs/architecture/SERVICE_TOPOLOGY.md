@@ -287,7 +287,7 @@ Activity Domain Facades (6 total)
 │
 ├─ ChoicesService    (7 sub-services + 3 facade mixins)
 │   └─ core, search, learning, intelligence, event_handler, knowledge_intelligence, ai
-│   └─ mixins: _OptionManagementMixin, _RelationshipMixin, _EnrichmentMixin
+│   └─ mixins: _OptionManagementMixin, _RelationshipMixin
 │
 └─ PrinciplesService (10 sub-services + 3 facade mixins)
     └─ core, search, alignment, learning, planning, reflection, intelligence, knowledge_intelligence, ai, event_handler

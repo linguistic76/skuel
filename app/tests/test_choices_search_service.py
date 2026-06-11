@@ -6,7 +6,7 @@ ChoicesSearchService Test Suite
 Tests for search and discovery operations in ChoicesSearchService,
 covering the harmonized time-query surface (get_upcoming/get_overdue/
 get_active via TimeQueryMixin on the decision_deadline field) and
-choice-specific methods (pending/by_urgency/needing_decision).
+choice-specific methods (pending/needing_decision).
 """
 
 from datetime import date, datetime, timedelta
@@ -189,20 +189,6 @@ async def test_get_pending_delegates_to_backend(search_service, mock_backend, sa
     kwargs = mock_backend.get_pending_choices.call_args.kwargs
     assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 50
-
-
-@pytest.mark.asyncio
-async def test_get_by_urgency_with_user(search_service, mock_backend, sample_choices):
-    high = [c for c in sample_choices if c.priority == Priority.HIGH]
-    mock_backend.find_by.return_value = Result.ok([c.to_dto().to_dict() for c in high])
-
-    result = await search_service.get_by_urgency("high", user_uid="user_demo")
-
-    assert result.is_ok
-    assert len(result.value) == 1
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["urgency"] == "high"
-    assert kwargs["user_uid"] == "user_demo"
 
 
 @pytest.mark.asyncio
