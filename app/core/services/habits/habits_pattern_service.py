@@ -8,7 +8,7 @@ Extracts pattern analysis logic from habits_ui.py route handler
 into testable service methods with static pattern extractors.
 
 Methods:
-- analyze_patterns: Full pattern analysis with ownership check
+- analyze_patterns: Full pattern analysis with ownership check + graph fill
 - _extract_success_patterns: 5 pattern types (static)
 - _extract_failure_patterns: 4 pattern types (static)
 """
@@ -17,6 +17,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.models.type_hints import UserUID
+from core.services.habits.habit_relationships import HabitRelationships
+from core.services.relationships import UnifiedRelationshipService
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -41,12 +44,13 @@ class HabitsPatternService:
     success and failure patterns with confidence scoring.
     """
 
-    def __init__(self, habits_core: Any) -> None:
-        """Initialize with habits core service for ownership verification."""
+    def __init__(self, habits_core: Any, relationships: UnifiedRelationshipService) -> None:
+        """Initialize with habits core service (ownership) + relationship service (graph fill)."""
         self.habits_core = habits_core
+        self.relationships = relationships
 
     async def analyze_patterns(self, habit_uid: str, user_uid: UserUID) -> Result[PatternAnalysis]:
-        """Full pattern analysis with ownership check."""
+        """Full pattern analysis with ownership check and graph-derived system data."""
         # Ownership verification
         habit_result = await self.habits_core.verify_ownership(habit_uid, user_uid)
         if habit_result.is_error:
@@ -54,6 +58,7 @@ class HabitsPatternService:
 
         habit = habit_result.value
         analysis = habit.get_atomic_habits_analysis()
+        await self._fill_system_contribution(habit_uid, analysis)
 
         success_patterns = self._extract_success_patterns(analysis)
         failure_patterns = self._extract_failure_patterns(analysis)
@@ -66,6 +71,31 @@ class HabitsPatternService:
                 failure_patterns=failure_patterns,
             )
         )
+
+    async def _fill_system_contribution(self, habit_uid: str, analysis: dict[str, Any]) -> None:
+        """Overwrite system_contribution placeholders with graph truth (SUPPORTS_GOAL edges).
+
+        ``Habit.get_atomic_habits_analysis()`` emits conservative placeholders
+        (``part_of_system=False``, ``supports_goal_count=0``) because the frozen
+        domain model cannot see the graph. This fill is what makes success
+        pattern 5 ("Part of goal system") able to fire and failure pattern 4
+        ("Habit not linked to goals") able to NOT fire.
+
+        On relationship-fetch failure the placeholders are kept (log + degrade,
+        never fail the whole analysis).
+        """
+        try:
+            rels = await HabitRelationships.fetch(habit_uid, self.relationships)
+        except NEO4J_EXCEPTIONS as exc:  # safety-net: keep conservative placeholders
+            logger.warning(
+                f"system_contribution graph fill failed for {habit_uid}: {exc} — "
+                "keeping conservative placeholders"
+            )
+            return
+
+        system = analysis["system_contribution"]
+        system["part_of_system"] = rels.has_goal_support()
+        system["supports_goal_count"] = rels.supports_goal_count()
 
     @staticmethod
     def _extract_success_patterns(analysis: dict[str, Any]) -> list[dict[str, Any]]:

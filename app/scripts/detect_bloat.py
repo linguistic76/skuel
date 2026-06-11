@@ -193,7 +193,7 @@ PLANNED_METHODS: dict[str, str] = {
         _HABITS_INSIGHTS
     ),
     "core/services/habits/habits_ai_service.py::suggest_identity_reinforcement": (_HABITS_INSIGHTS),
-    "core/services/habits/habits_pattern_service.py::analyze_patterns": _HABITS_INSIGHTS,
+    # analyze_patterns went LIVE 2026-06-10: /habits/insights-fragment on the habit detail page
     "core/services/habits/habits_search_service.py::get_needing_attention": _HABITS_INSIGHTS,
     "core/services/habits/habits_search_service.py::get_at_risk": _HABITS_INSIGHTS,
     # --- Cross-domain: intelligent_search NL surface (SearchRouter entry point

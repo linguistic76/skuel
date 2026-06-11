@@ -75,7 +75,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         service_name: str - For error messages
         _search_fields: tuple[str, ...] - Fields to search
         _search_order_by: str - Default sort field
-        _category_field: str - Field for categorization
+        category_field: str - Field for categorization (DomainConfig-resolved property)
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
         _graph_enrichment_patterns: tuple - Graph enrichment config
@@ -90,7 +90,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     service_name: str
     _search_fields: ClassVar[tuple[str, ...]]
     _search_order_by: str
-    _category_field: str
     _dto_class: type[DTOProtocol] | None
     _model_class: type[T] | None
     _graph_enrichment_patterns: ClassVar[
@@ -108,6 +107,17 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     @abstractmethod
     def config_lookup_label(self) -> str:
         """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
+        ...
+
+    @property
+    @abstractmethod
+    def category_field(self) -> str:
+        """DomainConfig-resolved category field — provided by composing class.
+
+        The old raw ``_category_field`` class attribute bypassed DomainConfig —
+        domains configuring ``category_field`` via config (e.g. Goals ``"domain"``)
+        were silently ignored by category queries.
+        """
         ...
 
     @abstractmethod
@@ -629,7 +639,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         """
         Filter entities by category field.
 
-        Uses _category_field class attribute to determine which field to query.
+        Uses the DomainConfig-resolved category_field to determine which field to query.
 
         Args:
             category: Category name to filter by
@@ -644,7 +654,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(config_result)
         dto_class, model_class = config_result.value
 
-        filters: dict[str, Any] = {self._category_field: category, "limit": limit}
+        filters: dict[str, Any] = {self.category_field: category, "limit": limit}
         if user_uid:
             filters["user_uid"] = user_uid
 
@@ -655,7 +665,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         entities = self._to_domain_models(result.value, dto_class, model_class)
 
         self.logger.debug(
-            f"Found {len(entities)} {self.config_lookup_label}(s) in {self._category_field} '{category}'"
+            f"Found {len(entities)} {self.config_lookup_label}(s) in {self.category_field} '{category}'"
         )
         return Result.ok(entities)
 
@@ -671,7 +681,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             Result containing list of category strings for this user
         """
         result = await self.backend.distinct_values_raw(
-            self._category_field,
+            self.category_field,
             user_uid=user_uid,
         )
         if result.is_error:
@@ -695,7 +705,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             Result containing list of all category strings
         """
         result = await self.backend.distinct_values_raw(
-            self._category_field,
+            self.category_field,
             user_uid=None,
         )
         if result.is_error:

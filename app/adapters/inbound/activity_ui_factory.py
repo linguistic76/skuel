@@ -26,7 +26,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from ui.activities._shared import CurriculumOriginField
-from ui.activities.filter_bar import ActivityFilterBar
+from ui.activities.filter_bar import ActivityFilterBar, with_user_categories
 from ui.activities.nav import render_activity_sidebar_page
 from ui.buttons import ButtonLink, ButtonT
 from ui.dual_track_card import render_dual_track_result
@@ -79,6 +79,12 @@ class ActivityUIConfig:
         dual_track_level_enum: The StrEnum the user self-rates with (ProgressLevel
             / ConsistencyLevel / AlignmentLevel).
         dual_track_label: Card title noun, e.g. "Progress".
+        list_categories: Search sub-service method (user_uid) -> Result[list[str]]
+            returning the user's distinct category values (e.g.
+            ``goals_service.search.list_user_categories``). When set, the content
+            route rebuilds the filter bar's Category dropdown from live data via
+            ``with_user_categories`` (dropped at 0-1 categories). None keeps the
+            static filter config as-is.
     """
 
     domain_name: str
@@ -100,6 +106,8 @@ class ActivityUIConfig:
     dual_track_assess: Callable[..., Awaitable[Any]] | None = None
     dual_track_level_enum: type | None = None
     dual_track_label: str = ""
+    # Live category options for the filter bar — optional
+    list_categories: Callable[[UserUID], Awaitable[Any]] | None = None
 
 
 # ============================================================================
@@ -194,8 +202,17 @@ def create_activity_ui_routes(
                 id=f"{domain}-content",
             )
 
+        filter_config = config.filter_config
+        if config.list_categories is not None:
+            user_uid = require_authenticated_user(request)
+            categories_result = await config.list_categories(user_uid)
+            filter_config = with_user_categories(
+                filter_config,
+                categories_result.value if categories_result.is_ok else None,
+            )
+
         return Div(
-            ActivityFilterBar(config.filter_config, param_values),
+            ActivityFilterBar(filter_config, param_values),
             config.list_component(filtered, connections_map),
             config.stats_component(all_items),
             id=f"{domain}-content",

@@ -135,10 +135,17 @@ def _goal_sort_by_title(goal: Goal) -> str:
 def filter_goals(
     goals: list[Goal],
     status_filter: str = "active",
+    category_filter: str = "all",
     sort_by: str = "target_date",
 ) -> list[Goal]:
-    """Apply filters and sorting to a goal list."""
+    """Apply filters and sorting to a goal list.
+
+    Goal "category" is the ``domain`` field (DomainConfig category_field="domain").
+    """
     filtered = list(goals)
+
+    if category_filter != "all":
+        filtered = [g for g in filtered if g.domain and g.domain.value == category_filter]
 
     if status_filter == "active":
         # ACTIVE only is correct: GoalsCoreService.create_goal forces status=ACTIVE

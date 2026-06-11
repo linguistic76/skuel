@@ -55,7 +55,7 @@ def create_goals_ui_routes(
         domain_name="goals",
         domain_singular="goal",
         page_title="Goals",
-        filter_params=(("status", "active"), ("sort_by", "target_date")),
+        filter_params=(("status", "active"), ("category", "all"), ("sort_by", "target_date")),
         get_all=goals_service.get_user_goals,
         get_one=goals_service.get_goal,
         backend=connection_fetch_backend,
@@ -69,6 +69,7 @@ def create_goals_ui_routes(
         dual_track_assess=goals_service.intelligence.assess_progress_dual_track,
         dual_track_level_enum=ProgressLevel,
         dual_track_label="Progress",
+        list_categories=goals_service.search.list_user_categories,
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 

@@ -236,9 +236,12 @@ class Habit(UserOwnedEntity):
                 "success_rate": self.success_rate,
             },
             "system_contribution": {
-                "part_of_system": False,  # Determined by service layer with graph data
+                # GRAPH-NATIVE: conservative placeholder — HabitsPatternService
+                # overwrites from live SUPPORTS_GOAL edges before pattern extraction
+                "part_of_system": False,
                 "consistency_score": self.calculate_consistency_score(),
-                "supports_goal_count": 0,  # Determined by service layer with graph data
+                # GRAPH-NATIVE: placeholder — filled by HabitsPatternService (graph truth)
+                "supports_goal_count": 0,
             },
         }
 

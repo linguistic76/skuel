@@ -474,14 +474,13 @@ class BaseService(
     @cached_property
     def category_field(self) -> str:
         """
-        Get category field from config or class attribute.
+        Get category field from DomainConfig.
 
         **OPTIMIZATION (2026-01-31):** Cached property for 50-100x faster access.
 
         Priority:
             1. _config.category_field (DomainConfig)
-            2. _category_field (class attribute)
-            3. "category" (default)
+            2. "category" (default)
 
         Returns:
             Field name for category filtering
@@ -515,9 +514,6 @@ class BaseService(
 
     # Order by field for search results
     _search_order_by: str = "created_at"
-
-    # Category field for get_by_category() and list_categories()
-    _category_field: str = "category"
 
     # ========================================================================
     # GRAPH-AWARE FACETED SEARCH CONFIGURATION (January 2026)
