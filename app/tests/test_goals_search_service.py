@@ -226,19 +226,6 @@ async def test_get_active_success(search_service, mock_backend, sample_goals):
 
 
 @pytest.mark.asyncio
-async def test_get_by_timeframe(search_service, mock_backend, sample_goals):
-    quarterly = [g for g in sample_goals if g.timeframe == GoalTimeframe.QUARTERLY]
-    mock_backend.find_by.return_value = Result.ok([g.to_dto().to_dict() for g in quarterly])
-
-    result = await search_service.get_by_timeframe(GoalTimeframe.QUARTERLY)
-
-    assert result.is_ok
-    assert len(result.value) == 1
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["timeframe"] == GoalTimeframe.QUARTERLY.value
-
-
-@pytest.mark.asyncio
 async def test_get_prioritized_sorts_by_score(
     search_service, mock_backend, sample_goals, user_context
 ):
@@ -254,43 +241,6 @@ async def test_get_prioritized_sorts_by_score(
     kwargs = mock_backend.find_by.call_args.kwargs
     assert kwargs["status"] == EntityStatus.ACTIVE.value
     assert kwargs["user_uid"] == "user_demo"
-
-
-@pytest.mark.asyncio
-async def test_get_needing_habits_filters_low_progress(
-    search_service, mock_backend, sample_goals, user_context
-):
-    """Goals with <=1 supporting habit and <50% progress are returned."""
-    active = [g for g in sample_goals if g.status == EntityStatus.ACTIVE]
-    mock_backend.find_by.return_value = Result.ok([g.to_dto().to_dict() for g in active])
-    mock_backend.count_related.return_value = Result.ok(0)
-
-    result = await search_service.get_needing_habits(user_context, limit=5)
-
-    assert result.is_ok
-    # Both active goals in sample have <50% progress and 0 habits
-    assert len(result.value) == 2
-
-
-@pytest.mark.asyncio
-async def test_get_blocked_by_knowledge_skips_mastered(search_service, mock_backend, user_context):
-    """Goals whose knowledge prerequisites are all mastered are not blocked."""
-    active_goal = GoalDTO(
-        uid="goal:unblocked",
-        user_uid="user_demo",
-        title="Unblocked goal",
-        domain=Domain.TECH,
-        status=EntityStatus.ACTIVE,
-        created_at=datetime.now(),
-    )
-    mock_backend.find_by.return_value = Result.ok([active_goal.to_dict()])
-    # Goal requires ku.python.basics, which user has mastered (0.9)
-    mock_backend.get_related_uids.return_value = Result.ok(["ku.python.basics"])
-
-    result = await search_service.get_blocked_by_knowledge(user_context, limit=5)
-
-    assert result.is_ok
-    assert result.value == []
 
 
 # ============================================================================

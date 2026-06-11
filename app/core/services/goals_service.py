@@ -68,7 +68,6 @@ from core.utils.sort_functions import (
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
-    from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.enums import Domain
     from core.models.goal.goal_request import GoalCreateRequest
     from core.models.graph_context import GraphContext
@@ -194,7 +193,7 @@ class GoalsService(
     - Core: get_goal, get_user_goals, get_user_items_in_range, activate/pause/complete/archive
     - Progress: calculate_goal_progress_with_context, complete_milestone, etc.
     - Learning: create_goal_with_learning_integration, assess_goal_learning_alignment, etc.
-    - Search: get_goals_by_status, get_prioritized_goals, get_upcoming, get_overdue, etc.
+    - Search: get_upcoming, get_overdue, get_active, etc.
     - Intelligence: get_goal_with_context, get_goal_progress_dashboard, etc.
     - Scheduling: check_goal_capacity, suggest_goal_timeline, assess_goal_achievability, etc.
 
@@ -416,17 +415,6 @@ class GoalsService(
     async def get_goals_blocked_by_knowledge(self, user_context: UserContext) -> Result[list[Goal]]:
         return await self.learning.get_goals_blocked_by_knowledge(user_context)
 
-    # Relationship delegations
-    async def get_goal_with_semantic_context(
-        self,
-        uid: str,
-        min_confidence: float = 0.8,
-        semantic_types: list[SemanticRelationshipType] | None = None,
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_with_semantic_context(
-            uid, min_confidence, semantic_types
-        )
-
     # Intelligence delegations
     async def get_goal_with_context(
         self, uid: str, depth: int = 2
@@ -455,16 +443,6 @@ class GoalsService(
         )
 
     # Search delegations
-    async def get_goals_by_category(
-        self, category: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Goal]]:
-        return await self.search.get_by_category(category, user_uid, limit)
-
-    async def get_goals_by_status(
-        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
-    ) -> Result[list[Goal]]:
-        return await self.search.get_by_status(status, limit, user_uid)
-
     async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
@@ -477,14 +455,6 @@ class GoalsService(
 
     async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Goal]]:
         return await self.search.get_active(user_uid, limit)
-
-    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
-        return await self.search.get_by_domain(domain, limit)
-
-    async def get_prioritized_goals(
-        self, user_context: UserContext, limit: int = 10
-    ) -> Result[list[Goal]]:
-        return await self.search.get_prioritized(user_context, limit)
 
     # Scheduling delegations
     async def check_goal_capacity(
@@ -671,5 +641,5 @@ class GoalsService(
         )
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)
-    # and Search operations (get_goals_by_status, get_upcoming, get_overdue,
-    # get_active, etc.) delegated via explicit methods above.
+    # and Search operations (get_upcoming, get_overdue, get_active, etc.)
+    # delegated via explicit methods above.

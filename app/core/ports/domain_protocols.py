@@ -1023,15 +1023,7 @@ class EventsRelationshipOperations(BaseRelationshipOperations, Protocol):
 
 @runtime_checkable
 class GoalsRelationshipOperations(BaseRelationshipOperations, Protocol):
-    """Goals relationship operations protocol."""
-
-    async def get_goal_habits(self, goal_uid: str) -> Result[builtins.list[str]]:
-        """Get habit UIDs supporting this goal."""
-        ...
-
-    async def get_goal_knowledge(self, goal_uid: str) -> Result[builtins.list[str]]:
-        """Get knowledge UIDs required for this goal."""
-        ...
+    """Goals relationship operations protocol (base relationship surface only)."""
 
 
 @runtime_checkable

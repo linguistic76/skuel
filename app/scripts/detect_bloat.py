@@ -204,6 +204,35 @@ _CHOICES_OUTCOME = (
     "satisfaction_score/actual_outcome/lessons_learned (rendered on the detail page; "
     "ChoiceOutcomeRecorded handler is live-subscribed); wire an evaluate route/form"
 )
+# Goals dead-code campaign (2026-06): staged goal capabilities kept by
+# deliberate decision — each reason names the wiring that completes it.
+_GOALS_HIERARCHY = (
+    "sub-goal hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
+)
+_GOALS_GRAVITY = (
+    "user/Ku/principle link surface staged (link_goal_to_habit is the LIVE essentiality "
+    "write path); wire link routes/UI or fold into relationship routes"
+)
+_GOALS_SCHED_CREATE = (
+    "scheduling-aware goal creation staged; wire a route/UI entry point that "
+    "creates goals with capacity checks"
+)
+_GOALS_INSIGHTS = (
+    "goal analytics/AI insight surface staged (feasibility, what-if scenarios, "
+    "LLM strategy); wire an insights UI or Askesis consumer"
+)
+_GOAL_TASK_AUTOMATION = (
+    "bulk goal→task automation staged on the LIVE GoalTaskGenerator (single-goal "
+    "generate_tasks_for_goal is routed via orchestration_routes.py); wire bulk/"
+    "critical-task/template routes or a planner cron"
+)
+_GOALS_DAILY_PLANNING = (
+    "intended producers of the flagship daily plan, MISWIRED — GoalsPlanningService is "
+    "never instantiated and get_ready_to_work_on_today PRIORITY 6 calls "
+    "get_advancing_goals_for_user on goals_service.relationships (a "
+    "UnifiedRelationshipService) which lacks it; complete by repairing the "
+    "intelligence-hub planning injection (cross-domain daily-plan phantom-dispatch repair)"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -432,6 +461,43 @@ PLANNED_METHODS: dict[str, str] = {
         "edit route/UI or decide entries are immutable and delete with "
         "UserEntryUpdateRequest"
     ),
+    # --- Goals: sub-goal hierarchy ---
+    "core/services/goals/goals_core_service.py::get_subgoals": _GOALS_HIERARCHY,
+    "core/services/goals/goals_core_service.py::get_parent_goal": _GOALS_HIERARCHY,
+    "core/services/goals/goals_core_service.py::get_goal_hierarchy": _GOALS_HIERARCHY,
+    "core/services/goals/goals_core_service.py::create_subgoal_relationship": _GOALS_HIERARCHY,
+    "core/services/goals/goals_core_service.py::remove_subgoal_relationship": _GOALS_HIERARCHY,
+    # --- Goals: daily-plan producers (miswired flagship consumers) ---
+    "core/services/goals/goals_planning_service.py::get_stalled_goals_for_user": (
+        _GOALS_DAILY_PLANNING
+    ),
+    "core/services/goals/goals_planning_service.py::get_achievable_goals_for_user": (
+        _GOALS_DAILY_PLANNING
+    ),
+    "core/services/goals/goals_planning_service.py::_calculate_readiness_score_static": (
+        _GOALS_DAILY_PLANNING
+    ),
+    "core/services/goals/goals_planning_service.py::_calculate_relevance_score_static": (
+        _GOALS_DAILY_PLANNING
+    ),
+    # --- Goals: gravity links ---
+    "core/services/goals/_relationship_mixin.py::create_user_goal_relationship": _GOALS_GRAVITY,
+    "core/services/goals/_relationship_mixin.py::link_goal_to_knowledge": _GOALS_GRAVITY,
+    "core/services/goals/_relationship_mixin.py::link_goal_to_principle": _GOALS_GRAVITY,
+    "core/services/goals/_relationship_mixin.py::create_semantic_goal_relationship": (
+        _GOALS_GRAVITY
+    ),
+    # --- Goals: scheduling-aware creation ---
+    "core/services/goals_service.py::create_goal_with_scheduling_context": _GOALS_SCHED_CREATE,
+    "core/services/goals_service.py::create_goal_with_learning_scheduling": _GOALS_SCHED_CREATE,
+    # --- Goals: analytics/AI insight surface ---
+    "core/services/goals/_orchestration_mixin.py::assess_goal_feasibility": _GOALS_INSIGHTS,
+    "core/services/goals/_predictive_mixin.py::run_scenario_analysis": _GOALS_INSIGHTS,
+    "core/services/goals/goals_ai_service.py::suggest_achievement_strategy": _GOALS_INSIGHTS,
+    # --- Goals: bulk goal→task automation (LIVE GoalTaskGenerator) ---
+    "core/services/goal_task_generator.py::generate_tasks_for_all_goals": _GOAL_TASK_AUTOMATION,
+    "core/services/goal_task_generator.py::generate_next_critical_tasks": _GOAL_TASK_AUTOMATION,
+    "core/services/goal_task_generator.py::get_task_templates": _GOAL_TASK_AUTOMATION,
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is
