@@ -11,7 +11,6 @@ from core.services.user_entry.exercise_linker import (
     ProcessingOutcome,
     UserEntryExerciseLinker,
 )
-from core.services.user_entry.relationship_service import UserEntryRelationshipService
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
@@ -22,6 +21,5 @@ __all__ = [
     "ProcessingOutcome",
     "UserEntryExerciseLinker",
     "UserEntryProcessingService",
-    "UserEntryRelationshipService",
     "UserEntryService",
 ]

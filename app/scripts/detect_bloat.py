@@ -377,6 +377,14 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (
         _USER_PRINCIPLE_INTEGRATION
     ),
+    # --- UserEntry: edit-my-entry surface ---
+    "core/services/user_entry/user_entry_service.py::update_entry": (
+        "edit-my-entry capability staged — ownership-verified content-field update "
+        "(title/content/tags/metadata) with no route or UI; resubmission covers the "
+        "exercise flow, but PERSONAL-pipeline uploads have no edit path — wire an "
+        "edit route/UI or decide entries are immutable and delete with "
+        "UserEntryUpdateRequest"
+    ),
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is

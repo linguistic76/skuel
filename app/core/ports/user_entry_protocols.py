@@ -12,7 +12,7 @@ Five ISP parents mirror the five backend mixins (renamed from
 
     UserEntryCrudOperations         — content search + feedback-count joins
     UserEntryLifecycleOperations    — create-with-link, FULFILLS_EXERCISE,
-                                      temporal/thematic relationships
+                                      revision resolution
     UserEntryAssessmentOperations   — teacher review queue (SHARED_WITH_GROUP),
                                       assessments, teacher dashboards
     UserEntryReportQueryOperations  — learning-loop chain queries + report
@@ -51,8 +51,7 @@ if TYPE_CHECKING:
 class UserEntryCrudOperations(Protocol):
     """Content search + feedback-count joins for ``UserEntry`` nodes.
 
-    Implementation: ``_UserEntryCrudMixin`` (Step 4 rename of
-    ``_SubmissionCrudMixin``).
+    Implementation: ``_UserEntryCrudMixin`` (renamed from ``_SubmissionCrudMixin``).
     """
 
     async def search_entry_content(
@@ -98,19 +97,19 @@ class UserEntryCrudOperations(Protocol):
 
 
 # ============================================================================
-# ISP parent 2 — lifecycle: create-with-link + relationship wiring
+# ISP parent 2 — lifecycle: create-with-link + revision resolution
 # ============================================================================
 
 
 @runtime_checkable
 class UserEntryLifecycleOperations(Protocol):
-    """FULFILLS_EXERCISE + temporal/thematic relationship wiring.
+    """FULFILLS_EXERCISE wiring + entry-owner / group-membership reads.
 
     Replaces ``_SubmissionLifecycleMixin``. ``create_with_exercise_link``
     carries the revision on the edge (``FULFILLS_EXERCISE {revision}``);
     no node field.
 
-    Implementation: ``_UserEntryLifecycleMixin`` (Step 4).
+    Implementation: ``_UserEntryLifecycleMixin``.
     """
 
     async def get_exercise_context(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
@@ -142,34 +141,6 @@ class UserEntryLifecycleOperations(Protocol):
         """
         ...
 
-    async def create_temporal_relationship(
-        self, entry_uid: str, user_uid: UserUID, entity_type: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create FOLLOWS relationship to the most recent previous entry of the same type."""
-        ...
-
-    async def create_thematic_relationships(
-        self,
-        entry_uid: str,
-        user_uid: UserUID,
-        themes: list[str],
-        shared_topics_str: str,
-    ) -> Result[list[Neo4jProperties]]:
-        """Create RELATED_TO relationships for entries sharing topics."""
-        ...
-
-    async def get_related_entry_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """UIDs of entries related via RELATED_TO."""
-        ...
-
-    async def get_supported_goal_uids(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """UIDs of goals supported via SUPPORTS_GOAL."""
-        ...
-
-    async def get_entry_relationship_summary(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """Per-entry relationship counts (related, goals, follows)."""
-        ...
-
 
 # ============================================================================
 # ISP parent 3 — assessment + teacher review queue
@@ -184,7 +155,7 @@ class UserEntryAssessmentOperations(Protocol):
     ``pipeline = 'teacher_review'`` — no role gate at the Cypher level.
     Route-level role checks remain authoritative for access.
 
-    Implementation: ``_UserEntryAssessmentMixin`` (Step 4).
+    Implementation: ``_UserEntryAssessmentMixin``.
     """
 
     # -------- review queue --------
@@ -196,7 +167,7 @@ class UserEntryAssessmentOperations(Protocol):
     ) -> Result[list[Neo4jProperties]]:
         """Teacher's pending review queue via ``SHARED_WITH_GROUP``.
 
-        Pattern (Step 4 Cypher):
+        Pattern:
 
             MATCH (teacher:User {user_uid: $teacher_uid})-[:OWNS]->(g:Group)
             MATCH (entry:Entity:UserEntry)-[:SHARED_WITH_GROUP]->(g)
@@ -310,7 +281,7 @@ class UserEntryAssessmentOperations(Protocol):
 class UserEntryReportQueryOperations(Protocol):
     """Cross-joins to ``ExerciseReport`` + learning-loop chain reads.
 
-    Implementation: ``_UserEntryReportQueryMixin`` (Step 4).
+    Implementation: ``_UserEntryReportQueryMixin``.
     """
 
     async def get_pending_entries_raw(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
@@ -359,7 +330,7 @@ class UserEntryContentOperations(Protocol):
     the rich-journal model, so the former recent-journal/topic/mood reads were
     removed.
 
-    Implementation: ``_UserEntryContentMixin`` (Step 4).
+    Implementation: ``_UserEntryContentMixin``.
     """
 
     async def get_journal_processing_context(
@@ -393,12 +364,6 @@ class UserEntryContentOperations(Protocol):
         """Entries for a path step via ``Interaction`` edges."""
         ...
 
-    async def create_goal_support_relationships(
-        self, entry_uid: str, goal_uids: list[str]
-    ) -> Result[int]:
-        """Batch-create ``SUPPORTS_GOAL`` from an entry to goals."""
-        ...
-
 
 # ============================================================================
 # Composed backend protocol — THE contract ``UserEntryBackend`` satisfies
@@ -420,9 +385,9 @@ class UserEntryOperations(  # Protocol MRO — intentional
     Base CRUD/search/relationships inherited from
     ``BackendOperations[UserEntry]``; domain methods from the five ISP parents.
 
-    Consumer: ``UserEntryService.__init__`` (Step 5) —
+    Consumer: ``UserEntryService.__init__`` —
     ``backend: UserEntryOperations``.
-    Implementation: ``UserEntryBackend`` (Step 4) — composes
+    Implementation: ``UserEntryBackend`` — composes
     ``UniversalNeo4jBackend[UserEntry]`` with the five renamed mixins.
     """
 
@@ -438,7 +403,7 @@ class UserEntryProcessingOperations(Protocol):
 
     ``process`` reads ``entry.pipeline`` and routes to the matching handler
     (Deepgram transcription, LLM structuring, LLM summary, teacher review,
-    or no-op). Implementation: ``UserEntryProcessingService`` (Step 5).
+    or no-op). Implementation: ``UserEntryProcessingService``.
     """
 
     async def process(

@@ -402,22 +402,6 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    @with_error_handling("list_entries_for_exercise")
-    async def list_for_exercise(
-        self,
-        user_uid: UserUID,
-        exercise_uid: str,
-    ) -> Result[int]:
-        """Return the count of a user's entries against an exercise.
-
-        Delegates to the backend's ``count_entries_for_exercise`` helper,
-        which resolves ``RevisedExercise`` to the root ``Exercise`` first.
-        """
-        return await self.backend.count_entries_for_exercise(
-            user_uid=user_uid,
-            exercise_uid=exercise_uid,
-        )
-
     @with_error_handling("get_review_queue")
     async def get_review_queue(
         self,

@@ -81,14 +81,3 @@ class UserEntryProcessingFailed(BaseEvent):
     @property
     def event_type(self) -> str:
         return "user_entry.processing_failed"
-
-
-@dataclass(frozen=True)
-class UserEntryDeleted(BaseEvent):
-    """Published when a UserEntry is deleted."""
-
-    entity_uid: str
-
-    @property
-    def event_type(self) -> str:
-        return "user_entry.deleted"

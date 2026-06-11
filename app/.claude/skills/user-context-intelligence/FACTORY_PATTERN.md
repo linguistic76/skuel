@@ -77,8 +77,7 @@ class UserContextIntelligenceFactory:
         ps: PsService,
         ku: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing (3)
-        user_entries: UserEntryRelationshipService,
+        # Processing (2)
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
@@ -181,8 +180,7 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     ps=learning_services["ps"],  # PsService facade
     lp=learning_services["learning_paths"].relationships,
     exercises=services.exercises,  # ExerciseService facade (REQUIRED)
-    # Processing (3)
-    user_entries=entry_relationship_service,
+    # Processing (2)
     report=report_relationship_service,
     analytics=analytics_relationship_service,
     # Temporal Domain (1)

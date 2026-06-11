@@ -10,13 +10,13 @@ UserContextIntelligence instances when given a UserContext.
 **Why a Factory?**
 - UserContextIntelligence requires a context at construction
 - The context is user-specific and built on-demand
-- The 13 domain services are singletons (created once at bootstrap)
+- The 12 domain services are singletons (created once at bootstrap)
 - Factory pattern separates service wiring from context binding
 
 **Entity Types:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
-- Curriculum Domains (2): ps, lp
-- Processing Domains (3): user_entries, report, analytics
+- Curriculum Domains (3): ps, lp, exercises
+- Processing Domains (2): report, analytics
 - Temporal Domain (1): calendar
 
 **Usage:**
@@ -51,7 +51,6 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
     from core.services.user.unified_user_context import RichUserContext
-    from core.services.user_entry import UserEntryRelationshipService
 
 
 class UserContextIntelligenceFactory:
@@ -64,13 +63,13 @@ class UserContextIntelligenceFactory:
     **Why a Factory?**
     - UserContextIntelligence requires a context at construction
     - The context is user-specific and built on-demand
-    - The 13 domain services are singletons (created once at bootstrap)
+    - The 12 domain services are singletons (created once at bootstrap)
     - Factory pattern separates service wiring from context binding
 
     **Entity Types:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
-    - Curriculum Domains (2): ps, lp
-    - Processing Domains (3): user_entries, report, analytics
+    - Curriculum Domains (3): ps, lp, exercises
+    - Processing Domains (2): report, analytics
     - Temporal Domain (1): calendar
 
     **Usage:**
@@ -103,8 +102,7 @@ class UserContextIntelligenceFactory:
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
         exercises: Any,  # ExerciseService facade — get_actionable_exercises_for_user / get_pending_revisions_for_user
-        # Processing Domains (3) - REQUIRED
-        user_entries: UserEntryRelationshipService,
+        # Processing Domains (2) - REQUIRED
         report: ReportRelationshipService,
         analytics: AnalyticsRelationshipOperations,
         # Temporal Domain (1) - REQUIRED
@@ -133,8 +131,7 @@ class UserContextIntelligenceFactory:
                 lp: Learning path relationship service
                 exercises: ExerciseService facade
 
-            Processing Domains (3):
-                user_entries: UserEntry relationship service (student work + journals)
+            Processing Domains (2):
                 report: Report relationship service (pending submissions, completion rate)
                 analytics: Analytics relationship service (cross-domain)
 
@@ -150,7 +147,7 @@ class UserContextIntelligenceFactory:
         Raises:
             ValueError: If any required service is None
         """
-        # Single source of truth for the 13 required services. Both validation
+        # Single source of truth for the 12 required services. Both validation
         # and forwarding to UserContextIntelligence read from this dict — adding
         # a 14th service means one entry here (plus the matching __init__ param
         # and the matching UserContextIntelligence.__init__ param).
@@ -166,8 +163,7 @@ class UserContextIntelligenceFactory:
             "ps": ps,
             "lp": lp,
             "exercises": exercises,
-            # Processing Domains (3)
-            "user_entries": user_entries,
+            # Processing Domains (2)
             "report": report,
             "analytics": analytics,
             # Temporal Domain (1)
