@@ -3,6 +3,9 @@
 Provides the read-focused habit list view at /habits and detail view at /habits/detail.
 Habits enter via YAML upload OR through the create form; this UI shows them with status
 controls, streaks, atomic habits, cross-domain connections, and EntityRelationshipsSection.
+The detail page also HTMX-loads two fragments: /habits/insights-fragment (Atomic Habits
+pattern insights via HabitsPatternService.analyze_patterns) and /habits/choices-fragment
+(Habit ↔ Choice lens via INFORMS_CHOICE / IMPACTS_HABIT edges).
 
 Also registers the create / edit forms (``GET|POST /habits/create``,
 ``GET|POST /habits/edit``) which use ``ui/activities/habits_form.py`` to render
@@ -22,14 +25,22 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import require_owned_entity
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+from core.models.type_hints import EntityUID
 from core.utils.connection_configs import HABIT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_habits
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.habits_form import HabitCreateForm, HabitEditForm
-from ui.activities.habits_views import HabitDetailView, HabitList, HabitStatsBar
+from ui.activities.habits_views import (
+    HabitChoicesSection,
+    HabitDetailView,
+    HabitInsightsSection,
+    HabitList,
+    HabitStatsBar,
+)
 from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
@@ -69,6 +80,54 @@ def create_habits_ui_routes(
         dual_track_label="Consistency",
     )
     base_routes = create_activity_ui_routes(app, rt, config)
+
+    @rt("/habits/insights-fragment")
+    async def habit_insights_fragment(request: Request) -> Any:
+        """HTMX fragment: Atomic Habits pattern insights for one habit.
+
+        Ownership is enforced inside analyze_patterns (verify_ownership →
+        404-shaped error for habits the user doesn't own).
+        """
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Div(render_error_banner("Missing habit UID"), id="habit-insights")
+
+        result = await habits_service.patterns.analyze_patterns(uid, user_uid)
+        if result.is_error:
+            return Div(render_error_banner("Habit not found"), id="habit-insights")
+
+        return HabitInsightsSection(result.value)
+
+    @rt("/habits/choices-fragment")
+    async def habit_choices_fragment(request: Request) -> Any:
+        """HTMX fragment: Habit ↔ Choice lens (informed + impacting choices).
+
+        Resolves choice titles via relationship metadata (registry fields on
+        INFORMS_CHOICE / IMPACTS_HABIT include uid + title).
+        """
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Div(render_error_banner("Missing habit UID"), id="habit-choices")
+
+        # Ownership: 404-not-403 for habits the user doesn't own. Error banner
+        # (not a bare 404 Response) so HTMX swaps the placeholder out.
+        _habit, error = await require_owned_entity(habits_service.core, uid, user_uid, "Habit")
+        if error:
+            return Div(render_error_banner("Habit not found"), id="habit-choices")
+
+        habit_uid = EntityUID(uid)
+        informed = await habits_service.relationships.get_related_with_metadata(
+            "informed_choices", habit_uid
+        )
+        impacting = await habits_service.relationships.get_related_with_metadata(
+            "impacting_choices", habit_uid
+        )
+        return HabitChoicesSection(
+            informed.value if informed.is_ok else [],
+            impacting.value if impacting.is_ok else [],
+        )
 
     @rt("/habits/create", methods=["GET"])
     async def habit_create_page(request: Request) -> Any:
@@ -186,6 +245,8 @@ def create_habits_ui_routes(
 
     return [
         *base_routes,
+        habit_insights_fragment,
+        habit_choices_fragment,
         habit_create_page,
         habit_create_submit,
         habit_edit_page,
