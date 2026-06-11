@@ -1195,6 +1195,8 @@ Shared config-driven filter bar for all 6 Activity Domain list views (2026-04-04
 
 All 6 domain filter configs are centralised in `FILTER_CONFIGS: dict[str, FilterBarConfig]` in `filter_bar.py` (2026-04-10). Route files import `FILTER_CONFIGS` and pass `FILTER_CONFIGS["domain"]` to `ActivityFilterBar()`.
 
+**Live category options (2026-06-10):** `with_user_categories(config, categories)` rebuilds the Category dropdown from the user's distinct category values (`service.search.list_user_categories`). Goals/Habits/Principles wire it via `ActivityUIConfig.list_categories` — the content route replaces the static enum options with "All" + live values, drops the dropdown at 0-1 categories, and falls back to the static config if the fetch fails.
+
 **Note:** Uses plain `<select class="uk-select">` instead of MonsterUI's `LabelSelect` (`<uk-select>` web component). The `<uk-select>` custom element requires FrankenUI JS initialization and can render as raw unstyled text if JS doesn't initialize properly. Plain `<select>` is reliable without JS. `LabelSelect` is still appropriate for full forms — this is specific to the filter bar where reliability matters most.
 
 ### Tasks Views (Active)

@@ -76,6 +76,7 @@ def create_principles_ui_routes(
         dual_track_assess=principles_service.intelligence.assess_alignment_dual_track,
         dual_track_level_enum=AlignmentLevel,
         dual_track_label="Alignment",
+        list_categories=principles_service.search.list_user_categories,
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 

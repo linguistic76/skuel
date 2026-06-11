@@ -279,6 +279,8 @@ ActivityFilterBar(FILTER_CONFIGS["tasks"], {"status": status_filter, "priority":
 
 **Config dict:** `FILTER_CONFIGS: dict[str, FilterBarConfig]` in `ui/activities/filter_bar.py` — keys are domain slugs (`"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`, `"principles"`).
 
+**Live category options:** `with_user_categories(config, categories)` (same file) rebuilds the Category dropdown from `service.search.list_user_categories(user_uid)` — Goals/Habits/Principles wire it via `ActivityUIConfig.list_categories`; the dropdown is dropped at 0-1 categories and falls back to the static config on fetch failure.
+
 **Activity Domain routes pattern:** `GET /{domain}` (page), `GET /{domain}/list-fragment` (HTMX filtered list), `GET /{domain}/detail` (detail view). Routes are manual `@rt()` handlers in each `_ui.py` file.
 
 See: `/docs/patterns/ROUTE_FACTORIES.md`

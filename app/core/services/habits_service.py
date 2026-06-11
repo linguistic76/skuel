@@ -188,6 +188,7 @@ class HabitsService(
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(EntityStatus.ARCHIVED.value,),
+        category_field="habit_category",  # Habits store category as 'habit_category'
     )
 
     # ========================================================================
@@ -604,8 +605,11 @@ class HabitsService(
         # Event-driven handler service from factory
         self.event_handler: HabitEventHandlerService = common.event_handler
 
-        # Pattern recognition (March 2026)
-        self.patterns = HabitsPatternService(habits_core=self.core)
+        # Pattern recognition (March 2026) — relationships service fills
+        # system_contribution from SUPPORTS_GOAL edges (graph truth)
+        self.patterns = HabitsPatternService(
+            habits_core=self.core, relationships=self.relationships
+        )
         # HabitsGoalAnalyticsService shelved (2026-03-28)
 
         # Cross-domain dependency — post-wired in bootstrap

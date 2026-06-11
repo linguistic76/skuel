@@ -24,7 +24,7 @@ Usage:
     ActivityFilterBar(TASKS_FILTER_CONFIG, current_values={"status": "active", "sort_by": "priority"})
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 from fasthtml.common import Div, Form, Label, Option, Select
@@ -70,6 +70,54 @@ class FilterBarConfig:
     sort_options: list[tuple[str, str]] = field(default_factory=list)
     sort_default: str = "title"
     columns: int | None = None
+
+
+def with_user_categories(
+    config: FilterBarConfig,
+    categories: list[str] | None,
+) -> FilterBarConfig:
+    """Rebuild the "category" dropdown from the user's live category values.
+
+    Sourced from ``service.search.list_user_categories(user_uid)`` — distinct
+    category values actually present on the user's entities, instead of a
+    hardcoded enum list full of options that match nothing.
+
+    Behavior:
+        - ``categories is None`` (fetch failed): return ``config`` unchanged —
+          conservative static fallback.
+        - 0-1 distinct categories: drop the category dropdown entirely
+          (a filter that cannot narrow anything is noise).
+        - 2+ categories: replace the existing "category" dropdown in place
+          (or insert one before Sort if the domain had none) with
+          "All" + the live values.
+
+    Args:
+        config: The domain's static FilterBarConfig.
+        categories: Live category values for this user, or None on fetch failure.
+
+    Returns:
+        A FilterBarConfig copy with the category dropdown rebuilt.
+    """
+    if categories is None:
+        return config
+
+    others = [f for f in config.filters if f.name != "category"]
+    if len(categories) < 2:
+        return replace(config, filters=others, columns=None)
+
+    options = [("All", "all")] + [
+        (value.replace("_", " ").title(), value) for value in sorted(categories)
+    ]
+    category_select = FilterSelect(name="category", label="Category", options=options)
+
+    new_filters = list(config.filters)
+    existing_idx = next((i for i, f in enumerate(new_filters) if f.name == "category"), None)
+    if existing_idx is None:
+        new_filters.append(category_select)
+    else:
+        new_filters[existing_idx] = category_select
+
+    return replace(config, filters=new_filters, columns=None)
 
 
 def ActivityFilterBar(

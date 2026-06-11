@@ -26,6 +26,7 @@ from ui.cards import Card, CardBody
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from core.models.habit.habit import Habit
+    from core.services.habits.habits_pattern_service import PatternAnalysis
 
 
 def HabitStatsBar(habits: list["Habit"]) -> "FT":
@@ -172,6 +174,100 @@ def HabitCard(
         CardBody(header, cls="p-3"),
         id=f"habit-{safe_id(habit.uid)}",
         cls=f"mb-2 {opacity}",
+    )
+
+
+def _insight_card(pattern: dict[str, Any], positive: bool) -> "FT":
+    """Single pattern insight card with confidence badge + recommendation."""
+    confidence_pct = int(float(pattern.get("confidence", 0.0)) * 100)
+    badge_variant = BadgeT.success if positive else BadgeT.warning
+    return Card(
+        CardBody(
+            DivHStacked(
+                Span(str(pattern.get("pattern", "")), cls="font-medium"),
+                Badge(f"{confidence_pct}% confidence", variant=badge_variant),
+                cls="justify-between flex-wrap gap-2",
+            ),
+            Small(str(pattern.get("recommendation", "")), cls="text-muted-foreground"),
+            cls="p-3 space-y-1",
+        ),
+        cls="mb-2",
+    )
+
+
+def HabitInsightsSection(analysis: "PatternAnalysis") -> "FT":
+    """Atomic Habits pattern insights (success + failure patterns).
+
+    Rendered by the /habits/insights-fragment HTMX endpoint and swapped into
+    the #habit-insights placeholder on the habit detail page.
+    """
+    body: list[Any] = []
+    if analysis.success_patterns:
+        body.append(Small("What's working", cls="text-muted-foreground block mb-1"))
+        body.extend(_insight_card(p, positive=True) for p in analysis.success_patterns)
+    if analysis.failure_patterns:
+        body.append(Small("What needs attention", cls="text-muted-foreground block mb-1 mt-2"))
+        body.extend(_insight_card(p, positive=False) for p in analysis.failure_patterns)
+    if not body:
+        body.append(
+            P(
+                "No patterns detected yet — keep completing this habit to build signal.",
+                cls="text-muted-foreground text-sm",
+            )
+        )
+
+    return Div(
+        SectionTitle("Pattern Insights"),
+        *body,
+        id="habit-insights",
+        cls="my-4",
+    )
+
+
+def _choice_links(choices: list[dict[str, Any]]) -> "FT":
+    """Render linked choice titles for one direction of the Habit ↔ Choice lens."""
+    return Div(
+        *[
+            A(
+                str(c.get("title") or c.get("uid", "Untitled choice")),
+                href=f"/choices/detail?uid={c.get('uid', '')}",
+                cls="block hover:underline text-sm",
+            )
+            for c in choices
+        ],
+        cls="space-y-1",
+    )
+
+
+def HabitChoicesSection(
+    informed_choices: list[dict[str, Any]],
+    impacting_choices: list[dict[str, Any]],
+) -> "FT":
+    """Habit ↔ Choice lens: choices this habit informed + choices impacting it.
+
+    Graph edges: (Habit)-[:INFORMS_CHOICE]->(Choice) and
+    (Choice)-[:IMPACTS_HABIT]->(Habit). Rendered by the
+    /habits/choices-fragment HTMX endpoint into #habit-choices.
+    Empty state renders nothing visible (matching neighboring optional sections).
+    """
+    if not informed_choices and not impacting_choices:
+        return Div(id="habit-choices")
+
+    columns: list[Any] = []
+    if informed_choices:
+        columns.append(
+            MetadataField("Choices this habit informed", _choice_links(informed_choices))
+        )
+    if impacting_choices:
+        columns.append(
+            MetadataField("Choices impacting this habit", _choice_links(impacting_choices))
+        )
+
+    return Div(
+        SectionTitle("Choices"),
+        Div(*columns, cls="grid grid-cols-1 sm:grid-cols-2 gap-2"),
+        id="habit-choices",
+        cls="my-4",
     )
 
 
@@ -333,6 +429,16 @@ def HabitDetailView(
             cls="my-4",
         )
 
+    # Habit ↔ Choice lens — HTMX-loaded (graph fetch happens in the fragment route)
+    choices_section = content_loading_placeholder(
+        f"/habits/choices-fragment?uid={habit.uid}", "habit-choices"
+    )
+
+    # Atomic Habits pattern insights — HTMX-loaded (analyze_patterns runs in the fragment route)
+    insights_section = content_loading_placeholder(
+        f"/habits/insights-fragment?uid={habit.uid}", "habit-insights"
+    )
+
     # Dual-track self-assessment (perception gap + trend) — ADR-030
     dual_track_section = DualTrackSection(
         domain="habits",
@@ -360,6 +466,8 @@ def HabitDetailView(
         meta_grid,
         tags_el,
         conn_section,
+        choices_section,
+        insights_section,
         dual_track_section,
         relationships,
         size="3xl",

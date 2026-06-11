@@ -65,7 +65,7 @@ class TestGoalsCoreOperations:
 
     @pytest_asyncio.fixture
     async def goals_search(self, goals_backend):
-        """GoalsSearchService has _category_field='domain' configured via DomainConfig."""
+        """GoalsSearchService has category_field='domain' configured via DomainConfig."""
         return GoalsSearchService(backend=goals_backend)
 
     @pytest_asyncio.fixture

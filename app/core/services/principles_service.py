@@ -213,6 +213,7 @@ class PrinciplesService(
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
+        category_field="principle_category",  # Principles store category as 'principle_category'
     )
 
     # ========================================================================

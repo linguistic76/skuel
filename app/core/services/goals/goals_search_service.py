@@ -85,7 +85,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # - get_by_relationship() - Graph relationship queries
     # - get_by_status() - Filter by status field
     # - get_by_domain() - Filter by domain field
-    # - get_by_category() - Filter by domain field (via _category_field)
+    # - get_by_category() - Filter by domain field (via DomainConfig category_field)
     # - list_categories() - List unique domain values
 
     # ========================================================================
@@ -158,7 +158,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         self.logger.debug(f"Found {len(goals)} {timeframe_value} goals")
         return Result.ok(goals)
 
-    # get_by_category() - inherited from BaseService (uses _category_field = "domain")
+    # get_by_category() - inherited from BaseService (uses category_field = "domain")
 
     @with_error_handling("get_needing_habits", error_type="database")
     async def get_needing_habits(
@@ -286,7 +286,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         )
         return Result.ok(result_goals)
 
-    # list_categories() - inherited from BaseService (uses _category_field = "domain")
+    # list_categories() - inherited from BaseService (uses category_field = "domain")
 
     async def get_sub_goals(self, parent_goal_uid: str) -> Result[list[Goal]]:
         """

@@ -78,6 +78,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         domain_name="habits",
         date_field="created_at",  # Habits don't have due_date, use created_at
         completed_statuses=(EntityStatus.COMPLETED.value,),
+        category_field="habit_category",  # Habits store category as 'habit_category'
     )
 
     # Status filtering constants - eliminates duplication across methods
