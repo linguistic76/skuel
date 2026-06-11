@@ -22,7 +22,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 import detect_bloat  # type: ignore[import-not-found]
 from detect_bloat import (  # type: ignore[import-not-found]
     PLANNED_EVENTS,
-    PLANNED_METHODS,
     ROOT,
     BloatSeverity,
     DispatchKnowledge,
@@ -466,8 +465,13 @@ class FakeVultureItem:
 
 
 def test_planned_method_reports_planned_not_dead(monkeypatch):
-    monkeypatch.setitem(
-        PLANNED_METHODS, "core/services/x.py::future_method", "awaiting synthetic wiring"
+    # setattr replaces the registry wholesale — the production entries (real
+    # staged habit/search methods) are absent from synthetic universes and
+    # would otherwise fire the vanished-key stale check.
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {"core/services/x.py::future_method": "awaiting synthetic wiring"},
     )
     codebase = build_codebase({"core/services/x.py": "def future_method():\n    pass\n"})
     analysis = analyze_methods(codebase, [FakeVultureItem("core/services/x.py", "future_method")])
@@ -478,8 +482,10 @@ def test_planned_method_reports_planned_not_dead(monkeypatch):
 
 
 def test_stale_planned_method_marking_is_reported(monkeypatch):
-    monkeypatch.setitem(
-        PLANNED_METHODS, "core/services/x.py::now_live_method", "awaiting synthetic wiring"
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {"core/services/x.py::now_live_method": "awaiting synthetic wiring"},
     )
     codebase = build_codebase({})
     analysis = analyze_methods(codebase, [])  # not a vulture candidate -> live or deleted

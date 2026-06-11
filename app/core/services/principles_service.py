@@ -324,12 +324,6 @@ class PrinciplesService(
         return await self.intelligence.get_principle_conflict_analysis(user_uid)
 
     # Search delegations
-    async def list_principle_categories(self, user_uid: UserUID) -> Result[list[str]]:
-        return await self.search.list_user_categories(user_uid)
-
-    async def list_all_principle_categories(self) -> Result[list[str]]:
-        return await self.search.list_all_categories()
-
     async def get_related_principles(
         self, principle_uid: str, limit: int = 10
     ) -> Result[list[Principle]]:

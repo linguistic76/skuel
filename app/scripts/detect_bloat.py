@@ -80,9 +80,136 @@ PLANNED_EVENTS: dict[str, str] = {
     "LearningPathEmbeddingRequested": _EMBEDDING_WIRING,
     "PathStepEmbeddingRequested": _EMBEDDING_WIRING,
     "ResourceEmbeddingRequested": _EMBEDDING_WIRING,
+    "HabitMissed": (
+        "publish-side missed-habit detection never built; subscriber wiring in "
+        "services_bootstrap/_event_wiring.py is intentional staging — wire a "
+        "scheduler/cron detector that publishes it, or delete the chain"
+    ),
 }
+# Habits dead-code campaign (2026-06): staged habit capabilities kept by
+# deliberate decision — each reason names the wiring that completes it.
+_HABITS_DUE_TODAY = (
+    "sole home of frequency-based due-ness — staged daily-planning capability; "
+    "wire into daily planning/dashboard or delete the frequency lens"
+)
+_HABITS_SCHED_CREATE = (
+    "scheduling-aware habit creation staged; wire a route/UI entry point that "
+    "creates habits with capacity checks"
+)
+_HABITS_LIFECYCLE = (
+    "habit lifecycle + reminder surface staged; wire routes/UI for pause/resume/"
+    "archive/untrack, streak/progress/history, completion calendar, reminders"
+)
+_HABITS_BADGES = "completion bulk/badge/export surface staged; wire gamification and export routes"
+_HABITS_HIERARCHY = (
+    "sub-habit hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
+)
+_HABITS_ORCHESTRATION = (
+    "goal/Ku/principle orchestration surface staged; wire link + skill routes "
+    "or fold into relationship routes"
+)
+_HABITS_INSIGHTS = (
+    "habit analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
+)
+_INTELLIGENT_SEARCH = (
+    "NL search surface (DomainSearchOperations protocol + SearchRouter entry "
+    "point at core/models/search/search_router.py + 8 domain impls) built but "
+    "never wired to UI/Askesis; wire a search box/Askesis tool or delete the "
+    "whole surface"
+)
 # Keyed "relative/path.py::method_name".
-PLANNED_METHODS: dict[str, str] = {}
+PLANNED_METHODS: dict[str, str] = {
+    # --- Habits: due-today machinery ---
+    "core/services/habits_service.py::get_habits_due_today": _HABITS_DUE_TODAY,
+    "core/services/habits_service.py::get_all_habits_due_today": _HABITS_DUE_TODAY,
+    "core/services/habits_service.py::get_habits_by_frequency": _HABITS_DUE_TODAY,
+    # --- Habits: scheduling-aware creation ---
+    "core/services/habits_service.py::create_habit_with_scheduling_context": (_HABITS_SCHED_CREATE),
+    "core/services/habits_service.py::create_habit_with_learning_scheduling_context": (
+        _HABITS_SCHED_CREATE
+    ),
+    # --- Habits: lifecycle + reminders ---
+    "core/services/habits/_completion_mixin.py::untrack_habit": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::get_habit_streak": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::get_habit_progress": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::get_habit_history": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::get_completion_calendar": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::pause_habit": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::resume_habit": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::archive_habit": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::set_habit_reminder": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::get_habit_reminders": _HABITS_LIFECYCLE,
+    "core/services/habits/_completion_mixin.py::delete_habit_reminder": _HABITS_LIFECYCLE,
+    # --- Habits: badges / export / bulk completions ---
+    "core/services/habits/habits_completion_service.py::record_completions_bulk": (_HABITS_BADGES),
+    "core/services/habits/habits_completion_service.py::calculate_completed_today_count": (
+        _HABITS_BADGES
+    ),
+    "core/services/habits/habits_completion_service.py::get_badge_progress": _HABITS_BADGES,
+    "core/services/habits/habits_completion_service.py::export_completion_history": (
+        _HABITS_BADGES
+    ),
+    # --- Habits: sub-habit hierarchy ---
+    "core/services/habits/habits_core_service.py::get_subhabits": _HABITS_HIERARCHY,
+    "core/services/habits/habits_core_service.py::get_parent_habit": _HABITS_HIERARCHY,
+    "core/services/habits/habits_core_service.py::get_habit_hierarchy": _HABITS_HIERARCHY,
+    "core/services/habits/habits_core_service.py::create_subhabit_relationship": (
+        _HABITS_HIERARCHY
+    ),
+    "core/services/habits/habits_core_service.py::remove_subhabit_relationship": (
+        _HABITS_HIERARCHY
+    ),
+    # --- Habits: goal/Ku orchestration ---
+    "core/services/habits/_orchestration_mixin.py::complete_with_goal_impacts": (
+        _HABITS_ORCHESTRATION
+    ),
+    "core/services/habits/_orchestration_mixin.py::create_with_goal_links": (_HABITS_ORCHESTRATION),
+    "core/services/habits/_orchestration_mixin.py::create_user_habit_relationship": (
+        _HABITS_ORCHESTRATION
+    ),
+    "core/services/habits/_orchestration_mixin.py::link_habit_to_knowledge": (
+        _HABITS_ORCHESTRATION
+    ),
+    "core/services/habits/_orchestration_mixin.py::link_habit_to_principle": (
+        _HABITS_ORCHESTRATION
+    ),
+    "core/services/habits/_orchestration_mixin.py::get_skills_developed_by_habits": (
+        _HABITS_ORCHESTRATION
+    ),
+    "core/services/habits/_orchestration_mixin.py::create_semantic_skill_relationship": (
+        _HABITS_ORCHESTRATION
+    ),
+    "core/services/habits/_orchestration_mixin.py::find_habits_developing_knowledge": (
+        _HABITS_ORCHESTRATION
+    ),
+    # --- Habits: analytics / AI insights ---
+    "core/services/habits/_enrichment_mixin.py::get_habits_summary_analytics": (_HABITS_INSIGHTS),
+    "core/services/habits/_enrichment_mixin.py::get_habit_trends": _HABITS_INSIGHTS,
+    "core/services/habits/_enrichment_mixin.py::get_enriched_learning_summary": (_HABITS_INSIGHTS),
+    "core/services/habits/_enrichment_mixin.py::get_enriched_curriculum_metadata": (
+        _HABITS_INSIGHTS
+    ),
+    "core/services/habits/_enrichment_mixin.py::get_enriched_prerequisite_metadata": (
+        _HABITS_INSIGHTS
+    ),
+    "core/services/habits/habits_ai_service.py::suggest_identity_reinforcement": (_HABITS_INSIGHTS),
+    "core/services/habits/habits_pattern_service.py::analyze_patterns": _HABITS_INSIGHTS,
+    "core/services/habits/habits_search_service.py::get_needing_attention": _HABITS_INSIGHTS,
+    "core/services/habits/habits_search_service.py::get_at_risk": _HABITS_INSIGHTS,
+    # --- Cross-domain: intelligent_search NL surface (SearchRouter entry point
+    # at core/models/search/search_router.py is outside METHOD_SCOPE and thus
+    # never a candidate; the 8 in-scope domain impls are registered here) ---
+    "core/services/habits/habits_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
+    "core/services/tasks/tasks_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
+    "core/services/goals/goals_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
+    "core/services/events/events_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
+    "core/services/choices/choices_search_service.py::intelligent_search": (_INTELLIGENT_SEARCH),
+    "core/services/principles/principles_search_service.py::intelligent_search": (
+        _INTELLIGENT_SEARCH
+    ),
+    "core/services/ps/ps_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
+    "core/services/lp/lp_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
+}
 
 # Method findings are scoped to the service layer; the rest of the tree is
 # covered by the standalone vulture run at --min-confidence 90.
