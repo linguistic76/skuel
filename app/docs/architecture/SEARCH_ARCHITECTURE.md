@@ -437,7 +437,7 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         category_field="domain",
     )
     # All methods inherited: search(), graph_aware_faceted_search(),
-    # get_by_domain(), get_by_status(), get_prerequisites(), get_enables(), ...
+    # get_by_status(), get_prerequisites(), get_enables(), ...
 ```
 
 **Key per-domain methods:**

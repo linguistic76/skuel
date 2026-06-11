@@ -214,7 +214,6 @@ The habit model tracks all four components of the habit loop:
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description, cue, routine, reward |
 | `get_by_status(status, user_uid)` | Filter by status |
-| `get_by_domain(domain, user_uid)` | Filter by Domain |
 | `get_by_category(category, user_uid)` | Filter by frequency (category_field) |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
 | `graph_aware_faceted_search(request)` | Unified search with graph context |

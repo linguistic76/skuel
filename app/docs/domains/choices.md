@@ -325,7 +325,6 @@ Choices support full decision lifecycle:
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description |
 | `get_by_status(status, user_uid)` | Filter by ChoiceStatus |
-| `get_by_domain(domain, user_uid)` | Filter by Domain |
 | `get_by_category(category, user_uid)` | Filter by category field |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
 | `graph_aware_faceted_search(request)` | Unified search with graph context |

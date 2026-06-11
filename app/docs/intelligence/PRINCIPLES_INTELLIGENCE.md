@@ -162,7 +162,7 @@ if result.is_ok:
 
 **Dependencies:**
 - PrinciplesOperations backend (REQUIRED)
-- PrinciplesRelationshipOperations (REQUIRED - uses `_require_relationship_service()`)
+- BaseRelationshipOperations relationship service (REQUIRED - uses `_require_relationship_service()`)
 - Uses the canonical typed reader `get_cross_domain_context_typed` via
   `BaseAnalyticsService._analyze_entity_with_typed_context` (path-aware context)
 - Uses `calculate_principle_alignment_metrics()` for alignment metrics
@@ -257,7 +257,7 @@ if result.is_ok:
 
 **Dependencies:**
 - PrinciplesOperations backend (REQUIRED)
-- PrinciplesRelationshipOperations (REQUIRED)
+- BaseRelationshipOperations relationship service (REQUIRED)
 
 **Trajectory Calculation:**
 ```python
@@ -360,7 +360,7 @@ if result.is_ok:
 
 **Dependencies:**
 - PrinciplesOperations backend (REQUIRED)
-- PrinciplesRelationshipOperations (REQUIRED)
+- BaseRelationshipOperations relationship service (REQUIRED)
 
 **Conflict Severity Calculation:**
 ```python
@@ -442,7 +442,7 @@ if result.is_ok:
 ```
 
 **Dependencies:**
-- PrinciplesRelationshipOperations (REQUIRED)
+- BaseRelationshipOperations relationship service (REQUIRED)
 - Uses `PrincipleRelationships.fetch()` for fast parallel UID fetching
 
 **OPTIMIZATION:** Uses `fetch()` for ~60% faster simple metrics compared to `get_principle_with_context()`.
@@ -538,7 +538,7 @@ if result.is_ok:
 ```
 
 **Dependencies:**
-- PrinciplesRelationshipOperations (REQUIRED)
+- BaseRelationshipOperations relationship service (REQUIRED)
 - Uses `PrincipleRelationships.fetch()` with parallel execution
 
 **OPTIMIZATION:** Uses `fetch()` for ~50% faster batch processing compared to sequential `get_principle_with_context()` calls.
@@ -675,7 +675,7 @@ POST /api/principles/assess-alignment
 **Standard Attributes:**
 - `self.backend` - PrinciplesOperations (REQUIRED)
 - `self.graph_intel` - GraphIntelligenceService (REQUIRED for graph methods)
-- `self.relationships` - PrinciplesRelationshipOperations (REQUIRED for alignment/conflict analysis)
+- `self.relationships` - BaseRelationshipOperations (REQUIRED for alignment/conflict analysis)
 - `self.embeddings` - OpenAIEmbeddingsService (not currently used)
 - `self.llm` - LLMService (not currently used)
 

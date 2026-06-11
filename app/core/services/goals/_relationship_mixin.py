@@ -61,6 +61,10 @@ class _RelationshipMixin:
             "supporting_habits", goal_uid, habit_uid, properties
         )
 
+    async def unlink_goal_from_habit(self, uid: str, habit_uid: str) -> Result[bool]:
+        """Unlink a habit from a goal. Delegates to UnifiedRelationshipService."""
+        return await self.relationships.delete_relationship("supporting_habits", uid, habit_uid)
+
     async def link_goal_to_knowledge(
         self,
         goal_uid: str,

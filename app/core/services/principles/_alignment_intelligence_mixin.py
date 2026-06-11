@@ -380,7 +380,7 @@ class _AlignmentIntelligenceMixin:
         if self.relationships is None:
             return Result.fail(
                 Errors.system(
-                    message="PrinciplesRelationshipOperations not available",
+                    message="relationship service (BaseRelationshipOperations) not available",
                     operation="calculate_adherence",
                 )
             )

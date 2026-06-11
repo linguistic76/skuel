@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import Domain, EntityStatus
+from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
@@ -241,17 +241,6 @@ async def test_get_by_status_inactive(search_service, mock_backend):
 
     kwargs = mock_backend.find_by.call_args.kwargs
     assert kwargs["is_active"] is False
-
-
-@pytest.mark.asyncio
-async def test_get_by_domain_maps_health_to_category(search_service, mock_backend):
-    """Domain.HEALTH maps to PrincipleCategory.HEALTH."""
-    mock_backend.find_by.return_value = Result.ok([])
-
-    await search_service.get_by_domain(Domain.HEALTH)
-
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["category"] == PrincipleCategory.HEALTH.value
 
 
 @pytest.mark.asyncio

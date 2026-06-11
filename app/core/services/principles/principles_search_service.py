@@ -20,7 +20,7 @@ This service follows the SearchService pattern documented in:
 from datetime import date, timedelta
 from typing import Any
 
-from core.models.enums import Domain, EntityStatus
+from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
@@ -47,7 +47,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     Universal Methods (DomainSearchOperations protocol):
     - search() - Text search on name/statement/description (inherited from BaseService)
     - get_by_status() - Filter by is_active status
-    - get_by_domain() - Filter by PrincipleCategory (mapped to Domain concept)
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
     - get_upcoming() - Principles needing review soon (approaching threshold)
@@ -113,50 +112,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(f"Found {len(principles)} principles with status '{status}'")
-        return Result.ok(principles)
-
-    @with_error_handling("get_by_domain", error_type="database")
-    async def get_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Principle]]:
-        """
-        Filter principles by category (mapped from Domain concept).
-
-        Note: Principles use PrincipleCategory, not Domain enum.
-        This method maps Domain to the closest PrincipleCategory.
-
-        Args:
-            domain: Domain enum value
-            limit: Maximum results to return
-
-        Returns:
-            Result containing principles in mapped category
-        """
-        from core.ports import get_enum_value
-
-        # Map Domain to PrincipleCategory
-        domain_value = get_enum_value(domain)
-        category_mapping = {
-            "tech": PrincipleCategory.INTELLECTUAL.value,
-            "health": PrincipleCategory.HEALTH.value,
-            "personal": PrincipleCategory.PERSONAL.value,
-            "professional": PrincipleCategory.PROFESSIONAL.value,
-            "spiritual": PrincipleCategory.SPIRITUAL.value,
-            "creative": PrincipleCategory.CREATIVE.value,
-            "social": PrincipleCategory.RELATIONAL.value,
-        }
-
-        category_value = category_mapping.get(
-            domain_value.lower(), PrincipleCategory.PERSONAL.value
-        )
-
-        result = await self.backend.find_by(category=category_value, limit=limit)
-        if result.is_error:
-            return Result.fail(result)
-
-        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
-
-        self.logger.debug(
-            f"Found {len(principles)} principles in domain '{domain_value}' (category: {category_value})"
-        )
         return Result.ok(principles)
 
     @with_error_handling("get_prioritized", error_type="database")
