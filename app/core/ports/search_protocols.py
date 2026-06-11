@@ -573,32 +573,14 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds goal-specific methods:
-    - Timeframe-based filtering
-    - Habit and knowledge gap analysis
-    - Category and hierarchy navigation
+    - Category navigation
     """
 
     # --- Goal-specific methods ---
-    async def get_by_timeframe(
-        self, timeframe: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Goal"]]:
-        """Get goals by timeframe (daily, weekly, monthly, yearly)."""
-        ...
-
     async def get_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Goal"]]:
         """Get goals by category."""
-        ...
-
-    async def get_needing_habits(self, user_uid: UserUID, limit: int = 20) -> Result[list["Goal"]]:
-        """Get goals that need supporting habits."""
-        ...
-
-    async def get_blocked_by_knowledge(
-        self, user_uid: UserUID, limit: int = 20
-    ) -> Result[list["Goal"]]:
-        """Get goals blocked by missing knowledge."""
         ...
 
     async def list_user_categories(self, user_uid: UserUID) -> Result[list[str]]:
@@ -607,10 +589,6 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
 
     async def list_all_categories(self) -> Result[list[str]]:
         """List all goal categories (admin use)."""
-        ...
-
-    async def get_sub_goals(self, parent_goal_uid: str) -> Result[list["Goal"]]:
-        """Get sub-goals of a parent goal."""
         ...
 
 

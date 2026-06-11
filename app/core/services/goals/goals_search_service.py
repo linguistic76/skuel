@@ -21,7 +21,6 @@ from core.models.enums import EntityStatus
 from core.models.enums.goal_enums import GoalTimeframe
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
-from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.search.scoring import score_goal
 from core.models.type_hints import UserUID
@@ -30,8 +29,7 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import NEO4J_EXCEPTIONS
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
 
 
@@ -53,10 +51,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     - get_active() - Non-terminal goals for a user
 
     Goal-Specific Methods:
-    - get_by_timeframe() - Filter by GoalTimeframe (weekly, monthly, quarterly, yearly)
     - get_by_category() - Filter by domain/category string
-    - get_needing_habits() - Goals that would benefit from supporting habits
-    - get_blocked_by_knowledge() - Goals blocked by knowledge prerequisites
     - list_categories() - Get all unique goal categories
 
     Semantic Types Used:
@@ -128,188 +123,8 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
     # get_upcoming(), get_overdue(), get_active() - inherited from TimeQueryMixin via DomainConfig
 
-    # ========================================================================
-    # GOAL-SPECIFIC SEARCH METHODS
-    # ========================================================================
-
-    @with_error_handling("get_by_timeframe", error_type="database")
-    async def get_by_timeframe(
-        self, timeframe: GoalTimeframe, limit: int = 100
-    ) -> Result[list[Goal]]:
-        """
-        Get goals filtered by timeframe.
-
-        Args:
-            timeframe: GoalTimeframe enum (WEEKLY, MONTHLY, QUARTERLY, YEARLY, LIFE)
-            limit: Maximum results to return
-
-        Returns:
-            Result containing goals with matching timeframe
-        """
-        from core.ports import get_enum_value
-
-        timeframe_value = get_enum_value(timeframe)
-        result = await self.backend.find_by(timeframe=timeframe_value, limit=limit)
-        if result.is_error:
-            return result
-
-        goals = self._to_domain_models(result.value, GoalDTO, Goal)
-
-        self.logger.debug(f"Found {len(goals)} {timeframe_value} goals")
-        return Result.ok(goals)
-
     # get_by_category() - inherited from BaseService (uses category_field = "domain")
-
-    @with_error_handling("get_needing_habits", error_type="database")
-    async def get_needing_habits(
-        self, user_context: UserContext, limit: int = 20
-    ) -> Result[list[Goal]]:
-        """
-        Get goals that would benefit from supporting habits.
-
-        A goal needs habits if:
-        - It's active/in-progress
-        - Has low or no supporting habits
-        - Has been active for a while without good progress
-
-        Args:
-            user_context: User's current context
-            limit: Maximum results to return
-
-        Returns:
-            Result containing goals needing habit support
-        """
-        # Get user's active goals
-        result = await self.backend.find_by(
-            user_uid=user_context.user_uid, status=EntityStatus.ACTIVE.value
-        )
-        if result.is_error:
-            return result
-
-        all_goals = self._to_domain_models(result.value, GoalDTO, Goal)
-
-        # Check each goal for habit support
-        goals_needing_habits = []
-        for goal in all_goals:
-            # Count supporting habits
-            habit_count_result = await self.backend.count_related(
-                uid=goal.uid,
-                relationship_type=RelationshipName.SUPPORTS_GOAL,
-                direction="incoming",
-            )
-            habit_count = habit_count_result.value if habit_count_result.is_ok else 0
-
-            # Goals with 0-1 habits and low progress are candidates
-            progress = goal.progress_percentage or 0.0
-            if habit_count <= 1 and progress < 50:
-                goals_needing_habits.append(goal)
-
-        # Sort by progress (lowest first - most in need)
-        def get_progress(goal: Goal) -> float:
-            """Get progress percentage for sorting, defaulting to 0.0."""
-            return goal.progress_percentage or 0.0
-
-        goals_needing_habits.sort(key=get_progress)
-
-        result_goals = goals_needing_habits[:limit]
-
-        self.logger.info(
-            f"Found {len(result_goals)} goals needing habit support for user {user_context.user_uid}"
-        )
-        return Result.ok(result_goals)
-
-    @with_error_handling("get_blocked_by_knowledge", error_type="database")
-    async def get_blocked_by_knowledge(
-        self, user_context: UserContext, limit: int = 20
-    ) -> Result[list[Goal]]:
-        """
-        Get goals blocked by missing knowledge prerequisites.
-
-        A goal is blocked by knowledge if it has REQUIRES_KNOWLEDGE
-        relationships to knowledge units the user hasn't mastered.
-
-        Args:
-            user_context: User's current context (includes knowledge_mastery)
-            limit: Maximum results to return
-
-        Returns:
-            Result containing goals blocked by knowledge gaps
-        """
-        # Get user's active goals
-        result = await self.backend.find_by(
-            user_uid=user_context.user_uid, status=EntityStatus.ACTIVE.value
-        )
-        if result.is_error:
-            return result
-
-        all_goals = self._to_domain_models(result.value, GoalDTO, Goal)
-
-        # Check each goal for knowledge prerequisites
-        blocked_goals = []
-        user_mastery = user_context.knowledge_mastery or {}
-
-        for goal in all_goals:
-            # Get required knowledge UIDs
-            knowledge_uids_result = await self.backend.get_related_uids(
-                uid=goal.uid,
-                relationship_type=RelationshipName.REQUIRES_KNOWLEDGE,
-                direction="outgoing",
-            )
-            if knowledge_uids_result.is_error:
-                continue
-
-            required_knowledge_uids = knowledge_uids_result.value
-
-            # Check if user has mastered all required knowledge
-            missing_knowledge = []
-            for ku_uid in required_knowledge_uids:
-                mastery = user_mastery.get(ku_uid, 0.0)
-                if mastery < 0.7:  # Threshold for "mastered"
-                    missing_knowledge.append(ku_uid)
-
-            if missing_knowledge:
-                # Store missing knowledge in goal metadata for UI display
-                goal.metadata["blocked_by_knowledge"] = missing_knowledge
-                blocked_goals.append(goal)
-
-        # Sort by number of missing prerequisites (fewest first - easiest to unblock)
-        def get_blocked_knowledge_count(goal: Goal) -> int:
-            """Get count of blocked knowledge prerequisites for sorting."""
-            return len(goal.metadata.get("blocked_by_knowledge", []))
-
-        blocked_goals.sort(key=get_blocked_knowledge_count)
-
-        result_goals = blocked_goals[:limit]
-
-        self.logger.info(
-            f"Found {len(result_goals)} goals blocked by knowledge for user {user_context.user_uid}"
-        )
-        return Result.ok(result_goals)
-
     # list_categories() - inherited from BaseService (uses category_field = "domain")
-
-    async def get_sub_goals(self, parent_goal_uid: str) -> Result[list[Goal]]:
-        """
-        Get child goals (sub-goals) of a parent goal.
-
-        Query: (ChildGoal)-[:SUBGOAL_OF]->(ParentGoal)
-
-        Args:
-            parent_goal_uid: Parent goal UID
-
-        Returns:
-            Result containing sub-goals
-        """
-        try:
-            return await self.get_by_relationship(
-                related_uid=parent_goal_uid,
-                relationship_type=RelationshipName.SUBGOAL_OF,
-                direction="incoming",
-            )
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Get sub goals failed: {e}")
-            return Result.fail(Errors.database(operation="get_sub_goals", message=str(e)))
 
     # ========================================================================
     # GRAPH-AWARE FACETED SEARCH

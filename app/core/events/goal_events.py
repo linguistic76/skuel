@@ -253,21 +253,19 @@ async def create_goal(self, goal: Goal) -> Result[Goal]:
     return result
 
 
-# In GoalsService.mark_achieved()
-async def mark_achieved(self, uid: str) -> Result[Goal]:
-    result = await self.backend.mark_achieved(uid)
+# In GoalsCoreService.update_goal() — GoalAchieved fires on the status
+# transition into COMPLETED (the ADR-066 typed update path is THE publisher)
+async def update_goal(self, uid: str, intent: GoalUpdateIntent) -> Result[Goal]:
+    result = await super().update(uid, intent)
 
-    if result.is_ok and self.event_bus:
+    if result.is_ok and status_transitioned_to_completed:
         goal = result.value
         actual_days = (datetime.now() - goal.created_at).days if goal.created_at else None
-        planned_days = (goal.target_date - goal.created_at).days if goal.target_date and goal.created_at else None
 
         event = GoalAchieved(
             goal_uid=goal.uid,
             user_uid=goal.user_uid,
             actual_duration_days=actual_days,
-            planned_duration_days=planned_days,
-            completed_ahead_of_schedule=actual_days and planned_days and actual_days < planned_days
         )
         await self.event_bus.publish_async(event)
 

@@ -81,7 +81,7 @@ class GoalsService(
 | Mixin | File | Methods |
 |-------|------|---------|
 | `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_goal_with_context`, `generate_tasks_for_goal`, `assess_goal_feasibility` |
-| `_RelationshipMixin` | `_relationship_mixin.py` | `create_user_goal_relationship`, `link_goal_to_habit/knowledge/principle`, `get_goal_habits`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge` |
+| `_RelationshipMixin` | `_relationship_mixin.py` | `create_user_goal_relationship`, `link_goal_to_habit/knowledge/principle`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge` |
 
 **Sub-services:**
 | Service | Purpose |
