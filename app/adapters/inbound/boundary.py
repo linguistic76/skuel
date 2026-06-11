@@ -17,8 +17,10 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
+from types import MappingProxyType
 from typing import Any, ParamSpec
 
+from pydantic_core import to_jsonable_python
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 
@@ -28,6 +30,30 @@ from core.utils.result_simplified import ErrorCategory, ErrorContext, Result
 logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
+
+
+def _unwrap_unserializable(value: Any) -> Any:
+    """Fallback for types ``to_jsonable_python`` can't serialize natively.
+
+    Frozen domain models wrap mutable dicts in ``MappingProxyType`` for deep
+    immutability (e.g. ``Task.knowledge_confidence_scores``); unwrap those to
+    plain dicts (the result is re-processed recursively). Anything else is a
+    genuine type-design problem — raise so the boundary safety-net logs it.
+    """
+    if isinstance(value, MappingProxyType):
+        return dict(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def jsonable_content(content: Any) -> Any:
+    """Convert a service-layer value into JSON-safe Python.
+
+    Handles the frozen domain dataclasses, Pydantic models, enums, datetimes,
+    tuples, and nested containers that ``Result[T]`` values carry — Starlette's
+    ``JSONResponse`` only accepts plain JSON types.
+    """
+    return to_jsonable_python(content, fallback=_unwrap_unserializable)
+
 
 # ============================================================================
 # BOUNDARY CONVERTERS - For Routes/Adapters
@@ -67,7 +93,7 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONR
         if isinstance(content, dict) and "_headers" in content:
             headers = content.pop("_headers")
 
-        response = JSONResponse(content=content, status_code=success_status)
+        response = JSONResponse(content=jsonable_content(content), status_code=success_status)
 
         # Add custom headers
         for key, value in headers.items():
