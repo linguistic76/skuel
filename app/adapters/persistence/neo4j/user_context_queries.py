@@ -845,7 +845,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      steps_rich,
      life_path_uid, life_path_designated_at, life_path_alignment_score,
      collect(DISTINCT moc.uid) as active_moc_uids,
-     collect(DISTINCT {uid: moc.uid, view_count: coalesce(moc.view_count, 0), updated: moc.updated_at}) as moc_metadata
+     collect(DISTINCT {uid: moc.uid, updated: moc.updated_at}) as moc_metadata
 
 // ====================================================================
 // ACTIVITY REPORT - Latest report for intelligence reasoning
@@ -1226,7 +1226,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      enrolled_path_uids,
      collect(DISTINCT moc.uid) as active_moc_uids,
-     collect(DISTINCT {uid: moc.uid, view_count: coalesce(moc.view_count, 0), updated: moc.updated_at}) as moc_data
+     collect(DISTINCT {uid: moc.uid, updated: moc.updated_at}) as moc_data
 
 // Events - parallel collection with date filtering
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
@@ -1351,7 +1351,7 @@ def empty_context_data() -> dict[str, Any]:
         "events": {"upcoming_uids": [], "today_uids": []},
         "principles": {"core_uids": []},
         "choices": {"pending_uids": []},
-        "mocs": {"active_uids": [], "view_counts": {}, "recently_viewed_uids": []},
+        "mocs": {"active_uids": [], "recently_viewed_uids": []},
         "submission_stats": {
             "total_submission_count": 0,
             "total_journal_count": 0,
@@ -1685,11 +1685,6 @@ class UserContextQueryExecutor:
                 },
                 "mocs": {
                     "active_uids": [uid for uid in (record["active_moc_uids"] or []) if uid],
-                    "view_counts": {
-                        item["uid"]: item["view_count"]
-                        for item in (record["moc_data"] or [])
-                        if item and item.get("uid") is not None
-                    },
                     "recently_viewed_uids": [
                         item["uid"]
                         for item in sorted(

@@ -28,7 +28,6 @@ from typing import Any
 
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
 
@@ -76,11 +75,6 @@ class DebouncedContextInvalidator:
         self._delay_seconds = delay_ms / 1000
         self._pending: dict[UserUID, asyncio.Task[None]] = {}
         self._pending_reasons: dict[UserUID, list[str]] = {}
-        self._stats = {
-            "requests_received": 0,
-            "requests_debounced": 0,
-            "invalidations_executed": 0,
-        }
         logger.debug(f"DebouncedContextInvalidator initialized (delay={delay_ms}ms)")
 
     async def invalidate(
@@ -101,8 +95,6 @@ class DebouncedContextInvalidator:
             reason: Why invalidation was requested (for logging/metrics)
             affected_contexts: Which contexts are affected (passed to invalidate_fn)
         """
-        self._stats["requests_received"] += 1
-
         # Track all reasons for debugging
         if user_uid not in self._pending_reasons:
             self._pending_reasons[user_uid] = []
@@ -111,7 +103,6 @@ class DebouncedContextInvalidator:
         # Cancel any pending invalidation for this user
         if user_uid in self._pending:
             self._pending[user_uid].cancel()
-            self._stats["requests_debounced"] += 1
             logger.debug(
                 f"Debounced invalidation for {user_uid} "
                 f"(reasons so far: {self._pending_reasons[user_uid]})"
@@ -146,7 +137,6 @@ class DebouncedContextInvalidator:
 
             # Execute actual invalidation
             await self._invalidate_fn(user_uid, combined_reason, affected_contexts)
-            self._stats["invalidations_executed"] += 1
 
             logger.debug(
                 f"Executed debounced invalidation for {user_uid} "
@@ -160,62 +150,3 @@ class DebouncedContextInvalidator:
             # Cleanup
             self._pending.pop(user_uid, None)
             self._pending_reasons.pop(user_uid, None)
-
-    async def flush(self, user_uid: UserUID | None = None) -> Result[None]:
-        """
-        Immediately execute any pending invalidations.
-
-        Useful for testing or when you need to ensure invalidation completes.
-
-        Args:
-            user_uid: If provided, only flush for this user.
-                      If None, flush all pending invalidations.
-
-        Returns:
-            Result[None] indicating success.
-        """
-        if user_uid:
-            if user_uid in self._pending:
-                self._pending[user_uid].cancel()
-                await self._invalidate_fn(
-                    user_uid,
-                    "flush",
-                    None,
-                )
-                self._pending.pop(user_uid, None)
-                self._pending_reasons.pop(user_uid, None)
-        else:
-            # Flush all
-            for uid in list(self._pending.keys()):
-                await self.flush(uid)
-        return Result.ok(None)
-
-    def get_pending_count(self) -> int:
-        """Get number of pending invalidations."""
-        return len(self._pending)
-
-    def get_stats(self) -> dict[str, int]:
-        """
-        Get debouncing statistics.
-
-        Returns:
-            Dict with:
-            - requests_received: Total invalidation requests
-            - requests_debounced: Requests that were collapsed
-            - invalidations_executed: Actual invalidations performed
-        """
-        return self._stats.copy()
-
-    def get_efficiency(self) -> float:
-        """
-        Calculate debouncing efficiency (0.0 to 1.0).
-
-        Higher is better - means more requests were collapsed.
-
-        Returns:
-            Ratio of debounced requests to total requests.
-            Returns 0.0 if no requests received yet.
-        """
-        if self._stats["requests_received"] == 0:
-            return 0.0
-        return self._stats["requests_debounced"] / self._stats["requests_received"]

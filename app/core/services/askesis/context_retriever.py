@@ -238,12 +238,12 @@ class ContextRetriever:
                 "mocs": len(user_context.active_moc_uids),
             }
 
-        # For navigation/browsing questions, include MOC context
-        # MOC provides non-linear navigation across knowledge
+        # For navigation/browsing questions, include organizer context
+        # (emergent MOCs — owned entities with ORGANIZES edges provide
+        # non-linear navigation across knowledge)
         if user_context.active_moc_uids:
             context["moc_navigation"] = {
                 "active_mocs": len(user_context.active_moc_uids),
-                "current_focus": user_context.current_moc_focus,
                 "recently_viewed": user_context.recently_viewed_moc_uids[:3],
             }
 

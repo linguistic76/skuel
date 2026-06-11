@@ -5,7 +5,8 @@ Search Filter Dataclasses - Base Types Only
 *Last updated: 2026-01-04*
 
 Base filter types for search operations. Domain-specific filters should be
-defined locally within their service modules (see MocSearchFilters pattern).
+defined locally within their service modules as frozen subclasses of
+BaseSearchFilters.
 
 One Path Forward (January 2026):
     The Activity Domain filter classes (TaskSearchFilters, GoalSearchFilters, etc.)
@@ -14,7 +15,7 @@ One Path Forward (January 2026):
 
     For domain-specific search with typed filters:
     1. Use SearchRequest for UI/API searches (rich feature set, graph patterns)
-    2. Define local filter classes within services when needed (see MocSearchFilters)
+    2. Define local filter classes within services when needed
     3. BaseSearchFilters provides the common base for local filter classes
 
 Architecture (One Path Forward, January 2026):
@@ -23,9 +24,6 @@ Architecture (One Path Forward, January 2026):
     SearchRouter.faceted_search  → THE search orchestrator
         ↓
     Domain SearchServices        → graph_aware_faceted_search() or search()
-
-    DomainService.search_filtered(filters: LocalFilters)
-        → Domain-specific filtered search (e.g., MocSearchService)
 
 Version: 2.0.0
 Date: 2026-01-04
@@ -97,7 +95,6 @@ class BaseSearchFilters:
     Common filters across all domains.
 
     Domain-specific filter classes should inherit from this base.
-    See MocSearchFilters in core/services/moc/moc_search_service.py for example.
 
     Note: For most search operations, use SearchRequest (Pydantic model) instead.
     BaseSearchFilters is primarily for internal service implementations that need
@@ -105,12 +102,11 @@ class BaseSearchFilters:
 
     Usage:
         @dataclass(frozen=True)
-        class MocSearchFilters(BaseSearchFilters):
+        class KuSearchFilters(BaseSearchFilters):
             is_template: bool | None = None
             visibility: str | None = None
 
-        filters = MocSearchFilters(query="python", domain=Domain.TECH)
-        result = await ku_service.search_filtered(filters)
+        filters = KuSearchFilters(query="python", domain=Domain.TECH)
     """
 
     # Text search

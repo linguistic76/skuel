@@ -32,7 +32,7 @@ from core.ports.infrastructure_protocols import (
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
-from core.models.context_types import DailyWorkPlan, PathStep
+from core.models.context_types import DailyWorkPlan
 from core.services.user import UserContext
 from core.services.user.intelligence import UserContextIntelligenceFactory
 from core.services.user.unified_user_context import RichUserContext
@@ -795,59 +795,6 @@ class UserService:
         return await intelligence.get_ready_to_work_on_today(
             prioritize_life_path=prioritize_life_path,
             respect_capacity=respect_capacity,
-        )
-
-    async def get_next_path_steps(
-        self,
-        user_uid: UserUID,
-        max_steps: int = 5,
-        consider_goals: bool = True,
-        consider_capacity: bool = True,
-    ) -> Result[list[PathStep]]:
-        """
-        Get optimal next path steps for a user.
-
-        THE CORE METHOD - determine what to learn next based on ALL factors.
-
-        This combines:
-        - Prerequisites met (ready to learn)
-        - Goal alignment (helps achieve goals)
-        - User capacity (fits available time)
-        - Life path alignment (flows toward ultimate path)
-        - Energy level (matches current state)
-        - Unblocking potential (unlocks other items)
-
-        Args:
-            user_uid: User's unique identifier
-            max_steps: Maximum number of steps to return
-            consider_goals: Weight by goal alignment
-            consider_capacity: Respect user capacity limits
-
-        Returns:
-            Result[list[PathStep]]: Ranked list of optimal next path steps
-        """
-        # Check if intelligence factory is available
-        if not self.intelligence_factory:
-            return Result.fail(
-                Errors.system(
-                    message="Intelligence factory not available",
-                    operation="get_next_path_steps",
-                )
-            )
-
-        # Build rich user context — intelligence methods consume rich-only fields.
-        context_result = await self.get_rich_unified_context(user_uid)
-        if context_result.is_error:
-            return Result.fail(context_result)
-
-        context = context_result.value
-
-        # Create intelligence service from factory and get path steps
-        intelligence = self.intelligence_factory.create(context)
-        return await intelligence.get_optimal_next_path_steps(
-            max_steps=max_steps,
-            consider_goals=consider_goals,
-            consider_capacity=consider_capacity,
         )
 
 

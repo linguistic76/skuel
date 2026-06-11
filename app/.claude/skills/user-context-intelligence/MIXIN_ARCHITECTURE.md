@@ -266,7 +266,7 @@ class DailyPlanningMixin:
 Each of these 6 methods:
 - Takes `context: UserContext` (the single source of truth — no awareness-slice protocols)
 - Returns `Result.fail()` immediately if `context.is_rich_context` is `False` (standard `build()` context)
-- Uses `context.get_rich_entities(domain, filter_uids)` for entity extraction instead of manual loop
+- Reads `context.entities_rich.get(domain, [])` directly for entity extraction (not a SKUEL018 rich-only field — direct reads are the canonical path)
 
 **Key Logic:**
 - Synthesizes 10 entity domains into one daily plan

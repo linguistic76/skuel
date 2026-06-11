@@ -271,7 +271,7 @@ class LearningRecommendationEngine:
             content = ensure_content_protocol(raw_content)
 
             # Calculate scores
-            relevance = await self._calculate_relevance(content, user_context, analysis)
+            relevance = await self._calculate_relevance(content, analysis)
             readiness = self._calculate_readiness_score(content, analysis)
             difficulty_match = self._calculate_difficulty_match(content, analysis)
 
@@ -514,27 +514,18 @@ class LearningRecommendationEngine:
     # CONTENT SCORING (Private)
     # ========================================================================
 
-    async def _calculate_relevance(
-        self, content: Any, user_context: UserContext, analysis: LearningAnalysis
-    ) -> float:
+    async def _calculate_relevance(self, content: Any, analysis: LearningAnalysis) -> float:
         """
         Calculate content relevance score.
 
         Args:
             content: Content to score
-            user_context: User context
             analysis: Learning analysis
 
         Returns:
             Relevance score (0-1)
         """
         relevance = 0.5
-
-        # Check topic match
-        content_tags = set(content.tags)
-        user_interests = set(user_context.get_top_facets("tags", n=10))
-        if content_tags & user_interests:
-            relevance += 0.2
 
         # Check vector similarity if available
         if analysis.content_affinity_scores:

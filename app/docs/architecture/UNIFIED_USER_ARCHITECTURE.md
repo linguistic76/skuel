@@ -145,7 +145,7 @@ Four-tier system stored in `User.role` (Neo4j field):
 |------|-------|-----------------|
 | `REGISTERED` | 0 | Free trial — unlimited curriculum + activities |
 | `MEMBER` | 1 | Paid subscription — unlimited access |
-| `TEACHER` | 2 | Member + create/edit KU, LP, MOC |
+| `TEACHER` | 2 | Member + create/edit KU, PS, LP |
 | `ADMIN` | 3 | Teacher + user management, password reset |
 
 **Route protection:**
@@ -414,7 +414,7 @@ There is no parallel layer of ISP "awareness slice" protocols. `UserContext` is 
 
 **Cross-cutting fields used by `DomainPlanningMixin`:**
 - `is_rich_context: bool` — `True` only when built via `build_rich()`. Domain planning methods return `Result.fail()` immediately if `False`.
-- `get_rich_entities(domain, filter_uids=None)` — canonical accessor for `entities_rich[domain]` with optional UID filtering.
+- `entities_rich[domain]` — planning services read the rich entity lists directly (`context.entities_rich.get("tasks", [])`); `entities_rich` is not a SKUEL018 rich-only field, so direct reads are the canonical path.
 
 **Testing.** `UserContext` is a frozen dataclass with `default_factory` defaults on almost every field, so a minimal fixture is one line:
 

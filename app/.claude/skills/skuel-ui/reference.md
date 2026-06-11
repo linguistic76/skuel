@@ -463,11 +463,11 @@ return await SidebarPage(content=content, items=ITEMS, active="overview", title=
 
 **Pattern 2 — Extra sections (HTMX-loaded content):**
 ```python
-moc_section = Div(
-    H4("Maps of Content", cls="text-sm font-semibold opacity-60 px-3 mt-2"),
-    Div(id="moc-list", **{"hx-get": "/api/ku/moc-list", "hx-trigger": "load"}),
+extra_section = Div(
+    H4("Section Title", cls="text-sm font-semibold opacity-60 px-3 mt-2"),
+    Div(id="extra-list", **{"hx-get": "/your/fragment/route", "hx-trigger": "load"}),
 )
-return await SidebarPage(..., extra_sidebar_sections=[moc_section])
+return await SidebarPage(..., extra_sidebar_sections=[extra_section])
 ```
 
 **Pattern 3 — Custom item renderer (badges, custom layout):**
