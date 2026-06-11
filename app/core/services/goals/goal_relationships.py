@@ -81,39 +81,3 @@ class GoalRelationships:
     def empty(cls) -> GoalRelationships:
         """Create empty GoalRelationships (for testing or new goals)."""
         return cls()
-
-    def has_curriculum_alignment(self) -> bool:
-        """Check if goal has aligned learning paths."""
-        return len(self.aligned_learning_path_uids) > 0
-
-    def total_curriculum_dependencies(self) -> int:
-        """Calculate total curriculum dependencies."""
-        return (
-            len(self.aligned_learning_path_uids)
-            + len(self.requires_completion_of_paths)
-            + len(self.required_knowledge_uids)
-        )
-
-    def has_habit_support(self) -> bool:
-        """Check if goal has supporting habits."""
-        return len(self.supporting_habit_uids) > 0
-
-    def has_subgoals(self) -> bool:
-        """Check if goal has subgoals."""
-        return len(self.sub_goal_uids) > 0
-
-    def has_milestones(self) -> bool:
-        """Check if goal has milestones."""
-        return len(self.milestone_uids) > 0
-
-    def milestone_count(self) -> int:
-        """Get count of milestones for this goal."""
-        return len(self.milestone_uids)
-
-    def serves_life_path(self) -> bool:
-        """Check if goal serves user's life path."""
-        return len(self.serves_life_path_uids) > 0
-
-    def get_life_path_uid(self) -> str | None:
-        """Get the life path UID this goal serves (if any)."""
-        return self.serves_life_path_uids[0] if self.serves_life_path_uids else None

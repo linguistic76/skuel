@@ -224,31 +224,33 @@ _graph_enrichment_patterns = [
 
 **File:** `core/services/goals/goals_search_service.py`
 
-**Configuration:**
+**Configuration** (via `create_activity_domain_config("goals", ...)` — registry-derived):
 ```python
-_search_fields = ["title", "description", "success_criteria"]
-category_field = "domain"  # DomainConfig
-_graph_enrichment_patterns = [
-    ("FULFILLS_GOAL", "Task", "contributing_tasks", "incoming"),
-    ("SUPPORTS_GOAL", "Habit", "supporting_habits", "incoming"),
-    ("ALIGNED_WITH_PRINCIPLE", "Principle", "guiding_principles", "outgoing"),
-    ("REQUIRES_KNOWLEDGE", "Ku", "required_knowledge", "outgoing"),
-]
+search_fields = ("title", "description")
+category_field = "domain"  # Goals use the 'domain' field for categorization
+date_field = "target_date"
+# graph_enrichment_patterns come from the relationship registry (GOAPS_CONFIG):
+# REQUIRES_KNOWLEDGE → required_knowledge, GUIDED_BY_PRINCIPLE → aligned_principles,
+# SUBGOAL_OF → parent_goal / sub_goals, SUPPORTS_GOAL → contributing_habits +
+# essential/critical/optional_habits (essentiality-filtered), FULFILLS_GOAL →
+# contributing_tasks / related_goals, SERVES_LIFE_PATH → life_path, ...
 ```
 
 **Domain-Specific Methods:**
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_by_priority` | `(priority: Priority, user_uid: UserUID) -> Result[list[Goal]]` | Filter by priority |
-| `get_by_progress` | `(min_progress: float, max_progress: float, user_uid: UserUID) -> Result[list[Goal]]` | Filter by progress range |
-| `get_by_milestone_status` | `(status: str, user_uid: UserUID) -> Result[list[Goal]]` | Filter by milestone status |
-| `get_goals_needing_attention` | `(user_uid: UserUID) -> Result[list[Goal]]` | Stalled or at-risk goals |
-| `get_goals_with_tasks` | `(user_uid: UserUID) -> Result[list[Goal]]` | Goals with linked tasks |
-| `get_aligned_with_principle` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Goal]]` | Goals aligned with principle |
-| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Goal]]` | AI-enhanced search |
-| `list_milestones` | `(goal_uid: str, user_uid: UserUID) -> Result[list[dict]]` | Get goal milestones |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Goal]]` | Smart prioritization |
+| `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Goal]]` | Context-aware prioritization via `score_goal()` |
+| `intelligent_search` | `(query: str, user_uid: UserUID \| None, limit: int) -> Result[tuple[list[Goal], ParsedSearchQuery]]` | NL search — extracts timeframe/status keywords (PLANNED: unwired surface) |
+
+Everything else (`search()`, `get_by_status()`, `get_by_domain()`, `get_by_category()`,
+`list_user_categories()`, `get_by_relationship()`, `get_upcoming()`, `get_overdue()`,
+`get_active()`) is inherited from `BaseService` via `DomainConfig`. The former
+goals-specific extensions (`get_by_timeframe`, `get_needing_habits`,
+`get_blocked_by_knowledge`, `get_sub_goals`) were deleted in the 2026-06 dead-code
+campaign — zero callers; live equivalents are `GoalsLearningService`
+(`get_goals_needing_habits` / `get_goals_blocked_by_knowledge`), `PrerequisiteChecker`,
+and the core-service hierarchy methods.
 
 ---
 

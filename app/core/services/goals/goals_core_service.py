@@ -580,65 +580,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
     # with proper user_uid scoping. Dead duplicates removed March 2026.
 
     # ========================================================================
-    # SPECIALIZED OPERATIONS
-    # ========================================================================
-
-    async def mark_achieved(self, uid: str) -> Result[Goal]:
-        """
-        Mark a goal as achieved and publish GoalAchieved event.
-
-        This is a specialized operation that sets status to COMPLETED
-        and publishes a GoalAchieved event (high-priority event).
-
-        Args:
-            uid: Goal UID
-
-        Returns:
-            Result containing updated Goal
-
-        Events Published:
-            - GoalAchieved: When goal is successfully marked as achieved
-        """
-        # Get current goal to calculate metrics
-        goal_result = await self.get(uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        current_goal = goal_result.value
-
-        # Update status to completed (super().update so this method owns the GoalAchieved
-        # event below — update_goal would publish a second one).
-        result = await super().update(uid, GoalUpdateIntent(status=EntityStatus.COMPLETED.value))
-
-        # Publish GoalAchieved event
-        if result.is_ok:
-            goal = result.value
-
-            # Calculate duration metrics
-            actual_days: int | None = None
-            planned_days: int | None = None
-            ahead_of_schedule = False
-
-            if current_goal.created_at:
-                actual_days = (datetime.now() - current_goal.created_at).days
-
-            if current_goal.target_date and current_goal.created_at:
-                planned_days = (current_goal.target_date - current_goal.created_at).days
-                if actual_days and planned_days:
-                    ahead_of_schedule = actual_days < planned_days
-
-            event = GoalAchieved(
-                goal_uid=goal.uid,
-                user_uid=goal.user_uid,
-                actual_duration_days=actual_days,
-                planned_duration_days=planned_days,
-                completed_ahead_of_schedule=ahead_of_schedule,
-            )
-            await publish_event(self.event_bus, event, self.logger)
-
-        return result
-
-    # ========================================================================
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)
     # Delegated to GoalsBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
