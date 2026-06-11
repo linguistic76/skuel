@@ -109,14 +109,14 @@ result = await goals_search.get_by_domain(Domain.HEALTH, user_uid="user.123")
 ```
 
 #### `get_by_category(category: str, user_uid: UserUID | None = None) -> Result[list[Model]]`
-Filter by `_category_field` (varies by domain).
+Filter by the DomainConfig `category_field` (varies by domain — e.g. Goals `domain`, Habits `habit_category`).
 
 ```python
 result = await principles_search.get_by_category("core_values", user_uid="user.123")
 ```
 
 #### `list_categories(user_uid: UserUID | None = None) -> Result[list[str]]`
-Get distinct values of `_category_field`.
+Get distinct values of the DomainConfig `category_field`.
 
 ```python
 result = await habits_search.list_categories(user_uid="user.123")
@@ -169,8 +169,8 @@ class GoalsSearchService(BaseService["GoalsOperations", Goal]):
     _search_fields: ClassVar[list[str]] = ["title", "description"]
     _search_order_by: str = "created_at"
 
-    # Categorization
-    _category_field: str = "domain"  # or "category", "type", etc.
+    # Categorization: category_field comes from DomainConfig (e.g. "domain",
+    # "habit_category") — the raw _category_field class attribute was deleted
 
     # Content (for curriculum)
     _content_field: str = "content"
@@ -200,7 +200,7 @@ class GoalsSearchService(BaseService["GoalsOperations", Goal]):
 **Configuration:**
 ```python
 _search_fields = ["title", "description"]
-_category_field = "category"
+category_field = "category"  # DomainConfig (default)
 _graph_enrichment_patterns = [
     ("FULFILLS_GOAL", "Goal", "parent_goals", "outgoing"),
     ("APPLIES_KNOWLEDGE", "Ku", "applied_knowledge", "outgoing"),
@@ -229,7 +229,7 @@ _graph_enrichment_patterns = [
 **Configuration:**
 ```python
 _search_fields = ["title", "description", "success_criteria"]
-_category_field = "domain"
+category_field = "domain"  # DomainConfig
 _graph_enrichment_patterns = [
     ("FULFILLS_GOAL", "Task", "contributing_tasks", "incoming"),
     ("SUPPORTS_GOAL", "Habit", "supporting_habits", "incoming"),
@@ -261,7 +261,7 @@ _graph_enrichment_patterns = [
 **Configuration:**
 ```python
 _search_fields = ["title", "description", "cue", "routine", "reward"]
-_category_field = "frequency"
+category_field = "habit_category"  # DomainConfig
 _graph_enrichment_patterns = [
     ("SUPPORTS_GOAL", "Goal", "supported_goals", "outgoing"),
     ("REINFORCES_KNOWLEDGE", "Ku", "reinforced_knowledge", "outgoing"),
@@ -292,7 +292,7 @@ _graph_enrichment_patterns = [
 **Configuration:**
 ```python
 _search_fields = ["title", "description", "location"]
-_category_field = "event_type"
+category_field = "category"  # DomainConfig (default)
 _graph_enrichment_patterns = [
     ("RELATED_TO_GOAL", "Goal", "related_goals", "outgoing"),
     ("APPLIES_KNOWLEDGE", "Ku", "applied_knowledge", "outgoing"),
@@ -324,7 +324,7 @@ _graph_enrichment_patterns = [
 **Configuration:**
 ```python
 _search_fields = ["title", "description", "context"]
-_category_field = "category"
+category_field = "category"  # DomainConfig (default)
 _graph_enrichment_patterns = [
     ("AFFECTS_GOAL", "Goal", "affected_goals", "outgoing"),
     ("ALIGNED_WITH_PRINCIPLE", "Principle", "guiding_principles", "outgoing"),
@@ -351,7 +351,7 @@ _graph_enrichment_patterns = [
 **Configuration:**
 ```python
 _search_fields = ["title", "description", "rationale"]
-_category_field = "category"
+category_field = "principle_category"  # DomainConfig
 _graph_enrichment_patterns = [
     ("GUIDES_GOAL", "Goal", "guided_goals", "outgoing"),
     ("INSPIRES_HABIT", "Habit", "inspired_habits", "outgoing"),
@@ -393,7 +393,7 @@ _graph_enrichment_patterns = [
 **Configuration:**
 ```python
 _search_fields = ["title", "content", "tags"]
-_category_field = "domain"
+category_field = "namespace"  # DomainConfig
 _content_field = "content"
 _user_ownership_relationship = None  # Shared content
 _graph_enrichment_patterns = [
@@ -432,7 +432,7 @@ _graph_enrichment_patterns = [
 **Configuration:**
 ```python
 _search_fields = ["title", "intent", "description"]
-_category_field = "learning_type"
+category_field = "category"  # DomainConfig (default)
 _user_ownership_relationship = None  # Shared content
 _graph_enrichment_patterns = [
     ("CONTAINS_KNOWLEDGE", "Ku", "knowledge_units", "outgoing"),
@@ -459,7 +459,7 @@ _graph_enrichment_patterns = [
 **Configuration:**
 ```python
 _search_fields = ["name", "goal", "description"]
-_category_field = "domain"
+category_field = "category"  # DomainConfig (default)
 _user_ownership_relationship = None  # Shared content (can be user-created)
 _graph_enrichment_patterns = [
     ("HAS_STEP", "PathStep", "steps", "outgoing"),

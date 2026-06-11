@@ -82,6 +82,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
         search_fields=("name", "statement", "description", "why_important"),
+        category_field="principle_category",  # Principles store category as 'principle_category'
     )
 
     # ========================================================================

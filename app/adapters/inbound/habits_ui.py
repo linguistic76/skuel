@@ -78,6 +78,7 @@ def create_habits_ui_routes(
         dual_track_assess=habits_service.intelligence.assess_consistency_dual_track,
         dual_track_level_enum=ConsistencyLevel,
         dual_track_label="Consistency",
+        list_categories=habits_service.search.list_user_categories,
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 

@@ -87,8 +87,8 @@ class DomainSearchOperations(Protocol[T]):
 | `get_by_relationship()` | Graph traversal queries | Uses `_dto_class`, `_model_class` |
 | `get_by_status()` | Filter by status field | Generic implementation |
 | `get_by_domain()` | Filter by Domain enum | Generic implementation |
-| `get_by_category()` | Filter by category field | Uses `_category_field` |
-| `list_categories()` | List unique category values | Uses `_category_field` |
+| `get_by_category()` | Filter by category field | Uses DomainConfig `category_field` |
+| `list_categories()` | List unique category values | Uses DomainConfig `category_field` |
 | `get_prerequisites()` | Traverse prerequisite chains | Uses `_prerequisite_relationships` |
 | `get_enables()` | Traverse enables chains | Uses `_enables_relationships` |
 
@@ -103,7 +103,8 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # Optional overrides (defaults shown)
     _search_fields = ["title", "description"]  # Fields for text search
     _search_order_by = "created_at"            # Sort order for results
-    _category_field = "category"               # Field for get_by_category/list_categories
+    # category_field is DomainConfig-only (the raw _category_field class attribute
+    # was deleted 2026-06-10 — it silently bypassed DomainConfig)
 
     # Prerequisite/enables chains (January 2026)
     _prerequisite_relationships: ClassVar[list[str]] = [
@@ -129,7 +130,7 @@ async def get_by_status(self, status: str, limit: int = 100) -> Result[list[Prin
 ```
 
 **Common override scenarios:**
-- Different field names (e.g., Goals use `domain` for categorization → `_category_field = "domain"`)
+- Different field names (e.g., Goals use `domain` for categorization → `category_field="domain"` in DomainConfig)
 - Different data types (e.g., Principles use `is_active` boolean instead of `status` string)
 - Domain-specific enum mapping (e.g., Principles map Domain → PrincipleCategory)
 - Fundamentally different temporal semantics (e.g., Habits override `get_upcoming`/`get_overdue`/`get_active` for frequency-based logic)
@@ -310,7 +311,7 @@ Each SearchService extends the protocol with domain-appropriate methods. Methods
 class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     _dto_class = GoalDTO
     _model_class = Goal
-    _category_field = "domain"  # Goals use 'domain' for categorization
+    # DomainConfig sets category_field="domain"  # Goals use 'domain' for categorization
     _prerequisite_relationships = [REQUIRES_KNOWLEDGE, DEPENDS_ON_GOAL]
     _enables_relationships = [ENABLES_GOAL]
 

@@ -188,6 +188,7 @@ class HabitsService(
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(EntityStatus.ARCHIVED.value,),
+        category_field="habit_category",  # Habits store category as 'habit_category'
     )
 
     # ========================================================================
