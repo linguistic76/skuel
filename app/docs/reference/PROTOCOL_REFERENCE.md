@@ -322,7 +322,7 @@ All domain operation protocols use `Result[T]` return types and define **persist
 
 **What domain protocols do NOT contain** (lives on facade services instead):
 - State transitions: `complete_task()`, `complete_goal()`, `record_completion()`
-- Orchestration methods: `analyze_decision_patterns()`, `calculate_principle_integrity()`
+- Orchestration methods: `get_decision_patterns()`, `calculate_principle_integrity()`
 - Cross-domain context: `get_*_cross_domain_context()` (not on backend)
 
 ### Typed Backend Subclasses (February 2026)
