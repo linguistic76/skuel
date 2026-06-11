@@ -35,8 +35,8 @@ from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import (
+        BaseRelationshipOperations,
         PrinciplesOperations,
-        PrinciplesRelationshipOperations,
     )
     from core.services.insight.insight_store import InsightStore
 
@@ -78,7 +78,7 @@ class PrincipleEventHandlerService:
     def __init__(
         self,
         backend: PrinciplesOperations,
-        relationship_service: PrinciplesRelationshipOperations | None = None,
+        relationship_service: BaseRelationshipOperations | None = None,
         insight_store: InsightStore | None = None,
         event_bus: Any = None,
     ) -> None:

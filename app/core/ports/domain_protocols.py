@@ -897,20 +897,24 @@ class PrinciplesOperations(
 
 
 # ============================================================================
-# RELATIONSHIP SERVICE PROTOCOLS
+# RELATIONSHIP SERVICE PROTOCOL
 # ============================================================================
 # Added: November 11, 2025
-# Purpose: Protocol interfaces for domain relationship services
-# Architecture: "Protocol-Based Architecture" - all services use protocols
+# Purpose: Protocol interface for the relationship service injected into
+# domain services (satisfied by UnifiedRelationshipService). The per-domain
+# *RelationshipOperations children were contract residue of the pre-
+# CrossDomainQueryService design (every member phantom) and were deleted
+# 2026-06 — cross-domain reads live on CrossDomainQueryService / the typed
+# cross-context readers; registry reads go through get_related_uids.
 
 
 @runtime_checkable
 class BaseRelationshipOperations(Protocol):
     """
-    Base protocol for domain relationship services.
+    Protocol for the relationship service consumed by domain services.
 
-    All relationship services must implement cross-domain context retrieval.
-    Domain-specific protocols extend this with additional methods.
+    Satisfied by UnifiedRelationshipService: cross-domain context retrieval
+    plus registry-keyed related-UID reads.
     """
 
     async def get_cross_domain_context(
@@ -945,127 +949,6 @@ class BaseRelationshipOperations(Protocol):
         Returns:
             Result[list[str]] of related UIDs
         """
-        ...
-
-
-@runtime_checkable
-class TasksRelationshipOperations(BaseRelationshipOperations, Protocol):
-    """Tasks relationship operations protocol."""
-
-    async def get_task_cross_domain_context(
-        self, task_uid: str, depth: int = 2
-    ) -> Result[GraphContextResult]:
-        """
-        Get cross-domain context for a task with configurable graph traversal depth.
-
-        Args:
-            task_uid: Task UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-        """
-        ...
-
-    async def get_task_knowledge(self, task_uid: str) -> Result[builtins.list[str]]:
-        """Get knowledge UIDs applied by this task."""
-        ...
-
-    async def get_task_dependencies(self, task_uid: str) -> Result[GraphContextResult]:
-        """Get task dependency information."""
-        ...
-
-
-@runtime_checkable
-class HabitsRelationshipOperations(BaseRelationshipOperations, Protocol):
-    """Habits relationship operations protocol."""
-
-    async def get_habit_knowledge(self, habit_uid: str) -> Result[builtins.list[str]]:
-        """Get knowledge UIDs reinforced by this habit."""
-        ...
-
-    async def get_habit_goals(self, habit_uid: str) -> Result[builtins.list[str]]:
-        """Get goal UIDs supported by this habit."""
-        ...
-
-    async def get_habit_principles(self, habit_uid: str) -> Result[builtins.list[str]]:
-        """Get principle UIDs aligned with this habit."""
-        ...
-
-    async def link_habit_to_knowledge(
-        self, habit_uid: str, knowledge_uid: str, confidence: float = 0.9
-    ) -> Result[bool]:
-        """Link habit to knowledge unit."""
-        ...
-
-
-@runtime_checkable
-class EventsRelationshipOperations(BaseRelationshipOperations, Protocol):
-    """Events relationship operations protocol."""
-
-    async def get_event_cross_domain_context(
-        self, event_uid: str, depth: int = 2
-    ) -> Result[GraphContextResult]:
-        """
-        Get cross-domain context for an event with configurable graph traversal depth.
-
-        Args:
-            event_uid: Event UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-        """
-        ...
-
-    async def get_event_knowledge(self, event_uid: str) -> Result[builtins.list[str]]:
-        """Get knowledge UIDs practiced in this event."""
-        ...
-
-    async def get_event_goals(self, event_uid: str) -> Result[builtins.list[str]]:
-        """Get goal UIDs supported by this event."""
-        ...
-
-
-@runtime_checkable
-class GoalsRelationshipOperations(BaseRelationshipOperations, Protocol):
-    """Goals relationship operations protocol (base relationship surface only)."""
-
-
-@runtime_checkable
-class PrinciplesRelationshipOperations(BaseRelationshipOperations, Protocol):
-    """Principles relationship operations protocol."""
-
-    async def get_principle_choices(self, principle_uid: str) -> Result[builtins.list[str]]:
-        """Get choice UIDs informed by this principle."""
-        ...
-
-    async def get_principle_knowledge(self, principle_uid: str) -> Result[builtins.list[str]]:
-        """Get knowledge UIDs grounding this principle."""
-        ...
-
-
-@runtime_checkable
-class ChoicesRelationshipOperations(BaseRelationshipOperations, Protocol):
-    """Choices relationship operations protocol."""
-
-    async def get_choice_cross_domain_context(
-        self, choice_uid: str, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[GraphContextResult]:
-        """
-        Get cross-domain context for a choice with configurable graph traversal depth.
-
-        Args:
-            choice_uid: Choice UID
-            depth: Graph traversal depth (1=direct relationships, 2+=multi-hop, default=2)
-            min_confidence: Minimum confidence threshold for relationships (default=0.7)
-        """
-        ...
-
-    async def get_choice_principles(self, choice_uid: str) -> Result[builtins.list[str]]:
-        """Get principle UIDs informing this choice."""
-        ...
-
-    async def get_choice_goals(self, choice_uid: str) -> Result[builtins.list[str]]:
-        """Get goal UIDs influenced by this choice."""
-        ...
-
-    async def link_choice_to_principle(self, choice_uid: str, principle_uid: str) -> Result[bool]:
-        """Link choice to principle."""
         ...
 
 
