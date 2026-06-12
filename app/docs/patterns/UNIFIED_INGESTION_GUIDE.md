@@ -728,18 +728,24 @@ tags: [health, nervous-system]
 | Endpoint | Method | Request Body | Response |
 |----------|--------|--------------|----------|
 | `/api/ingest/file` | POST | `{"file_path": "/path/to/file"}` | Entity dict |
-| `/api/ingest/directory` | POST | `{"path": "/dir", "pattern": "*.md", "ingestion_mode": "incremental"}` | IngestionStats/IncrementalStats |
-| `/api/ingest/vault` | POST | `{"path": "/vault", "subdirs": ["docs"]}` | IngestionStats |
-| `/api/ingest/bundle` | POST | `{"path": "/bundle"}` | BundleStats |
+| `/api/ingest/directory` | POST | `{"directory": "/dir", "pattern": "*.md", "ingestion_mode": "incremental"}` | IngestionStats/IncrementalStats |
+| `/api/ingest/vault` | POST | `{"vault_path": "/vault", "subdirs": ["docs"]}` | IngestionStats (full mode) |
+| `/api/ingest/bundle` | POST | `{"bundle_path": "/bundle"}` | BundleStats |
 | `/ingest` | GET | - | Dashboard UI |
 
-### Example: Incremental ingestion via curl
+All endpoints are admin-only and CSRF-protected — a scripted caller needs an authenticated
+session plus the `X-CSRF-Token` header (see `scripts/vault_watch.py` for the canonical client).
+`ingestion_mode` is accepted by `/api/ingest/directory` only; since directory scanning recurses,
+point it at the vault root for an incremental whole-vault sync.
+
+### Example: Automated incremental vault sync
 
 ```bash
-# Incremental directory ingestion
-curl -X POST http://localhost:5001/api/ingest/directory \
-  -H "Content-Type: application/json" \
-  -d '{"path": "/docs/curriculum", "pattern": "*.md", "ingestion_mode": "incremental"}'
+# Continuous watcher (poll + debounce → incremental ingest on change)
+./dev vault-watch
+
+# One-shot incremental ingest (cron / systemd timer)
+./dev vault-watch -- --once
 ```
 
 ---

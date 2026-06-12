@@ -124,6 +124,11 @@ case "$1" in
     uv run python main.py
     ;;
 
+  vault-watch)
+    echo -e "${GREEN}Watching vault for changes (incremental ingestion)...${NC}"
+    uv run python scripts/vault_watch.py "${@:2}"
+    ;;
+
   css)
     echo -e "${GREEN}Watching CSS changes...${NC}"
     npm run css:watch
@@ -268,6 +273,7 @@ case "$1" in
     echo ""
     echo "Development:"
     echo "  ./dev serve          - Start development server (requires Neo4j running)"
+    echo "  ./dev vault-watch    - Watch vault, trigger incremental ingestion (--once for cron)"
     echo "  ./dev css            - Watch and rebuild CSS on changes"
     echo "  ./dev css-build      - Build CSS once"
     echo "  ./dev css-prod       - Build minified CSS for production"
