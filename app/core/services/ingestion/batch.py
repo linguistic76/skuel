@@ -516,14 +516,38 @@ async def ingest_directory(
                     errors=[{"message": "No files found"}],
                 )
             )
-        else:
-            return Result.ok(
-                IncrementalStats(
-                    total_files=0,
-                    duration_seconds=0,
-                    errors=[{"message": "No files found"}],
+        # Deletion propagation must still run: deleting the last files matching
+        # the pattern lands here with all_files empty. The mass-deletion valve
+        # (inside reconcile_deletions) covers the everything-vanished case;
+        # this covers e.g. all *.md deleted while tracked *.yaml files survive.
+        empty_errors: list[dict[str, Any]] = [{"message": "No files found"}]
+        entities_deleted = 0
+        edges_deleted = 0
+        stale_metadata_removed = 0
+        if ingestion_backend is not None and not dry_run:
+            empty_tracker = IngestionTracker(ingestion_backend)
+            reconcile_result = await empty_tracker.reconcile_deletions(directory)
+            if reconcile_result.is_ok:
+                entities_deleted = reconcile_result.value.entities_deleted
+                edges_deleted = reconcile_result.value.edges_deleted
+                stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+            else:
+                empty_errors.append(
+                    {
+                        "message": f"Deletion reconciliation failed: {reconcile_result.error}",
+                        "operation": "reconcile_deletions",
+                    }
                 )
+        return Result.ok(
+            IncrementalStats(
+                total_files=0,
+                duration_seconds=0,
+                entities_deleted=entities_deleted,
+                edges_deleted=edges_deleted,
+                stale_metadata_removed=stale_metadata_removed,
+                errors=empty_errors,
             )
+        )
 
     # Initialize ingestion tracking for incremental modes
     files_to_process = all_files

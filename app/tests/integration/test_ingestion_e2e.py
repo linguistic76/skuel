@@ -512,6 +512,50 @@ relationship: RELATED_TO
 
 
 @pytest.mark.asyncio
+async def test_deleting_all_pattern_matched_files_still_reconciles(
+    ingestion_service, valid_ku_directory, neo4j_driver
+):
+    """Deleting every file matching the pattern lands in the 'No files found'
+    early return — reconciliation must still run there. The surviving tracked
+    YAML keeps the mass-deletion valve from triggering."""
+    edge_file = valid_ku_directory / "edge-00-01.yaml"
+    edge_file.write_text(
+        """type: Edge
+from: ku.e2e-test-00
+to: ku.e2e-test-01
+relationship: RELATED_TO
+"""
+    )
+
+    result1 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*",
+        ingestion_mode="incremental",
+    )
+    assert result1.is_ok
+
+    for md_file in valid_ku_directory.glob("*.md"):
+        md_file.unlink()
+
+    result2 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*.md",  # nothing matches now -> empty-files early return
+        ingestion_mode="incremental",
+    )
+    assert result2.is_ok
+    stats = result2.value
+    assert isinstance(stats, IncrementalStats)
+    assert stats.total_files == 0
+    assert stats.entities_deleted == 5
+
+    async with neo4j_driver.session() as session:
+        gone = await session.run(
+            "MATCH (e:Entity) WHERE e.uid STARTS WITH 'ku.e2e-test-' RETURN count(e) AS n"
+        )
+        assert (await gone.single())["n"] == 0
+
+
+@pytest.mark.asyncio
 async def test_renamed_file_keeps_entity_drops_stale_tracking(
     ingestion_service, valid_ku_directory, neo4j_driver
 ):
