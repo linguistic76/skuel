@@ -768,9 +768,8 @@ ChoicesIntelligenceService extends `BaseAnalyticsService[ChoicesOperations, Choi
 - All analytics work via graph queries, not AI
 
 **Domain-Specific Attributes:**
-- `self.context_service` - CrossDomainContextService for typed context retrieval (Phase 3)
 - `self.relationships` - UnifiedRelationshipService backing the inherited mechanism-B `get_with_context` (registry-sourced graph context)
-- `self.path_helper` - PathAwareAnalyzer for cascade analysis (Phase 4)
+- `self.cross_domain_query` - CrossDomainQueryService for cross-domain reads
 
 **Dual-Track Assessment Template:**
 - `_dual_track_assessment()` - Template method for vision vs. action gap analysis
@@ -919,7 +918,6 @@ assert service._service_name == "choices.intelligence"
 assert service.backend == backend
 assert service.graph_intel == graph_intel
 assert service.relationships == relationships
-assert service.path_helper is not None
 ```
 
 ---

@@ -38,10 +38,7 @@ from core.services.intelligence.query_intelligence_service import (
 )
 
 # consolidation: Shared helper utilities (January 2026)
-from core.services.intelligence.recommendation_engine import (
-    RecommendationEngine,
-    RecommendationLevel,
-)
+from core.services.intelligence.recommendation_engine import RecommendationEngine
 from core.services.intelligence.trend_analyzer import (
     Trend,
     analyze_activity_trajectory,
@@ -74,7 +71,6 @@ __all__ = [
     "MetricsCalculator",
     "PatternAnalyzer",
     "RecommendationEngine",
-    "RecommendationLevel",
     "Trend",
     "analyze_activity_trajectory",
     "analyze_completion_trend",

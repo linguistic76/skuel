@@ -36,7 +36,6 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._core_intelligence_mixin import (
     _CoreIntelligenceMixin as ChoiceCoreIntelMixin,
 )
-from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 
@@ -334,7 +333,6 @@ class _ChoiceIntelHarness(ChoiceCoreIntelMixin, BaseAnalyticsService):
     def __init__(self, backend: _FakeChoiceBackend, relationships: Any) -> None:
         self.backend = backend
         self.relationships = relationships
-        self.path_helper = PathAwareAnalyzer()
         self.graph_intel = object()
 
 

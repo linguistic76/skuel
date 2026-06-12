@@ -101,18 +101,18 @@ they need a decision to wire up.
 correctly. Per-user tier control requires a billing model — specifically, which features are
 free vs paid — and that model has not been defined.
 
-**The problem**: `core/services/intelligence_tier_service.py` implements `get_user_intelligence_tier(user_uid)`
-and returns per-user tier based on role. It is not wired to route middleware. Currently all users
-get the same tier controlled by the env var.
+**The problem**: `core/services/intelligence_tier_service.py` implements the pure function
+`get_user_intelligence_tier(system_tier, user_role)` — system tier is the ceiling, REGISTERED
+gets CORE, MEMBER+ get the system tier. It is not wired anywhere (registered in the bloat
+detector's PLANNED tier). Currently all users get the same tier controlled by the env var.
 
 **What to do**:
 
 1. Define the billing model: which `UserRole` levels get FULL tier? (e.g., MEMBER and above?)
-2. In `services_bootstrap.py`, wire `intelligence_tier_service` into the route dependency chain.
-3. Replace the env-var gating in the three bootstrap gating points with
-   `await intelligence_tier_service.get_user_intelligence_tier(user_uid)`.
-4. Update route middleware to pass `user_uid` to the tier check (requires auth context at
-   service-selection time, not just inside route handlers).
+2. Wire the tier resolution into the AI-gating points below `services_bootstrap/` — replace the
+   env-var-only check with `get_user_intelligence_tier(system_tier, user.user_role)`.
+3. Update route middleware to resolve the user's role at service-selection time (requires auth
+   context before route handlers run).
 
 **Enable when**: Billing model defined — specifically, which subscription tier gets AI features.
 
