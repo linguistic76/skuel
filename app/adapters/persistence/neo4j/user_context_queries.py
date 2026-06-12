@@ -813,8 +813,11 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // ====================================================================
 // LIFE PATH - Fetch user's designated life path
+// Designation flips entity_type on the LP node (no label swap) and stores
+// the alignment score on the ULTIMATE_PATH edge — match/read accordingly
+// (LifePathBackend.designate_life_path / update_alignment_score).
 // ====================================================================
-OPTIONAL MATCH (user)-[lp_rel:ULTIMATE_PATH]->(life_path:LifePath)
+OPTIONAL MATCH (user)-[lp_rel:ULTIMATE_PATH]->(life_path:Entity {entity_type: 'life_path'})
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -827,7 +830,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      steps_rich,
      life_path.uid AS life_path_uid,
      lp_rel.designated_at AS life_path_designated_at,
-     user.life_path_alignment_score AS life_path_alignment_score
+     lp_rel.alignment_score AS life_path_alignment_score
 
 // ====================================================================
 // MOCs - Maps of Content (emergent — any Entity with ORGANIZES relationships)

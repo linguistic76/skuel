@@ -301,6 +301,13 @@ _DSL_BRIDGE_VARIANTS = (
     "(context variant = feed UserContext goals/topics/principles; sync variant = the "
     "CORE-tier no-LLM fallback)"
 )
+_LIFEPATH_WORD_ACTION = (
+    "words-vs-actions integrity lens staged — the concept-defining LifePath check "
+    "('Are you LIVING what you SAID?'): vision themes vs UserContext action themes, "
+    "no live equivalent (the live 5-dimension alignment measures graph edges, not "
+    "theme overlap); wire as the words-vs-actions panel on the /lifepath alignment "
+    "dashboard next to the live dimension breakdown"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -605,6 +612,12 @@ PLANNED_METHODS: dict[str, str] = {
     # --- DSL: LLM bridge variants (Analog-to-Digital flagship, phase 1) ---
     "core/services/dsl/llm_dsl_bridge.py::transform_with_context": _DSL_BRIDGE_VARIANTS,
     "core/services/dsl/llm_dsl_bridge.py::transform_sync": _DSL_BRIDGE_VARIANTS,
+    # --- LifePath: word-action alignment lens ---
+    "core/services/lifepath/lifepath_service.py::check_word_action_alignment": (
+        _LIFEPATH_WORD_ACTION
+    ),
+    "core/services/lifepath/lifepath_types.py::biggest_gap": _LIFEPATH_WORD_ACTION,
+    "core/services/lifepath/lifepath_types.py::get_gap_summary": _LIFEPATH_WORD_ACTION,
     # --- Intelligence tier: per-user entitlement (ADR-043 billing stub) ---
     "core/services/intelligence_tier_service.py::get_user_intelligence_tier": (
         "per-user AI entitlement staged — the deliberate ADR-043 'Per-User Tier Stub' "

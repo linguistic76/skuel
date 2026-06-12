@@ -248,6 +248,12 @@ class LifePathCoreService:
         Removes the ULTIMATE_PATH relationship, reverts the Ku's entity_type
         back to 'learning_path', but keeps vision data on the User node.
 
+        STAGED (2026-06-12, bloat campaign 10): no route/UI consumes this yet —
+        the forward direction is a "release this path" action on the /lifepath
+        dashboard (the 1:1 designation invariant needs an exit door). Collision-
+        masked from the bloat detector (the backend call below shares the name),
+        so it cannot live in PLANNED_METHODS; this note is the staging record.
+
         Args:
             user_uid: User identifier
 
