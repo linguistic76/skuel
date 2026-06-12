@@ -20,6 +20,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.models.relationship_names import RelationshipName
 
 
 class IngestionBackend:
@@ -255,4 +256,26 @@ class IngestionBackend:
             RETURN item.file_path AS file_path, item.entity_uid AS entity_uid
             """,
             {"items": items},
+        )
+
+    async def delete_edge_with_metadata(
+        self, file_path: str, from_uid: str, to_uid: str, rel_type: RelationshipName
+    ) -> Result[list[dict[str, Any]]]:
+        """Delete the relationship a vault-removed Edge YAML created, plus its tracking row.
+
+        ``rel_type`` is a ``RelationshipName`` — the enum type makes the
+        interpolation injection-safe, mirroring ``IngestionWriteBackend.ingest_edge``.
+        A missing relationship (already removed by hand) still cleans up the
+        metadata row.
+        """
+        return await self._executor.execute_query(
+            f"""
+            MATCH (s:IngestionMetadata {{file_path: $file_path}})
+            OPTIONAL MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+            DELETE r
+            WITH DISTINCT s
+            DETACH DELETE s
+            RETURN $file_path AS file_path
+            """,
+            {"file_path": file_path, "from_uid": from_uid, "to_uid": to_uid},
         )

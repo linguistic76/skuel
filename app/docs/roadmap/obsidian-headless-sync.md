@@ -158,8 +158,10 @@ files (IngestionMetadata) under the directory that no longer exist on disk have 
 content chunks, and tracking row removed. Two guards: moved/renamed files (same entity_uid
 re-ingested under a new path) lose only the stale tracking row; and if EVERY tracked file
 vanished at once (unmounted vault, sync wipe) deletion is refused with a warning — a full
-teardown is an explicit admin operation, not a watcher side effect. Known limitation: deleting
-an Edge YAML does not remove the relationship (edge files are not metadata-tracked).
+teardown is an explicit admin operation, not a watcher side effect. Edge YAMLs propagate too:
+edge files are metadata-tracked with the relationship identity (`edge:{from}|{REL}|{to}` in the
+uid slot), so deleting the file deletes exactly that relationship — and unchanged edge files
+now skip on incremental runs instead of re-merging every time.
 
 ### Phase 3: Server Deployment (Stage 2 — Droplet)
 

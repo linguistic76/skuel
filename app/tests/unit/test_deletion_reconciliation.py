@@ -24,6 +24,9 @@ def _tracker_with_tracked(rows: list[dict]) -> tuple[IngestionTracker, MagicMock
     backend.delete_entities_with_metadata = AsyncMock(
         side_effect=_echo_items_as_result,
     )
+    backend.delete_edge_with_metadata = AsyncMock(
+        return_value=Result.ok([{"file_path": "x"}]),
+    )
     backend.delete_ingestion_metadata = AsyncMock(
         return_value=Result.ok([{"deleted": 1}]),
     )
@@ -107,6 +110,78 @@ class TestReconcileDeletions:
         assert result.is_ok
         assert result.value.entities_deleted == 0
         backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_deleted_edge_file_removes_relationship(self, tmp_path) -> None:
+        """An Edge YAML's tracking row carries the relationship identity —
+        deleting the file deletes the relationship."""
+        from core.models.relationship_names import RelationshipName
+
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone_edge = tmp_path / "edge-a-b.yaml"  # never created
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone_edge), "entity_uid": "edge:ku.a|RELATED_TO|ku.b"},
+            ]
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert result.value.edges_deleted == 1
+        assert result.value.entities_deleted == 0
+        backend.delete_edge_with_metadata.assert_awaited_once_with(
+            str(gone_edge), "ku.a", "ku.b", RelationshipName.RELATED_TO
+        )
+        backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unparseable_edge_identity_cleans_tracking_only(self, tmp_path) -> None:
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone_edge = tmp_path / "edge-bad.yaml"
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone_edge), "entity_uid": "edge:not-an-identity"},
+            ]
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert result.value.edges_deleted == 0
+        assert result.value.stale_metadata_removed == 1
+        backend.delete_edge_with_metadata.assert_not_called()
+        backend.delete_ingestion_metadata.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_stale_metadata_delete_failure_propagates(self, tmp_path) -> None:
+        """A backend failure removing a stale (moved-file) tracking row must
+        fail the reconciliation — not report a clean sync."""
+        from core.utils.result_simplified import Errors
+
+        new_path = tmp_path / "ku.thing-new.md"
+        new_path.write_text("x")
+        old_path = tmp_path / "ku.thing.md"  # missing
+        alive = tmp_path / "ku.other.md"
+        alive.write_text("y")
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(old_path), "entity_uid": "ku.thing"},
+                {"file_path": str(new_path), "entity_uid": "ku.thing"},
+                {"file_path": str(alive), "entity_uid": "ku.other"},
+            ]
+        )
+        backend.delete_ingestion_metadata = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="delete", message="boom"))
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_error
 
     @pytest.mark.asyncio
     async def test_relative_paths_stored_canonical(self, tmp_path, monkeypatch) -> None:

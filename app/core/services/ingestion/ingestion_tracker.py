@@ -29,6 +29,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID
 from core.services.ingestion.types import DeletionReconciliation
 from core.utils.logging import get_logger
@@ -38,6 +39,27 @@ if TYPE_CHECKING:
     from core.ports.ingestion_protocols import IngestionBackendOperations
 
 logger = get_logger("skuel.services.ingestion.ingestion_tracker")
+
+# Edge files are tracked in IngestionMetadata like entity files, with the
+# relationship identity encoded in the entity_uid slot. The prefix tells
+# reconciliation to delete a relationship instead of a node.
+EDGE_UID_PREFIX = "edge:"
+_EDGE_IDENTITY_SEP = "|"
+
+
+def edge_identity(from_uid: str, rel_type: str, to_uid: str) -> str:
+    """Encode an edge's identity for the IngestionMetadata entity_uid slot."""
+    return f"{EDGE_UID_PREFIX}{from_uid}{_EDGE_IDENTITY_SEP}{rel_type}{_EDGE_IDENTITY_SEP}{to_uid}"
+
+
+def parse_edge_identity(identity: str) -> tuple[str, str, str] | None:
+    """Decode (from_uid, rel_type, to_uid) from an edge identity string."""
+    if not identity.startswith(EDGE_UID_PREFIX):
+        return None
+    parts = identity[len(EDGE_UID_PREFIX) :].split(_EDGE_IDENTITY_SEP)
+    if len(parts) != 3 or not all(parts):
+        return None
+    return parts[0], parts[1], parts[2]
 
 
 @dataclass
@@ -337,7 +359,8 @@ class IngestionTracker:
             )
             return Result.ok(DeletionReconciliation(mass_deletion_refused=True))
 
-        # Entity uids still claimed by a file that exists = moves/renames.
+        # Identities still claimed by a file that exists = moves/renames
+        # (covers duplicate edge files declaring the same relationship too).
         live_uids = {row["entity_uid"] for row in tracked if Path(str(row["file_path"])).exists()}
         stale_rows = [row for row in missing if row["entity_uid"] in live_uids]
         delete_rows = [row for row in missing if row["entity_uid"] not in live_uids]
@@ -347,13 +370,24 @@ class IngestionTracker:
             stale_result = await self.delete_ingestion_metadata(
                 [Path(str(row["file_path"])) for row in stale_rows]
             )
-            stale_removed = stale_result.value if stale_result.is_ok else 0
+            if stale_result.is_error:
+                # A swallowed failure here would leave the old path's row to be
+                # rediscovered every run while the API reports a clean sync.
+                return Result.fail(stale_result)
+            stale_removed = stale_result.value
+
+        entity_rows = [
+            row for row in delete_rows if not str(row["entity_uid"]).startswith(EDGE_UID_PREFIX)
+        ]
+        edge_rows = [
+            row for row in delete_rows if str(row["entity_uid"]).startswith(EDGE_UID_PREFIX)
+        ]
 
         entities_deleted = 0
-        if delete_rows:
+        if entity_rows:
             items = [
                 {"file_path": str(row["file_path"]), "entity_uid": str(row["entity_uid"])}
-                for row in delete_rows
+                for row in entity_rows
             ]
             delete_result = await self.backend.delete_entities_with_metadata(items)
             if delete_result.is_error:
@@ -365,9 +399,41 @@ class IngestionTracker:
                 directory,
             )
 
+        edges_deleted = 0
+        for row in edge_rows:
+            parsed = parse_edge_identity(str(row["entity_uid"]))
+            rel_type = RelationshipName.from_string(parsed[1]) if parsed else None
+            if parsed is None or rel_type is None:
+                # Unparseable identity — clean the tracking row, leave the graph.
+                self.logger.warning(
+                    "Edge deletion skipped (unparseable identity %r) for %s — "
+                    "removing tracking row only",
+                    row["entity_uid"],
+                    row["file_path"],
+                )
+                cleanup_result = await self.delete_ingestion_metadata([Path(str(row["file_path"]))])
+                if cleanup_result.is_error:
+                    return Result.fail(cleanup_result)
+                stale_removed += 1
+                continue
+            edge_result = await self.backend.delete_edge_with_metadata(
+                str(row["file_path"]), parsed[0], parsed[2], rel_type
+            )
+            if edge_result.is_error:
+                return Result.fail(edge_result)
+            edges_deleted += 1
+        if edges_deleted:
+            self.logger.info(
+                "Deletion propagation: removed %d relationships for vault-deleted "
+                "edge files under %s",
+                edges_deleted,
+                directory,
+            )
+
         return Result.ok(
             DeletionReconciliation(
                 entities_deleted=entities_deleted,
+                edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_removed,
             )
         )

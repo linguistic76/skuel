@@ -740,10 +740,12 @@ point it at the vault root for an incremental whole-vault sync.
 
 **Deletion propagation (incremental/smart only):** vault file deleted → graph entity deleted.
 After processing, tracked files under the directory that no longer exist on disk have their
-entity + content chunks + IngestionMetadata removed (`IngestionTracker.reconcile_deletions`).
-Moved/renamed files lose only the stale tracking row; a 100%-missing sweep (unmounted vault)
-is refused as a safety valve. Edge YAML deletion does NOT remove the relationship (edge files
-are not metadata-tracked). Response fields: `entities_deleted`, `stale_metadata_removed`.
+entity + content subtree (Content/ContentChunk/ContentMetadata) + IngestionMetadata removed
+(`IngestionTracker.reconcile_deletions`). Edge YAMLs propagate too — tracked with the
+relationship identity (`edge:{from}|{REL}|{to}`) in the uid slot, so deleting the file deletes
+exactly that relationship (and unchanged edge files skip on later runs). Moved/renamed files
+lose only the stale tracking row; a 100%-missing sweep (unmounted vault) is refused as a
+safety valve. Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`.
 
 ### Example: Automated incremental vault sync
 

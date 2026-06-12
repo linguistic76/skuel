@@ -83,6 +83,10 @@ class IngestionBackendOperations(Protocol):
         self, items: list[dict[str, str]]
     ) -> Result[list[dict[str, Any]]]: ...
 
+    async def delete_edge_with_metadata(
+        self, file_path: str, from_uid: str, to_uid: str, rel_type: RelationshipName
+    ) -> Result[list[dict[str, Any]]]: ...
+
 
 @runtime_checkable
 class IngestionWriteOperations(Protocol):

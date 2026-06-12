@@ -296,6 +296,7 @@ def create_ingestion_api_routes(
                     payload["files_ingested"] = stats.files_ingested
                     payload["skip_efficiency"] = stats.skip_efficiency
                     payload["entities_deleted"] = stats.entities_deleted
+                    payload["edges_deleted"] = stats.edges_deleted
                     payload["stale_metadata_removed"] = stats.stale_metadata_removed
                 return Result.ok(payload)
             else:

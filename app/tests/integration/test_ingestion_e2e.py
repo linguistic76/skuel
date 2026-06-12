@@ -455,6 +455,63 @@ async def test_deletion_propagation_removes_entity(
 
 
 @pytest.mark.asyncio
+async def test_deleted_edge_file_removes_relationship(
+    ingestion_service, valid_ku_directory, neo4j_driver
+):
+    """Deleting an Edge YAML removes the relationship it created (2026-06-12
+    ruling follow-up) — edge files are metadata-tracked with the relationship
+    identity, so reconciliation can target the exact edge."""
+    edge_file = valid_ku_directory / "edge-00-01.yaml"
+    edge_file.write_text(
+        """type: Edge
+from: ku.e2e-test-00
+to: ku.e2e-test-01
+relationship: RELATED_TO
+"""
+    )
+
+    result1 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*",
+        ingestion_mode="incremental",
+    )
+    assert result1.is_ok
+
+    async with neo4j_driver.session() as session:
+        created = await session.run(
+            "MATCH (:Entity {uid: 'ku.e2e-test-00'})-[r:RELATED_TO]->"
+            "(:Entity {uid: 'ku.e2e-test-01'}) RETURN count(r) AS n"
+        )
+        assert (await created.single())["n"] == 1
+
+    edge_file.unlink()
+
+    result2 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*",
+        ingestion_mode="incremental",
+    )
+    assert result2.is_ok
+    stats = result2.value
+    assert isinstance(stats, IncrementalStats)
+    assert stats.edges_deleted == 1
+    assert stats.entities_deleted == 0
+
+    async with neo4j_driver.session() as session:
+        gone = await session.run(
+            "MATCH (:Entity {uid: 'ku.e2e-test-00'})-[r:RELATED_TO]->"
+            "(:Entity {uid: 'ku.e2e-test-01'}) RETURN count(r) AS n"
+        )
+        assert (await gone.single())["n"] == 0
+        # Both endpoint entities survive — only the relationship goes.
+        kept = await session.run(
+            "MATCH (e:Entity) WHERE e.uid IN ['ku.e2e-test-00', 'ku.e2e-test-01'] "
+            "RETURN count(e) AS n"
+        )
+        assert (await kept.single())["n"] == 2
+
+
+@pytest.mark.asyncio
 async def test_renamed_file_keeps_entity_drops_stale_tracking(
     ingestion_service, valid_ku_directory, neo4j_driver
 ):
