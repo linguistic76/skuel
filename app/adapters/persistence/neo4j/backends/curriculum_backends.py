@@ -22,7 +22,6 @@ from core.models.pathways.path_step import PathStep
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     PsDeleteStepRow,
-    PsKnowledgeItemResult,
     PsKnowledgeSummaryResult,
     PsStandaloneStepRow,
     PsStepWithKnowledgeRow,
@@ -417,65 +416,8 @@ class PsBackend(
         return Result.ok(result.value[0].get("next_sequence", 0))
 
     # ========================================================================
-    # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)
+    # KNOWLEDGE RELATIONSHIPS (CONTAINS_KNOWLEDGE edges — written at ingestion)
     # ========================================================================
-
-    async def add_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """MERGE CONTAINS_KNOWLEDGE relationship between PS and KU."""
-        query = """
-        MATCH (ps:Entity {uid: $ps_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (ps)-[r:CONTAINS_KNOWLEDGE]->(ku)
-        SET r.created_at = COALESCE(r.created_at, datetime()),
-            r.updated_at = datetime()
-        RETURN r
-        """
-        result = await self.execute_query(query, {"ps_uid": ps_uid, "ku_uid": ku_uid})
-        if result.is_error:
-            return Result.fail(result)
-        success = len(result.value or []) > 0
-        if success:
-            self.logger.info(f"Created CONTAINS_KNOWLEDGE: {ps_uid} -> {ku_uid}")
-        return Result.ok(success)
-
-    async def remove_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """DELETE CONTAINS_KNOWLEDGE relationship between PS and KU."""
-        query = """
-        MATCH (ps:Entity {uid: $ps_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-        DELETE r
-        RETURN count(r) as deleted
-        """
-        result = await self.execute_query(query, {"ps_uid": ps_uid, "ku_uid": ku_uid})
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        deleted = records[0]["deleted"] if records else 0
-        success = deleted > 0
-        if success:
-            self.logger.info(f"Removed CONTAINS_KNOWLEDGE: {ps_uid} -> {ku_uid}")
-        return Result.ok(success)
-
-    async def list_knowledge(self, ps_uid: str) -> Result[list[PsKnowledgeItemResult]]:
-        """List CONTAINS_KNOWLEDGE relationships."""
-        query = """
-        MATCH (ps:Entity {uid: $ps_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        RETURN ku.uid as uid, ku.title as title, ku.domain as domain,
-               r.created_at as created_at
-        ORDER BY r.created_at, ku.title
-        """
-        result = await self.execute_query(query, {"ps_uid": ps_uid})
-        if result.is_error:
-            return Result.fail(result)
-        items: list[PsKnowledgeItemResult] = [
-            {
-                "uid": r["uid"],
-                "title": r["title"],
-                "domain": r["domain"],
-                "created_at": r["created_at"],
-            }
-            for r in result.value or []
-        ]
-        return Result.ok(items)
 
     async def get_knowledge_summary(self, ps_uid: str) -> Result[PsKnowledgeSummaryResult]:
         """Aggregate count and UIDs of knowledge in this step."""
@@ -685,26 +627,6 @@ class PsBackend(
     # SEARCH QUERIES (migrated from PsSearchService)
     # ========================================================================
 
-    async def get_steps_for_learning_path(
-        self, path_uid: str, limit: int = 100
-    ) -> Result[list[dict[str, Any]]]:
-        """Get PathStep nodes belonging to a learning path, ordered by sequence.
-
-        Args:
-            path_uid: Learning path UID
-            limit: Maximum results
-
-        Returns:
-            Result containing raw PS node records
-        """
-        query = """
-        MATCH (lp:Entity {uid: $path_uid})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})
-        RETURN ps
-        ORDER BY ps.sequence ASC
-        LIMIT $limit
-        """
-        return await self.execute_query(query, {"path_uid": path_uid, "limit": limit})
-
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PsStandaloneStepRow]]:
         """Get PathStep nodes not belonging to any learning path.
 
@@ -725,28 +647,6 @@ class PsBackend(
             "Result[list[PsStandaloneStepRow]]",
             await self.execute_query(query, {"limit": limit}),
         )
-
-    async def get_steps_using_ku(
-        self, ku_uid: str, limit: int = 20
-    ) -> Result[list[dict[str, Any]]]:
-        """Get PathStep nodes that contain/teach a knowledge unit.
-
-        Graph Pattern: (PS)-[:CONTAINS_KNOWLEDGE]->(Ku)
-
-        Args:
-            ku_uid: Knowledge unit UID
-            limit: Maximum results
-
-        Returns:
-            Result containing raw PS node records
-        """
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:Entity {entity_type: 'path_step'})
-        RETURN ps
-        ORDER BY ps.sequence ASC
-        LIMIT $limit
-        """
-        return await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
 
     async def get_prioritized_steps(
         self, user_uid: UserUID, limit: int = 20

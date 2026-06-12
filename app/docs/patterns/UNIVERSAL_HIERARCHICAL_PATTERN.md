@@ -238,13 +238,11 @@ class PS:
 (ps:PathStep)-[:CONTAINS_KNOWLEDGE]->(ku:Curriculum)
 ```
 
-**Service Methods:**
-
-```python
-# PS Knowledge Methods (pending implementation)
-await ps_service.add_knowledge_relationship(ps_uid, ku_uid, type="primary")
-await ps_service.get_contained_knowledge(ps_uid, type="primary")
-```
+**Edge lifecycle:** CONTAINS_KNOWLEDGE edges are written at ingestion time
+(registry `yaml_field_path="knowledge_uids"` → `ingest_edge`); reads go through
+`PsService.get_step()` (knowledge_uids traversal) and
+`find_path_steps_containing()`. The never-wired service-level add/remove/list
+wrappers were deleted in the 2026-06 curriculum dead-code campaign.
 
 ---
 

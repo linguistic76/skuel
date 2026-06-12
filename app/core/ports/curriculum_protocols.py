@@ -83,7 +83,6 @@ from core.ports.query_types import (
     OrganizerResult,
     PrereqMasteryResult,
     PsDeleteStepRow,
-    PsKnowledgeItemResult,
     PsKnowledgeSummaryResult,
     PsPracticeSummaryResult,
     PsStandaloneStepRow,
@@ -493,20 +492,8 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)
+    # KNOWLEDGE RELATIONSHIPS (CONTAINS_KNOWLEDGE edges — written at ingestion)
     # =========================================================================
-
-    async def add_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """MERGE CONTAINS_KNOWLEDGE relationship between PathStep and KU."""
-        ...
-
-    async def remove_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """DELETE CONTAINS_KNOWLEDGE relationship between PathStep and KU."""
-        ...
-
-    async def list_knowledge(self, ps_uid: str) -> Result[list[PsKnowledgeItemResult]]:
-        """List CONTAINS_KNOWLEDGE relationships."""
-        ...
 
     async def get_knowledge_summary(self, ps_uid: str) -> Result[PsKnowledgeSummaryResult]:
         """Aggregate count and UIDs of knowledge in this step."""
@@ -605,20 +592,8 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     # SEARCH QUERIES
     # =========================================================================
 
-    async def get_steps_for_learning_path(
-        self, path_uid: str, limit: int = 100
-    ) -> Result[list[dict[str, Any]]]:
-        """Get PathStep nodes belonging to a learning path, ordered by sequence."""
-        ...
-
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PsStandaloneStepRow]]:
         """Get PathStep nodes not belonging to any learning path."""
-        ...
-
-    async def get_steps_using_ku(
-        self, ku_uid: str, limit: int = 20
-    ) -> Result[list[dict[str, Any]]]:
-        """Get PathStep nodes that contain/teach a knowledge unit."""
         ...
 
     async def get_prioritized_steps(

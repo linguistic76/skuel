@@ -37,7 +37,6 @@ from tests.fixtures.embedding_fixtures import (
     services_with_embeddings,
 )
 from tests.fixtures.service_factories import (
-    create_adaptive_lp_facade_for_testing,
     create_askesis_user_context_for_testing,
     create_finance_service_for_testing,
     create_knowledge_state_for_testing,
@@ -53,7 +52,6 @@ __all__ = [
     "create_unified_user_context_for_testing",
     "create_finance_service_for_testing",
     "create_tasks_service_for_testing",
-    "create_adaptive_lp_facade_for_testing",
     "create_askesis_user_context_for_testing",
     "create_knowledge_state_for_testing",
     "create_mock_backend",
