@@ -1,9 +1,9 @@
 """
-Submission Activity Extractor Service
-======================================
+Activity Extractor Service
+==========================
 
-Extracts Activity Lines from processed submission content and creates
-corresponding SKUEL entities across ALL 13 SKUEL domains:
+Extracts Activity Lines from UserEntry content and creates corresponding
+SKUEL entities:
 
 **Activity Domains (7) - What I DO:**
 - Tasks, Habits, Goals, Events (original 4)
@@ -12,37 +12,28 @@ corresponding SKUEL entities across ALL 13 SKUEL domains:
 **Curriculum Domains (3) - What I LEARN:**
 - KnowledgeUnit (KU), PathStep (PS), LearningPath (LP)
 
-**Meta Domains (3) - How I ORGANIZE:**
-- Submissions, Analytics, Calendar
+**Meta Domains (2) - How I ORGANIZE:**
+- Submissions, Calendar
 
 **The Destination (+1) - Where I'm GOING:**
 - LifePath (the ultimate life goal)
 
-This service integrates with the SubmissionsProcessingService pipeline:
-
-```
-Audio/Text → Transcription → LLM Formatting → **Activity Extraction** → Entity Creation
-```
-
 **Design Principles:**
 
-1. **Non-destructive**: Extraction doesn't modify the submission content
+1. **Non-destructive**: Extraction doesn't modify the entry content
 2. **Idempotent**: Re-extraction updates existing entities, doesn't duplicate
 3. **Graph-aware**: Creates entities connected to the user's ownership graph
-4. **Optional**: Activity extraction is opt-in via instructions
-5. **13-Domain Complete**: Covers all SKUEL domains for complete DSL support
+4. **12-Domain Complete**: Covers all DSL-extractable SKUEL domains
 
-**Integration Point:**
+**Wiring status (staged — PLANNED tier):**
 
-Called after LLM formatting in SubmissionsProcessingService._process_audio/text():
-```python
-# After LLM formatting succeeds
-if instructions.get("extract_activities", False):
-    await activity_extractor.extract_and_create(
-        report=updated_report,
-        user_uid=report.user_uid,
-    )
-```
+The production wiring was deliberately retired with the journal pipeline in
+ADR-054 Commit 6a. The forward direction is NOT a resurrection of that
+submission-metadata flow: extraction belongs on the unified ingestion path —
+a `UserEntryProcessingService.process()` pipeline step over UserEntry content,
+feeding the same create paths every other entry takes. One path forward.
+Note for the rewire: `_store_extraction_metadata` still targets the retired
+`get_submission`/`update_submission` service surface and must be repointed.
 """
 
 from dataclasses import dataclass, field
@@ -52,31 +43,30 @@ from typing import Any, Protocol, runtime_checkable
 from core.models.entity_types import SubmissionEntity
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import HasUID
+from core.services.dsl.activity_domain_converters import (
+    # Activity Domains (6)
+    activity_to_choice_dict,
+    activity_to_event_dict,
+    activity_to_goal_dict,
+    activity_to_habit_dict,
+    activity_to_principle_dict,
+    activity_to_task_request,
+)
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,
-    ParsedJournal,
 )
-from core.services.dsl.activity_entity_converter import (
-    ActivityEntityConverter,
-    activity_to_analytics_dict,
-    # Meta Domains (3)
+from core.services.dsl.specialized_domain_converters import (
+    # Meta Domains (2)
     activity_to_calendar_dict,
-    activity_to_choice_dict,
-    activity_to_event_dict,
     activity_to_finance_dict,
-    activity_to_goal_dict,
-    activity_to_habit_dict,
     # Curriculum Domains (3)
     activity_to_ku_dict,
     # The Destination (+1)
     activity_to_lifepath_dict,
     activity_to_lp_dict,
-    activity_to_principle_dict,
     activity_to_ps_dict,
     activity_to_report_dict,
-    # Activity Domains (7)
-    activity_to_task_request,
 )
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -137,13 +127,13 @@ class ActivityExtractionResult:
     """
     Result of activity extraction from a submission.
 
-    Contains counts of created entities across ALL 13 SKUEL domains
+    Contains counts of created entities across ALL 12 DSL-extractable SKUEL domains
     and any errors encountered.
 
     **Domain Categories:**
     - Activity Domains (7): Tasks, Habits, Goals, Events, Principles, Choices, Finance
     - Curriculum Domains (3): KU, PS, LP
-    - Meta Domains (3): Submissions, Analytics, Calendar
+    - Meta Domains (2): Submissions, Calendar
     - The Destination (+1): LifePath
     """
 
@@ -170,9 +160,8 @@ class ActivityExtractionResult:
     path_steps_found: int = 0
     learning_paths_found: int = 0
 
-    # Meta Domains (3)
+    # Meta Domains (2)
     reports_found: int = 0
-    analytics_found: int = 0
     calendar_items_found: int = 0
 
     # The Destination (+1)
@@ -196,9 +185,8 @@ class ActivityExtractionResult:
     path_steps_created: int = 0
     learning_paths_created: int = 0
 
-    # Meta Domains (3)
+    # Meta Domains (2)
     reports_created: int = 0
-    analytics_created: int = 0
     calendar_items_created: int = 0
 
     # The Destination (+1)
@@ -222,9 +210,8 @@ class ActivityExtractionResult:
     created_ps_uids: list[str] = field(default_factory=list)
     created_lp_uids: list[str] = field(default_factory=list)
 
-    # Meta Domains (3)
+    # Meta Domains (2)
     created_report_uids: list[str] = field(default_factory=list)
-    created_analytics_uids: list[str] = field(default_factory=list)
     created_calendar_uids: list[str] = field(default_factory=list)
 
     # The Destination (+1)
@@ -254,9 +241,8 @@ class ActivityExtractionResult:
             + self.kus_created
             + self.path_steps_created
             + self.learning_paths_created
-            # Meta Domains (3)
+            # Meta Domains (2)
             + self.reports_created
-            + self.analytics_created
             + self.calendar_items_created
             # The Destination (+1)
             + self.lifepath_items_created
@@ -285,9 +271,8 @@ class ActivityExtractionResult:
             "kus_found": self.kus_found,
             "path_steps_found": self.path_steps_found,
             "learning_paths_found": self.learning_paths_found,
-            # Meta Domains (3)
+            # Meta Domains (2)
             "reports_found": self.reports_found,
-            "analytics_found": self.analytics_found,
             "calendar_items_found": self.calendar_items_found,
             # The Destination (+1)
             "lifepath_items_found": self.lifepath_items_found,
@@ -305,9 +290,8 @@ class ActivityExtractionResult:
             "kus_created": self.kus_created,
             "path_steps_created": self.path_steps_created,
             "learning_paths_created": self.learning_paths_created,
-            # Meta Domains (3)
+            # Meta Domains (2)
             "reports_created": self.reports_created,
-            "analytics_created": self.analytics_created,
             "calendar_items_created": self.calendar_items_created,
             # The Destination (+1)
             "lifepath_items_created": self.lifepath_items_created,
@@ -325,9 +309,8 @@ class ActivityExtractionResult:
             "created_ku_uids": self.created_ku_uids,
             "created_ps_uids": self.created_ps_uids,
             "created_lp_uids": self.created_lp_uids,
-            # Meta Domains (3)
+            # Meta Domains (2)
             "created_report_uids": self.created_report_uids,
-            "created_analytics_uids": self.created_analytics_uids,
             "created_calendar_uids": self.created_calendar_uids,
             # The Destination (+1)
             "created_lifepath_uids": self.created_lifepath_uids,
@@ -352,7 +335,7 @@ class ActivityExtractionResult:
 class ActivityExtractorService:
     """
     Extracts Activity Lines from submission content and creates SKUEL entities
-    across ALL 13 SKUEL domains + 1 destination.
+    across ALL 12 DSL-extractable SKUEL domains + 1 destination.
 
     **Activity Domains (7) - What I DO:**
     - Tasks: One-time actions with deadlines
@@ -368,9 +351,8 @@ class ActivityExtractorService:
     - PathStep (PS): Single step in a learning journey
     - LearningPath (LP): Complete learning sequence
 
-    **Meta Domains (3) - How I ORGANIZE:**
+    **Meta Domains (2) - How I ORGANIZE:**
     - Submissions: File uploads and processing requests
-    - Analytics: Statistical aggregation and analysis
     - Calendar: Scheduled activity views
 
     **The Destination (+1) - Where I'm GOING:**
@@ -392,9 +374,8 @@ class ActivityExtractorService:
         ku_service=ku_service,
         ps_service=ps_service,
         lp_service=lp_service,
-        # Meta Domains (3)
+        # Meta Domains (2)
         report_service=report_service,
-        analytics_service=analytics_service,
         calendar_service=calendar_service,
         # The Destination (+1)
         lifepath_service=lifepath_service,
@@ -436,15 +417,14 @@ class ActivityExtractorService:
         ku_service: Any = None,  # PsCoreService
         ps_service: Any = None,  # PsCoreService
         lp_service: Any = None,  # LpCoreService
-        # Meta Domains (3)
+        # Meta Domains (2)
         report_service: Any = None,  # SubmissionsCoreService (for metadata updates)
-        analytics_service: Any = None,  # AnalyticsService
         calendar_service: Any = None,  # CalendarService
         # The Destination (+1)
         lifepath_service: Any = None,  # LifePathService
     ) -> None:
         """
-        Initialize the extractor with domain services for all 13 SKUEL domains.
+        Initialize the extractor with domain services for all 12 DSL-extractable SKUEL domains.
 
         All services are optional - extraction will skip entity types
         for which no service is provided.
@@ -464,9 +444,8 @@ class ActivityExtractorService:
             ps_service: Service for creating path steps
             lp_service: Service for creating learning paths
 
-            # Meta Domains (3)
+            # Meta Domains (2)
             report_service: Service for updating submission metadata
-            analytics_service: Service for generating analytics
             calendar_service: Service for creating calendar items
 
             # The Destination (+1)
@@ -486,16 +465,14 @@ class ActivityExtractorService:
         self.ps_service = ps_service
         self.lp_service = lp_service
 
-        # Meta Domains (3)
+        # Meta Domains (2)
         self.report_service = report_service
-        self.analytics_service = analytics_service
         self.calendar_service = calendar_service
 
         # The Destination (+1)
         self.lifepath_service = lifepath_service
 
         self.parser = ActivityDSLParser()
-        self.converter = ActivityEntityConverter()
         self.logger = get_logger("skuel.dsl.extractor")
 
     # ========================================================================
@@ -559,7 +536,7 @@ class ActivityExtractorService:
         extraction.path_steps_found = len(parsed.get_path_steps())
         extraction.learning_paths_found = len(parsed.get_learning_paths())
 
-        # Meta Domains (3)
+        # Meta Domains (2)
         extraction.reports_found = len(parsed.get_reports())
         extraction.calendar_items_found = len(parsed.get_calendar_items())
 
@@ -576,7 +553,7 @@ class ActivityExtractorService:
             # Curriculum Domains (3)
             f"{extraction.kus_found} KUs, {extraction.path_steps_found} LSs, "
             f"{extraction.learning_paths_found} LPs, "
-            # Meta Domains (3)
+            # Meta Domains (2)
             f"{extraction.reports_found} reports, "
             f"{extraction.calendar_items_found} calendar items, "
             # The Destination (+1)
@@ -1254,50 +1231,6 @@ class ActivityExtractorService:
 
         return Result.ok(new_report_uid)
 
-    @with_error_handling(error_type="system", operation="create_analytics")
-    async def _create_analytics(
-        self, activity: ParsedActivityLine, user_uid: UserUID
-    ) -> Result[str | None]:
-        """
-        Create/trigger an Analytics report from parsed activity.
-
-        Note: Analytics are typically generated, not stored. This method
-        triggers analytics generation based on the parsed request.
-
-        Returns an analytics ID or None if creation failed.
-        """
-        convert_result = activity_to_analytics_dict(activity)
-        if convert_result.is_error:
-            return Result.fail(convert_result)
-
-        analytics_dict = convert_result.value
-
-        # Generate analytics via service
-        if getattr(self.analytics_service, "generate_report", None):
-            create_result = await self.analytics_service.generate_report(analytics_dict, user_uid)
-        elif getattr(self.analytics_service, "create", None):
-            create_result = await self.analytics_service.create(analytics_dict, user_uid)
-        else:
-            return Result.fail(
-                Errors.system(
-                    message="Analytics service has no generate/create method",
-                    operation="create_analytics",
-                )
-            )
-
-        if create_result.is_error:
-            return Result.fail(create_result)
-
-        analytics = create_result.value
-        analytics_uid = (
-            analytics.uid
-            if getattr(analytics, "uid", None)
-            else analytics.get("uid", "analytics_generated")
-        )
-        self.logger.debug(f"Created/Generated Analytics: {analytics_uid}")
-
-        return Result.ok(analytics_uid)
-
     @with_error_handling(error_type="system", operation="create_calendar_item")
     async def _create_calendar_item(
         self, activity: ParsedActivityLine, user_uid: UserUID
@@ -1430,25 +1363,11 @@ class ActivityExtractorService:
     # EXTRACTION-ONLY (NO ENTITY CREATION)
     # ========================================================================
 
-    def extract_activities(self, content: str) -> Result[ParsedJournal]:
-        """
-        Extract Activity Lines without creating entities.
-
-        Useful for preview/validation before committing to entity creation.
-
-        Args:
-            content: Submission content to parse
-
-        Returns:
-            Result containing ParsedJournal with all activities
-        """
-        return self.parser.parse_journal(content)
-
     def preview_extraction(self, content: str) -> dict[str, Any]:
         """
         Preview what would be extracted without creating entities.
 
-        Returns a summary dict suitable for UI display covering ALL 13 SKUEL domains.
+        Returns a summary dict suitable for UI display covering ALL 12 DSL-extractable SKUEL domains.
 
         Args:
             content: Submission content to parse

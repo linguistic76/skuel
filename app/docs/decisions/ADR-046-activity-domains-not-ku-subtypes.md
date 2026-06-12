@@ -109,7 +109,7 @@ When modeling a new concept:
 
 All six Activity Domains now link to knowledge: the MEGA-QUERY (`user_context_queries.py`) traverses
 the Choice (`INFORMED_BY_KNOWLEDGE`) and Principle (`GROUNDED_IN_KNOWLEDGE`) edges alongside Task/Habit/Event,
-and ingestion wires all six via `dsl_knowledge_connector` / the per-domain core services. The original
+and ingestion wires all six via the per-domain core services. The original
 "remaining work" (choice/principle backend link methods, confidence constants, MEGA-QUERY traversals) is done.
 
 ## Key Files

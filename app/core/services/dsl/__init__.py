@@ -2,22 +2,22 @@
 SKUEL DSL Module
 ================
 
-Domain-Specific Language for parsing Activity Lines from journal text
+Domain-Specific Language for parsing Activity Lines from freeform text
 with **type-safe EntityType/NonKuDomain contexts**.
 
-This module provides the bridge from freeform journal input to structured
-SKUEL entities across all SKUEL domains AND semantic knowledge graph connections.
+This module provides the bridge from freeform user input to structured
+SKUEL entities across all SKUEL domains.
 
 **Domains:**
 - Activity Domains (6): Tasks, Habits, Goals, Events, Principles, Choices
 - Curriculum Domains (3): KnowledgeUnit (KU), PathStep (PS), LearningPath (LP)
 - Non-Ku Domains: Finance, Calendar, Learning (modifier)
-- Content Processing: Report/Assignment
+- Content Processing: Report
 - The Destination (+1): LifePath
 
 **Type Safety (v0.5.0):**
 
-The @context() tag values are now parsed to `EntityType` or `NonKuDomain` enum values:
+The @context() tag values are parsed to `EntityType` or `NonKuDomain` enum values:
 - `ParsedActivityLine.contexts` is `list[EntityType | NonKuDomain]` instead of `list[str]`
 - Compile-time verification of valid entity types
 - IDE autocomplete for EntityType/NonKuDomain values
@@ -32,9 +32,18 @@ The @context() tag values are now parsed to `EntityType` or `NonKuDomain` enum v
 - `ParsedJournal`: Collection of parsed activities from a document
 - `LLMDSLBridgeService`: LLM-powered natural text to DSL converter
 - `ActivityExtractorService`: Extracts activities and creates entities
-- `ActivityEntityConverter`: Converts parsed activities to create requests
-- `DSLKnowledgeConnector`: Plans semantic graph connections from DSL tags
-- `DSLConnectionExecutor`: Executes planned connections via relationship services
+- `activity_to_*` converter functions: ParsedActivityLine → create requests
+  (in `activity_domain_converters` / `specialized_domain_converters`)
+
+Graph connections ride the create requests themselves: converters emit link
+UIDs (`applies_knowledge_uids`, `fulfills_goal_uid`, `linked_*_uids`) that the
+graph-aware create paths persist as edges. There is no separate post-create
+connection step.
+
+**Wiring status:** the DSL pipeline is staged (PLANNED tier), not wired. Its
+production wiring was retired with the journal pipeline in ADR-054 Commit 6a;
+the forward direction is extraction as a step on the unified ingestion path
+(UserEntry processing), not a resurrection of the submission-metadata flow.
 
 **Usage:**
 
@@ -91,19 +100,12 @@ extractor = ActivityExtractorService(
     ku_service=ku_service,
 )
 result = await extractor.extract_and_create(assignment, user_uid)
-
-# === PHASE 4: Knowledge Graph Connections ===
-from core.services.dsl import DSLKnowledgeConnector, plan_activity_connections
-
-connector = DSLKnowledgeConnector()
-plan = connector.plan_connections(activity)
-print(f"Will create {plan.total_connections} graph edges")
 ```
 
 **Complete Pipeline:**
 
 ```
-Natural Journal Text
+Natural Text
         |
 LLMDSLBridgeService.transform()
         |
@@ -116,15 +118,18 @@ ParsedJournal with EntityType/NonKuDomain contexts (type-safe!)
 ActivityExtractorService.extract_and_create()
         |
 SKUEL Entities (Tasks, Habits, Goals, KUs, etc.)
-        |
-DSLKnowledgeConnector.plan_connections()
-        |
-Graph Relationships (APPLIES_KNOWLEDGE, FULFILLS_GOAL, etc.)
+   with graph edges from link UIDs on the create requests
 ```
 """
 
 # Re-export EntityType and NonKuDomain for convenient access
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.services.dsl.activity_domain_converters import (
+    activity_to_event_dict,
+    activity_to_goal_dict,
+    activity_to_habit_dict,
+    activity_to_task_request,
+)
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,
@@ -133,30 +138,11 @@ from core.services.dsl.activity_dsl_parser import (
     parse_activity_line,
     parse_journal_text,
 )
-from core.services.dsl.activity_entity_converter import (
-    ActivityEntityConverter,
-    ConversionResult,
-    CreateRequestProtocol,
-    TypedConversionResult,
-    activity_to_event_dict,
-    activity_to_goal_dict,
-    activity_to_habit_dict,
-    activity_to_task_request,
-)
 from core.services.dsl.activity_extractor import (
     ActivityExtractionResult,
     ActivityExtractorService,
 )
-from core.services.dsl.dsl_knowledge_connector import (
-    DSLConnectionExecutor,
-    DSLConnectionPlan,
-    DSLKnowledgeConnector,
-    GoalConnection,
-    KnowledgeConnection,
-    PrincipleConnection,
-    plan_activity_connections,
-    plan_journal_connections,
-)
+from core.services.dsl.dsl_mappings import ConversionResult
 from core.services.dsl.llm_dsl_bridge import (
     DSLTransformResult,
     LLMDSLBridgeService,
@@ -165,30 +151,20 @@ from core.services.dsl.llm_dsl_bridge import (
 __all__ = [
     # Parser
     "ActivityDSLParser",
-    # Converter - Protocol-verified conversion
-    "ActivityEntityConverter",
     "ActivityExtractionResult",
+    # Converters - ParsedActivityLine → create requests
     "ConversionResult",
-    "CreateRequestProtocol",
-    "DSLConnectionExecutor",
-    "DSLConnectionPlan",
-    # Knowledge Graph Connector
-    "DSLKnowledgeConnector",
     "DSLTransformResult",
-    "GoalConnection",
     # Type Safety - EntityType/NonKuDomain enums for @context() values
     "EntityType",
-    "KnowledgeConnection",
     # LLM DSL Bridge
     "LLMDSLBridgeService",
     # Type Safety - NonKuDomain enum for non-Ku @context() values
     "NonKuDomain",
     "ParsedActivityLine",
     "ParsedJournal",
-    "PrincipleConnection",
     # Extractor
     "ActivityExtractorService",
-    "TypedConversionResult",
     "activity_to_event_dict",
     "activity_to_goal_dict",
     "activity_to_habit_dict",
@@ -196,6 +172,4 @@ __all__ = [
     "is_activity_line",
     "parse_activity_line",
     "parse_journal_text",
-    "plan_activity_connections",
-    "plan_journal_connections",
 ]
