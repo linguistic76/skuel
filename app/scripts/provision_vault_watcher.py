@@ -74,10 +74,13 @@ async def main() -> int:
             print(f"✓ Created {USERNAME} account")
 
         async with driver.session() as session:
+            # Match by uid — create_user derives it as user_{username}, and uid
+            # is the one identity that can't drift (the username lives in the
+            # node's `title` property, not a `username` property).
             res = await session.run(
-                "MATCH (u:User {username: $username}) SET u.role = 'admin' "
+                "MATCH (u:User {uid: $uid}) SET u.role = 'admin' "
                 "RETURN u.uid AS uid, u.role AS role",
-                {"username": USERNAME},
+                {"uid": f"user_{USERNAME}"},
             )
             record = await res.single()
             if record is None:
