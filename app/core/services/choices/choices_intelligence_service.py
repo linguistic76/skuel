@@ -5,7 +5,7 @@ Choices Intelligence Service - Pure Cypher Graph Analytics
 Handles Pure Cypher graph intelligence queries for choices.
 
 Architecture: Shell delegates to 3 focused mixins in the same directory:
-  _core_intelligence_mixin.py  — get_choice_with_context, get_decision_intelligence,
+  _core_intelligence_mixin.py  — get_decision_intelligence,
                                   analyze_choice_impact
   _analytics_mixin.py          — get_quick_decision_metrics, batch_analyze_decision_complexity,
                                   get_decision_patterns, get_choice_quality_correlations,

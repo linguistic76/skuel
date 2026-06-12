@@ -4,8 +4,9 @@ Goals Intelligence Service
 
 Handles pure Cypher graph intelligence queries for goals.
 
-Architecture: Shell delegates to 5 focused mixins in the same directory:
-  _core_intelligence_mixin.py       — get_goal_with_context
+Architecture: Shell delegates to focused mixins (graph context retrieval —
+``get_with_context``, mechanism B — comes from the shared
+``core.services.intelligence._core_intelligence_mixin``):
   _analytics_mixin.py               — get_goal_progress_dashboard, get_goal_completion_forecast,
                                        get_goal_learning_requirements
   _predictive_mixin.py              — predict_goal_success, analyze_habit_impact,
@@ -26,9 +27,9 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
-from core.services.goals._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.goals._dual_track_mixin import _DualTrackMixin
 from core.services.goals._predictive_mixin import _PredictiveMixin
+from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -140,11 +141,9 @@ class GoalsIntelligenceService(
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
     #
-    # get_with_context is provided by _CoreIntelligenceMixin (mechanism B,
-    # registry-sourced via self.relationships) — NOT redefined here. A local
-    # override that delegated back to get_goal_with_context recursed infinitely
-    # (get_with_context → get_goal_with_context → get_with_context); the mixin
-    # now owns the real implementation. (Convergence Phase 1, 2B.)
+    # get_with_context is provided by the shared _CoreIntelligenceMixin
+    # (mechanism B, registry-sourced via self.relationships) — NOT redefined
+    # here. (Convergence Phase 1, 2B.)
     # ========================================================================
 
     async def get_performance_analytics(

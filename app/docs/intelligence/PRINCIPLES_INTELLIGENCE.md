@@ -9,7 +9,7 @@
 **Mixin decomposition (April 2026):** Shell + 3 mixins for consistency with Choices and Habits:
 | Mixin | File | Methods |
 |-------|------|---------|
-| `_CoreIntelligenceMixin` | `_core_intelligence_mixin.py` | `get_principle_with_context` (alias for `get_with_context`), `get_performance_analytics`, `get_domain_insights`; inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
+| `_CoreIntelligenceMixin` | `_core_intelligence_mixin.py` | `get_performance_analytics`, `get_domain_insights`; inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
 | `_AlignmentIntelligenceMixin` | `_alignment_intelligence_mixin.py` | `assess_principle_alignment`, `assess_alignment_dual_track`, `get_principle_adherence_trends`, alignment helpers |
 | `_InfluenceMixin` | `_influence_mixin.py` | `get_principle_conflict_analysis`, `get_quick_principle_impact`, `batch_analyze_principle_adoption`, `get_choice_guidance_effectiveness` |
 
@@ -25,13 +25,15 @@ PrinciplesIntelligenceService analyzes how well users live by their stated princ
 
 ## Core Methods
 
-### Method 1: get_principle_with_context()
+### Method 1: get_with_context() (shared mechanism B)
 
-**Purpose:** Get principle with full graph context using pure Cypher graph intelligence. Automatically selects optimal query type based on principle's suggested intent.
+**Purpose:** Get principle with full graph context using pure Cypher graph intelligence.
+Inherited from the shared `core/services/intelligence/_CoreIntelligenceMixin` —
+routes through `self.relationships.get_with_context` (registry-sourced edge vocabulary).
 
 **Signature:**
 ```python
-async def get_principle_with_context(
+async def get_with_context(
     self,
     uid: str,
     depth: int = 2
@@ -55,7 +57,7 @@ async def get_principle_with_context(
 
 **Example:**
 ```python
-result = await principles_service.intelligence.get_principle_with_context(
+result = await principles_service.intelligence.get_with_context(
     uid="principle:integrity",
     depth=2
 )
@@ -436,7 +438,7 @@ if result.is_ok:
 
     if impact["impact_score"] > 5.0:
         # Only call expensive method for high-impact principles
-        full_result = await principles_service.intelligence.get_principle_with_context(
+        full_result = await principles_service.intelligence.get_with_context(
             principle_uid
         )
 ```
@@ -445,7 +447,7 @@ if result.is_ok:
 - BaseRelationshipOperations relationship service (REQUIRED)
 - Uses `PrincipleRelationships.fetch()` for fast parallel UID fetching
 
-**OPTIMIZATION:** Uses `fetch()` for ~60% faster simple metrics compared to `get_principle_with_context()`.
+**OPTIMIZATION:** Uses `fetch()` for ~60% faster simple metrics compared to `get_with_context()`.
 
 **Impact Score Calculation:**
 ```python
@@ -533,7 +535,7 @@ if result.is_ok:
 
     # Only run expensive analysis on embodied principles
     for uid in embodied:
-        detailed = await principles_service.intelligence.get_principle_with_context(uid)
+        detailed = await principles_service.intelligence.get_with_context(uid)
         # Process detailed context...
 ```
 
@@ -541,7 +543,7 @@ if result.is_ok:
 - BaseRelationshipOperations relationship service (REQUIRED)
 - Uses `PrincipleRelationships.fetch()` with parallel execution
 
-**OPTIMIZATION:** Uses `fetch()` for ~50% faster batch processing compared to sequential `get_principle_with_context()` calls.
+**OPTIMIZATION:** Uses `fetch()` for ~50% faster batch processing compared to sequential `get_with_context()` calls.
 
 ---
 

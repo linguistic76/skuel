@@ -312,14 +312,16 @@ class TasksService:
 **Example:**
 ```python
 # tests/unit/test_tasks_service.py
-async def test_get_task_with_semantic_context():
+async def test_create_semantic_knowledge_relationship():
     """Verify Pattern 1 implementation."""
     mock_backend = MockTaskBackend()
     service = TasksService(backend=mock_backend)
 
-    result = await service.get_task_with_semantic_context(
+    result = await service.create_semantic_knowledge_relationship(
         task_uid="task.123",
-        min_confidence=0.8
+        knowledge_uid="ku_python_abc",
+        semantic_type=SemanticRelationshipType.APPLIES,
+        confidence=0.9,
     )
 
     assert result.is_ok

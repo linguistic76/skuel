@@ -45,8 +45,8 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_registry import TASKS_CONFIG
 from core.models.task.task import Task
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
-from core.services.tasks._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 from core.utils.result_simplified import Result
 

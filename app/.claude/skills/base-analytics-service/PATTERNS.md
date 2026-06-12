@@ -4,7 +4,7 @@
 
 A full analytics service with all common patterns. For large services (1000+ LOC), use mixin decomposition — see `ChoicesIntelligenceService`, `HabitsIntelligenceService`, and `PrinciplesIntelligenceService` for the established local pattern (`_core_intelligence_mixin.py`, `_alignment_intelligence_mixin.py`, `_influence_mixin.py` in the same package directory).
 
-**Shared `get_with_context()` base (mechanism B):** `core/services/intelligence/_CoreIntelligenceMixin[T]` is generic in the domain model and owns the `get_with_context()` delegation, routing through `self.relationships.get_with_context` (whose edge vocabulary comes from the domain's `DomainConfig.cross_domain_relationship_types` — the registry, the single source of truth) and returning `Result[tuple[T, GraphContext]]`. All Activity Domain `_core_intelligence_mixin.py` files inherit from it parameterized by their model (e.g. `_CoreIntelligenceMixin[Goal]`), and add domain-named aliases (`get_goal_with_context`, etc.). `PsIntelligenceService`, `LpIntelligenceService`, and `KuIntelligenceService` inherit directly (no domain mixin file), parameterized by `PathStep`, `LearningPath`, `Ku` respectively. The 6 activity domains no longer override `get_with_context` — they inherit it.
+**Shared `get_with_context()` base (mechanism B):** `core/services/intelligence/_CoreIntelligenceMixin[T]` is generic in the domain model and owns the `get_with_context()` delegation, routing through `self.relationships.get_with_context` (whose edge vocabulary comes from the domain's `DomainConfig.cross_domain_relationship_types` — the registry, the single source of truth) and returning `Result[tuple[T, GraphContext]]`. Tasks, Goals, Habits, PS, LP, and KU intelligence services inherit it directly (no domain mixin file), parameterized by their model; Events, Choices, and Principles keep a per-package `_core_intelligence_mixin.py` wrapper only because they add real domain methods. The former domain-named aliases (`get_goal_with_context`, etc.) were deleted in the tasks bloat campaign. The 6 activity domains no longer override `get_with_context` — they inherit it.
 
 > **Deleted (intent-traversal ↔ registry convergence, #241):** `GraphContextLoader`,
 > `self._init_context_loader(...)`, and `self.context_loader` no longer exist. There is
@@ -74,9 +74,8 @@ class HabitsIntelligenceService(
     # =========================================================================
     # PROTOCOL METHODS
     # =========================================================================
-    # get_with_context() is inherited from _CoreIntelligenceMixin (mechanism B).
-    # Activity domains expose a domain-named alias (get_habit_with_context) from
-    # their package wrapper; no override of get_with_context is needed.
+    # get_with_context() is inherited from the shared _CoreIntelligenceMixin
+    # (mechanism B); no override is needed.
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

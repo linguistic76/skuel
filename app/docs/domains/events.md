@@ -207,7 +207,7 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 
 | Method | Description |
 |--------|-------------|
-| `get_event_with_context(uid)` | Event with full graph neighborhood |
+| `get_with_context(uid)` | Event with full graph neighborhood (shared mechanism B) |
 | `analyze_event_performance(uid)` | Performance analysis for one event |
 | `analyze_upcoming_events(user_uid, days_ahead)` | Batch analysis of upcoming events |
 | `get_performance_analytics(user_uid, period_days)` | Event performance metrics for period |

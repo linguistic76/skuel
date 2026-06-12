@@ -10,7 +10,7 @@
 | File | Responsibility |
 |------|---------------|
 | `choices_intelligence_service.py` | Shell: `__init__` + 3 protocol delegation methods (label attrs resolved via `DomainConfig`) |
-| `_core_intelligence_mixin.py` | `get_choice_with_context` (alias for `get_with_context`), `get_decision_intelligence`, `analyze_choice_impact`; inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
+| `_core_intelligence_mixin.py` | `get_decision_intelligence`, `analyze_choice_impact`; inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
 | `_analytics_mixin.py` | `get_quick_decision_metrics`, `batch_analyze_decision_complexity`, `get_decision_patterns`, `get_choice_quality_correlations`, `get_domain_decision_patterns` |
 | `_behavioral_signals_mixin.py` | Dual-track assessment, principle analysis, prediction, life-path contribution, `get_zpd_behavioral_signals` (event handlers migrated to `ChoiceEventHandlerService`, March 2026). Single-domain Cypher migrated to `ChoicesBackend` (March 2026); cross-domain queries (spanning 2+ labels: Choice + Principle adherence, conflict counts) migrated to `CrossDomainQueryService` (April 2026) — mixin contains pure business logic only. |
 
@@ -26,14 +26,15 @@ ChoicesIntelligenceService provides comprehensive decision intelligence combinin
 
 ## Core Methods
 
-### Method 1: get_choice_with_context()
+### Method 1: get_with_context() (shared mechanism B)
 
-**Purpose:** Get choice with full graph context using pure Cypher graph intelligence. Automatically selects optimal query type based on choice's suggested intent.
+**Purpose:** Get choice with full graph context using pure Cypher graph intelligence.
+Inherited from the shared `core/services/intelligence/_CoreIntelligenceMixin` —
+routes through `self.relationships.get_with_context` (registry-sourced edge vocabulary).
 
 **Signature:**
 ```python
-@requires_graph_intelligence("get_choice_with_context")
-async def get_choice_with_context(
+async def get_with_context(
     self,
     uid: str,
     depth: int = 2
@@ -57,7 +58,7 @@ async def get_choice_with_context(
 
 **Example:**
 ```python
-result = await choices_service.intelligence.get_choice_with_context(
+result = await choices_service.intelligence.get_with_context(
     uid="choice_001",
     depth=2
 )

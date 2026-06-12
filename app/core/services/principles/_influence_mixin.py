@@ -239,7 +239,7 @@ class _InfluenceMixin:
         - Principle adoption screening
         - Batch principle analysis
 
-        For full context with path metadata, use get_principle_with_context().
+        For full context with path metadata, use get_with_context().
 
         Args:
             principle_uid: Principle UID

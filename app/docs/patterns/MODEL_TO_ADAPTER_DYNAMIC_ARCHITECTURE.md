@@ -338,7 +338,6 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `_LpStepMixin` | `get_next_step_sequence` | `PsSearchService` |
 | `_TraversalMixin` | `get_citation_export` | `KuCoreService` |
 | `_TraversalMixin` | `get_goal_aligned_entities` | `GoalsIntelligenceService` |
-| `_TraversalMixin` | `query_semantic_context` | `GraphIntelligenceService` |
 | `_TraversalMixin` | `find_uids_by_semantic_filter` | `GraphIntelligenceService` |
 | `_TraversalMixin` | `get_batch_cross_domain_context` | `GraphIntelligenceService` |
 | `CrossDomainBackend` | `get_journal_entries_in_range` | `CrossDomainQueryService` |

@@ -16,7 +16,9 @@ related_docs:
 > (registry-sourced `UnifiedRelationshipService.get_with_context`, inherited from the shared
 > `_CoreIntelligenceMixin`). The "three intent-sourcing mechanisms" inventory below is retained as
 > **historical context (pre-Phase-1, 2026-06-04)** and is no longer the wiring — a full rewrite is
-> pending. The authoritative current state is
+> pending. (Further, the per-domain `get_<domain>_with_context` facade/alias methods referenced
+> below were deleted in the 2026-06 tasks bloat campaign — generic `get_with_context` is the one
+> path.) The authoritative current state is
 > [`docs/roadmap/intent-traversal-registry-convergence.md`](../roadmap/intent-traversal-registry-convergence.md)
 > (Phase 1 ✅ + the curriculum-convergence follow-up ✅). Per-domain intent *specialization* (bespoke
 > lenses / analysis methods) remains **aspirational**, not built.

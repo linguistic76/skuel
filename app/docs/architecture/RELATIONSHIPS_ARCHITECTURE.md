@@ -85,8 +85,6 @@ UnifiedRelationshipService[Ops, Model, DtoType]
 **IntelligenceMixin** — graph intelligence:
 - `get_cross_domain_context(entity_uid, depth, min_confidence)` → `Result[dict]`
 - `get_cross_domain_context_typed(entity_uid, depth, min_confidence)` → `Result[dict]`
-- `get_completion_impact(entity_uid, context)` → `Result[dict]`
-- `get_with_semantic_context(entity_uid)` → `Result[dict]`
 - `create_semantic_relationship(...)` → `Result[bool]`
 - `find_by_semantic_filter(semantic_type, context)` → `Result[list[Model]]`
 

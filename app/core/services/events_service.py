@@ -74,7 +74,6 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
-    from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.domain_protocols import EventsOperations
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -154,7 +153,7 @@ class EventsService(
     - Habits: get_events_for_habit, get_habit_reinforcement_events, etc.
     - Learning: get_learning_events, create_study_session, create_learning_path_schedule
     - Search: get_calendar_events, get_upcoming, get_overdue, etc.
-    - Intelligence: get_event_with_context, analyze_event_performance, etc.
+    - Intelligence: analyze_event_performance, etc.
     - Scheduling: optimize_recurring_schedule, create_recurring_events
 
     Via _OrchestrationMixin:
@@ -559,11 +558,6 @@ class EventsService(
         return await self.search.get_in_range(start_date, end_date, user_uid, limit)
 
     # Intelligence delegations
-    async def get_event_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Event, GraphContext]]:
-        return await self.intelligence.get_event_with_context(uid, depth)
-
     async def analyze_event_performance(self, uid: str) -> Result[dict[str, Any]]:
         return await self.intelligence.analyze_event_performance(uid)
 
@@ -729,7 +723,7 @@ class EventsService(
     # suggest_spaced_repetition_events, create_learning_path_schedule
     # - Search: get_calendar_events, get_upcoming, get_overdue,
     # get_active, get_events_in_range
-    # - Intelligence: get_event_with_context, analyze_event_performance, analyze_upcoming_events
+    # - Intelligence: analyze_event_performance, analyze_upcoming_events
     # ========================================================================
 
     # ========================================================================

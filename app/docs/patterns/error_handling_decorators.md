@@ -132,8 +132,8 @@ For Phase 1-4 graph intelligence methods.
 ```python
 from core.utils.decorators import requires_graph_intelligence
 
-@requires_graph_intelligence("get_habit_with_context")
-async def get_habit_with_context(self, uid: str) -> Result[HabitContext]:
+@requires_graph_intelligence("get_with_context")
+async def get_with_context(self, uid: str) -> Result[HabitContext]:
     return await self.graph_intel.get_with_context(uid)
 ```
 

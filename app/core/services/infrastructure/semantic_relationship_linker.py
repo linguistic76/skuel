@@ -7,16 +7,17 @@ implementations for semantic relationship operations.
 
 **The Problem:**
 All relationship services (Habits, Goals, Tasks, Choices, Principles, Events)
-had identical 155-line implementations of semantic relationship methods:
-- get_X_with_semantic_context() (~70 lines each)
+had identical per-domain implementations of semantic relationship methods:
 - create_semantic_X_relationship() (~40 lines each)
 - find_X_by_semantic_filter() (~45 lines each)
 
-Total duplication: ~930 LOC across 6 services
-
 **The Solution:**
-Single generic helper that handles the common pattern, reducing
-each relationship service's semantic methods from 155 LOC → 11 LOC.
+Single generic helper that handles the common pattern; each relationship
+service's semantic methods are thin delegations to it.
+
+(The semantic-context READ surface — get_with_semantic_context — was deleted
+in the tasks bloat campaign after its last facade caller went; the typed
+reader ``get_cross_domain_context_typed`` is the live context lens.)
 """
 
 from datetime import datetime
@@ -37,85 +38,18 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
     """
     Generic helper for semantic relationship operations across all domains.
 
-    This helper eliminates ~155 lines of duplicated code in each
-    relationship service's semantic methods.
+    Consolidates the per-domain semantic write/filter methods into one
+    generic implementation:
 
-    **Pattern Before (Habits, Goals, Tasks, etc. all identical):**
+    **Pattern (Using Helper):**
     ```python
-    async def get_X_with_semantic_context(
-        self, uid: str, min_confidence: float = 0.8
+    async def create_semantic_X_relationship(
+        self, from_uid: str, to_uid: str, semantic_type, confidence: float = 0.9
     ):
-        # Get entity (10 lines)
-        entity_result = await self.backend.get_X(uid)
-        if entity_result.is_error:
-            return entity_result
-
-        # Convert dict → DTO → Domain (10 lines)
-        dto = (
-            XDTO.from_dict(entity_result.value)
-            if isinstance(...)
-            else entity_result.value
-        )
-        entity = X.from_dto(dto) if isinstance(...) else entity_result.value
-
-        # Build semantic context query (10 lines)
-        cypher, params = build_semantic_context(
-            node_uid=uid,
-            semantic_types=[...],
-            GraphDepth.DEFAULT,
-            min_confidence=min_confidence,
-        )
-
-        # Execute query (5 lines)
-        context_result = await self.backend.execute_query(cypher, params)
-        if context_result.is_error:
-            return context_result
-
-        semantic_context = context_result.value or []
-
-        # Filter by semantic types (25 lines)
-        type_1 = [
-            item
-            for item in semantic_context
-            if TYPE_1 in item.get("relationship_types", [])
-        ]
-        type_2 = [
-            item
-            for item in semantic_context
-            if TYPE_2 in item.get("relationship_types", [])
-        ]
-        type_3 = [
-            item
-            for item in semantic_context
-            if TYPE_3 in item.get("relationship_types", [])
-        ]
-
-        # Return structured result (10 lines)
-        return Result.ok(
-            {
-                "entity": entity,
-                "semantic_context": semantic_context,
-                "type_1": type_1,
-                "type_2": type_2,
-                "type_3": type_3,
-                "total_relationships": len(semantic_context),
-            }
+        return await self.semantic_helper.create_semantic_relationship(
+            from_uid, to_uid, semantic_type, confidence
         )
     ```
-
-    **Pattern After (Using Helper):**
-    ```python
-    async def get_X_with_semantic_context(
-        self, uid: str, min_confidence: float = 0.8
-    ):
-        return await self.semantic_helper.get_with_semantic_context(
-            uid=uid,
-            semantic_types=[TYPE_1, TYPE_2, TYPE_3],
-            min_confidence=min_confidence,
-        )
-    ```
-
-    **70 lines → 5 lines (93% reduction)**
 
     SKUEL Architecture:
     - Leverages BaseService._to_domain_model() from
@@ -149,115 +83,6 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
         self.domain = domain
         self.source_tag = source_tag
         self.logger = get_logger(f"skuel.services.infrastructure.semantic_helper.{domain.value}")
-
-    async def get_with_semantic_context(
-        self,
-        uid: str,
-        semantic_types: list[SemanticRelationshipType],
-        min_confidence: float = 0.8,
-        depth: int = 3,
-    ) -> Result[dict[str, Any]]:
-        """
-        Generic implementation of get_X_with_semantic_context() pattern.
-
-        Handles the complete semantic context retrieval flow:
-        1. Fetch entity from backend
-        2. Convert dict → DTO → Domain model
-        3. Build semantic context query with specified types
-        4. Execute query via backend
-        5. Filter results by semantic types
-        6. Return structured response
-
-        Generic implementation for all domains via UnifiedRelationshipService.
-
-        Args:
-            uid: Entity UID,
-            semantic_types: List of semantic relationship types to query,
-            min_confidence: Minimum confidence threshold (0.0-1.0),
-            depth: Graph traversal depth (default: 3)
-
-        Returns:
-            Result containing:
-            - entity: The domain model (Habit, Goal, Task, etc.)
-            - semantic_context: All semantic relationships found
-            - categorized_relationships: Relationships grouped by type
-            - total_relationships: Count of relationships
-
-        Example:
-            ```python
-            # Usage example:
-            self.semantic_helper = SemanticRelationshipLinker[Habit, HabitDTO](
-                service=self,
-                backend_get_method="get_habit",
-                dto_class=HabitDTO,
-                model_class=Habit,
-                domain=Domain.HABITS,
-                source_tag="habits_service_explicit",
-            )
-
-            # In a facade delegation method:
-            return await self.semantic_helper.get_with_semantic_context(
-                uid=uid,
-                semantic_types=[
-                    SemanticRelationshipType.DEVELOPS_SKILL,
-                    SemanticRelationshipType.STRENGTHENS_PRACTICE,
-                ],
-                min_confidence=min_confidence,
-            )
-            ```
-        """
-        # Step 1: Get entity from backend
-        get_method = getattr(self.backend, self.backend_get_method, None)
-        if not get_method:
-            return Result.fail(
-                Errors.system(
-                    message=f"Backend method '{self.backend_get_method}' not found",
-                    operation="get_with_semantic_context",
-                )
-            )
-
-        entity_result = await get_method(uid)
-        if entity_result.is_error:
-            return entity_result
-
-        if not entity_result.value:
-            return Result.fail(Errors.not_found(resource=self.model_class.__name__, identifier=uid))
-
-        # Step 2: Convert dict → DTO → Domain model using BaseService helper
-        entity = self.service._to_domain_model(
-            entity_result.value, self.dto_class, self.model_class
-        )
-
-        self.logger.debug(
-            f"Fetching semantic context for {self.model_class.__name__} {uid} "
-            f"with {len(semantic_types)} types, min_confidence={min_confidence}"
-        )
-
-        # Step 3+4: Execute semantic context query through typed backend method
-        context_result = await self.backend.query_semantic_context(
-            node_uid=uid, semantic_types=semantic_types, depth=depth, min_confidence=min_confidence
-        )
-        if context_result.is_error:
-            return context_result
-
-        semantic_context = context_result.value or []
-
-        # Step 5: Categorize relationships by type
-        categorized = self._categorize_semantic_relationships(semantic_context, semantic_types)
-
-        self.logger.debug(
-            f"Retrieved {len(semantic_context)} semantic relationships for {self.model_class.__name__} {uid}"
-        )
-
-        # Step 6: Return structured result
-        return Result.ok(
-            {
-                "entity": entity,
-                "semantic_context": semantic_context,
-                "categorized_relationships": categorized,
-                "total_relationships": len(semantic_context),
-            }
-        )
 
     async def create_semantic_relationship(
         self,
@@ -449,31 +274,6 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
     # ========================================================================
     # HELPER METHODS
     # ========================================================================
-
-    def _categorize_semantic_relationships(
-        self, semantic_context: list[dict[str, Any]], semantic_types: list[SemanticRelationshipType]
-    ) -> dict[str, list[dict[str, Any]]]:
-        """
-        Categorize semantic relationships by type.
-
-        Args:
-            semantic_context: List of semantic relationship records,
-            semantic_types: List of semantic types to categorize
-
-        Returns:
-            Dict mapping semantic type values to lists of relationships
-        """
-        categorized = {}
-
-        for semantic_type in semantic_types:
-            type_value = semantic_type.value
-            categorized[type_value] = [
-                item
-                for item in semantic_context
-                if type_value in item.get("relationship_types", [])
-            ]
-
-        return categorized
 
     async def _fetch_single_entity(self, uid: str) -> Result[T]:
         """

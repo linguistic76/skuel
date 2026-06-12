@@ -29,9 +29,6 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
-    from core.infrastructure.relationships.semantic_relationships import (
-        SemanticRelationshipType,
-    )
     from core.models.enums.neo_labels import NeoLabel
     from core.ports.base_protocols import Direction
 
@@ -295,24 +292,6 @@ class _TraversalMixin:
     # ========================================================================
     # SEMANTIC & CROSS-DOMAIN TRAVERSAL QUERIES
     # ========================================================================
-
-    async def query_semantic_context(
-        self,
-        node_uid: str,
-        semantic_types: list[SemanticRelationshipType],
-        depth: int = 2,
-        min_confidence: float = 0.0,
-    ) -> Result[list[dict[str, Any]]]:
-        """Execute a semantic context query for a node."""
-        from adapters.persistence.neo4j.query import build_semantic_context
-
-        cypher, params = build_semantic_context(
-            node_uid=node_uid,
-            semantic_types=semantic_types,
-            depth=depth,
-            min_confidence=min_confidence,
-        )
-        return await self.execute_query(cypher, params)
 
     async def find_uids_by_semantic_filter(
         self,

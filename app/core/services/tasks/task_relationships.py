@@ -91,10 +91,6 @@ class TaskRelationships:
         """Check if task has any prerequisites (tasks or knowledge)."""
         return len(self.prerequisite_task_uids) > 0 or len(self.prerequisite_knowledge_uids) > 0
 
-    def is_milestone(self) -> bool:
-        """Check if task unlocks knowledge (milestone indicator)."""
-        return len(self.completion_unlocks_knowledge) > 0
-
     def get_combined_knowledge_uids(self) -> set[str]:
         """Get all unique knowledge UIDs (explicit + inferred)."""
         all_uids: set[str] = set()
@@ -102,27 +98,3 @@ class TaskRelationships:
         all_uids.update(self.prerequisite_knowledge_uids)
         all_uids.update(self.inferred_knowledge_uids)
         return all_uids
-
-    def has_event_execution(self) -> bool:
-        """Check if task has been executed in any events."""
-        return len(self.executed_in_event_uids) > 0
-
-    def is_event_driven(self) -> bool:
-        """Check if task is event-driven (executed through events)."""
-        return self.has_event_execution()
-
-    def implements_choices(self) -> bool:
-        """Check if task implements any choices."""
-        return len(self.implements_choice_uids) > 0
-
-    def is_choice_driven(self) -> bool:
-        """Check if task is choice-driven (created to implement a decision)."""
-        return self.implements_choices()
-
-    def serves_life_path(self) -> bool:
-        """Check if task serves user's life path."""
-        return len(self.serves_life_path_uids) > 0
-
-    def get_life_path_uid(self) -> str | None:
-        """Get the life path UID this task serves (if any)."""
-        return self.serves_life_path_uids[0] if self.serves_life_path_uids else None

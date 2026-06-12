@@ -6,7 +6,7 @@ Handles Pure Cypher graph intelligence queries for principles.
 
 Architecture: Shell delegates to 3 focused mixins in the same directory:
   _core_intelligence_mixin.py       — get_with_context, get_performance_analytics,
-                                      get_domain_insights, get_principle_with_context
+                                      get_domain_insights
   _alignment_intelligence_mixin.py  — assess_principle_alignment, assess_alignment_dual_track,
                                       get_principle_adherence_trends, helpers
   _influence_mixin.py               — get_principle_conflict_analysis, get_quick_principle_impact,

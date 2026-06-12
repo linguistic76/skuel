@@ -41,7 +41,7 @@ class _CoreIntelligenceMixin[T]:
     `_CoreIntelligenceMixin[PathStep]` → `Result[tuple[PathStep, GraphContext]]`.
 
     Activity domain services additionally expose a domain-named alias
-    (e.g. `get_goal_with_context`) from their per-domain wrapper.
+    from their per-domain wrapper.
     """
 
     # Populated by BaseAnalyticsService.__init__ (stores relationship_service).

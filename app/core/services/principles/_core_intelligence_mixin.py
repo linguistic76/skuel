@@ -25,11 +25,9 @@ from core.models.type_hints import UserUID
 from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
-from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.graph_context import GraphContext
     from core.models.principle.principle import Principle
 
 
@@ -129,14 +127,3 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
             Result containing insights data dict
         """
         return await self.assess_principle_alignment(uid, min_confidence)  # type: ignore[attr-defined]
-
-    # ========================================================================
-    # GRAPH INTELLIGENCE METHODS
-    # ========================================================================
-
-    @requires_graph_intelligence("get_principle_with_context")
-    async def get_principle_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Principle, GraphContext]]:
-        """Domain-named alias for get_with_context() (mechanism B)."""
-        return await self.get_with_context(uid, depth)

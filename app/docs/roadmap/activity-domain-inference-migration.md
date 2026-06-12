@@ -24,7 +24,7 @@ A functional-direction review (see [`functional-direction.md` § implementation 
 
 | Domain | Inference service today | `*InferenceResult` | `ku_inference_service` wired | `_core_intelligence_mixin` |
 |--------|-------------------------|--------------------|-----------------------------|----------------------------|
-| Tasks | ✅ `EntityInferenceService` + `AdvancedInferenceEngine` | ✅ `TaskInferenceResult` | ✅ injected | mech-B `get_task_with_context` alias; cross-domain context now via the CANONICAL typed reader (`get_cross_domain_context_typed`), not a bespoke categorizer |
+| Tasks | ✅ `EntityInferenceService` + `AdvancedInferenceEngine` | ✅ `TaskInferenceResult` | ✅ injected | mech-B `get_with_context` (shared mixin; the domain-named alias was deleted in the tasks bloat campaign); cross-domain context now via the CANONICAL typed reader (`get_cross_domain_context_typed`), not a bespoke categorizer |
 | Goals | ❌ | ❌ | ❌ | stub (~35 LOC, delegates to shared base) |
 | Habits | ❌ | ❌ | ❌ | stub |
 | Events | ❌ | ❌ | ❌ | stub |
