@@ -104,6 +104,44 @@ class TestReconcileDeletions:
         backend.delete_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_scoped_run_refused_when_vault_globally_gone(self, tmp_path) -> None:
+        """The valve is global: even a scoped run refuses when NO tracked file
+        under the directory exists (unmounted vault), in or out of scope."""
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(tmp_path / "a.md"), "entity_uid": "ku.a"},
+                {"file_path": str(tmp_path / "b.yaml"), "entity_uid": "task.b"},
+            ]
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, pattern="*.md")
+        assert result.is_ok
+        assert result.value.mass_deletion_refused
+        backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_scoped_wipe_propagates_when_out_of_scope_file_exists(self, tmp_path) -> None:
+        """100% of in-scope files missing is NOT a vault wipe when an
+        out-of-scope tracked file still exists — in-scope deletions propagate."""
+        alive_yaml = tmp_path / "task.alive.yaml"
+        alive_yaml.write_text("x")
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(tmp_path / "a.md"), "entity_uid": "ku.a"},
+                {"file_path": str(tmp_path / "b.md"), "entity_uid": "ku.b"},
+                {"file_path": str(alive_yaml), "entity_uid": "task.alive"},
+            ]
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, pattern="*.md")
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 2
+        items = backend.delete_entities_with_metadata.await_args.args[0]
+        assert {item["entity_uid"] for item in items} == {"ku.a", "ku.b"}
+
+    @pytest.mark.asyncio
     async def test_nothing_tracked_is_noop(self, tmp_path) -> None:
         tracker, backend = _tracker_with_tracked([])
         result = await tracker.reconcile_deletions(tmp_path)

@@ -345,16 +345,17 @@ class IngestionTracker:
 
         Three guards:
         - **Pattern scope**: only tracked files matching the run's pattern are
-          considered — a *.md-scoped run never deletes tracked YAML entities.
-          Consequence: deleting the LAST files of a scoped type trips the
-          valve below; an unscoped ("*") run propagates them.
+          DELETED — a *.md-scoped run never deletes tracked YAML entities.
         - **Moved/renamed files**: if the same entity_uid is still claimed by
           ANY tracked file that DOES exist (the rename was just re-ingested),
           only the stale tracking row is removed — the entity survives.
-        - **Mass-deletion safety valve**: if EVERY in-scope tracked file
-          vanished at once (unmounted vault, sync wipe), deletion is refused
-          and a warning logged. A real full-vault teardown is an explicit
-          admin operation, not a watcher side effect.
+        - **Mass-deletion safety valve (GLOBAL)**: an unmounted vault or sync
+          wipe makes EVERY tracked file vanish, not just one type — so the
+          valve checks all tracked files under the directory, regardless of
+          pattern. If none exist, deletion is refused and a warning logged;
+          if any exist, the vault is mounted and in-scope deletions are
+          genuine authoring. A real full-vault teardown is an explicit admin
+          operation, not a watcher side effect.
 
         Backend: IngestionBackend.get_tracked_files_under / delete_entities_with_metadata.
         """
@@ -373,15 +374,14 @@ class IngestionTracker:
         if not missing:
             return Result.ok(DeletionReconciliation())
 
-        if len(missing) == len(tracked):
+        existing_rows = [row for row in all_tracked if Path(str(row["file_path"])).exists()]
+        if not existing_rows:
             self.logger.warning(
                 "Deletion reconciliation refused: all %d tracked files under %s "
-                "(pattern %r) are missing — looks like an unmounted vault or sync "
-                "wipe, not authoring. Run unscoped or delete explicitly via the "
-                "ingestion dashboard if intended.",
-                len(tracked),
+                "are missing — looks like an unmounted vault or sync wipe, not "
+                "authoring. Delete explicitly via the ingestion dashboard if intended.",
+                len(all_tracked),
                 directory,
-                pattern,
             )
             return Result.ok(DeletionReconciliation(mass_deletion_refused=True))
 
@@ -389,9 +389,7 @@ class IngestionTracker:
         # (covers duplicate edge files declaring the same relationship too).
         # Claims are checked against ALL tracked rows, not just the pattern
         # scope — an identity owned by an out-of-scope file must survive.
-        live_uids = {
-            row["entity_uid"] for row in all_tracked if Path(str(row["file_path"])).exists()
-        }
+        live_uids = {row["entity_uid"] for row in existing_rows}
         stale_rows = [row for row in missing if row["entity_uid"] in live_uids]
         delete_rows = [row for row in missing if row["entity_uid"] not in live_uids]
 
