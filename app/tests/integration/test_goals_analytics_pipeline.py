@@ -35,7 +35,6 @@ from core.models.goal.goal import Goal
 from core.models.relationship_registry import GOAPS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
-from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 
@@ -117,7 +116,6 @@ class _GoalIntelHarness(_AnalyticsMixin, BaseAnalyticsService):
         self.backend = backend
         self.relationships = relationships
         self.progress = _FakeProgress()
-        self.path_helper = PathAwareAnalyzer()
         self.graph_intel = object()
 
 

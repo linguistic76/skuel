@@ -28,7 +28,6 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._analytics_mixin import _AnalyticsMixin
 from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.choices._core_intelligence_mixin import _CoreIntelligenceMixin
-from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -85,9 +84,6 @@ class ChoicesIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
-
-        # Initialize path-aware intelligence helper
-        self.path_helper = PathAwareAnalyzer()
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
