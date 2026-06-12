@@ -13,19 +13,7 @@ Created: 2025-11-15
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Protocol, TypeVar
-
-
-class PathAwareProtocol(Protocol):
-    """Structural protocol for all path-aware entity types."""
-
-    @property
-    def distance(self) -> int: ...
-    @property
-    def path_strength(self) -> float: ...
-
-
-P = TypeVar("P", bound=PathAwareProtocol)
+from typing import Any
 
 
 def _path_rank(entity: dict[str, Any]) -> tuple[float, float]:
@@ -1040,62 +1028,3 @@ class EventCrossContext:
     def max_path_depth(self) -> int:
         """Deepest hop across all connections (0 when there are none)."""
         return max((e.distance for e in self._all_entities()), default=0)
-
-
-# Helper Functions for Path Analysis
-
-
-def calculate_avg_path_strength(entities: list[PathAwareProtocol]) -> float:
-    """
-    Calculate average path strength across multiple entities.
-
-    Args:
-        entities: List of path-aware entities (any type with path_strength attribute)
-
-    Returns:
-        Average path strength (0-1), or 0.0 if no entities
-    """
-    if not entities:
-        return 0.0
-    return sum(e.path_strength for e in entities) / len(entities)
-
-
-def filter_by_strength(entities: list[P], min_strength: float = 0.7) -> list[P]:
-    """
-    Filter entities by minimum path strength (confidence threshold).
-
-    Args:
-        entities: List of path-aware entities
-        min_strength: Minimum path_strength (default 0.7 = 70% confidence)
-
-    Returns:
-        Filtered list of entities with path_strength >= min_strength
-    """
-    return [e for e in entities if e.path_strength >= min_strength]
-
-
-def filter_by_distance(entities: list[P], max_distance: int = 2) -> list[P]:
-    """
-    Filter entities by maximum distance (relationship hops).
-
-    Args:
-        entities: List of path-aware entities
-        max_distance: Maximum hops from source (default 2)
-
-    Returns:
-        Filtered list of entities within max_distance hops
-    """
-    return [e for e in entities if e.distance <= max_distance]
-
-
-def get_direct_connections(entities: list[P]) -> list[P]:
-    """
-    Get only direct (1-hop) connections.
-
-    Args:
-        entities: List of path-aware entities
-
-    Returns:
-        Filtered list of entities with distance == 1
-    """
-    return filter_by_distance(entities, max_distance=1)

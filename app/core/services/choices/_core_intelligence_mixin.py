@@ -57,7 +57,6 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     # Populated by ChoicesIntelligenceService.__init__ (stores relationship_service)
     backend: Any
     relationships: UnifiedRelationshipService[Any, Any, Any] | None
-    path_helper: Any
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
     _analyze_entity_with_typed_context: Any
 

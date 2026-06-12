@@ -34,7 +34,6 @@ from core.models.habit.habit import Habit
 from core.models.relationship_registry import HABITS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMixin
-from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 
@@ -75,7 +74,6 @@ class _HabitIntelHarness(_BehavioralSignalsMixin, BaseAnalyticsService):
     def __init__(self, backend: _FakeHabitBackend, relationships: Any) -> None:
         self.backend = backend
         self.relationships = relationships
-        self.path_helper = PathAwareAnalyzer()
         self.graph_intel = object()
 
 

@@ -1,7 +1,8 @@
 # Obsidian Headless Sync Integration
 
 **Created:** 2026-03-10
-**Status:** Planned
+**Updated:** 2026-06-12 — Phase 2 trigger implemented (`scripts/vault_watch.py`)
+**Status:** Phase 2 shipped (local watcher); Phase 1 cloud leg + Phase 3/4 planned
 **Principle:** Leverage Maintained Software (see below)
 
 ---
@@ -110,9 +111,15 @@ The only new infrastructure is:
 
 ## Implementation Plan
 
-### Phase 1: Local Proof of Concept (Current Stage)
+### Phase 1: Local Proof of Concept
 
 **Trigger:** Can start now — local development machine already has the vault.
+
+**Status note (2026-06-12):** steps 5–6 (incremental ingest + verification) are exercised by
+the Phase 2 watcher against the local vault directly — on a dev machine the vault is already
+on disk, so the `obsidian-headless` delivery leg (steps 1–4) is only needed when the vault
+must reach a *remote* machine. That leg is blocked on an Obsidian Sync subscription + account
+credentials (user action), and becomes load-bearing at Phase 3 (Droplet).
 
 1. Install `obsidian-headless` globally: `npm install -g obsidian-headless`
 2. Authenticate with Obsidian account
@@ -123,18 +130,38 @@ The only new infrastructure is:
 
 **Validates:** End-to-end flow works, incremental ingestion handles Sync's file delivery.
 
-### Phase 2: Automated Trigger
+### Phase 2: Automated Trigger — ✅ IMPLEMENTED (2026-06-12)
 
-**Trigger:** Phase 1 validated.
+**Implementation:** `scripts/vault_watch.py` (run via `./dev vault-watch`).
 
-1. Set up a file watcher (inotify on Linux, fswatch on macOS) on the synced vault directory
-2. On file change → call `POST /api/ingest/vault` with incremental mode
-3. Debounce: wait 5 seconds after last change before triggering (Sync may deliver multiple
-   files in a batch)
-4. Log ingestion results
+1. Polling watcher (no inotify dependency — stat-signature scan over `.md`/`.yaml`/`.yml`,
+   catches creates, edits, and deletes)
+2. On change → authenticated `POST /api/ingest/directory` with `ingestion_mode: "incremental"`
+   (the endpoint gained `ingestion_mode` passthrough in the same change; `collect_files`
+   recurses, so the vault root covers the whole vault)
+3. Debounce: waits for a full quiet period (default 5s) after the last change before
+   triggering — Obsidian Sync batch deliveries produce one ingest, not one per file
+4. Prints per-run stats (files skipped/ingested/failed, skip efficiency)
 
-**Alternative:** Cron job running `POST /api/ingest/vault` every N minutes. Simpler, slightly
-less responsive. Incremental mode makes this cheap even if nothing changed.
+**Cron variant:** `./dev vault-watch --once` runs a single incremental ingest and exits —
+the roadmap's "simpler, slightly less responsive" alternative, ready for a systemd timer.
+
+**Auth:** ingestion endpoints are admin-only; the watcher logs in via `/login/submit` using
+`SKUEL_VAULT_WATCH_USERNAME` / `SKUEL_VAULT_WATCH_PASSWORD` (ADMIN account; password resolved
+through the credential store) and re-authenticates on session expiry. Going through the HTTP
+API (not direct service composition) keeps ingestion on the app's fully-wired service —
+embeddings, event bus, UserEntry routing — one path, no divergence.
+
+**Deletion propagation (ruled + implemented 2026-06-12):** a vault file deleted means the graph
+entity is deleted (Mike's ruling). Incremental/smart runs reconcile after processing: tracked
+files (IngestionMetadata) under the directory that no longer exist on disk have their entity,
+content chunks, and tracking row removed. Two guards: moved/renamed files (same entity_uid
+re-ingested under a new path) lose only the stale tracking row; and if EVERY tracked file
+vanished at once (unmounted vault, sync wipe) deletion is refused with a warning — a full
+teardown is an explicit admin operation, not a watcher side effect. Edge YAMLs propagate too:
+edge files are metadata-tracked with the relationship identity (`edge:{from}|{REL}|{to}` in the
+uid slot), so deleting the file deletes exactly that relationship — and unchanged edge files
+now skip on incremental runs instead of re-merging every time.
 
 ### Phase 3: Server Deployment (Stage 2 — Droplet)
 

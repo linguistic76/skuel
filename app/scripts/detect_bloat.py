@@ -618,6 +618,14 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     "core/services/lifepath/lifepath_types.py::biggest_gap": _LIFEPATH_WORD_ACTION,
     "core/services/lifepath/lifepath_types.py::get_gap_summary": _LIFEPATH_WORD_ACTION,
+    # --- Intelligence tier: per-user entitlement (ADR-043 billing stub) ---
+    "core/services/intelligence_tier_service.py::get_user_intelligence_tier": (
+        "per-user AI entitlement staged — the deliberate ADR-043 'Per-User Tier Stub' "
+        "(docs/roadmap/deferred-work.md § 4): resolves effective tier from the system "
+        "INTELLIGENCE_TIER ceiling + UserRole (REGISTERED→CORE free trial, MEMBER+→system "
+        "tier); wire into the bootstrap AI-gating points once the ChargeKeep billing model "
+        "defines which subscription tier gets AI features"
+    ),
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is

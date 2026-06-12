@@ -11,14 +11,13 @@ Created: January 2026
 ADR: Intelligence Service Helper Consolidation
 
 Usage:
-    from core.services.intelligence import RecommendationEngine, RecommendationLevel
+    from core.services.intelligence import RecommendationEngine
 
     engine = RecommendationEngine()
     recommendations = (
         engine.with_metrics(metrics)
         .add_threshold_check("consistency", 0.5, "Low consistency - build habits")
         .add_threshold_check("progress", 0.3, "Behind schedule - increase focus")
-        .add_range_check("streak", [(0, 1, "Start a streak!"), (7, 100, "Great streak!")])
         .add_conditional(score > 0.9, "Excellent performance!")
         .build()
     )
@@ -26,20 +25,7 @@ Usage:
 
 from __future__ import annotations
 
-from enum import StrEnum
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-
-class RecommendationLevel(StrEnum):
-    """Severity level for recommendations."""
-
-    CRITICAL = "critical"
-    WARNING = "warning"
-    INFO = "info"
-    SUCCESS = "success"
+from typing import Any
 
 
 class RecommendationEngine:
@@ -56,10 +42,9 @@ class RecommendationEngine:
     Example:
         engine = RecommendationEngine()
         recommendations = (
-            engine.with_metrics({"consistency": 0.4, "progress": 0.2, "streak": 5})
+            engine.with_metrics({"consistency": 0.4, "progress": 0.2})
             .add_threshold_check("consistency", 0.5, "Improve consistency")
             .add_threshold_check("progress", 0.3, "Increase focus", comparison="lt")
-            .add_range_check("streak", [(0, 3, "Build streak"), (7, 100, "Great streak!")])
             .add_conditional(True, "General tip")
             .build()
         )
@@ -67,7 +52,7 @@ class RecommendationEngine:
 
     def __init__(self) -> None:
         """Initialize empty recommendation builder."""
-        self._recommendations: list[tuple[RecommendationLevel, str]] = []
+        self._recommendations: list[str] = []
         self._metrics: dict[str, float] = {}
 
     def with_metrics(self, metrics: dict[str, Any]) -> RecommendationEngine:
@@ -88,7 +73,6 @@ class RecommendationEngine:
         metric_name: str,
         threshold: float,
         message: str,
-        level: RecommendationLevel = RecommendationLevel.WARNING,
         comparison: str = "lt",
     ) -> RecommendationEngine:
         """
@@ -98,7 +82,6 @@ class RecommendationEngine:
             metric_name: Key in metrics dict
             threshold: Threshold value to compare against
             message: Recommendation message if triggered
-            level: Severity level (default: WARNING)
             comparison: One of "lt", "gt", "le", "ge" (default: "lt")
 
         Returns:
@@ -118,45 +101,13 @@ class RecommendationEngine:
         triggered = comparisons.get(comparison, False)
 
         if triggered:
-            self._recommendations.append((level, message))
-        return self
-
-    def add_range_check(
-        self,
-        metric_name: str,
-        ranges: list[tuple[float, float, str]],
-        level: RecommendationLevel = RecommendationLevel.INFO,
-    ) -> RecommendationEngine:
-        """
-        Add recommendation based on value falling in range.
-
-        Args:
-            metric_name: Key in metrics dict
-            ranges: List of (min_val, max_val, message) tuples, first match wins
-            level: Severity level (default: INFO)
-
-        Returns:
-            Self for chaining
-
-        Example:
-            .add_range_check("streak", [
-                (0, 1, "Start a streak!"),
-                (1, 7, "Keep building!"),
-                (7, 100, "Great streak!")
-            ])
-        """
-        value = self._metrics.get(metric_name, 0.0)
-        for min_val, max_val, message in ranges:
-            if min_val <= value < max_val:
-                self._recommendations.append((level, message))
-                break
+            self._recommendations.append(message)
         return self
 
     def add_conditional(
         self,
         condition: bool,
         message: str,
-        level: RecommendationLevel = RecommendationLevel.INFO,
     ) -> RecommendationEngine:
         """
         Add recommendation if condition is True.
@@ -164,7 +115,6 @@ class RecommendationEngine:
         Args:
             condition: Boolean condition to check
             message: Recommendation message if True
-            level: Severity level (default: INFO)
 
         Returns:
             Self for chaining
@@ -173,88 +123,27 @@ class RecommendationEngine:
             .add_conditional(habits_count == 0, "Add habits to support this goal")
         """
         if condition:
-            self._recommendations.append((level, message))
+            self._recommendations.append(message)
         return self
 
-    def add_from_template(
-        self,
-        template_fn: Callable[[dict[str, Any]], list[str]],
-    ) -> RecommendationEngine:
-        """
-        Add recommendations from domain-specific template function.
-
-        Use this for complex domain-specific logic that doesn't fit
-        the threshold/range patterns.
-
-        Args:
-            template_fn: Function taking metrics dict, returning list of messages
-
-        Returns:
-            Self for chaining
-
-        Example:
-            def goal_specific_recs(metrics) -> list[str]:
-                recs = []
-                if metrics.get("habits_supporting") == 0:
-                    recs.append("Add habits to support this goal")
-                return recs
-
-            .add_from_template(goal_specific_recs)
-        """
-        for msg in template_fn(self._metrics):
-            self._recommendations.append((RecommendationLevel.INFO, msg))
-        return self
-
-    def add_message(
-        self,
-        message: str,
-        level: RecommendationLevel = RecommendationLevel.INFO,
-    ) -> RecommendationEngine:
+    def add_message(self, message: str) -> RecommendationEngine:
         """
         Add a recommendation unconditionally.
 
         Args:
             message: Recommendation message
-            level: Severity level (default: INFO)
 
         Returns:
             Self for chaining
         """
-        self._recommendations.append((level, message))
+        self._recommendations.append(message)
         return self
 
     def build(self) -> list[str]:
         """
-        Return accumulated recommendations (strings only).
+        Return accumulated recommendations.
 
         Returns:
             List of recommendation messages
         """
-        return [msg for _, msg in self._recommendations]
-
-    def build_with_levels(self) -> list[tuple[RecommendationLevel, str]]:
-        """
-        Return recommendations with severity levels.
-
-        Returns:
-            List of (level, message) tuples
-        """
-        return self._recommendations.copy()
-
-    def clear(self) -> RecommendationEngine:
-        """
-        Clear accumulated recommendations for reuse.
-
-        Returns:
-            Self for chaining
-        """
-        self._recommendations = []
-        return self
-
-    def __len__(self) -> int:
-        """Return count of accumulated recommendations."""
-        return len(self._recommendations)
-
-    def __bool__(self) -> bool:
-        """Return True if any recommendations accumulated."""
-        return len(self._recommendations) > 0
+        return list(self._recommendations)

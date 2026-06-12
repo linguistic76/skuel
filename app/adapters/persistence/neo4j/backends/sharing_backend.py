@@ -416,7 +416,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             WHERE entry.user_uid <> $user_uid
             OPTIONAL MATCH (author:User {uid: entry.user_uid})
             RETURN entry,
-                   coalesce(author.display_name, author.username) AS author_name,
+                   coalesce(author.display_name, author.title) AS author_name,
                    r.share_version as share_version,
                    r.shared_at as shared_at
             ORDER BY r.shared_at DESC
@@ -454,7 +454,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             OPTIONAL MATCH (author:User {uid: entry.user_uid})
             RETURN entry,
                    group.name AS group_name,
-                   coalesce(author.display_name, author.username) AS author_name,
+                   coalesce(author.display_name, author.title) AS author_name,
                    r.share_version AS share_version,
                    r.shared_at AS shared_at
             LIMIT 1

@@ -561,22 +561,27 @@ connections:
 
 ## Entity Configuration
 
-13 entity types are file-ingestible. Configuration in `config.py`:
+15 entity configs — 13 of the 25 EntityTypes plus the two NonKuDomain types
+(FINANCE, GROUP). Configuration in `config.py`. A `name:` field satisfies a
+`title` requirement (the preparer renames `name` → `title`); `title`/`name`
+also auto-fall back to the filename.
 
 | Entity Type | Prefix | Neo4j Labels | Required Fields | Example File |
 |-------------|--------|-------------|-----------------|--------------|
 | `exercise` | `ex.` | `:Entity:Exercise` | title, instructions | `exercise_know-yourself.yaml` |
 | `ku` | `ku.` | `:Entity:Ku` | title | `ku.python-basics.md` |
-| `ps` | `ps.` | `:Entity:PathStep` | title, content | `ps.learn-variables.md` |
-| `lp` | `lp.` | `:Entity:LearningPath` | name | `lp.python-journey.yaml` |
+| `ps` | `ps.` | `:Entity:PathStep` | title | `ps.learn-variables.md` |
+| `lp` | `lp.` | `:Entity:LearningPath` | title | `lp.python-journey.yaml` |
 | `task` | `task.` | `:Entity:Task` | title | `task.complete-exercise.yaml` |
 | `goal` | `goal.` | `:Entity:Goal` | title | `goal.learn-python.yaml` |
 | `habit` | `habit.` | `:Entity:Habit` | title | `habit.daily-practice.yaml` |
 | `event` | `event.` | `:Entity:Event` | title | `event.workshop.yaml` |
 | `choice` | `choice.` | `:Entity:Choice` | title | `choice.career-path.yaml` |
-| `principle` | `principle.` | `:Entity:Principle` | name, statement | `principle.consistency.yaml` |
-| `submission` | `report.` | `:Entity:Report` | title | `report.homework.yaml` |
+| `principle` | `principle.` | `:Entity:Principle` | title, statement | `principle.consistency.yaml` |
+| `user_entry` | `ue.` | `:Entity:UserEntry` | title | `ue.journal-2026-06-12.yaml` |
+| `interaction` | `ia.` | `:Entity:Interaction` | interaction_type, target_uid | `ia.viewed-ps.yaml` |
 | `expense` | `expense.` | `:Expense` | description, amount | `expense.books.yaml` |
+| `group` | `group.` | `:Group` | name | `group.class-of-2026.yaml` |
 | `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath.vision.yaml` |
 
 **Multi-label architecture:** All domain entities get both `:Entity` (universal base) and a domain-specific label (e.g., `:Task`). This enables cross-domain queries via `:Entity` and fast indexed queries via domain labels. Finance (`Expense`) is the exception — no `:Entity` base label.
@@ -728,18 +733,37 @@ tags: [health, nervous-system]
 | Endpoint | Method | Request Body | Response |
 |----------|--------|--------------|----------|
 | `/api/ingest/file` | POST | `{"file_path": "/path/to/file"}` | Entity dict |
-| `/api/ingest/directory` | POST | `{"path": "/dir", "pattern": "*.md", "ingestion_mode": "incremental"}` | IngestionStats/IncrementalStats |
-| `/api/ingest/vault` | POST | `{"path": "/vault", "subdirs": ["docs"]}` | IngestionStats |
-| `/api/ingest/bundle` | POST | `{"path": "/bundle"}` | BundleStats |
+| `/api/ingest/directory` | POST | `{"directory": "/dir", "pattern": "*.md", "ingestion_mode": "incremental"}` | IngestionStats/IncrementalStats |
+| `/api/ingest/vault` | POST | `{"vault_path": "/vault", "subdirs": ["docs"]}` | IngestionStats (full mode) |
+| `/api/ingest/bundle` | POST | `{"bundle_path": "/bundle"}` | BundleStats |
 | `/ingest` | GET | - | Dashboard UI |
 
-### Example: Incremental ingestion via curl
+All endpoints are admin-only and CSRF-protected — a scripted caller needs an authenticated
+session plus the `X-CSRF-Token` header (see `scripts/vault_watch.py` for the canonical client).
+`ingestion_mode` is accepted by `/api/ingest/directory` only; since directory scanning recurses,
+point it at the vault root for an incremental whole-vault sync.
+
+**Deletion propagation (incremental/smart only):** vault file deleted → graph entity deleted.
+After processing, tracked files under the directory that no longer exist on disk have their
+entity + content subtree (Content/ContentChunk/ContentMetadata) + IngestionMetadata removed
+(`IngestionTracker.reconcile_deletions`). Edge YAMLs propagate too — tracked with the
+relationship identity (`edge:{from}|{REL}|{to}`) in the uid slot, so deleting the file deletes
+exactly that relationship (and unchanged edge files skip on later runs). Moved/renamed files
+lose only the stale tracking row. Reconciliation honors the run's `pattern` — a `*.md`-scoped
+run never deletes tracked YAML entities. The mass-deletion safety valve is GLOBAL: deletion is
+refused only when NO tracked file under the directory exists at all (unmounted vault, sync
+wipe); if any tracked file survives — in or out of scope — the vault is demonstrably mounted
+and in-scope deletions propagate. Response fields: `entities_deleted`, `edges_deleted`,
+`stale_metadata_removed`.
+
+### Example: Automated incremental vault sync
 
 ```bash
-# Incremental directory ingestion
-curl -X POST http://localhost:5001/api/ingest/directory \
-  -H "Content-Type: application/json" \
-  -d '{"path": "/docs/curriculum", "pattern": "*.md", "ingestion_mode": "incremental"}'
+# Continuous watcher (poll + debounce → incremental ingest on change)
+./dev vault-watch
+
+# One-shot incremental ingest (cron / systemd timer)
+./dev vault-watch --once
 ```
 
 ---

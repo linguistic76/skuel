@@ -31,11 +31,11 @@ class UserProgressBackend:
     # ========================================================================
 
     async def get_user_username(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get user's username by UID."""
+        """Get user's username by UID (stored in `title` — the User model's username field)."""
         return await self._executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})
-            RETURN u.username as username
+            RETURN u.title as username
             """,
             {"user_uid": user_uid},
         )

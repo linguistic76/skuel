@@ -234,9 +234,12 @@ def create_ingestion_api_routes(
             directory: str - Path to directory
             pattern: str - Glob pattern (default: "*")
             batch_size: int - Batch size for bulk ops (default: 500)
+            ingestion_mode: str - "full" (default), "incremental" (skip files with
+                unchanged content hash), or "smart" (skip on unchanged mtime,
+                verify with hash if changed)
 
         Returns:
-            Result with IngestionStats
+            Result with IngestionStats (full) or IncrementalStats (incremental/smart)
 
         Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
         """
@@ -245,6 +248,16 @@ def create_ingestion_api_routes(
             directory = data.get("directory")
             pattern = data.get("pattern", "*")
             batch_size = data.get("batch_size", 500)
+            ingestion_mode = data.get("ingestion_mode", "full")
+
+            if ingestion_mode not in ("full", "incremental", "smart"):
+                return Result.fail(
+                    Errors.validation(
+                        "ingestion_mode must be one of: full, incremental, smart",
+                        "ingestion_mode",
+                        ingestion_mode,
+                    )
+                )
 
             # Validate path (traversal protection)
             path_result = _validate_ingestion_path(directory)
@@ -256,27 +269,36 @@ def create_ingestion_api_routes(
                 return Result.fail(Errors.not_found("Directory", str(dir_path)))
 
             result = await unified_ingestion.ingest_directory(
-                dir_path, pattern=pattern, batch_size=batch_size
+                dir_path,
+                pattern=pattern,
+                batch_size=batch_size,
+                ingestion_mode=ingestion_mode,
             )
 
             if result.is_ok:
                 stats = result.value
                 if not isinstance(stats, (IngestionStats, IncrementalStats)):
                     return Result.ok({"success": True, "preview": True})
-                return Result.ok(
-                    {
-                        "success": True,
-                        "total_files": stats.total_files,
-                        "successful": stats.successful,
-                        "failed": stats.failed,
-                        "nodes_created": stats.nodes_created,
-                        "nodes_updated": stats.nodes_updated,
-                        "relationships_created": stats.relationships_created,
-                        "duration_seconds": stats.duration_seconds,
-                        "files_per_second": stats.files_per_second,
-                        "errors": stats.errors or [],
-                    }
-                )
+                payload = {
+                    "success": True,
+                    "total_files": stats.total_files,
+                    "successful": stats.successful,
+                    "failed": stats.failed,
+                    "nodes_created": stats.nodes_created,
+                    "nodes_updated": stats.nodes_updated,
+                    "relationships_created": stats.relationships_created,
+                    "duration_seconds": stats.duration_seconds,
+                    "files_per_second": stats.files_per_second,
+                    "errors": stats.errors or [],
+                }
+                if isinstance(stats, IncrementalStats):
+                    payload["files_skipped"] = stats.files_skipped
+                    payload["files_ingested"] = stats.files_ingested
+                    payload["skip_efficiency"] = stats.skip_efficiency
+                    payload["entities_deleted"] = stats.entities_deleted
+                    payload["edges_deleted"] = stats.edges_deleted
+                    payload["stale_metadata_removed"] = stats.stale_metadata_removed
+                return Result.ok(payload)
             else:
                 return Result.fail(result)
 
